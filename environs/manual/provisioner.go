@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
@@ -196,7 +197,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
 		Addrs:                   addrs,
-		Jobs:                    []params.MachineJob{params.JobHostUnits},
+		Jobs:                    []juju.MachineJob{juju.JobHostUnits},
 	}
 	return machineParams, nil
 }

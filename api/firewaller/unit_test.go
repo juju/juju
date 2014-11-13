@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -46,15 +47,15 @@ func (s *unitSuite) TestUnit(c *gc.C) {
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
 
 	err := s.units[0].EnsureDead()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
 
 	err = s.apiUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
+	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Dead)
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {

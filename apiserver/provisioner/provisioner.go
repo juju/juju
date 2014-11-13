@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -265,7 +266,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 			r := &result.Results[i]
 			var st state.Status
 			st, r.Info, r.Data, err = machine.Status()
-			r.Status = params.Status(st)
+			r.Status = juju.Status(st)
 
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -276,7 +277,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 // MachinesWithTransientErrors returns status data for machines with provisioning
 // errors which are transient.
 func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
-	results := params.StatusResults{}
+	var results params.StatusResults
 	canAccessFunc, err := p.getAuthFunc()
 	if err != nil {
 		return results, err
@@ -295,14 +296,14 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			// status to Started yet.
 			continue
 		}
-		result := params.StatusResult{}
+		var result params.StatusResult
 		var st state.Status
 		st, result.Info, result.Data, err = machine.Status()
 		if err != nil {
 			continue
 		}
-		result.Status = params.Status(st)
-		if result.Status != params.StatusError {
+		result.Status = juju.Status(st)
+		if result.Status != juju.StatusError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.
@@ -310,7 +311,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		result.Id = machine.Id()
-		result.Life = params.Life(machine.Life().String())
+		result.Life = juju.Life(machine.Life().String())
 		results.Results = append(results.Results, result)
 	}
 	return results, nil
@@ -379,7 +380,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var jobs []params.MachineJob
+	var jobs []juju.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}
@@ -456,7 +457,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 	if err != nil {
 		return nil, err
 	}
-	var instanceIdSet set.Strings
+	instanceIdSet := make(set.Strings)
 	for _, unit := range units {
 		if !unit.IsPrincipal() {
 			continue

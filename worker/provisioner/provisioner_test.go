@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -207,7 +208,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 
-				var jobs []params.MachineJob
+				var jobs []juju.MachineJob
 				for _, job := range m.Jobs() {
 					jobs = append(jobs, job.ToParams())
 				}

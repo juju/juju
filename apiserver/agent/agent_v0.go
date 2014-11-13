@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
@@ -74,7 +75,7 @@ func (api *AgentAPIV0) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 		err = common.NotSupportedError(tag, "life cycles")
 		return
 	}
-	result.Life = params.Life(entity.Life().String())
+	result.Life = juju.Life(entity.Life().String())
 	if machine, ok := entity.(*state.Machine); ok {
 		result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
 		result.ContainerType = machine.ContainerType()
@@ -115,10 +116,10 @@ func (api *AgentAPIV0) IsMaster() (params.IsMasterResult, error) {
 	}
 }
 
-func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {
-	pjobs := make([]params.MachineJob, len(jobs))
+func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []juju.MachineJob {
+	pjobs := make([]juju.MachineJob, len(jobs))
 	for i, job := range jobs {
-		pjobs[i] = params.MachineJob(job.String())
+		pjobs[i] = juju.MachineJob(job.String())
 	}
 	return pjobs
 }

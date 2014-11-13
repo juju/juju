@@ -8,9 +8,12 @@ import (
 
 	"github.com/juju/utils/exec"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -256,10 +259,10 @@ type RelationUnitsSettings struct {
 // or an error.
 type RelationResult struct {
 	Error    *Error
-	Life     Life
+	Life     juju.Life
 	Id       int
 	Key      string
-	Endpoint Endpoint
+	Endpoint multiwatcher.Endpoint
 }
 
 // RelationResults holds the result of an API call that returns
@@ -316,7 +319,7 @@ type BytesResult struct {
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {
-	Life  Life
+	Life  juju.Life
 	Error *Error
 }
 
@@ -428,7 +431,7 @@ type MachineNetworkInfoResults struct {
 // EntityStatus holds an entity tag, status and extra info.
 type EntityStatus struct {
 	Tag    string
-	Status Status
+	Status juju.Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -443,8 +446,8 @@ type SetStatus struct {
 type StatusResult struct {
 	Error  *Error
 	Id     string
-	Life   Life
-	Status Status
+	Life   juju.Life
+	Status juju.Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -485,8 +488,8 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          Life
-	Jobs          []MachineJob
+	Life          juju.Life
+	Jobs          []juju.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error
 }
@@ -561,32 +564,11 @@ type StringsWatchResults struct {
 	Results []StringsWatchResult
 }
 
-// UnitSettings holds information about a service unit's settings
-// within a relation.
-type UnitSettings struct {
-	Version int64
-}
-
-// RelationUnitsChange holds notifications of units entering and leaving the
-// scope of a RelationUnit, and changes to the settings of those units known
-// to have entered.
-//
-// When remote units first enter scope and then when their settings
-// change, the changes will be noted in the Changed field, which holds
-// the unit settings for every such unit, indexed by the unit id.
-//
-// When remote units leave scope, their ids will be noted in the
-// Departed field, and no further events will be sent for those units.
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
 // RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
 // and an error (if any).
 type RelationUnitsWatchResult struct {
 	RelationUnitsWatcherId string
-	Changes                RelationUnitsChange
+	Changes                multiwatcher.RelationUnitsChange
 	Error                  *Error
 }
 
@@ -641,7 +623,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
-	Jobs        []MachineJob
+	Jobs        []juju.MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -683,4 +665,17 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
+}
+
+// MachineBlockDevices holds a machine tag and the block devices present
+// on that machine.
+type MachineBlockDevices struct {
+	Machine      string
+	BlockDevices []storage.BlockDevice
+}
+
+// SetMachineBlockDevices holds the arguments for recording the block
+// devices present on a set of machines.
+type SetMachineBlockDevices struct {
+	MachineBlockDevices []MachineBlockDevices
 }

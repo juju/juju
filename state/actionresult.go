@@ -156,7 +156,7 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 		Status:    finalStatus,
 		Results:   results,
 		Message:   message,
-		Completed: time.Now(),
+		Completed: nowToTheSecond(),
 	}
 }
 

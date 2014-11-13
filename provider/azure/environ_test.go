@@ -21,8 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
-	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1571,16 +1571,16 @@ func (s *startInstanceSuite) TestStartInstanceDistributionGroup(c *gc.C) {
 func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// If the machine has the JobManagesEnviron job,
 	// we should see stateServer==true.
-	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits,
-		apiparams.JobManageNetworking,
+	s.params.MachineConfig.Jobs = []juju.MachineJob{
+		juju.JobHostUnits,
+		juju.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
-	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits,
-		apiparams.JobManageEnviron,
-		apiparams.JobManageNetworking,
+	s.params.MachineConfig.Jobs = []juju.MachineJob{
+		juju.JobHostUnits,
+		juju.JobManageEnviron,
+		juju.JobManageNetworking,
 	}
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)

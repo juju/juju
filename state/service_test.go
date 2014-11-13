@@ -10,9 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -50,7 +53,7 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	c.Assert(force, gc.Equals, false)
 
 	// Add a compatible charm and force it.
-	sch := s.AddMetaCharm(c, "mysql", metaBase, 2) // revno 1 is used by SetUpSuite
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	err = s.mysql.SetCharm(sch, true)
 	c.Assert(err, gc.IsNil)
 	ch, force, err = s.mysql.Charm()
@@ -60,17 +63,9 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	url, force = s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
 	c.Assert(force, gc.Equals, true)
-
-	// SetCharm fails when the service is Dying.
-	_, err = s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
-	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
-	err = s.mysql.SetCharm(sch, true)
-	c.Assert(err, gc.ErrorMatches, `service "mysql" is not alive`)
 }
 
-func (s *ServiceSuite) TestSetCharmErrors(c *gc.C) {
+func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
 	err := s.mysql.SetCharm(logging, false)
 	c.Assert(err, gc.ErrorMatches, "cannot change a service's subordinacy")
@@ -164,7 +159,7 @@ var setCharmEndpointsTests = []struct {
 }
 
 func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
-	revno := 2 // 1 is used in SetUpSuite
+	revno := 2
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	svc := s.AddTestingService(c, "fakemysql", ms)
 	err := svc.SetCharm(ms, false)
@@ -187,7 +182,7 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
-	revno := 2 // 1 is used by SetUpSuite
+	revno := 2
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
 	providerSvc := s.AddTestingService(c, "myprovider", providerCharm)
 	err := providerSvc.SetCharm(providerCharm, false)
@@ -319,6 +314,242 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 	}
 }
 
+func (s *ServiceSuite) TestSetCharmWithDyingService(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	_, err := s.mysql.AddUnit()
+	err = s.mysql.Destroy()
+	c.Assert(err, gc.IsNil)
+	assertLife(c, s.mysql, state.Dying)
+	err = s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.mysql.AddUnit()
+		err = s.mysql.Destroy()
+		c.Assert(err, gc.IsNil)
+		assertLife(c, s.mysql, state.Dying)
+
+		// Change the service life to Dead manually, as there's no
+		// direct way of doing that otherwise.
+		ops := []txn.Op{{
+			C:      state.ServicesC,
+			Id:     state.DocID(s.State, s.mysql.Name()),
+			Update: bson.D{{"$set", bson.D{{"life", state.Dead}}}},
+		}}
+
+		err = state.RunTransaction(s.State, ops)
+		c.Assert(err, gc.IsNil)
+		assertLife(c, s.mysql, state.Dead)
+	}).Check()
+
+	err := s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.Equals, state.ErrDead)
+}
+
+func (s *ServiceSuite) TestSetCharmWithRemovedService(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	err := s.mysql.Destroy()
+	c.Assert(err, gc.IsNil)
+	assertRemoved(c, s.mysql)
+	err = s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.Equals, state.ErrDead)
+}
+
+func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.mysql.Destroy()
+		c.Assert(err, gc.IsNil)
+		assertRemoved(c, s.mysql)
+	}).Check()
+
+	err := s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.Equals, state.ErrDead)
+}
+
+func (s *ServiceSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		_, err := s.mysql.AddUnit()
+		c.Assert(err, gc.IsNil)
+		err = s.mysql.Destroy()
+		c.Assert(err, gc.IsNil)
+		assertLife(c, s.mysql, state.Dying)
+	}).Check()
+
+	err := s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.IsNil)
+	assertLife(c, s.mysql, state.Dying)
+}
+
+func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				currentCh, force, err := s.mysql.Charm()
+				c.Assert(err, gc.IsNil)
+				c.Assert(force, jc.IsFalse)
+				c.Assert(currentCh.URL(), jc.DeepEquals, s.charm.URL())
+
+				err = s.mysql.SetCharm(sch, false)
+				c.Assert(err, gc.IsNil)
+			},
+			After: func() {
+				// Verify the before hook worked.
+				currentCh, force, err := s.mysql.Charm()
+				c.Assert(err, gc.IsNil)
+				c.Assert(force, jc.IsFalse)
+				c.Assert(currentCh.URL(), jc.DeepEquals, sch.URL())
+			},
+		},
+		jujutxn.TestHook{
+			Before: nil, // Ensure there will be a retry.
+			After: func() {
+				// Verify it worked after the retry.
+				err := s.mysql.Refresh()
+				c.Assert(err, gc.IsNil)
+				currentCh, force, err := s.mysql.Charm()
+				c.Assert(err, gc.IsNil)
+				c.Assert(force, jc.IsTrue)
+				c.Assert(currentCh.URL(), jc.DeepEquals, sch.URL())
+			},
+		},
+	).Check()
+
+	err := s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
+	revno := 2 // revno 1 is used by SetUpSuite
+	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
+	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
+	err := s.mysql.SetCharm(oldCh, false)
+	c.Assert(err, gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State,
+		func() {
+			err := s.mysql.UpdateConfigSettings(charm.Settings{"key": "value"})
+			c.Assert(err, gc.IsNil)
+		},
+		nil, // Ensure there will be a retry.
+	).Check()
+
+	err = s.mysql.SetCharm(newCh, true)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc.C) {
+	revno := 2 // revno 1 is used by SetUpSuite
+	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
+	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				// Add two units, which will keep the refcount of oldCh
+				// and newCh settings greater than 0, while the service's
+				// charm URLs change between oldCh and newCh. Ensure
+				// refcounts change as expected.
+				unit1, err := s.mysql.AddUnit()
+				c.Assert(err, gc.IsNil)
+				unit2, err := s.mysql.AddUnit()
+				c.Assert(err, gc.IsNil)
+				err = s.mysql.SetCharm(newCh, false)
+				c.Assert(err, gc.IsNil)
+				assertSettingsRef(c, s.State, "mysql", newCh, 1)
+				assertNoSettingsRef(c, s.State, "mysql", oldCh)
+				err = unit1.SetCharmURL(newCh.URL())
+				c.Assert(err, gc.IsNil)
+				assertSettingsRef(c, s.State, "mysql", newCh, 2)
+				assertNoSettingsRef(c, s.State, "mysql", oldCh)
+				// Update newCh settings, switch to oldCh and update its
+				// settings as well.
+				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value1"})
+				c.Assert(err, gc.IsNil)
+				err = s.mysql.SetCharm(oldCh, false)
+				c.Assert(err, gc.IsNil)
+				assertSettingsRef(c, s.State, "mysql", newCh, 1)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
+				err = unit2.SetCharmURL(oldCh.URL())
+				c.Assert(err, gc.IsNil)
+				assertSettingsRef(c, s.State, "mysql", newCh, 1)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
+				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value2"})
+				c.Assert(err, gc.IsNil)
+			},
+			After: func() {
+				// Verify the charm and refcounts after the second attempt.
+				err := s.mysql.Refresh()
+				c.Assert(err, gc.IsNil)
+				currentCh, force, err := s.mysql.Charm()
+				c.Assert(err, gc.IsNil)
+				c.Assert(force, jc.IsFalse)
+				c.Assert(currentCh.URL(), jc.DeepEquals, oldCh.URL())
+				assertSettingsRef(c, s.State, "mysql", newCh, 1)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
+			},
+		},
+		jujutxn.TestHook{
+			Before: func() {
+				// SetCharm has refreshed its cached settings for oldCh
+				// and newCh. Change them again to trigger another
+				// attempt.
+				err := s.mysql.SetCharm(newCh, false)
+				c.Assert(err, gc.IsNil)
+				assertSettingsRef(c, s.State, "mysql", newCh, 2)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
+				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value3"})
+				c.Assert(err, gc.IsNil)
+				err = s.mysql.SetCharm(oldCh, false)
+				c.Assert(err, gc.IsNil)
+				assertSettingsRef(c, s.State, "mysql", newCh, 1)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
+				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value4"})
+				c.Assert(err, gc.IsNil)
+			},
+			After: func() {
+				// Verify the charm and refcounts after the third attempt.
+				err := s.mysql.Refresh()
+				c.Assert(err, gc.IsNil)
+				currentCh, force, err := s.mysql.Charm()
+				c.Assert(err, gc.IsNil)
+				c.Assert(force, jc.IsFalse)
+				c.Assert(currentCh.URL(), jc.DeepEquals, oldCh.URL())
+				assertSettingsRef(c, s.State, "mysql", newCh, 1)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
+			},
+		},
+		jujutxn.TestHook{
+			Before: nil, // Ensure there will be a (final) retry.
+			After: func() {
+				// Verify the charm and refcounts after the final third attempt.
+				err := s.mysql.Refresh()
+				c.Assert(err, gc.IsNil)
+				currentCh, force, err := s.mysql.Charm()
+				c.Assert(err, gc.IsNil)
+				c.Assert(force, jc.IsTrue)
+				c.Assert(currentCh.URL(), jc.DeepEquals, newCh.URL())
+				assertSettingsRef(c, s.State, "mysql", newCh, 2)
+				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
+			},
+		},
+	).Check()
+
+	err := s.mysql.SetCharm(newCh, true)
+	c.Assert(err, gc.IsNil)
+}
+
 var serviceUpdateConfigSettingsTests = []struct {
 	about   string
 	initial charm.Settings
@@ -397,72 +628,91 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 	}
 }
 
+func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm) {
+	_, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+}
+
+func assertSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm, refcount int) {
+	rc, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
+	c.Assert(err, gc.IsNil)
+	c.Assert(rc, gc.Equals, refcount)
+}
+
 func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
+	// This test ensures the service settings per charm URL are
+	// properly reference counted.
 	oldCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 1)
 	newCh := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
 	svcName := "mywp"
 
-	assertNoRef := func(sch *state.Charm) {
-		_, err := state.ServiceSettingsRefCount(s.State, svcName, sch.URL())
-		c.Assert(err, gc.Equals, mgo.ErrNotFound)
-	}
-	assertRef := func(sch *state.Charm, refcount int) {
-		rc, err := state.ServiceSettingsRefCount(s.State, svcName, sch.URL())
-		c.Assert(err, gc.IsNil)
-		c.Assert(rc, gc.Equals, refcount)
-	}
+	// Both refcounts are zero initially.
+	assertNoSettingsRef(c, s.State, svcName, oldCh)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
-	assertNoRef(oldCh)
-	assertNoRef(newCh)
-
+	// svc is using oldCh, so its settings refcount is incremented.
 	svc := s.AddTestingService(c, svcName, oldCh)
-	assertRef(oldCh, 1)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// Changing to the same charm does not change the refcount.
 	err := svc.SetCharm(oldCh, false)
 	c.Assert(err, gc.IsNil)
-	assertRef(oldCh, 1)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// Changing from oldCh to newCh causes the refcount of oldCh's
+	// settings to be decremented, while newCh's settings is
+	// incremented. Consequently, because oldCh's refcount is 0, the
+	// settings doc will be removed.
 	err = svc.SetCharm(newCh, false)
 	c.Assert(err, gc.IsNil)
-	assertNoRef(oldCh)
-	assertRef(newCh, 1)
+	assertNoSettingsRef(c, s.State, svcName, oldCh)
+	assertSettingsRef(c, s.State, svcName, newCh, 1)
 
+	// The same but newCh swapped with oldCh.
 	err = svc.SetCharm(oldCh, false)
 	c.Assert(err, gc.IsNil)
-	assertRef(oldCh, 1)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// Adding a unit without a charm URL set does not affect the
+	// refcount.
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	curl, ok := u.CharmURL()
 	c.Assert(ok, gc.Equals, false)
-	assertRef(oldCh, 1)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// Setting oldCh as the units charm URL increments oldCh, which is
+	// used by svc as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, gc.IsNil)
 	curl, ok = u.CharmURL()
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
-	assertRef(oldCh, 2)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 2)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// A dead unit does not decrement the refcount.
 	err = u.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	assertRef(oldCh, 2)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 2)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// Once the unit is removed, refcount is decremented.
 	err = u.Remove()
 	c.Assert(err, gc.IsNil)
-	assertRef(oldCh, 1)
-	assertNoRef(newCh)
+	assertSettingsRef(c, s.State, svcName, oldCh, 1)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 
+	// Finally, after the service is destroyed and removed (since the
+	// last unit's gone), the refcount is again decremented.
 	err = svc.Destroy()
 	c.Assert(err, gc.IsNil)
-	assertNoRef(oldCh)
-	assertNoRef(newCh)
+	assertNoSettingsRef(c, s.State, svcName, oldCh)
+	assertNoSettingsRef(c, s.State, svcName, newCh)
 }
 
 const mysqlBaseMeta = `

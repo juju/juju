@@ -2532,7 +2532,7 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, net1.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "networks")
-	c.Assert(id, gc.Equals, net1.Name())
+	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {

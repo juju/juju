@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	jj "github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
@@ -32,7 +33,6 @@ import (
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/juju/apiserver/params"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -97,7 +97,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.agentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
-	s.singularRecord = &singularRunnerRecord{}
+	s.singularRecord = &singularRunnerRecord{startedWorkers: make(set.Strings)}
 	s.agentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
@@ -364,7 +364,8 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		inited: make(chan struct{}),
+		inited:   make(chan struct{}),
+		deployed: make(set.Strings),
 	}
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
@@ -738,7 +739,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, params.Alive)
+		c.Assert(m.Life(), gc.Equals, jj.Alive)
 	})
 }
 

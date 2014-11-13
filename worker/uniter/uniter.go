@@ -20,6 +20,7 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -166,7 +167,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	if u.unit.Life() == params.Dead {
+	if u.unit.Life() == juju.Dead {
 		// If we started up already dead, we should not progress further. If we
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental
@@ -388,16 +389,16 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
+	hctx, err := u.contextFactory.NewRunContext()
+	if err != nil {
+		return nil, err
+	}
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return nil, err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.contextFactory.NewRunContext()
-	if err != nil {
-		return nil, err
-	}
 	result, err := context.NewRunner(hctx, u.paths).RunCommands(commands)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
@@ -436,76 +437,32 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 	}
 }
 
-// validateAction validates the given Action params against the spec defined
-// for the charm.
-func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
-	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
-	if err != nil {
-		return false, err
-	}
-
-	// Note that ch.Actions() will never be nil, rather an empty struct.
-	actionSpecs := ch.Actions()
-
-	spec, ok := actionSpecs.ActionSpecs[name]
-	if !ok {
-		return false, fmt.Errorf("no spec was defined for action %q", name)
-	}
-
-	return spec.ValidateParams(params)
-}
-
 // runAction executes the supplied hook.Info as an Action.
 func (u *Uniter) runAction(hi hook.Info) (err error) {
-	if err = hi.Validate(); err != nil {
-		return err
+	hctx, err := u.contextFactory.NewActionContext(hi.ActionId)
+	if cause := errors.Cause(err); context.IsBadActionError(cause) {
+		return u.st.ActionFinish(
+			names.NewActionTag(hi.ActionId),
+			params.ActionFailed,
+			nil,
+			err.Error(),
+		)
+	} else if cause == context.ErrActionNotAvailable {
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "cannot create context for action %q", hi.ActionId)
 	}
 
-	tag := names.NewActionTag(hi.ActionId)
-	action, err := u.st.Action(tag)
+	actionName, err := hctx.ActionName()
 	if err != nil {
-		if perr, ok := err.(*params.Error); ok {
-			if perr.Code == params.CodeNotFound {
-				logger.Infof("action '%s' not found, skipping", tag)
-				return nil
-			}
-		}
-		logger.Errorf("error retrieving action '%s': '%v' (%T)", tag, err, err)
-		return err
+		// this should *really* never happen, but let's not panic
+		return errors.Trace(err)
 	}
-
-	actionParams := action.Params()
-	actionName := action.Name()
-	_, actionParamsErr := u.validateAction(actionName, actionParams)
-	if actionParamsErr != nil {
-		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", actionName)
-	}
-
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), actionName)
+	lockMessage := fmt.Sprintf("%s: running action %q", u.unit.Name(), actionName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
-
-	hctx, err := u.contextFactory.NewActionContext(tag, actionName, actionParams)
-	if err != nil {
-		return err
-	}
-
-	if actionParamsErr != nil {
-		// If errors come back here, we have a problem; this should
-		// never happen, since errors will only occur if the context
-		// had a nil actionData, and actionData != nil runs this
-		// method.
-		err = hctx.SetActionMessage(actionParamsErr.Error())
-		if err != nil {
-			return err
-		}
-		err = hctx.SetActionFailed()
-		if err != nil {
-			return err
-		}
-	}
 
 	// err will be any unhandled error from finalizeContext.
 	err = context.NewRunner(hctx, u.paths).RunAction(actionName)
@@ -516,7 +473,7 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	actionData, err := hctx.ActionData()
 	if err != nil {
@@ -529,12 +486,12 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
-	if hi.Kind == hooks.Action {
-		return u.runAction(hi)
-	}
-
 	if err = hi.Validate(); err != nil {
 		return err
+	}
+
+	if hi.Kind == hooks.Action {
+		return u.runAction(hi)
 	}
 
 	// If it wasn't an Action, continue as normal.
@@ -547,12 +504,6 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 			return err
 		}
 	}
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
-	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
-	}
-	defer u.hookLock.Unlock()
-
 	hctx, err := u.contextFactory.NewHookContext(hi)
 	if err != nil {
 		return err
@@ -563,6 +514,12 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
+
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
 
 	ranHook := true
 	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
@@ -716,7 +673,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			if rel.Life() == params.Dying {
+			if rel.Life() == juju.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
 				} else if r.IsImplicit() {
@@ -734,7 +691,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			}
 			return nil, err
 		}
-		if rel.Life() != params.Alive {
+		if rel.Life() != juju.Alive {
 			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm.

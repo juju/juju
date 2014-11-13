@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -44,8 +45,8 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		predicate := BuildPredicateFor(args.Patterns)
 
 		// Filter units
-		var unfilteredSvcs set.Strings
-		var unfilteredMachines set.Strings
+		unfilteredSvcs := make(set.Strings)
+		unfilteredMachines := make(set.Strings)
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
@@ -153,7 +154,7 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*state.Machine, error) {
+func fetchMachines(st *state.State, machineIds set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -230,8 +231,8 @@ func fetchAllServicesAndUnits(
 
 // fetchUnitMachineIds returns a set of IDs for machines that
 // the specified units reside on, and those machines' ancestors.
-func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings, error) {
-	machineIds := new(set.Strings)
+func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (set.Strings, error) {
+	machineIds := make(set.Strings)
 	for _, svcUnitMap := range units {
 		for _, unit := range svcUnitMap {
 			if !unit.IsPrincipal() {
@@ -439,8 +440,8 @@ func isSubordinate(ep *state.Endpoint, service *state.Service) bool {
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []params.MachineJob {
-	paramsJobs := make([]params.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []state.MachineJob) []juju.MachineJob {
+	paramsJobs := make([]juju.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		paramsJobs[i] = machineJob.ToParams()
 	}
@@ -544,9 +545,8 @@ func (context *statusContext) unitByName(name string) *state.Unit {
 	return context.units[serviceName][name]
 }
 
-func (context *statusContext) processServiceRelations(service *state.Service) (
-	related map[string][]string, subord []string, err error) {
-	var subordSet set.Strings
+func (context *statusContext) processServiceRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
+	subordSet := make(set.Strings)
 	related = make(map[string][]string)
 	relations := context.relations[service.Name()]
 	for _, relation := range relations {
@@ -585,9 +585,7 @@ type stateAgent interface {
 }
 
 // processAgent retrieves version and status information from the given entity.
-func processAgent(entity stateAgent) (
-	out api.AgentStatus, compatStatus params.Status, compatInfo string) {
-
+func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus juju.Status, compatInfo string) {
 	out.Life = processLife(entity)
 
 	if t, err := entity.AgentTools(); err == nil {
@@ -596,7 +594,7 @@ func processAgent(entity stateAgent) (
 
 	var st state.Status
 	st, out.Info, out.Data, out.Err = entity.Status()
-	out.Status = params.Status(st)
+	out.Status = juju.Status(st)
 	compatStatus = out.Status
 	compatInfo = out.Info
 	out.Data = filterStatusData(out.Data)
@@ -604,7 +602,7 @@ func processAgent(entity stateAgent) (
 		return
 	}
 
-	if out.Status == params.StatusPending {
+	if out.Status == juju.StatusPending {
 		// The status is pending - there's no point
 		// in enquiring about the agent liveness.
 		return
@@ -635,7 +633,7 @@ func processAgent(entity stateAgent) (
 		} else {
 			compatInfo = fmt.Sprintf("(%s)", out.Status)
 		}
-		compatStatus = params.StatusDown
+		compatStatus = juju.StatusDown
 	}
 
 	return

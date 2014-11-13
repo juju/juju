@@ -23,8 +23,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -170,7 +170,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		}
 		env.supportedArchitectures = supportedArchitectures
 	} else {
-		var architectures set.Strings
+		architectures := make(set.Strings)
 		for _, image := range bootImages {
 			architectures.Add(image.architecture)
 		}
@@ -196,7 +196,7 @@ func (env *maasEnviron) allBootImages() ([]bootImage, error) {
 		return nil, err
 	}
 	var allBootImages []bootImage
-	var seen set.Strings
+	seen := make(set.Strings)
 	for _, nodegroup := range nodegroups {
 		bootImages, err := env.nodegroupBootImages(nodegroup)
 		if err != nil {
@@ -296,7 +296,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var architectures set.Strings
+	architectures := make(set.Strings)
 	for _, inst := range allInstances {
 		inst := inst.(*maasInstance)
 		arch, _, err := inst.architecture()
@@ -305,6 +305,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 		}
 		architectures.Add(arch)
 	}
+	// TODO(dfc) why is this sorted
 	return architectures.SortedValues(), nil
 }
 
@@ -428,9 +429,10 @@ const (
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
+func (env *maasEnviron) getCapabilities() (set.Strings, error) {
+	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
-	caps = set.NewStrings()
+	var err error
 
 	for a := shortAttempt.Start(); a.Next(); {
 		client := env.getMAASClient().GetSubObject("version/")
@@ -856,7 +858,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

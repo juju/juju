@@ -8,9 +8,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -22,7 +22,7 @@ import (
 
 type upgradingMachineAgent interface {
 	ensureMongoServer(agent.Config) error
-	setMachineStatus(*api.State, params.Status, string) error
+	setMachineStatus(*api.State, juju.Status, string) error
 	CurrentConfig() agent.Config
 	ChangeConfig(AgentConfigMutator) error
 	Dying() <-chan struct{}
@@ -64,7 +64,7 @@ type upgradeWorkerContext struct {
 	machineId       string
 	isMaster        bool
 	apiState        *api.State
-	jobs            []params.MachineJob
+	jobs            []juju.MachineJob
 	agentConfig     agent.Config
 	isStateServer   bool
 	st              *state.State
@@ -95,7 +95,7 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 func (c *upgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
 	apiState *api.State,
-	jobs []params.MachineJob,
+	jobs []juju.MachineJob,
 ) worker.Worker {
 	c.agent = agent
 	c.apiState = apiState
@@ -155,7 +155,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range c.jobs {
-		if job == params.JobManageEnviron {
+		if job == juju.JobManageEnviron {
 			c.isStateServer = true
 		}
 	}
@@ -193,7 +193,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", c.toVersion)
-		c.agent.setMachineStatus(c.apiState, params.StatusStarted, "")
+		c.agent.setMachineStatus(c.apiState, juju.StatusStarted, "")
 		close(c.UpgradeComplete)
 	}
 	return nil
@@ -320,9 +320,7 @@ func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
 	a := c.agent
-
-	a.setMachineStatus(c.apiState, params.StatusStarted,
-		fmt.Sprintf("upgrading to %v", c.toVersion))
+	a.setMachineStatus(c.apiState, juju.StatusStarted, fmt.Sprintf("upgrading to %v", c.toVersion))
 
 	context := upgrades.NewContext(agentConfig, c.apiState, c.st)
 	logger.Infof("starting upgrade from %v to %v for %q", c.fromVersion, c.toVersion, c.tag)
@@ -356,7 +354,7 @@ func (c *upgradeWorkerContext) reportUpgradeFailure(err error, willRetry bool) {
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		c.fromVersion, c.toVersion, c.tag, retryText, err)
-	c.agent.setMachineStatus(c.apiState, params.StatusError,
+	c.agent.setMachineStatus(c.apiState, juju.StatusError,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", c.toVersion, retryText, err))
 }
 
@@ -447,15 +445,15 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 // jobsToTargets determines the upgrade targets corresponding to the
 // jobs assigned to a machine agent. This determines the upgrade steps
 // which will run during an upgrade.
-func jobsToTargets(jobs []params.MachineJob, isMaster bool) (targets []upgrades.Target) {
+func jobsToTargets(jobs []juju.MachineJob, isMaster bool) (targets []upgrades.Target) {
 	for _, job := range jobs {
 		switch job {
-		case params.JobManageEnviron:
+		case juju.JobManageEnviron:
 			targets = append(targets, upgrades.StateServer)
 			if isMaster {
 				targets = append(targets, upgrades.DatabaseMaster)
 			}
-		case params.JobHostUnits:
+		case juju.JobHostUnits:
 			targets = append(targets, upgrades.HostMachine)
 		}
 	}

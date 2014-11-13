@@ -8,6 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -70,12 +71,12 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	s := common.NewStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{"unit-x-0", params.StatusStarted, "bar", nil},
-			{"unit-x-1", params.StatusStopped, "", nil},
-			{"unit-x-2", params.StatusPending, "not really", nil},
-			{"unit-x-3", params.StatusStopped, "", nil},
-			{"unit-x-4", params.StatusError, "blarg", nil},
-			{"unit-x-5", params.StatusStarted, "42", nil},
+			{"unit-x-0", juju.StatusStarted, "bar", nil},
+			{"unit-x-1", juju.StatusStopped, "", nil},
+			{"unit-x-2", juju.StatusPending, "not really", nil},
+			{"unit-x-3", juju.StatusStopped, "", nil},
+			{"unit-x-4", juju.StatusError, "blarg", nil},
+			{"unit-x-5", juju.StatusStarted, "42", nil},
 		},
 	}
 	result, err := s.SetStatus(args)

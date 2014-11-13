@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -79,8 +79,8 @@ func (s *HookSenderSuite) TestStopsHooks(c *gc.C) {
 
 func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 	source := &updateSource{
-		changes: make(chan params.RelationUnitsChange),
-		updates: make(chan params.RelationUnitsChange),
+		changes: make(chan multiwatcher.RelationUnitsChange),
+		updates: make(chan multiwatcher.RelationUnitsChange),
 	}
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
@@ -99,7 +99,7 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 	assertActive()
 
 	// Send an event on the Changes() chan.
-	sent := params.RelationUnitsChange{Departed: []string{"sent"}}
+	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
 	select {
 	case source.changes <- sent:
 	case <-time.After(coretesting.LongWait):
@@ -108,7 +108,7 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 
 	// Now that a change has been delivered, nothing should be sent on the out
 	// chan, or read from the changes chan, until the Update method has completed.
-	notSent := params.RelationUnitsChange{Departed: []string{"notSent"}}
+	notSent := multiwatcher.RelationUnitsChange{Departed: []string{"notSent"}}
 	select {
 	case source.changes <- notSent:
 		c.Fatalf("sent extra change while updating queue")
@@ -126,8 +126,8 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 
 func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 	source := &updateSource{
-		changes: make(chan params.RelationUnitsChange),
-		updates: make(chan params.RelationUnitsChange),
+		changes: make(chan multiwatcher.RelationUnitsChange),
+		updates: make(chan multiwatcher.RelationUnitsChange),
 	}
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
@@ -145,11 +145,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(hi, gc.DeepEquals, hook.Info{Kind: hooks.Install})
 			hookCount++
-		case source.changes <- params.RelationUnitsChange{}:
+		case source.changes <- multiwatcher.RelationUnitsChange{}:
 			changeCount++
 		case update, ok := <-source.updates:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, params.RelationUnitsChange{})
+			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
 			updateCount++
 		case <-timeout:
 			c.Fatalf("not enough things happened in time")
@@ -168,8 +168,8 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 	source := &updateSource{
 		empty:   true,
-		changes: make(chan params.RelationUnitsChange),
-		updates: make(chan params.RelationUnitsChange),
+		changes: make(chan multiwatcher.RelationUnitsChange),
+		updates: make(chan multiwatcher.RelationUnitsChange),
 	}
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
@@ -189,7 +189,7 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 	assertIdle()
 
 	// Send an event on the Changes() chan.
-	sent := params.RelationUnitsChange{Departed: []string{"sent"}}
+	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
 	select {
 	case source.changes <- sent:
 	case <-time.After(coretesting.LongWait):
@@ -198,7 +198,7 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 
 	// Now that a change has been delivered, nothing should be sent on the out
 	// chan, or read from the changes chan, until the Update method has completed.
-	notSent := params.RelationUnitsChange{Departed: []string{"notSent"}}
+	notSent := multiwatcher.RelationUnitsChange{Departed: []string{"notSent"}}
 	select {
 	case source.changes <- notSent:
 		c.Fatalf("sent extra update while updating queue")
@@ -217,8 +217,8 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
 	source := &updateSource{
 		empty:   true,
-		changes: make(chan params.RelationUnitsChange),
-		updates: make(chan params.RelationUnitsChange),
+		changes: make(chan multiwatcher.RelationUnitsChange),
+		updates: make(chan multiwatcher.RelationUnitsChange),
 	}
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
@@ -233,11 +233,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
 		select {
 		case hi, ok := <-out:
 			c.Fatalf("got unexpected hook: %v %v", hi, ok)
-		case source.changes <- params.RelationUnitsChange{}:
+		case source.changes <- multiwatcher.RelationUnitsChange{}:
 			changeCount++
 		case update, ok := <-source.updates:
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(update, gc.DeepEquals, params.RelationUnitsChange{})
+			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
 			updateCount++
 		case <-timeout:
 			c.Fatalf("not enough things happened in time")
@@ -252,8 +252,8 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
 type updateSource struct {
 	tomb    tomb.Tomb
 	empty   bool
-	changes chan params.RelationUnitsChange
-	updates chan params.RelationUnitsChange
+	changes chan multiwatcher.RelationUnitsChange
+	updates chan multiwatcher.RelationUnitsChange
 }
 
 func (source *updateSource) Stop() error {
@@ -261,11 +261,11 @@ func (source *updateSource) Stop() error {
 	return source.tomb.Wait()
 }
 
-func (source *updateSource) Changes() <-chan params.RelationUnitsChange {
+func (source *updateSource) Changes() <-chan multiwatcher.RelationUnitsChange {
 	return source.changes
 }
 
-func (source *updateSource) Update(change params.RelationUnitsChange) error {
+func (source *updateSource) Update(change multiwatcher.RelationUnitsChange) error {
 	select {
 	case <-time.After(coretesting.LongWait):
 		// We don't really care whether the update is collected, but we want to

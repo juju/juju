@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -106,7 +106,7 @@ func (s *MachinerSuite) TestRunStop(c *gc.C) {
 	mr := s.makeMachiner()
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
-	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiMachine.Life(), gc.Equals, juju.Alive)
 }
 
 func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {

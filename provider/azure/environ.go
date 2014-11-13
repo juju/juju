@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -679,7 +679,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	// All other machines get an auto-generated public port for SSH.
 	stateServer := false
 	for _, job := range args.MachineConfig.Jobs {
-		if job == params.JobManageEnviron {
+		if job == juju.JobManageEnviron {
 			stateServer = true
 			break
 		}
@@ -863,7 +863,7 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 			continue
 		}
 		// Filter the instances that have no corresponding role.
-		var roleNames set.Strings
+		roleNames := make(set.Strings)
 		for _, role := range service.Deployments[0].RoleList {
 			roleNames.Add(role.RoleName)
 		}
@@ -939,7 +939,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	}
 
 	instancesIds := make([]instanceId, len(ids))
-	var serviceNames set.Strings
+	serviceNames := make(set.Strings)
 	for i, id := range ids {
 		serviceName, roleName := env.splitInstanceId(id)
 		if serviceName == "" {

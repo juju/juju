@@ -23,7 +23,12 @@ import (
 	"github.com/juju/juju/state/backups/metadata"
 )
 
-const BackupsMetaC = backupsMetaC
+const (
+	UnitsC       = unitsC
+	ServicesC    = servicesC
+	SettingsC    = settingsC
+	BackupsMetaC = backupsMetaC
+)
 
 var (
 	NewMongoConnInfo = newMongoConnInfo
@@ -253,6 +258,10 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 
 func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
 	return st.parseTag(tag)
+}
+
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
 }
 
 // Return the PasswordSalt that goes along with the PasswordHash

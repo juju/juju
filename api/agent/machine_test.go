@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	apiserveragent "github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -109,8 +110,8 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
-	c.Assert(m.Life(), gc.Equals, params.Alive)
-	c.Assert(m.Jobs(), gc.DeepEquals, []params.MachineJob{params.JobHostUnits})
+	c.Assert(m.Life(), gc.Equals, juju.Alive)
+	c.Assert(m.Jobs(), gc.DeepEquals, []juju.MachineJob{juju.JobHostUnits})
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)

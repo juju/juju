@@ -39,8 +39,6 @@ func (s *steps121Suite) TestStateStepsFor121(c *gc.C) {
 		"prepend the environment UUID to the ID of all minUnit docs",
 		"prepend the environment UUID to the ID of all cleanup docs",
 		"prepend the environment UUID to the ID of all sequence docs",
-		"prepend the environment UUID to the ID of all settings docs",
-		"prepend the environment UUID to the ID of all settingsRefs docs",
 
 		// Non-environment UUID upgrade steps follow.
 		"rename the user LastConnection field to LastLogin",

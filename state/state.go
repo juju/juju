@@ -662,6 +662,7 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 		coll = environmentsC
 	case names.NetworkTag:
 		coll = networksC
+		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
 		id = actionIdFromTag(tag)
@@ -1240,10 +1241,10 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.VLANTag < 0 || args.VLANTag > 4094 {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
-	doc := newNetworkDoc(args)
+	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{{
 		C:      networksC,
-		Id:     args.Name,
+		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
@@ -1276,7 +1277,7 @@ func (st *State) Network(name string) (*Network, error) {
 	defer closer()
 
 	doc := &networkDoc{}
-	err := networks.FindId(name).One(doc)
+	err := networks.FindId(st.docID(name)).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("network %q", name)
 	}
@@ -1292,6 +1293,7 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 	defer closer()
 
 	docs := []networkDoc{}
+	// TODO(waigani) - ENVUUID - query needs to filter by env: bson.D{{"env-uuid", st.EnvironUUID()}}
 	err = networksCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all networks")

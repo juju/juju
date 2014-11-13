@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package actions_test
+package action_test
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju/apiserver/actions"
+	"github.com/juju/juju/apiserver/action"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -26,10 +26,10 @@ func TestAll(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type actionsSuite struct {
+type actionSuite struct {
 	jujutesting.JujuConnSuite
 
-	actions    *actions.ActionsAPI
+	action     *action.ActionAPI
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 
@@ -43,16 +43,16 @@ type actionsSuite struct {
 	mysqlUnit     *state.Unit
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = gc.Suite(&actionSuite{})
 
-func (s *actionsSuite) SetUpTest(c *gc.C) {
+func (s *actionSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.actions, err = actions.NewActionsAPI(s.State, nil, s.authorizer)
+	s.action, err = action.NewActionAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 
 	factory := jujuFactory.NewFactory(s.State)
@@ -102,7 +102,7 @@ func (s *actionsSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 }
 
-func (s *actionsSuite) TestEnqueue(c *gc.C) {
+func (s *actionSuite) TestEnqueue(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
 	c.Assert(err, gc.IsNil)
@@ -128,7 +128,7 @@ func (s *actionsSuite) TestEnqueue(c *gc.C) {
 			{Receiver: s.mysqlUnit.Tag(), Parameters: expectedParameters},
 		},
 	}
-	res, err := s.actions.Enqueue(arg)
+	res, err := s.action.Enqueue(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(res.Results, gc.HasLen, 4)
 
@@ -208,7 +208,7 @@ var listTestCases = []testCase{{
 	},
 }}
 
-func (s *actionsSuite) TestListAll(c *gc.C) {
+func (s *actionSuite) TestListAll(c *gc.C) {
 	for _, testCase := range listTestCases {
 		// set up query args
 		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
@@ -274,13 +274,13 @@ func (s *actionsSuite) TestListAll(c *gc.C) {
 		}
 
 		// validate assumptions.
-		actionList, err := s.actions.ListAll(arg)
+		actionList, err := s.action.ListAll(arg)
 		c.Assert(err, gc.IsNil)
 		assertSame(c, actionList, expected)
 	}
 }
 
-func (s *actionsSuite) TestListPending(c *gc.C) {
+func (s *actionSuite) TestListPending(c *gc.C) {
 	for _, testCase := range listTestCases {
 		// set up query args
 		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
@@ -344,13 +344,13 @@ func (s *actionsSuite) TestListPending(c *gc.C) {
 		}
 
 		// validate assumptions.
-		actionList, err := s.actions.ListPending(arg)
+		actionList, err := s.action.ListPending(arg)
 		c.Assert(err, gc.IsNil)
 		assertSame(c, actionList, expected)
 	}
 }
 
-func (s *actionsSuite) TestListCompleted(c *gc.C) {
+func (s *actionSuite) TestListCompleted(c *gc.C) {
 	for _, testCase := range listTestCases {
 		// set up query args
 		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
@@ -416,13 +416,13 @@ func (s *actionsSuite) TestListCompleted(c *gc.C) {
 		}
 
 		// validate assumptions.
-		actionList, err := s.actions.ListCompleted(arg)
+		actionList, err := s.action.ListCompleted(arg)
 		c.Assert(err, gc.IsNil)
 		assertSame(c, actionList, expected)
 	}
 }
 
-func (s *actionsSuite) TestCancel(c *gc.C) {
+func (s *actionSuite) TestCancel(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
 	c.Assert(err, gc.IsNil)
@@ -450,7 +450,7 @@ func (s *actionsSuite) TestCancel(c *gc.C) {
 		}},
 	}
 
-	results, err := s.actions.Enqueue(tests)
+	results, err := s.action.Enqueue(tests)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 4)
 	for _, res := range results.Results {
@@ -465,13 +465,13 @@ func (s *actionsSuite) TestCancel(c *gc.C) {
 			// "my-one"
 			results.Results[2].Action.Tag,
 		}}
-	results, err = s.actions.Cancel(arg)
+	results, err = s.action.Cancel(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 
 	// Assert the Actions are all in the expected state.
 	tags := params.Tags{Tags: []names.Tag{s.wordpressUnit.Tag(), s.mysqlUnit.Tag()}}
-	obtained, err := s.actions.ListAll(tags)
+	obtained, err := s.action.ListAll(tags)
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained.Actions, gc.HasLen, 2)
 
@@ -491,13 +491,17 @@ func (s *actionsSuite) TestCancel(c *gc.C) {
 
 }
 
-func (s *actionsSuite) TestServicesCharmActions(c *gc.C) {
+func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
 		"outfile": map[string]interface{}{
-			"outfile": map[string]interface{}{
-				"description": "The file to write out to.",
-				"type":        "string",
-				"default":     "foo.bz2",
+			"type":        "object",
+			"description": "this boilerplate is insane, we have to fix it",
+			"properties": map[string]interface{}{
+				"outfile": map[string]interface{}{
+					"description": "The file to write out to.",
+					"type":        "string",
+					"default":     "foo.bz2",
+				},
 			},
 		},
 	}
@@ -558,7 +562,7 @@ func (s *actionsSuite) TestServicesCharmActions(c *gc.C) {
 			svcTags.ServiceTags[j] = svcTag
 		}
 
-		results, err := s.actions.ServicesCharmActions(svcTags)
+		results, err := s.action.ServicesCharmActions(svcTags)
 		c.Assert(err, gc.IsNil)
 		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
 	}

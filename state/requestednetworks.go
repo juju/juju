@@ -12,20 +12,27 @@ import (
 // service or machine. The document ID field is the globalKey of a
 // service or a machine.
 type requestedNetworksDoc struct {
-	Id       string   `bson:"_id"`
+	DocID    string   `bson:"_id"`
+	Id       string   `bson:"requestednetworkid"`
+	EnvUUID  string   `bson:"env-uuid"`
 	Networks []string `bson:"networks"`
 }
 
-func newRequestedNetworksDoc(networks []string) *requestedNetworksDoc {
-	return &requestedNetworksDoc{Networks: networks}
+func (st *State) newRequestedNetworksDoc(id string, networks []string) *requestedNetworksDoc {
+	return &requestedNetworksDoc{
+		DocID:    st.docID(id),
+		EnvUUID:  st.EnvironUUID(),
+		Networks: networks,
+	}
 }
 
 func createRequestedNetworksOp(st *State, id string, networks []string) txn.Op {
+	doc := st.newRequestedNetworksDoc(id, networks)
 	return txn.Op{
 		C:      requestedNetworksC,
-		Id:     id,
+		Id:     doc.DocID,
 		Assert: txn.DocMissing,
-		Insert: newRequestedNetworksDoc(networks),
+		Insert: doc,
 	}
 }
 
@@ -34,7 +41,7 @@ func createRequestedNetworksOp(st *State, id string, networks []string) txn.Op {
 func removeRequestedNetworksOp(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      requestedNetworksC,
-		Id:     id,
+		Id:     st.docID(id),
 		Remove: true,
 	}
 }
@@ -44,7 +51,7 @@ func readRequestedNetworks(st *State, id string) ([]string, error) {
 	defer closer()
 
 	doc := requestedNetworksDoc{}
-	err := requestedNetworks.FindId(id).One(&doc)
+	err := requestedNetworks.FindId(st.docID(id)).One(&doc)
 	if err == mgo.ErrNotFound {
 		// In 1.17.7+ we always create a requestedNetworksDoc for each
 		// service or machine we create, but in legacy databases this

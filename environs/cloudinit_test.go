@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -191,10 +192,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
-	allJobs := []params.MachineJob{
-		params.JobManageEnviron,
-		params.JobHostUnits,
-		params.JobManageNetworking,
+	allJobs := []juju.MachineJob{
+		juju.JobManageEnviron,
+		juju.JobHostUnits,
+		juju.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",
