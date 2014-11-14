@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -106,7 +105,7 @@ type State struct {
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
-	allManager *multiwatcher.StoreManager
+	allManager *StoreManager
 	environTag names.EnvironTag
 }
 
@@ -222,13 +221,13 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
-func (st *State) Watch() *multiwatcher.Multiwatcher {
+func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
-		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+		st.allManager = NewStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
-	return multiwatcher.NewMultiwatcher(st.allManager)
+	return NewMultiwatcher(st.allManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
