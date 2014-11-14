@@ -18,9 +18,9 @@ import (
 
 // Multiwatcher watches any changes to the state.
 type Multiwatcher struct {
-	all *StoreManager
+	all *storeManager
 
-	// The following fields are maintained by the StoreManager
+	// The following fields are maintained by the storeManager
 	// goroutine.
 	revno   int64
 	stopped bool
@@ -28,7 +28,7 @@ type Multiwatcher struct {
 
 // NewMultiwatcher creates a new watcher that can observe
 // changes to an underlying store manager.
-func NewMultiwatcher(all *StoreManager) *Multiwatcher {
+func NewMultiwatcher(all *storeManager) *Multiwatcher {
 	return &Multiwatcher{
 		all: all,
 	}
@@ -68,9 +68,9 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	return req.changes, nil
 }
 
-// StoreManager holds a shared record of current state and replies to
+// storeManager holds a shared record of current state and replies to
 // requests from Multiwatchers to tell them when it changes.
-type StoreManager struct {
+type storeManager struct {
 	tomb tomb.Tomb
 
 	// backing knows how to fetch information from
@@ -80,7 +80,7 @@ type StoreManager struct {
 	// request receives requests from Multiwatcher clients.
 	request chan *request
 
-	// all holds information on everything the StoreManager cares about.
+	// all holds information on everything the storeManager cares about.
 	all *Store
 
 	// Each entry in the waiting map holds a linked list of Next requests
@@ -88,7 +88,7 @@ type StoreManager struct {
 	waiting map[*Multiwatcher]*request
 }
 
-// Backing is the interface required by the StoreManager to access the
+// Backing is the interface required by the storeManager to access the
 // underlying state.
 type Backing interface {
 
@@ -111,7 +111,7 @@ type Backing interface {
 }
 
 // request holds a message from the Multiwatcher to the
-// StoreManager for some changes. The request will be
+// storeManager for some changes. The request will be
 // replied to when some changes are available.
 type request struct {
 	// w holds the Multiwatcher that has originated the request.
@@ -129,14 +129,14 @@ type request struct {
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
-	// StoreManager goroutine.
+	// storeManager goroutine.
 	next *request
 }
 
 // newStoreManagerNoRun creates the store manager
 // but does not start its run loop.
-func newStoreManagerNoRun(backing Backing) *StoreManager {
-	return &StoreManager{
+func newStoreManagerNoRun(backing Backing) *storeManager {
+	return &storeManager{
 		backing: backing,
 		request: make(chan *request),
 		all:     newStore(),
@@ -144,14 +144,14 @@ func newStoreManagerNoRun(backing Backing) *StoreManager {
 	}
 }
 
-// newStoreManager returns a new StoreManager that retrieves information
+// newStoreManager returns a new storeManager that retrieves information
 // using the given backing.
-func newStoreManager(backing Backing) *StoreManager {
+func newStoreManager(backing Backing) *storeManager {
 	sm := newStoreManagerNoRun(backing)
 	go func() {
 		defer sm.tomb.Done()
 		// TODO(rog) distinguish between temporary and permanent errors:
-		// if we get an error in loop, this logic kill the state's StoreManager
+		// if we get an error in loop, this logic kill the state's storeManager
 		// forever. This currently fits the way we go about things,
 		// because we reconnect to the state on any error, but
 		// perhaps there are errors we could recover from.
@@ -169,13 +169,13 @@ func newStoreManager(backing Backing) *StoreManager {
 	return sm
 }
 
-func (sm *StoreManager) loop() error {
+func (sm *storeManager) loop() error {
 	in := make(chan watcher.Change)
 	sm.backing.Watch(in)
 	defer sm.backing.Unwatch(in)
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
-	// StoreManager.changed is idempotent with respect to both updates
+	// storeManager.changed is idempotent with respect to both updates
 	// and removals.
 	// TODO(rog) Perhaps find a way to avoid blocking all other
 	// watchers while GetAll is running.
@@ -197,14 +197,14 @@ func (sm *StoreManager) loop() error {
 	}
 }
 
-// Stop stops the StoreManager.
-func (sm *StoreManager) Stop() error {
+// Stop stops the storeManager.
+func (sm *storeManager) Stop() error {
 	sm.tomb.Kill(nil)
 	return errors.Trace(sm.tomb.Wait())
 }
 
-// handle processes a request from a Multiwatcher to the StoreManager.
-func (sm *StoreManager) handle(req *request) {
+// handle processes a request from a Multiwatcher to the storeManager.
+func (sm *storeManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
@@ -228,7 +228,7 @@ func (sm *StoreManager) handle(req *request) {
 }
 
 // respond responds to all outstanding requests that are satisfiable.
-func (sm *StoreManager) respond() {
+func (sm *storeManager) respond() {
 	for w, req := range sm.waiting {
 		revno := w.revno
 		changes := sm.all.ChangesSince(revno)
@@ -251,7 +251,7 @@ func (sm *StoreManager) respond() {
 // seen states that a Multiwatcher has just been given information about
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
-func (sm *StoreManager) seen(revno int64) {
+func (sm *storeManager) seen(revno int64) {
 	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -277,7 +277,7 @@ func (sm *StoreManager) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (sm *StoreManager) leave(w *Multiwatcher) {
+func (sm *storeManager) leave(w *Multiwatcher) {
 	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)

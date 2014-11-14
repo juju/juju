@@ -105,7 +105,7 @@ type State struct {
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
-	allManager *StoreManager
+	allManager *storeManager
 	environTag names.EnvironTag
 }
 
