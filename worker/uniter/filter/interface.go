@@ -10,9 +10,18 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
+// Filter is responsible for delivering events relevant to a unit agent in a
+// form that can be consumed conveniently.
 type Filter interface {
+
+	// Stop shuts down the filter and returns any error encountered in the process.
 	Stop() error
+
+	// Dead returns a channel that will close when the filter has shut down.
 	Dead() <-chan struct{}
+
+	// Wait blocks until the filter has shut down, and returns any error
+	// encountered in the process.
 	Wait() error
 
 	// UnitDying returns a channel which is closed when the Unit enters a Dying state.
