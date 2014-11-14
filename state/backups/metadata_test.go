@@ -21,14 +21,14 @@ type metadataSuite struct {
 var _ = gc.Suite(&metadataSuite{}) // Register the suite.
 
 func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
-	origin := backups.Origin{
+	meta := backups.NewMetadata()
+	meta.Origin = backups.Origin{
 		Environment: "asdf-zxcv-qwe",
 		Machine:     "0",
 		Hostname:    "myhost",
 		Version:     version.MustParse("1.21-alpha3"),
 	}
-	started := time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
-	meta := backups.NewMetadata(origin, "", &started)
+	meta.Started = time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
 	err := meta.MarkComplete(10, "123af2cef")

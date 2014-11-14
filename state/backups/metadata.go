@@ -31,19 +31,9 @@ type Origin struct {
 	Version     version.Number
 }
 
-// NewOrigin returns a new backups origin.
-func NewOrigin(env, machine, hostname string) Origin {
-	return Origin{
-		Environment: env,
-		Machine:     machine,
-		Hostname:    hostname,
-		Version:     version.Current.Number,
-	}
-}
-
 // Metadata contains the metadata for a single state backup archive.
 type Metadata struct {
-	filestorage.FileMetadata
+	*filestorage.FileMetadata
 
 	// Started records when the backup was started.
 	Started time.Time
@@ -55,29 +45,20 @@ type Metadata struct {
 	Notes string
 }
 
-// NewMetadata returns a new Metadata for a state backup archive.  The
-// current date/time is used for the timestamp and the default checksum
-// format is used.  ID is not set.  That is left up to the persistence
-// layer.  Stored is set as false.  "notes" may be empty, but
-// everything else should be provided.
-func NewMetadata(origin Origin, notes string, started *time.Time) *Metadata {
-	filemeta := filestorage.NewMetadata()
-	meta := Metadata{
-		FileMetadata: *filemeta,
-		Origin:       origin,
-		Notes:        notes,
+// NewMetadata returns a new Metadata for a state backup archive.  Only
+// the start time and the version are set.
+func NewMetadata() *Metadata {
+	return &Metadata{
+		FileMetadata: filestorage.NewMetadata(),
+		Started:      time.Now().UTC(),
+		Origin: Origin{
+			Version: version.Current.Number,
+		},
 	}
-
-	if started == nil {
-		meta.Started = time.Now().UTC()
-	} else {
-		meta.Started = *started
-	}
-
-	return &meta
 }
 
-// MarkComplete populates the remaining metadata values.
+// MarkComplete populates the remaining metadata values.  The default
+// checksum format is used.
 func (m *Metadata) MarkComplete(size int64, checksum string) error {
 	if size == 0 {
 		return errors.New("missing size")

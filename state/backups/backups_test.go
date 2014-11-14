@@ -33,7 +33,8 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 func (s *backupsSuite) setStored(id string) *time.Time {
 	s.Storage.ID = id
-	s.Storage.Meta = backupstesting.NewMetadataStarted(id, "")
+	s.Storage.Meta = backupstesting.NewMetadataStarted()
+	s.Storage.Meta.SetID(id)
 	stored := time.Now().UTC()
 	s.Storage.Meta.SetStored(&stored)
 	return &stored
@@ -54,8 +55,8 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	connInfo := backups.DBConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := backups.DBInfo{connInfo, targets}
-	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	_, err := s.api.Create(paths, dbInfo, origin, "some notes")
+	meta := backupstesting.NewMetadataStarted()
+	_, err := s.api.Create(paths, dbInfo, meta.Origin, "some notes")
 
 	c.Check(err, gc.ErrorMatches, expected)
 }
@@ -94,7 +95,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := backups.DBInfo{connInfo, targets}
 	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	meta, err := s.api.Create(paths, dbInfo, origin, "some notes")
+	meta := backupstesting.NewMetadataStarted()
+	meta, err := s.api.Create(paths, dbInfo, meta.Origin, "some notes")
 
 	// Test the call values.
 	s.Storage.CheckCalled(c, "spam", meta, archiveFile, "Add", "Metadata")
@@ -175,7 +177,7 @@ func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
 func (s *backupsSuite) TestStoreArchive(c *gc.C) {
 	stored := s.setStored("spam")
 
-	meta := backupstesting.NewMetadataStarted("", "")
+	meta := backupstesting.NewMetadataStarted()
 	c.Assert(meta.ID(), gc.Equals, "")
 	c.Assert(meta.Stored(), gc.IsNil)
 	archive := &bytes.Buffer{}

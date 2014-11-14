@@ -15,10 +15,11 @@ const (
 
 // NewMetadata returns a Metadata to use for testing.
 func NewMetadata() *backups.Metadata {
+	meta := NewMetadataStarted()
+
 	timestamp := "20140924-010319"
 	id := envID + "." + timestamp
-	notes := ""
-	meta := NewMetadataStarted(id, notes)
+	meta.SetID(id)
 
 	FinishMetadata(meta)
 	meta.SetStored(nil)
@@ -26,14 +27,11 @@ func NewMetadata() *backups.Metadata {
 }
 
 // NewMetadataStarted returns a Metadata to use for testing.
-func NewMetadataStarted(id, notes string) *backups.Metadata {
-	machine := "0"
-	hostname := "main-host"
-	origin := backups.NewOrigin(envID, machine, hostname)
-	started := time.Now().UTC()
-
-	meta := backups.NewMetadata(origin, notes, &started)
-	meta.SetID(id)
+func NewMetadataStarted() *backups.Metadata {
+	meta := backups.NewMetadata()
+	meta.Origin.Environment = envID
+	meta.Origin.Machine = "0"
+	meta.Origin.Hostname = "main-host"
 	return meta
 }
 

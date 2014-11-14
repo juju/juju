@@ -75,7 +75,9 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 func (b *backups) Create(paths Paths, dbInfo DBInfo, origin Origin, notes string) (*Metadata, error) {
 
 	// Prep the metadata.
-	meta := NewMetadata(origin, notes, nil)
+	meta := NewMetadata()
+	meta.Origin = origin
+	meta.Notes = notes
 	// The metadata file will not contain the ID or the "finished" data.
 	// However, that information is not as critical.  The alternatives
 	// are either adding the metadata file to the archive after the fact
