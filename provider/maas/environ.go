@@ -1061,11 +1061,44 @@ func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addre
 }
 
 // ListNetworks returns basic information about all networks known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the MAAS provider yet.
-func (*maasEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+// by the provider for the environment, for a specific instance.
+func (environ *maasEnviron) ListNetworks(instId instance.Id) ([]network.BasicInfo, error) {
+	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not find instance %v", instId)
+	}
+	if len(instances) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	inst := instances[0]
+	networks, err := environ.getInstanceNetworks(inst)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
+	}
+	logger.Debugf("node %q has networks %v", instId, networks)
+	var networkInfo []network.BasicInfo
+	for _, netw := range networks {
+		netCIDR := &net.IPNet{
+			IP:   net.ParseIP(netw.IP),
+			Mask: net.IPMask(net.ParseIP(netw.Mask)),
+		}
+		netInfo := network.BasicInfo{
+			CIDR:       netCIDR.String(),
+			VLANTag:    netw.VLANTag,
+			ProviderId: network.Id(netw.Name),
+		}
+
+		// Verify we filled-in everything for all networks
+		// and drop incomplete records.
+		if netInfo.ProviderId == "" || netInfo.CIDR == "" {
+			logger.Warningf("ignoring network  %q: missing information (%#v)", netw.Name, netInfo)
+			continue
+		}
+
+		networkInfo = append(networkInfo, netInfo)
+	}
+	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
+	return networkInfo, nil
 }
 
 // AllInstances returns all the instance.Instance in this provider.
