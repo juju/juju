@@ -302,10 +302,10 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 }
 
 func (b *builder) buildArchiveAndChecksum() error {
-	logger.Infof("building archive file %q", b.filename)
 	if b.archiveFile == nil {
 		return errors.New("missing archiveFile")
 	}
+	logger.Infof("building archive file %q", b.filename)
 
 	// Build the tarball, writing out to both the archive file and a
 	// SHA1 hash.  The hash will correspond to the gzipped file rather
