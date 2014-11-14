@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -79,7 +80,7 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 type Uniter struct {
 	tomb          tomb.Tomb
 	st            *uniter.State
-	f             *filter
+	f             filter.Filter
 	unit          *uniter.Unit
 	service       *uniter.Service
 	relationers   map[int]*Relationer
@@ -139,7 +140,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	u.watchForProxyChanges(environWatcher)
 
 	// Start filtering state change events for consumption by modes.
-	u.f, err = newFilter(u.st, unitTag)
+	u.f, err = filter.NewFilter(u.st, unitTag)
 	if err != nil {
 		return err
 	}

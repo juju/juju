@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package filter
 
 import (
 	"sort"
@@ -101,9 +101,9 @@ type filter struct {
 	meterStatusInfo string
 }
 
-// newFilter returns a filter that handles state changes pertaining to the
+// NewFilter returns a filter that handles state changes pertaining to the
 // supplied unit.
-func newFilter(st *uniter.State, unitTag names.UnitTag) (*filter, error) {
+func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 	f := &filter{
 		st:                st,
 		outUnitDying:      make(chan struct{}),
