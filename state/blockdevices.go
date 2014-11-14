@@ -64,7 +64,7 @@ func setMachineBlockDevices(st *State, machineId string, devices []storage.Block
 				Assert: bson.D{{"machineblockdevices", doc.MachineBlockDevices}},
 				Update: bson.D{{"$set", bson.D{{"machineblockdevices", fromBlockDevices(devices)}}}},
 			}}
-		} else if err == mgo.ErrNotFound {
+		} else {
 			doc = newBlockDevicesDoc(st, machineId)
 			doc.MachineBlockDevices = fromBlockDevices(devices)
 			ops = []txn.Op{{

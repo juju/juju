@@ -37,6 +37,20 @@ func (s *BlockDevicesSuite) TestSetMachineBlockDevices(c *gc.C) {
 	c.Assert(outDevices, jc.SameContents, inDevices)
 }
 
+func (s *BlockDevicesSuite) TestSetMachineBlockDevicesReplaces(c *gc.C) {
+	inDevices1 := []storage.BlockDevice{{DeviceName: "sda"}}
+	err := s.machine.SetMachineBlockDevices(inDevices1)
+	c.Assert(err, gc.IsNil)
+
+	inDevices2 := []storage.BlockDevice{{DeviceName: "sdb"}}
+	err = s.machine.SetMachineBlockDevices(inDevices2)
+	c.Assert(err, gc.IsNil)
+
+	outDevices, err := s.machine.BlockDevices()
+	c.Assert(err, gc.IsNil)
+	c.Assert(outDevices, jc.SameContents, inDevices2)
+}
+
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesConcurrently(c *gc.C) {
 	inDevices := []storage.BlockDevice{{
 		DeviceName: "sda",
