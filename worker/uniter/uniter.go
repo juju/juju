@@ -441,12 +441,11 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 func (u *Uniter) runAction(hi hook.Info) (err error) {
 	hctx, err := u.contextFactory.NewActionContext(hi.ActionId)
 	if cause := errors.Cause(err); context.IsBadActionError(cause) {
-		return u.st.ActionFinish(
-			names.NewActionTag(hi.ActionId),
-			params.ActionFailed,
-			nil,
-			err.Error(),
-		)
+		tag, ok := names.ParseActionTagFromId(hi.ActionId)
+		if !ok {
+			return errors.Annotatef(err, "invalid actionId %q", hi.ActionId)
+		}
+		return u.st.ActionFinish(tag, params.ActionFailed, nil, err.Error())
 	} else if cause == context.ErrActionNotAvailable {
 		return nil
 	} else if err != nil {

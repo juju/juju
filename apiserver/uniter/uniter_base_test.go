@@ -1146,7 +1146,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 			actionTest.action.Action.Name,
 			actionTest.action.Action.Parameters)
 		c.Assert(err, gc.IsNil)
-		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
+		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), a.UUID())
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
@@ -1168,7 +1168,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", 0).String(),
+			Tag: names.JoinActionTag("wordpress/0", "0").String(),
 		}},
 	}
 	results, err := facade.Actions(args)
@@ -1193,7 +1193,7 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", 0).String(),
+			Tag: names.JoinActionTag("wordpress/0", "0").String(),
 		}},
 	}
 	actions, err := mysqlUnitFacade.Actions(args)
@@ -1206,7 +1206,7 @@ func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
 	// Same unit, but not one that has access.
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("mysql/0", 0).String(),
+			Tag: names.JoinActionTag("mysql/0", "0").String(),
 		}},
 	}
 	actions, err := facade.Actions(args)

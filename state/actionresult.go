@@ -77,9 +77,9 @@ func (a *ActionResult) Receiver() string {
 	return a.doc.Action.Receiver
 }
 
-// Sequence returns the unique suffix of the ActionResult _id.
-func (a *ActionResult) Sequence() int {
-	return a.doc.Action.Sequence
+// UUID returns the unique suffix of the ActionResult _id.
+func (a *ActionResult) UUID() string {
+	return a.doc.Action.UUID
 }
 
 // Name returns the name of the Action.
@@ -109,22 +109,19 @@ func (a *ActionResult) Results() (map[string]interface{}, string) {
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
-// is a names.ActionResultTag.
+// is a names.ActionTag.
 func (a *ActionResult) Tag() names.Tag {
-	return a.ActionResultTag()
-}
-
-// ActionResultTag returns an ActionResultTag constructed from this
-// actionResult's Prefix and Sequence.
-func (a *ActionResult) ActionResultTag() names.ActionResultTag {
-	return names.NewActionResultTag(a.Id())
+	return a.ActionTag()
 }
 
 // ActionTag returns the ActionTag for the Action that this ActionResult
 // is for.
 func (a *ActionResult) ActionTag() names.ActionTag {
-	ar := a.ActionResultTag()
-	return names.JoinActionTag(ar.Prefix(), ar.Sequence())
+	tag, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
+	if !ok {
+		return names.ActionTag{}
+	}
+	return tag
 }
 
 // Completed returns the completion time of the Action.
@@ -196,5 +193,5 @@ func actionResultIdFromTag(tag names.ActionTag) string {
 	if ptag == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s%d", ensureActionResultMarker(ptag.Id()), tag.Sequence())
+	return ensureActionResultMarker(ptag.Id()) + tag.Suffix()
 }
