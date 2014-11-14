@@ -20,7 +20,8 @@ import (
 // Annotations/Annotation below.
 // Note also the correspondence with AnnotationInfo in apiserver/params.
 type annotatorDoc struct {
-	GlobalKey   string `bson:"_id"`
+	EnvUUID     string `bson:"env-uuid"`
+	GlobalKey   string `bson:"globalkey"`
 	Tag         string
 	Annotations map[string]string
 }
@@ -63,7 +64,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		annotations, closer := a.st.getCollection(annotationsC)
 		defer closer()
-		if count, err := annotations.FindId(a.globalKey).Count(); err != nil {
+		if count, err := annotations.FindId(a.st.docID(a.globalKey)).Count(); err != nil {
 			return nil, err
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
@@ -82,9 +83,13 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	tag := a.tag
 	ops := []txn.Op{{
 		C:      annotationsC,
-		Id:     a.globalKey,
+		Id:     a.st.docID(a.globalKey),
 		Assert: txn.DocMissing,
-		Insert: &annotatorDoc{a.globalKey, tag.String(), toInsert},
+		Insert: &annotatorDoc{
+			GlobalKey:   a.globalKey,
+			Tag:         tag.String(),
+			Annotations: toInsert,
+		},
 	}}
 	switch tag.(type) {
 	case names.EnvironTag:
@@ -108,7 +113,7 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 func (a *annotator) updateOps(toUpdate, toRemove bson.M) []txn.Op {
 	return []txn.Op{{
 		C:      annotationsC,
-		Id:     a.globalKey,
+		Id:     a.st.docID(a.globalKey),
 		Assert: txn.DocExists,
 		Update: setUnsetUpdate(toUpdate, toRemove),
 	}}
@@ -119,7 +124,7 @@ func (a *annotator) Annotations() (map[string]string, error) {
 	doc := new(annotatorDoc)
 	annotations, closer := a.st.getCollection(annotationsC)
 	defer closer()
-	err := annotations.FindId(a.globalKey).One(doc)
+	err := annotations.FindId(a.st.docID(a.globalKey)).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
 		return make(map[string]string), nil
@@ -145,7 +150,7 @@ func (a *annotator) Annotation(key string) (string, error) {
 func annotationRemoveOp(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      annotationsC,
-		Id:     id,
+		Id:     st.docID(id),
 		Remove: true,
 	}
 }
