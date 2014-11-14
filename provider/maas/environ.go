@@ -1068,6 +1068,17 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	if foundNetwork == nil {
 		return errors.Errorf("could not find network matching %v", netId)
 	}
+	cidr := foundNetwork.CIDR
+	// XXX verify that the requested IP address is valid for the CIDR?
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	params := url.Values{}
+	params.Add("network", cidr)
+	params.Add("ip", addr.Value)
+	_, err = ipaddresses.CallPost("", params)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return errors.NotImplementedf("AllocateAddress")
 }
 
