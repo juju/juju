@@ -20,40 +20,6 @@ import (
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
-type fakeBackups struct {
-	meta    *backups.Metadata
-	archive io.ReadCloser
-	err     error
-}
-
-func (i *fakeBackups) Create(backups.Paths, backups.DBInfo, backups.Origin, string) (*backups.Metadata, error) {
-	if i.err != nil {
-		return nil, errors.Trace(i.err)
-	}
-	return i.meta, nil
-}
-
-func (i *fakeBackups) Get(string) (*backups.Metadata, io.ReadCloser, error) {
-	if i.err != nil {
-		return nil, nil, errors.Trace(i.err)
-	}
-	return i.meta, i.archive, nil
-}
-
-func (i *fakeBackups) List() ([]backups.Metadata, error) {
-	if i.err != nil {
-		return nil, errors.Trace(i.err)
-	}
-	return []backups.Metadata{*i.meta}, nil
-}
-
-func (i *fakeBackups) Remove(string) error {
-	if i.err != nil {
-		return errors.Trace(i.err)
-	}
-	return nil
-}
-
 type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
