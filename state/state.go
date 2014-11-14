@@ -224,7 +224,7 @@ func (st *State) ResumeTransactions() error {
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
-		st.allManager = NewStoreManager(newAllWatcherStateBacking(st))
+		st.allManager = newStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
 	return NewMultiwatcher(st.allManager)

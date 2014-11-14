@@ -144,9 +144,9 @@ func newStoreManagerNoRun(backing Backing) *StoreManager {
 	}
 }
 
-// NewStoreManager returns a new StoreManager that retrieves information
+// newStoreManager returns a new StoreManager that retrieves information
 // using the given backing.
-func NewStoreManager(backing Backing) *StoreManager {
+func newStoreManager(backing Backing) *StoreManager {
 	sm := newStoreManagerNoRun(backing)
 	go func() {
 		defer sm.tomb.Done()

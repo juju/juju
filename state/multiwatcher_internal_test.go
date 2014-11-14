@@ -326,7 +326,7 @@ func (*storeManagerSuite) TestHandle(c *gc.C) {
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *gc.C) {
 	// If the Multiwatcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
 	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
 	w := &Multiwatcher{all: sm}
@@ -346,7 +346,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *gc.C)
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *gc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
 	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
 	sm.all.Remove(multiwatcher.EntityId{"machine", "0"})
@@ -367,7 +367,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *gc.C) 
 func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc.C) {
 	// If the Multiwatcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
 	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
 	w := &Multiwatcher{all: sm}
@@ -386,7 +386,7 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc
 func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *gc.C) {
 	// If the Multiwatcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
 	StoreIncRef(sm.all, multiwatcher.EntityId{"machine", "0"})
 	w := &Multiwatcher{all: sm}
@@ -528,7 +528,7 @@ func (s *storeManagerSuite) TestRespondResults(c *gc.C) {
 }
 
 func (*storeManagerSuite) TestRespondMultiple(c *gc.C) {
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	sm.all.Update(&multiwatcher.MachineInfo{Id: "0"})
 
 	// Add one request and respond.
@@ -602,7 +602,7 @@ func (*storeManagerSuite) TestRespondMultiple(c *gc.C) {
 }
 
 func (*storeManagerSuite) TestRunStop(c *gc.C) {
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	w := &Multiwatcher{all: sm}
 	err := sm.Stop()
 	c.Assert(err, gc.IsNil)
@@ -617,7 +617,7 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 		&multiwatcher.ServiceInfo{Name: "logging"},
 		&multiwatcher.ServiceInfo{Name: "wordpress"},
 	})
-	sm := NewStoreManager(b)
+	sm := newStoreManager(b)
 	defer func() {
 		c.Check(sm.Stop(), gc.IsNil)
 	}()
@@ -638,7 +638,7 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 }
 
 func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
-	sm := NewStoreManager(newTestBacking(nil))
+	sm := newStoreManager(newTestBacking(nil))
 	defer func() {
 		c.Check(sm.Stop(), gc.IsNil)
 	}()
@@ -655,7 +655,7 @@ func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 
 func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) {
 	b := newTestBacking([]multiwatcher.EntityInfo{&multiwatcher.MachineInfo{Id: "0"}})
-	sm := NewStoreManager(b)
+	sm := newStoreManager(b)
 	defer func() {
 		c.Check(sm.Stop(), gc.ErrorMatches, "some error")
 	}()
