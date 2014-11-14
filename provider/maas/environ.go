@@ -1051,8 +1051,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 }
 
 // AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// MAAS provider yet.
+// given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
 	networks, err := environ.ListNetworks(instId)
 	if err != nil {
