@@ -63,7 +63,7 @@ type backups struct {
 	storage filestorage.FileStorage
 }
 
-// NewBackups creates a new Backups value using the provided file storage.
+// NewBackups creates a new Backups value using the FileStorage provided.
 func NewBackups(stor filestorage.FileStorage) Backups {
 	b := backups{
 		storage: stor,
