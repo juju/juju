@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type fakeBackups struct {
@@ -72,17 +73,12 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
-	s.meta = s.newMeta("")
+	s.meta = backupstesting.NewMetadataStarted()
 }
 
-func (s *backupsSuite) newMeta(notes string) *backups.Metadata {
-	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return backups.NewMetadata(origin, notes, nil)
-}
-
-func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *fakeBackups {
-	fake := fakeBackups{
-		meta: meta,
+func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
+	fake := backupstesting.FakeBackups{
+		Meta: meta,
 	}
 	if err != "" {
 		fake.err = errors.Errorf(err)
