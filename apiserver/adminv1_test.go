@@ -118,6 +118,39 @@ func (s *remoteLoginSuite) TearDownTest(c *gc.C) {
 	s.loginSuite.TearDownTest(c)
 }
 
+func (s *remoteLoginSuite) dischargeReauth(user string, reauth *params.ReauthRequest) ([]byte, error) {
+	// As the remote client, decode the reauth request, obtain a discharge
+	// macaroon from the identity-providing service, bind and serialize the
+	// followup credential.
+	var remoteCreds authentication.RemoteCredentials
+	err := remoteCreds.UnmarshalText([]byte(reauth.Prompt))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env, err := s.State.Environment()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
+		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
+			// The first-party location should be the target Juju environment's tag.
+			if loc != env.EnvironTag().Id() {
+				return nil, errors.Errorf("invalid first-party location")
+			}
+			return s.remoteIdService.Discharge(newLoggedInChecker(user), cav.Id)
+		},
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	remoteCreds.Bind()
+	credBytes, err := remoteCreds.MarshalText()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return credBytes, nil
+}
+
 func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
@@ -132,24 +165,8 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	// No API facade versions. We're not logged in yet.
 	c.Check(st.AllFacadeVersions(), gc.HasLen, 0)
 
-	// As the remote client, decode the reauth request, obtain a discharge
-	// macaroon from the identity-providing service, bind and serialize the
-	// followup credential.
-	var remoteCreds authentication.RemoteCredentials
-	err = remoteCreds.UnmarshalText([]byte(reauth.Prompt))
-	c.Assert(err, gc.IsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
-	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
-		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
-			// The first-party location is the target Juju environment's tag.
-			c.Assert(loc, gc.Equals, env.EnvironTag().Id())
-			return s.remoteIdService.Discharge(newLoggedInChecker("bob"), cav.Id)
-		},
-	)
-	c.Assert(err, gc.IsNil)
-	remoteCreds.Bind()
-	credBytes, err := remoteCreds.MarshalText()
+	// Obtain follow-up credentials for the reauth challenge
+	credBytes, err := s.dischargeReauth("bob", reauth)
 	c.Assert(err, gc.IsNil)
 
 	// Retry the remote login request
@@ -160,6 +177,32 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	// Should be logged in
 	c.Assert(st.Ping(), gc.IsNil)
 	c.Assert(len(st.AllFacadeVersions()), jc.GreaterThan, 0)
+}
+
+func (s *remoteLoginSuite) TestReauthInvalidUser(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+	st := s.openAPIWithoutLogin(c, info)
+
+	// Bob starts the login process.
+	remoteUser := names.NewUserTag("bob")
+	reauth, err := st.Login(remoteUser.String(), "", "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(reauth, gc.NotNil)
+
+	// No API facade versions. We're not logged in yet.
+	c.Check(st.AllFacadeVersions(), gc.HasLen, 0)
+
+	// Obtain follow-up credentials for the reauth challenge
+	credBytes, err := s.dischargeReauth("bob", reauth)
+	c.Assert(err, gc.IsNil)
+
+	// Mallory has been listening all along and tries to steal the
+	// connection away from Bob!
+	_, err = st.Login(names.NewUserTag("mallory").String(), string(credBytes), reauth.Nonce)
+
+	// Not so fast, Mallory!
+	c.Assert(err, gc.ErrorMatches, "verification failed: invalid user")
 }
 
 type emptyCredReauthHandler struct{}

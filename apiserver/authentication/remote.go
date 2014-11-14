@@ -17,33 +17,23 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// RemoteUser represents a remote user defined by an external identity
-// provider.
+// RemoteUser represents a remote user known to an external identity provider.
 type RemoteUser struct {
-	authTag   names.UserTag
-	sessionId string
+	userTag names.UserTag
 }
 
 // NewRemoteUser creates a new RemoteUser instance.
-func NewRemoteUser(authTag, sessionId string) (*RemoteUser, error) {
-	tag, err := names.ParseTag(authTag)
+func NewRemoteUser(userName string) (*RemoteUser, error) {
+	userTag, err := names.ParseUserTag(userName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	switch tag := tag.(type) {
-	case names.UserTag:
-		return &RemoteUser{
-			authTag:   tag,
-			sessionId: sessionId,
-		}, nil
-	default:
-		return nil, errors.Errorf("not a remote user tag: %q", tag)
-	}
+	return &RemoteUser{userTag}, nil
 }
 
-// Tag implements the names.Tag interface.
+// Tag implements the state.Entity interface.
 func (ru *RemoteUser) Tag() names.Tag {
-	return ru.authTag
+	return ru.userTag
 }
 
 type remoteCredentials struct {
@@ -127,16 +117,27 @@ func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
 	return &RemoteAuthenticator{Service: service}
 }
 
+func declaredUserChecker(user string) bakery.FirstPartyCheckerFunc {
+	return func(cav string) error {
+		question, arg, err := checkers.ParseCaveat(cav)
+		if err != nil {
+			return err
+		}
+		if question == "declared-user" {
+			if arg == user {
+				return nil
+			}
+			return errors.Errorf("invalid user")
+		}
+		return &bakery.CaveatNotRecognizedError{cav}
+	}
+}
+
 // Authenticate implements the EntityAuthenticator interface.
-func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonce string) error {
+func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, _ string) error {
 	remoteUser, ok := entity.(*RemoteUser)
 	if !ok {
 		logger.Infof("not a remote user: %q", entity)
-		return common.ErrBadCreds
-	}
-	// TODO (cmars): necessary to check this?
-	if remoteUser.sessionId != nonce {
-		logger.Infof("remote user session %q does not match nonce %q", remoteUser.sessionId, nonce)
 		return common.ErrBadCreds
 	}
 
@@ -145,12 +146,11 @@ func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonc
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if remoteCreds.Primary.Id() != nonce {
-		logger.Infof("invalid credential")
-		return common.ErrBadCreds
-	}
 
-	r := a.NewRequest(checkers.Std)
+	firstPartyChecker := checkers.PushFirstPartyChecker(checkers.Std, checkers.Map{
+		"declared-user": declaredUserChecker(remoteUser.userTag.Id()),
+	})
+	r := a.NewRequest(firstPartyChecker)
 	AddCredsToRequest(&remoteCreds, r)
 	return r.Check()
 }

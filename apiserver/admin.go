@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -299,7 +298,7 @@ func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) Credential
 
 // Check implements the CredentialChecker interface.
 func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
-	entity, err := authentication.NewRemoteUser(req.AuthTag, req.Nonce)
+	entity, err := authentication.NewRemoteUser(req.AuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -352,7 +351,10 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
 		{
 			Location:  info.IdentityProvider.Location,
-			Condition: fmt.Sprintf("can-speak-for %s", userTag.Id()),
+			Condition: "can-speak-for " + userTag.Id(),
+		},
+		{
+			Condition: "declared-user " + userTag.Id(),
 		},
 		checkers.TimeBefore(timeBefore),
 	})
@@ -369,7 +371,6 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	return params.LoginResultV1{
 		ReauthRequest: &params.ReauthRequest{
 			Prompt: string(prompt),
-			Nonce:  m.Id(),
 		},
 	}, nil
 }
