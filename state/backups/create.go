@@ -254,9 +254,8 @@ func writeAll(targetname string, source io.Reader) error {
 
 func (b *builder) buildFilesBundle() error {
 	logger.Infof("dumping juju state-related files")
-	if b.filesToBackUp == nil {
-		logger.Infof("nothing to do")
-		return nil
+	if len(b.filesToBackUp) == 0 {
+		return errors.New("missing list of files to back up")
 	}
 	if b.bundleFile == nil {
 		return errors.New("missing bundleFile")
