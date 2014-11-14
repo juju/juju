@@ -419,11 +419,11 @@ func newBackupMetadataStorage(dbWrap *backupDBWrapper) *backupsMetadataStorage {
 
 // AddDoc adds the document to storage and returns the new ID.
 func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
-	var metaDoc backupMetaDoc
 	metadata, ok := doc.(*backups.Metadata)
 	if !ok {
 		return "", errors.Errorf("doc must be of type *backups.Metadata")
 	}
+	var metaDoc backupMetaDoc
 	metaDoc.UpdateFromMetadata(metadata)
 
 	dbWrap := s.dbWrap.Copy()
