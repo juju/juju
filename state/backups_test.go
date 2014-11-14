@@ -55,6 +55,7 @@ func (s *backupSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id st
 
 func (s *backupSuite) TestNewBackupID(c *gc.C) {
 	meta := s.metadata(c)
+	meta.Origin.Environment = "spam"
 	meta.Started = time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
 	id := state.NewBackupID(meta)
 
@@ -99,7 +100,7 @@ func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 }
 
 func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
-	original := &backups.Metadata{}
+	original := backups.NewMetadata()
 	_, err := state.AddBackupMetadata(s.State, original)
 
 	c.Check(err, gc.NotNil)
