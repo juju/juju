@@ -1168,7 +1168,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 
 func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: names.JoinActionTag("wordpress/0", uuid.String()).String(),
@@ -1180,7 +1180,7 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	actionsQueryResult := results.Results[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action "wordpress/0_a_[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
 }
 
 func (s *uniterBaseSuite) testActionsWrongUnit(
