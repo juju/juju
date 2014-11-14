@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/networker"
@@ -1038,6 +1039,33 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	started := make(chan struct{})
+	newWorker := func(diskmanager.BlockDeviceSetter) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newDiskManager, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for diskmanager worker to start")
+	}
+}
+
+func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+	if version.Current.OS != version.Ubuntu {
+		c.Skip("diskmanager only runs on Linux")
+		return
+	}
+
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
