@@ -103,7 +103,7 @@ func (a *Action) Receiver() string {
 	return a.doc.Receiver
 }
 
-// UUID returns the unique suffix of the _id of this Action.
+// UUID returns the unique id of this Action.
 func (a *Action) UUID() string {
 	return a.doc.UUID
 }
@@ -126,6 +126,13 @@ func (a *Action) Enqueued() time.Time {
 	return a.doc.Enqueued
 }
 
+// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
+// that the Action can produce a valid Tag.
+func (a *Action) ValidateTag() bool {
+	_, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
+	return ok
+}
+
 // Tag implements the Entity interface and returns a names.Tag that
 // is a names.ActionTag.
 func (a *Action) Tag() names.Tag {
@@ -135,11 +142,7 @@ func (a *Action) Tag() names.Tag {
 // ActionTag returns an ActionTag constructed from this action's
 // Prefix and Sequence.
 func (a *Action) ActionTag() names.ActionTag {
-	tag, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
-	if !ok {
-		return names.ActionTag{}
-	}
-	return tag
+	return names.JoinActionTag(a.Receiver(), a.UUID())
 }
 
 // ActionResults is a data transfer object that holds the key Action

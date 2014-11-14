@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -1166,9 +1167,11 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 }
 
 func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.NotNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", "0").String(),
+			Tag: names.JoinActionTag("wordpress/0", uuid.String()).String(),
 		}},
 	}
 	results, err := facade.Actions(args)
