@@ -86,6 +86,7 @@ func create(args *createArgs) (_ *createResult, err error) {
 
 // builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
+	rootDir string
 	// archivePaths is the backups archive summary.
 	archivePaths ArchivePaths
 	// filename is the path to the archive file.
@@ -126,7 +127,8 @@ func newBuilder(filesToBackUp []string, db DBDumper) (b *builder, err error) {
 		return nil, errors.Annotate(err, "while making backups workspace")
 	}
 	b.filename = filepath.Join(rootDir, tempFilename)
-	b.archivePaths = NewUnpackedArchivePaths(rootDir)
+	b.archivePaths = NewNonCanonicalArchivePaths(rootDir)
+	b.rootDir = rootDir
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
@@ -181,11 +183,11 @@ func (b *builder) closeBundleFile() error {
 
 func (b *builder) removeRootDir() error {
 	// Currently this method isn't thread-safe (doesn't need to be).
-	if b.archivePaths.RootDir == "" {
+	if b.rootDir == "" {
 		return nil
 	}
 
-	if err := os.RemoveAll(b.archivePaths.RootDir); err != nil {
+	if err := os.RemoveAll(b.rootDir); err != nil {
 		return errors.Annotate(err, "while removing backups temp dir")
 	}
 
@@ -284,7 +286,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 	// We add a trailing slash (or whatever) to root so that everything
 	// in the path up to and including that slash is stripped off when
 	// each file is added to the tar file.
-	stripPrefix := b.archivePaths.RootDir + string(os.PathSeparator)
+	stripPrefix := b.rootDir + string(os.PathSeparator)
 	filenames := []string{b.archivePaths.ContentDir}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		return errors.Annotate(err, "while bundling final archive")
