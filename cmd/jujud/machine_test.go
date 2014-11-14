@@ -1037,6 +1037,25 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
+func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Wait for state to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		devices, err := m.BlockDevices()
+		c.Assert(err, gc.IsNil)
+		if len(devices) > 0 {
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for block devices to be recorded")
+}
+
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 	tests := []struct {
 		about          string

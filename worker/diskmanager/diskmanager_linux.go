@@ -12,6 +12,9 @@ import (
 
 // blockDeviceInUse checks if the specified block device
 // is in use by attempting to open the device exclusively.
+//
+// If the error returned satisfies os.IsNotExists, then
+// the device will be ignored altogether.
 var blockDeviceInUse = func(dev storage.BlockDevice) (bool, error) {
 	f, err := os.OpenFile("/dev/"+dev.DeviceName, os.O_EXCL, 0)
 	if err == nil {

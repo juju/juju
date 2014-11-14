@@ -4,111 +4,94 @@
 package diskmanager_test
 
 import (
-	"errors"
-
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/diskmanager"
+	"github.com/juju/testing"
 )
 
-var _ = gc.Suite(&ListBlockDevicesSuite{})
+var _ = gc.Suite(&DiskManagerWorkerSuite{})
 
-type ListBlockDevicesSuite struct {
+type DiskManagerWorkerSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *ListBlockDevicesSuite) SetUpTest(c *gc.C) {
+func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(diskmanager.BlockDeviceInUse, func(storage.BlockDevice) (bool, error) {
 		return false, nil
 	})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevices(c *gc.C) {
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev storage.BlockDevice) (bool, error) {
-		return dev.DeviceName == "sdb", nil
-	})
+func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
+	var oldDevices []storage.BlockDevice
+	var devicesSet [][]storage.BlockDevice
+	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+		devicesSet = append(devicesSet, devices)
+		return nil
+	}
+
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
 cat <<EOF
-KNAME="sda" SIZE="240057409536" LABEL="" UUID=""
-KNAME="sda1" SIZE="254803968" LABEL="" UUID="7a62bd85-a350-4c09-8944-5b99bf2080c6"
-KNAME="sda2" SIZE="1024" LABEL="boot" UUID=""
-KNAME="sdb" SIZE="32017047552" LABEL="" UUID=""
-KNAME="sdb1" SIZE="32015122432" LABEL="media" UUID="2c1c701d-f2ce-43a4-b345-33e2e39f9503"
-EOF`)
+KNAME="sda" SIZE="0" LABEL="" UUID=""
+EOF`,
+	)
+	for i := 0; i < 2; i++ {
+		err := diskmanager.DoWork(setDevices, &oldDevices)
+		c.Assert(err, gc.IsNil)
+	}
 
-	devices, err := diskmanager.ListBlockDevices()
+	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+cat <<EOF
+KNAME="sdb" SIZE="0" LABEL="" UUID=""
+EOF`,
+	)
+	err := diskmanager.DoWork(setDevices, &oldDevices)
 	c.Assert(err, gc.IsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
+
+	// diskmanager only calls the BlockDeviceSetter when it sees
+	// a change in disks.
+	c.Assert(devicesSet, gc.HasLen, 2)
+	c.Assert(devicesSet[0], gc.DeepEquals, []storage.BlockDevice{{
 		DeviceName: "sda",
-		Size:       228936,
-	}, {
-		DeviceName: "sda1",
-		Size:       243,
-		UUID:       "7a62bd85-a350-4c09-8944-5b99bf2080c6",
-	}, {
-		DeviceName: "sda2",
-		Size:       0, // truncated
-		Label:      "boot",
+	}})
+	c.Assert(devicesSet[1], gc.DeepEquals, []storage.BlockDevice{{
+		DeviceName: "sdb",
+	}})
+}
+
+func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
+	var devicesSet [][]storage.BlockDevice
+	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+		devicesSet = append(devicesSet, devices)
+		return nil
+	}
+
+	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+cat <<EOF
+KNAME="sdb" SIZE="0" LABEL="" UUID=""
+KNAME="sda" SIZE="0" LABEL="" UUID=""
+KNAME="sdc" SIZE="0" LABEL="" UUID=""
+EOF`,
+	)
+	err := diskmanager.DoWork(setDevices, new([]storage.BlockDevice))
+	c.Assert(err, gc.IsNil)
+
+	// The block Devices should be sorted when passed to the block
+	// device setter.
+	c.Assert(devicesSet, gc.DeepEquals, [][]storage.BlockDevice{{{
+		DeviceName: "sda",
 	}, {
 		DeviceName: "sdb",
-		Size:       30533,
-		InUse:      true,
 	}, {
-		DeviceName: "sdb1",
-		Size:       30532,
-		Label:      "media",
-		UUID:       "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
-	}})
+		DeviceName: "sdc",
+	}}})
 }
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *gc.C) {
-	testing.PatchExecutableThrowError(c, s, "lsblk", 123)
-	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.ErrorMatches, "cannot list block devices: lsblk failed: exit status 123")
-	c.Assert(devices, gc.IsNil)
-}
+type BlockDeviceSetterFunc func([]storage.BlockDevice) error
 
-func (s *ListBlockDevicesSuite) TestListBlockDevicesBlockDeviceInUseError(c *gc.C) {
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev storage.BlockDevice) (bool, error) {
-		return false, errors.New("badness")
-	})
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
-cat <<EOF
-KNAME="sda" SIZE="240057409536" LABEL="" UUID=""
-EOF`)
-
-	// If the in-use check errors, the block device will be marked "in use"
-	// to prevent it from being used, but no error will be returned.
-	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.IsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
-		DeviceName: "sda",
-		Size:       228936,
-		InUse:      true,
-	}})
-}
-
-func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkBadOutput(c *gc.C) {
-	// Extra key/value pairs should be ignored; invalid sizes should
-	// be logged and ignored (Size will be set to zero).
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
-cat <<EOF
-KNAME="sda" SIZE="eleventy" LABEL="" UUID=""
-KNAME="sdb" SIZE="1048576" LABEL="" UUID="" BOB="DOBBS"
-EOF`)
-
-	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.IsNil)
-	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
-		DeviceName: "sda",
-		Size:       0,
-	}, {
-		DeviceName: "sdb",
-		Size:       1,
-	}})
+func (f BlockDeviceSetterFunc) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+	return f(devices)
 }
