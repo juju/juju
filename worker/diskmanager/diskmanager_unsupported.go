@@ -10,3 +10,7 @@ import "github.com/juju/juju/storage"
 var blockDeviceInUse = func(storage.BlockDevice) (bool, error) {
 	panic("not supported")
 }
+
+func listBlockDevices() ([]storage.BlockDevice, error) {
+	panic("not supported")
+}
