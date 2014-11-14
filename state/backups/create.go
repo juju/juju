@@ -234,15 +234,21 @@ func (b *builder) cleanUp() *cleanupErrors {
 	return nil
 }
 
-func (b *builder) injectMetadataFile(file io.Reader) error {
-	metadataFile, err := os.Create(b.archivePaths.MetadataFile)
+func (b *builder) injectMetadataFile(source io.Reader) error {
+	err := writeAll(b.archivePaths.MetadataFile, source)
+	return errors.Trace(err)
+}
+
+func writeAll(targetname string, source io.Reader) error {
+	target, err := os.Create(targetname)
 	if err != nil {
-		return errors.Annotate(err, "while creating metadata file")
+		return errors.Annotatef(err, "while creating file %q", targetname)
 	}
-	defer metadataFile.Close()
-	_, err = io.Copy(metadataFile, file)
+	defer target.Close()
+
+	_, err = io.Copy(target, source)
 	if err != nil {
-		return errors.Annotate(err, "while creating metadata file")
+		return errors.Annotatef(err, "while copying into file %q", targetname)
 	}
 	return nil
 }
