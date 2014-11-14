@@ -45,7 +45,23 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		}
 	}
 
-	// Filter out states not related to charm deployment.
+	// Resume interrupted deployment operations.
+	if u.operationState.Kind == operation.Install {
+		logger.Infof("resuming charm install")
+		return ModeInstalling(u.operationState.CharmURL), nil
+	} else if u.operationState.Kind == operation.Upgrade {
+		logger.Infof("resuming charm upgrade")
+		return ModeUpgrading(u.operationState.CharmURL), nil
+	}
+
+	// If we got this far, we should have an installed charm,
+	// so initialize the metrics collector according to what's
+	// deployed.
+	err = u.initializeMetricsCollector()
+	if err != nil {
+		return nil, err
+	}
+
 	switch u.operationState.Kind {
 	case operation.Continue:
 		logger.Infof("continuing after %q hook", u.operationState.Hook.Kind)
@@ -82,17 +98,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		logger.Infof("awaiting error resolution for %q hook", u.operationState.Hook.Kind)
 		return ModeHookError, nil
 	}
-
-	// Resume interrupted deployment operations.
-	curl := u.operationState.CharmURL
-	if u.operationState.Kind == operation.Install {
-		logger.Infof("resuming charm install")
-		return ModeInstalling(curl), nil
-	} else if u.operationState.Kind == operation.Upgrade {
-		logger.Infof("resuming charm upgrade")
-		return ModeUpgrading(curl), nil
-	}
-	panic(fmt.Errorf("unhandled uniter operation %q", u.operationState.Kind))
+	return nil, fmt.Errorf("unhandled uniter operation %q", u.operationState.Kind)
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
@@ -245,7 +251,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
 		lastCollectMetrics := time.Unix(u.operationState.CollectMetricsTime, 0)
-		collectMetricsSignal := collectMetricsAt(
+		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
 		hi := hook.Info{}
