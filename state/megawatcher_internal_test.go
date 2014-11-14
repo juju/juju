@@ -40,6 +40,7 @@ var dottedConfig = `
 options:
   key.dotted: {default: My Key, description: Desc, type: string}
 `
+var _ = gc.Suite(&storeManagerStateSuite{})
 
 type storeManagerStateSuite struct {
 	testing.BaseSuite
@@ -79,8 +80,6 @@ func (s *storeManagerStateSuite) Reset(c *gc.C) {
 	s.TearDownTest(c)
 	s.SetUpTest(c)
 }
-
-var _ = gc.Suite(&storeManagerStateSuite{})
 
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
@@ -265,7 +264,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 	expectEntities := s.setUpScenario(c)
 	b := newAllWatcherStateBacking(s.State)
-	all := multiwatcher.NewStore()
+	all := NewStore()
 	err := b.GetAll(all)
 	c.Assert(err, gc.IsNil)
 	var gotEntities entityInfoSlice = all.All()
@@ -958,7 +957,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
-		all := multiwatcher.NewStore()
+		all := NewStore()
 		for _, info := range test.add {
 			all.Update(info)
 		}
@@ -986,11 +985,11 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(m1.Id(), gc.Equals, "1")
 
 	b := newAllWatcherStateBacking(s.State)
-	aw := multiwatcher.NewStoreManager(b)
+	aw := NewStoreManager(b)
 	defer aw.Stop()
-	w := multiwatcher.NewMultiwatcher(aw)
+	w := NewMultiwatcher(aw)
 	s.State.StartSync()
-	checkNext(c, w, b, []multiwatcher.Delta{{
+	checkNext(c, w, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "0",
 			Status:    juju.StatusPending,
@@ -1050,7 +1049,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		deltas = append(deltas, d...)
 	}
-	checkDeltasEqual(c, b, deltas, []multiwatcher.Delta{{
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      "0",
 			InstanceId:              "i-0",
@@ -1102,7 +1101,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = w.Next()
-	c.Assert(err, gc.ErrorMatches, multiwatcher.ErrStopped.Error())
+	c.Assert(err, gc.ErrorMatches, ErrStopped.Error())
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
@@ -1124,7 +1123,7 @@ func (s entityInfoSlice) Less(i, j int) bool {
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *gc.C, w *multiwatcher.Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
+func getNext(c *gc.C, w *Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
 	var deltas []multiwatcher.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -1140,22 +1139,22 @@ func getNext(c *gc.C, w *multiwatcher.Multiwatcher, timeout time.Duration) ([]mu
 	return nil, errTimeout
 }
 
-func checkNext(c *gc.C, w *multiwatcher.Multiwatcher, b multiwatcher.Backing, deltas []multiwatcher.Delta, expectErr string) {
+func checkNext(c *gc.C, w *Multiwatcher, deltas []multiwatcher.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
 		c.Check(err, gc.ErrorMatches, expectErr)
 		return
 	}
-	checkDeltasEqual(c, b, d, deltas)
+	checkDeltasEqual(c, d, deltas)
 }
 
 // deltas are returns in arbitrary order, so we compare
 // them as sets.
-func checkDeltasEqual(c *gc.C, b multiwatcher.Backing, d0, d1 []multiwatcher.Delta) {
-	c.Check(deltaMap(d0, b), jc.DeepEquals, deltaMap(d1, b))
+func checkDeltasEqual(c *gc.C, d0, d1 []multiwatcher.Delta) {
+	c.Check(deltaMap(d0), jc.DeepEquals, deltaMap(d1))
 }
 
-func deltaMap(deltas []multiwatcher.Delta, b multiwatcher.Backing) map[interface{}]multiwatcher.EntityInfo {
+func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityInfo {
 	m := make(map[interface{}]multiwatcher.EntityInfo)
 	for _, d := range deltas {
 		id := d.Entity.EntityId()
