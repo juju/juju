@@ -58,7 +58,7 @@ func NewBackupID(meta *backups.Metadata) string {
 	return newBackupID(doc)
 }
 
-// GetBackupMetadata pulls the metadata from storage.
+// GetBackupMetadata returns the metadata retrieved from storage.
 func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
@@ -69,7 +69,7 @@ func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
-// AddBackupMetadata pushes the metadata into storage.
+// AddBackupMetadata adds the metadata to storage.
 func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
@@ -77,7 +77,7 @@ func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	return addBackupMetadata(db, doc)
 }
 
-// AddBackupMetadata pushes the metadata into storage, using the given
+// AddBackupMetadataID adds the metadata to storage, using the given
 // backup ID.
 func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	db := getBackupDBWrapper(st)
