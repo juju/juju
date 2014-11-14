@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v0/bakery"
@@ -284,7 +285,7 @@ func (*failConditionChecker) CheckThirdPartyCaveat(caveatId, condition string) (
 
 func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 	testCases := []struct {
-		setup   func() func()
+		setUp   func() testing.Restorer
 		handler api.ReauthHandler
 		pattern string
 	}{{
@@ -295,7 +296,7 @@ func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 		},
 		pattern: "verification failed: signature mismatch after caveat verification",
 	}, {
-		setup: func() func() {
+		setUp: func() testing.Restorer {
 			originalTTL := apiserver.MaxMacaroonTTL
 			apiserver.MaxMacaroonTTL = -24 * time.Hour
 			return func() {
@@ -326,8 +327,8 @@ func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 	for i, testCase := range testCases {
 		func() {
 			c.Log("test#", i)
-			if testCase.setup != nil {
-				cleanup := testCase.setup()
+			if testCase.setUp != nil {
+				cleanup := testCase.setUp()
 				defer cleanup()
 			}
 			info, cleanup := s.setupServerWithValidator(c, nil)
