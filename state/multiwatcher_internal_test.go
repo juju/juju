@@ -17,14 +17,6 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var (
-	_ multiwatcher.EntityInfo = (*multiwatcher.MachineInfo)(nil)
-	_ multiwatcher.EntityInfo = (*multiwatcher.ServiceInfo)(nil)
-	_ multiwatcher.EntityInfo = (*multiwatcher.UnitInfo)(nil)
-	_ multiwatcher.EntityInfo = (*multiwatcher.RelationInfo)(nil)
-	_ multiwatcher.EntityInfo = (*multiwatcher.AnnotationInfo)(nil)
-)
-
 var _ = gc.Suite(&storeSuite{})
 
 type storeSuite struct {
