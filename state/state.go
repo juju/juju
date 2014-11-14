@@ -67,6 +67,7 @@ const (
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
 	rebootC            = "reboot"
+	blockDevicesC      = "blockdevices"
 
 	// sequenceC is used to generate unique identifiers.
 	sequenceC = "sequence"
