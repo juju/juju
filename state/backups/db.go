@@ -44,21 +44,16 @@ type DBConnInfo struct {
 // values do not change between the time you call this method and when
 // you actually need the values.
 func (ci *DBConnInfo) Validate() error {
-	var address, username, password string
-
-	address = ci.Address
-	username = ci.Username
-	password = ci.Password
-
-	if address == "" {
+	if ci.Address == "" {
 		return errors.New("missing address")
-	} else if username == "" {
-		return errors.New("missing username")
-	} else if password == "" {
-		return errors.New("missing password")
-	} else {
-		return nil
 	}
+	if ci.Username == "" {
+		return errors.New("missing username")
+	}
+	if ci.Password == "" {
+		return errors.New("missing password")
+	}
+	return nil
 }
 
 // DBInfo wraps all the DB-specific information backups needs to dump
