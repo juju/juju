@@ -1,11 +1,12 @@
 import os
 from subprocess import CalledProcessError
-from textwrap import dedent
 from unittest import TestCase
 
+from boto.ec2.securitygroup import SecurityGroup
 from mock import (
     ANY,
     call,
+    MagicMock,
     patch,
     )
 
@@ -168,18 +169,21 @@ class TestAWSAccount(TestCase):
 
     def test_list_instance_security_groups(self):
         aws = AWSAccount.from_config(get_aws_env().config)
-        return_value = dedent("""\
-            GROUP\tfoo\tbar
-            GROUP\tbaz\tqux
-            GROUPS\tasdf\tfasd
-            """)
-        with patch('subprocess.check_output',
-                   return_value=return_value) as co_mock:
+        with patch.object(aws, 'get_ec2_connection') as gec_mock:
+            instances = [
+                MagicMock(instances=[MagicMock(groups=[
+                    SecurityGroup(id='foo', name='bar'),
+                    ])]),
+                MagicMock(instances=[MagicMock(groups=[
+                    SecurityGroup(id='baz', name='qux'),
+                    SecurityGroup(id='quxx-id', name='quxx'),
+                    ])]),
+            ]
+            gec_mock.return_value.get_all_instances.return_value = instances
             groups = list(aws.list_instance_security_groups())
-        co_mock.assert_called_once_with(
-            ['euca-describe-instances'],
-            env=aws.get_environ())
-        self.assertEqual(groups, [('foo', 'bar'), ('baz', 'qux')])
+        gec_mock.assert_called_once_with()
+        self.assertEqual(groups, [
+            ('foo', 'bar'), ('baz', 'qux'),  ('quxx-id', 'quxx')])
 
     def test_destroy_security_groups(self):
         aws = AWSAccount.from_config(get_aws_env().config)

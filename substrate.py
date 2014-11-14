@@ -93,6 +93,7 @@ class AWSAccount:
 
     def list_instance_security_groups(self):
         """List the security groups used by instances in this account."""
+        logging.info('Listing security groups in use.')
         connection = self.get_ec2_connection()
         reservations = connection.get_all_instances()
         for reservation in reservations:
@@ -121,7 +122,7 @@ class AWSAccount:
 
     def delete_detached_interfaces(self, security_groups):
         """Delete detached network interfaces for supplied groups.
-        
+
         :param security_groups: A collection of security_group ids.
         :return: A collection of security groups which still have interfaces in
             them.
@@ -140,6 +141,9 @@ class AWSAccount:
                                 'InvalidNetworkInterface.InUse',
                                 'InvalidNetworkInterfaceID.NotFound'):
                             raise
+                        logging.info(
+                            'Failed to delete interface {}'.format(
+                                interface.id))
                         unclean.update(g.id for g in interface.groups)
                     break
         return unclean
