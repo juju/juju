@@ -92,7 +92,7 @@ func (s *archiveDataSuite) TestNewArchiveData(c *gc.C) {
 	ad := backups.NewArchiveData([]byte("<uncompressed>"))
 	data := ad.NewBuffer().String()
 
-	c.Check(ad.RootDir, gc.Equals, "")
+	c.Check(ad.ContentDir, gc.Equals, "juju-backup")
 	c.Check(data, gc.Equals, "<uncompressed>")
 }
 
@@ -101,7 +101,7 @@ func (s *archiveDataSuite) TestNewArchiveDataReader(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	data := ad.NewBuffer().Bytes()
 
-	c.Check(ad.RootDir, gc.Equals, "")
+	c.Check(ad.ContentDir, gc.Equals, "juju-backup")
 	c.Check(data, jc.DeepEquals, s.data)
 }
 

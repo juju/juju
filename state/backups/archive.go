@@ -178,7 +178,7 @@ type ArchiveData struct {
 // uncompressed data.
 func NewArchiveData(data []byte) *ArchiveData {
 	return &ArchiveData{
-		ArchivePaths: NewPackedArchivePaths(),
+		ArchivePaths: NewCanonicalArchivePaths(),
 		data:         data,
 	}
 }
