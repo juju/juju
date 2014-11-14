@@ -60,6 +60,7 @@ type UniterSuite struct {
 
 	st     *api.State
 	uniter *apiuniter.State
+	ticker *uniter.ManualTicker
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -90,6 +91,8 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+	s.ticker = uniter.NewManualTicker()
+	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
@@ -214,6 +217,18 @@ func (ctx *context) writeActions(c *gc.C, path string, names []string) {
 	for _, name := range names {
 		ctx.writeAction(c, path, name)
 	}
+}
+
+func (ctx *context) writeMetricsYaml(c *gc.C, path string) {
+	metricsYamlPath := filepath.Join(path, "metrics.yaml")
+	var metricsYamlFull []byte = []byte(`
+metrics:
+  pings:
+    type: gauge
+    description: sample metric
+`)
+	err := ioutil.WriteFile(metricsYamlPath, []byte(metricsYamlFull), 0755)
+	c.Assert(err, gc.IsNil)
 }
 
 func (ctx *context) writeAction(c *gc.C, path, name string) {
@@ -1329,23 +1344,60 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 var collectMetricsEventTests = []uniterTest{
 	ut(
 		"collect-metrics event triggered by manual timer",
-		quickStart{},
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeMetricsYaml(c, path)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{status: juju.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
 		metricsTick{},
 		waitHooks{"collect-metrics"},
 	),
-
 	ut(
 		"collect-metrics resumed after hook error",
-		startupError{"config-changed"},
+		startupErrorWithCustomCharm{
+			badHook: "config-changed",
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeMetricsYaml(c, path)
+			},
+		},
 		metricsTick{},
-		verifyWaiting{},
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
 			status: juju.StatusStarted,
 		},
-		waitHooks{"config-changed", "start", "collect-metrics", "config-changed"},
+		waitHooks{"config-changed", "start", "collect-metrics"},
 		verifyRunning{},
+	),
+	ut(
+		"collect-metrics state maintained during uniter restart",
+		startupErrorWithCustomCharm{
+			badHook: "config-changed",
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeMetricsYaml(c, path)
+			},
+		},
+		metricsTick{},
+		fixHook{"config-changed"},
+		stopUniter{},
+		startUniter{},
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: juju.StatusStarted,
+		},
+		waitHooks{"config-changed", "start", "collect-metrics"},
+		verifyRunning{},
+	),
+	ut(
+		"collect-metrics event not triggered for non-metered charm",
+		quickStart{},
+		metricsTick{},
+		waitHooks{},
 	),
 }
 
@@ -1650,6 +1702,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				path:    s.unitDir,
 				dataDir: s.dataDir,
 				charms:  make(map[string][]byte),
+				ticker:  s.ticker,
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -2045,10 +2098,6 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, gc.IsNil)
-	if ctx.ticker == nil {
-		ctx.ticker = uniter.NewManualTicker()
-		uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
-	}
 	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
