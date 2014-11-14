@@ -48,6 +48,10 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
+// CollectMetricsSignal is the signature of the function used to generate a collect-metrics
+// signal.
+type CollectMetricsSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
+
 // collectMetricsTimer returns a channel that will signal the collect metrics hook
 // as close to metricsPollInterval after the last run as possible.
 func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
@@ -56,9 +60,15 @@ func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan 
 	return time.After(waitDuration)
 }
 
-// collectMetricsAt defines a function that will be used to generate signals
-// for the collect-metrics hook. It will be replaced in tests.
-var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time = collectMetricsTimer
+// activeMetricsTimer is the timer function used to generate metrics collections
+// signals for metrics-enabled charms.
+var activeMetricsTimer CollectMetricsSignal = collectMetricsTimer
+
+// inactiveMetricsTimer is the default metrics signal generation function, that returns no signal.
+// It will be used in charms that do not declare metrics.
+func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
+	return nil
+}
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
@@ -86,6 +96,10 @@ type Uniter struct {
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
+
+	// collectMetricsAt defines a function that will be used to generate signals
+	// for the collect-metrics hook.
+	collectMetricsAt CollectMetricsSignal
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -93,9 +107,10 @@ type Uniter struct {
 // hooks and operations provoked by changes in st.
 func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
-		st:       st,
-		paths:    NewPaths(dataDir, unitTag),
-		hookLock: hookLock,
+		st:               st,
+		paths:            NewPaths(dataDir, unitTag),
+		hookLock:         hookLock,
+		collectMetricsAt: inactiveMetricsTimer,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -328,6 +343,14 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 			return err
 		}
 	}
+
+	// The new charm may have declared metrics where the old one had none (or vice versa),
+	// so reset the metrics collection policy according to current state.
+	err := u.initializeMetricsCollector()
+	if err != nil {
+		return err
+	}
+
 	logger.Infof("charm %q is deployed", curl)
 	status := operation.Queued
 	if hi != nil {
@@ -344,6 +367,19 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 		}
 	}
 	return u.writeOperationState(operation.RunHook, status, hi, nil)
+}
+
+// initializeMetricsCollector enables the periodic collect-metrics hook
+// for charms that declare metrics.
+func (u *Uniter) initializeMetricsCollector() error {
+	charm, err := corecharm.ReadCharm(u.paths.State.CharmDir)
+	if err != nil {
+		return err
+	}
+	if metrics := charm.Metrics(); metrics != nil && len(metrics.Metrics) > 0 {
+		u.collectMetricsAt = activeMetricsTimer
+	}
+	return nil
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
