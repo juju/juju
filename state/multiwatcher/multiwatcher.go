@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju"
