@@ -276,7 +276,7 @@ class TestAWSAccount(TestCase):
         aws, baz_interface = self.prepare_delete_exception(
             'InvalidNetworkInterfaceID')
         with self.assertRaises(EC2ResponseError):
-            unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+            aws.delete_detached_interfaces(['bar-id', 'foo-id'])
 
 
 class TestLibvirt(TestCase):
