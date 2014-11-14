@@ -148,7 +148,7 @@ func warnError(err error) {
 // attributes and options.
 func Open(info *Info, opts DialOpts) (*State, error) {
 	if len(info.Addrs) == 0 {
-		return nil, errors.Errorf("no API addresses to connect to")
+		return nil, errors.New("no API addresses to connect to")
 	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
@@ -227,7 +227,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 				return nil, errors.Trace(err)
 			}
 			if reauth != nil {
-				return nil, errors.Errorf("reauthentication failed")
+				return nil, errors.New("reauthentication failed")
 			}
 		}
 	}
