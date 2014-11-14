@@ -76,6 +76,7 @@ func NewNonCanonicalArchivePaths(rootDir string) ArchivePaths {
 // concrete root directory and an archive unpacked in it.
 type ArchiveWorkspace struct {
 	ArchivePaths
+	RootDir string
 }
 
 func newArchiveWorkspace() (*ArchiveWorkspace, error) {
@@ -85,7 +86,8 @@ func newArchiveWorkspace() (*ArchiveWorkspace, error) {
 	}
 
 	ws := ArchiveWorkspace{
-		ArchivePaths: NewUnpackedArchivePaths(rootdir),
+		ArchivePaths: NewNonCanonicalArchivePaths(rootdir),
+		RootDir:      rootdir,
 	}
 	return &ws, nil
 }

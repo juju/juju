@@ -140,10 +140,10 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var meta Metadata
+	meta := NewMetadata()
 	meta.SetID(flat.ID)
 
-	err := meta.SetFile(flat.Size, flat.Checksum, flat.ChecksumFormat)
+	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -164,5 +164,5 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 		Version:     flat.Version,
 	}
 
-	return &meta, nil
+	return meta, nil
 }
