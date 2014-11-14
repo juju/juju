@@ -28,9 +28,9 @@ const (
 )
 
 type createArgs struct {
-	filesToBackUp []string
-	db            DBDumper
-	metadataFile  io.Reader
+	filesToBackUp  []string
+	db             DBDumper
+	metadataReader io.Reader
 }
 
 type createResult struct {
@@ -57,10 +57,10 @@ func create(args *createArgs) (_ *createResult, err error) {
 	}()
 
 	// Inject the metadata file.
-	if args.metadataFile == nil {
-		return nil, errors.New("missing metadataFile")
+	if args.metadataReader == nil {
+		return nil, errors.New("missing metadataReader")
 	}
-	if err := builder.injectMetadataFile(args.metadataFile); err != nil {
+	if err := builder.injectMetadataFile(args.metadataReader); err != nil {
 		return nil, errors.Trace(err)
 	}
 
