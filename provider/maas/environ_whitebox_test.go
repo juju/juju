@@ -1168,3 +1168,25 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 		"agent_name": []string{exampleAgentName},
 	}})
 }
+
+func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{
+			ZoneName: "zone1",
+		}, {
+			ZoneName: "zone2",
+		}},
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	s.testMAASObject.TestServer.AddZone("zone1", "description")
+	s.testMAASObject.TestServer.AddZone("zone2", "description")
+	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
+	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+
+	env := s.bootstrap(c)
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
+		// one acquire for the bootstrap, one for StartInstance.
+		"acquire", "acquire",
+	})
+}
