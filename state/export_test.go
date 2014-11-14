@@ -86,12 +86,12 @@ func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	return addBackupMetadataID(db, doc, id)
 }
 
-// SetBackupStored stores the time of when the identified backup archive
+// SetBackupStoredTime stores the time of when the identified backup archive
 // file was stored.
-func SetBackupStored(st *State, id string, stored time.Time) error {
+func SetBackupStoredTime(st *State, id string, stored time.Time) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	return setBackupStored(db, id, stored)
+	return setBackupStoredTime(db, id, stored)
 }
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

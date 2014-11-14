@@ -371,11 +371,11 @@ func addBackupMetadataID(dbWrap *backupDBWrapper, doc *backupMetaDoc, id string)
 	return nil
 }
 
-// setBackupStored updates the backup metadata associated with "id"
+// setBackupStoredTime updates the backup metadata associated with "id"
 // to indicate that a backup archive has been stored.  If "id" does
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func setBackupStored(dbWrap *backupDBWrapper, id string, stored time.Time) error {
+func setBackupStoredTime(dbWrap *backupDBWrapper, id string, stored time.Time) error {
 	op := dbWrap.txnOp(id)
 	op.Assert = txn.DocExists
 	op.Update = bson.D{{"$set", bson.D{
@@ -482,7 +482,7 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 	dbWrap := newBackupDBWrapper(s.db, backupsMetaC, s.envUUID)
 	defer dbWrap.Close()
 
-	err := setBackupStored(dbWrap, id, time.Now())
+	err := setBackupStoredTime(dbWrap, id, time.Now())
 	return errors.Trace(err)
 }
 

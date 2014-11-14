@@ -115,7 +115,7 @@ func (s *backupSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
+func (s *backupSuite) TestSetBackupStoredTimeSuccess(c *gc.C) {
 	stored := time.Now()
 	original := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, original)
@@ -124,7 +124,7 @@ func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(meta.Stored(), gc.IsNil)
 
-	err = state.SetBackupStored(s.State, id, stored)
+	err = state.SetBackupStoredTime(s.State, id, stored)
 	c.Assert(err, gc.IsNil)
 
 	meta, err = state.GetBackupMetadata(s.State, id)
@@ -132,9 +132,9 @@ func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	c.Check(meta.Stored().Unix(), gc.Equals, stored.UTC().Unix())
 }
 
-func (s *backupSuite) TestSetBackupStoredNotFound(c *gc.C) {
+func (s *backupSuite) TestSetBackupStoredTimeNotFound(c *gc.C) {
 	stored := time.Now()
-	err := state.SetBackupStored(s.State, "spam", stored)
+	err := state.SetBackupStoredTime(s.State, "spam", stored)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
