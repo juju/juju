@@ -4,12 +4,14 @@
 package diskmanager_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/testing"
 )
 
 var _ = gc.Suite(&DiskManagerWorkerSuite{})
@@ -25,69 +27,18 @@ func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
-	var oldDevices []storage.BlockDevice
-	var devicesSet [][]storage.BlockDevice
-	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
-		devicesSet = append(devicesSet, devices)
-		return nil
-	}
+func (s *DiskManagerWorkerSuite) TestWorkerNoOp(c *gc.C) {
+	s.PatchValue(&version.Current.OS, version.Windows)
 
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
-cat <<EOF
-KNAME="sda" SIZE="0" LABEL="" UUID=""
-EOF`,
-	)
-	for i := 0; i < 2; i++ {
-		err := diskmanager.DoWork(setDevices, &oldDevices)
-		c.Assert(err, gc.IsNil)
-	}
+	// On Windows, the worker is a no-op worker.
+	var called bool
+	s.PatchValue(diskmanager.NewNoOpWorker, func() worker.Worker {
+		called = true
+		return worker.NewNoOpWorker()
+	})
 
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
-cat <<EOF
-KNAME="sdb" SIZE="0" LABEL="" UUID=""
-EOF`,
-	)
-	err := diskmanager.DoWork(setDevices, &oldDevices)
-	c.Assert(err, gc.IsNil)
-
-	// diskmanager only calls the BlockDeviceSetter when it sees
-	// a change in disks.
-	c.Assert(devicesSet, gc.HasLen, 2)
-	c.Assert(devicesSet[0], gc.DeepEquals, []storage.BlockDevice{{
-		DeviceName: "sda",
-	}})
-	c.Assert(devicesSet[1], gc.DeepEquals, []storage.BlockDevice{{
-		DeviceName: "sdb",
-	}})
-}
-
-func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
-	var devicesSet [][]storage.BlockDevice
-	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
-		devicesSet = append(devicesSet, devices)
-		return nil
-	}
-
-	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
-cat <<EOF
-KNAME="sdb" SIZE="0" LABEL="" UUID=""
-KNAME="sda" SIZE="0" LABEL="" UUID=""
-KNAME="sdc" SIZE="0" LABEL="" UUID=""
-EOF`,
-	)
-	err := diskmanager.DoWork(setDevices, new([]storage.BlockDevice))
-	c.Assert(err, gc.IsNil)
-
-	// The block Devices should be sorted when passed to the block
-	// device setter.
-	c.Assert(devicesSet, gc.DeepEquals, [][]storage.BlockDevice{{{
-		DeviceName: "sda",
-	}, {
-		DeviceName: "sdb",
-	}, {
-		DeviceName: "sdc",
-	}}})
+	diskmanager.NewWorker(nil)
+	c.Assert(called, jc.IsTrue)
 }
 
 type BlockDeviceSetterFunc func([]storage.BlockDevice) error

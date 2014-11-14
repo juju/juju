@@ -27,6 +27,8 @@ const (
 	bytesInMiB = 1024 * 1024
 )
 
+var newNoOpWorker = worker.NewNoOpWorker
+
 // BlockDeviceSetter is an interface that is supplied to
 // NewWorker for setting block devices for the local host.
 type BlockDeviceSetter interface {
@@ -44,7 +46,7 @@ func NewWorker(b BlockDeviceSetter) worker.Worker {
 		)
 		// Eventually we should support listing disks attached to
 		// a Windows machine. For now, return a no-op worker.
-		return worker.NewNoOpWorker()
+		return newNoOpWorker()
 	case version.Ubuntu:
 		var old []storage.BlockDevice
 		f := func(stop <-chan struct{}) error {
