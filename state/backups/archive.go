@@ -15,9 +15,12 @@ const (
 	metadataFile = "metadata.json"
 )
 
-// ArchivePaths represents the contents of a backup archive. The archive
-// may be one packed into an archive file, unpacked into some directory
-// on the filesystem, or both. Regardless, the contents remain the same.
+// ArchivePaths holds the paths to the files and directories in a
+// backup archive, relative to some root directory (RootDir).  In the
+// case of an archive file (which is a tar file), RootDir is the empty
+// string.  For unpacked archives, RootDir is the directory into which
+// the archive was unpacked.  Regardless, the relative paths to the
+// content of the archive remain the same.
 type ArchivePaths struct {
 	// RootDir is the path relative to which the various paths to
 	// archive content resolve. For a tar file it will be empty.
