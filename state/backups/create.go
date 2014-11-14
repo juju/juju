@@ -244,13 +244,12 @@ func writeAll(targetname string, source io.Reader) error {
 	if err != nil {
 		return errors.Annotatef(err, "while creating file %q", targetname)
 	}
-	defer target.Close()
-
 	_, err = io.Copy(target, source)
 	if err != nil {
+		target.Close()
 		return errors.Annotatef(err, "while copying into file %q", targetname)
 	}
-	return nil
+	return errors.Trace(target.Close())
 }
 
 func (b *builder) buildFilesBundle() error {
