@@ -186,7 +186,7 @@ func (b *builder) closeBundleFile() error {
 func (b *builder) removeRootDir() error {
 	// Currently this method isn't thread-safe (doesn't need to be).
 	if b.rootDir == "" {
-		return nil
+		panic("rootDir is unexpected empty")
 	}
 
 	if err := os.RemoveAll(b.rootDir); err != nil {
