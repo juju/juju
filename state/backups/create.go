@@ -86,17 +86,18 @@ func create(args *createArgs) (_ *createResult, err error) {
 
 // builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
+	// rootDir is the root of the archive workspace.
 	rootDir string
 	// archivePaths is the backups archive summary.
 	archivePaths ArchivePaths
 	// filename is the path to the archive file.
 	filename string
-	// checksum is the checksum of the archive file.
-	checksum string
 	// filesToBackUp is the paths to every file to include in the archive.
 	filesToBackUp []string
 	// db is the wrapper around the DB dump command and args.
 	db DBDumper
+	// checksum is the checksum of the archive file.
+	checksum string
 	// archiveFile is the backup archive file.
 	archiveFile io.WriteCloser
 	// bundleFile is the inner archive file containing all the juju
@@ -109,7 +110,17 @@ type builder struct {
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
 func newBuilder(filesToBackUp []string, db DBDumper) (b *builder, err error) {
+	// Create the backups workspace root directory.
+	rootDir, err := ioutil.TempDir("", tempPrefix)
+	if err != nil {
+		return nil, errors.Annotate(err, "while making backups workspace")
+	}
+
+	// Populate the builder.
 	b = &builder{
+		rootDir:       rootDir,
+		archivePaths:  NewNonCanonicalArchivePaths(rootDir),
+		filename:      filepath.Join(rootDir, tempFilename),
 		filesToBackUp: filesToBackUp,
 		db:            db,
 	}
@@ -120,15 +131,6 @@ func newBuilder(filesToBackUp []string, db DBDumper) (b *builder, err error) {
 			}
 		}
 	}()
-
-	// Create the backups workspace root directory.
-	rootDir, err := ioutil.TempDir("", tempPrefix)
-	if err != nil {
-		return nil, errors.Annotate(err, "while making backups workspace")
-	}
-	b.filename = filepath.Join(rootDir, tempFilename)
-	b.archivePaths = NewNonCanonicalArchivePaths(rootDir)
-	b.rootDir = rootDir
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
