@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var logger = loggo.GetLogger("juju.state.multiwatcher")
-
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
