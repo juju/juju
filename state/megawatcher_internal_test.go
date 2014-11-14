@@ -984,7 +984,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	b := newAllWatcherStateBacking(s.State)
 	aw := multiwatcher.NewStoreManager(b)
 	defer aw.Stop()
-	w := multiwatcher.NewWatcher(aw)
+	w := multiwatcher.NewMultiwatcher(aw)
 	s.State.StartSync()
 	checkNext(c, w, b, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
@@ -1098,7 +1098,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = w.Next()
-	c.Assert(err, gc.ErrorMatches, multiwatcher.ErrWatcherStopped.Error())
+	c.Assert(err, gc.ErrorMatches, multiwatcher.ErrStopped.Error())
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
@@ -1120,7 +1120,7 @@ func (s entityInfoSlice) Less(i, j int) bool {
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *gc.C, w *multiwatcher.Watcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
+func getNext(c *gc.C, w *multiwatcher.Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
 	var deltas []multiwatcher.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -1136,7 +1136,7 @@ func getNext(c *gc.C, w *multiwatcher.Watcher, timeout time.Duration) ([]multiwa
 	return nil, errTimeout
 }
 
-func checkNext(c *gc.C, w *multiwatcher.Watcher, b multiwatcher.Backing, deltas []multiwatcher.Delta, expectErr string) {
+func checkNext(c *gc.C, w *multiwatcher.Multiwatcher, b multiwatcher.Backing, deltas []multiwatcher.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
 		c.Check(err, gc.ErrorMatches, expectErr)
