@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	ShortAttempt = &shortAttempt
-	APIVersion   = apiVersion
+	ShortAttempt   = &shortAttempt
+	APIVersion     = apiVersion
+	SelectNodeArgs = selectNodeArgs{}
 )
 
 func MAASAgentName(env environs.Environ) string {
@@ -29,6 +30,10 @@ func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 
 func NewCloudinitConfig(env environs.Environ, hostname, iface, series string) (*cloudinit.Config, error) {
 	return env.(*maasEnviron).newCloudinitConfig(hostname, iface, series)
+}
+
+func SelectNode(env environs.Environ, args selectNodeArgs) (*gomaasapi.MAASObject, error) {
+	return env.(*maasEnviron).selectNode(args)
 }
 
 var indexData = `
