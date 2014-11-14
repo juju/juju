@@ -961,11 +961,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		for _, info := range test.add {
 			all.Update(info)
 		}
-		change := test.change
-		col, closer := s.State.getCollection(change.C)
-		closer()
-		change.C = col.Name
-		err := b.Changed(all, change)
+		err := b.Changed(all, test.change)
 		c.Assert(err, gc.IsNil)
 		assertEntitiesEqual(c, all.All(), test.expectContents)
 		s.Reset(c)
