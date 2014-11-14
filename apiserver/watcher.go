@@ -35,7 +35,7 @@ func newClientAllWatcher(st *state.State, resources *common.Resources, auth comm
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(*multiwatcher.Watcher)
+	watcher, ok := resources.Get(id).(*multiwatcher.Multiwatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
@@ -50,7 +50,7 @@ func newClientAllWatcher(st *state.State, resources *common.Resources, auth comm
 // which watches any changes to the state. Each client has its own current set
 // of watchers, stored in resources.
 type srvClientAllWatcher struct {
-	watcher   *multiwatcher.Watcher
+	watcher   *multiwatcher.Multiwatcher
 	id        string
 	resources *common.Resources
 }

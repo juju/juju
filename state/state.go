@@ -222,13 +222,13 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
-func (st *State) Watch() *multiwatcher.Watcher {
+func (st *State) Watch() *multiwatcher.Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
 		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
-	return multiwatcher.NewWatcher(st.allManager)
+	return multiwatcher.NewMultiwatcher(st.allManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {

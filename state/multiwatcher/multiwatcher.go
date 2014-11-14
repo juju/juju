@@ -25,8 +25,8 @@ import (
 
 var logger = loggo.GetLogger("juju.state.multiwatcher")
 
-// Watcher watches any changes to the state.
-type Watcher struct {
+// Multiwatcher watches any changes to the state.
+type Multiwatcher struct {
 	all *StoreManager
 
 	// The following fields are maintained by the StoreManager
@@ -35,16 +35,16 @@ type Watcher struct {
 	stopped bool
 }
 
-// NewWatcher creates a new watcher that can observe
+// NewMultiwatcher creates a new watcher that can observe
 // changes to an underlying store manager.
-func NewWatcher(all *StoreManager) *Watcher {
-	return &Watcher{
+func NewMultiwatcher(all *StoreManager) *Multiwatcher {
+	return &Multiwatcher{
 		all: all,
 	}
 }
 
 // Stop stops the watcher.
-func (w *Watcher) Stop() error {
+func (w *Multiwatcher) Stop() error {
 	select {
 	case w.all.request <- &request{w: w}:
 		return nil
@@ -53,11 +53,11 @@ func (w *Watcher) Stop() error {
 	return errors.Trace(w.all.tomb.Err())
 }
 
-var ErrWatcherStopped = stderrors.New("watcher was stopped")
+var ErrStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
-func (w *Watcher) Next() ([]Delta, error) {
+func (w *Multiwatcher) Next() ([]Delta, error) {
 	req := &request{
 		w:     w,
 		reply: make(chan bool),
@@ -72,13 +72,13 @@ func (w *Watcher) Next() ([]Delta, error) {
 		return nil, err
 	}
 	if ok := <-req.reply; !ok {
-		return nil, errors.Trace(ErrWatcherStopped)
+		return nil, errors.Trace(ErrStopped)
 	}
 	return req.changes, nil
 }
 
 // StoreManager holds a shared record of current state and replies to
-// requests from Watchers to tell them when it changes.
+// requests from Multiwatchers to tell them when it changes.
 type StoreManager struct {
 	tomb tomb.Tomb
 
@@ -86,15 +86,15 @@ type StoreManager struct {
 	// the underlying state.
 	backing Backing
 
-	// request receives requests from Watcher clients.
+	// request receives requests from Multiwatcher clients.
 	request chan *request
 
 	// all holds information on everything the StoreManager cares about.
 	all *Store
 
 	// Each entry in the waiting map holds a linked list of Next requests
-	// outstanding for the associated Watcher.
-	waiting map[*Watcher]*request
+	// outstanding for the associated Multiwatcher.
+	waiting map[*Multiwatcher]*request
 }
 
 // Backing is the interface required by the StoreManager to access the
@@ -119,16 +119,16 @@ type Backing interface {
 	Unwatch(in chan<- watcher.Change)
 }
 
-// request holds a message from the Watcher to the
+// request holds a message from the Multiwatcher to the
 // StoreManager for some changes. The request will be
 // replied to when some changes are available.
 type request struct {
-	// w holds the Watcher that has originated the request.
-	w *Watcher
+	// w holds the Multiwatcher that has originated the request.
+	w *Multiwatcher
 
 	// reply receives a message when deltas are ready.  If reply is
-	// nil, the Watcher will be stopped.  If the reply is true,
-	// the request has been processed; if false, the Watcher
+	// nil, the Multiwatcher will be stopped.  If the reply is true,
+	// the request has been processed; if false, the Multiwatcher
 	// has been stopped,
 	reply chan bool
 
@@ -149,7 +149,7 @@ func newStoreManagerNoRun(backing Backing) *StoreManager {
 		backing: backing,
 		request: make(chan *request),
 		all:     NewStore(),
-		waiting: make(map[*Watcher]*request),
+		waiting: make(map[*Multiwatcher]*request),
 	}
 }
 
@@ -212,7 +212,7 @@ func (sm *StoreManager) Stop() error {
 	return errors.Trace(sm.tomb.Wait())
 }
 
-// handle processes a request from a Watcher to the StoreManager.
+// handle processes a request from a Multiwatcher to the StoreManager.
 func (sm *StoreManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
@@ -257,7 +257,7 @@ func (sm *StoreManager) respond() {
 	}
 }
 
-// seen states that a Watcher has just been given information about
+// seen states that a Multiwatcher has just been given information about
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
 func (sm *StoreManager) seen(revno int64) {
@@ -286,7 +286,7 @@ func (sm *StoreManager) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (sm *StoreManager) leave(w *Watcher) {
+func (sm *StoreManager) leave(w *Multiwatcher) {
 	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -306,7 +306,7 @@ func (sm *StoreManager) leave(w *Watcher) {
 }
 
 // entityEntry holds an entry in the linked list of all entities known
-// to a Watcher.
+// to a Multiwatcher.
 type entityEntry struct {
 	// The revno holds the local idea of the latest change to the
 	// given entity.  It is not the same as the transaction revno -
@@ -324,9 +324,9 @@ type entityEntry struct {
 
 	// refCount holds a count of the number of watchers that
 	// have seen this entity. When the entity is marked as removed,
-	// the ref count is decremented whenever a Watcher that
+	// the ref count is decremented whenever a Multiwatcher that
 	// has previously seen the entry now sees that it has been removed;
-	// the entry will be deleted when all such Watchers have
+	// the entry will be deleted when all such Multiwatchers have
 	// been notified.
 	refCount int
 
@@ -347,7 +347,7 @@ type EntityId struct {
 }
 
 // Store holds a list of all entities known
-// to a Watcher.
+// to a Multiwatcher.
 type Store struct {
 	latestRevno int64
 	entities    map[interface{}]*list.Element
@@ -593,7 +593,7 @@ type UnitSettings struct {
 }
 
 // MachineInfo holds the information about a Machine
-// that is watched by StateWatcher.
+// that is watched by StateMultiwatcher.
 type MachineInfo struct {
 	Id                       string `bson:"_id"`
 	InstanceId               string
