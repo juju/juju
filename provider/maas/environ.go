@@ -1053,10 +1053,21 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // MAAS provider yet.
-func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	// TODO(dimitern) 2014-05-06 bug #1316627
-	// Once MAAS API allows allocating an address,
-	// implement this using the API.
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	networks, err := environ.ListNetworks(instId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var foundNetwork *network.BasicInfo
+	for _, netw := range networks {
+		if netw.ProviderId == netId {
+			foundNetwork = &netw
+			break
+		}
+	}
+	if foundNetwork == nil {
+		return errors.Errorf("could not find network matching %v", netId)
+	}
 	return errors.NotImplementedf("AllocateAddress")
 }
 
