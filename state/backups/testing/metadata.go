@@ -50,3 +50,10 @@ func UpdateNotes(meta *backups.Metadata, notes string) *backups.Metadata {
 	copied.Notes = notes
 	return &copied
 }
+
+// SetOrigin updates the metadata's origin with the privided information.
+func SetOrigin(meta *backups.Metadata, envUUID, machine, hostname string) {
+	meta.Origin.Environment = envUUID
+	meta.Origin.Machine = machine
+	meta.Origin.Hostname = hostname
+}

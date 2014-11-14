@@ -80,8 +80,11 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 	fake := backupstesting.FakeBackups{
 		Meta: meta,
 	}
+	if meta != nil {
+		fake.MetaList = append(fake.MetaList, *meta)
+	}
 	if err != "" {
-		fake.err = errors.Errorf(err)
+		fake.Error = errors.Errorf(err)
 	}
 	s.PatchValue(backupsAPI.NewBackups,
 		func(*state.State) (backups.Backups, io.Closer) {

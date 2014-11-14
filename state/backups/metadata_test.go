@@ -34,7 +34,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	err := meta.MarkComplete(10, "123af2cef")
 	c.Assert(err, gc.IsNil)
 
-	finished := started.Add(time.Minute)
+	finished := meta.Started.Add(time.Minute)
 	meta.Finished = &finished
 
 	buf, err := meta.AsJSONBuffer()

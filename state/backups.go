@@ -151,10 +151,9 @@ func (doc *backupMetaDoc) validate() error {
 
 // asMetadata returns a new backups.Metadata based on the backupMetaDoc.
 func (doc *backupMetaDoc) asMetadata() *backups.Metadata {
-	meta := backups.Metadata{
-		Started: time.Unix(doc.Started, 0).UTC(),
-		Notes:   doc.Notes,
-	}
+	meta := backups.NewMetadata()
+	meta.Started = time.Unix(doc.Started, 0).UTC()
+	meta.Notes = doc.Notes
 
 	meta.Origin.Environment = doc.Environment
 	meta.Origin.Machine = doc.Machine
@@ -180,7 +179,7 @@ func (doc *backupMetaDoc) asMetadata() *backups.Metadata {
 		}
 	}
 
-	return &meta
+	return meta
 }
 
 // UpdateFromMetadata copies the corresponding data from the backup
@@ -616,11 +615,10 @@ func getBackupTargetDatabases(st *State) (set.Strings, error) {
 	return targets, nil
 }
 
-// NewBackupOrigin returns a snapshot of where backup was run.  That
-// snapshot is a new backup Origin value, for use in a backup's
-// metadata.  Every value except for the machine name is populated
-// either from juju state or some other implicit mechanism.
-func NewBackupOrigin(st *State, machine string) (*backups.Origin, error) {
+// NewBackupMetadata composes a new backup metadata with its origin
+// values set.  The environment UUID comes from state.  The hostname is
+// retrieved from the OS.
+func NewBackupMetadata(st *State, machine string) (*backups.Metadata, error) {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -628,10 +626,10 @@ func NewBackupOrigin(st *State, machine string) (*backups.Origin, error) {
 		// Run for the hills.
 		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
 	}
-	origin := backups.NewOrigin(
-		st.EnvironTag().Id(),
-		machine,
-		hostname,
-	)
-	return &origin, nil
+
+	meta := backups.NewMetadata()
+	meta.Origin.Environment = st.EnvironTag().Id()
+	meta.Origin.Machine = machine
+	meta.Origin.Hostname = hostname
+	return meta, nil
 }

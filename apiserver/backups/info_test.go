@@ -14,7 +14,7 @@ import (
 
 func (s *backupsSuite) TestInfoOkay(c *gc.C) {
 	impl := s.setBackups(c, s.meta, "")
-	impl.archive = ioutil.NopCloser(bytes.NewBufferString("spamspamspam"))
+	impl.Archive = ioutil.NopCloser(bytes.NewBufferString("spamspamspam"))
 	args := params.BackupsInfoArgs{
 		ID: "some-id",
 	}

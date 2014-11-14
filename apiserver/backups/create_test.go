@@ -21,15 +21,15 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateNotes(c *gc.C) {
-	meta := s.newMeta("this backup is important")
-	s.setBackups(c, meta, "")
+	s.meta.Notes = "this backup is important"
+	s.setBackups(c, s.meta, "")
 	args := params.BackupsCreateArgs{
 		Notes: "this backup is important",
 	}
 	result, err := s.api.Create(args)
 	c.Assert(err, gc.IsNil)
 	var expected params.BackupsMetadataResult
-	expected.UpdateFromMetadata(meta)
+	expected.UpdateFromMetadata(s.meta)
 	expected.Notes = "this backup is important"
 
 	c.Check(result, gc.DeepEquals, expected)
