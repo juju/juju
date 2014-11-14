@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -1146,7 +1147,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 			actionTest.action.Action.Name,
 			actionTest.action.Action.Parameters)
 		c.Assert(err, gc.IsNil)
-		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
+		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), a.UUID())
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
@@ -1166,9 +1167,11 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 }
 
 func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", 0).String(),
+			Tag: names.JoinActionTag("wordpress/0", uuid.String()).String(),
 		}},
 	}
 	results, err := facade.Actions(args)
@@ -1177,7 +1180,7 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	actionsQueryResult := results.Results[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action "wordpress/0_a_[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
 }
 
 func (s *uniterBaseSuite) testActionsWrongUnit(
@@ -1193,7 +1196,7 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", 0).String(),
+			Tag: names.JoinActionTag("wordpress/0", "0").String(),
 		}},
 	}
 	actions, err := mysqlUnitFacade.Actions(args)
@@ -1206,7 +1209,7 @@ func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
 	// Same unit, but not one that has access.
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("mysql/0", 0).String(),
+			Tag: names.JoinActionTag("mysql/0", "0").String(),
 		}},
 	}
 	actions, err := facade.Actions(args)

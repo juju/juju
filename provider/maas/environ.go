@@ -797,6 +797,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		if err != nil {
 			return nil, fmt.Errorf("cannot run instances: %v", err)
 		}
+		break
 	}
 
 	inst := &maasInstance{maasObject: &node, environ: environ}

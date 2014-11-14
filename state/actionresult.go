@@ -77,9 +77,9 @@ func (a *ActionResult) Receiver() string {
 	return a.doc.Action.Receiver
 }
 
-// Sequence returns the unique suffix of the ActionResult _id.
-func (a *ActionResult) Sequence() int {
-	return a.doc.Action.Sequence
+// UUID returns the unique suffix of the ActionResult _id.
+func (a *ActionResult) UUID() string {
+	return a.doc.Action.UUID
 }
 
 // Name returns the name of the Action.
@@ -108,23 +108,23 @@ func (a *ActionResult) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
 }
 
-// Tag implements the Entity interface and returns a names.Tag that
-// is a names.ActionResultTag.
-func (a *ActionResult) Tag() names.Tag {
-	return a.ActionResultTag()
+// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
+// that the ActionResult can produce a valid Tag.
+func (a *ActionResult) ValidateTag() bool {
+	_, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
+	return ok
 }
 
-// ActionResultTag returns an ActionResultTag constructed from this
-// actionResult's Prefix and Sequence.
-func (a *ActionResult) ActionResultTag() names.ActionResultTag {
-	return names.NewActionResultTag(a.Id())
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionTag.
+func (a *ActionResult) Tag() names.Tag {
+	return a.ActionTag()
 }
 
 // ActionTag returns the ActionTag for the Action that this ActionResult
 // is for.
 func (a *ActionResult) ActionTag() names.ActionTag {
-	ar := a.ActionResultTag()
-	return names.JoinActionTag(ar.Prefix(), ar.Sequence())
+	return names.JoinActionTag(a.Receiver(), a.UUID())
 }
 
 // Completed returns the completion time of the Action.
@@ -196,5 +196,5 @@ func actionResultIdFromTag(tag names.ActionTag) string {
 	if ptag == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s%d", ensureActionResultMarker(ptag.Id()), tag.Sequence())
+	return ensureActionResultMarker(ptag.Id()) + tag.Suffix()
 }
