@@ -189,7 +189,7 @@ var StoreChangeMethodTests = []struct {
 
 func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 	for i, test := range StoreChangeMethodTests {
-		all := NewStore()
+		all := newStore()
 		c.Logf("test %d. %s", i, test.about)
 		test.change(all)
 		assertStoreContents(c, all, test.expectRevno, test.expectContents)
@@ -197,7 +197,7 @@ func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 }
 
 func (s *storeSuite) TestChangesSince(c *gc.C) {
-	a := NewStore()
+	a := newStore()
 	// Add three entries.
 	var deltas []multiwatcher.Delta
 	for i := 0; i < 3; i++ {
@@ -255,7 +255,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 }
 
 func (s *storeSuite) TestGet(c *gc.C) {
-	a := NewStore()
+	a := newStore()
 	m := &multiwatcher.MachineInfo{Id: "0"}
 	a.Update(m)
 

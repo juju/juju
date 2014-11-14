@@ -139,7 +139,7 @@ func newStoreManagerNoRun(backing Backing) *StoreManager {
 	return &StoreManager{
 		backing: backing,
 		request: make(chan *request),
-		all:     NewStore(),
+		all:     newStore(),
 		waiting: make(map[*Multiwatcher]*request),
 	}
 }
@@ -333,10 +333,10 @@ type Store struct {
 	list        *list.List
 }
 
-// NewStore returns an Store instance holding information about the
+// newStore returns an Store instance holding information about the
 // current state of all entities in the environment.
 // It is only exposed here for testing purposes.
-func NewStore() *Store {
+func newStore() *Store {
 	all := &Store{
 		entities: make(map[interface{}]*list.Element),
 		list:     list.New(),

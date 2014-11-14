@@ -264,7 +264,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 	expectEntities := s.setUpScenario(c)
 	b := newAllWatcherStateBacking(s.State)
-	all := NewStore()
+	all := newStore()
 	err := b.GetAll(all)
 	c.Assert(err, gc.IsNil)
 	var gotEntities entityInfoSlice = all.All()
@@ -957,7 +957,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
-		all := NewStore()
+		all := newStore()
 		for _, info := range test.add {
 			all.Update(info)
 		}
@@ -981,7 +981,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(m1.Id(), gc.Equals, "1")
 
 	b := newAllWatcherStateBacking(s.State)
-	aw := NewStoreManager(b)
+	aw := newStoreManager(b)
 	defer aw.Stop()
 	w := NewMultiwatcher(aw)
 	s.State.StartSync()
