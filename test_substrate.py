@@ -3,6 +3,7 @@ from subprocess import CalledProcessError
 from unittest import TestCase
 
 from boto.ec2.securitygroup import SecurityGroup
+from boto.exception import EC2ResponseError
 from mock import (
     ANY,
     call,
@@ -204,6 +205,78 @@ class TestAWSAccount(TestCase):
                    side_effect=CalledProcessError(1, 'foo')):
             failures = aws.destroy_security_groups(['foo', 'foobar', 'baz'])
         self.assertEqual(failures, ['foo', 'foobar', 'baz'])
+
+    def test_get_ec2_connection(self):
+        aws = AWSAccount.from_config(get_aws_env().config)
+        return_value = object()
+        with patch('boto.ec2.connect_to_region',
+                   return_value=return_value) as ctr_mock:
+            connection = aws.get_ec2_connection()
+        ctr_mock.assert_called_once_with(
+            'ca-west', aws_access_key_id='skeleton-key',
+            aws_secret_access_key='secret-skeleton-key')
+        self.assertIs(connection, return_value)
+
+    def make_aws_connection(self):
+        aws = AWSAccount.from_config(get_aws_env().config)
+        aws.get_ec2_connection = MagicMock()
+        connection = aws.get_ec2_connection.return_value
+        return aws, connection
+
+    def make_interface(self, group_ids):
+        interface = MagicMock()
+        interface.groups = [SecurityGroup(id=g) for g in group_ids]
+        return interface
+
+    def test_delete_detached_interfaces_with_id(self):
+        aws, connection = self.make_aws_connection()
+        foo_interface = self.make_interface(['bar-id'])
+        baz_interface = self.make_interface(['baz-id', 'bar-id'])
+        gani_mock = connection.get_all_network_interfaces
+        gani_mock.return_value = [foo_interface, baz_interface]
+        unclean = aws.delete_detached_interfaces(['bar-id'])
+        gani_mock.assert_called_once_with(
+            filters={'status': 'available'})
+        foo_interface.delete.assert_called_once_with()
+        baz_interface.delete.assert_called_once_with()
+        self.assertEqual(unclean, set())
+
+    def test_delete_detached_interfaces_without_id(self):
+        aws, connection = self.make_aws_connection()
+        baz_interface = self.make_interface(['baz-id'])
+        connection.get_all_network_interfaces.return_value = [baz_interface]
+        unclean = aws.delete_detached_interfaces(['bar-id'])
+        self.assertEqual(baz_interface.delete.call_count, 0)
+        self.assertEqual(unclean, set())
+
+    def prepare_delete_exception(self, error_code):
+        aws, connection = self.make_aws_connection()
+        baz_interface = self.make_interface(['bar-id'])
+        e = EC2ResponseError('status', 'reason')
+        e.error_code = error_code
+        baz_interface.delete.side_effect = e
+        connection.get_all_network_interfaces.return_value = [baz_interface]
+        return aws, baz_interface
+
+    def test_delete_detached_interfaces_in_use(self):
+        aws, baz_interface = self.prepare_delete_exception(
+            'InvalidNetworkInterface.InUse')
+        unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+        baz_interface.delete.assert_called_once_with()
+        self.assertEqual(unclean, set(['bar-id']))
+
+    def test_delete_detached_interfaces_not_found(self):
+        aws, baz_interface = self.prepare_delete_exception(
+            'InvalidNetworkInterfaceID.NotFound')
+        unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+        baz_interface.delete.assert_called_once_with()
+        self.assertEqual(unclean, set(['bar-id']))
+
+    def test_delete_detached_interfaces_other(self):
+        aws, baz_interface = self.prepare_delete_exception(
+            'InvalidNetworkInterfaceID')
+        with self.assertRaises(EC2ResponseError):
+            unclean = aws.delete_detached_interfaces(['bar-id', 'foo-id'])
 
 
 class TestLibvirt(TestCase):
