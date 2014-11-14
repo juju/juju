@@ -81,7 +81,7 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 		Meta: meta,
 	}
 	if meta != nil {
-		fake.MetaList = append(fake.MetaList, *meta)
+		fake.MetaList = append(fake.MetaList, meta)
 	}
 	if err != "" {
 		fake.Error = errors.Errorf(err)

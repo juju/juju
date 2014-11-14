@@ -21,7 +21,7 @@ type FakeBackups struct {
 	// Meta holds the Metadata to return.
 	Meta *backups.Metadata
 	// MetaList holds the Metadata list to return.
-	MetaList []backups.Metadata
+	MetaList []*backups.Metadata
 	// Archive holds the archive file to return.
 	Archive io.ReadCloser
 	// Error holds the Metadata to return.
@@ -63,7 +63,7 @@ func (b *FakeBackups) Get(id string) (*backups.Metadata, io.ReadCloser, error) {
 }
 
 // List returns the metadata for all stored backups.
-func (b *FakeBackups) List() ([]backups.Metadata, error) {
+func (b *FakeBackups) List() ([]*backups.Metadata, error) {
 	b.Calls = append(b.Calls, "List")
 	return b.MetaList, b.Error
 }

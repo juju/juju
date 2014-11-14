@@ -53,7 +53,7 @@ type Backups interface {
 	Get(id string) (*Metadata, io.ReadCloser, error)
 
 	// List returns the metadata for all stored backups.
-	List() ([]Metadata, error)
+	List() ([]*Metadata, error)
 
 	// Remove deletes the backup from storage.
 	Remove(id string) error
@@ -133,19 +133,19 @@ func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
 }
 
 // List returns the metadata for all stored backups.
-func (b *backups) List() ([]Metadata, error) {
+func (b *backups) List() ([]*Metadata, error) {
 	metaList, err := b.storage.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]Metadata, len(metaList))
+	result := make([]*Metadata, len(metaList))
 	for i, meta := range metaList {
 		m, ok := meta.(*Metadata)
 		if !ok {
 			msg := "expected backups.Metadata value from storage for %q, got %T"
 			return nil, errors.Errorf(msg, meta.ID(), meta)
 		}
-		result[i] = *m
+		result[i] = m
 	}
 	return result, nil
 }
