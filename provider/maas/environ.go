@@ -873,7 +873,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 	var err error
 	var node gomaasapi.MAASObject
 
-	for i, zoneName := range args.AvailabilityZones {
+	for _, zoneName := range args.AvailabilityZones {
 		node, err = environ.acquireNode(
 			args.NodeName,
 			zoneName,
@@ -882,10 +882,8 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.ExcludeNetworks,
 		)
 		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
-			if i <= len(args.AvailabilityZones) {
-				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
-			}
+			logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
+			continue
 		}
 		if err != nil {
 			return nil, errors.Errorf("cannot run instances: %v", err)
