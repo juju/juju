@@ -34,7 +34,7 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 		bakeryService, err = bakery.NewService(bakery.NewServiceParams{
 			Location: srv.environUUID,
 			Key:      info.TargetKeyPair,
-			Locator:  info.NewTargetLocator(),
+			Locator:  info.IdentityProvider,
 		})
 		if err != nil {
 			return nil, errors.Trace(err)

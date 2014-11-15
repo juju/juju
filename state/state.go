@@ -140,14 +140,12 @@ type IdentityProvider struct {
 	Location  string           `bson:"location"`
 }
 
-// NewTargetLocator creates a new bakery.PublicKeyLocator that is able to
-// resolve public keys for all services that are trusted by the Juju server.
-func (info *StateServingInfo) NewTargetLocator() bakery.PublicKeyLocator {
-	m := make(bakery.PublicKeyLocatorMap)
-	if info.IdentityProvider != nil {
-		m[info.IdentityProvider.Location] = &info.IdentityProvider.PublicKey
+// PublicKeyForLocation implements the bakery.PublicKeyLocator interface.
+func (p *IdentityProvider) PublicKeyForLocation(loc string) (*bakery.PublicKey, error) {
+	if p != nil && loc == p.Location {
+		return &p.PublicKey, nil
 	}
-	return m
+	return nil, errors.Errorf("no public key found for %q", loc)
 }
 
 // ForEnviron returns a connection to mongo for the specified environment. The

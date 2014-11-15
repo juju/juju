@@ -98,6 +98,7 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 
 func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
+	var emptyRequest params.LoginRequest
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -126,6 +127,17 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 		}
 	}
 
+	// Issue a challenge response for the client to reauthenticate with, for an
+	// empty (initial) remote login request.
+	if req == emptyRequest {
+		logger.Debugf("empty request")
+		if remoteChecker, ok := checker.(*RemoteCredentialChecker); ok {
+			return remoteChecker.ReauthRequest(req)
+		}
+	} else {
+		logger.Debugf("non-empty: %+v", req)
+	}
+
 	authKind, err := names.TagKind(req.AuthTag)
 	if err != nil {
 		return fail, errors.Trace(err)
@@ -138,14 +150,6 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 			return fail, common.ErrTryAgain
 		}
 		defer a.srv.limiter.Release()
-	}
-
-	// Issue a challenge response for the client to reauthenticate with, for an
-	// empty (initial) remote login request.
-	if req.Credentials == "" {
-		if remoteChecker, ok := checker.(*RemoteCredentialChecker); ok {
-			return remoteChecker.ReauthRequest(req)
-		}
 	}
 
 	entity, err := checker.Check(req)
@@ -298,18 +302,14 @@ func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) Credential
 
 // Check implements the CredentialChecker interface.
 func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
-	entity, err := authentication.NewRemoteUser(req.AuthTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	authenticator := authentication.NewRemoteAuthenticator(c.srv)
-
-	err = authenticator.Authenticate(entity, req.Credentials, req.Nonce)
+	entity, err := authenticator.Authenticate(req.Credentials)
 	if err != nil {
 		return nil, err
 	}
-
+	if req.AuthTag != entity.Tag().String() {
+		return nil, errors.New("invalid user")
+	}
 	return entity, nil
 }
 
@@ -326,17 +326,9 @@ var MaxMacaroonTTL = 2 * 7 * 24 * time.Hour
 func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
-	authKind, err := names.TagKind(req.AuthTag)
-	if err != nil {
-		return fail, errors.Trace(err)
-	} else if authKind != names.UserTagKind {
-		logger.Debugf("remote login only supported for users, got: %q", req.AuthTag)
+	if req.AuthTag != "" {
+		logger.Debugf("reauth request cannot declare a user yet, got: %q", req.AuthTag)
 		return fail, common.ErrBadCreds
-	}
-
-	userTag, err := names.ParseUserTag(req.AuthTag)
-	if err != nil {
-		return fail, errors.Trace(err)
 	}
 
 	info, err := c.st.StateServingInfo()
@@ -351,10 +343,10 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
 		{
 			Location:  info.IdentityProvider.Location,
-			Condition: "can-speak-for " + userTag.Id(),
+			Condition: "is-authenticated-user",
 		},
 		{
-			Condition: "declared-user " + userTag.Id(),
+			Condition: "caveats-include declared-user",
 		},
 		checkers.TimeBefore(timeBefore),
 	})

@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,39 +33,23 @@ type remoteLoginSuite struct {
 }
 
 type loggedInChecker struct {
-	validUsers map[string]bool
+	user string
 }
 
-func newLoggedInChecker(validUsers ...string) *loggedInChecker {
-	c := &loggedInChecker{
-		validUsers: make(map[string]bool),
-	}
-	for _, user := range validUsers {
-		c.validUsers[user] = true
-	}
-	return c
-}
-
-func (c *loggedInChecker) isValidUser(user string) bool {
-	return c.validUsers[user]
+func newLoggedInChecker(user string) *loggedInChecker {
+	return &loggedInChecker{user: user}
 }
 
 // CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
 func (c *loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
-	question, arg, err := checkers.ParseCaveat(condition)
+	question, _, err := checkers.ParseCaveat(condition)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	switch question {
-	case "can-speak-for":
-		if arg == "" {
-			return nil, errors.Errorf("%s: missing user", condition)
-		}
-		if c.isValidUser(arg) {
-			return nil, nil
-		}
-		return nil, errors.New("invalid user")
+	case "is-authenticated-user":
+		return []bakery.Caveat{{Condition: "declared-user " + c.user}}, nil
 	}
 	return nil, errors.New("unrecognized condition")
 }
@@ -158,8 +144,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	// Try to log in as a remote identity.
-	remoteUser := names.NewUserTag("bob")
-	reauth, err := st.Login(remoteUser.String(), "", "")
+	reauth, err := st.Login("", "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(reauth, gc.NotNil)
 
@@ -167,6 +152,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	c.Check(st.AllFacadeVersions(), gc.HasLen, 0)
 
 	// Obtain follow-up credentials for the reauth challenge
+	remoteUser := names.NewUserTag("bob")
 	credBytes, err := s.dischargeReauth("bob", reauth)
 	c.Assert(err, gc.IsNil)
 
@@ -186,8 +172,7 @@ func (s *remoteLoginSuite) TestReauthInvalidUser(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	// Bob starts the login process.
-	remoteUser := names.NewUserTag("bob")
-	reauth, err := st.Login(remoteUser.String(), "", "")
+	reauth, err := st.Login("", "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(reauth, gc.NotNil)
 
@@ -198,20 +183,28 @@ func (s *remoteLoginSuite) TestReauthInvalidUser(c *gc.C) {
 	credBytes, err := s.dischargeReauth("bob", reauth)
 	c.Assert(err, gc.IsNil)
 
-	// Mallory has been listening all along and tries to steal the
+	// Eve has been listening all along and tries to steal the
 	// connection away from Bob!
-	_, err = st.Login(names.NewUserTag("mallory").String(), string(credBytes), reauth.Nonce)
+	_, err = st.Login(names.NewUserTag("eve").String(), string(credBytes), reauth.Nonce)
 
 	// Not so fast, Mallory!
-	c.Assert(err, gc.ErrorMatches, "verification failed: invalid user")
+	c.Assert(err, gc.ErrorMatches, "invalid user")
+}
+
+type emptyReauthHandler struct{}
+
+// HandleReauth simulates a bad reauth scenario in which an empty user and
+// credential is returned, which should produce an error.
+func (h emptyReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
+	return "", "", nil
 }
 
 type emptyCredReauthHandler struct{}
 
-// HandleReauth simulates a bad reauth scenario in which an empty credential is returned,
-// which triggers another reauth.
+// HandleReauth simulates a bad reauth scenario in which an empty credential is
+// returned, which should produce an error.
 func (h emptyCredReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
-	return "", reauth.Nonce, nil
+	return "zarpedon", "", nil
 }
 
 type testReauthHandler struct {
@@ -221,6 +214,7 @@ type testReauthHandler struct {
 }
 
 func failReauth(err error) (string, string, error) {
+	fmt.Fprintln(os.Stderr, "failReauth:", err)
 	return "", "", errors.Trace(err)
 }
 
@@ -231,7 +225,7 @@ func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, s
 	var remoteCreds authentication.RemoteCredentials
 	err := remoteCreds.UnmarshalText([]byte(reauth.Prompt))
 	if err != nil {
-		return failReauth(err)
+		return failReauth(errors.Trace(err))
 	}
 	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
 		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
@@ -239,30 +233,35 @@ func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, s
 		},
 	)
 	if err != nil {
-		return failReauth(err)
+		return failReauth(errors.Trace(err))
+	}
+	remoteUser, err := remoteCreds.RemoteUser()
+	if err != nil {
+		return failReauth(errors.Trace(err))
 	}
 	if !h.skipBind {
 		remoteCreds.Bind()
 	}
 	credBytes, err := remoteCreds.MarshalText()
 	if err != nil {
-		return failReauth(err)
+		return failReauth(errors.Trace(err))
 	}
-	return string(credBytes), reauth.Nonce, nil
+	return remoteUser.Tag().Id(), string(credBytes), nil
 }
 
 func (s *remoteLoginSuite) TestNoReauthHandler(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
-	info.Tag = names.NewUserTag("bob")
-	_, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, "client not configured for reauthentication")
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	// not logged in
+	c.Check(st.AllFacadeVersions(), gc.HasLen, 0)
 }
 
 func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
-	info.Tag = names.NewUserTag("bob")
+	info.Tag = nil
 	st, err := api.Open(info, api.DialOpts{
 		ReauthHandler: testReauthHandler{
 			remoteLoginSuite:  s,
@@ -297,23 +296,21 @@ func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 		pattern: "verification failed: signature mismatch after caveat verification",
 	}, {
 		setUp: func() testing.Restorer {
-			originalTTL := apiserver.MaxMacaroonTTL
-			apiserver.MaxMacaroonTTL = -24 * time.Hour
-			return func() {
-				apiserver.MaxMacaroonTTL = originalTTL
-			}
+			return testing.PatchValue(&apiserver.MaxMacaroonTTL, -24*time.Hour)
 		},
 		handler: testReauthHandler{
 			remoteLoginSuite:  s,
 			thirdPartyChecker: newLoggedInChecker("bob"),
 		},
 		pattern: `verification failed: after expiry time`,
-	}, {
-		handler: testReauthHandler{
-			remoteLoginSuite:  s,
-			thirdPartyChecker: newLoggedInChecker(),
-		},
-		pattern: "cannot get discharge from \"remote-service-location\": invalid user",
+		/*
+			}, {
+				handler: testReauthHandler{
+					remoteLoginSuite:  s,
+					thirdPartyChecker: newLoggedInChecker("mallory"),
+				},
+				pattern: "cannot get discharge from \"remote-service-location\": invalid user",
+		*/
 	}, {
 		handler: testReauthHandler{
 			remoteLoginSuite:  s,
@@ -321,19 +318,20 @@ func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 		},
 		pattern: "cannot get discharge from \"remote-service-location\": unrecognized condition",
 	}, {
+		handler: emptyReauthHandler{},
+		pattern: "not a valid user: \"\"",
+	}, {
 		handler: emptyCredReauthHandler{},
-		pattern: "reauthentication failed",
+		pattern: "malformed remote credentials",
 	}}
 	for i, testCase := range testCases {
 		func() {
 			c.Log("test#", i)
 			if testCase.setUp != nil {
-				cleanup := testCase.setUp()
-				defer cleanup()
+				defer testCase.setUp().Restore()
 			}
 			info, cleanup := s.setupServerWithValidator(c, nil)
 			defer cleanup()
-			info.Tag = names.NewUserTag("bob")
 			_, err := api.Open(info, api.DialOpts{
 				ReauthHandler: testCase.handler,
 			})

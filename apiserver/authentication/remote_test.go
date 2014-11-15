@@ -16,7 +16,7 @@ import (
 
 var _ state.Entity = (*authentication.RemoteUser)(nil)
 
-var _ authentication.EntityAuthenticator = (*authentication.RemoteAuthenticator)(nil)
+//var _ authentication.EntityAuthenticator = (*authentication.RemoteAuthenticator)(nil)
 
 type RemoteAuthSuite struct {
 	testing.BaseSuite

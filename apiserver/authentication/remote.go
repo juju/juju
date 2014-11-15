@@ -13,7 +13,6 @@ import (
 	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 	"gopkg.in/macaroon.v1"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 )
 
@@ -23,12 +22,11 @@ type RemoteUser struct {
 }
 
 // NewRemoteUser creates a new RemoteUser instance.
-func NewRemoteUser(userName string) (*RemoteUser, error) {
-	userTag, err := names.ParseUserTag(userName)
-	if err != nil {
-		return nil, errors.Trace(err)
+func NewRemoteUser(user string) (*RemoteUser, error) {
+	if !names.IsValidUser(user) {
+		return nil, errors.Errorf("not a valid user: %q", user)
 	}
-	return &RemoteUser{userTag}, nil
+	return &RemoteUser{names.NewUserTag(user)}, nil
 }
 
 // Tag implements the state.Entity interface.
@@ -55,6 +53,32 @@ func NewRemoteCredentials(primary *macaroon.Macaroon, discharges ...*macaroon.Ma
 			Discharges: discharges,
 		},
 	}
+}
+
+func (rc *RemoteCredentials) macaroons() []*macaroon.Macaroon {
+	return append([]*macaroon.Macaroon{rc.Primary}, rc.Discharges...)
+}
+
+func (rc *RemoteCredentials) RemoteUser() (*RemoteUser, error) {
+	var user string
+	for _, m := range rc.macaroons() {
+		for _, cav := range m.Caveats() {
+			question, arg, err := checkers.ParseCaveat(cav.Id)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if question == "declared-user" {
+				if user != "" {
+					return nil, errors.New("declared-user conflict")
+				}
+				user = arg
+			}
+		}
+	}
+	if user == "" {
+		return nil, errors.New("missing declared-user")
+	}
+	return NewRemoteUser(user)
 }
 
 // Bind binds all discharge macaroons to the primary macaroon.
@@ -133,24 +157,54 @@ func declaredUserChecker(user string) bakery.FirstPartyCheckerFunc {
 	}
 }
 
-// Authenticate implements the EntityAuthenticator interface.
-func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, _ string) error {
-	remoteUser, ok := entity.(*RemoteUser)
-	if !ok {
-		logger.Infof("not a remote user: %q", entity)
-		return common.ErrBadCreds
+func caveatsIncludeChecker(remoteCreds *RemoteCredentials, question string) bakery.FirstPartyCheckerFunc {
+	return func(cav string) error {
+		question, arg, err := checkers.ParseCaveat(cav)
+		if err != nil {
+			return err
+		}
+		if question == "caveats-include" {
+			for _, m := range remoteCreds.macaroons() {
+				for _, matchCaveat := range m.Caveats() {
+					cavQuestion, _, err := checkers.ParseCaveat(matchCaveat.Id)
+					if err != nil {
+						return nil
+					}
+					if cavQuestion == arg {
+						return nil
+					}
+				}
+			}
+			return errors.Errorf("missing required caveat")
+		}
+		return &bakery.CaveatNotRecognizedError{cav}
 	}
+}
 
+// Authenticate returns the remote user declared by the credentials, and
+// whether they are valid.
+func (a *RemoteAuthenticator) Authenticate(credential string) (state.Entity, error) {
 	var remoteCreds RemoteCredentials
 	err := remoteCreds.UnmarshalText([]byte(credential))
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	remoteUser, err := remoteCreds.RemoteUser()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	firstPartyChecker := checkers.PushFirstPartyChecker(checkers.Std, checkers.Map{
-		"declared-user": declaredUserChecker(remoteUser.userTag.Id()),
+		"declared-user":   declaredUserChecker(remoteUser.userTag.Id()),
+		"caveats-include": caveatsIncludeChecker(&remoteCreds, "declared-user"),
 	})
+
 	r := a.NewRequest(firstPartyChecker)
 	AddCredsToRequest(&remoteCreds, r)
-	return r.Check()
+	err = r.Check()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return remoteUser, nil
 }

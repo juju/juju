@@ -103,7 +103,7 @@ type Info struct {
 // ReauthRequest challenge response.
 type ReauthHandler interface {
 
-	// HandleReauth returns the credential and nonce to use for
+	// HandleReauth returns the user name and credential to use for
 	// reauthenticating with a subsequent Login request.
 	HandleReauth(*params.ReauthRequest) (string, string, error)
 }
@@ -210,25 +210,45 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	if info.Tag != nil || info.Password != "" {
 		reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce)
+		if err == nil && reauth != nil {
+			err = errors.New("client not configured for reauthentication")
+		}
 		if err != nil {
 			warnError(errors.Trace(conn.Close()))
 			return nil, errors.Trace(err)
 		}
-		if reauth != nil {
-			if opts.ReauthHandler == nil {
-				return nil, errors.New("client not configured for reauthentication")
-			}
-			creds, nonce, err := opts.ReauthHandler.HandleReauth(reauth)
+	} else if opts.ReauthHandler != nil {
+		err = func() (err error) {
+			defer func() {
+				if err != nil {
+					warnError(errors.Trace(conn.Close()))
+				}
+			}()
+			reauth, err := st.Login("", "", "")
 			if err != nil {
-				return nil, errors.Trace(err)
+				return errors.Trace(err)
 			}
-			reauth, err = st.Login(info.Tag.String(), creds, nonce)
+			if reauth == nil {
+				return errors.New("did not receive expected reauthentication")
+			}
+			user, creds, err := opts.ReauthHandler.HandleReauth(reauth)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return errors.Trace(err)
+			}
+			if !names.IsValidUser(user) {
+				return errors.Errorf("not a valid user: %q", user)
+			}
+			reauth, err = st.Login(names.NewUserTag(user).String(), creds, "")
+			if err != nil {
+				return errors.Trace(err)
 			}
 			if reauth != nil {
-				return nil, errors.New("reauthentication failed")
+				return errors.New("reauthentication failed")
 			}
+			return nil
+		}()
+		if err != nil {
+			return nil, err
 		}
 	}
 	st.broken = make(chan struct{})
