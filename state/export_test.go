@@ -277,16 +277,6 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func EnsureActionMarker(prefix string) string {
-	return ensureActionMarker(prefix)
-}
-
-var EnsureActionResultMarker = ensureSuffixFn(actionResultMarker)
-
-func GetActionResultId(actionId string) (string, bool) {
-	return convertActionIdToActionResultId(actionId)
-}
-
 func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
 	return mergeIds(st, changeset, updates)
 }

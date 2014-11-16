@@ -65,7 +65,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 func (s *actionSuite) TestActionNotFound(c *gc.C) {
 	_, err := s.uniter.Action(names.JoinActionTag("wordpress/0", "0"))
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "action .*wordpress/0[^0-9]+0[^0-9]+ not found")
+	c.Assert(err, gc.ErrorMatches, "action \"0\" not found")
 }
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
