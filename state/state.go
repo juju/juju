@@ -1247,7 +1247,7 @@ func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
 		}
 		for _, ep1 := range eps1 {
 			for _, ep2 := range eps2 {
-				if ep1.CanRelateTo(ep2) {
+				if ep1.CanRelateTo(ep2) && containerScopeOk(st, ep1, ep2) {
 					candidates = append(candidates, []Endpoint{ep1, ep2})
 				}
 			}
@@ -1290,6 +1290,23 @@ func isPeer(ep Endpoint) bool {
 
 func notPeer(ep Endpoint) bool {
 	return ep.Role != charm.RolePeer
+}
+
+func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
+	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
+		return true
+	}
+	var subordinateCount int
+	for _, ep := range []Endpoint{ep1, ep2} {
+		svc, err := st.Service(ep.ServiceName)
+		if err != nil {
+			return false
+		}
+		if svc.doc.Subordinate {
+			subordinateCount++
+		}
+	}
+	return subordinateCount == 1
 }
 
 // endpoints returns all endpoints that could be intended by the
