@@ -1304,6 +1304,12 @@ var inferEndpointsTests = []struct {
 		},
 		err: `no relations found`,
 	}, {
+		summary: "container scoped relations only considered when there's exactly one subordinate service",
+		inputs: [][]string{
+			{"lg-p", "wp"},
+		},
+		err: `no relations found`,
+	}, {
 		summary: "valid peer relation",
 		inputs: [][]string{
 			{"rk1"},
@@ -1428,6 +1434,7 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 	riak := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "rk1", riak)
 	s.AddTestingService(c, "rk2", riak)
+	s.AddTestingService(c, "lg-p", s.cloneCharmAsPrincipal(c, "logging", "logging-principal"))
 
 	for i, t := range inferEndpointsTests {
 		c.Logf("test %d", i)
@@ -1442,6 +1449,22 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 			}
 		}
 	}
+}
+
+// cloneCharmAsPrincipal loads an existing charm (named srcName) and
+// adds a new one (named dstName) cloned from it with the Subordinate
+// flag set to false.
+//
+// This is pretty hacky. This is only done like this to avoid pulling
+// in more changes than necessary into the 1.20 branch for backporting
+// the fix for LP#1382751. In 1.21 and 1.22, a cleaner approach is
+// used.
+func (s *StateSuite) cloneCharmAsPrincipal(c *gc.C, srcName, dstName string) *state.Charm {
+	ch := charmtesting.Charms.Dir(srcName)
+	meta := ch.Meta()
+	meta.Name = dstName
+	meta.Subordinate = false
+	return state.AddCharm(c, s.State, "quantal", ch)
 }
 
 func (s *StateSuite) TestEnvironConfig(c *gc.C) {

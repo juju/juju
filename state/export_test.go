@@ -93,7 +93,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", charmtesting.Charms.Dir(name))
+	return AddCharm(c, st, "quantal", charmtesting.Charms.Dir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
@@ -118,10 +118,10 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 	if revision != -1 {
 		ch.SetRevision(revision)
 	}
-	return addCharm(c, st, series, ch)
+	return AddCharm(c, st, series, ch)
 }
 
-func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
+func AddCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)

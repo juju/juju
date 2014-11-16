@@ -72,7 +72,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	charm := AddCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
