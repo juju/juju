@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -57,7 +58,7 @@ const actionMarker string = "_a_"
 
 type actionDoc struct {
 	// DocId is the key for this document. The structure of the key is
-	// a composite of ActionReceiver.ActionKey() and a unique sequence,
+	// a composite of ActionReceiver.ActionKey() and a UUID
 	// to facilitate indexing and prefix filtering.
 	DocId string `bson:"_id"`
 
@@ -68,9 +69,9 @@ type actionDoc struct {
 	// which this Action is queued.
 	Receiver string `bson:"receiver"`
 
-	// Sequence is the unique identifier for this instance of this Action,
+	// UUID is the unique identifier for this instance of this Action,
 	// and is encoded in the DocId too.
-	Sequence int `bson:"sequence"`
+	UUID string `bson:"uuid"`
 
 	// Name identifies the action that should be run; it should
 	// match an action defined by the unit's charm.
@@ -102,9 +103,9 @@ func (a *Action) Receiver() string {
 	return a.doc.Receiver
 }
 
-// Sequence returns the unique suffix of the _id of this Action.
-func (a *Action) Sequence() int {
-	return a.doc.Sequence
+// UUID returns the unique id of this Action.
+func (a *Action) UUID() string {
+	return a.doc.UUID
 }
 
 // Name returns the name of the action, as defined in the charm.
@@ -125,6 +126,13 @@ func (a *Action) Enqueued() time.Time {
 	return a.doc.Enqueued
 }
 
+// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
+// that the Action can produce a valid Tag.
+func (a *Action) ValidateTag() bool {
+	_, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
+	return ok
+}
+
 // Tag implements the Entity interface and returns a names.Tag that
 // is a names.ActionTag.
 func (a *Action) Tag() names.Tag {
@@ -134,7 +142,7 @@ func (a *Action) Tag() names.Tag {
 // ActionTag returns an ActionTag constructed from this action's
 // Prefix and Sequence.
 func (a *Action) ActionTag() names.ActionTag {
-	return names.JoinActionTag(a.Receiver(), a.Sequence())
+	return names.JoinActionTag(a.Receiver(), a.UUID())
 }
 
 // ActionResults is a data transfer object that holds the key Action
@@ -180,17 +188,17 @@ func newAction(st *State, adoc actionDoc) *Action {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, error) {
 	prefix := ensureActionMarker(ar.Name())
-	sequence, err := st.sequence(prefix)
+	uuid, err := utils.NewUUID()
 	if err != nil {
 		return actionDoc{}, err
 	}
 	envuuid := st.EnvironUUID()
-	actionId := st.docID(fmt.Sprintf("%s%d", prefix, sequence))
+	actionId := st.docID(fmt.Sprintf("%s%s", prefix, uuid))
 	return actionDoc{
 		DocId:      actionId,
 		EnvUUID:    envuuid,
 		Receiver:   ar.Name(),
-		Sequence:   sequence,
+		UUID:       uuid.String(),
 		Name:       actionName,
 		Parameters: parameters,
 		Enqueued:   nowToTheSecond(),
@@ -205,5 +213,5 @@ func actionIdFromTag(tag names.ActionTag) string {
 	if ptag == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s%d", ensureActionMarker(ptag.Id()), tag.Sequence())
+	return ensureActionMarker(ptag.Id()) + tag.Suffix()
 }

@@ -488,11 +488,12 @@ func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
 	networks1 := []string{"net1", "net2"}
 	networks2 := []string{"net3", "net4"}
 	coll, closer, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToConstraints, constraintsC,
-		[]bson.M{{
-			"_id":      "s#wordpress",
-			"cpucores": 4,
-			"networks": networks1,
-		},
+		[]bson.M{
+			{
+				"_id":      "s#wordpress",
+				"cpucores": 4,
+				"networks": networks1,
+			},
 			{
 				"_id":      "s#mediawiki",
 				"cpucores": 8,
@@ -544,6 +545,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToStatuses(c *gc.C) {
 	var newDoc statusDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
 	c.Assert(newDoc.Status, gc.Equals, StatusStarted)
+	c.Assert(newDoc.StatusData, gc.IsNil)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
 	c.Assert(newDoc.Status, gc.Equals, StatusError)

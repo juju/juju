@@ -438,6 +438,7 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 	if err != nil {
 		return false, nil
 	}
+	defer existingDataReader.Close()
 	existingData, err := ioutil.ReadAll(existingDataReader)
 	if err != nil {
 		return false, err

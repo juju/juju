@@ -48,8 +48,7 @@ func FinishMetadata(meta *metadata.Metadata) {
 
 // UpdateNotes derives a new Metadata with new notes.
 func UpdateNotes(meta *metadata.Metadata, notes string) *metadata.Metadata {
-	copied := meta.Copy().(*metadata.Metadata)
-	copied.SetID(meta.ID())
+	copied := *meta
 	copied.Notes = notes
-	return copied
+	return &copied
 }

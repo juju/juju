@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 func init() {
@@ -35,7 +34,7 @@ func newClientAllWatcher(st *state.State, resources *common.Resources, auth comm
 	if !auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(*multiwatcher.Watcher)
+	watcher, ok := resources.Get(id).(*state.Multiwatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
@@ -46,11 +45,11 @@ func newClientAllWatcher(st *state.State, resources *common.Resources, auth comm
 	}, nil
 }
 
-// srvClientAllWatcher defines the API methods on a state/multiwatcher.Watcher,
+// srvClientAllWatcher defines the API methods on a state.Multiwatcher.
 // which watches any changes to the state. Each client has its own current set
 // of watchers, stored in resources.
 type srvClientAllWatcher struct {
-	watcher   *multiwatcher.Watcher
+	watcher   *state.Multiwatcher
 	id        string
 	resources *common.Resources
 }

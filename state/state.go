@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -67,6 +66,7 @@ const (
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
 	rebootC            = "reboot"
+	blockDevicesC      = "blockdevices"
 
 	// sequenceC is used to generate unique identifiers.
 	sequenceC = "sequence"
@@ -106,7 +106,7 @@ type State struct {
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
-	allManager *multiwatcher.StoreManager
+	allManager *StoreManager
 	environTag names.EnvironTag
 }
 
@@ -222,13 +222,13 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
-func (st *State) Watch() *multiwatcher.Watcher {
+func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
-		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+		st.allManager = NewStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
-	return multiwatcher.NewWatcher(st.allManager)
+	return NewMultiwatcher(st.allManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
