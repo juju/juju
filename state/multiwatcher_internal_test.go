@@ -25,15 +25,15 @@ type storeSuite struct {
 
 var StoreChangeMethodTests = []struct {
 	about          string
-	change         func(all *Store)
+	change         func(all *multiwatcherStore)
 	expectRevno    int64
 	expectContents []entityEntry
 }{{
 	about:  "empty at first",
-	change: func(*Store) {},
+	change: func(*multiwatcherStore) {},
 }, {
 	about: "add single entry",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
@@ -50,7 +50,7 @@ var StoreChangeMethodTests = []struct {
 	}},
 }, {
 	about: "add two entries",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{
 			Id:         "0",
 			InstanceId: "i-0",
@@ -78,7 +78,7 @@ var StoreChangeMethodTests = []struct {
 	}},
 }, {
 	about: "update an entity that's not currently there",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		m := &multiwatcher.MachineInfo{Id: "1"}
 		all.Update(m)
 	},
@@ -90,7 +90,7 @@ var StoreChangeMethodTests = []struct {
 	}},
 }, {
 	about: "mark removed on existing entry",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "0"})
 		all.Update(&multiwatcher.MachineInfo{Id: "1"})
 		StoreIncRef(all, multiwatcher.EntityId{"machine", "0"})
@@ -110,12 +110,12 @@ var StoreChangeMethodTests = []struct {
 	}},
 }, {
 	about: "mark removed on nonexistent entry",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Remove(multiwatcher.EntityId{"machine", "0"})
 	},
 }, {
 	about: "mark removed on already marked entry",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "0"})
 		all.Update(&multiwatcher.MachineInfo{Id: "1"})
 		StoreIncRef(all, multiwatcher.EntityId{"machine", "0"})
@@ -143,21 +143,21 @@ var StoreChangeMethodTests = []struct {
 	}},
 }, {
 	about: "mark removed on entry with zero ref count",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "0"})
 		all.Remove(multiwatcher.EntityId{"machine", "0"})
 	},
 	expectRevno: 2,
 }, {
 	about: "delete entry",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "0"})
 		all.delete(multiwatcher.EntityId{"machine", "0"})
 	},
 	expectRevno: 1,
 }, {
 	about: "decref of non-removed entity",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		m := &multiwatcher.MachineInfo{Id: "0"}
 		all.Update(m)
 		id := m.EntityId()
@@ -174,7 +174,7 @@ var StoreChangeMethodTests = []struct {
 	}},
 }, {
 	about: "decref of removed entity",
-	change: func(all *Store) {
+	change: func(all *multiwatcherStore) {
 		m := &multiwatcher.MachineInfo{Id: "0"}
 		all.Update(m)
 		id := m.EntityId()
@@ -402,26 +402,26 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *gc.C) {
 	}})
 }
 
-var respondTestChanges = [...]func(all *Store){
-	func(all *Store) {
+var respondTestChanges = [...]func(all *multiwatcherStore){
+	func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "0"})
 	},
-	func(all *Store) {
+	func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "1"})
 	},
-	func(all *Store) {
+	func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{Id: "2"})
 	},
-	func(all *Store) {
+	func(all *multiwatcherStore) {
 		all.Remove(multiwatcher.EntityId{"machine", "0"})
 	},
-	func(all *Store) {
+	func(all *multiwatcherStore) {
 		all.Update(&multiwatcher.MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
 	},
-	func(all *Store) {
+	func(all *multiwatcherStore) {
 		all.Remove(multiwatcher.EntityId{"machine", "1"})
 	},
 }
@@ -670,12 +670,12 @@ func (*storeManagerSuite) TestMultiwatcherStopBecauseStoreManagerError(c *gc.C) 
 	checkNext(c, w, nil, "some error")
 }
 
-func StoreIncRef(a *Store, id interface{}) {
+func StoreIncRef(a *multiwatcherStore, id interface{}) {
 	entry := a.entities[id].Value.(*entityEntry)
 	entry.refCount++
 }
 
-func assertStoreContents(c *gc.C, a *Store, latestRevno int64, entries []entityEntry) {
+func assertStoreContents(c *gc.C, a *multiwatcherStore, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
 	c.Check(a.list.Len(), gc.Equals, len(entries))
@@ -712,7 +712,7 @@ func (s watcherState) update(changes []multiwatcher.Delta) {
 
 // check checks that the watcher state matches that
 // held in current.
-func (s watcherState) check(c *gc.C, current *Store) {
+func (s watcherState) check(c *gc.C, current *multiwatcherStore) {
 	currentEntities := make(watcherState)
 	for id, elem := range current.entities {
 		entry := elem.Value.(*entityEntry)
@@ -740,7 +740,7 @@ func assertReplied(c *gc.C, val bool, req *request) {
 	}
 }
 
-func assertWaitingRequests(c *gc.C, sm *StoreManager, waiting map[*Multiwatcher][]*request) {
+func assertWaitingRequests(c *gc.C, sm *storeManager, waiting map[*Multiwatcher][]*request) {
 	c.Assert(sm.waiting, gc.HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
@@ -774,7 +774,7 @@ func newTestBacking(initial []multiwatcher.EntityInfo) *storeManagerTestBacking 
 	return b
 }
 
-func (b *storeManagerTestBacking) Changed(all *Store, change watcher.Change) error {
+func (b *storeManagerTestBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
 	id := multiwatcher.EntityId{
 		Kind: change.C,
 		Id:   change.Id.(string),
@@ -821,7 +821,7 @@ func (b *storeManagerTestBacking) Unwatch(c chan<- watcher.Change) {
 	b.watchc = nil
 }
 
-func (b *storeManagerTestBacking) GetAll(all *Store) error {
+func (b *storeManagerTestBacking) GetAll(all *multiwatcherStore) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for _, info := range b.entities {

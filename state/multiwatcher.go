@@ -81,7 +81,7 @@ type storeManager struct {
 	request chan *request
 
 	// all holds information on everything the storeManager cares about.
-	all *Store
+	all *multiwatcherStore
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated Multiwatcher.
@@ -94,12 +94,12 @@ type Backing interface {
 
 	// GetAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
-	GetAll(all *Store) error
+	GetAll(all *multiwatcherStore) error
 
 	// Changed informs the backing about a change received
 	// from a watcher channel.  The backing is responsible for
 	// updating the Store to reflect the change.
-	Changed(all *Store, change watcher.Change) error
+	Changed(all *multiwatcherStore, change watcher.Change) error
 
 	// Watch watches for any changes and sends them
 	// on the given channel.
@@ -325,9 +325,9 @@ type entityEntry struct {
 	info multiwatcher.EntityInfo
 }
 
-// Store holds a list of all entities known
+// multiwatcherStore holds a list of all entities known
 // to a Multiwatcher.
-type Store struct {
+type multiwatcherStore struct {
 	latestRevno int64
 	entities    map[interface{}]*list.Element
 	list        *list.List
@@ -336,17 +336,16 @@ type Store struct {
 // newStore returns an Store instance holding information about the
 // current state of all entities in the environment.
 // It is only exposed here for testing purposes.
-func newStore() *Store {
-	all := &Store{
+func newStore() *multiwatcherStore {
+	return &multiwatcherStore{
 		entities: make(map[interface{}]*list.Element),
 		list:     list.New(),
 	}
-	return all
 }
 
 // All returns all the entities stored in the Store,
 // oldest first. It is only exposed for testing purposes.
-func (a *Store) All() []multiwatcher.EntityInfo {
+func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
 	entities := make([]multiwatcher.EntityInfo, 0, a.list.Len())
 	for e := a.list.Front(); e != nil; e = e.Next() {
 		entry := e.Value.(*entityEntry)
@@ -360,7 +359,7 @@ func (a *Store) All() []multiwatcher.EntityInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *Store) add(id interface{}, info multiwatcher.EntityInfo) {
+func (a *multiwatcherStore) add(id interface{}, info multiwatcher.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -375,7 +374,7 @@ func (a *Store) add(id interface{}, info multiwatcher.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
-func (a *Store) decRef(entry *entityEntry) {
+func (a *multiwatcherStore) decRef(entry *entityEntry) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
 	}
@@ -395,7 +394,7 @@ func (a *Store) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id multiwatcher.EntityId) {
+func (a *multiwatcherStore) delete(id multiwatcher.EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -407,7 +406,7 @@ func (a *Store) delete(id multiwatcher.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) Remove(id multiwatcher.EntityId) {
+func (a *multiwatcherStore) Remove(id multiwatcher.EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -425,7 +424,7 @@ func (a *Store) Remove(id multiwatcher.EntityId) {
 }
 
 // Update updates the information for the given entity.
-func (a *Store) Update(info multiwatcher.EntityInfo) {
+func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	id := info.EntityId()
 	elem := a.entities[id]
 	if elem == nil {
@@ -448,7 +447,7 @@ func (a *Store) Update(info multiwatcher.EntityInfo) {
 // Get returns the stored entity with the given
 // id, or nil if none was found. The contents of the returned entity
 // should not be changed.
-func (a *Store) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
+func (a *multiwatcherStore) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
 	if e := a.entities[id]; e != nil {
 		return e.Value.(*entityEntry).info
 	}
@@ -457,7 +456,7 @@ func (a *Store) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
 
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *Store) ChangesSince(revno int64) []multiwatcher.Delta {
+func (a *multiwatcherStore) ChangesSince(revno int64) []multiwatcher.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
