@@ -18,7 +18,7 @@ type MetricManagerSuite struct{}
 var _ = gc.Suite(&MetricManagerSuite{})
 
 func (s *MetricManagerSuite) TestRunner(c *gc.C) {
-	notify := make(chan string)
+	notify := make(chan string, 2)
 	cleanup := metricworker.PatchNotificationChannel(notify)
 	defer cleanup()
 	client := &mockClient{}
