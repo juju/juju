@@ -243,12 +243,12 @@ func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known by
+// Subnets returns basic information about all networks known by
 // the provider for the environment. They may be unknown to juju yet
 // (i.e. when called initially or when a new network was created).
 // This is not implemented on the Joyent provider yet.
-func (*joyentEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*joyentEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {

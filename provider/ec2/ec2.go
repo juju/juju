@@ -992,12 +992,12 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	return nil
 }
 
-// ListNetworks returns basic information about all networks known
+// Subnets returns basic information about all networks known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the EC2 provider yet.
-func (*environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

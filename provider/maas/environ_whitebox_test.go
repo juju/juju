@@ -975,7 +975,7 @@ func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestListNetworks(c *gc.C) {
+func (suite *environSuite) TestSubnets(c *gc.C) {
 	test_instance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
 		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
@@ -995,7 +995,7 @@ func (suite *environSuite) TestListNetworks(c *gc.C) {
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
-	netInfo, err := suite.makeEnviron().ListNetworks(test_instance.Id())
+	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
 	c.Assert(err, gc.IsNil)
 
 	expectedInfo := []network.BasicInfo{
