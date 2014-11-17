@@ -154,7 +154,7 @@ func (s *destroyEnvironmentSuite) checkDestroyEnvironment(c *gc.C, blocked bool)
 	//Setup environment
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": blocked}, nil, nil)
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": blocked}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyEnvironment()
 	if blocked {

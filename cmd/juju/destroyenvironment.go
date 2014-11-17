@@ -104,9 +104,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	// API server is inaccessible or faulty.
 	if !c.force {
 		defer func() {
-			if result != nil {
-				result = c.logDestroyError(result)
-			}
+			result = c.ensureUserFriendlyErrorLog(result)
 		}()
 		apiclient, err := juju.NewAPIClientFromName(c.envName)
 		if err != nil {
@@ -137,13 +135,16 @@ func processDestroyError(err error) error {
 	return nil
 }
 
-// logDestroyError logs error messages. At this stage,
-// only operation blocked is singled out to be treated differently
-// than other errors.
-func (c *DestroyEnvironmentCommand) logDestroyError(err error) error {
+// ensureUserFriendlyErrorLog ensures that error will be logged and displayed
+// in a user-friendly manner with readable and digestable error message.
+func (c *DestroyEnvironmentCommand) ensureUserFriendlyErrorLog(err error) error {
+	if err == nil {
+		return nil
+	}
 	errMsg := stdFailureMsg
 	if params.IsCodeOperationBlocked(err) {
 		errMsg = blockedOperationMsg
+		err = cmd.ErrSilent
 	}
 	logger.Errorf(errMsg, c.envName)
 	return err
@@ -163,11 +164,13 @@ If the environment is unusable, then you may run
 
 to forcefully destroy the environment. Upon doing so, review
 your environment provider console for any resources that need
-to be cleaned up. Using force will also by-pass destroy-envrionment
- block configured by setting prevent-destroy-environment to true.
+to be cleaned up. Using force will also by-pass destroy-envrionment block.
 
 `
 var blockedOperationMsg = `
 destroy-environment operation has been blocked for environment %q.
-To remove the block run "juju set-env prevent-destroy-environment=false"
+To remove the block run
+
+    juju unblock destroy-environment
+
 `

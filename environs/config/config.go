@@ -121,8 +121,11 @@ const (
 	// NumaControlPolicyKey stores the value for this setting
 	SetNumaControlPolicyKey = "set-numa-control-policy"
 
+	// BlockKeyPrefix is the prefix used for environment variables that block commands
+	BlockKeyPrefix = "block-"
+
 	// PreventDestroyEnvironmentKey stores the value for this setting
-	PreventDestroyEnvironmentKey = "prevent-destroy-environment"
+	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
 
 	//
 	// Deprecated Settings Attributes

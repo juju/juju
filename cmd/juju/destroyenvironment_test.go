@@ -63,7 +63,7 @@ func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked bool) {
 	envName := "dummyenv"
 	s.startEnvironment(c, envName)
 	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": blocked}, nil, nil)
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": blocked}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
 	if blocked {
@@ -89,13 +89,12 @@ func (s *destroyEnvSuite) TestDestroyUnlockedEnvironment(c *gc.C) {
 	s.checkDestroyEnvironment(c, false)
 }
 
-// Needs to be a separate test as destroyed environment cannot be re-used without TearDown/Setup to clean everything up
-func (s *destroyEnvSuite) TestForceDestroyLockedEnvironment(c *gc.C) {
+func (s *destroyEnvSuite) checkForceDestroyEnvironment(c *gc.C, blocked bool) {
 	envName := "dummyenv"
 	// Start environment to destroy
 	s.startEnvironment(c, envName)
-	// Override prevent-destroy-environment to lock environment destruction
-	s.updateConfigParameter(c, "prevent-destroy-environment", true)
+	// Override block-destroy-environment to lock environment destruction
+	s.updateConfigParameter(c, "block-destroy-environment", blocked)
 	// normal destroy
 	opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes", "--force")
 	c.Check(<-errc2, gc.IsNil)
@@ -105,20 +104,12 @@ func (s *destroyEnvSuite) TestForceDestroyLockedEnvironment(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-// Needs to be a separate test as destroyed environment cannot be re-used without TearDown/Setup to clean everything up
+func (s *destroyEnvSuite) TestForceDestroyLockedEnvironment(c *gc.C) {
+	s.checkForceDestroyEnvironment(c, true)
+}
+
 func (s *destroyEnvSuite) TestForceDestroyUnlockedEnvironment(c *gc.C) {
-	envName := "dummyenv"
-	// Start environment to destroy
-	s.startEnvironment(c, envName)
-	// Override prevent-destroy-environment to lock environment destruction
-	s.updateConfigParameter(c, "prevent-destroy-environment", false)
-	// normal destroy
-	opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes", "--force")
-	c.Check(<-errc2, gc.IsNil)
-	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
-	// Verify that the environment information has been removed.
-	_, err := s.ConfigStore.ReadInfo(envName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	s.checkForceDestroyEnvironment(c, false)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
