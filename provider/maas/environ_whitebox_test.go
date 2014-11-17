@@ -975,7 +975,7 @@ func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSubnets(c *gc.C) {
+func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	test_instance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
 		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
@@ -995,6 +995,12 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	return test_instance
+}
+
+func (suite *environSuite) TestSubnets(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+
 	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
 	c.Assert(err, gc.IsNil)
 
@@ -1004,6 +1010,13 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 		network.BasicInfo{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
 	}
 	c.Assert(netInfo, jc.SameContents, expectedInfo)
+}
+
+func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
