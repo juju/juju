@@ -894,7 +894,7 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 		// just break here.
 		break
 	}
-	return &node, err
+	return &node, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
