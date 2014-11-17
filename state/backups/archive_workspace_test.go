@@ -36,7 +36,7 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 		`"Started":"2014-09-09T11:59:34Z",` +
 		`"Finished":"2014-09-09T12:00:34Z",` +
 		`"Notes":"",` +
-		`"Environment":"asdf-zxcv-qwe",` +
+		`"Environment":"9f484882-2f18-4fd2-967d-db9663db7bea",` +
 		`"Machine":"0",` +
 		`"Hostname":"myhost",` +
 		`"Version":"1.21-alpha3"` +
