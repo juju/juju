@@ -545,11 +545,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			})
 
 			logger.Infof("starting metric workers")
-			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
-				return metricworker.NewCleanup(getMetricAPI(st)), nil
-			})
-			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
-				return metricworker.NewSender(getMetricAPI(st)), nil
+			a.startWorkerAfterUpgrade(runner, "metricmanagerworker", func() (worker.Worker, error) {
+				return metricworker.NewMetricsManager(getMetricAPI(st))
 			})
 		case juju.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.

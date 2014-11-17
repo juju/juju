@@ -1,0 +1,33 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package metricworker_test
+
+import (
+	"time"
+
+	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/metricworker"
+)
+
+type MetricManagerSuite struct{}
+
+var _ = gc.Suite(&MetricManagerSuite{})
+
+func (s *MetricManagerSuite) TestRunner(c *gc.C) {
+	notify := make(chan struct{})
+	cleanup := metricworker.PatchNotificationChannel(notify)
+	defer cleanup()
+	client := &mockClient{}
+	_, err := metricworker.NewMetricsManager(client)
+	c.Assert(err, gc.IsNil)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-notify:
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("we should have received a notification by now")
+		}
+	}
+}
