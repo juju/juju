@@ -53,9 +53,18 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 var ReleaseNodes = releaseNodes
+var ReserveIPAddress = reserveIPAddress
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
+	return err
+}
+
+func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+	params := url.Values{}
+	params.Add("network", cidr)
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("reserve", params)
 	return err
 }
 
@@ -1095,10 +1104,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	}
 	cidr := foundSub.CIDR
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
-	params := url.Values{}
-	params.Add("network", cidr)
-	params.Add("ip", addr.Value)
-	_, err = ipaddresses.CallPost("reserve", params)
+	err = ReserveIPAddress(ipaddresses, cidr, addr)
 	if err != nil {
 		maasErr, ok := err.(gomaasapi.ServerError)
 		if !ok {
