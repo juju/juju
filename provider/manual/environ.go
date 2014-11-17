@@ -261,7 +261,7 @@ func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 	return errors.NotSupportedf("AllocateAddress")
 }
 
-// Subnets returns basic information about all networks known
+// Subnets returns basic information about all nesubnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the manual provider yet.

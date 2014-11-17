@@ -1086,7 +1086,7 @@ func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addre
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// Subnets returns basic information about all networks known
+// Subnets returns basic information about all nesubnets known
 // by the provider for the environment, for a specific instance.
 func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
