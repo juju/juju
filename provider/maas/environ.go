@@ -1079,22 +1079,21 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	networks, err := environ.ListNetworks(instId)
+	subnets, err := environ.Subnets(instId)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var foundNetwork *network.BasicInfo
-	for _, netw := range networks {
-		if netw.ProviderId == netId {
-			foundNetwork = &netw
+	var foundSub *network.BasicInfo
+	for _, sub := range subnets {
+		if sub.ProviderId == netId {
+			foundSub = &sub
 			break
 		}
 	}
-	if foundNetwork == nil {
+	if foundSub == nil {
 		return errors.Errorf("could not find network matching %v", netId)
 	}
-	cidr := foundNetwork.CIDR
-	// XXX verify that the requested IP address is valid for the CIDR?
+	cidr := foundSub.CIDR
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	params := url.Values{}
 	params.Add("network", cidr)
