@@ -1244,12 +1244,12 @@ func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) 
 	return jujuerrors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// Subnets returns basic information about all networks known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the OpenStack provider yet.
-func (*environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, jujuerrors.NotImplementedf("ListNetworks")
+func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, jujuerrors.NotImplementedf("Subnets")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {
