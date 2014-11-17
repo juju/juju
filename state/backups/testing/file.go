@@ -88,11 +88,6 @@ func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, erro
 		return nil, errors.Trace(err)
 	}
 
-	metaFile, err := meta.AsJSONBuffer()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	topfiles := []File{{
 		Name:  "juju-backup",
 		IsDir: true,
@@ -115,11 +110,20 @@ func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, erro
 			Name:    "juju-backup/root.tar",
 			Content: rootFile.String(),
 		},
-		File{
-			Name:    "juju-backup/metadata.json",
-			Content: metaFile.(*bytes.Buffer).String(),
-		},
 	)
+
+	if meta != nil {
+		metaFile, err := meta.AsJSONBuffer()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		topfiles = append(topfiles,
+			File{
+				Name:    "juju-backup/metadata.json",
+				Content: metaFile.(*bytes.Buffer).String(),
+			},
+		)
+	}
 
 	var arFile bytes.Buffer
 	compressed := gzip.NewWriter(&arFile)
