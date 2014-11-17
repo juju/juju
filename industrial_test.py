@@ -54,6 +54,7 @@ class MultiIndustrialTest:
         """Return a results list for use in run_tests."""
         return {'results': [{
             'title': stage.title,
+            'test_id': stage.test_id,
             'attempts': 0,
             'old_failures': 0,
             'new_failures': 0,
@@ -222,6 +223,8 @@ class BootstrapAttempt(StageAttempt):
 
     title = 'bootstrap'
 
+    test_id = 'bootstrap'
+
     def _operation(self, client):
         with temp_bootstrap_env(get_juju_home(), client):
             client.bootstrap()
@@ -236,6 +239,8 @@ class DestroyEnvironmentAttempt(StageAttempt):
 
     title = 'destroy environment'
 
+    test_id = 'destroy-env'
+
     def _operation(self, client):
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
@@ -249,6 +254,8 @@ class EnsureAvailabilityAttempt(StageAttempt):
 
     title = 'ensure-availability -n 3'
 
+    test_id = 'ensure-availability-n3'
+
     def _operation(self, client):
         client.juju('ensure-availability', ('-n', '3'))
 
@@ -260,6 +267,8 @@ class EnsureAvailabilityAttempt(StageAttempt):
 class DeployManyAttempt(StageAttempt):
 
     title = 'deploy many'
+
+    test_id = 'deploy-many'
 
     def __init__(self, host_count=10, container_count=10):
         super(DeployManyAttempt, self).__init__()
@@ -289,6 +298,8 @@ class DeployManyAttempt(StageAttempt):
 class BackupRestoreAttempt(StageAttempt):
 
     title = 'Back-up / restore'
+
+    test_id = 'back-up-restore'
 
     def _operation(self, client):
         backup_file = client.backup()

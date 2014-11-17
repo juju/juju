@@ -97,6 +97,7 @@ class FakeAttemptClass:
 
     def __init__(self, title, *result):
         self.title = title
+        self.test_id = '{}-id'.format(title)
         self.result = result
 
     def __call__(self):
@@ -154,9 +155,9 @@ class TestMultiIndustrialTest(TestCase):
         results = mit.make_results()
         self.assertEqual(results, {'results': [
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'destroy environment'},
+             'title': 'destroy environment', 'test_id': 'destroy-env'},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
-             'title': 'bootstrap'},
+             'title': 'bootstrap', 'test_id': 'bootstrap'},
         ]})
 
     def test_make_industrial_test(self):
@@ -196,24 +197,24 @@ class TestMultiIndustrialTest(TestCase):
         results = mit.make_results()
         mit.update_results([(True, False)], results)
         self.assertEqual(results, {'results': [
-            {'title': 'destroy environment', 'attempts': 1, 'new_failures': 1,
-             'old_failures': 0},
-            {'title': 'bootstrap', 'attempts': 0, 'new_failures': 0,
-             'old_failures': 0},
+            {'title': 'destroy environment', 'test_id': 'destroy-env',
+             'attempts': 1, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
+             'new_failures': 0, 'old_failures': 0},
             ]})
         mit.update_results([(True, True), (False, True)], results)
         self.assertEqual(results, {'results': [
-            {'title': 'destroy environment', 'attempts': 2, 'new_failures': 1,
-             'old_failures': 0},
-            {'title': 'bootstrap', 'attempts': 1, 'new_failures': 0,
-             'old_failures': 1},
+            {'title': 'destroy environment', 'test_id': 'destroy-env',
+             'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 1,
+             'new_failures': 0, 'old_failures': 1},
             ]})
         mit.update_results([(False, False), (False, False)], results)
         self.assertEqual(results, {'results': [
-            {'title': 'destroy environment', 'attempts': 2, 'new_failures': 1,
-             'old_failures': 0},
-            {'title': 'bootstrap', 'attempts': 2, 'new_failures': 1,
-             'old_failures': 2},
+            {'title': 'destroy environment', 'test_id': 'destroy-env',
+             'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 2,
+             'new_failures': 1, 'old_failures': 2},
             ]})
 
     def test_run_tests(self):
@@ -227,10 +228,10 @@ class TestMultiIndustrialTest(TestCase):
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
-            {'title': 'foo', 'attempts': 5, 'old_failures': 0,
-             'new_failures': 0},
-            {'title': 'bar', 'attempts': 5, 'old_failures': 0,
-             'new_failures': 5},
+            {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
+             'old_failures': 0, 'new_failures': 0},
+            {'title': 'bar', 'test_id': 'bar-id', 'attempts': 5,
+             'old_failures': 0, 'new_failures': 5},
             ]})
 
     def test_run_tests_max_attempts(self):
@@ -244,10 +245,10 @@ class TestMultiIndustrialTest(TestCase):
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
-            {'title': 'foo', 'attempts': 5, 'old_failures': 0,
-             'new_failures': 5},
-            {'title': 'bar', 'attempts': 0, 'old_failures': 0,
-             'new_failures': 0},
+            {'title': 'foo', 'test_id': 'foo-id', 'attempts': 5,
+             'old_failures': 0, 'new_failures': 5},
+            {'title': 'bar', 'test_id': 'bar-id', 'attempts': 0,
+             'old_failures': 0, 'new_failures': 0},
             ]})
 
     def test_run_tests_max_attempts_less_than_attempt_count(self):
@@ -261,10 +262,10 @@ class TestMultiIndustrialTest(TestCase):
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 results = mit.run_tests()
         self.assertEqual(results, {'results': [
-            {'title': 'foo', 'attempts': 4, 'old_failures': 0,
-             'new_failures': 4},
-            {'title': 'bar', 'attempts': 0, 'old_failures': 0,
-             'new_failures': 0},
+            {'title': 'foo', 'test_id': 'foo-id', 'attempts': 4,
+             'old_failures': 0, 'new_failures': 4},
+            {'title': 'bar', 'test_id': 'bar-id', 'attempts': 0,
+             'old_failures': 0, 'new_failures': 0},
             ]})
 
     def test_results_table(self):
