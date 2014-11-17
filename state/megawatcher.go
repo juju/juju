@@ -72,10 +72,6 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interfa
 }
 
 func (m *backingMachine) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) This isn't correct - the store should be using
-	// environment UUID prefixed ids but we can't fix it properly
-	// until davecheney smashes the allwatcher to apiserver/params
-	// dependency.
 	store.Remove(multiwatcher.EntityId{
 		Kind: "machine",
 		Id:   st.localID(id.(string)),
@@ -140,7 +136,6 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 }
 
 func (u *backingUnit) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "unit",
 		Id:   st.localID(id.(string)),
@@ -207,7 +202,6 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 }
 
 func (svc *backingService) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "service",
 		Id:   st.localID(id.(string)),
@@ -247,7 +241,6 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id interf
 }
 
 func (r *backingRelation) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "relation",
 		Id:   st.localID(id.(string)),
@@ -517,10 +510,15 @@ func newAllWatcherStateBacking(st *State) Backing {
 	return b
 }
 
+func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
+	_, err := b.st.strictLocalID(docID.(string))
+	return err == nil
+}
+
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.Name, in)
+		b.st.watcher.WatchCollectionWithFilter(c.Name, in, b.filterEnv)
 	}
 }
 
