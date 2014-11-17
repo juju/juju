@@ -20,7 +20,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 const (
@@ -40,7 +40,7 @@ var (
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
-func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
+func newBackupDoc(meta *backups.Metadata) *backupMetaDoc {
 	var doc backupMetaDoc
 	doc.UpdateFromMetadata(meta)
 	return &doc
@@ -52,12 +52,14 @@ func getBackupDBWrapper(st *State) *backupDBWrapper {
 	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
 }
 
-func NewBackupID(meta *metadata.Metadata) string {
+// NewBackupID creates a new backup ID based on the metadata.
+func NewBackupID(meta *backups.Metadata) string {
 	doc := newBackupDoc(meta)
 	return newBackupID(doc)
 }
 
-func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
+// GetBackupMetadata returns the metadata retrieved from storage.
+func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc, err := getBackupMetadata(db, id)
@@ -67,24 +69,29 @@ func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
-func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
+// AddBackupMetadata adds the metadata to storage.
+func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadata(db, doc)
 }
 
-func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
+// AddBackupMetadataID adds the metadata to storage, using the given
+// backup ID.
+func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadataID(db, doc, id)
 }
 
-func SetBackupStored(st *State, id string, stored time.Time) error {
+// SetBackupStoredTime stores the time of when the identified backup archive
+// file was stored.
+func SetBackupStoredTime(st *State, id string, stored time.Time) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	return setBackupStored(db, id, stored)
+	return setBackupStoredTime(db, id, stored)
 }
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

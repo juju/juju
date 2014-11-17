@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 type backupSuite struct {
@@ -22,19 +22,17 @@ type backupSuite struct {
 
 var _ = gc.Suite(&backupSuite{})
 
-func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
-	origin := metadata.NewOrigin(
-		s.State.EnvironUUID(),
-		"0",
-		"localhost",
-	)
-	meta := metadata.NewMetadata(*origin, "", nil)
-	err := meta.Finish(int64(42), "some hash")
+func (s *backupSuite) metadata(c *gc.C) *backups.Metadata {
+	meta := backups.NewMetadata()
+	meta.Origin.Environment = s.State.EnvironUUID()
+	meta.Origin.Machine = "0"
+	meta.Origin.Hostname = "localhost"
+	err := meta.MarkComplete(int64(42), "some hash")
 	c.Assert(err, gc.IsNil)
 	return meta
 }
 
-func (s *backupSuite) checkMeta(c *gc.C, meta, expected *metadata.Metadata, id string,
+func (s *backupSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id string,
 ) {
 	if id != "" {
 		c.Check(meta.ID(), gc.Equals, id)
@@ -56,9 +54,9 @@ func (s *backupSuite) checkMeta(c *gc.C, meta, expected *metadata.Metadata, id s
 }
 
 func (s *backupSuite) TestNewBackupID(c *gc.C) {
-	origin := metadata.NewOrigin("spam", "0", "localhost")
-	started := time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
-	meta := metadata.NewMetadata(*origin, "", &started)
+	meta := s.metadata(c)
+	meta.Origin.Environment = "spam"
+	meta.Started = time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
 	id := state.NewBackupID(meta)
 
 	c.Check(id, gc.Equals, "20140912-131927.spam")
@@ -102,8 +100,7 @@ func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 }
 
 func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
-	original := &metadata.Metadata{}
-	c.Assert(original.Started, gc.NotNil)
+	original := backups.NewMetadata()
 	_, err := state.AddBackupMetadata(s.State, original)
 
 	c.Check(err, gc.NotNil)
@@ -118,7 +115,7 @@ func (s *backupSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
+func (s *backupSuite) TestSetBackupStoredTimeSuccess(c *gc.C) {
 	stored := time.Now()
 	original := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, original)
@@ -127,7 +124,7 @@ func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(meta.Stored(), gc.IsNil)
 
-	err = state.SetBackupStored(s.State, id, stored)
+	err = state.SetBackupStoredTime(s.State, id, stored)
 	c.Assert(err, gc.IsNil)
 
 	meta, err = state.GetBackupMetadata(s.State, id)
@@ -135,9 +132,9 @@ func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	c.Check(meta.Stored().Unix(), gc.Equals, stored.UTC().Unix())
 }
 
-func (s *backupSuite) TestSetBackupStoredNotFound(c *gc.C) {
+func (s *backupSuite) TestSetBackupStoredTimeNotFound(c *gc.C) {
 	stored := time.Now()
-	err := state.SetBackupStored(s.State, "spam", stored)
+	err := state.SetBackupStoredTime(s.State, "spam", stored)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

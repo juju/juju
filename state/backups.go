@@ -21,8 +21,6 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
-	backupsdb "github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
 
@@ -66,7 +64,7 @@ direct interaction with State, lives in the state/backups package.
 //---------------------------
 // Backup metadata document
 
-// backupMetaDoc is a mirror of metadata.Metadata, used just for DB storage.
+// backupMetaDoc is a mirror of backups.Metadata, used just for DB storage.
 type backupMetaDoc struct {
 	ID string `bson:"_id"`
 
@@ -151,12 +149,11 @@ func (doc *backupMetaDoc) validate() error {
 	return nil
 }
 
-// asMetadata returns a new metadata.Metadata based on the backupMetaDoc.
-func (doc *backupMetaDoc) asMetadata() *metadata.Metadata {
-	meta := metadata.Metadata{
-		Started: time.Unix(doc.Started, 0).UTC(),
-		Notes:   doc.Notes,
-	}
+// asMetadata returns a new backups.Metadata based on the backupMetaDoc.
+func (doc *backupMetaDoc) asMetadata() *backups.Metadata {
+	meta := backups.NewMetadata()
+	meta.Started = time.Unix(doc.Started, 0).UTC()
+	meta.Notes = doc.Notes
 
 	meta.Origin.Environment = doc.Environment
 	meta.Origin.Machine = doc.Machine
@@ -182,12 +179,12 @@ func (doc *backupMetaDoc) asMetadata() *metadata.Metadata {
 		}
 	}
 
-	return &meta
+	return meta
 }
 
 // UpdateFromMetadata copies the corresponding data from the backup
 // Metadata into the backupMetaDoc.
-func (doc *backupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
+func (doc *backupMetaDoc) UpdateFromMetadata(meta *backups.Metadata) {
 	// Ignore metadata.ID.
 
 	doc.Checksum = meta.Checksum()
@@ -374,11 +371,11 @@ func addBackupMetadataID(dbWrap *backupDBWrapper, doc *backupMetaDoc, id string)
 	return nil
 }
 
-// setBackupStored updates the backup metadata associated with "id"
+// setBackupStoredTime updates the backup metadata associated with "id"
 // to indicate that a backup archive has been stored.  If "id" does
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func setBackupStored(dbWrap *backupDBWrapper, id string, stored time.Time) error {
+func setBackupStoredTime(dbWrap *backupDBWrapper, id string, stored time.Time) error {
 	op := dbWrap.txnOp(id)
 	op.Assert = txn.DocExists
 	op.Update = bson.D{{"$set", bson.D{
@@ -421,11 +418,11 @@ func newBackupMetadataStorage(dbWrap *backupDBWrapper) *backupsMetadataStorage {
 
 // AddDoc adds the document to storage and returns the new ID.
 func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
-	var metaDoc backupMetaDoc
-	metadata, ok := doc.(*metadata.Metadata)
+	metadata, ok := doc.(*backups.Metadata)
 	if !ok {
-		return "", errors.Errorf("doc must be of type *metadata.Metadata")
+		return "", errors.Errorf("doc must be of type *backups.Metadata")
 	}
+	var metaDoc backupMetaDoc
 	metaDoc.UpdateFromMetadata(metadata)
 
 	dbWrap := s.dbWrap.Copy()
@@ -485,7 +482,7 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 	dbWrap := newBackupDBWrapper(s.db, backupsMetaC, s.envUUID)
 	defer dbWrap.Close()
 
-	err := setBackupStored(dbWrap, id, time.Now())
+	err := setBackupStoredTime(dbWrap, id, time.Now())
 	return errors.Trace(err)
 }
 
@@ -580,22 +577,22 @@ var ignoredDatabases = set.NewStrings(
 
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
-func NewDBBackupInfo(st *State) (*backupsdb.Info, error) {
+func NewDBBackupInfo(st *State) (*backups.DBInfo, error) {
 	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
 	targets, err := getBackupTargetDatabases(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info := backupsdb.Info{
-		ConnInfo: *connInfo,
-		Targets:  targets,
+	info := backups.DBInfo{
+		DBConnInfo: *connInfo,
+		Targets:    targets,
 	}
 	return &info, nil
 }
 
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
-	info := backupsdb.ConnInfo{
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backups.DBConnInfo {
+	info := backups.DBConnInfo{
 		Address:  mgoInfo.Addrs[0],
 		Password: mgoInfo.Password,
 	}
@@ -618,11 +615,10 @@ func getBackupTargetDatabases(st *State) (set.Strings, error) {
 	return targets, nil
 }
 
-// NewBackupOrigin returns a snapshot of where backup was run.  That
-// snapshot is a new backup Origin value, for use in a backup's
-// metadata.  Every value except for the machine name is populated
-// either from juju state or some other implicit mechanism.
-func NewBackupOrigin(st *State, machine string) (*metadata.Origin, error) {
+// NewBackupMetadata composes a new backup metadata with its origin
+// values set.  The environment UUID comes from state.  The hostname is
+// retrieved from the OS.
+func NewBackupMetadata(st *State, machine string) (*backups.Metadata, error) {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -630,10 +626,10 @@ func NewBackupOrigin(st *State, machine string) (*metadata.Origin, error) {
 		// Run for the hills.
 		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
 	}
-	origin := metadata.NewOrigin(
-		st.EnvironTag().Id(),
-		machine,
-		hostname,
-	)
-	return origin, nil
+
+	meta := backups.NewMetadata()
+	meta.Origin.Environment = st.EnvironTag().Id()
+	meta.Origin.Machine = machine
+	meta.Origin.Hostname = hostname
+	return meta, nil
 }

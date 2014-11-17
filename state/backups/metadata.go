@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metadata
+package backups
 
 import (
 	"bytes"
@@ -15,13 +15,25 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// ChecksumFormat identifies how to interpret the checksum for a backup
+// checksumFormat identifies how to interpret the checksum for a backup
 // generated with this version of juju.
-const ChecksumFormat = "SHA-1, base64 encoded"
+const checksumFormat = "SHA-1, base64 encoded"
+
+// Origin identifies where a backup archive came from.  While it is
+// more about where and Metadata about what and when, that distinction
+// does not merit special consideration.  Instead, Origin exists
+// separately from Metadata due to its use as an argument when
+// requesting the creation of a new backup.
+type Origin struct {
+	Environment string
+	Machine     string
+	Hostname    string
+	Version     version.Number
+}
 
 // Metadata contains the metadata for a single state backup archive.
 type Metadata struct {
-	filestorage.FileMetadata
+	*filestorage.FileMetadata
 
 	// Started records when the backup was started.
 	Started time.Time
@@ -33,39 +45,28 @@ type Metadata struct {
 	Notes string
 }
 
-// NewMetadata returns a new Metadata for a state backup archive.  The
-// current date/time is used for the timestamp and the default checksum
-// format is used.  ID is not set.  That is left up to the persistence
-// layer.  Stored is set as false.  "notes" may be empty, but
-// everything else should be provided.
-func NewMetadata(origin Origin, notes string, started *time.Time) *Metadata {
-	filemeta := filestorage.NewMetadata()
-	meta := Metadata{
-		FileMetadata: *filemeta,
-		Origin:       origin,
-		Notes:        notes,
+// NewMetadata returns a new Metadata for a state backup archive.  Only
+// the start time and the version are set.
+func NewMetadata() *Metadata {
+	return &Metadata{
+		FileMetadata: filestorage.NewMetadata(),
+		Started:      time.Now().UTC(),
+		Origin: Origin{
+			Version: version.Current.Number,
+		},
 	}
-
-	if started == nil {
-		meta.Started = time.Now().UTC()
-	} else {
-		meta.Started = *started
-	}
-
-	return &meta
 }
 
-// Finish populates the remaining metadata values.  If format is empty,
-// it is set to the default checksum format.  If finished is nil, it is
-// set to the current time.
-func (m *Metadata) Finish(size int64, checksum string) error {
+// MarkComplete populates the remaining metadata values.  The default
+// checksum format is used.
+func (m *Metadata) MarkComplete(size int64, checksum string) error {
 	if size == 0 {
 		return errors.New("missing size")
 	}
 	if checksum == "" {
 		return errors.New("missing checksum")
 	}
-	format := ChecksumFormat
+	format := checksumFormat
 	finished := time.Now().UTC()
 
 	if err := m.SetFileInfo(size, checksum, format); err != nil {

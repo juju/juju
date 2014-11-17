@@ -17,51 +17,15 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
-
-type fakeBackups struct {
-	meta    *metadata.Metadata
-	archive io.ReadCloser
-	err     error
-}
-
-func (i *fakeBackups) Create(files.Paths, db.Info, metadata.Origin, string) (*metadata.Metadata, error) {
-	if i.err != nil {
-		return nil, errors.Trace(i.err)
-	}
-	return i.meta, nil
-}
-
-func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
-	if i.err != nil {
-		return nil, nil, errors.Trace(i.err)
-	}
-	return i.meta, i.archive, nil
-}
-
-func (i *fakeBackups) List() ([]metadata.Metadata, error) {
-	if i.err != nil {
-		return nil, errors.Trace(i.err)
-	}
-	return []metadata.Metadata{*i.meta}, nil
-}
-
-func (i *fakeBackups) Remove(string) error {
-	if i.err != nil {
-		return errors.Trace(i.err)
-	}
-	return nil
-}
 
 type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	api        *backupsAPI.API
-	meta       *metadata.Metadata
+	meta       *backups.Metadata
 }
 
 var _ = gc.Suite(&backupsSuite{})
@@ -75,20 +39,18 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
-	s.meta = s.newMeta("")
+	s.meta = backupstesting.NewMetadataStarted()
 }
 
-func (s *backupsSuite) newMeta(notes string) *metadata.Metadata {
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return metadata.NewMetadata(*origin, notes, nil)
-}
-
-func (s *backupsSuite) setBackups(c *gc.C, meta *metadata.Metadata, err string) *fakeBackups {
-	fake := fakeBackups{
-		meta: meta,
+func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
+	fake := backupstesting.FakeBackups{
+		Meta: meta,
+	}
+	if meta != nil {
+		fake.MetaList = append(fake.MetaList, meta)
 	}
 	if err != "" {
-		fake.err = errors.Errorf(err)
+		fake.Error = errors.Errorf(err)
 	}
 	s.PatchValue(backupsAPI.NewBackups,
 		func(*state.State) (backups.Backups, io.Closer) {
