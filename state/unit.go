@@ -351,7 +351,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}
 	ops := []txn.Op{{
 		C:      statusesC,
-		Id:     sdocId,
+		Id:     u.st.docID(sdocId),
 		Assert: bson.D{{"status", StatusPending}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)

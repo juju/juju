@@ -270,9 +270,10 @@ func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id inte
 }
 
 func (a *backingAnnotation) removed(st *State, store *multiwatcherStore, id interface{}) {
-	tag, ok := tagForGlobalKey(id.(string))
+	localID := st.localID(id.(string))
+	tag, ok := tagForGlobalKey(localID)
 	if !ok {
-		panic(fmt.Errorf("unknown global key %q in state", id))
+		panic(fmt.Errorf("unknown global key %q in state", localID))
 	}
 	store.Remove(multiwatcher.EntityId{
 		Kind: "annotation",
@@ -287,7 +288,7 @@ func (a *backingAnnotation) mongoId() interface{} {
 type backingStatus statusDoc
 
 func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interface{}) error {
-	parentId, ok := backingEntityIdForGlobalKey(id.(string))
+	parentId, ok := backingEntityIdForGlobalKey(st.localID(id.(string)))
 	if !ok {
 		return nil
 	}
@@ -327,7 +328,8 @@ func (s *backingStatus) mongoId() interface{} {
 type backingConstraints constraintsDoc
 
 func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id interface{}) error {
-	parentId, ok := backingEntityIdForGlobalKey(id.(string))
+	localID := st.localID(id.(string))
+	parentId, ok := backingEntityIdForGlobalKey(localID)
 	if !ok {
 		return nil
 	}
@@ -344,7 +346,7 @@ func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id int
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
 	default:
-		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", localID, info))
 	}
 	store.Update(info0)
 	return nil
@@ -515,10 +517,15 @@ func newAllWatcherStateBacking(st *State) Backing {
 	return b
 }
 
+func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
+	_, err := b.st.strictLocalID(docID.(string))
+	return err == nil
+}
+
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.Name, in)
+		b.st.watcher.WatchCollectionWithFilter(c.Name, in, b.filterEnv)
 	}
 }
 

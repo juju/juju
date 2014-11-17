@@ -612,7 +612,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no annotation in state, no annotation in store -> do nothing",
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
@@ -620,7 +620,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				add:   []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{Tag: "machine-0"}},
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -632,7 +632,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "annotation is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.AnnotationInfo{
@@ -661,7 +661,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.AnnotationInfo{
@@ -677,7 +677,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no unit in state -> do nothing",
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
@@ -689,7 +689,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
@@ -713,7 +713,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
@@ -740,7 +740,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
@@ -759,7 +759,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no machine in state -> do nothing",
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
@@ -771,7 +771,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
@@ -794,7 +794,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
@@ -809,7 +809,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no service in state -> do nothing",
 				change: watcher.Change{
 					C:  "constraints",
-					Id: "s#wordpress",
+					Id: st.docID("s#wordpress"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
@@ -820,7 +820,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "constraints",
-					Id: "s#wordpress",
+					Id: st.docID("s#wordpress"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:        "wordpress",
@@ -839,7 +839,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "constraints",
-					Id: "s#wordpress",
+					Id: st.docID("s#wordpress"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
