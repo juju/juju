@@ -99,11 +99,11 @@ func NewArchiveWorkspaceReader(archiveFile io.Reader) (*ArchiveWorkspace, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = unpack(ws.RootDir, archiveFile)
+	err = unpackCompressedReader(ws.RootDir, archiveFile)
 	return ws, errors.Trace(err)
 }
 
-func unpack(targetDir string, tarFile io.Reader) error {
+func unpackCompressedReader(targetDir string, tarFile io.Reader) error {
 	tarFile, err := gzip.NewReader(tarFile)
 	if err != nil {
 		return errors.Annotate(err, "while uncompressing archive file")
