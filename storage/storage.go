@@ -3,6 +3,8 @@
 
 package storage
 
+import "sort"
+
 // BlockDevice describes a block device (disk, logical volume, etc.)
 type BlockDevice struct {
 	// DeviceName is the block device's OS-specific name (e.g. "sdb").
@@ -28,4 +30,23 @@ type BlockDevice struct {
 
 	// InUse indicates that the block device is in use (e.g. mounted).
 	InUse bool `yaml:"inuse"`
+}
+
+// SortBlockDevices sorts block devices by device name.
+func SortBlockDevices(devices []BlockDevice) {
+	sort.Sort(byDeviceName(devices))
+}
+
+type byDeviceName []BlockDevice
+
+func (b byDeviceName) Len() int {
+	return len(b)
+}
+
+func (b byDeviceName) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b byDeviceName) Less(i, j int) bool {
+	return b[i].DeviceName < b[j].DeviceName
 }
