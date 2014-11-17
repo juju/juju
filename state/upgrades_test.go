@@ -303,6 +303,39 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToAnnotations(c *gc.C) {
+	annotations := map[string]string{"foo": "bar", "arble": "baz"}
+	annotations2 := map[string]string{"foo": "bar", "arble": "baz"}
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToAnnotations, annotationsC,
+		bson.M{
+			"_id":         "m#0",
+			"tag":         "machine-0",
+			"annotations": annotations,
+		},
+		bson.M{
+			"_id":         "m#1",
+			"tag":         "machine-1",
+			"annotations": annotations2,
+		},
+	)
+	defer closer()
+
+	var newDoc annotatorDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.GlobalKey, gc.Equals, "m#0")
+	c.Assert(newDoc.Tag, gc.Equals, "machine-0")
+	c.Assert(newDoc.Annotations, gc.DeepEquals, annotations)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.GlobalKey, gc.Equals, "m#1")
+	c.Assert(newDoc.Tag, gc.Equals, "machine-1")
+	c.Assert(newDoc.Annotations, gc.DeepEquals, annotations2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToAnnotationsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToAnnotations, annotationsC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToNetworks(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToNetworks, networksC,
 		bson.M{
@@ -449,6 +482,82 @@ func (s *upgradesSuite) TestAddEnvUUIDToCleanupsIdempotent(c *gc.C) {
 	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToCleanups, cleanupsC)
 	c.Assert(docs, gc.HasLen, 1)
 	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
+	networks1 := []string{"net1", "net2"}
+	networks2 := []string{"net3", "net4"}
+	coll, closer, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToConstraints, constraintsC,
+		[]bson.M{
+			{
+				"_id":      "s#wordpress",
+				"cpucores": 4,
+				"networks": networks1,
+			},
+			{
+				"_id":      "s#mediawiki",
+				"cpucores": 8,
+				"networks": networks2,
+			},
+		},
+		true)
+	defer closer()
+	// The test expects three records because there is a preexisting environment constraints doc in mongo.
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc constraintsDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(4))
+	c.Assert(*newDoc.Networks, gc.DeepEquals, networks1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(8))
+	c.Assert(*newDoc.Networks, gc.DeepEquals, networks2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToConstraintsIdempotent(c *gc.C) {
+	oldID := "s#ghost"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToConstraints, constraintsC)
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint("e")))
+	c.Assert(docs[1]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToStatuses(c *gc.C) {
+	statusData := map[string]interface{}{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	}
+
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToStatuses, statusesC,
+		bson.M{
+			"_id":    "u#wordpress/0",
+			"status": StatusStarted,
+		},
+		bson.M{
+			"_id":        "m#0",
+			"status":     StatusError,
+			"statusdata": statusData,
+		},
+	)
+	defer closer()
+
+	var newDoc statusDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Status, gc.Equals, StatusStarted)
+	c.Assert(newDoc.StatusData, gc.IsNil)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Status, gc.Equals, StatusError)
+	c.Assert(newDoc.StatusData, gc.DeepEquals, statusData)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToStatusesIdempotent(c *gc.C) {
+	oldID := "m#1"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToCleanups, cleanupsC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(oldID))
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToSettingsRefs(c *gc.C) {
