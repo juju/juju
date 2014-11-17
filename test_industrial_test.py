@@ -92,6 +92,10 @@ class FakeAttempt:
     def do_stage(self, old_client, new_client):
         return self.result
 
+    def iter_test_results(self, old, new):
+        old_result, new_result = self.do_stage(old, new)
+        yield 'foo-id', old_result, new_result
+
 
 class FakeAttemptClass:
 
@@ -198,21 +202,23 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             DestroyEnvironmentAttempt, BootstrapAttempt], 2)
         results = mit.make_results()
-        mit.update_results([(True, False)], results)
+        mit.update_results([('foo-id', True, False)], results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 1, 'new_failures': 1, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
              'new_failures': 0, 'old_failures': 0},
             ]})
-        mit.update_results([(True, True), (False, True)], results)
+        mit.update_results([('foo-id', True, True), ('bar-id', False, True)],
+                           results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 1,
              'new_failures': 0, 'old_failures': 1},
             ]})
-        mit.update_results([(False, False), (False, False)], results)
+        mit.update_results(
+            [('foo-id', False, False), ('bar-id', False, False)], results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
@@ -320,7 +326,8 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(True, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(True, True), (True, True)])
+            self.assertItemsEqual(result, [('foo-id', True, True),
+                                           ('foo-id', True, True)])
         self.assertEqual(len(cc_mock.mock_calls), 0)
 
     def test_run_stages_old_fail(self):
@@ -330,7 +337,7 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(False, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(False, True)])
+            self.assertItemsEqual(result, [('foo-id', False, True)])
         assert_juju_call(self, cc_mock, old_client,
                          ('juju', '--show-log', 'destroy-environment',
                           'old', '--force', '-y'), 0)
@@ -345,7 +352,7 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(True, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(True, False)])
+            self.assertItemsEqual(result, [('foo-id', True, False)])
         assert_juju_call(self, cc_mock, old_client,
                          ('juju', '--show-log', 'destroy-environment',
                           'old', '--force', '-y'), 0)
@@ -360,7 +367,7 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(False, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(False, False)])
+            self.assertItemsEqual(result, [('foo-id', False, False)])
         assert_juju_call(self, cc_mock, old_client,
                          ('juju', '--show-log', 'destroy-environment',
                           'old', '--force', '-y'), 0)
@@ -428,6 +435,22 @@ class TestStageAttempt(TestCase):
             title = 'baz'
 
         self.assertEqual(StubSA.get_test_info(), {'foo-bar': {'title': 'baz'}})
+
+    def test_iter_test_results(self):
+
+        did_operation = [False]
+
+        class StubSA(StageAttempt):
+
+            test_id = 'foo-id'
+
+            def do_stage(self, old, new):
+
+                did_operation[0] = True
+                return True, True
+
+        for result in StubSA().iter_test_results(None, None):
+            self.assertEqual(result, ('foo-id', True, True))
 
 
 class FakeEnvJujuClient(EnvJujuClient):

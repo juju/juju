@@ -93,9 +93,9 @@ class MultiIndustrialTest:
             if result['attempts'] >= self.attempt_count:
                 continue
             result['attempts'] += 1
-            if not cur_result[0]:
-                result['old_failures'] += 1
             if not cur_result[1]:
+                result['old_failures'] += 1
+            if not cur_result[2]:
                 result['new_failures'] += 1
 
     @staticmethod
@@ -164,11 +164,12 @@ class IndustrialTest:
         Iteration stops when one client has a False result.
         """
         for attempt in self.stage_attempts:
-            result = attempt.do_stage(self.old_client, self.new_client)
-            yield result
-            if False in result:
-                self.destroy_both()
-                break
+            for result in attempt.iter_test_results(self.old_client,
+                                                    self.new_client):
+                yield result
+                if False in result[1:]:
+                    self.destroy_both()
+                    return
 
 
 class StageAttempt:
@@ -195,6 +196,10 @@ class StageAttempt:
         old_result = self.get_result(old)
         new_result = self.get_result(new)
         return old_result, new_result
+
+    def iter_test_results(self, old, new):
+        old_result, new_result = self.do_stage(old, new)
+        yield self.test_id, old_result, new_result
 
     def do_operation(self, client, output=None):
         """Perform this stage's operation.
