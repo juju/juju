@@ -517,10 +517,15 @@ func newAllWatcherStateBacking(st *State) Backing {
 	return b
 }
 
+func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
+	_, err := b.st.strictLocalID(docID.(string))
+	return err == nil
+}
+
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.Name, in)
+		b.st.watcher.WatchCollectionWithFilter(c.Name, in, b.filterEnv)
 	}
 }
 
