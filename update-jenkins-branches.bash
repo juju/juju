@@ -6,6 +6,7 @@ set -eux
 
 MASTER="juju-ci.vapour.ws"
 KEY="staging-juju-rsa"
+export JUJU_ENV="juju-ci3"
 
 
 update_jenkins() {
