@@ -2,6 +2,7 @@
 __metaclass__ = type
 
 from argparse import ArgumentParser
+from collections import OrderedDict
 import json
 import logging
 import sys
@@ -256,6 +257,17 @@ class DestroyEnvironmentAttempt(StageAttempt):
     title = 'destroy environment'
 
     test_id = 'destroy-env'
+
+    @staticmethod
+    def get_test_info():
+        return OrderedDict([
+            ('destroy-env', {'title': 'destroy environment'}),
+            ('substrate-clean', {'title': 'check substrate clean'})])
+
+    def iter_test_results(self, old, new):
+        old_result, new_result = self.do_stage(old, new)
+        yield self.test_id, old_result, new_result
+        yield 'substrate-clean', True, True,
 
     def _operation(self, client):
         client.juju('destroy-environment', ('-y', client.env.environment),

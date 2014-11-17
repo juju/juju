@@ -165,6 +165,8 @@ class TestMultiIndustrialTest(TestCase):
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
              'title': 'destroy environment', 'test_id': 'destroy-env'},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
+             'title': 'check substrate clean', 'test_id': 'substrate-clean'},
+            {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
              'title': 'bootstrap', 'test_id': 'bootstrap'},
         ]})
 
@@ -204,30 +206,40 @@ class TestMultiIndustrialTest(TestCase):
             DestroyEnvironmentAttempt, BootstrapAttempt], 2)
         results = mit.make_results()
         mit.update_results([('destroy-env', True, False)], results)
-        self.assertEqual(results, {'results': [
+        expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 1, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'attempts': 0, 'new_failures': 0, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
              'new_failures': 0, 'old_failures': 0},
-            ]})
+            ]}
+        self.assertEqual(results, expected)
         mit.update_results(
-            [('destroy-env', True, True), ('bootstrap', False, True)],
+            [('destroy-env', True, True), ('substrate-clean', True, True),
+             ('bootstrap', False, True)],
             results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'attempts': 1, 'new_failures': 0, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 1,
              'new_failures': 0, 'old_failures': 1},
             ]})
         mit.update_results(
-            [('destroy-env', False, False), ('bootstrap', False, False)],
+            [('destroy-env', False, False), ('substrate-clean', True, True),
+             ('bootstrap', False, False)],
             results)
-        self.assertEqual(results, {'results': [
+        expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'attempts': 2, 'new_failures': 0, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 2,
              'new_failures': 1, 'old_failures': 2},
-            ]})
+            ]}
+        self.assertEqual(results, expected)
 
     def test_run_tests(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
