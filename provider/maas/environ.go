@@ -881,8 +881,9 @@ func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObje
 			args.IncludeNetworks,
 			args.ExcludeNetworks,
 		)
+
 		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
-			if i <= len(args.AvailabilityZones) {
+			if i+1 < len(args.AvailabilityZones) {
 				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
 				continue
 			}

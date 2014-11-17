@@ -295,9 +295,7 @@ func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
 	}
 
 	_, err := env.selectNode(snArgs)
-	gomaaserr := err.(gomaasapi.ServerError)
-
-	c.Assert(gomaaserr.StatusCode, gc.Equals, 409)
+	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
