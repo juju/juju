@@ -86,15 +86,16 @@ class TestParseArgs(TestCase):
 
 class FakeAttempt:
 
-    def __init__(self, *result):
-        self.result = result
+    def __init__(self, old_result, new_result, test_id='foo-id'):
+        self.result = old_result, new_result
+        self.test_id = test_id
 
     def do_stage(self, old_client, new_client):
         return self.result
 
     def iter_test_results(self, old, new):
         old_result, new_result = self.do_stage(old, new)
-        yield 'foo-id', old_result, new_result
+        yield self.test_id, old_result, new_result
 
 
 class FakeAttemptClass:
@@ -108,7 +109,7 @@ class FakeAttemptClass:
         return {self.test_id: {'title': self.title}}
 
     def __call__(self):
-        return FakeAttempt(*self.result)
+        return FakeAttempt(*self.result, test_id=self.test_id)
 
 
 class StubJujuClient:
@@ -202,15 +203,16 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             DestroyEnvironmentAttempt, BootstrapAttempt], 2)
         results = mit.make_results()
-        mit.update_results([('foo-id', True, False)], results)
+        mit.update_results([('destroy-env', True, False)], results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 1, 'new_failures': 1, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
              'new_failures': 0, 'old_failures': 0},
             ]})
-        mit.update_results([('foo-id', True, True), ('bar-id', False, True)],
-                           results)
+        mit.update_results(
+            [('destroy-env', True, True), ('bootstrap', False, True)],
+            results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
@@ -218,7 +220,8 @@ class TestMultiIndustrialTest(TestCase):
              'new_failures': 0, 'old_failures': 1},
             ]})
         mit.update_results(
-            [('foo-id', False, False), ('bar-id', False, False)], results)
+            [('destroy-env', False, False), ('bootstrap', False, False)],
+            results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},

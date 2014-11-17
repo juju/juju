@@ -92,6 +92,9 @@ class MultiIndustrialTest:
         for result, cur_result in zip(results['results'], run_attempt):
             if result['attempts'] >= self.attempt_count:
                 continue
+            if result['test_id'] != cur_result[0]:
+                raise Exception('Mismatched result ids: {} != {}'.format(
+                    cur_result[0], result['test_id']))
             result['attempts'] += 1
             if not cur_result[1]:
                 result['old_failures'] += 1
