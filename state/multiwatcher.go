@@ -18,9 +18,9 @@ import (
 
 // Multiwatcher watches any changes to the state.
 type Multiwatcher struct {
-	all *StoreManager
+	all *storeManager
 
-	// The following fields are maintained by the StoreManager
+	// The following fields are maintained by the storeManager
 	// goroutine.
 	revno   int64
 	stopped bool
@@ -28,7 +28,7 @@ type Multiwatcher struct {
 
 // NewMultiwatcher creates a new watcher that can observe
 // changes to an underlying store manager.
-func NewMultiwatcher(all *StoreManager) *Multiwatcher {
+func NewMultiwatcher(all *storeManager) *Multiwatcher {
 	return &Multiwatcher{
 		all: all,
 	}
@@ -68,9 +68,9 @@ func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	return req.changes, nil
 }
 
-// StoreManager holds a shared record of current state and replies to
+// storeManager holds a shared record of current state and replies to
 // requests from Multiwatchers to tell them when it changes.
-type StoreManager struct {
+type storeManager struct {
 	tomb tomb.Tomb
 
 	// backing knows how to fetch information from
@@ -80,26 +80,26 @@ type StoreManager struct {
 	// request receives requests from Multiwatcher clients.
 	request chan *request
 
-	// all holds information on everything the StoreManager cares about.
-	all *Store
+	// all holds information on everything the storeManager cares about.
+	all *multiwatcherStore
 
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated Multiwatcher.
 	waiting map[*Multiwatcher]*request
 }
 
-// Backing is the interface required by the StoreManager to access the
+// Backing is the interface required by the storeManager to access the
 // underlying state.
 type Backing interface {
 
 	// GetAll retrieves information about all information
 	// known to the Backing and stashes it in the Store.
-	GetAll(all *Store) error
+	GetAll(all *multiwatcherStore) error
 
 	// Changed informs the backing about a change received
 	// from a watcher channel.  The backing is responsible for
 	// updating the Store to reflect the change.
-	Changed(all *Store, change watcher.Change) error
+	Changed(all *multiwatcherStore, change watcher.Change) error
 
 	// Watch watches for any changes and sends them
 	// on the given channel.
@@ -111,7 +111,7 @@ type Backing interface {
 }
 
 // request holds a message from the Multiwatcher to the
-// StoreManager for some changes. The request will be
+// storeManager for some changes. The request will be
 // replied to when some changes are available.
 type request struct {
 	// w holds the Multiwatcher that has originated the request.
@@ -129,29 +129,29 @@ type request struct {
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
-	// StoreManager goroutine.
+	// storeManager goroutine.
 	next *request
 }
 
 // newStoreManagerNoRun creates the store manager
 // but does not start its run loop.
-func newStoreManagerNoRun(backing Backing) *StoreManager {
-	return &StoreManager{
+func newStoreManagerNoRun(backing Backing) *storeManager {
+	return &storeManager{
 		backing: backing,
 		request: make(chan *request),
-		all:     NewStore(),
+		all:     newStore(),
 		waiting: make(map[*Multiwatcher]*request),
 	}
 }
 
-// NewStoreManager returns a new StoreManager that retrieves information
+// newStoreManager returns a new storeManager that retrieves information
 // using the given backing.
-func NewStoreManager(backing Backing) *StoreManager {
+func newStoreManager(backing Backing) *storeManager {
 	sm := newStoreManagerNoRun(backing)
 	go func() {
 		defer sm.tomb.Done()
 		// TODO(rog) distinguish between temporary and permanent errors:
-		// if we get an error in loop, this logic kill the state's StoreManager
+		// if we get an error in loop, this logic kill the state's storeManager
 		// forever. This currently fits the way we go about things,
 		// because we reconnect to the state on any error, but
 		// perhaps there are errors we could recover from.
@@ -169,13 +169,13 @@ func NewStoreManager(backing Backing) *StoreManager {
 	return sm
 }
 
-func (sm *StoreManager) loop() error {
+func (sm *storeManager) loop() error {
 	in := make(chan watcher.Change)
 	sm.backing.Watch(in)
 	defer sm.backing.Unwatch(in)
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
-	// StoreManager.changed is idempotent with respect to both updates
+	// storeManager.changed is idempotent with respect to both updates
 	// and removals.
 	// TODO(rog) Perhaps find a way to avoid blocking all other
 	// watchers while GetAll is running.
@@ -197,14 +197,14 @@ func (sm *StoreManager) loop() error {
 	}
 }
 
-// Stop stops the StoreManager.
-func (sm *StoreManager) Stop() error {
+// Stop stops the storeManager.
+func (sm *storeManager) Stop() error {
 	sm.tomb.Kill(nil)
 	return errors.Trace(sm.tomb.Wait())
 }
 
-// handle processes a request from a Multiwatcher to the StoreManager.
-func (sm *StoreManager) handle(req *request) {
+// handle processes a request from a Multiwatcher to the storeManager.
+func (sm *storeManager) handle(req *request) {
 	if req.w.stopped {
 		// The watcher has previously been stopped.
 		if req.reply != nil {
@@ -228,7 +228,7 @@ func (sm *StoreManager) handle(req *request) {
 }
 
 // respond responds to all outstanding requests that are satisfiable.
-func (sm *StoreManager) respond() {
+func (sm *storeManager) respond() {
 	for w, req := range sm.waiting {
 		revno := w.revno
 		changes := sm.all.ChangesSince(revno)
@@ -251,7 +251,7 @@ func (sm *StoreManager) respond() {
 // seen states that a Multiwatcher has just been given information about
 // all entities newer than the given revno.  We assume it has already
 // seen all the older entities.
-func (sm *StoreManager) seen(revno int64) {
+func (sm *storeManager) seen(revno int64) {
 	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -277,7 +277,7 @@ func (sm *StoreManager) seen(revno int64) {
 
 // leave is called when the given watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
-func (sm *StoreManager) leave(w *Multiwatcher) {
+func (sm *storeManager) leave(w *Multiwatcher) {
 	for e := sm.all.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -325,28 +325,27 @@ type entityEntry struct {
 	info multiwatcher.EntityInfo
 }
 
-// Store holds a list of all entities known
+// multiwatcherStore holds a list of all entities known
 // to a Multiwatcher.
-type Store struct {
+type multiwatcherStore struct {
 	latestRevno int64
 	entities    map[interface{}]*list.Element
 	list        *list.List
 }
 
-// NewStore returns an Store instance holding information about the
+// newStore returns an Store instance holding information about the
 // current state of all entities in the environment.
 // It is only exposed here for testing purposes.
-func NewStore() *Store {
-	all := &Store{
+func newStore() *multiwatcherStore {
+	return &multiwatcherStore{
 		entities: make(map[interface{}]*list.Element),
 		list:     list.New(),
 	}
-	return all
 }
 
 // All returns all the entities stored in the Store,
 // oldest first. It is only exposed for testing purposes.
-func (a *Store) All() []multiwatcher.EntityInfo {
+func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
 	entities := make([]multiwatcher.EntityInfo, 0, a.list.Len())
 	for e := a.list.Front(); e != nil; e = e.Next() {
 		entry := e.Value.(*entityEntry)
@@ -360,7 +359,7 @@ func (a *Store) All() []multiwatcher.EntityInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *Store) add(id interface{}, info multiwatcher.EntityInfo) {
+func (a *multiwatcherStore) add(id interface{}, info multiwatcher.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -375,7 +374,7 @@ func (a *Store) add(id interface{}, info multiwatcher.EntityInfo) {
 
 // decRef decrements the reference count of an entry within the list,
 // deleting it if it becomes zero and the entry is removed.
-func (a *Store) decRef(entry *entityEntry) {
+func (a *multiwatcherStore) decRef(entry *entityEntry) {
 	if entry.refCount--; entry.refCount > 0 {
 		return
 	}
@@ -395,7 +394,7 @@ func (a *Store) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id multiwatcher.EntityId) {
+func (a *multiwatcherStore) delete(id multiwatcher.EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -407,7 +406,7 @@ func (a *Store) delete(id multiwatcher.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) Remove(id multiwatcher.EntityId) {
+func (a *multiwatcherStore) Remove(id multiwatcher.EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -425,7 +424,7 @@ func (a *Store) Remove(id multiwatcher.EntityId) {
 }
 
 // Update updates the information for the given entity.
-func (a *Store) Update(info multiwatcher.EntityInfo) {
+func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
 	id := info.EntityId()
 	elem := a.entities[id]
 	if elem == nil {
@@ -448,7 +447,7 @@ func (a *Store) Update(info multiwatcher.EntityInfo) {
 // Get returns the stored entity with the given
 // id, or nil if none was found. The contents of the returned entity
 // should not be changed.
-func (a *Store) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
+func (a *multiwatcherStore) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
 	if e := a.entities[id]; e != nil {
 		return e.Value.(*entityEntry).info
 	}
@@ -457,7 +456,7 @@ func (a *Store) Get(id multiwatcher.EntityId) multiwatcher.EntityInfo {
 
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *Store) ChangesSince(revno int64) []multiwatcher.Delta {
+func (a *multiwatcherStore) ChangesSince(revno int64) []multiwatcher.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
