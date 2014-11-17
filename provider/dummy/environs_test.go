@@ -143,7 +143,7 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 }
 
-func (s *suite) TestListNetworks(c *gc.C) {
+func (s *suite) TestSubnets(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {
 		err := e.Destroy()
@@ -157,10 +157,10 @@ func (s *suite) TestListNetworks(c *gc.C) {
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
-	netInfo, err := e.ListNetworks("")
+	netInfo, err := e.Subnets("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
-	assertListNetworks(c, e, opc, expectInfo)
+	assertSubnets(c, e, opc, expectInfo)
 }
 
 func (s *suite) TestPreferIPv6On(c *gc.C) {
@@ -207,7 +207,7 @@ func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation
 	}
 }
 
-func assertListNetworks(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.BasicInfo) {
+func assertSubnets(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.BasicInfo) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpListNetworks)
