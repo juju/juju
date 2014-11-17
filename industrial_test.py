@@ -273,6 +273,19 @@ class DestroyEnvironmentAttempt(StageAttempt):
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
 
+    def iter_steps(self, client):
+        results = {'test-id': 'destroy-env'}
+        yield results
+        client.juju('destroy-environment', ('-y', client.env.environment),
+                    include_e=False)
+        # If it hasn't raised an exception, destroy-environment succeeded.
+        results['result'] = True
+        yield results
+        results = {'test-id': 'substrate-clean'}
+        yield results
+        results['result'] = True
+        yield results
+
     def _result(self, client):
         return True
 

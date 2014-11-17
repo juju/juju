@@ -552,6 +552,20 @@ class TestDestroyEnvironmentAttempt(TestCase):
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
 
+    def test_iter_steps(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        iterator = destroy_env.iter_steps(client)
+        self.assertEqual({'test-id': 'destroy-env'}, iterator.next())
+        with patch('subprocess.check_call') as mock_cc:
+            self.assertEqual(iterator.next(), {
+                'test-id': 'destroy-env', 'result': True})
+        assert_juju_call(self, mock_cc, client, (
+            'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
+        self.assertEqual(iterator.next(), {'test-id': 'substrate-clean'})
+        self.assertEqual(iterator.next(),
+                         {'test-id': 'substrate-clean', 'result': True})
+
 
 class TestEnsureAvailabilityAttempt(TestCase):
 
