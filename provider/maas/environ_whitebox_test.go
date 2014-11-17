@@ -1035,6 +1035,19 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
 }
 
+func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
+
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.Equals, environs.ErrIPAddressUnavailable)
+}
+
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
