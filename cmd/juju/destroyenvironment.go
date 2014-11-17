@@ -123,16 +123,13 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 // Note that CodeNotImplemented errors have not be propogated in previous implementation.
 // This behaviour was preserved.
 func processDestroyError(err error) error {
-	if err == nil {
+	if err == nil || params.IsCodeNotImplemented(err) {
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
 		return err
 	}
-	if !params.IsCodeNotImplemented(err) {
-		return errors.Annotate(err, "destroying environment")
-	}
-	return nil
+	return errors.Annotate(err, "destroying environment")
 }
 
 // ensureUserFriendlyErrorLog ensures that error will be logged and displayed
