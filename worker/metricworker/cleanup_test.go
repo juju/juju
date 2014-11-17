@@ -21,7 +21,7 @@ var _ = gc.Suite(&CleanupSuite{})
 // After a single run of the cleanup worker it expects the
 // old one to be deleted
 func (s *CleanupSuite) TestCleaner(c *gc.C) {
-	notify := make(chan struct{})
+	notify := make(chan string)
 	cleanup := metricworker.PatchNotificationChannel(notify)
 	defer cleanup()
 	client := &mockClient{}
