@@ -76,14 +76,6 @@ func (m *Metadata) Finish(size int64, checksum string) error {
 	return nil
 }
 
-// Copy returns a deep copy of the metadata.
-func (m *Metadata) Copy() filestorage.Document {
-	fileMeta := m.FileMetadata.Copy().(*filestorage.FileMetadata)
-	copied := *m
-	copied.FileMetadata = *fileMeta
-	return &copied
-}
-
 type flatMetadata struct {
 	ID string
 

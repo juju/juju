@@ -106,7 +106,7 @@ type State struct {
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
-	allManager *StoreManager
+	allManager *storeManager
 	environTag names.EnvironTag
 }
 
@@ -225,7 +225,7 @@ func (st *State) ResumeTransactions() error {
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
-		st.allManager = NewStoreManager(newAllWatcherStateBacking(st))
+		st.allManager = newStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
 	return NewMultiwatcher(st.allManager)

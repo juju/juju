@@ -76,6 +76,7 @@ type StatusGetter interface {
 // entity in the document's creation transaction, but omitted to allow
 // direct use of the document in both create and update transactions.
 type statusDoc struct {
+	EnvUUID    string `bson:"env-uuid"`
 	Status     Status
 	StatusInfo string
 	StatusData map[string]interface{}
@@ -113,7 +114,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 	defer closer()
 
 	var doc statusDoc
-	err := statuses.FindId(globalKey).One(&doc)
+	err := statuses.FindId(st.docID(globalKey)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return statusDoc{}, errors.NotFoundf("status")
 	}
@@ -128,7 +129,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     globalKey,
+		Id:     st.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -139,7 +140,7 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     globalKey,
+		Id:     st.docID(globalKey),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", doc}},
 	}
@@ -150,7 +151,7 @@ func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 func removeStatusOp(st *State, globalKey string) txn.Op {
 	return txn.Op{
 		C:      statusesC,
-		Id:     globalKey,
+		Id:     st.docID(globalKey),
 		Remove: true,
 	}
 }

@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -97,6 +98,7 @@ var (
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
+	newDiskManager           = diskmanager.NewWorker
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -486,6 +488,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	})
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+	})
+	a.startWorkerAfterUpgrade(runner, "diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 	})
 
 	// Start networker depending on configuration and job.

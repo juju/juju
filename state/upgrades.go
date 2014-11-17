@@ -581,6 +581,18 @@ func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
 }
 
+// AddEnvUUIDToAnnotations prepends the environment UUID to the ID of
+// all annotation docs and adds new "env-uuid" field.
+func AddEnvUUIDToAnnotations(st *State) error {
+	return addEnvUUIDToEntityCollection(st, annotationsC, "globalkey")
+}
+
+// AddEnvUUIDToStatuses prepends the environment UUID to the ID of
+// all Statuses docs and adds new "env-uuid" field.
+func AddEnvUUIDToStatuses(st *State) error {
+	return addEnvUUIDToEntityCollection(st, statusesC, "")
+}
+
 // AddEnvUUIDToNetworks prepends the environment UUID to the ID of
 // all network docs and adds new "env-uuid" field.
 func AddEnvUUIDToNetworks(st *State) error {
@@ -660,6 +672,12 @@ func AddEnvUUIDToInstanceData(st *State) error {
 // all cleanup docs and adds new "env-uuid" field.
 func AddEnvUUIDToCleanups(st *State) error {
 	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
+}
+
+// AddEnvUUIDToConstraints prepends the environment UUID to the ID of
+// all constraints docs and adds new "env-uuid" field.
+func AddEnvUUIDToConstraints(st *State) error {
+	return addEnvUUIDToEntityCollection(st, constraintsC, "")
 }
 
 // AddEnvUUIDToSettings prepends the environment UUID to the ID of

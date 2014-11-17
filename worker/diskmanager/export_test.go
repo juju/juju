@@ -6,4 +6,5 @@ package diskmanager
 var (
 	ListBlockDevices = listBlockDevices
 	BlockDeviceInUse = &blockDeviceInUse
+	DoWork           = doWork
 )
