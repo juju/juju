@@ -778,29 +778,18 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
-	var err error
-	var node gomaasapi.MAASObject
-	for i, zoneName := range availabilityZones {
-		node, err = environ.acquireNode(
-			nodeName,
-			zoneName,
-			args.Constraints,
-			includeNetworks,
-			excludeNetworks,
-		)
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
-			if i+1 < len(availabilityZones) {
-				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
-			}
-		}
-		if err != nil {
-			return nil, fmt.Errorf("cannot run instances: %v", err)
-		}
-		break
+	snArgs := selectNodeArgs{
+		AvailabilityZones: availabilityZones,
+		NodeName:          nodeName,
+		IncludeNetworks:   includeNetworks,
+		ExcludeNetworks:   excludeNetworks,
+	}
+	node, err := environ.selectNode(snArgs)
+	if err != nil {
+		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{maasObject: &node, environ: environ}
+	inst := &maasInstance{maasObject: node, environ: environ}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -870,6 +859,43 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Hardware:    hc,
 		NetworkInfo: networkInfo,
 	}, nil
+}
+
+type selectNodeArgs struct {
+	AvailabilityZones []string
+	NodeName          string
+	Constraints       constraints.Value
+	IncludeNetworks   []string
+	ExcludeNetworks   []string
+}
+
+func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObject, error) {
+	var err error
+	var node gomaasapi.MAASObject
+
+	for i, zoneName := range args.AvailabilityZones {
+		node, err = environ.acquireNode(
+			args.NodeName,
+			zoneName,
+			args.Constraints,
+			args.IncludeNetworks,
+			args.ExcludeNetworks,
+		)
+
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
+			if i+1 < len(args.AvailabilityZones) {
+				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
+				continue
+			}
+		}
+		if err != nil {
+			return nil, errors.Errorf("cannot run instances: %v", err)
+		}
+		// Since a return at the end of the function is required
+		// just break here.
+		break
+	}
+	return &node, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
