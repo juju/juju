@@ -268,6 +268,36 @@ func stringp(val string) *string {
 	return &val
 }
 
+func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	node, err := env.selectNode(snArgs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(node, gc.NotNil)
+}
+
+func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
+	env := suite.makeEnviron()
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	_, err := env.selectNode(snArgs)
+	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
+}
+
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
