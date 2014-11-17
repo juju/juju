@@ -45,7 +45,7 @@ func StoreArchive(stor filestorage.FileStorage, meta *Metadata, file io.Reader) 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
 
-	// Create creates and stores a new juju backup archive.  It updates
+	// Create creates and stores a new juju backup archive. It updates
 	// the provided metadata.
 	Create(meta *Metadata, paths Paths, dbInfo DBInfo) error
 
@@ -77,7 +77,7 @@ func (b *backups) Create(meta *Metadata, paths Paths, dbInfo DBInfo) error {
 	meta.Started = time.Now().UTC()
 
 	// The metadata file will not contain the ID or the "finished" data.
-	// However, that information is not as critical.  The alternatives
+	// However, that information is not as critical. The alternatives
 	// are either adding the metadata file to the archive after the fact
 	// or adding placeholders here for the finished data and filling
 	// them in afterward.  Neither is particularly trivial.
