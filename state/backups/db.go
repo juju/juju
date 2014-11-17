@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/mongo"
-	coreutils "github.com/juju/juju/utils"
+	"github.com/juju/juju/utils"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -24,7 +24,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommand = coreutils.RunCommand
+var runCommand = utils.RunCommand
 
 // DBConnInfo is a simplification of authentication.MongoInfo, focused
 // on the needs of juju state backups.  To ensure that the info is valid
