@@ -1098,7 +1098,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	params := url.Values{}
 	params.Add("network", cidr)
 	params.Add("ip", addr.Value)
-	_, err = ipaddresses.CallPost("", params)
+	_, err = ipaddresses.CallPost("reserve", params)
 	if err != nil {
 		maasErr, ok := err.(gomaasapi.ServerError)
 		if !ok {
