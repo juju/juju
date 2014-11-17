@@ -1015,8 +1015,24 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
+
+	// note that the default test server always succeeds if we provide a
+	// valid instance id and net id
 	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
 	c.Assert(err, gc.IsNil)
+}
+
+func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
+	env := suite.makeEnviron()
+	err := env.AllocateAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "no instances found")
+}
+
+func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
+	test_instance := suite.getInstance("node1")
+	env := suite.makeEnviron()
+	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
