@@ -4,13 +4,12 @@
 package diskmanager_test
 
 import (
-	jc "github.com/juju/testing/checkers"
+	"time"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/diskmanager"
 )
 
@@ -28,17 +27,88 @@ func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DiskManagerWorkerSuite) TestWorkerNoOp(c *gc.C) {
-	s.PatchValue(&version.Current.OS, version.Windows)
+	done := make(chan struct{})
+	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+		close(done)
+		return nil
+	}
 
-	// On Windows, the worker is a no-op worker.
-	var called bool
-	s.PatchValue(diskmanager.NewNoOpWorker, func() worker.Worker {
-		called = true
-		return worker.NewNoOpWorker()
-	})
+	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
+		return []storage.BlockDevice{{DeviceName: "whatever"}}, nil
+	}
 
-	diskmanager.NewWorker(nil)
-	c.Assert(called, jc.IsTrue)
+	w := diskmanager.NewWorker(listDevices, setDevices)
+	defer w.Wait()
+	defer w.Kill()
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for diskmanager to update")
+	}
+}
+
+func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
+	var oldDevices []storage.BlockDevice
+	var devicesSet [][]storage.BlockDevice
+	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+		devicesSet = append(devicesSet, devices)
+		return nil
+	}
+
+	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
+		return []storage.BlockDevice{{DeviceName: "sda"}}, nil
+	}
+	for i := 0; i < 2; i++ {
+		err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
+		c.Assert(err, gc.IsNil)
+	}
+
+	listDevices = func() ([]storage.BlockDevice, error) {
+		return []storage.BlockDevice{{DeviceName: "sdb"}}, nil
+	}
+	err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
+	c.Assert(err, gc.IsNil)
+
+	// diskmanager only calls the BlockDeviceSetter when it sees
+	// a change in disks.
+	c.Assert(devicesSet, gc.HasLen, 2)
+	c.Assert(devicesSet[0], gc.DeepEquals, []storage.BlockDevice{{
+		DeviceName: "sda",
+	}})
+	c.Assert(devicesSet[1], gc.DeepEquals, []storage.BlockDevice{{
+		DeviceName: "sdb",
+	}})
+}
+
+func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
+	var devicesSet [][]storage.BlockDevice
+	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+		devicesSet = append(devicesSet, devices)
+		return nil
+	}
+
+	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
+		return []storage.BlockDevice{{
+			DeviceName: "sdb",
+		}, {
+			DeviceName: "sda",
+		}, {
+			DeviceName: "sdc",
+		}}, nil
+	}
+	err := diskmanager.DoWork(listDevices, setDevices, new([]storage.BlockDevice))
+	c.Assert(err, gc.IsNil)
+
+	// The block Devices should be sorted when passed to the block
+	// device setter.
+	c.Assert(devicesSet, gc.DeepEquals, [][]storage.BlockDevice{{{
+		DeviceName: "sda",
+	}, {
+		DeviceName: "sdb",
+	}, {
+		DeviceName: "sdc",
+	}}})
 }
 
 type BlockDeviceSetterFunc func([]storage.BlockDevice) error

@@ -494,7 +494,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return newDiskManager(api), nil
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 	})
 
 	// Start networker depending on configuration and job.

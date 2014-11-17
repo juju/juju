@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
@@ -1046,7 +1047,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	started := make(chan struct{})
-	newWorker := func(diskmanager.BlockDeviceSetter) worker.Worker {
+	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
 	}
@@ -1061,10 +1062,10 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
-	if version.Current.OS != version.Ubuntu {
-		c.Skip("diskmanager only runs on Linux")
-		return
-	}
+	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
+		return expected, nil
+	})
 
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
@@ -1078,6 +1079,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		devices, err := m.BlockDevices()
 		c.Assert(err, gc.IsNil)
 		if len(devices) > 0 {
+			c.Assert(devices, gc.DeepEquals, expected)
 			return
 		}
 	}

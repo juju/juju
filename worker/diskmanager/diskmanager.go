@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -27,37 +26,32 @@ const (
 	bytesInMiB = 1024 * 1024
 )
 
-var newNoOpWorker = worker.NewNoOpWorker
-
 // BlockDeviceSetter is an interface that is supplied to
 // NewWorker for setting block devices for the local host.
 type BlockDeviceSetter interface {
 	SetMachineBlockDevices([]storage.BlockDevice) error
 }
 
+// ListBlockDevicesFunc is the type of a function that is supplied to
+// NewWorker for listing block devices available on the local host.
+type ListBlockDevicesFunc func() ([]storage.BlockDevice, error)
+
+// DefaultListBlockDevices is the default function for listing block
+// devices for the operating system of the local host.
+var DefaultListBlockDevices ListBlockDevicesFunc
+
 // NewWorker returns a worker that lists block devices
 // attached to the machine, and records them in state.
-func NewWorker(b BlockDeviceSetter) worker.Worker {
-	switch version.Current.OS {
-	default:
-		logger.Infof(
-			"block device support has not been implemented for %s",
-			version.Current.OS,
-		)
-		// Eventually we should support listing disks attached to
-		// a Windows machine. For now, return a no-op worker.
-		return newNoOpWorker()
-	case version.Ubuntu:
-		var old []storage.BlockDevice
-		f := func(stop <-chan struct{}) error {
-			return doWork(b, &old)
-		}
-		return worker.NewPeriodicWorker(f, listBlockDevicesPeriod)
+func NewWorker(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
+	var old []storage.BlockDevice
+	f := func(stop <-chan struct{}) error {
+		return doWork(l, b, &old)
 	}
+	return worker.NewPeriodicWorker(f, listBlockDevicesPeriod)
 }
 
-func doWork(b BlockDeviceSetter, old *[]storage.BlockDevice) error {
-	blockDevices, err := listBlockDevices()
+func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.BlockDevice) error {
+	blockDevices, err := listf()
 	if err != nil {
 		return err
 	}

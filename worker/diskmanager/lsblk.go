@@ -22,6 +22,10 @@ import (
 
 var pairsRE = regexp.MustCompile(`([A-Z]+)=(?:"(.*?)")`)
 
+func init() {
+	DefaultListBlockDevices = listBlockDevices
+}
+
 func listBlockDevices() ([]storage.BlockDevice, error) {
 	columns := []string{
 		"KNAME", // kernel name
