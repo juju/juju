@@ -1107,9 +1107,9 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// Subnets returns basic information about all nesubnets known
 // by the provider for the environment, for a specific instance.
-func (environ *maasEnviron) ListNetworks(instId instance.Id) ([]network.BasicInfo, error) {
+func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)

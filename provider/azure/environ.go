@@ -1001,12 +1001,12 @@ func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// Subnets returns basic information about all nesubnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the Azure provider yet.
-func (*azureEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*azureEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

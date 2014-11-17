@@ -1018,9 +1018,9 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	return nil
 }
 
-// ListNetworks implements environs.Environ.ListNetworks.
-func (env *environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	if err := env.checkBroken("ListNetworks"); err != nil {
+// Subnets implements environs.Environ.Subnets.
+func (env *environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
 
