@@ -58,5 +58,5 @@ func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
 	args := backups.NewTestCreateArgs(testFiles, dumper, nil)
 	_, err := backups.Create(args)
 
-	c.Check(err, gc.ErrorMatches, "missing metadataFile")
+	c.Check(err, gc.ErrorMatches, "missing metadataReader")
 }

@@ -30,11 +30,11 @@ func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 }
 
 // NewTestCreateArgs builds a new args value for create() calls.
-func NewTestCreateArgs(filesToBackUp []string, db DBDumper, mfile io.Reader) *createArgs {
+func NewTestCreateArgs(filesToBackUp []string, db DBDumper, metar io.Reader) *createArgs {
 	args := createArgs{
-		filesToBackUp: filesToBackUp,
-		db:            db,
-		metadataFile:  mfile,
+		filesToBackUp:  filesToBackUp,
+		db:             db,
+		metadataReader: metar,
 	}
 	return &args
 }
