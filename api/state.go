@@ -34,20 +34,16 @@ import (
 // Subsequent requests on the state will act as that entity. This
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-//
-// If a params.ReauthRequest value is returned, this indicates that Login
-// has not succeeded; the server has issued a challenge for the client to
-// obtain and Login again with follow-up credentials.
-func (st *State) Login(tag, password, nonce string) (*params.ReauthRequest, error) {
-	reauth, err := st.loginV1(tag, password, nonce)
+func (st *State) Login(tag, password, nonce string) error {
+	err := st.loginV1(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
 		// TODO (cmars): remove fallback once we can drop v0 compatibility
-		return nil, st.loginV0(tag, password, nonce)
+		return st.loginV0(tag, password, nonce)
 	}
-	return reauth, errors.Trace(err)
+	return errors.Trace(err)
 }
 
-func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, error) {
+func (st *State) loginV1(tag, password, nonce string) error {
 	var result struct {
 		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		params.LoginResult
@@ -68,17 +64,12 @@ func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, er
 		},
 	}, &result)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
 	// server.  The JSON field names between the structures are disjoint, so only
 	// one should have an environ tag set.
-
-	// Check for a reauth handshake request
-	if result.LoginResultV1.ReauthRequest != nil {
-		return result.LoginResultV1.ReauthRequest, nil
-	}
 
 	var environTag string
 	var servers [][]network.HostPort
@@ -93,8 +84,7 @@ func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, er
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, servers, facades)
-	return nil, errors.Trace(err)
+	return errors.Trace(st.setLoginResult(tag, environTag, servers, facades))
 }
 
 func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
@@ -180,6 +170,17 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	result := make([][]network.HostPort, 0, len(servers)+1)
 	result = append(result, []network.HostPort{hostPort})
 	result = append(result, servers...)
+	return result, nil
+}
+
+// RemoteLogin begins a login handshake, returning a ReauthRequest for
+// the client to satisfy with a follow-up Login request.
+func (st *State) RemoteLogin() (params.ReauthRequest, error) {
+	var result params.ReauthRequest
+	err := st.APICall("Admin", 1, "", "RemoteLogin", nil, &result)
+	if err != nil {
+		return params.ReauthRequest{}, errors.Trace(err)
+	}
 	return result, nil
 }
 

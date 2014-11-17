@@ -4,8 +4,11 @@
 package apiserver
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"gopkg.in/macaroon-bakery.v0/bakery"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -80,4 +83,51 @@ func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
 		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, a.bakeryService))
 	}
 	return a.doLogin(req, newLocalCredentialChecker(a.srv.state))
+}
+
+// MaxMacaroonTTL limits the lifetime of a macaroon issued by Juju for remote
+// authentication.
+//
+// This policy can be further restricted by adding more
+// caveats, and is primarily set as a baseline maximum to prevent indefinite
+// non-expiring authorization tokens from being issued to clients.
+var MaxMacaroonTTL = 2 * 7 * 24 * time.Hour
+
+// RemoteLogin begins a login handshake, returning a ReauthRequest for
+// the client to satisfy with a follow-up Login request.
+func (a *adminV1) RemoteLogin() (params.ReauthRequest, error) {
+	var fail params.ReauthRequest
+
+	info, err := a.srv.state.StateServingInfo()
+	if err != nil {
+		return fail, errors.Trace(err)
+	} else if info.IdentityProvider == nil {
+		logger.Debugf("empty credentials, remote identity provider not configured")
+		return fail, common.ErrBadCreds
+	}
+
+	timeBefore := time.Now().UTC().Add(MaxMacaroonTTL)
+	m, err := a.bakeryService.NewMacaroon("", nil, []bakery.Caveat{
+		{
+			Location:  info.IdentityProvider.Location,
+			Condition: "is-authenticated-user",
+		},
+		{
+			Condition: "caveats-include declared-user",
+		},
+		checkers.TimeBefore(timeBefore),
+	})
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+
+	remoteCreds := authentication.NewRemoteCredentials(m)
+	prompt, err := remoteCreds.MarshalText()
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+
+	return params.ReauthRequest{
+		Prompt: string(prompt),
+	}, nil
 }

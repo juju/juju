@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/macaroon-bakery.v0/bakery"
-	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -98,7 +97,6 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 
 func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
-	var emptyRequest params.LoginRequest
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -125,17 +123,6 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 		default:
 			return fail, errors.Trace(err)
 		}
-	}
-
-	// Issue a challenge response for the client to reauthenticate with, for an
-	// empty (initial) remote login request.
-	if req == emptyRequest {
-		logger.Debugf("empty request")
-		if remoteChecker, ok := checker.(*RemoteCredentialChecker); ok {
-			return remoteChecker.ReauthRequest(req)
-		}
-	} else {
-		logger.Debugf("non-empty: %+v", req)
 	}
 
 	authKind, err := names.TagKind(req.AuthTag)
@@ -311,60 +298,6 @@ func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, 
 		return nil, errors.New("invalid user")
 	}
 	return entity, nil
-}
-
-// MaxMacaroonTTL limits the lifetime of a macaroon issued by Juju for remote
-// authentication.
-//
-// This policy can be further restricted by adding more
-// caveats, and is primarily set as a baseline maximum to prevent indefinite
-// non-expiring authorization tokens from being issued to clients.
-var MaxMacaroonTTL = 2 * 7 * 24 * time.Hour
-
-// ReauthRequest creates a challenge response consisting of a macaroon with a third-party caveat on
-// an identity providing service with the condition that the remote user is logged in.
-func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params.LoginResultV1, error) {
-	var fail params.LoginResultV1
-
-	if req.AuthTag != "" {
-		logger.Debugf("reauth request cannot declare a user yet, got: %q", req.AuthTag)
-		return fail, common.ErrBadCreds
-	}
-
-	info, err := c.st.StateServingInfo()
-	if err != nil {
-		return fail, errors.Trace(err)
-	} else if info.IdentityProvider == nil {
-		logger.Debugf("empty credentials, remote identity provider not configured")
-		return fail, common.ErrBadCreds
-	}
-
-	timeBefore := time.Now().UTC().Add(MaxMacaroonTTL)
-	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
-		{
-			Location:  info.IdentityProvider.Location,
-			Condition: "is-authenticated-user",
-		},
-		{
-			Condition: "caveats-include declared-user",
-		},
-		checkers.TimeBefore(timeBefore),
-	})
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-
-	remoteCreds := authentication.NewRemoteCredentials(m)
-	prompt, err := remoteCreds.MarshalText()
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-
-	return params.LoginResultV1{
-		ReauthRequest: &params.ReauthRequest{
-			Prompt: string(prompt),
-		},
-	}, nil
 }
 
 func getAndUpdateLastLoginForEntity(entity state.Entity) *time.Time {

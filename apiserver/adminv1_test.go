@@ -144,7 +144,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	// Try to log in as a remote identity.
-	reauth, err := st.Login("", "", "")
+	reauth, err := st.RemoteLogin()
 	c.Assert(err, gc.IsNil)
 	c.Assert(reauth, gc.NotNil)
 
@@ -153,13 +153,12 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 
 	// Obtain follow-up credentials for the reauth challenge
 	remoteUser := names.NewUserTag("bob")
-	credBytes, err := s.dischargeReauth("bob", reauth)
+	credBytes, err := s.dischargeReauth("bob", &reauth)
 	c.Assert(err, gc.IsNil)
 
 	// Retry the remote login request
-	reauth, err = st.Login(remoteUser.String(), string(credBytes), reauth.Nonce)
+	err = st.Login(remoteUser.String(), string(credBytes), reauth.Nonce)
 	c.Assert(err, gc.IsNil)
-	c.Assert(reauth, gc.IsNil)
 
 	// Should be logged in
 	c.Assert(st.Ping(), gc.IsNil)
@@ -172,7 +171,7 @@ func (s *remoteLoginSuite) TestReauthInvalidUser(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	// Bob starts the login process.
-	reauth, err := st.Login("", "", "")
+	reauth, err := st.RemoteLogin()
 	c.Assert(err, gc.IsNil)
 	c.Assert(reauth, gc.NotNil)
 
@@ -180,12 +179,12 @@ func (s *remoteLoginSuite) TestReauthInvalidUser(c *gc.C) {
 	c.Check(st.AllFacadeVersions(), gc.HasLen, 0)
 
 	// Obtain follow-up credentials for the reauth challenge
-	credBytes, err := s.dischargeReauth("bob", reauth)
+	credBytes, err := s.dischargeReauth("bob", &reauth)
 	c.Assert(err, gc.IsNil)
 
 	// Eve has been listening all along and tries to steal the
 	// connection away from Bob!
-	_, err = st.Login(names.NewUserTag("eve").String(), string(credBytes), reauth.Nonce)
+	err = st.Login(names.NewUserTag("eve").String(), string(credBytes), reauth.Nonce)
 
 	// Not so fast, Mallory!
 	c.Assert(err, gc.ErrorMatches, "invalid user")

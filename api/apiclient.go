@@ -82,9 +82,12 @@ type Info struct {
 	CACert string
 
 	// Tag holds the name of the entity that is connecting.
-	// If this is nil, and the password are empty, no login attempt will be made.
-	// (this is to allow tests to access the API to check that operations
-	// fail when not logged in).
+	// If this is nil, the password are empty AND there is no ReauthHandler, no
+	// login attempt will be made (this is to allow tests to access the API to
+	// check that operations fail when not logged in).
+	//
+	// TODO (cmars): Would adding a test-only connect method to export_test.go
+	// be more appropriate?
 	Tag names.Tag
 
 	// Password holds the password for the administrator or connecting entity.
@@ -208,47 +211,38 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		password: info.Password,
 		certPool: pool,
 	}
-	if info.Tag != nil || info.Password != "" {
-		reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce)
-		if err == nil && reauth != nil {
-			err = errors.New("client not configured for reauthentication")
-		}
-		if err != nil {
-			warnError(errors.Trace(conn.Close()))
-			return nil, errors.Trace(err)
-		}
-	} else if opts.ReauthHandler != nil {
+	if info.Tag == nil && info.Password == "" && opts.ReauthHandler != nil {
 		err = func() (err error) {
 			defer func() {
 				if err != nil {
 					warnError(errors.Trace(conn.Close()))
 				}
 			}()
-			reauth, err := st.Login("", "", "")
+			reauth, err := st.RemoteLogin()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if reauth == nil {
-				return errors.New("did not receive expected reauthentication")
-			}
-			user, creds, err := opts.ReauthHandler.HandleReauth(reauth)
+			user, creds, err := opts.ReauthHandler.HandleReauth(&reauth)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if !names.IsValidUser(user) {
 				return errors.Errorf("not a valid user: %q", user)
 			}
-			reauth, err = st.Login(names.NewUserTag(user).String(), creds, "")
+			err = st.Login(names.NewUserTag(user).String(), creds, "")
 			if err != nil {
 				return errors.Trace(err)
-			}
-			if reauth != nil {
-				return errors.New("reauthentication failed")
 			}
 			return nil
 		}()
 		if err != nil {
 			return nil, err
+		}
+	} else if info.Tag != nil || info.Password != "" {
+		err := st.Login(info.Tag.String(), info.Password, info.Nonce)
+		if err != nil {
+			warnError(errors.Trace(conn.Close()))
+			return nil, errors.Trace(err)
 		}
 	}
 	st.broken = make(chan struct{})
