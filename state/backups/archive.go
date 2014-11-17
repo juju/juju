@@ -4,8 +4,15 @@
 package backups
 
 import (
+	"compress/gzip"
+	"io"
+	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/juju/errors"
+	"github.com/juju/utils/tar"
 )
 
 const (
@@ -63,4 +70,94 @@ func NewNonCanonicalArchivePaths(rootDir string) ArchivePaths {
 		DBDumpDir:    filepath.Join(rootDir, contentDir, dbDumpDir),
 		MetadataFile: filepath.Join(rootDir, contentDir, metadataFile),
 	}
+}
+
+// ArchiveWorkspace is a wrapper around backup archive info that has a
+// concrete root directory and an archive unpacked in it.
+type ArchiveWorkspace struct {
+	ArchivePaths
+	RootDir string
+}
+
+func newArchiveWorkspace() (*ArchiveWorkspace, error) {
+	rootdir, err := ioutil.TempDir("", "juju-backups-")
+	if err != nil {
+		return nil, errors.Annotate(err, "while creating workspace dir")
+	}
+
+	ws := ArchiveWorkspace{
+		ArchivePaths: NewNonCanonicalArchivePaths(rootdir),
+		RootDir:      rootdir,
+	}
+	return &ws, nil
+}
+
+// NewArchiveWorkspaceReader returns a new archive workspace with a new
+// workspace dir populated from the archive file.
+func NewArchiveWorkspaceReader(archiveFile io.Reader) (*ArchiveWorkspace, error) {
+	ws, err := newArchiveWorkspace()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = unpackCompressedReader(ws.RootDir, archiveFile)
+	return ws, errors.Trace(err)
+}
+
+func unpackCompressedReader(targetDir string, tarFile io.Reader) error {
+	tarFile, err := gzip.NewReader(tarFile)
+	if err != nil {
+		return errors.Annotate(err, "while uncompressing archive file")
+	}
+	err = tar.UntarFiles(tarFile, targetDir)
+	return errors.Trace(err)
+}
+
+// Close cleans up the workspace dir.
+func (ws *ArchiveWorkspace) Close() error {
+	err := os.RemoveAll(ws.RootDir)
+	return errors.Trace(err)
+}
+
+// UnpackFilesBundle unpacks the archived files bundle into the targeted dir.
+func (ws *ArchiveWorkspace) UnpackFilesBundle(targetRoot string) error {
+	tarFile, err := os.Open(ws.FilesBundle)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer tarFile.Close()
+
+	err = tar.UntarFiles(tarFile, targetRoot)
+	return errors.Trace(err)
+}
+
+// OpenBundledFile returns an open ReadCloser for the corresponding file in
+// the archived files bundle.
+func (ws *ArchiveWorkspace) OpenBundledFile(filename string) (io.Reader, error) {
+	if filepath.IsAbs(filename) {
+		return nil, errors.Errorf("filename must be relative, got %q", filename)
+	}
+
+	tarFile, err := os.Open(ws.FilesBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	_, file, err := tar.FindFile(tarFile, filename)
+	if err != nil {
+		tarFile.Close()
+		return nil, errors.Trace(err)
+	}
+	return file, nil
+}
+
+// Metadata returns the metadata derived from the JSON file in the archive.
+func (ws *ArchiveWorkspace) Metadata() (*Metadata, error) {
+	metaFile, err := os.Open(ws.MetadataFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer metaFile.Close()
+
+	meta, err := NewMetadataJSONReader(metaFile)
+	return meta, errors.Trace(err)
 }

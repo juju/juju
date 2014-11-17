@@ -8,8 +8,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
+	"path"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/state/backups"
 )
@@ -20,27 +23,68 @@ type File struct {
 	Name string
 	// Content is the data that will be written to the archive for the file.
 	Content string
+	// IsDir determines if the file is a regular file or a directory.
+	IsDir bool
 }
 
-// Add the file to the tar archive.
+// AddToArchive adds the file to the tar archive.
 func (f *File) AddToArchive(archive *tar.Writer) error {
 	hdr := &tar.Header{
 		Name: f.Name,
-		Size: int64(len(f.Content)),
 	}
+	if f.IsDir {
+		hdr.Typeflag = tar.TypeDir
+		hdr.Mode = 0777
+	} else {
+		hdr.Size = int64(len(f.Content))
+		hdr.Mode = 0666
+	}
+
 	if err := archive.WriteHeader(hdr); err != nil {
 		return errors.Trace(err)
 	}
-	if _, err := archive.Write([]byte(f.Content)); err != nil {
-		return errors.Trace(err)
+
+	if !f.IsDir {
+		if _, err := archive.Write([]byte(f.Content)); err != nil {
+			return errors.Trace(err)
+		}
 	}
+
 	return nil
 }
 
 // NewArchive returns a new archive file containing the files.
 func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, error) {
+	dirs := set.NewStrings()
+	var sysFiles []File
+	for _, file := range files {
+		var parent string
+		for _, p := range strings.Split(path.Dir(file.Name), "/") {
+			if parent == "" {
+				parent = p
+			} else {
+				parent = path.Join(parent, p)
+			}
+			if !dirs.Contains(parent) {
+				sysFiles = append(sysFiles, File{
+					Name:  parent,
+					IsDir: true,
+				})
+				dirs.Add(parent)
+			}
+		}
+		if file.IsDir {
+			if !dirs.Contains(file.Name) {
+				sysFiles = append(sysFiles, file)
+				dirs.Add(file.Name)
+			}
+		} else {
+			sysFiles = append(sysFiles, file)
+		}
+	}
+
 	var rootFile bytes.Buffer
-	if err := writeToTar(&rootFile, files); err != nil {
+	if err := writeToTar(&rootFile, sysFiles); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -49,7 +93,24 @@ func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, erro
 		return nil, errors.Trace(err)
 	}
 
-	topfiles := append(dump,
+	topfiles := []File{{
+		Name:  "juju-backup",
+		IsDir: true,
+	}}
+
+	topfiles = append(topfiles, File{
+		Name:  "juju-backup/dump",
+		IsDir: true,
+	})
+	for _, dumpFile := range dump {
+		topfiles = append(topfiles, File{
+			Name:    "juju-backup/dump/" + dumpFile.Name,
+			Content: dumpFile.Content,
+			IsDir:   dumpFile.IsDir,
+		})
+	}
+
+	topfiles = append(topfiles,
 		File{
 			Name:    "juju-backup/root.tar",
 			Content: rootFile.String(),
@@ -84,11 +145,11 @@ func NewArchiveBasic(meta *backups.Metadata) (*bytes.Buffer, error) {
 	}
 	dump := []File{
 		File{
-			Name:    "juju-backup/dump/juju/machines.bson",
+			Name:    "juju/machines.bson",
 			Content: "<BSON data goes here>",
 		},
 		File{
-			Name:    "juju-backup/dump/oplog.bson",
+			Name:    "oplog.bson",
 			Content: "<BSON data goes here>",
 		},
 	}
