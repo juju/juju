@@ -100,6 +100,9 @@ class FakeAttemptClass:
         self.test_id = '{}-id'.format(title)
         self.result = result
 
+    def get_test_info(self):
+        return {self.test_id: {'title': self.title}}
+
     def __call__(self):
         return FakeAttempt(*self.result)
 
@@ -415,6 +418,16 @@ class TestStageAttempt(TestCase):
         result = attempt.do_stage(old, new)
         self.assertEqual([old, new], attempt.did_op)
         self.assertEqual(result, (0, 1))
+
+    def test_get_test_info(self):
+
+        class StubSA(StageAttempt):
+
+            test_id = 'foo-bar'
+
+            title = 'baz'
+
+        self.assertEqual(StubSA.get_test_info(), {'foo-bar': {'title': 'baz'}})
 
 
 class FakeEnvJujuClient(EnvJujuClient):

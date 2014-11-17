@@ -52,13 +52,17 @@ class MultiIndustrialTest:
 
     def make_results(self):
         """Return a results list for use in run_tests."""
-        return {'results': [{
-            'title': stage.title,
-            'test_id': stage.test_id,
-            'attempts': 0,
-            'old_failures': 0,
-            'new_failures': 0,
-        } for stage in self.stages]}
+        results = []
+        for stage in self.stages:
+            for test_id, info in stage.get_test_info().items():
+                results.append({
+                    'title': info['title'],
+                    'test_id': test_id,
+                    'attempts': 0,
+                    'old_failures': 0,
+                    'new_failures': 0,
+                    })
+        return {'results': results}
 
     def run_tests(self):
         """Run all stages until required number of attempts are achieved.
@@ -172,6 +176,10 @@ class StageAttempt:
 
     def __init__(self):
         self.failure_clients = set()
+
+    @classmethod
+    def get_test_info(cls):
+        return {cls.test_id: {'title': cls.title}}
 
     def do_stage(self, old, new):
         """Do this stage, return a tuple.
