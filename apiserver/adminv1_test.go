@@ -302,14 +302,6 @@ func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 			thirdPartyChecker: newLoggedInChecker("bob"),
 		},
 		pattern: `verification failed: after expiry time`,
-		/*
-			}, {
-				handler: testReauthHandler{
-					remoteLoginSuite:  s,
-					thirdPartyChecker: newLoggedInChecker("mallory"),
-				},
-				pattern: "cannot get discharge from \"remote-service-location\": invalid user",
-		*/
 	}, {
 		handler: testReauthHandler{
 			remoteLoginSuite:  s,
