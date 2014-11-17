@@ -2375,7 +2375,7 @@ var findEntityTests = []findEntityTest{{
 	tag: names.NewNetworkTag("net1"),
 }, {
 	tag: names.NewActionTag("ser-vice2_a_0"),
-	err: `action "ser-vice2_a_0" not found`,
+	err: `action "0" not found`,
 }, {
 	tag: names.NewUserTag("eric"),
 }, {

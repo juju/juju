@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/names"
@@ -32,10 +31,6 @@ type ActionReceiver interface {
 	// to the queued actions for this ActionReceiver.
 	WatchActions() StringsWatcher
 
-	// WatchActionResults returns a StringsWatcher that will notify on
-	// changes to the action results for this ActionReceiver.
-	WatchActionResults() StringsWatcher
-
 	// Actions returns the list of Actions queued for this ActionReceiver.
 	Actions() ([]*Action, error)
 
@@ -55,6 +50,25 @@ var (
 )
 
 const actionMarker string = "_a_"
+
+type actionNotificationDoc struct {
+	// DocId is the composite _id that can be matched by an
+	// idPrefixWatcher that is configured to watch for the
+	// ActionReceiver Name() which makes up the first part of this
+	// composite _id.
+	DocId string `bson:"_id"`
+
+	// EnvUUID is the environment identifier.
+	EnvUUID string `bson:"env-uuid"`
+
+	// Receiver is the Name of the Unit or any other ActionReceiver for
+	// which this notification is queued.
+	Receiver string `bson:"receiver"`
+
+	// ActionID is the unique identifier for the Action this notification
+	// represents.
+	ActionID string `bson:"uuid"`
+}
 
 type actionDoc struct {
 	// DocId is the key for this document. The structure of the key is
@@ -95,6 +109,11 @@ type Action struct {
 // Id returns the local name of the Action.
 func (a *Action) Id() string {
 	return a.st.localID(a.doc.DocId)
+}
+
+// NotificationId returns the Id used in the notification watcher.
+func (a *Action) NotificationId() string {
+	return ensureActionMarker(a.Receiver()) + a.Id()
 }
 
 // Receiver returns the Name of the ActionReceiver for which this action
@@ -164,10 +183,13 @@ func (a *Action) Finish(results ActionResults) (*ActionResult, error) {
 func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (*ActionResult, error) {
 	doc := newActionResultDoc(a, finalStatus, results, message)
 	err := a.st.runTransaction([]txn.Op{
-		addActionResultOp(a.st, &doc),
-		{
+		addActionResultOp(a.st, &doc), {
 			C:      actionsC,
 			Id:     a.doc.DocId,
+			Remove: true,
+		}, {
+			C:      actionNotificationsC,
+			Id:     a.st.docID(ensureActionMarker(a.Receiver()) + a.UUID()),
 			Remove: true,
 		},
 	})
@@ -186,23 +208,28 @@ func newAction(st *State, adoc actionDoc) *Action {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, error) {
+func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(ar.Name())
-	uuid, err := utils.NewUUID()
+	actionId, err := utils.NewUUID()
 	if err != nil {
-		return actionDoc{}, err
+		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	envuuid := st.EnvironUUID()
-	actionId := st.docID(fmt.Sprintf("%s%s", prefix, uuid))
+
 	return actionDoc{
-		DocId:      actionId,
-		EnvUUID:    envuuid,
-		Receiver:   ar.Name(),
-		UUID:       uuid.String(),
-		Name:       actionName,
-		Parameters: parameters,
-		Enqueued:   nowToTheSecond(),
-	}, nil
+			DocId:      st.docID(actionId.String()),
+			EnvUUID:    envuuid,
+			Receiver:   ar.Name(),
+			UUID:       actionId.String(),
+			Name:       actionName,
+			Parameters: parameters,
+			Enqueued:   nowToTheSecond(),
+		}, actionNotificationDoc{
+			DocId:    st.docID(prefix + actionId.String()),
+			EnvUUID:  envuuid,
+			Receiver: ar.Name(),
+			ActionID: actionId.String(),
+		}, nil
 }
 
 var ensureActionMarker = ensureSuffixFn(actionMarker)
@@ -213,5 +240,5 @@ func actionIdFromTag(tag names.ActionTag) string {
 	if ptag == nil {
 		return ""
 	}
-	return ensureActionMarker(ptag.Id()) + tag.Suffix()
+	return tag.Suffix()
 }

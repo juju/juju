@@ -173,7 +173,6 @@ var _ InstanceIdGetter = (*Machine)(nil)
 type ActionsWatcher interface {
 	Entity
 	WatchActions() StringsWatcher
-	WatchActionResults() StringsWatcher
 }
 
 var _ ActionsWatcher = (*Unit)(nil)

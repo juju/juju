@@ -342,49 +342,6 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
-	unit1, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
-	preventUnitDestroyRemove(c, unit1)
-
-	unit2, err := s.State.Unit(s.unit2.Name())
-	c.Assert(err, gc.IsNil)
-	preventUnitDestroyRemove(c, unit2)
-
-	action0, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
-	action1, err := unit2.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
-	action2, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
-
-	r1, err := action2.Finish(state.ActionResults{Status: state.ActionFailed})
-	c.Assert(err, gc.IsNil)
-	r2, err := action1.Finish(state.ActionResults{Status: state.ActionCompleted})
-	c.Assert(err, gc.IsNil)
-
-	w1 := unit1.WatchActionResults()
-	defer statetesting.AssertStop(c, w1)
-	wc1 := statetesting.NewStringsWatcherC(c, s.State, w1)
-	expect := expectActionResultIds(r1)
-	wc1.AssertChange(expect...)
-	wc1.AssertNoChange()
-
-	w2 := unit2.WatchActionResults()
-	defer statetesting.AssertStop(c, w2)
-	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
-	expect = expectActionResultIds(r2)
-	wc2.AssertChange(expect...)
-	wc2.AssertNoChange()
-
-	r3, err := action0.Finish(state.ActionResults{Status: state.ActionCompleted})
-	c.Assert(err, gc.IsNil)
-
-	expect = expectActionResultIds(r3)
-	wc1.AssertChange(expect...)
-	wc1.AssertNoChange()
-}
-
 func (s *ActionSuite) TestMergeIds(c *gc.C) {
 	var tests = []struct {
 		changes  string
@@ -514,7 +471,7 @@ func (s *ActionSuite) TestWatchActions(c *gc.C) {
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	w := s.State.WatchActions()
+	w := u.WatchActions()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
@@ -543,15 +500,7 @@ func (s *ActionSuite) TestWatchActions(c *gc.C) {
 func expectActionIds(actions ...*state.Action) []string {
 	ids := make([]string, len(actions))
 	for i, action := range actions {
-		ids[i] = state.EnsureActionMarker(action.Receiver()) + action.UUID()
-	}
-	return ids
-}
-
-func expectActionResultIds(actionResults ...*state.ActionResult) []string {
-	ids := make([]string, len(actionResults))
-	for i, result := range actionResults {
-		ids[i] = state.EnsureActionResultMarker(result.Receiver()) + result.UUID()
+		ids[i] = action.NotificationId()
 	}
 	return ids
 }

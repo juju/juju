@@ -1544,7 +1544,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	doc, err := newActionDoc(u.st, u, name, payload)
+	doc, ndoc, err := newActionDoc(u.st, u, name, payload)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add action; %v", err)
 	}
@@ -1555,6 +1555,11 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	}, {
 		C:      actionsC,
 		Id:     doc.DocId,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}, {
+		C:      actionNotificationsC,
+		Id:     ndoc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
@@ -1663,13 +1668,7 @@ func (u *Unit) ClearResolved() error {
 // WatchActions starts and returns a StringsWatcher that notifies when
 // actions with Id prefixes matching this Unit are added
 func (u *Unit) WatchActions() StringsWatcher {
-	return u.st.WatchActionsFilteredBy(u)
-}
-
-// WatchActionResults starts and returns a StringsWatcher that notifies
-// when actionresults with Id prefixes matching this Unit are added
-func (u *Unit) WatchActionResults() StringsWatcher {
-	return u.st.WatchActionResultsFilteredBy(u)
+	return u.st.watchEnqueuedActionsFilteredBy(u)
 }
 
 // AddMetric adds a new batch of metrics to the database.

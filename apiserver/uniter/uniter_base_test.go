@@ -926,7 +926,7 @@ func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
 
 	addedAction, err := s.wordpressUnit.AddAction("snapshot", nil)
 
-	wc.AssertChange(addedAction.Id())
+	wc.AssertChange(addedAction.NotificationId())
 	wc.AssertNoChange()
 }
 
@@ -949,7 +949,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	results, err := facade.WatchActions(args)
 	c.Assert(err, gc.IsNil)
 
-	checkUnorderedActionIdsEqual(c, []string{action1.Id(), action2.Id()}, results)
+	checkUnorderedActionIdsEqual(c, []string{action1.NotificationId(), action2.NotificationId()}, results)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -963,7 +963,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 
 	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(addedAction.Id())
+	wc.AssertChange(addedAction.NotificationId())
 	wc.AssertNoChange()
 }
 
@@ -1180,7 +1180,7 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	actionsQueryResult := results.Results[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action "wordpress/0_a_[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
 }
 
 func (s *uniterBaseSuite) testActionsWrongUnit(

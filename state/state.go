@@ -53,20 +53,29 @@ const (
 	settingsrefsC      = "settingsrefs"
 	constraintsC       = "constraints"
 	unitsC             = "units"
-	actionsC           = "actions"
-	actionresultsC     = "actionresults"
-	usersC             = "users"
-	envUsersC          = "envusers"
-	presenceC          = "presence"
-	cleanupsC          = "cleanups"
-	annotationsC       = "annotations"
-	statusesC          = "statuses"
-	stateServersC      = "stateServers"
-	openedPortsC       = "openedPorts"
-	metricsC           = "metrics"
-	upgradeInfoC       = "upgradeInfo"
-	rebootC            = "reboot"
-	blockDevicesC      = "blockdevices"
+
+	// actionsC and related collections store state of Actions that
+	// have been enqueued.
+	actionsC = "actions"
+	// actionNotificationsC are only used for notification of newly
+	// enqueued Actions.
+	actionNotificationsC = "actionnotifications"
+	// actionResultsC is deprecated and will soon be folded into
+	// actionsC.
+	actionresultsC = "actionresults"
+
+	usersC        = "users"
+	envUsersC     = "envusers"
+	presenceC     = "presence"
+	cleanupsC     = "cleanups"
+	annotationsC  = "annotations"
+	statusesC     = "statuses"
+	stateServersC = "stateServers"
+	openedPortsC  = "openedPorts"
+	metricsC      = "metrics"
+	upgradeInfoC  = "upgradeInfo"
+	rebootC       = "reboot"
+	blockDevicesC = "blockdevices"
 
 	// sequenceC is used to generate unique identifiers.
 	sequenceC = "sequence"
@@ -1682,6 +1691,7 @@ func (st *State) Action(id string) (*Action, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get action %q", id)
 	}
+
 	return newAction(st, doc), nil
 }
 
