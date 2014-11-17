@@ -19,11 +19,37 @@ type GetCommand struct {
 	out         cmd.Output
 }
 
+const getDoc = `
+The command output includes the service and charm names, a detailed list of all config
+settings for <service>, including the setting name, whether it uses the default value
+or not ("default: true"), description (if set), type, and current value. Example:
+
+$ juju get wordpress
+
+charm: wordpress
+service: wordpress
+settings:
+  engine:
+      default: true
+      description: 'Currently two ...'
+      type: string
+      value: nginx
+   tuning:
+      description: "This is the tuning level..."
+      type: string
+      value: optimized
+
+NOTE: In the example above the descriptions and most other settings were omitted for
+brevity. The "engine" setting was left at its default value ("nginx"), while the
+"tuning" setting was set to "optimized" (the default value is "single").
+`
+
 func (c *GetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get",
 		Args:    "<service>",
 		Purpose: "get service configuration options",
+		Doc:     getDoc,
 	}
 }
 
