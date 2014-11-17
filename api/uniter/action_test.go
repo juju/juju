@@ -51,7 +51,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 			actionTest.action.Parameters)
 		c.Assert(err, gc.IsNil)
 
-		actionTag := names.JoinActionTag(s.uniterSuite.wordpressUnit.Name(), a.UUID())
+		actionTag := names.JoinActionTag(s.uniterSuite.wordpressUnit.Name(), a.Id())
 		c.Assert(a.Tag(), gc.Equals, actionTag)
 
 		retrievedAction, err := s.uniter.Action(actionTag)
@@ -78,9 +78,9 @@ func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
 }
 
 func (s *actionSuite) TestActionComplete(c *gc.C) {
-	results, err := s.uniterSuite.wordpressUnit.ActionResults()
+	results, err := s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.uniterSuite.wordpressUnit.AddAction("gabloxi", nil)
 	c.Assert(err, gc.IsNil)
@@ -89,7 +89,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
 	c.Assert(err, gc.IsNil)
 
-	results, err = s.uniterSuite.wordpressUnit.ActionResults()
+	results, err = s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
@@ -100,9 +100,9 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 }
 
 func (s *actionSuite) TestActionFail(c *gc.C) {
-	results, err := s.uniterSuite.wordpressUnit.ActionResults()
+	results, err := s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.uniterSuite.wordpressUnit.AddAction("beebz", nil)
 	c.Assert(err, gc.IsNil)
@@ -111,7 +111,7 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionFailed, nil, errmsg)
 	c.Assert(err, gc.IsNil)
 
-	results, err = s.uniterSuite.wordpressUnit.ActionResults()
+	results, err = s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)

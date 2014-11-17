@@ -219,7 +219,7 @@ func combine(funcs ...extractorFn) extractorFn {
 // an ActionReceiver, and converts them to a slice of params.Action.
 func actionReceiverToActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
 	items := []params.ActionResult{}
-	actions, err := ar.Actions()
+	actions, err := ar.PendingActions()
 	if err != nil {
 		return items, err
 	}
@@ -245,11 +245,11 @@ func actionReceiverToActions(ar state.ActionReceiver) ([]params.ActionResult, er
 // aparams.Action.
 func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.ActionResult, error) {
 	items := []params.ActionResult{}
-	results, err := ar.ActionResults()
+	actions, err := ar.CompletedActions()
 	if err != nil {
 		return items, err
 	}
-	for _, result := range results {
+	for _, result := range actions {
 		if result == nil {
 			continue
 		}

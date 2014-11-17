@@ -889,10 +889,10 @@ func (s *uniterBaseSuite) testWatchConfigSettings(
 }
 
 type watchActions interface {
-	WatchActions(args params.Entities) (params.StringsWatchResults, error)
+	WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error)
 }
 
-func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActions) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, gc.IsNil)
 
@@ -903,7 +903,7 @@ func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.WatchActions(args)
+	result, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -945,7 +945,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	}}
 
 	s.State.StartSync()
-	results, err := facade.WatchActions(args)
+	results, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.IsNil)
 
 	checkUnorderedActionIdsEqual(c, []string{action1.NotificationId(), action2.NotificationId()}, results)
@@ -966,38 +966,38 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	wc.AssertNoChange()
 }
 
-func (s *uniterBaseSuite) testWatchActionsMalformedTag(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsMalformedTag(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	_, err := facade.WatchActions(args)
+	_, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionsMalformedUnitName(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsMalformedUnitName(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	_, err := facade.WatchActions(args)
+	_, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionsNotUnit(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsNotUnit(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "action-mysql/0_a_0"},
 	}}
-	_, err := facade.WatchActions(args)
+	_, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"action-mysql/0_a_0" is not a valid unit tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionsPermissionDenied(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsPermissionDenied(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-nonexistentgarbage-0"},
 	}}
-	results, err := facade.WatchActions(args)
+	results, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1146,7 +1146,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 			actionTest.action.Action.Name,
 			actionTest.action.Action.Parameters)
 		c.Assert(err, gc.IsNil)
-		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), a.UUID())
+		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), a.Id())
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
@@ -1225,9 +1225,9 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 	testName := "frobz"
 	testOutput := map[string]interface{}{"output": "completed frobz successfully"}
 
-	results, err := s.wordpressUnit.ActionResults()
+	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
@@ -1243,7 +1243,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
-	results, err = s.wordpressUnit.ActionResults()
+	results, err = s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
@@ -1257,9 +1257,9 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 	testName := "wgork"
 	testError := "wgork was a dismal failure"
 
-	results, err := s.wordpressUnit.ActionResults()
+	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
@@ -1276,7 +1276,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
-	results, err = s.wordpressUnit.ActionResults()
+	results, err = s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)

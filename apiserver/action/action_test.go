@@ -234,12 +234,12 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 
 			// make sure there are no actions queued up already.
-			actions, err := unit.Actions()
+			actions, err := unit.PendingActions()
 			c.Assert(err, gc.IsNil)
 			c.Assert(actions, gc.HasLen, 0)
 
-			// make sure there are no action results queued up already.
-			results, err := unit.ActionResults()
+			// make sure there are no completed actions already.
+			results, err := unit.CompletedActions()
 			c.Assert(err, gc.IsNil)
 			c.Assert(results, gc.HasLen, 0)
 
@@ -263,8 +263,9 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					_, err = added.Finish(state.ActionResults{status, output, message})
+					fa, err := added.Finish(state.ActionResults{status, output, message})
 					c.Assert(err, gc.IsNil)
+					c.Assert(fa.Status(), gc.Equals, state.ActionCompleted)
 
 					exp.Status = string(status)
 					exp.Message = message
@@ -310,8 +311,8 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			c.Assert(actions, gc.HasLen, 0)
 
-			// make sure there are no action results queued up already.
-			results, err := unit.ActionResults()
+			// make sure there are no actions completed already.
+			results, err := unit.CompletedActions()
 			c.Assert(err, gc.IsNil)
 			c.Assert(results, gc.HasLen, 0)
 
@@ -326,8 +327,9 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					_, err = added.Finish(state.ActionResults{status, output, message})
+					fa, err := added.Finish(state.ActionResults{status, output, message})
 					c.Assert(err, gc.IsNil)
+					c.Assert(fa.Status(), gc.Equals, state.ActionCompleted)
 				} else {
 					// add expectation
 					exp := params.ActionResult{
@@ -375,13 +377,13 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			unit, err := s.State.Unit(group.Receiver.Id())
 			c.Assert(err, gc.IsNil)
 
-			// make sure there are no actions queued up already.
-			actions, err := unit.Actions()
+			// make sure there are no actions pending already.
+			actions, err := unit.PendingActions()
 			c.Assert(err, gc.IsNil)
 			c.Assert(actions, gc.HasLen, 0)
 
-			// make sure there are no action results queued up already.
-			results, err := unit.ActionResults()
+			// make sure there are no actions completed already.
+			results, err := unit.CompletedActions()
 			c.Assert(err, gc.IsNil)
 			c.Assert(results, gc.HasLen, 0)
 

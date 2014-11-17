@@ -171,6 +171,8 @@ func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
 	action, err := f.state.Action(tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
 		return nil, ErrActionNotAvailable
+	} else if params.IsCodeActionNotAvailable(errors.Cause(err)) {
+		return nil, ErrActionNotAvailable
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -232,6 +232,10 @@ func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) 
 	return makeIdFilter(st, marker, receivers...)
 }
 
+func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
+	return newActionStatusWatcher(st, receivers, statuses...)
+}
+
 var (
 	GetOrCreatePorts = getOrCreatePorts
 	GetPorts         = getPorts

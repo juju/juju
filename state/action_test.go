@@ -46,12 +46,12 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	tag := action.Tag()
-	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+action.UUID())
+	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+action.Id())
 
 	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, gc.IsNil)
 
-	r, err := s.unit.ActionResults()
+	r, err := s.unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(r), gc.Equals, 1)
 
@@ -59,7 +59,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	c.Assert(actionResult, gc.DeepEquals, result)
 
 	tag = actionResult.Tag()
-	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+actionResult.UUID())
+	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+actionResult.Id())
 }
 
 func (s *ActionSuite) TestAddAction(c *gc.C) {
@@ -104,7 +104,7 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	c.Assert(a1.Id(), gc.Not(gc.Equals), a2.Id())
 
 	// verify both actually got added
-	actions, err := s.unit.Actions()
+	actions, err := s.unit.PendingActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
@@ -119,7 +119,7 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	c.Assert(action2.Parameters(), jc.DeepEquals, params2)
 
 	// verify only one left, and it's the expected one
-	actions, err = s.unit.Actions()
+	actions, err = s.unit.PendingActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 1)
 	c.Assert(actions[0].Id(), gc.Equals, a2.Id())
@@ -177,7 +177,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure no action results for this action
-	results, err := unit.ActionResults()
+	results, err := unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
@@ -187,7 +187,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
-	results, err = unit.ActionResults()
+	results, err = unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.DeepEquals, result)
@@ -195,7 +195,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 
-	// Verify the ActionResult Completed time was within a reasonable
+	// Verify the Action Completed time was within a reasonable
 	// time of the Enqueued time.
 	diff := results[0].Completed().Sub(action.Enqueued())
 	c.Assert(diff >= 0, jc.IsTrue)
@@ -205,8 +205,8 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(errstr, gc.Equals, reason)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
 
-	// validate that a failed action is no longer returned by UnitActions.
-	actions, err := unit.Actions()
+	// validate that a pending action is no longer returned by UnitActions.
+	actions, err := unit.PendingActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 }
@@ -224,7 +224,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure no action results for this action
-	results, err := unit.ActionResults()
+	results, err := unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
@@ -234,7 +234,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
-	results, err = unit.ActionResults()
+	results, err = unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.DeepEquals, result)
@@ -245,8 +245,8 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res, gc.DeepEquals, output)
 
-	// validate that a completed action is no longer returned by UnitActions.
-	actions, err := unit.Actions()
+	// validate that a pending action is no longer returned by UnitActions.
+	actions, err := unit.PendingActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 }
@@ -274,7 +274,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// start watcher but don't consume Changes() yet
-	w := unit1.WatchActions()
+	w := unit1.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 
@@ -290,7 +290,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
+func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	// get units
 	unit1, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
@@ -307,16 +307,16 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// set up watcher on first unit
-	w := unit1.WatchActions()
+	w := unit1.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
-	expect := expectActionIds(fa1, fa2)
+	expect := expectActionNotificationIds(fa1, fa2)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 
 	// add watcher on unit2
-	w2 := unit2.WatchActions()
+	w2 := unit2.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w2)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
 	wc2.AssertChange()
@@ -327,7 +327,7 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	fa3, err := unit2.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
-	expect2 := expectActionIds(fa3)
+	expect2 := expectActionNotificationIds(fa3)
 	wc2.AssertChange(expect2...)
 	wc2.AssertNoChange()
 
@@ -337,7 +337,7 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	fa5, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 
-	expect = expectActionIds(fa4, fa5)
+	expect = expectActionNotificationIds(fa4, fa5)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 }
@@ -431,8 +431,8 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	fn := state.WatcherMakeIdFilter(s.State, marker)
 	c.Assert(fn, gc.IsNil)
 
-	ar1 := mockAR{id: "mock1"}
-	ar2 := mockAR{id: "mock2"}
+	ar1 := mockAR{id: "mock/1"}
+	ar2 := mockAR{id: "mock/2"}
 	fn = state.WatcherMakeIdFilter(s.State, marker, ar1, ar2)
 	c.Assert(fn, gc.Not(gc.IsNil))
 
@@ -440,25 +440,25 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 		id    string
 		match bool
 	}{
-		{id: "mock1" + marker + "", match: true},
-		{id: "mock1" + marker + "asdf", match: true},
-		{id: "mock2" + marker + "", match: true},
-		{id: "mock2" + marker + "asdf", match: true},
+		{id: "mock/1" + marker + "", match: true},
+		{id: "mock/1" + marker + "asdf", match: true},
+		{id: "mock/2" + marker + "", match: true},
+		{id: "mock/2" + marker + "asdf", match: true},
 
-		{id: "mock1" + badmarker + "", match: false},
-		{id: "mock1" + badmarker + "asdf", match: false},
-		{id: "mock2" + badmarker + "", match: false},
-		{id: "mock2" + badmarker + "asdf", match: false},
+		{id: "mock/1" + badmarker + "", match: false},
+		{id: "mock/1" + badmarker + "asdf", match: false},
+		{id: "mock/2" + badmarker + "", match: false},
+		{id: "mock/2" + badmarker + "asdf", match: false},
 
-		{id: "mock1" + marker + "0", match: true},
-		{id: "mock10" + marker + "0", match: false},
-		{id: "mock2" + marker + "0", match: true},
-		{id: "mock20" + marker + "0", match: false},
+		{id: "mock/1" + marker + "0", match: true},
+		{id: "mock/10" + marker + "0", match: false},
+		{id: "mock/2" + marker + "0", match: true},
+		{id: "mock/20" + marker + "0", match: false},
 		{id: "mock" + marker + "0", match: false},
 
 		{id: "" + marker + "0", match: false},
-		{id: "mock1-0", match: false},
-		{id: "mock1-0", match: false},
+		{id: "mock/1-0", match: false},
+		{id: "mock/1-0", match: false},
 	}
 
 	for _, test := range tests {
@@ -466,12 +466,12 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	}
 }
 
-func (s *ActionSuite) TestWatchActions(c *gc.C) {
+func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	w := u.WatchActions()
+	w := u.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
@@ -492,12 +492,86 @@ func (s *ActionSuite) TestWatchActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// expect the first and last one in the watcher
-	expect := expectActionIds(fa1, fa3)
+	expect := expectActionNotificationIds(fa1, fa3)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 }
 
+func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
+	testCase := []struct {
+		receiver state.ActionReceiver
+		name     string
+		status   state.ActionStatus
+	}{
+		{s.unit, "fake-action-1", state.ActionCancelled},
+		{s.unit2, "poseur-3", state.ActionCancelled},
+		{s.unit, "fake-action-2", state.ActionPending},
+		{s.unit2, "other-3", state.ActionPending},
+		{s.unit, "fake-action-3", state.ActionFailed},
+		{s.unit2, "stooge-3", state.ActionFailed},
+		{s.unit, "fake-action-4", state.ActionCompleted},
+		{s.unit2, "bunny-3", state.ActionCompleted},
+	}
+
+	w1 := state.NewActionStatusWatcher(s.State, []state.ActionReceiver{s.unit})
+	defer statetesting.AssertStop(c, w1)
+
+	w2 := state.NewActionStatusWatcher(s.State, []state.ActionReceiver{s.unit}, state.ActionFailed)
+	defer statetesting.AssertStop(c, w2)
+
+	w3 := state.NewActionStatusWatcher(s.State, []state.ActionReceiver{s.unit}, state.ActionCancelled, state.ActionCompleted)
+	defer statetesting.AssertStop(c, w3)
+
+	watchAny := statetesting.NewStringsWatcherC(c, s.State, w1)
+	watchAny.AssertChange()
+	watchAny.AssertNoChange()
+
+	watchFailed := statetesting.NewStringsWatcherC(c, s.State, w2)
+	watchFailed.AssertChange()
+	watchFailed.AssertNoChange()
+
+	watchCancelledOrCompleted := statetesting.NewStringsWatcherC(c, s.State, w3)
+	watchCancelledOrCompleted.AssertChange()
+	watchCancelledOrCompleted.AssertNoChange()
+
+	expect := map[state.ActionStatus][]*state.Action{}
+	all := []*state.Action{}
+	for _, tcase := range testCase {
+		a, err := tcase.receiver.AddAction(tcase.name, nil)
+		c.Assert(err, gc.IsNil)
+
+		action, err := s.State.Action(a.Id())
+		c.Assert(err, gc.IsNil)
+
+		_, err = action.Finish(state.ActionResults{Status: tcase.status})
+		c.Assert(err, gc.IsNil)
+
+		if tcase.receiver == s.unit {
+			expect[tcase.status] = append(expect[tcase.status], action)
+			all = append(all, action)
+		}
+	}
+
+	watchAny.AssertChange(expectActionIds(all...)...)
+	watchAny.AssertNoChange()
+
+	watchFailed.AssertChange(expectActionIds(expect[state.ActionFailed]...)...)
+	watchFailed.AssertNoChange()
+
+	cancelledAndCompleted := expectActionIds(append(expect[state.ActionCancelled], expect[state.ActionCompleted]...)...)
+	watchCancelledOrCompleted.AssertChange(cancelledAndCompleted...)
+	watchCancelledOrCompleted.AssertNoChange()
+}
+
 func expectActionIds(actions ...*state.Action) []string {
+	ids := make([]string, len(actions))
+	for i, action := range actions {
+		ids[i] = action.Id()
+	}
+	return ids
+}
+
+func expectActionNotificationIds(actions ...*state.Action) []string {
 	ids := make([]string, len(actions))
 	for i, action := range actions {
 		ids[i] = action.NotificationId()
@@ -537,7 +611,8 @@ func sliceify(csvlist string) []string {
 }
 
 // mockAR is an implementation of ActionReceiver that can be used for
-// testing that requires the ActionReceiver.Name() call to return an id
+// testing that requires the ActionReceiver.Tag() call to return a
+// names.Tag
 type mockAR struct {
 	id string
 }
@@ -547,11 +622,9 @@ var _ state.ActionReceiver = (*mockAR)(nil)
 func (r mockAR) AddAction(name string, payload map[string]interface{}) (*state.Action, error) {
 	return nil, nil
 }
-
-func (r mockAR) CancelAction(*state.Action) (*state.ActionResult, error) { return nil, nil }
-func (r mockAR) WatchActions() state.StringsWatcher                      { return nil }
-func (r mockAR) WatchActionResults() state.StringsWatcher                { return nil }
-func (r mockAR) Actions() ([]*state.Action, error)                       { return nil, nil }
-func (r mockAR) ActionResults() ([]*state.ActionResult, error)           { return nil, nil }
-func (r mockAR) Name() string                                            { return r.id }
-func (r mockAR) Tag() names.Tag                                          { return nil }
+func (r mockAR) CancelAction(*state.Action) (*state.Action, error) { return nil, nil }
+func (r mockAR) WatchActionNotifications() state.StringsWatcher    { return nil }
+func (r mockAR) Actions() ([]*state.Action, error)                 { return nil, nil }
+func (r mockAR) CompletedActions() ([]*state.Action, error)        { return nil, nil }
+func (r mockAR) PendingActions() ([]*state.Action, error)          { return nil, nil }
+func (r mockAR) Tag() names.Tag                                    { return names.NewUnitTag(r.id) }
