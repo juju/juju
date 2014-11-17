@@ -1100,6 +1100,23 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	params.Add("ip", addr.Value)
 	_, err = ipaddresses.CallPost("", params)
 	if err != nil {
+		maasErr, ok := err.(gomaasapi.ServerError)
+		if !ok {
+			return errors.Trace(err)
+		}
+		// For an "out of range" ip address, maas raises
+		// StaticIPAddressOutOfRange - an error 403
+		// If there are no more addresses we get
+		// StaticIPAddressExhaustion - an error 503
+		// For an address already in use we get
+		// StaticIPAddressUnavailable - an error 404
+		if maasErr.StatusCode == 404 {
+			return environs.ErrIPAddressUnavailable
+		} else if maasErr.StatusCode == 503 {
+			return environs.ErrIPAddressesExhausted
+		}
+		// any error other than a 404 or 503 is "unexpected" and should
+		// be returned directly.
 		return errors.Trace(err)
 	}
 
