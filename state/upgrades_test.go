@@ -502,6 +502,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
 		},
 		true)
 	defer closer()
+	// The test expects three records because there is a preexisting environment constraints doc in mongo.
 	c.Assert(count, gc.Equals, 3)
 
 	var newDoc constraintsDoc
