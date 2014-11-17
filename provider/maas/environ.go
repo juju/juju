@@ -1103,7 +1103,8 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 		return errors.Trace(err)
 	}
 
-	return errors.NotImplementedf("AllocateAddress")
+	// everything is fine
+	return nil
 }
 
 // Subnets returns basic information about all nesubnets known
