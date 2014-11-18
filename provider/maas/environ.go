@@ -1091,10 +1091,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
 	subnets, err := environ.Subnets(instId)
-	if err == environs.ErrNoInstances {
-		return errors.NotFoundf("instance %v", instId)
-	} else if err != nil {
-
+	if err != nil {
 		return errors.Trace(err)
 	}
 	var foundSub *network.BasicInfo
@@ -1134,7 +1131,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	return nil
 }
 
-// Subnets returns basic information about all nesubnets known
+// Subnets returns basic information about all subnets known
 // by the provider for the environment, for a specific instance.
 func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
@@ -1142,7 +1139,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, er
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
 	}
 	if len(instances) == 0 {
-		return nil, environs.ErrNoInstances
+		return nil, errors.NotFoundf("instance %v", instId)
 	}
 	inst := instances[0]
 	networks, err := environ.getInstanceNetworks(inst)
