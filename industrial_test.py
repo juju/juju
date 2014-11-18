@@ -253,7 +253,7 @@ class SteppedStageAttempt:
             last_result = {}
             while 'result' not in last_result:
                 try:
-                    result = iterator.next()
+                    result = dict(iterator.next())
                 except StopIteration:
                     raise
                 except Exception as e:
@@ -321,7 +321,7 @@ class BootstrapAttempt(StageAttempt):
         return True
 
 
-class DestroyEnvironmentAttempt(StageAttempt):
+class DestroyEnvironmentAttempt(SteppedStageAttempt):
     """Implementation of a destroy-environment stage."""
 
     title = 'destroy environment'
@@ -334,24 +334,19 @@ class DestroyEnvironmentAttempt(StageAttempt):
             ('destroy-env', {'title': 'destroy environment'}),
             ('substrate-clean', {'title': 'check substrate clean'})])
 
-    def iter_test_results(self, old, new):
-        old_result, new_result = self.do_stage(old, new)
-        yield self.test_id, old_result, new_result
-        yield 'substrate-clean', True, True,
-
     def _operation(self, client):
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
 
     def iter_steps(self, client):
-        results = {'test-id': 'destroy-env'}
+        results = {'test_id': 'destroy-env'}
         yield results
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
         # If it hasn't raised an exception, destroy-environment succeeded.
         results['result'] = True
         yield results
-        results = {'test-id': 'substrate-clean'}
+        results = {'test_id': 'substrate-clean'}
         yield results
         results['result'] = True
         yield results

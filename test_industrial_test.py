@@ -504,6 +504,17 @@ class TestSteppedStageAttempt(TestCase):
         with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
             list(SteppedStageAttempt._iter_for_result(iterator))
 
+    def test_iter_for_result_id_change_same_dict(self):
+
+        def iterator():
+            result = {'test_id': 'foo-id'}
+            yield result
+            result['test_id'] = 'bar-id'
+            yield result
+
+        with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
+            list(SteppedStageAttempt._iter_for_result(iterator()))
+
     def test_iter_for_result_id_change_result(self):
         iterator = iter([
             {'test_id': 'foo-id'}, {'test_id': 'bar-id', 'result': True}])
@@ -648,27 +659,27 @@ class TestBootstrapAttempt(TestCase):
 
 class TestDestroyEnvironmentAttempt(TestCase):
 
-    def test_do_operation(self):
-        client = FakeEnvJujuClient()
-        destroy_env = DestroyEnvironmentAttempt()
-        with patch('subprocess.check_call') as mock_cc:
-            destroy_env.do_operation(client)
-        assert_juju_call(self, mock_cc, client, (
-            'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
-
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
         iterator = destroy_env.iter_steps(client)
-        self.assertEqual({'test-id': 'destroy-env'}, iterator.next())
+        self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
         with patch('subprocess.check_call') as mock_cc:
             self.assertEqual(iterator.next(), {
-                'test-id': 'destroy-env', 'result': True})
+                'test_id': 'destroy-env', 'result': True})
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
-        self.assertEqual(iterator.next(), {'test-id': 'substrate-clean'})
+        self.assertEqual(iterator.next(), {'test_id': 'substrate-clean'})
         self.assertEqual(iterator.next(),
-                         {'test-id': 'substrate-clean', 'result': True})
+                         {'test_id': 'substrate-clean', 'result': True})
+
+    def test_iter_test_results(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        with patch('subprocess.check_call'):
+            output = list(destroy_env.iter_test_results(client, client))
+        self.assertEqual(output, [
+            ('destroy-env', True, True), ('substrate-clean', True, True)])
 
 
 class TestEnsureAvailabilityAttempt(TestCase):
