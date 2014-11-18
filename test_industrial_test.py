@@ -34,6 +34,7 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
+from substrate import AWSAccount
 from test_jujupy import assert_juju_call
 from test_substrate import get_aws_env
 
@@ -674,8 +675,10 @@ class TestDestroyEnvironmentAttempt(TestCase):
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
         self.assertEqual(iterator.next(), {'test_id': 'substrate-clean'})
-        self.assertEqual(iterator.next(),
-                         {'test_id': 'substrate-clean', 'result': True})
+        with patch.object(destroy_env, 'check_security_groups') as csg_mock:
+            self.assertEqual(iterator.next(),
+                             {'test_id': 'substrate-clean', 'result': True})
+        csg_mock.assert_called_once_with(client, gsg_mock.return_value)
 
     def test_iter_test_results(self):
         client = FakeEnvJujuClient()
@@ -685,9 +688,14 @@ class TestDestroyEnvironmentAttempt(TestCase):
         self.assertEqual(output, [
             ('destroy-env', True, True), ('substrate-clean', True, True)])
 
-    def test_get_security_groups(self):
+    @staticmethod
+    def get_aws_client():
         client = FakeEnvJujuClient()
         client.env = get_aws_env()
+        return client
+
+    def test_get_security_groups(self):
+        client = self.get_aws_client()
         destroy_env = DestroyEnvironmentAttempt()
         yaml_instances = yaml.safe_dump({'machines': {
             'foo': {'instance-id': 'foo-id'},
@@ -716,6 +724,48 @@ class TestDestroyEnvironmentAttempt(TestCase):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
         self.assertIs(destroy_env.get_security_groups(client), None)
+
+    def test_check_security_groups_match(self):
+        client = self.get_aws_client()
+        destroy_env = DestroyEnvironmentAttempt()
+        output = (
+            'GROUP\tfoo-id\t\tfoo-group\n'
+            'GROUP\tbaz-id\t\tbaz-group\n'
+        )
+        with patch('subprocess.check_output', return_value=output) as co_mock:
+            with self.assertRaisesRegexp(
+                Exception, (
+                    r'Security group\(s\) not cleaned up: foo-group.')):
+                destroy_env.check_security_groups(
+                    client, {'foo-id': 'foo', 'bar-id': 'bar'},
+                    timeout=0.00001)
+        env = AWSAccount.from_config(client.env.config).get_environ()
+        co_mock.assert_called_once_with(
+            ['euca-describe-groups', '--filter', 'description=juju group'],
+            env=env)
+
+    def test_check_security_groups_no_match(self):
+        client = self.get_aws_client()
+        destroy_env = DestroyEnvironmentAttempt()
+        output = (
+            'GROUP\tfoo-id\t\tfoo-group\n'
+            'GROUP\tbaz-id\t\tbaz-group\n'
+        )
+        with patch('subprocess.check_output', return_value=output) as co_mock:
+                destroy_env.check_security_groups(
+                    client, {'bar-id': 'bar'})
+        env = AWSAccount.from_config(client.env.config).get_environ()
+        co_mock.assert_called_once_with(
+            ['euca-describe-groups', '--filter', 'description=juju group'],
+            env=env)
+
+    def test_check_security_groups_non_aws(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        with patch('subprocess.check_output') as co_mock:
+                destroy_env.check_security_groups(
+                    client, {'bar-id': 'bar'})
+        self.assertEqual(co_mock.call_count, 0)
 
 
 class TestEnsureAvailabilityAttempt(TestCase):

@@ -22,6 +22,7 @@ from substrate import (
     AWSAccount,
     terminate_instances,
     )
+from utility import until_timeout
 
 
 class MultiIndustrialTest:
@@ -342,19 +343,39 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
                     include_e=False)
 
     @staticmethod
-    def get_security_groups(client):
+    def get_substrate(client):
         if client.env.config['type'] != 'ec2':
             return None
+        return AWSAccount.from_config(client.env.config)
+
+    @classmethod
+    def get_security_groups(cls, client):
+        substrate = cls.get_substrate(client)
+        if substrate is None:
+            return
         status = client.get_status()
         instance_ids = [m['instance-id'] for k, m in status.iter_machines()
                         if 'instance-id' in m]
-        substrate = AWSAccount.from_config(client.env.config)
         return dict(substrate.list_instance_security_groups(instance_ids))
+
+    def check_security_groups(cls, client, env_groups, timeout=30):
+        substrate = cls.get_substrate(client)
+        if substrate is None:
+            return
+        for x in until_timeout(timeout):
+            remain_groups = dict(substrate.list_security_groups())
+            leftovers = set(remain_groups).intersection(env_groups)
+            if len(leftovers) == 0:
+                break
+        group_text = ', '.join(sorted(remain_groups[l] for l in leftovers))
+        if group_text != '':
+            raise Exception(
+                'Security group(s) not cleaned up: {}.'.format(group_text))
 
     def iter_steps(self, client):
         results = {'test_id': 'destroy-env'}
         yield results
-        self.get_security_groups(client)
+        groups = self.get_security_groups(client)
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
         # If it hasn't raised an exception, destroy-environment succeeded.
@@ -362,6 +383,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'substrate-clean'}
         yield results
+        self.check_security_groups(client, groups)
         results['result'] = True
         yield results
 
