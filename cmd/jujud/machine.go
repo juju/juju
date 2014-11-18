@@ -608,7 +608,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	machine, err := pr.Machine(tag)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == juju.Dead {
+	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return worker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -1060,7 +1060,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status juju.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {

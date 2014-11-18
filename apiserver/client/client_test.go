@@ -1688,8 +1688,8 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  juju.StatusPending,
-			Life:                    juju.Alive,
+			Status:                  multiwatcher.StatusPending,
+			Life:                    multiwatcher.Alive,
 			Series:                  "quantal",
 			Jobs:                    []juju.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},

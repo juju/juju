@@ -86,7 +86,7 @@ func (m *Entity) Tag() string {
 }
 
 // Life returns the current life cycle state of the entity.
-func (m *Entity) Life() juju.Life {
+func (m *Entity) Life() params.Life {
 	return m.doc.Life
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
@@ -17,7 +16,7 @@ import (
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
 	tag  names.MachineTag
-	life juju.Life
+	life params.Life
 	st   *State
 }
 
@@ -37,7 +36,7 @@ func (m *Machine) String() string {
 }
 
 // Life returns the machine's lifecycle value.
-func (m *Machine) Life() juju.Life {
+func (m *Machine) Life() params.Life {
 	return m.life
 }
 
@@ -70,7 +69,7 @@ func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status juju.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
@@ -85,7 +84,7 @@ func (m *Machine) SetStatus(status juju.Status, info string, data map[string]int
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (juju.Status, string, error) {
+func (m *Machine) Status() (params.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},

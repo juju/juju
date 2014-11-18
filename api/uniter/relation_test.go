@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -46,7 +45,7 @@ func (s *relationSuite) TestIdAndTag(c *gc.C) {
 }
 
 func (s *relationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 
 	// EnterScope with mysqlUnit, so the relation will be set to dying
 	// when destroyed later.
@@ -59,17 +58,17 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	// Destroy it - should set it to dying.
 	err = s.stateRelation.Destroy()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 
 	err = s.apiRelation.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Dying)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Dying)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }

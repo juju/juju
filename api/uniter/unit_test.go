@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -63,7 +62,7 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.apiUnit.SetStatus(juju.StatusStarted, "blah", nil)
+	err = s.apiUnit.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.wordpressUnit.Status()
@@ -135,19 +134,19 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	err := s.apiUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	err = s.apiUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Dead)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	w, err := s.apiUnit.Watch()
 	c.Assert(err, gc.IsNil)
@@ -159,7 +158,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = s.apiUnit.SetStatus(juju.StatusStarted, "not really", nil)
+	err = s.apiUnit.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
