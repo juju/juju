@@ -143,6 +143,32 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 }
 
+func (s *suite) TestReleaseAddress(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, gc.IsNil)
+	}()
+
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	c.Assert(inst, gc.NotNil)
+	netId := network.Id("net1")
+
+	opc := make(chan dummy.Operation, 200)
+	dummy.Listen(opc)
+
+	address := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	err := e.ReleaseAddress(inst.Id(), netId, address)
+	c.Assert(err, gc.IsNil)
+
+	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
+
+	address = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	err = e.ReleaseAddress(inst.Id(), netId, address)
+	c.Assert(err, gc.IsNil)
+	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
+}
+
 func (s *suite) TestSubnets(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {
@@ -195,6 +221,22 @@ func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation
 	select {
 	case op := <-opc:
 		addrOp, ok := op.(dummy.OpAllocateAddress)
+		if !ok {
+			c.Fatalf("unexpected op: %#v", op)
+		}
+		c.Check(addrOp.NetworkId, gc.Equals, expectNetId)
+		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
+		c.Check(addrOp.Address, gc.Equals, expectAddress)
+		return
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("time out wating for operation")
+	}
+}
+
+func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {
+	select {
+	case op := <-opc:
+		addrOp, ok := op.(dummy.OpReleaseAddress)
 		if !ok {
 			c.Fatalf("unexpected op: %#v", op)
 		}
