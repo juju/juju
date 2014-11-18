@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	Create = create
+	Create           = create
+	NewMongoConnInfo = newMongoConnInfo
 
 	TestGetFilesToBackUp = &getFilesToBackUp
 	GetDBDumper          = &getDBDumper

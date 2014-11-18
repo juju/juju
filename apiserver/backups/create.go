@@ -8,15 +8,16 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups"
 )
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
 func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataResult, err error) {
-	backups, closer := newBackups(a.st)
+	backupsMethods, closer := newBackups(a.st)
 	defer closer.Close()
 
-	dbInfo, err := state.NewDBBackupInfo(a.st)
+	dbInfo, err := backups.NewDBBackupInfo(a.st)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
@@ -30,7 +31,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	}
 	meta.Notes = args.Notes
 
-	err = backups.Create(meta, a.paths, *dbInfo)
+	err = backupsMethods.Create(meta, a.paths, *dbInfo)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

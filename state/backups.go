@@ -14,12 +14,10 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
@@ -567,53 +565,6 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 
 //---------------------------
 // utilities
-
-// ignoredDatabases is the list of databases that should not be
-// backed up.
-var ignoredDatabases = set.NewStrings(
-	"backups",
-	"presence",
-)
-
-// NewDBBackupInfo returns the information needed by backups to dump
-// the database.
-func NewDBBackupInfo(st *State) (*backups.DBInfo, error) {
-	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
-	targets, err := getBackupTargetDatabases(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	info := backups.DBInfo{
-		DBConnInfo: *connInfo,
-		Targets:    targets,
-	}
-	return &info, nil
-}
-
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backups.DBConnInfo {
-	info := backups.DBConnInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		info.Username = mgoInfo.Tag.String()
-	}
-
-	return &info
-}
-
-func getBackupTargetDatabases(st *State) (set.Strings, error) {
-	dbNames, err := st.MongoSession().DatabaseNames()
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get DB names")
-	}
-
-	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
-	return targets, nil
-}
 
 // NewBackupMetadata composes a new backup metadata with its origin
 // values set.  The environment UUID comes from state.  The hostname is

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/utils"
@@ -62,6 +63,60 @@ type DBInfo struct {
 	DBConnInfo
 	// Targets is a list of databases to dump.
 	Targets set.Strings
+}
+
+// ignoredDatabases is the list of databases that should not be
+// backed up.
+var ignoredDatabases = set.NewStrings(
+	"backups",
+	"presence",
+)
+
+type dbProvider interface {
+	// MongoConnectionInfo returns the mongo conn info to use for backups.
+	MongoConnectionInfo() *mongo.MongoInfo
+	// MongoSession return the session to use for backups.
+	MongoSession() *mgo.Session
+}
+
+// NewDBBackupInfo returns the information needed by backups to dump
+// the database.
+func NewDBBackupInfo(st dbProvider) (*DBInfo, error) {
+	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
+	targets, err := getBackupTargetDatabases(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := DBInfo{
+		DBConnInfo: *connInfo,
+		Targets:    targets,
+	}
+	return &info, nil
+}
+
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
+	info := DBConnInfo{
+		Address:  mgoInfo.Addrs[0],
+		Password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		info.Username = mgoInfo.Tag.String()
+	}
+
+	return &info
+}
+
+func getBackupTargetDatabases(st dbProvider) (set.Strings, error) {
+	dbNames, err := st.MongoSession().DatabaseNames()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get DB names")
+	}
+
+	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
+	return targets, nil
 }
 
 const dumpName = "mongodump"
