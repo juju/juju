@@ -98,7 +98,7 @@ func (c *BlockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "block",
 		Args:    fmt.Sprintf("%v", blockArgs),
-		Purpose: "block operation",
+		Purpose: "block an operation that would alter a running environment",
 		Doc:     blockDoc,
 	}
 }

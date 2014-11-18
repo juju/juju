@@ -38,7 +38,7 @@ func (c *UnblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
 		Args:    fmt.Sprintf("%v", blockArgs),
-		Purpose: "unblock operation",
+		Purpose: "unblock an operation that would alter a running environment",
 		Doc:     unblockDoc,
 	}
 }
