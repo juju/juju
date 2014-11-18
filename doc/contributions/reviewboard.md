@@ -21,13 +21,6 @@ That first time you log in, a ReviewBoard account will be created for
 you using your github username.  However, no other account information
 (including email address) is added for you.
 
-If you need to use `rbt` (see below), the first time you do so rbtools
-will request your ReviewBoard credentials.  Since our ReviewBoard users
-do not have passwords you must trigger OAuth authentication:
-
-  username: `<github username>`
-  password: `oauth:<github username>@github`
-
 All OAuth login capability is provided by a ReviewBoard plugin (via a
 charm):
 
@@ -165,6 +158,16 @@ For best results when using `rbt`:
 * make sure you are on the branch that matches the PR for which you are
   creating a review request
 * make sure that branch is based on an up-to-date master
+
+rbt Authentication
+------------------
+
+The first time you use `rbt`, rbtools will request your ReviewBoard
+credentials.  Since our ReviewBoard users do not have passwords you must
+trigger OAuth authentication:
+
+  username: `<github username>`
+  password: `oauth:<github username>@github`
 
 Other Features
 --------------
