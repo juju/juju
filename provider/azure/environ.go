@@ -1001,6 +1001,12 @@ func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotImplementedf("AllocateAddress")
 }
 
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*azureEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).

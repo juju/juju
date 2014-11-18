@@ -24,6 +24,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -1242,6 +1243,12 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // OpenStack provider yet.
 func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
 	return jujuerrors.NotImplementedf("AllocateAddress")
+}
+
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
 }
 
 // Subnets returns basic information about all subnets known

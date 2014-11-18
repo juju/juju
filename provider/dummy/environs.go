@@ -1018,6 +1018,12 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	return nil
 }
 
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+
 // Subnets implements environs.Environ.Subnets.
 func (env *environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
