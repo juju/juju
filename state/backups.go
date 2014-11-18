@@ -539,7 +539,10 @@ func (s *backupBlobStorage) Close() error {
 //---------------------------
 // backup storage
 
-const backupDB = "backups"
+const (
+	backupDB     = "backups"
+	backupsMetaC = "backupsmetadata"
+)
 
 // NewBackupStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
