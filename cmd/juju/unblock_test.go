@@ -6,10 +6,7 @@ package main
 import (
 	gc "gopkg.in/check.v1"
 
-	jc "github.com/juju/testing/checkers"
-
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,10 +21,11 @@ func runUnblockCommand(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *UnblockCommandSuite) runUnblockTestAndAssert(c *gc.C, operation string, expectedVarValue gc.Checker) {
+func (s *UnblockCommandSuite) runUnblockTestAndCompare(c *gc.C, operation string, expectedVarValue bool) {
+	s.mockClient.operation = operation
+	s.mockClient.expectedVarValue = expectedVarValue
 	err := runUnblockCommand(c, operation)
 	c.Assert(err, gc.IsNil)
-	s.assertEnvVariableSet(c, operation, expectedVarValue)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
@@ -51,16 +49,9 @@ func (s *UnblockCommandSuite) TestUnblockCmdUnknownOperation(c *gc.C) {
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.runUnblockTestAndAssert(c, "DESTROY-ENVIRONMENT", jc.IsFalse)
+	s.runUnblockTestAndCompare(c, "DESTROY-ENVIRONMENT", false)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.runUnblockTestAndAssert(c, "destroy-environment", jc.IsFalse)
-}
-
-func (s *UnblockCommandSuite) TestUnblockCmdEnvironmentArg(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = runUnblockCommand(c, "destroy-environment", "-e", "dummyenv")
-	c.Assert(err, gc.IsNil)
+	s.runUnblockTestAndCompare(c, "destroy-environment", false)
 }

@@ -4,26 +4,18 @@
 package main
 
 import (
+	"fmt"
 	gc "gopkg.in/check.v1"
-
-	jc "github.com/juju/testing/checkers"
+	"strings"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"strings"
 )
 
 type ProtectionCommandSuite struct {
-	jujutesting.RepoSuite
-}
-
-func (s *ProtectionCommandSuite) assertEnvVariableSet(c *gc.C, operation string, expectedVarValue gc.Checker) {
-	stateConfig, cfgErr := s.State.EnvironConfig()
-	c.Assert(cfgErr, gc.IsNil)
-	c.Assert(stateConfig.AllAttrs()[config.BlockKeyPrefix+strings.ToLower(operation)], expectedVarValue)
+	testing.FakeJujuHomeSuite
+	mockClient *mockClient
 }
 
 func (s *ProtectionCommandSuite) assertErrorMatches(c *gc.C, err error, expected string) {
@@ -31,6 +23,35 @@ func (s *ProtectionCommandSuite) assertErrorMatches(c *gc.C, err error, expected
 		err,
 		gc.ErrorMatches,
 		expected)
+}
+
+func (s *ProtectionCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.mockClient = &mockClient{}
+	s.PatchValue(&getBlockClientAPI, func(p *ProtectionCommand) (BlockClientAPI, error) {
+		return s.mockClient, nil
+	})
+}
+
+func (s *ProtectionCommandSuite) TearDownTest(c *gc.C) {
+	s.FakeJujuHomeSuite.TearDownTest(c)
+}
+
+type mockClient struct {
+	operation        string
+	expectedVarValue bool
+}
+
+func (c *mockClient) Close() error {
+	return nil
+}
+
+func (c *mockClient) EnvironmentSet(attrs map[string]interface{}) error {
+	expectedOp := config.BlockKeyPrefix + strings.ToLower(c.operation)
+	if val := attrs[expectedOp]; val == "" || val != c.expectedVarValue {
+		return fmt.Errorf("env var %q was %v but was expected %v", expectedOp, val, c.expectedVarValue)
+	}
+	return nil
 }
 
 type BlockCommandSuite struct {
@@ -44,10 +65,11 @@ func runBlockCommand(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *BlockCommandSuite) runBlockTestAndAssert(c *gc.C, operation string, expectedVarValue gc.Checker) {
+func (s *BlockCommandSuite) runBlockTestAndCompare(c *gc.C, operation string, expectedVarValue bool) {
+	s.mockClient.operation = operation
+	s.mockClient.expectedVarValue = expectedVarValue
 	err := runBlockCommand(c, operation)
 	c.Assert(err, gc.IsNil)
-	s.assertEnvVariableSet(c, operation, expectedVarValue)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdNoOperation(c *gc.C) {
@@ -71,16 +93,9 @@ func (s *BlockCommandSuite) TestBlockCmdUnknownOperation(c *gc.C) {
 }
 
 func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperationUpperCase(c *gc.C) {
-	s.runBlockTestAndAssert(c, "DESTROY-ENVIRONMENT", jc.IsTrue)
+	s.runBlockTestAndCompare(c, "DESTROY-ENVIRONMENT", true)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
-	s.runBlockTestAndAssert(c, "destroy-environment", jc.IsTrue)
-}
-
-func (s *BlockCommandSuite) TestBlockCmdEnvironmentArg(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = runBlockCommand(c, "destroy-environment", "-e", "dummyenv")
-	c.Assert(err, gc.IsNil)
+	s.runBlockTestAndCompare(c, "destroy-environment", true)
 }

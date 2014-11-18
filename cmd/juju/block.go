@@ -5,12 +5,12 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"strings"
 )
 
 // ProtectionCommand is a super for environment protection commands that block/unblock operations.
@@ -20,13 +20,25 @@ type ProtectionCommand struct {
 	desc      string
 }
 
-var (
-	blockArgs = "destroy-environment"
-)
+// BlockClientAPI defines the client API methods that the protection command uses.
+type BlockClientAPI interface {
+	Close() error
+	EnvironmentSet(config map[string]interface{}) error
+}
+
+var getBlockClientAPI = func(p *ProtectionCommand) (BlockClientAPI, error) {
+	return p.NewAPIClient()
+}
+
+// This variable has all valid operations that can be
+// supplied to the command.
+// These operations do not necessarily correspond to juju commands
+// but are rather juju command groupings.
+var blockArgs = []string{"destroy-environment"}
 
 // setBlockEnvironmentVariable sets desired environment variable to given value
 func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
-	client, err := p.NewAPIClient()
+	client, err := getBlockClientAPI(p)
 	if err != nil {
 		return err
 	}
@@ -38,7 +50,7 @@ func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
 // assignValidOperation verifies that supplied operation is supported.
 func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("must specify operation (%v) to %v", blockArgs, cmd)
+		return fmt.Errorf("must specify operation %v to %v", blockArgs, cmd)
 	}
 	var err error
 	p.operation, err = p.obtainValidArgument(args[0])
@@ -49,7 +61,7 @@ func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) erro
 // it checks that the argument is a supported operation and
 // forces it into lower case for consistency
 func (p *ProtectionCommand) obtainValidArgument(arg string) (string, error) {
-	for _, valid := range strings.Split(blockArgs, "|") {
+	for _, valid := range blockArgs {
 		if strings.EqualFold(valid, arg) {
 			return strings.ToLower(arg), nil
 		}
@@ -85,7 +97,7 @@ See Also:
 func (c *BlockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "block",
-		Args:    blockArgs,
+		Args:    fmt.Sprintf("%v", blockArgs),
 		Purpose: "block operation",
 		Doc:     blockDoc,
 	}
