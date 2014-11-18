@@ -235,6 +235,66 @@ class StageAttempt:
             return False
 
 
+class SteppedStageAttempt:
+
+    @staticmethod
+    def _iter_for_result(iterator):
+        """Iterate through an iterator of {'test_id'} with optional result.
+
+        This iterator exists mainly to simplify writing the per-operation
+        iterators.
+
+        Each test_id must have at least one {'test_id'}.  The id must not
+        change until a result is enountered.
+        Convert no-result to None.
+        Convert exceptions to a False result.  Exceptions terminate iteration.
+        """
+        while True:
+            last_result = {}
+            while 'result' not in last_result:
+                try:
+                    result = iterator.next()
+                except StopIteration:
+                    raise
+                except Exception as e:
+                    logging.exception(e)
+                    yield{'test_id': last_result.get('test_id'),
+                          'result': False}
+                    return
+                if last_result.get('test_id') is not None:
+                    if last_result['test_id'] != result['test_id']:
+                        raise ValueError('ID changed without result.')
+                if 'result' in result:
+                    if last_result == {}:
+                        raise ValueError('Result before declaration.')
+                else:
+                    yield None
+                last_result = result
+            yield result
+
+    @classmethod
+    def _iter_test_results(cls, old_iter, new_iter):
+        """Iterate through none-or-result to get result for each operation.
+
+        Yield the result as a tuple of (test-id, old_result, new_result).
+        """
+        while True:
+            old_result = None
+            new_result = None
+            while None in (old_result, new_result):
+                try:
+                    if old_result is None:
+                        old_result = old_iter.next()
+                    if new_result is None:
+                        new_result = new_iter.next()
+                except StopIteration:
+                    return
+            if old_result['test_id'] != new_result['test_id']:
+                raise ValueError('Test id mismatch.')
+            yield (old_result['test_id'], old_result['result'],
+                   new_result['result'])
+
+
 class BootstrapAttempt(StageAttempt):
     """Implementation of a bootstrap stage."""
 

@@ -25,6 +25,7 @@ from industrial_test import (
     MultiIndustrialTest,
     parse_args,
     StageAttempt,
+    SteppedStageAttempt,
     )
 from jujuconfig import get_euca_env
 from jujupy import (
@@ -466,6 +467,90 @@ class TestStageAttempt(TestCase):
 
         for result in StubSA().iter_test_results(None, None):
             self.assertEqual(result, ('foo-id', True, True))
+
+
+class TestSteppedStageAttempt(TestCase):
+
+    def test__iter_for_result_premature_results(self):
+        iterator = iter([{'test_id': 'foo-id', 'result': True}])
+        with self.assertRaisesRegexp(ValueError, 'Result before declaration.'):
+            list(SteppedStageAttempt._iter_for_result(iterator))
+
+    def test__iter_for_result_many(self):
+        iterator = iter([
+            {'test_id': 'foo-id'},
+            {'test_id': 'foo-id', 'result': True},
+            {'test_id': 'bar-id'},
+            {'test_id': 'bar-id', 'result': False},
+            ])
+        output = list(SteppedStageAttempt._iter_for_result(iterator))
+        self.assertEqual(output, [
+            None, {'test_id': 'foo-id', 'result': True}, None,
+            {'test_id': 'bar-id', 'result': False}])
+
+    def test__iter_for_result_exception(self):
+
+        def iterator():
+            yield {'test_id': 'foo-id'}
+            raise ValueError('Bad value')
+
+        output = list(SteppedStageAttempt._iter_for_result(iterator()))
+        self.assertEqual(output,
+                         [None, {'test_id': 'foo-id', 'result': False}])
+
+    def test_iter_for_result_id_change(self):
+        iterator = iter([
+            {'test_id': 'foo-id'}, {'test_id': 'bar-id'}])
+        with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
+            list(SteppedStageAttempt._iter_for_result(iterator))
+
+    def test_iter_for_result_id_change_result(self):
+        iterator = iter([
+            {'test_id': 'foo-id'}, {'test_id': 'bar-id', 'result': True}])
+        with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
+            list(SteppedStageAttempt._iter_for_result(iterator))
+
+    def test__iter_test_results_success(self):
+        old_iter = iter([
+            None, {'test_id': 'foo-id', 'result': True}])
+        new_iter = iter([
+            None, {'test_id': 'foo-id', 'result': False}])
+        self.assertItemsEqual(
+            SteppedStageAttempt._iter_test_results(old_iter, new_iter),
+            [('foo-id', True, False)])
+
+    def test__iter_test_results_interleaved(self):
+        # Using a single iterator for both proves that they are interleaved.
+        # Otherwise, we'd get Result before declaration.
+        both_iter = iter([
+            None, None,
+            {'test_id': 'foo-id', 'result': True},
+            {'test_id': 'foo-id', 'result': False},
+            ])
+        self.assertItemsEqual(
+            SteppedStageAttempt._iter_test_results(both_iter, both_iter),
+            [('foo-id', True, False)])
+
+    def test__iter_test_results_id_mismatch(self):
+        old_iter = iter([
+            None, {'test_id': 'foo-id', 'result': True}])
+        new_iter = iter([
+            None, {'test_id': 'bar-id', 'result': False}])
+        with self.assertRaisesRegexp(ValueError, 'Test id mismatch.'):
+            list(SteppedStageAttempt._iter_test_results(old_iter, new_iter))
+
+    def test__iter_test_results_many(self):
+        old_iter = iter([
+            None, {'test_id': 'foo-id', 'result': True},
+            None, {'test_id': 'bar-id', 'result': False},
+            ])
+        new_iter = iter([
+            None, {'test_id': 'foo-id', 'result': False},
+            None, {'test_id': 'bar-id', 'result': False},
+            ])
+        self.assertItemsEqual(
+            SteppedStageAttempt._iter_test_results(old_iter, new_iter),
+            [('foo-id', True, False), ('bar-id', False, False)])
 
 
 class FakeEnvJujuClient(EnvJujuClient):
