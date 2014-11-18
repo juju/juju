@@ -1143,9 +1143,13 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 // AllocateAddress.
 func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) error {
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	// This can return a 404 error if the address has already been released
+	// or is unknown by maas. However this, like any other error, would be
+	// unexpected - so we don't treat it specially and just return it to
+	// the caller.
 	err := ReleaseIPAddress(ipaddresses, addr)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to release ip address %v", addr.Value)
 	}
 	return nil
 }
