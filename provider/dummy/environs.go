@@ -1012,10 +1012,6 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.maxAddr++
-	// TODO(dimitern) Once we have integrated networks
-	// and addresses, make sure we return a valid address
-	// for the given network, and we also have the network
-	// already registered.
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
@@ -1039,10 +1035,6 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.maxAddr++
-	// TODO(dimitern) Once we have integrated networks
-	// and addresses, make sure we return a valid address
-	// for the given network, and we also have the network
-	// already registered.
 	estate.ops <- OpReleaseAddress{
 		Env:        env.name,
 		InstanceId: instId,
