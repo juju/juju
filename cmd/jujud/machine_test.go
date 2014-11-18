@@ -24,7 +24,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	jj "github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
@@ -33,6 +32,7 @@ import (
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/params"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -741,7 +741,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, jj.Alive)
+		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
 }
 

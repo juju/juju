@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -313,7 +314,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 			"aborted wait for other state servers:" + causeMsg},
 	})
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, []MachineStatusCall{{
-		juju.StatusError,
+		params.StatusError,
 		fmt.Sprintf(
 			"upgrade to %s failed (giving up): aborted wait for other state servers:"+causeMsg,
 			version.Current.Number),
@@ -662,22 +663,22 @@ func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 
 func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, failReason string) []MachineStatusCall {
 	calls := []MachineStatusCall{{
-		juju.StatusStarted,
+		params.StatusStarted,
 		fmt.Sprintf("upgrading to %s", version.Current.Number),
 	}}
 	for i := 0; i < retryCount; i++ {
 		calls = append(calls, MachineStatusCall{
-			juju.StatusError,
+			params.StatusError,
 			fmt.Sprintf("upgrade to %s failed (will retry): %s", version.Current.Number, failReason),
 		})
 	}
 	if expectFail {
 		calls = append(calls, MachineStatusCall{
-			juju.StatusError,
+			params.StatusError,
 			fmt.Sprintf("upgrade to %s failed (giving up): %s", version.Current.Number, failReason),
 		})
 	} else {
-		calls = append(calls, MachineStatusCall{juju.StatusStarted, ""})
+		calls = append(calls, MachineStatusCall{params.StatusStarted, ""})
 	}
 	return calls
 }
@@ -910,11 +911,11 @@ type fakeUpgradingMachineAgent struct {
 }
 
 type MachineStatusCall struct {
-	Status juju.Status
+	Status params.Status
 	Info   string
 }
 
-func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status juju.Status, info string) error {
+func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status params.Status, info string) error {
 	// Record setMachineStatus calls for later inspection.
 	a.MachineStatusCalls = append(a.MachineStatusCalls, MachineStatusCall{status, info})
 	return nil
