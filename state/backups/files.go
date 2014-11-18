@@ -45,7 +45,7 @@ type Paths struct {
 
 // GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
-func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
+func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 	var glob string
 
 	glob = filepath.Join(rootDir, startupDir, machinesConfs)

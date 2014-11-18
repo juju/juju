@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/utils"
@@ -39,29 +40,66 @@ type DBConnInfo struct {
 	Password string
 }
 
-// Validate checks the DB connection info.  If it isn't valid for use in
-// juju state backups, it returns an error.  Make sure that the ConnInfo
-// values do not change between the time you call this method and when
-// you actually need the values.
-func (ci *DBConnInfo) Validate() error {
-	if ci.Address == "" {
-		return errors.New("missing address")
-	}
-	if ci.Username == "" {
-		return errors.New("missing username")
-	}
-	if ci.Password == "" {
-		return errors.New("missing password")
-	}
-	return nil
-}
-
 // DBInfo wraps all the DB-specific information backups needs to dump
 // and restore the database.
 type DBInfo struct {
 	DBConnInfo
 	// Targets is a list of databases to dump.
 	Targets set.Strings
+}
+
+// ignoredDatabases is the list of databases that should not be
+// backed up.
+var ignoredDatabases = set.NewStrings(
+	"backups",
+	"presence",
+)
+
+type dbProvider interface {
+	// MongoConnectionInfo returns the mongo conn info to use for backups.
+	MongoConnectionInfo() *mongo.MongoInfo
+	// MongoSession return the session to use for backups.
+	MongoSession() *mgo.Session
+}
+
+// NewDBBackupInfo returns the information needed by backups to dump
+// the database.
+func NewDBBackupInfo(st dbProvider) (*DBInfo, error) {
+	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
+	targets, err := getBackupTargetDatabases(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := DBInfo{
+		DBConnInfo: *connInfo,
+		Targets:    targets,
+	}
+	return &info, nil
+}
+
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
+	info := DBConnInfo{
+		Address:  mgoInfo.Addrs[0],
+		Password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		info.Username = mgoInfo.Tag.String()
+	}
+
+	return &info
+}
+
+func getBackupTargetDatabases(st dbProvider) (set.Strings, error) {
+	dbNames, err := st.MongoSession().DatabaseNames()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get DB names")
+	}
+
+	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
+	return targets, nil
 }
 
 const dumpName = "mongodump"
@@ -92,19 +130,14 @@ var getMongodumpPath = func() (string, error) {
 }
 
 type mongoDumper struct {
-	DBInfo
+	*DBInfo
 	// binPath is the path to the dump executable.
 	binPath string
 }
 
 // NewDBDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDBDumper(info DBInfo) (DBDumper, error) {
-	err := info.Validate()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func NewDBDumper(info *DBInfo) (DBDumper, error) {
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return nil, errors.Annotate(err, "mongodump not available")

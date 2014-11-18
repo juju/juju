@@ -47,7 +47,7 @@ func (*fakeDumper) Dump(dumpDir string) error {
 }
 
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
-	s.PatchValue(backups.GetDBDumper, func(backups.DBInfo) (backups.DBDumper, error) {
+	s.PatchValue(backups.GetDBDumper, func(*backups.DBInfo) (backups.DBDumper, error) {
 		return &fakeDumper{}, nil
 	})
 
@@ -57,7 +57,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	dbInfo := backups.DBInfo{connInfo, targets}
 	meta := backupstesting.NewMetadataStarted()
 	meta.Notes = "some notes"
-	err := s.api.Create(meta, paths, dbInfo)
+	err := s.api.Create(meta, &paths, &dbInfo)
 
 	c.Check(err, gc.ErrorMatches, expected)
 }
@@ -77,14 +77,14 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.PatchValue(backups.RunCreate, testCreate)
 
 	rootDir := "<was never set>"
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		rootDir = root
 		return []string{"<some file>"}, nil
 	})
 
 	var receivedDBInfo *backups.DBInfo
-	s.PatchValue(backups.GetDBDumper, func(info backups.DBInfo) (backups.DBDumper, error) {
-		receivedDBInfo = &info
+	s.PatchValue(backups.GetDBDumper, func(info *backups.DBInfo) (backups.DBDumper, error) {
+		receivedDBInfo = info
 		return nil, nil
 	})
 
@@ -98,15 +98,13 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	meta := backupstesting.NewMetadataStarted()
 	backupstesting.SetOrigin(meta, "<env ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
-	err := s.api.Create(meta, paths, dbInfo)
+	err := s.api.Create(meta, &paths, &dbInfo)
 
 	// Test the call values.
 	s.Storage.CheckCalled(c, "spam", meta, archiveFile, "Add", "Metadata")
 	filesToBackUp, _ := backups.ExposeCreateArgs(received)
 	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
 
-	err = receivedDBInfo.Validate()
-	c.Assert(err, gc.IsNil)
 	c.Check(receivedDBInfo.Address, gc.Equals, "a")
 	c.Check(receivedDBInfo.Username, gc.Equals, "b")
 	c.Check(receivedDBInfo.Password, gc.Equals, "c")
@@ -137,7 +135,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return nil, errors.New("failed!")
 	})
 
@@ -145,7 +143,7 @@ func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	s.PatchValue(backups.RunCreate, backups.NewTestCreateFailure("failed!"))
@@ -154,7 +152,7 @@ func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
@@ -165,7 +163,7 @@ func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)

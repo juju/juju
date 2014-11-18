@@ -7,9 +7,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/version"
@@ -55,6 +57,30 @@ func NewMetadata() *Metadata {
 			Version: version.Current.Number,
 		},
 	}
+}
+
+type envTagger interface {
+	// EnvironTag returns the environment's tag.
+	EnvironTag() names.EnvironTag
+}
+
+// NewMetadataState composes a new backup metadata with its origin
+// values set.  The environment UUID comes from state.  The hostname is
+// retrieved from the OS.
+func NewMetadataState(st envTagger, machine string) (*Metadata, error) {
+	// hostname could be derived from the environment...
+	hostname, err := os.Hostname()
+	if err != nil {
+		// If os.Hostname() is not working, something is woefully wrong.
+		// Run for the hills.
+		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
+	}
+
+	meta := NewMetadata()
+	meta.Origin.Environment = st.EnvironTag().Id()
+	meta.Origin.Machine = machine
+	meta.Origin.Hostname = hostname
+	return meta, nil
 }
 
 // MarkComplete populates the remaining metadata values.  The default

@@ -19,7 +19,7 @@ type dumpSuite struct {
 	testing.BaseSuite
 
 	targets    set.Strings
-	dbInfo     backups.DBInfo
+	dbInfo     *backups.DBInfo
 	dumpDir    string
 	ranCommand bool
 }
@@ -32,7 +32,7 @@ func (s *dumpSuite) SetUpTest(c *gc.C) {
 	connInfo := backups.DBConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
 	targets := set.NewStrings("juju", "admin")
 
-	s.dbInfo = backups.DBInfo{connInfo, targets}
+	s.dbInfo = &backups.DBInfo{connInfo, targets}
 	s.targets = targets
 	s.dumpDir = c.MkDir()
 }

@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"time"
 
@@ -14,12 +13,10 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
-	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
@@ -555,81 +552,4 @@ func NewBackupStorage(st *State) filestorage.FileStorage {
 	files := newBackupFileStorage(dbWrap, backupStorageRoot)
 	docs := newBackupMetadataStorage(dbWrap)
 	return filestorage.NewFileStorage(docs, files)
-}
-
-// NewBackups returns a new backups based on the state.
-func NewBackups(st *State) (backups.Backups, io.Closer) {
-	stor := NewBackupStorage(st)
-
-	backups := backups.NewBackups(stor)
-	return backups, stor
-}
-
-//---------------------------
-// utilities
-
-// ignoredDatabases is the list of databases that should not be
-// backed up.
-var ignoredDatabases = set.NewStrings(
-	"backups",
-	"presence",
-)
-
-// NewDBBackupInfo returns the information needed by backups to dump
-// the database.
-func NewDBBackupInfo(st *State) (*backups.DBInfo, error) {
-	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
-	targets, err := getBackupTargetDatabases(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	info := backups.DBInfo{
-		DBConnInfo: *connInfo,
-		Targets:    targets,
-	}
-	return &info, nil
-}
-
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backups.DBConnInfo {
-	info := backups.DBConnInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		info.Username = mgoInfo.Tag.String()
-	}
-
-	return &info
-}
-
-func getBackupTargetDatabases(st *State) (set.Strings, error) {
-	dbNames, err := st.MongoSession().DatabaseNames()
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get DB names")
-	}
-
-	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
-	return targets, nil
-}
-
-// NewBackupMetadata composes a new backup metadata with its origin
-// values set.  The environment UUID comes from state.  The hostname is
-// retrieved from the OS.
-func NewBackupMetadata(st *State, machine string) (*backups.Metadata, error) {
-	// hostname could be derived from the environment...
-	hostname, err := os.Hostname()
-	if err != nil {
-		// If os.Hostname() is not working, something is woefully wrong.
-		// Run for the hills.
-		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
-	}
-
-	meta := backups.NewMetadata()
-	meta.Origin.Environment = st.EnvironTag().Id()
-	meta.Origin.Machine = machine
-	meta.Origin.Hostname = hostname
-	return meta, nil
 }

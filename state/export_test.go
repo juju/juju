@@ -31,8 +31,6 @@ const (
 )
 
 var (
-	NewMongoConnInfo = newMongoConnInfo
-
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
