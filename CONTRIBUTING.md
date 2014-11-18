@@ -361,7 +361,7 @@ event that the site is down, the project will temporarily fall back to
 github for reviews of critical pull requests.
 
 A review request is automatically created for every pull request.  A
-link to that review request is added as a comment to the pull request.
+link to that review request is added to the body of the pull request.
 Whenever the pull request is updated, the review request is likewise
 updated.  Thus for the normal workflow of contribution, there should
 be no need to worry about creating or updating review requests.
@@ -373,12 +373,12 @@ of feedback before the patch is approved or rejected.  Once you get a
 "NOT LGTM" comments in ReviewBoard or github, you are ready to have your
 patch merged by a member of the juju team.  Congratulations!
 
-The site uses github OAuth for authentication.  To log in simply go to
-login page and click the "github" button.  The first time you do this,
-it will redirect you to github to approve access and then redirect you
-back.  This first time is the only one where you will be redirected to
-github.  Furthermore, ReviewBoard will keep you logged in between visits
-via session cookies.
+The code review site uses github OAuth for authentication.  To log in
+simply go to login page and click the "github" button.  The first time
+you do this, it will redirect you to github to approve access and then
+redirect you back.  This first time is the only one where you will be
+redirected to github.  Furthermore, ReviewBoard will keep you logged in
+between visits via session cookies.
 
 That first time you log in, a ReviewBoard account will be created for
 you using your github username.  However, your email address is not
