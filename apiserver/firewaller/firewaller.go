@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -184,9 +185,15 @@ func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.
 			continue
 		}
 		if ports != nil {
-			portRanges := ports.AllPortRanges()
-			for portRange, unitName := range portRanges {
-				unitTag := names.NewUnitTag(unitName).String()
+			portRangeMap := ports.AllPortRanges()
+			var portRanges []network.PortRange
+			for portRange := range portRangeMap {
+				portRanges = append(portRanges, portRange)
+			}
+			network.SortPortRanges(portRanges)
+
+			for _, portRange := range portRanges {
+				unitTag := names.NewUnitTag(portRangeMap[portRange]).String()
 				result.Results[i].Ports = append(result.Results[i].Ports,
 					params.MachinePortRange{
 						UnitTag:   unitTag,
