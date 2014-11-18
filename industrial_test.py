@@ -18,7 +18,10 @@ from jujupy import (
     temp_bootstrap_env,
     uniquify_local,
     )
-from substrate import terminate_instances
+from substrate import (
+    AWSAccount,
+    terminate_instances,
+    )
 
 
 class MultiIndustrialTest:
@@ -338,9 +341,20 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
 
+    @staticmethod
+    def get_security_groups(client):
+        if client.env.config['type'] != 'ec2':
+            return None
+        status = client.get_status()
+        instance_ids = [m['instance-id'] for k, m in status.iter_machines()
+                        if 'instance-id' in m]
+        substrate = AWSAccount.from_config(client.env.config)
+        return dict(substrate.list_instance_security_groups(instance_ids))
+
     def iter_steps(self, client):
         results = {'test_id': 'destroy-env'}
         yield results
+        self.get_security_groups(client)
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
         # If it hasn't raised an exception, destroy-environment succeeded.

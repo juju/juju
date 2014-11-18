@@ -8,9 +8,11 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
 
+from boto.ec2.securitygroup import SecurityGroup
 from mock import (
-    patch,
     call,
+    MagicMock,
+    patch,
     )
 import yaml
 
@@ -665,8 +667,10 @@ class TestDestroyEnvironmentAttempt(TestCase):
         iterator = destroy_env.iter_steps(client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
         with patch('subprocess.check_call') as mock_cc:
-            self.assertEqual(iterator.next(), {
-                'test_id': 'destroy-env', 'result': True})
+            with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
+                self.assertEqual(iterator.next(), {
+                    'test_id': 'destroy-env', 'result': True})
+        gsg_mock.assert_called_once_with(client)
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
         self.assertEqual(iterator.next(), {'test_id': 'substrate-clean'})
@@ -680,6 +684,38 @@ class TestDestroyEnvironmentAttempt(TestCase):
             output = list(destroy_env.iter_test_results(client, client))
         self.assertEqual(output, [
             ('destroy-env', True, True), ('substrate-clean', True, True)])
+
+    def test_get_security_groups(self):
+        client = FakeEnvJujuClient()
+        client.env = get_aws_env()
+        destroy_env = DestroyEnvironmentAttempt()
+        yaml_instances = yaml.safe_dump({'machines': {
+            'foo': {'instance-id': 'foo-id'},
+            }})
+        aws_instances = [
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='foo', name='bar'),
+                ])]),
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='baz', name='qux'),
+                SecurityGroup(id='quxx-id', name='quxx'),
+                ])]),
+        ]
+        with patch(
+                'industrial_test.AWSAccount.get_ec2_connection') as gec_mock:
+            with patch('subprocess.check_output', return_value=yaml_instances):
+                gai_mock = gec_mock.return_value.get_all_instances
+                gai_mock.return_value = aws_instances
+                self.assertEqual(destroy_env.get_security_groups(client), {
+                    'baz': 'qux', 'foo': 'bar', 'quxx-id': 'quxx'
+                    })
+        gec_mock.assert_called_once_with()
+        gai_mock.assert_called_once_with(instance_ids=['foo-id'])
+
+    def test_get_security_groups_non_aws(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        self.assertIs(destroy_env.get_security_groups(client), None)
 
 
 class TestEnsureAvailabilityAttempt(TestCase):

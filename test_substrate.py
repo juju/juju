@@ -180,11 +180,30 @@ class TestAWSAccount(TestCase):
                     SecurityGroup(id='quxx-id', name='quxx'),
                     ])]),
             ]
-            gec_mock.return_value.get_all_instances.return_value = instances
+            gai_mock = gec_mock.return_value.get_all_instances
+            gai_mock.return_value = instances
             groups = list(aws.list_instance_security_groups())
         gec_mock.assert_called_once_with()
         self.assertEqual(groups, [
             ('foo', 'bar'), ('baz', 'qux'),  ('quxx-id', 'quxx')])
+        gai_mock.assert_called_once_with(instance_ids=None)
+
+    def test_list_instance_security_groups_instances(self):
+        aws = AWSAccount.from_config(get_aws_env().config)
+        with patch.object(aws, 'get_ec2_connection') as gec_mock:
+            instances = [
+                MagicMock(instances=[MagicMock(groups=[
+                    SecurityGroup(id='foo', name='bar'),
+                    ])]),
+                MagicMock(instances=[MagicMock(groups=[
+                    SecurityGroup(id='baz', name='qux'),
+                    SecurityGroup(id='quxx-id', name='quxx'),
+                    ])]),
+            ]
+            gai_mock = gec_mock.return_value.get_all_instances
+            gai_mock.return_value = instances
+            list(aws.list_instance_security_groups(['abc', 'def']))
+        gai_mock.assert_called_once_with(instance_ids=['abc', 'def'])
 
     def test_destroy_security_groups(self):
         aws = AWSAccount.from_config(get_aws_env().config)

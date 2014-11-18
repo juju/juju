@@ -91,11 +91,11 @@ class AWSAccount:
                 continue
             yield field[1], field[3]
 
-    def list_instance_security_groups(self):
+    def list_instance_security_groups(self, instance_ids=None):
         """List the security groups used by instances in this account."""
         logging.info('Listing security groups in use.')
         connection = self.get_ec2_connection()
-        reservations = connection.get_all_instances()
+        reservations = connection.get_all_instances(instance_ids=instance_ids)
         for reservation in reservations:
             for instance in reservation.instances:
                 for group in instance.groups:
