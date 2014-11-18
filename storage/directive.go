@@ -37,6 +37,14 @@ var storageRE = regexp.MustCompile(
 		"$",
 )
 
+const (
+	storageNameSubmatch = iota + 1
+	storageSourceSubmatch
+	storageCountSubmatch
+	storageSizeSubmatch
+	storageOptionsSubmatch
+)
+
 // Directive is a storage creation directive.
 type Directive struct {
 	// Name is the name of the storage.
@@ -92,34 +100,34 @@ type Directive struct {
 //    SIZE is a floating point number and optional multiplier from
 //    the set (M, G, T, P), which are all treated as powers of 1024.
 //
-//    OPTIONS is the string remaining the colon (if any) that will
-//    be passed onto the storage source unmodified.
+//    OPTIONS is the string remaining after the colon (if any) that
+//    will be passed onto the storage source unmodified.
 func ParseDirective(s string) (*Directive, error) {
 	match := storageRE.FindStringSubmatch(s)
 	if match == nil {
 		return nil, errors.Errorf("failed to parse storage %q", s)
 	}
-	if match[1] == "" {
+	if match[storageNameSubmatch] == "" {
 		return nil, errors.New("storage name missing")
 	}
-	if match[2] == "" {
+	if match[storageSourceSubmatch] == "" {
 		return nil, ErrStorageSourceMissing
 	}
 
 	var size uint64
 	var count int
 	var err error
-	if match[4] != "" {
-		size, err = utils.ParseSize(match[4])
+	if match[storageSizeSubmatch] != "" {
+		size, err = utils.ParseSize(match[storageSizeSubmatch])
 		if err != nil {
 			return nil, errors.Annotate(err, "failed to parse size")
 		}
 	}
-	options := match[5]
+	options := match[storageOptionsSubmatch]
 
 	if size > 0 {
 		// Don't bother parsing count unless we have a size too.
-		if count, err = parseStorageCount(match[3]); err != nil {
+		if count, err = parseStorageCount(match[storageCountSubmatch]); err != nil {
 			return nil, err
 		}
 
@@ -136,8 +144,8 @@ func ParseDirective(s string) (*Directive, error) {
 	}
 
 	storage := Directive{
-		Name:    match[1],
-		Source:  match[2],
+		Name:    match[storageNameSubmatch],
+		Source:  match[storageSourceSubmatch],
 		Count:   count,
 		Size:    size,
 		Options: options,
