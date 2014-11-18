@@ -14,6 +14,12 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+// TODO(ericsnow) The corresponding functions in state and state_test
+// (see state_test.go and settings_test.go) should be dropped and these
+// used instead.  Doing so is complicated by the fact that some of the
+// test files are in the state package rather than state_test, resulting
+// in import cycles when switching to these functions.
+
 // NewMongoInfo returns information suitable for
 // connecting to the testing state server's mongo database.
 func NewMongoInfo() *mongo.MongoInfo {
