@@ -1098,9 +1098,9 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 		return errors.Trace(err)
 	}
 	var foundSub *network.BasicInfo
-	for _, sub := range subnets {
+	for i, sub := range subnets {
 		if sub.ProviderId == netId {
-			foundSub = &sub
+			foundSub = &subnets[i]
 			break
 		}
 	}
