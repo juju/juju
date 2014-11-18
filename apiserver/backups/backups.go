@@ -23,7 +23,7 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 // API serves backup-specific API methods.
 type API struct {
 	st    *state.State
-	paths backups.Paths
+	paths *backups.Paths
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -58,7 +58,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 
 	b := API{
 		st:    st,
-		paths: paths,
+		paths: &paths,
 	}
 	return &b, nil
 }
