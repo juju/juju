@@ -32,6 +32,19 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
+	paths, err := getPaths(resources)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	b := API{
+		st:    st,
+		paths: paths,
+	}
+	return &b, nil
+}
+
+func getPaths(resources *common.Resources) (*backups.Paths, error) {
 	dataDirRes := resources.Get("dataDir")
 	dataDir, ok := dataDirRes.(common.StringResource)
 	if !ok {
@@ -52,15 +65,11 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		}
 	}
 
-	var paths backups.Paths
-	paths.DataDir = dataDir.String()
-	paths.LogsDir = logDir.String()
-
-	b := API{
-		st:    st,
-		paths: &paths,
+	paths := backups.Paths{
+		DataDir: dataDir.String(),
+		LogsDir: logDir.String(),
 	}
-	return &b, nil
+	return &paths, nil
 }
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
