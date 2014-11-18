@@ -18,7 +18,6 @@ import (
 var (
 	Create           = create
 	NewMongoConnInfo = newMongoConnInfo
-	BackupsMetaC     = backupsMetaC
 
 	TestGetFilesToBackUp = &getFilesToBackUp
 	GetDBDumper          = &getDBDumper
@@ -40,8 +39,8 @@ func newBackupDoc(meta *Metadata) *storageMetaDoc {
 
 func getBackupDBWrapper(st *state.State) *storageDBWrapper {
 	envUUID := st.EnvironTag().Id()
-	db := st.MongoSession().DB(backupDB)
-	return newStorageDBWrapper(db, BackupsMetaC, envUUID)
+	db := st.MongoSession().DB(storageDBName)
+	return newStorageDBWrapper(db, storageMetaName, envUUID)
 }
 
 // NewBackupID creates a new backup ID based on the metadata.

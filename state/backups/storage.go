@@ -476,7 +476,7 @@ func (s *backupsDocStorage) Close() error {
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	dbWrap := newStorageDBWrapper(s.db, backupsMetaC, s.envUUID)
+	dbWrap := newStorageDBWrapper(s.db, storageMetaName, s.envUUID)
 	defer dbWrap.Close()
 
 	err := setStorageStoredTime(dbWrap, id, time.Now())
@@ -540,16 +540,16 @@ func (s *backupBlobStorage) Close() error {
 // backup storage
 
 const (
-	backupDB     = "backups"
-	backupsMetaC = "backupsmetadata"
+	storageDBName   = "backups"
+	storageMetaName = "metadata"
 )
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
 func NewStorage(st *state.State) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
-	db := st.MongoSession().DB(backupDB)
-	dbWrap := newStorageDBWrapper(db, backupsMetaC, envUUID)
+	db := st.MongoSession().DB(storageDBName)
+	dbWrap := newStorageDBWrapper(db, storageMetaName, envUUID)
 	defer dbWrap.Close()
 
 	files := newFileStorage(dbWrap, backupStorageRoot)
