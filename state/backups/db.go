@@ -130,14 +130,14 @@ var getMongodumpPath = func() (string, error) {
 }
 
 type mongoDumper struct {
-	DBInfo
+	*DBInfo
 	// binPath is the path to the dump executable.
 	binPath string
 }
 
 // NewDBDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDBDumper(info DBInfo) (DBDumper, error) {
+func NewDBDumper(info *DBInfo) (DBDumper, error) {
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return nil, errors.Annotate(err, "mongodump not available")

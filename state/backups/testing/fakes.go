@@ -41,11 +41,11 @@ var _ backups.Backups = (*FakeBackups)(nil)
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *FakeBackups) Create(meta *backups.Metadata, paths backups.Paths, dbInfo backups.DBInfo) error {
+func (b *FakeBackups) Create(meta *backups.Metadata, paths backups.Paths, dbInfo *backups.DBInfo) error {
 	b.Calls = append(b.Calls, "Create")
 
 	b.PathsArg = &paths
-	b.DBInfoArg = &dbInfo
+	b.DBInfoArg = dbInfo
 	b.MetaArg = meta
 
 	if b.Meta != nil {

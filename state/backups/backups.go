@@ -59,7 +59,7 @@ type Backups interface {
 
 	// Create creates and stores a new juju backup archive. It updates
 	// the provided metadata.
-	Create(meta *Metadata, paths Paths, dbInfo DBInfo) error
+	Create(meta *Metadata, paths Paths, dbInfo *DBInfo) error
 
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*Metadata, io.ReadCloser, error)
@@ -85,7 +85,7 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and updates the
 // provided metadata.
-func (b *backups) Create(meta *Metadata, paths Paths, dbInfo DBInfo) error {
+func (b *backups) Create(meta *Metadata, paths Paths, dbInfo *DBInfo) error {
 	meta.Started = time.Now().UTC()
 
 	// The metadata file will not contain the ID or the "finished" data.

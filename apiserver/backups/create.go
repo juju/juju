@@ -30,7 +30,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	}
 	meta.Notes = args.Notes
 
-	err = backupsMethods.Create(meta, a.paths, *dbInfo)
+	err = backupsMethods.Create(meta, a.paths, dbInfo)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
