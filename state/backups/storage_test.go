@@ -7,12 +7,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	statetesting "github.com/juju/juju/state/testing"
@@ -40,19 +38,7 @@ func (s *storageSuite) TearDownSuite(c *gc.C) {
 func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-
-	owner := names.NewLocalUserTag("test-admin")
-	baseInfo := mongo.Info{
-		Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-		CACert: testing.CACert,
-	}
-	mgoInfo := &mongo.MongoInfo{Info: baseInfo}
-	cfg := testing.EnvironConfig(c)
-	dialOpts := mongo.DialOpts{Timeout: testing.LongWait}
-	policy := &statetesting.MockPolicy{}
-	state, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
-	c.Assert(err, gc.IsNil)
-	s.State = state
+	s.State = statetesting.NewState(c)
 }
 
 func (s *storageSuite) TearDownTest(c *gc.C) {
