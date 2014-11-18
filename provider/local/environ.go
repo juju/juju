@@ -449,7 +449,7 @@ func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("ReleaseAddress")
+	return errors.NotImplementedf("ReleaseAddress")
 }
 
 // Subnets returns basic information about all subnets known

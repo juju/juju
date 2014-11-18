@@ -264,7 +264,7 @@ func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (*manualEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("ReleaseAddress")
+	return errors.NotImplementedf("ReleaseAddress")
 }
 
 // Subnets returns basic information about all subnets known
