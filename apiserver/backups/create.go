@@ -21,7 +21,12 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 		return p, errors.Trace(err)
 	}
 
-	meta, err := backups.NewMetadataState(a.st, a.machineID)
+	// TODO(ericsnow) lp-1389362
+	// The machine ID needs to be introspected from the API server, likely
+	// through a Resource.
+	const machineID = "0"
+
+	meta, err := backups.NewMetadataState(a.st, machineID)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

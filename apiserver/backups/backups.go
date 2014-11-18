@@ -18,18 +18,12 @@ func init() {
 	common.RegisterStandardFacade("Backups", 0, NewAPI)
 }
 
-// TODO(ericsnow) lp-1389362
-// The machine ID needs to be introspected from the API server, likely
-// through a Resource.
-const machineID = "0"
-
 var logger = loggo.GetLogger("juju.apiserver.backups")
 
 // API serves backup-specific API methods.
 type API struct {
-	st        *state.State
-	paths     *backups.Paths
-	machineID string
+	st    *state.State
+	paths *backups.Paths
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -67,9 +61,8 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 
 	// Build the API.
 	b := API{
-		st:        st,
-		paths:     &paths,
-		machineID: machineID,
+		st:    st,
+		paths: &paths,
 	}
 	return &b, nil
 }
