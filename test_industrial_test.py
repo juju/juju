@@ -812,43 +812,70 @@ class TestEnsureAvailabilityAttempt(TestCase):
 
 class TestDeployManyAttempt(TestCase):
 
-    def test__operation(self):
+    def test_iter_steps(self):
         client = FakeEnvJujuClient()
         deploy_many = DeployManyAttempt(9, 11)
-        outputs = (yaml.safe_dump(x) for x in [
-            # Before adding 10 machines
-            {
-                'machines': {'0': {'agent-state': 'started'}},
-                'services': {},
-            },
-            # After adding 10 machines
-            {
-                'machines': dict((str(x), {'agent-state': 'started'})
-                                 for x in range(deploy_many.host_count + 1)),
-                'services': {},
-            },
-            ])
-
-        with patch('subprocess.check_output', side_effect=lambda *x, **y:
-                   outputs.next()):
+        deploy_iter = deploy_many.iter_steps(client)
+        self.assertEqual(deploy_iter.next(), {'test_id': 'deploy-many'})
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=status):
             with patch('subprocess.check_call') as mock_cc:
-                deploy_many.do_operation(client)
+                self.assertEqual(deploy_iter.next(),
+                                 {'test_id': 'deploy-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+
+        status = yaml.safe_dump({
+            'machines': dict((str(x), {'agent-state': 'started'})
+                             for x in range(deploy_many.host_count + 1)),
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            with patch('subprocess.check_call') as mock_cc:
+                self.assertEqual(deploy_iter.next(),
+                                 {'test_id': 'deploy-many'})
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
-                index = ((host-1) * deploy_many.container_count +
-                         deploy_many.host_count + container)
+                index = ((host-1) * deploy_many.container_count + container)
                 target = 'lxc:{}'.format(host)
                 service = 'ubuntu{}x{}'.format(host, container)
                 assert_juju_call(self, mock_cc, client, (
                     'juju', '--show-log', 'deploy', '-e', 'steve', '--to',
                     target, 'ubuntu', service), index)
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(deploy_iter.next(),
+                             {'test_id': 'deploy-many', 'result': True})
 
-    def test__result_false(self):
+    def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
+        deploy_iter = deploy_many.iter_steps(client)
+        self.assertEqual(deploy_iter.next(), {'test_id': 'deploy-many'})
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            with patch('subprocess.check_call') as mock_cc:
+                self.assertEqual(deploy_iter.next(),
+                                 {'test_id': 'deploy-many'})
+        for index in range(deploy_many.host_count):
+            assert_juju_call(self, mock_cc, client, (
+                'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+
+        status = yaml.safe_dump({
+            'machines': dict((str(x), {'agent-state': 'started'})
+                             for x in range(deploy_many.host_count + 1)),
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=status):
+            with patch('subprocess.check_call') as mock_cc:
+                self.assertEqual(deploy_iter.next(),
+                                 {'test_id': 'deploy-many'})
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'pending'},
@@ -859,7 +886,7 @@ class TestDeployManyAttempt(TestCase):
             with self.assertRaisesRegexp(
                     Exception,
                     'Timed out waiting for agents to start in steve.'):
-                deploy_many._result(client)
+                deploy_iter.next()
 
 
 class TestBackupRestoreAttempt(TestCase):
