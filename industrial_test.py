@@ -2,6 +2,7 @@
 __metaclass__ = type
 
 from argparse import ArgumentParser
+from collections import OrderedDict
 import json
 import logging
 import sys
@@ -17,7 +18,11 @@ from jujupy import (
     temp_bootstrap_env,
     uniquify_local,
     )
-from substrate import terminate_instances
+from substrate import (
+    AWSAccount,
+    terminate_instances,
+    )
+from utility import until_timeout
 
 
 class MultiIndustrialTest:
@@ -52,13 +57,17 @@ class MultiIndustrialTest:
 
     def make_results(self):
         """Return a results list for use in run_tests."""
-        return {'results': [{
-            'title': stage.title,
-            'test_id': stage.test_id,
-            'attempts': 0,
-            'old_failures': 0,
-            'new_failures': 0,
-        } for stage in self.stages]}
+        results = []
+        for stage in self.stages:
+            for test_id, info in stage.get_test_info().items():
+                results.append({
+                    'title': info['title'],
+                    'test_id': test_id,
+                    'attempts': 0,
+                    'old_failures': 0,
+                    'new_failures': 0,
+                    })
+        return {'results': results}
 
     def run_tests(self):
         """Run all stages until required number of attempts are achieved.
@@ -88,10 +97,13 @@ class MultiIndustrialTest:
         for result, cur_result in zip(results['results'], run_attempt):
             if result['attempts'] >= self.attempt_count:
                 continue
+            if result['test_id'] != cur_result[0]:
+                raise Exception('Mismatched result ids: {} != {}'.format(
+                    cur_result[0], result['test_id']))
             result['attempts'] += 1
-            if not cur_result[0]:
-                result['old_failures'] += 1
             if not cur_result[1]:
+                result['old_failures'] += 1
+            if not cur_result[2]:
                 result['new_failures'] += 1
 
     @staticmethod
@@ -160,11 +172,12 @@ class IndustrialTest:
         Iteration stops when one client has a False result.
         """
         for attempt in self.stage_attempts:
-            result = attempt.do_stage(self.old_client, self.new_client)
-            yield result
-            if False in result:
-                self.destroy_both()
-                break
+            for result in attempt.iter_test_results(self.old_client,
+                                                    self.new_client):
+                yield result
+                if False in result[1:]:
+                    self.destroy_both()
+                    return
 
 
 class StageAttempt:
@@ -172,6 +185,10 @@ class StageAttempt:
 
     def __init__(self):
         self.failure_clients = set()
+
+    @classmethod
+    def get_test_info(cls):
+        return {cls.test_id: {'title': cls.title}}
 
     def do_stage(self, old, new):
         """Do this stage, return a tuple.
@@ -187,6 +204,10 @@ class StageAttempt:
         old_result = self.get_result(old)
         new_result = self.get_result(new)
         return old_result, new_result
+
+    def iter_test_results(self, old, new):
+        old_result, new_result = self.do_stage(old, new)
+        yield self.test_id, old_result, new_result
 
     def do_operation(self, client, output=None):
         """Perform this stage's operation.
@@ -218,6 +239,76 @@ class StageAttempt:
             return False
 
 
+class SteppedStageAttempt:
+
+    @staticmethod
+    def _iter_for_result(iterator):
+        """Iterate through an iterator of {'test_id'} with optional result.
+
+        This iterator exists mainly to simplify writing the per-operation
+        iterators.
+
+        Each test_id must have at least one {'test_id'}.  The id must not
+        change until a result is enountered.
+        Convert no-result to None.
+        Convert exceptions to a False result.  Exceptions terminate iteration.
+        """
+        while True:
+            last_result = {}
+            while 'result' not in last_result:
+                try:
+                    result = dict(iterator.next())
+                except StopIteration:
+                    raise
+                except Exception as e:
+                    logging.exception(e)
+                    yield{'test_id': last_result.get('test_id'),
+                          'result': False}
+                    return
+                if last_result.get('test_id') is not None:
+                    if last_result['test_id'] != result['test_id']:
+                        raise ValueError('ID changed without result.')
+                if 'result' in result:
+                    if last_result == {}:
+                        raise ValueError('Result before declaration.')
+                else:
+                    yield None
+                last_result = result
+            yield result
+
+    @staticmethod
+    def _iter_test_results(old_iter, new_iter):
+        """Iterate through none-or-result to get result for each operation.
+
+        Yield the result as a tuple of (test-id, old_result, new_result).
+
+        Operations are interleaved between iterators to improve
+        responsiveness; an itererator can start a long-running operation,
+        yield, then acquire the result of the operation.
+        """
+        while True:
+            old_result = None
+            new_result = None
+            while None in (old_result, new_result):
+                try:
+                    if old_result is None:
+                        old_result = old_iter.next()
+                    if new_result is None:
+                        new_result = new_iter.next()
+                except StopIteration:
+                    return
+            if old_result['test_id'] != new_result['test_id']:
+                raise ValueError('Test id mismatch.')
+            yield (old_result['test_id'], old_result['result'],
+                   new_result['result'])
+
+    def iter_test_results(self, old, new):
+        """Iterate through the results for this operation for both clients."""
+        old_iter = self._iter_for_result(self.iter_steps(old))
+        new_iter = self._iter_for_result(self.iter_steps(new))
+        return self._iter_test_results(old_iter, new_iter)
+
+
 class BootstrapAttempt(StageAttempt):
     """Implementation of a bootstrap stage."""
 
@@ -234,19 +325,60 @@ class BootstrapAttempt(StageAttempt):
         return True
 
 
-class DestroyEnvironmentAttempt(StageAttempt):
+class DestroyEnvironmentAttempt(SteppedStageAttempt):
     """Implementation of a destroy-environment stage."""
 
-    title = 'destroy environment'
+    @staticmethod
+    def get_test_info():
+        return OrderedDict([
+            ('destroy-env', {'title': 'destroy environment'}),
+            ('substrate-clean', {'title': 'check substrate clean'})])
 
-    test_id = 'destroy-env'
+    @staticmethod
+    def get_substrate(client):
+        if client.env.config['type'] != 'ec2':
+            return None
+        return AWSAccount.from_config(client.env.config)
 
-    def _operation(self, client):
+    @classmethod
+    def get_security_groups(cls, client):
+        substrate = cls.get_substrate(client)
+        if substrate is None:
+            return
+        status = client.get_status()
+        instance_ids = [m['instance-id'] for k, m in status.iter_machines()
+                        if 'instance-id' in m]
+        return dict(substrate.list_instance_security_groups(instance_ids))
+
+    @classmethod
+    def check_security_groups(cls, client, env_groups):
+        substrate = cls.get_substrate(client)
+        if substrate is None:
+            return
+        for x in until_timeout(30):
+            remain_groups = dict(substrate.list_security_groups())
+            leftovers = set(remain_groups).intersection(env_groups)
+            if len(leftovers) == 0:
+                break
+        group_text = ', '.join(sorted(remain_groups[l] for l in leftovers))
+        if group_text != '':
+            raise Exception(
+                'Security group(s) not cleaned up: {}.'.format(group_text))
+
+    def iter_steps(cls, client):
+        results = {'test_id': 'destroy-env'}
+        yield results
+        groups = cls.get_security_groups(client)
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
-
-    def _result(self, client):
-        return True
+        # If it hasn't raised an exception, destroy-environment succeeded.
+        results['result'] = True
+        yield results
+        results = {'test_id': 'substrate-clean'}
+        yield results
+        cls.check_security_groups(client, groups)
+        results['result'] = True
+        yield results
 
 
 class EnsureAvailabilityAttempt(StageAttempt):

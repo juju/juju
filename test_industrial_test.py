@@ -8,9 +8,11 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
 
+from boto.ec2.securitygroup import SecurityGroup
 from mock import (
-    patch,
     call,
+    MagicMock,
+    patch,
     )
 import yaml
 
@@ -25,12 +27,14 @@ from industrial_test import (
     MultiIndustrialTest,
     parse_args,
     StageAttempt,
+    SteppedStageAttempt,
     )
 from jujuconfig import get_euca_env
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
+from substrate import AWSAccount
 from test_jujupy import assert_juju_call
 from test_substrate import get_aws_env
 
@@ -86,11 +90,16 @@ class TestParseArgs(TestCase):
 
 class FakeAttempt:
 
-    def __init__(self, *result):
-        self.result = result
+    def __init__(self, old_result, new_result, test_id='foo-id'):
+        self.result = old_result, new_result
+        self.test_id = test_id
 
     def do_stage(self, old_client, new_client):
         return self.result
+
+    def iter_test_results(self, old, new):
+        old_result, new_result = self.do_stage(old, new)
+        yield self.test_id, old_result, new_result
 
 
 class FakeAttemptClass:
@@ -100,8 +109,11 @@ class FakeAttemptClass:
         self.test_id = '{}-id'.format(title)
         self.result = result
 
+    def get_test_info(self):
+        return {self.test_id: {'title': self.title}}
+
     def __call__(self):
-        return FakeAttempt(*self.result)
+        return FakeAttempt(*self.result, test_id=self.test_id)
 
 
 class StubJujuClient:
@@ -157,6 +169,8 @@ class TestMultiIndustrialTest(TestCase):
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
              'title': 'destroy environment', 'test_id': 'destroy-env'},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
+             'title': 'check substrate clean', 'test_id': 'substrate-clean'},
+            {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
              'title': 'bootstrap', 'test_id': 'bootstrap'},
         ]})
 
@@ -195,27 +209,41 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             DestroyEnvironmentAttempt, BootstrapAttempt], 2)
         results = mit.make_results()
-        mit.update_results([(True, False)], results)
-        self.assertEqual(results, {'results': [
+        mit.update_results([('destroy-env', True, False)], results)
+        expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 1, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'attempts': 0, 'new_failures': 0, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 0,
              'new_failures': 0, 'old_failures': 0},
-            ]})
-        mit.update_results([(True, True), (False, True)], results)
+            ]}
+        self.assertEqual(results, expected)
+        mit.update_results(
+            [('destroy-env', True, True), ('substrate-clean', True, True),
+             ('bootstrap', False, True)],
+            results)
         self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'attempts': 1, 'new_failures': 0, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 1,
              'new_failures': 0, 'old_failures': 1},
             ]})
-        mit.update_results([(False, False), (False, False)], results)
-        self.assertEqual(results, {'results': [
+        mit.update_results(
+            [('destroy-env', False, False), ('substrate-clean', True, True),
+             ('bootstrap', False, False)],
+            results)
+        expected = {'results': [
             {'title': 'destroy environment', 'test_id': 'destroy-env',
              'attempts': 2, 'new_failures': 1, 'old_failures': 0},
+            {'title': 'check substrate clean', 'test_id': 'substrate-clean',
+             'attempts': 2, 'new_failures': 0, 'old_failures': 0},
             {'title': 'bootstrap', 'test_id': 'bootstrap', 'attempts': 2,
              'new_failures': 1, 'old_failures': 2},
-            ]})
+            ]}
+        self.assertEqual(results, expected)
 
     def test_run_tests(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -317,7 +345,8 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(True, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(True, True), (True, True)])
+            self.assertItemsEqual(result, [('foo-id', True, True),
+                                           ('foo-id', True, True)])
         self.assertEqual(len(cc_mock.mock_calls), 0)
 
     def test_run_stages_old_fail(self):
@@ -327,7 +356,7 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(False, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(False, True)])
+            self.assertItemsEqual(result, [('foo-id', False, True)])
         assert_juju_call(self, cc_mock, old_client,
                          ('juju', '--show-log', 'destroy-environment',
                           'old', '--force', '-y'), 0)
@@ -342,7 +371,7 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(True, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(True, False)])
+            self.assertItemsEqual(result, [('foo-id', True, False)])
         assert_juju_call(self, cc_mock, old_client,
                          ('juju', '--show-log', 'destroy-environment',
                           'old', '--force', '-y'), 0)
@@ -357,7 +386,7 @@ class TestIndustrialTest(TestCase):
             FakeAttempt(False, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
-            self.assertItemsEqual(result, [(False, False)])
+            self.assertItemsEqual(result, [('foo-id', False, False)])
         assert_juju_call(self, cc_mock, old_client,
                          ('juju', '--show-log', 'destroy-environment',
                           'old', '--force', '-y'), 0)
@@ -415,6 +444,146 @@ class TestStageAttempt(TestCase):
         result = attempt.do_stage(old, new)
         self.assertEqual([old, new], attempt.did_op)
         self.assertEqual(result, (0, 1))
+
+    def test_get_test_info(self):
+
+        class StubSA(StageAttempt):
+
+            test_id = 'foo-bar'
+
+            title = 'baz'
+
+        self.assertEqual(StubSA.get_test_info(), {'foo-bar': {'title': 'baz'}})
+
+    def test_iter_test_results(self):
+
+        did_operation = [False]
+
+        class StubSA(StageAttempt):
+
+            test_id = 'foo-id'
+
+            def do_stage(self, old, new):
+
+                did_operation[0] = True
+                return True, True
+
+        for result in StubSA().iter_test_results(None, None):
+            self.assertEqual(result, ('foo-id', True, True))
+
+
+class TestSteppedStageAttempt(TestCase):
+
+    def test__iter_for_result_premature_results(self):
+        iterator = iter([{'test_id': 'foo-id', 'result': True}])
+        with self.assertRaisesRegexp(ValueError, 'Result before declaration.'):
+            list(SteppedStageAttempt._iter_for_result(iterator))
+
+    def test__iter_for_result_many(self):
+        iterator = iter([
+            {'test_id': 'foo-id'},
+            {'test_id': 'foo-id', 'result': True},
+            {'test_id': 'bar-id'},
+            {'test_id': 'bar-id', 'result': False},
+            ])
+        output = list(SteppedStageAttempt._iter_for_result(iterator))
+        self.assertEqual(output, [
+            None, {'test_id': 'foo-id', 'result': True}, None,
+            {'test_id': 'bar-id', 'result': False}])
+
+    def test__iter_for_result_exception(self):
+
+        def iterator():
+            yield {'test_id': 'foo-id'}
+            raise ValueError('Bad value')
+
+        output = list(SteppedStageAttempt._iter_for_result(iterator()))
+        self.assertEqual(output,
+                         [None, {'test_id': 'foo-id', 'result': False}])
+
+    def test_iter_for_result_id_change(self):
+        iterator = iter([
+            {'test_id': 'foo-id'}, {'test_id': 'bar-id'}])
+        with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
+            list(SteppedStageAttempt._iter_for_result(iterator))
+
+    def test_iter_for_result_id_change_same_dict(self):
+
+        def iterator():
+            result = {'test_id': 'foo-id'}
+            yield result
+            result['test_id'] = 'bar-id'
+            yield result
+
+        with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
+            list(SteppedStageAttempt._iter_for_result(iterator()))
+
+    def test_iter_for_result_id_change_result(self):
+        iterator = iter([
+            {'test_id': 'foo-id'}, {'test_id': 'bar-id', 'result': True}])
+        with self.assertRaisesRegexp(ValueError, 'ID changed without result.'):
+            list(SteppedStageAttempt._iter_for_result(iterator))
+
+    def test__iter_test_results_success(self):
+        old_iter = iter([
+            None, {'test_id': 'foo-id', 'result': True}])
+        new_iter = iter([
+            None, {'test_id': 'foo-id', 'result': False}])
+        self.assertItemsEqual(
+            SteppedStageAttempt._iter_test_results(old_iter, new_iter),
+            [('foo-id', True, False)])
+
+    def test__iter_test_results_interleaved(self):
+        # Using a single iterator for both proves that they are interleaved.
+        # Otherwise, we'd get Result before declaration.
+        both_iter = iter([
+            None, None,
+            {'test_id': 'foo-id', 'result': True},
+            {'test_id': 'foo-id', 'result': False},
+            ])
+        self.assertItemsEqual(
+            SteppedStageAttempt._iter_test_results(both_iter, both_iter),
+            [('foo-id', True, False)])
+
+    def test__iter_test_results_id_mismatch(self):
+        old_iter = iter([
+            None, {'test_id': 'foo-id', 'result': True}])
+        new_iter = iter([
+            None, {'test_id': 'bar-id', 'result': False}])
+        with self.assertRaisesRegexp(ValueError, 'Test id mismatch.'):
+            list(SteppedStageAttempt._iter_test_results(old_iter, new_iter))
+
+    def test__iter_test_results_many(self):
+        old_iter = iter([
+            None, {'test_id': 'foo-id', 'result': True},
+            None, {'test_id': 'bar-id', 'result': False},
+            ])
+        new_iter = iter([
+            None, {'test_id': 'foo-id', 'result': False},
+            None, {'test_id': 'bar-id', 'result': False},
+            ])
+        self.assertItemsEqual(
+            SteppedStageAttempt._iter_test_results(old_iter, new_iter),
+            [('foo-id', True, False), ('bar-id', False, False)])
+
+    def test_iter_test_results(self):
+        old = FakeEnvJujuClient()
+        new = FakeEnvJujuClient()
+
+        class StubSA(SteppedStageAttempt):
+
+            def iter_steps(self, client):
+                yield {'test_id': 'test-1'}
+                yield {'test_id': 'test-1', 'result': client is old}
+                yield {'test_id': 'test-2'}
+                if client is not new:
+                    raise ValueError('asdf')
+                else:
+                    yield {'test_id': 'test-2', 'result': True}
+
+        self.assertItemsEqual(
+            StubSA().iter_test_results(old, new),
+            [('test-1', True, False), ('test-2', False, True)])
 
 
 class FakeEnvJujuClient(EnvJujuClient):
@@ -493,13 +662,111 @@ class TestBootstrapAttempt(TestCase):
 
 class TestDestroyEnvironmentAttempt(TestCase):
 
-    def test_do_operation(self):
+    def test_iter_steps(self):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
+        iterator = destroy_env.iter_steps(client)
+        self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
         with patch('subprocess.check_call') as mock_cc:
-            destroy_env.do_operation(client)
+            with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
+                self.assertEqual(iterator.next(), {
+                    'test_id': 'destroy-env', 'result': True})
+        gsg_mock.assert_called_once_with(client)
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
+        self.assertEqual(iterator.next(), {'test_id': 'substrate-clean'})
+        with patch.object(destroy_env, 'check_security_groups') as csg_mock:
+            self.assertEqual(iterator.next(),
+                             {'test_id': 'substrate-clean', 'result': True})
+        csg_mock.assert_called_once_with(client, gsg_mock.return_value)
+
+    def test_iter_test_results(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        with patch('subprocess.check_call'):
+            output = list(destroy_env.iter_test_results(client, client))
+        self.assertEqual(output, [
+            ('destroy-env', True, True), ('substrate-clean', True, True)])
+
+    @staticmethod
+    def get_aws_client():
+        client = FakeEnvJujuClient()
+        client.env = get_aws_env()
+        return client
+
+    def test_get_security_groups(self):
+        client = self.get_aws_client()
+        destroy_env = DestroyEnvironmentAttempt()
+        yaml_instances = yaml.safe_dump({'machines': {
+            'foo': {'instance-id': 'foo-id'},
+            }})
+        aws_instances = [
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='foo', name='bar'),
+                ])]),
+            MagicMock(instances=[MagicMock(groups=[
+                SecurityGroup(id='baz', name='qux'),
+                SecurityGroup(id='quxx-id', name='quxx'),
+                ])]),
+        ]
+        with patch(
+                'industrial_test.AWSAccount.get_ec2_connection') as gec_mock:
+            with patch('subprocess.check_output', return_value=yaml_instances):
+                gai_mock = gec_mock.return_value.get_all_instances
+                gai_mock.return_value = aws_instances
+                self.assertEqual(destroy_env.get_security_groups(client), {
+                    'baz': 'qux', 'foo': 'bar', 'quxx-id': 'quxx'
+                    })
+        gec_mock.assert_called_once_with()
+        gai_mock.assert_called_once_with(instance_ids=['foo-id'])
+
+    def test_get_security_groups_non_aws(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        self.assertIs(destroy_env.get_security_groups(client), None)
+
+    def test_check_security_groups_match(self):
+        client = self.get_aws_client()
+        destroy_env = DestroyEnvironmentAttempt()
+        output = (
+            'GROUP\tfoo-id\t\tfoo-group\n'
+            'GROUP\tbaz-id\t\tbaz-group\n'
+        )
+        with patch('subprocess.check_output', return_value=output) as co_mock:
+            with self.assertRaisesRegexp(
+                Exception, (
+                    r'Security group\(s\) not cleaned up: foo-group.')):
+                    with patch('industrial_test.until_timeout',
+                               lambda x: iter([None])):
+                        destroy_env.check_security_groups(
+                            client, {'foo-id': 'foo', 'bar-id': 'bar'})
+        env = AWSAccount.from_config(client.env.config).get_environ()
+        co_mock.assert_called_once_with(
+            ['euca-describe-groups', '--filter', 'description=juju group'],
+            env=env)
+
+    def test_check_security_groups_no_match(self):
+        client = self.get_aws_client()
+        destroy_env = DestroyEnvironmentAttempt()
+        output = (
+            'GROUP\tfoo-id\t\tfoo-group\n'
+            'GROUP\tbaz-id\t\tbaz-group\n'
+        )
+        with patch('subprocess.check_output', return_value=output) as co_mock:
+                destroy_env.check_security_groups(
+                    client, {'bar-id': 'bar'})
+        env = AWSAccount.from_config(client.env.config).get_environ()
+        co_mock.assert_called_once_with(
+            ['euca-describe-groups', '--filter', 'description=juju group'],
+            env=env)
+
+    def test_check_security_groups_non_aws(self):
+        client = FakeEnvJujuClient()
+        destroy_env = DestroyEnvironmentAttempt()
+        with patch('subprocess.check_output') as co_mock:
+                destroy_env.check_security_groups(
+                    client, {'bar-id': 'bar'})
+        self.assertEqual(co_mock.call_count, 0)
 
 
 class TestEnsureAvailabilityAttempt(TestCase):
