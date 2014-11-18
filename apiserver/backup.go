@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-// TODO(ericsnow) This code should be in the backups package.
+// TODO(ericsnow) This file should be in the apiserver/backups package.
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
 	stor := state.NewBackupStorage(st)
