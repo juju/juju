@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
@@ -30,7 +29,7 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag names.Tag, status juju.Status, info string, data map[string]interface{}) error {
+func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err

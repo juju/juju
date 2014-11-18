@@ -9,7 +9,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/api/watcher"
@@ -52,7 +51,7 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	}
 
 	// Mark the machine as started and log it.
-	if err := m.SetStatus(juju.StatusStarted, "", nil); err != nil {
+	if err := m.SetStatus("alive", "", nil); err != nil {
 		return nil, fmt.Errorf("%s failed to set status started: %v", mr.tag, err)
 	}
 	logger.Infof("%q started", mr.tag)
@@ -100,11 +99,11 @@ func (mr *Machiner) Handle() error {
 	} else if err != nil {
 		return err
 	}
-	if mr.machine.Life() == juju.Alive {
+	if mr.machine.Life() == "alive" {
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.tag, mr.machine.Life())
-	if err := mr.machine.SetStatus(juju.StatusStopped, "", nil); err != nil {
+	if err := mr.machine.SetStatus("stopped", "", nil); err != nil {
 		return fmt.Errorf("%s failed to set status stopped: %v", mr.tag, err)
 	}
 

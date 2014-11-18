@@ -6,9 +6,9 @@ package machiner
 import (
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/apiserver/params"
 )
 
 const machinerFacade = "Machiner"
@@ -30,7 +30,7 @@ func NewState(caller base.APICaller) *State {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (st *State) machineLife(tag names.MachineTag) (juju.Life, error) {
+func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
 	return common.Life(st.facade, tag)
 }
 

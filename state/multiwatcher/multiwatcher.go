@@ -113,10 +113,10 @@ type UnitSettings struct {
 type MachineInfo struct {
 	Id                       string `bson:"_id"`
 	InstanceId               string
-	Status                   juju.Status
+	Status                   Status
 	StatusInfo               string
 	StatusData               map[string]interface{}
-	Life                     juju.Life
+	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
@@ -137,7 +137,7 @@ type ServiceInfo struct {
 	Exposed     bool
 	CharmURL    string
 	OwnerTag    string
-	Life        juju.Life
+	Life        Life
 	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
@@ -160,7 +160,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []network.Port
-	Status         juju.Status
+	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
 	Subordinate    bool

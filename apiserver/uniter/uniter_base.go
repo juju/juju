@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -1235,7 +1234,7 @@ func (u *uniterBaseAPI) prepareRelationResult(rel *state.Relation, unit *state.U
 	return params.RelationResult{
 		Id:   rel.Id(),
 		Key:  rel.String(),
-		Life: juju.Life(rel.Life().String()),
+		Life: params.Life(rel.Life().String()),
 		Endpoint: multiwatcher.Endpoint{
 			ServiceName: ep.ServiceName,
 			Relation:    ep.Relation,

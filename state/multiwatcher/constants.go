@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package juju
+package multiwatcher
 
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
@@ -15,9 +15,6 @@ const (
 
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
-// TODO(dfc) once state does not depend on apisever/params
-// this type will be rewritten to be
-// type Status state.Status
 type Status string
 
 const (
