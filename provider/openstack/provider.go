@@ -1244,7 +1244,7 @@ func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) 
 	return jujuerrors.NotImplementedf("AllocateAddress")
 }
 
-// Subnets returns basic information about all nesubnets known
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the OpenStack provider yet.

@@ -127,7 +127,11 @@ type Environ interface {
 	// given instance on the given network.
 	AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error
 
-	// Subnets returns basic information about all nesubnets known
+	// ReleaseAddress releases a specific address previously allocated with
+	// AllocateAddress.
+	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
+
+	// Subnets returns basic information about all subnets known
 	// by the provider for the environment, for a specific instance. A
 	// provider may return all networks instead of just those for the
 	// instance (provider specific).
