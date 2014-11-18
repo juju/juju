@@ -105,8 +105,6 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	filesToBackUp, _ := backups.ExposeCreateArgs(received)
 	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
 
-	err = receivedDBInfo.Validate()
-	c.Assert(err, gc.IsNil)
 	c.Check(receivedDBInfo.Address, gc.Equals, "a")
 	c.Check(receivedDBInfo.Username, gc.Equals, "b")
 	c.Check(receivedDBInfo.Password, gc.Equals, "c")

@@ -40,23 +40,6 @@ type DBConnInfo struct {
 	Password string
 }
 
-// Validate checks the DB connection info.  If it isn't valid for use in
-// juju state backups, it returns an error.  Make sure that the ConnInfo
-// values do not change between the time you call this method and when
-// you actually need the values.
-func (ci *DBConnInfo) Validate() error {
-	if ci.Address == "" {
-		return errors.New("missing address")
-	}
-	if ci.Username == "" {
-		return errors.New("missing username")
-	}
-	if ci.Password == "" {
-		return errors.New("missing password")
-	}
-	return nil
-}
-
 // DBInfo wraps all the DB-specific information backups needs to dump
 // and restore the database.
 type DBInfo struct {
@@ -155,11 +138,6 @@ type mongoDumper struct {
 // NewDBDumper returns a new value with a Dump method for dumping the
 // juju state database.
 func NewDBDumper(info DBInfo) (DBDumper, error) {
-	err := info.Validate()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return nil, errors.Annotate(err, "mongodump not available")

@@ -18,34 +18,6 @@ type connInfoSuite struct {
 	testing.BaseSuite
 }
 
-func (s *connInfoSuite) TestDBConnInfoValidateOkay(c *gc.C) {
-	connInfo := &backups.DBConnInfo{"a", "b", "c"}
-	err := connInfo.Validate()
-
-	c.Check(err, gc.IsNil)
-}
-
-func (s *connInfoSuite) TestDBConnInfoCheckMissingAddress(c *gc.C) {
-	connInfo := &backups.DBConnInfo{"", "b", "c"}
-	err := connInfo.Validate()
-
-	c.Check(err, gc.ErrorMatches, "missing address")
-}
-
-func (s *connInfoSuite) TestDBConnInfoCheckMissingUsername(c *gc.C) {
-	connInfo := &backups.DBConnInfo{"a", "", "c"}
-	err := connInfo.Validate()
-
-	c.Check(err, gc.ErrorMatches, "missing username")
-}
-
-func (s *connInfoSuite) TestDBConnInfoCheckMissingPassword(c *gc.C) {
-	connInfo := &backups.DBConnInfo{"a", "b", ""}
-	err := connInfo.Validate()
-
-	c.Check(err, gc.ErrorMatches, "missing password")
-}
-
 func (s *connInfoSuite) TestNewMongoConnInfoOkay(c *gc.C) {
 	tag, err := names.ParseTag("machine-0")
 	c.Assert(err, gc.IsNil)
@@ -56,10 +28,7 @@ func (s *connInfoSuite) TestNewMongoConnInfoOkay(c *gc.C) {
 		Tag:      tag,
 		Password: "eggs",
 	}
-
 	connInfo := backups.NewMongoConnInfo(&mgoInfo)
-	err = connInfo.Validate()
-	c.Assert(err, gc.IsNil)
 
 	c.Check(connInfo.Address, gc.Equals, "localhost:8080")
 	c.Check(connInfo.Username, gc.Equals, "machine-0")
@@ -73,9 +42,9 @@ func (s *connInfoSuite) TestNewMongoConnInfoMissingTag(c *gc.C) {
 		},
 		Password: "eggs",
 	}
-
 	connInfo := backups.NewMongoConnInfo(&mgoInfo)
-	err := connInfo.Validate()
 
-	c.Check(err, gc.ErrorMatches, "missing username")
+	c.Check(connInfo.Username, gc.Equals, "")
+	c.Check(connInfo.Address, gc.Equals, "localhost:8080")
+	c.Check(connInfo.Password, gc.Equals, "eggs")
 }
