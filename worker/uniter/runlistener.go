@@ -47,7 +47,9 @@ type JujuRunServer struct {
 func (r *JujuRunServer) RunCommands(commands string, result *exec.ExecResponse) error {
 	logger.Debugf("RunCommands: %q", commands)
 	runResult, err := r.runner.RunCommands(commands)
-	*result = *runResult
+	if runResult != nil {
+		*result = *runResult
+	}
 	return err
 }
 

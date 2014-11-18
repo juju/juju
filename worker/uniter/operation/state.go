@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -25,6 +24,9 @@ const (
 
 	// RunHook indicates that the uniter is running a hook.
 	RunHook Kind = "run-hook"
+
+	// RunAction indicates that the uniter is running an action.
+	RunAction Kind = "run-action"
 
 	// Upgrade indicates that the uniter is upgrading the charm.
 	Upgrade Kind = "upgrade"
@@ -70,6 +72,11 @@ type State struct {
 	// upgrade is complete (instead of running an upgrade-charm hook).
 	Hook *hook.Info `yaml:"hook,omitempty"`
 
+	// ActionId holds action information relevant to the current operation. If
+	// Kind is Continue, it holds the last action that was executed; if Kind is
+	// RunAction, it holds the running action.
+	ActionId *string `yaml:"action-id,omitempty"`
+
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
@@ -84,7 +91,7 @@ type State struct {
 func (st State) validate() (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
-	isAction := hasHook && st.Hook.Kind == hooks.Action
+	hasActionId := st.ActionId != nil
 	hasCharm := st.CharmURL != nil
 	switch st.Kind {
 	case Install:
@@ -95,10 +102,20 @@ func (st State) validate() (err error) {
 	case Upgrade:
 		if !hasCharm {
 			return fmt.Errorf("missing charm URL")
+		} else if hasActionId {
+			return fmt.Errorf("unexpected action id")
+		}
+	case RunAction:
+		if !hasHook {
+			return fmt.Errorf("missing hook info")
+		} else if hasCharm {
+			return fmt.Errorf("unexpected charm URL")
+		} else if !hasActionId {
+			return fmt.Errorf("missing action id")
 		}
 	case RunHook:
-		if isAction && st.Hook.ActionId == "" {
-			return fmt.Errorf("missing action id")
+		if hasActionId {
+			return fmt.Errorf("unexpected action id")
 		}
 		fallthrough
 	case Continue:
@@ -153,17 +170,18 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(started bool, kind Kind, step Step, hi *hook.Info, url *charm.URL, metricsTime int64) error {
+func (f *StateFile) Write(started bool, kind Kind, step Step, hi *hook.Info, url *charm.URL, actionId *string, metricsTime int64) error {
 	st := &State{
 		Started:            started,
 		Kind:               kind,
 		Step:               step,
 		Hook:               hi,
 		CharmURL:           url,
+		ActionId:           actionId,
 		CollectMetricsTime: metricsTime,
 	}
 	if err := st.validate(); err != nil {
-		panic(err)
+		return err
 	}
 	return utils.WriteYaml(f.path, st)
 }

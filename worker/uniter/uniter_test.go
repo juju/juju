@@ -364,13 +364,13 @@ var bootstrapTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: open .*: not a directory`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*: not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
 		// don't serve charm
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: preparing operation "install cs:quantal/wordpress-0": failed to download charm .* 404 Not Found`},
 	),
 }
 
@@ -1799,7 +1799,7 @@ var rebootNowHook = `
 
 if [ -f "i_have_risen" ]
 then
-	exit 0
+    exit 0
 fi
 touch i_have_risen
 juju-reboot --now
@@ -1867,7 +1867,7 @@ var rebootTests = []uniterTest{
 		startUniter{},
 		waitAddresses{},
 		waitUniterDead{"machine needs to reboot"},
-		waitHooks{},
+		waitHooks{"install"},
 		startUniter{},
 		waitUnit{
 			status: juju.StatusStarted,

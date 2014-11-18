@@ -5,7 +5,6 @@
 package uniter
 
 import (
-	stderrors "errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
+	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -73,6 +73,15 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 	return nil
 }
 
+// deployerProxy exists because we're not yet sure if we can legitimately
+// drop support for charm.gitDeployer. If we can, then the uniter doesn't
+// need a deployer reference at all: and we can drop fixDeployer, and the
+// Notify* method calls, and simply hald the deployer we create over to
+// the operationFactory already.
+type deployerProxy struct {
+	charm.Deployer
+}
+
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
@@ -80,19 +89,19 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 type Uniter struct {
 	tomb          tomb.Tomb
 	st            *uniter.State
+	paths         Paths
 	f             filter.Filter
 	unit          *uniter.Unit
 	service       *uniter.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
 
-	paths              Paths
-	deployer           charm.Deployer
-	operationState     *operation.State
-	operationStateFile *operation.StateFile
-	contextFactory     context.Factory
-	hookLock           *fslock.Lock
-	runListener        *RunListener
+	deployer          *deployerProxy
+	operationFactory  operation.Factory
+	operationExecutor operation.Executor
+
+	hookLock    *fslock.Lock
+	runListener *RunListener
 
 	ranConfigChanged bool
 
@@ -163,21 +172,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	return err
 }
 
-func (u *Uniter) setupLocks() (err error) {
-	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
-		// Look to see if it was us that held the lock before.  If it was, we
-		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by upstart.
-		parts := strings.SplitN(message, ":", 2)
-		if len(parts) > 1 && parts[0] == u.unit.Name() {
-			if err := u.hookLock.BreakLock(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -206,7 +200,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
-	u.deployer, err = charm.NewDeployer(
+	if err := u.restoreRelations(); err != nil {
+		return err
+	}
+
+	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
 		u.paths.State.DeployerDir,
 		charm.NewBundlesDir(u.paths.State.BundlesDir),
@@ -214,18 +212,32 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
-	u.operationStateFile = operation.NewStateFile(u.paths.State.OperationsFile)
-
-	// If we start trying to listen for juju-run commands before we have valid
-	// relation state, surprising things will come to pass.
-	if err := u.restoreRelations(); err != nil {
-		return err
-	}
-
-	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos, u.getCharm)
+	u.deployer = &deployerProxy{deployer}
+	contextFactory, err := context.NewFactory(
+		u.st, unitTag, u.getRelationInfos, u.getCharm,
+	)
 	if err != nil {
 		return err
 	}
+	u.operationFactory = operation.NewFactory(
+		u.st,
+		&runHookHelper{u},
+		u.paths,
+		contextFactory,
+		u.acquireHookLock,
+		u.setCharmURL,
+		u.deployer,
+		u.tomb.Dying(),
+	)
+
+	operationStateFile := operation.NewStateFile(u.paths.State.OperationsFile)
+	operationExecutor, err := operation.NewExecutor(
+		operationStateFile, u.getServiceCharmURL,
+	)
+	if err != nil {
+		return err
+	}
+	u.operationExecutor = operationExecutor
 
 	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
 	u.runListener, err = NewRunListener(u, u.paths.Runtime.JujuRunSocket)
@@ -256,138 +268,39 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-// writeOperationState saves uniter state with the supplied values, inferring
-// the appropriate values of Started and CollectMetricsTime.
-func (u *Uniter) writeOperationState(kind operation.Kind, step operation.Step, hi *hook.Info, url *corecharm.URL) error {
-	var collectMetricsTime int64 = 0
-	if hi != nil && hi.Kind == hooks.CollectMetrics && step == operation.Done {
-		// update collectMetricsTime if the collect-metrics hook was run
-		collectMetricsTime = time.Now().Unix()
-	} else if u.operationState != nil {
-		// or preserve existing value
-		collectMetricsTime = u.operationState.CollectMetricsTime
-	}
-
-	reachedStartHook := false
-	if kind == operation.RunHook && hi.Kind == hooks.Start {
-		reachedStartHook = true
-	} else if u.operationState != nil && u.operationState.Started {
-		reachedStartHook = true
-	}
-	operationState := operation.State{
-		Started:            reachedStartHook,
-		Kind:               kind,
-		Step:               step,
-		Hook:               hi,
-		CharmURL:           url,
-		CollectMetricsTime: collectMetricsTime,
-	}
-	if err := u.operationStateFile.Write(
-		operationState.Started,
-		operationState.Kind,
-		operationState.Step,
-		operationState.Hook,
-		operationState.CharmURL,
-		operationState.CollectMetricsTime,
-	); err != nil {
-		return err
-	}
-	u.operationState = &operationState
-	return nil
-}
-
-// deploy deploys the supplied charm URL, and sets follow-up hook operation state
-// as indicated by reason.
-func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
-	if reason != operation.Install && reason != operation.Upgrade {
-		panic(fmt.Errorf("%q is not a deploy operation", reason))
-	}
-	var hi *hook.Info
-	if u.operationState != nil {
-		// If this upgrade interrupts a RunHook, we need to preserve the hook
-		// info so that we can return to the appropriate error state. However,
-		// if we're resuming (or have force-interrupted) an Upgrade, we also
-		// need to preserve whatever hook info was preserved when we initially
-		// started upgrading, to ensure we still return to the correct state.
-		kind := u.operationState.Kind
-		if kind == operation.RunHook || kind == operation.Upgrade {
-			hi = u.operationState.Hook
+func (u *Uniter) setupLocks() (err error) {
+	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
+		// Look to see if it was us that held the lock before.  If it was, we
+		// should be safe enough to break it, as it is likely that we died
+		// before unlocking, and have been restarted by upstart.
+		parts := strings.SplitN(message, ":", 2)
+		if len(parts) > 1 && parts[0] == u.unit.Name() {
+			if err := u.hookLock.BreakLock(); err != nil {
+				return err
+			}
 		}
-	}
-	if u.operationState == nil || u.operationState.Step != operation.Done {
-		// Get the new charm bundle before announcing intention to use it.
-		logger.Infof("fetching charm %q", curl)
-		sch, err := u.st.Charm(curl)
-		if err != nil {
-			return err
-		}
-		if err = u.deployer.Stage(sch, u.tomb.Dying()); err != nil {
-			return err
-		}
-
-		// Set the new charm URL - this returns when the operation is complete,
-		// at which point we can refresh the local copy of the unit to get a
-		// version with the correct charm URL, and can go ahead and deploy
-		// the charm proper.
-		if err := u.f.SetCharm(curl); err != nil {
-			return err
-		}
-		if err := u.unit.Refresh(); err != nil {
-			return err
-		}
-		logger.Infof("deploying charm %q", curl)
-		if err = u.writeOperationState(reason, operation.Pending, hi, curl); err != nil {
-			return err
-		}
-		if err = u.deployer.Deploy(); err != nil {
-			return err
-		}
-		if err = u.writeOperationState(reason, operation.Done, hi, curl); err != nil {
-			return err
-		}
-	}
-
-	// The new charm may have declared metrics where the old one had none (or vice versa),
-	// so reset the metrics collection policy according to current state.
-	err := u.initializeMetricsCollector()
-	if err != nil {
-		return err
-	}
-
-	logger.Infof("charm %q is deployed", curl)
-	status := operation.Queued
-	if hi != nil {
-		// If a hook operation was interrupted, restore it.
-		status = operation.Pending
-	} else {
-		// Otherwise, queue the relevant post-deploy hook.
-		hi = &hook.Info{}
-		switch reason {
-		case operation.Install:
-			hi.Kind = hooks.Install
-		case operation.Upgrade:
-			hi.Kind = hooks.UpgradeCharm
-		}
-	}
-	return u.writeOperationState(operation.RunHook, status, hi, nil)
-}
-
-// initializeMetricsCollector enables the periodic collect-metrics hook
-// for charms that declare metrics.
-func (u *Uniter) initializeMetricsCollector() error {
-	charm, err := u.getCharm()
-	if err != nil {
-		return err
-	}
-	if metrics := charm.Metrics(); metrics != nil && len(metrics.Metrics) > 0 {
-		u.collectMetricsAt = activeMetricsTimer
 	}
 	return nil
 }
 
-// errHookFailed indicates that a hook failed to execute, but that the Uniter's
-// operation is not affected by the error.
-var errHookFailed = stderrors.New("hook execution failed")
+func (u *Uniter) acquireHookLock(message string) (unlock func(), err error) {
+	// We want to make sure we don't block forever when locking, but take the
+	// tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			// no-op to fall through to return.
+		}
+		return nil
+	}
+	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
+	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+		return nil, err
+	}
+	return func() { u.hookLock.Unlock() }, nil
+}
 
 func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
 	relationInfos := map[int]*context.RelationInfo{}
@@ -405,229 +318,123 @@ func (u *Uniter) getCharm() (corecharm.Charm, error) {
 	return ch, nil
 }
 
-func (u *Uniter) acquireHookLock(message string) (err error) {
-	// We want to make sure we don't block forever when locking, but take the
-	// tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			// no-op to fall through to return.
-		}
-		return nil
-	}
-	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
+func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
+	charmURL, _, err := u.service.CharmURL()
+	return charmURL, err
+}
+
+func (u *Uniter) setCharmURL(charmURL *corecharm.URL) error {
+	return u.f.SetCharm(charmURL)
+}
+
+func (u *Uniter) operationState() operation.State {
+	return u.operationExecutor.State()
+}
+
+// deploy deploys the supplied charm URL, and sets follow-up hook operation state
+// as indicated by reason.
+func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
+	op, err := u.operationFactory.NewDeploy(curl, reason)
+	if err != nil {
 		return err
+	}
+	err = u.operationExecutor.Run(op)
+	if err != nil {
+		return err
+	}
+
+	// The new charm may have declared metrics where the old one had none
+	// (or vice versa), so reset the metrics collection policy according
+	// to current state.
+	// TODO(fwereade): maybe this should be in operation.deploy.Commit()?
+	return u.initializeMetricsCollector()
+}
+
+// initializeMetricsCollector enables the periodic collect-metrics hook
+// for charms that declare metrics.
+func (u *Uniter) initializeMetricsCollector() error {
+	charm, err := u.getCharm()
+	if err != nil {
+		return err
+	}
+	if metrics := charm.Metrics(); metrics != nil && len(metrics.Metrics) > 0 {
+		u.collectMetricsAt = activeMetricsTimer
 	}
 	return nil
 }
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
+	// TODO(fwereade): this is *still* all sorts of messed-up and not remotely
+	// goroutine-safe, but that's not what I'm fixing at the moment. We'll deal
+	// with that when we get a sane ops queue and are no longer depending on the
+	// uniter mode funcs for all the rest of our scheduling.
 	logger.Tracef("run commands: %s", commands)
-	hctx, err := u.contextFactory.NewRunContext()
+
+	type responseInfo struct {
+		response *utilexec.ExecResponse
+		err      error
+	}
+	responseChan := make(chan responseInfo, 1)
+	sendResponse := func(response *utilexec.ExecResponse, err error) {
+		responseChan <- responseInfo{response, err}
+	}
+
+	op, err := u.operationFactory.NewCommands(commands, sendResponse)
 	if err != nil {
 		return nil, err
 	}
-	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
-	if err = u.acquireHookLock(lockMessage); err != nil {
+	err = u.operationExecutor.Run(op)
+	if err != nil {
 		return nil, err
 	}
-	defer u.hookLock.Unlock()
 
-	result, err := context.NewRunner(hctx, u.paths).RunCommands(commands)
-	if result != nil {
-		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
+	select {
+	case response := <-responseChan:
+		results, err = response.response, response.err
+	default:
+		return nil, errors.New("command response never sent")
 	}
+
 	switch err {
 	case context.ErrRequeueAndReboot:
-		logger.Warningf("not requeueing anything. Command run via juju-run.")
+		logger.Warningf("not requeueing anything: command run via juju-run")
 		fallthrough
 	case context.ErrReboot:
 		u.tomb.Kill(worker.ErrRebootMachine)
 		err = nil
 	}
-	return result, err
-}
-
-func (u *Uniter) notifyHookInternal(hook string, hctx *context.HookContext, method func(string)) {
-	if r, ok := hctx.HookRelation(); ok {
-		remote, _ := hctx.RemoteUnitName()
-		if remote != "" {
-			remote = " " + remote
-		}
-		hook = hook + remote + " " + r.FakeId()
-	}
-	method(hook)
-}
-
-func (u *Uniter) notifyHookCompleted(hook string, hctx *context.HookContext) {
-	if u.observer != nil {
-		u.notifyHookInternal(hook, hctx, u.observer.HookCompleted)
-	}
-}
-
-func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
-	if u.observer != nil {
-		u.notifyHookInternal(hook, hctx, u.observer.HookFailed)
-	}
+	return results, err
 }
 
 // runAction executes the supplied hook.Info as an Action.
-func (u *Uniter) runAction(hi hook.Info) (err error) {
-	hctx, err := u.contextFactory.NewActionContext(hi.ActionId)
-	if cause := errors.Cause(err); context.IsBadActionError(cause) {
-		tag, ok := names.ParseActionTagFromId(hi.ActionId)
-		if !ok {
-			return errors.Annotatef(err, "invalid actionId %q", hi.ActionId)
-		}
-		return u.st.ActionFinish(tag, params.ActionFailed, nil, err.Error())
-	} else if cause == context.ErrActionNotAvailable {
-		return nil
-	} else if err != nil {
-		return errors.Annotatef(err, "cannot create context for action %q", hi.ActionId)
-	}
-
-	actionName, err := hctx.ActionName()
+func (u *Uniter) runAction(actionId string) (err error) {
+	op, err := u.operationFactory.NewAction(actionId)
 	if err != nil {
-		// this should *really* never happen, but let's not panic
-		return errors.Trace(err)
-	}
-	lockMessage := fmt.Sprintf("%s: running action %q", u.unit.Name(), actionName)
-	if err = u.acquireHookLock(lockMessage); err != nil {
-		return errors.Trace(err)
-	}
-	defer u.hookLock.Unlock()
-
-	// err will be any unhandled error from finalizeContext.
-	err = context.NewRunner(hctx, u.paths).RunAction(actionName)
-	if err != nil {
-		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
-		logger.Errorf("action failed: %s", err.Error())
 		return err
 	}
-
-	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
-		return errors.Trace(err)
-	}
-	actionData, err := hctx.ActionData()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof(actionData.ResultsMessage)
-	return u.commitHook(hi)
+	return u.operationExecutor.Run(op)
 }
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
-	if err = hi.Validate(); err != nil {
-		return err
-	}
-
 	if hi.Kind == hooks.Action {
-		return u.runAction(hi)
+		return u.runAction(hi.ActionId)
 	}
-
-	// If it wasn't an Action, continue as normal.
-	relationId := -1
-	hookName := string(hi.Kind)
-
-	if hi.Kind.IsRelation() {
-		relationId = hi.RelationId
-		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
-			return err
-		}
-	}
-	hctx, err := u.contextFactory.NewHookContext(hi)
+	op, err := u.operationFactory.NewHook(hi)
 	if err != nil {
 		return err
 	}
-
-	// Run the hook.
-	if err := u.writeOperationState(operation.RunHook, operation.Pending, &hi, nil); err != nil {
-		return err
-	}
-	logger.Infof("running %q hook", hookName)
-
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
-	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
-	}
-	defer u.hookLock.Unlock()
-
-	ranHook := true
-	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
-
-	switch {
-	case context.IsMissingHookError(err):
-		ranHook = false
-	case err == context.ErrRequeueAndReboot:
-		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, &hi, nil); stErr != nil {
-			logger.Errorf("failed to requeue hook: %v", stErr)
-		}
-		return worker.ErrRebootMachine
-	case err == context.ErrReboot:
-		// Reboot after hook. We want to commit the running hook
-		defer func() {
-			if err != nil {
-				logger.Errorf("error while preparing for reboot: %v", err)
-			}
-			err = worker.ErrRebootMachine
-		}()
-	case err != nil:
-		logger.Errorf("hook %q failed: %v", hookName, err)
-		u.notifyHookFailed(hookName, hctx)
-		return errHookFailed
-	}
-
-	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
-		return err
-	}
-	if ranHook {
-		logger.Infof("ran %q hook", hookName)
-		u.notifyHookCompleted(hookName, hctx)
-	} else {
-		logger.Infof("skipped %q hook (missing)", hookName)
-	}
-	return u.commitHook(hi)
+	return u.operationExecutor.Run(op)
 }
 
-// commitHook ensures that state is consistent with the supplied hook, and
-// that the fact of the hook's completion is persisted.
-func (u *Uniter) commitHook(hi hook.Info) error {
-	logger.Infof("committing %q hook", hi.Kind)
-	if hi.Kind.IsRelation() {
-		if err := u.relationers[hi.RelationId].CommitHook(hi); err != nil {
-			return err
-		}
-		if hi.Kind == hooks.RelationBroken {
-			delete(u.relationers, hi.RelationId)
-		}
-	}
-	if hi.Kind == hooks.ConfigChanged {
-		u.ranConfigChanged = true
-	}
-	if err := u.writeOperationState(operation.Continue, operation.Pending, &hi, nil); err != nil {
+func (u *Uniter) skipHook(hi hook.Info) (err error) {
+	op, err := u.operationFactory.NewHook(hi)
+	if err != nil {
 		return err
 	}
-	logger.Infof("committed %q hook", hi.Kind)
-	return nil
-}
-
-// currentHookName returns the current full hook name.
-func (u *Uniter) currentHookName() string {
-	hookInfo := u.operationState.Hook
-	hookName := string(hookInfo.Kind)
-	if hookInfo.Kind.IsRelation() {
-		relationer := u.relationers[hookInfo.RelationId]
-		name := relationer.ru.Endpoint().Name
-		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
-	} else if hookInfo.Kind == hooks.Action {
-		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
-	}
-	return hookName
+	return u.operationExecutor.Skip(op)
 }
 
 // getJoinedRelations finds out what relations the unit is *really* part of,
@@ -821,7 +628,7 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 // based one, if necessary. It should not be called unless the existing charm
 // deployment is known to be in a stable state.
 func (u *Uniter) fixDeployer() error {
-	if err := charm.FixDeployer(&u.deployer); err != nil {
+	if err := charm.FixDeployer(&u.deployer.Deployer); err != nil {
 		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
 	}
 	return nil
