@@ -13,111 +13,74 @@ type DirectiveSuite struct{}
 
 var _ = gc.Suite(&DirectiveSuite{})
 
-func (s *DirectiveSuite) TestParseDirective(c *gc.C) {
-	parseStorageTests := []struct {
-		arg           string
-		expectSource  string
-		expectName    string
-		expectCount   int
-		expectSize    uint64
-		expectOptions string
-		err           string
-	}{{
-		arg: "",
-		err: `storage name missing`,
-	}, {
-		arg: ":",
-		err: `storage name missing`,
-	}, {
-		arg: "1M",
-		err: "storage name missing",
-	}, {
-		arg: "ebs:1M",
-		err: "storage name missing",
-	}, {
-		arg: "name=1M",
-		err: "storage source missing",
-	}, {
-		arg:          "name=source:1M",
-		expectName:   "name",
-		expectSource: "source",
-		expectCount:  1,
-		expectSize:   1,
-	}, {
-		arg:          "n-a-m-e=source:1M",
-		expectName:   "n-a-m-e",
-		expectSource: "source",
-		expectCount:  1,
-		expectSize:   1,
-	}, {
-		arg: "name=source:1Msomejunk",
-		err: `invalid trailing data "somejunk": options must be preceded by ',' when size is specified`,
-	}, {
-		arg:           "name=source:anyoldjunk",
-		expectName:    "name",
-		expectSource:  "source",
-		expectCount:   0,
-		expectSize:    0,
-		expectOptions: "anyoldjunk",
-	}, {
-		arg:          "name=source:1M,",
-		expectName:   "name",
-		expectSource: "source",
-		expectCount:  1,
-		expectSize:   1,
-	}, {
-		arg:           "name=source:1M,whatever options that please me",
-		expectName:    "name",
-		expectSource:  "source",
-		expectCount:   1,
-		expectSize:    1,
-		expectOptions: "whatever options that please me",
-	}, {
-		arg:          "n=s:1G",
-		expectName:   "n",
-		expectSource: "s",
-		expectCount:  1,
-		expectSize:   1024,
-	}, {
-		arg:          "n=s:0.5T",
-		expectName:   "n",
-		expectSource: "s",
-		expectCount:  1,
-		expectSize:   1024 * 512,
-	}, {
-		arg:          "n=s:3x0.125P",
-		expectName:   "n",
-		expectSource: "s",
-		expectCount:  3,
-		expectSize:   1024 * 1024 * 128,
-	}, {
-		arg: "n=s:0x100M",
-		err: "count must be a positive integer",
-	}, {
-		arg: "n=s:-1x100M",
-		err: "count must be a positive integer",
-	}, {
-		arg: "n=s:-100M",
-		err: `failed to parse size: expected a non-negative number with optional multiplier suffix \(M/G/T/P\), got "-100M"`,
-	}}
+func (s *DirectiveSuite) TestParseDirectiveStorageName(c *gc.C) {
+	s.testParse(c, "name=source:1M", &storage.Directive{
+		Name: "name", Source: "source", Count: 1, Size: 1,
+	})
+	s.testParse(c, "n-a-m-e=source:1M", &storage.Directive{
+		Name: "n-a-m-e", Source: "source", Count: 1, Size: 1,
+	})
+}
 
-	for i, t := range parseStorageTests {
-		c.Logf("test %d: %q", i, t.arg)
-		p, err := storage.ParseDirective(t.arg)
-		if t.err != "" {
-			c.Check(err, gc.ErrorMatches, t.err)
-			c.Check(p, gc.IsNil)
-		} else {
-			if !c.Check(err, gc.IsNil) {
-				continue
-			}
-			c.Check(p, gc.DeepEquals, &storage.Directive{
-				Name:    t.expectName,
-				Source:  t.expectSource,
-				Count:   t.expectCount,
-				Size:    t.expectSize,
-				Options: t.expectOptions,
-			})
-		}
-	}
+func (s *DirectiveSuite) TestParseDirectiveCountSize(c *gc.C) {
+	s.testParse(c, "n=s:1G", &storage.Directive{
+		Name: "n", Source: "s", Count: 1, Size: 1024,
+	})
+	s.testParse(c, "n=s:1x0.5T", &storage.Directive{
+		Name: "n", Source: "s", Count: 1, Size: 1024 * 512,
+	})
+	s.testParse(c, "n=s:3x0.125P", &storage.Directive{
+		Name: "n", Source: "s", Count: 3, Size: 1024 * 1024 * 128,
+	})
+}
+
+func (s *DirectiveSuite) TestParseDirectiveOptions(c *gc.C) {
+	s.testParse(c, "n=s:1M,", &storage.Directive{
+		Name: "n", Source: "s", Count: 1, Size: 1,
+	})
+	s.testParse(c, "n=s:anyoldjunk", &storage.Directive{
+		Name: "n", Source: "s", Count: 0, Size: 0,
+		Options: "anyoldjunk",
+	})
+	s.testParse(c, "n=s:1M,whatever options that please me", &storage.Directive{
+		Name: "n", Source: "s", Count: 1, Size: 1,
+		Options: "whatever options that please me",
+	})
+}
+
+func (s *DirectiveSuite) TestParseDirectiveStorageNameMissing(c *gc.C) {
+	s.testParseError(c, "", "storage name missing")
+	s.testParseError(c, ":", "storage name missing")
+	s.testParseError(c, "=", "storage name missing")
+	s.testParseError(c, "1M", "storage name missing")
+	s.testParseError(c, "ebs:1M", "storage name missing")
+}
+
+func (s *DirectiveSuite) TestParseDirectiveStorageSourceMissing(c *gc.C) {
+	s.testParseError(c, "name=1M", "storage source missing")
+}
+
+func (s *DirectiveSuite) TestParseDirectiveCountRange(c *gc.C) {
+	s.testParseError(c, "n=s:0x100M", "count must be a positive integer")
+	s.testParseError(c, "n=s:-1x100M", "count must be a positive integer")
+}
+
+func (s *DirectiveSuite) TestParseDirectiveSizeRange(c *gc.C) {
+	s.testParseError(c, "n=s:-100M", `failed to parse size: expected a non-negative number with optional multiplier suffix \(M/G/T/P\), got "-100M"`)
+}
+
+func (s *DirectiveSuite) TestParseDirectiveTrailingData(c *gc.C) {
+	s.testParseError(c, "name=source:1Msomejunk", `invalid trailing data "somejunk": options must be preceded by ',' when size is specified`)
+}
+
+func (*DirectiveSuite) testParse(c *gc.C, s string, expect *storage.Directive) {
+	d, err := storage.ParseDirective(s)
+	c.Assert(err, gc.IsNil)
+	c.Assert(d, gc.DeepEquals, expect)
+}
+
+func (*DirectiveSuite) testParseError(c *gc.C, s, expectErr string) {
+	d, err := storage.ParseDirective(s)
+	c.Check(d, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, expectErr)
 }

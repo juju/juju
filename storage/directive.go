@@ -4,7 +4,6 @@
 package storage
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 
@@ -26,7 +25,7 @@ const (
 
 // ErrStorageSourceMissing is an error that is returned from ParseDirective
 // if the source is unspecified.
-var ErrStorageSourceMissing = fmt.Errorf("storage source missing")
+var ErrStorageSourceMissing = errors.New("storage source missing")
 
 var storageRE = regexp.MustCompile(
 	"^" +
