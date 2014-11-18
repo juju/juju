@@ -1120,7 +1120,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 		if !ok {
 			return errors.Trace(err)
 		}
-		// For an "out of range" ip address, maas raises
+		// For an "out of range" IP address, maas raises
 		// StaticIPAddressOutOfRange - an error 403
 		// If there are no more addresses we get
 		// StaticIPAddressExhaustion - an error 503
@@ -1149,7 +1149,7 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 	// the caller.
 	err := ReleaseIPAddress(ipaddresses, addr)
 	if err != nil {
-		return errors.Annotatef(err, "failed to release ip address %v", addr.Value)
+		return errors.Annotatef(err, "failed to release IP address %v", addr.Value)
 	}
 	return nil
 }

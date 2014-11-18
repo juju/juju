@@ -1069,7 +1069,7 @@ func (suite *environSuite) TestReleaseAddress(c *gc.C) {
 	// by releasing again we can test that the first release worked, *and*
 	// the error handling of ReleaseError
 	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*failed to release ip address 192\\.168\\.2\\.1(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*failed to release IP address 192\\.168\\.2\\.1(.|\n)*")
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
