@@ -552,6 +552,25 @@ class TestSteppedStageAttempt(TestCase):
             SteppedStageAttempt._iter_test_results(old_iter, new_iter),
             [('foo-id', True, False), ('bar-id', False, False)])
 
+    def test_iter_test_results(self):
+        old = FakeEnvJujuClient()
+        new = FakeEnvJujuClient()
+
+        class StubSA(SteppedStageAttempt):
+
+            def iter_steps(self, client):
+                yield {'test_id': 'test-1'}
+                yield {'test_id': 'test-1', 'result': client is old}
+                yield {'test_id': 'test-2'}
+                if client is not new:
+                    raise ValueError('asdf')
+                else:
+                    yield {'test_id': 'test-2', 'result': True}
+
+        self.assertItemsEqual(
+            StubSA().iter_test_results(old, new),
+            [('test-1', True, False), ('test-2', False, True)])
+
 
 class FakeEnvJujuClient(EnvJujuClient):
 

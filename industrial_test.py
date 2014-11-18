@@ -272,11 +272,15 @@ class SteppedStageAttempt:
                 last_result = result
             yield result
 
-    @classmethod
-    def _iter_test_results(cls, old_iter, new_iter):
+    @staticmethod
+    def _iter_test_results(old_iter, new_iter):
         """Iterate through none-or-result to get result for each operation.
 
         Yield the result as a tuple of (test-id, old_result, new_result).
+
+        Operations are interleaved between iterators to improve
+        responsiveness; an itererator can start a long-running operation,
+        yield, then acquire the result of the operation.
         """
         while True:
             old_result = None
@@ -293,6 +297,12 @@ class SteppedStageAttempt:
                 raise ValueError('Test id mismatch.')
             yield (old_result['test_id'], old_result['result'],
                    new_result['result'])
+
+    def iter_test_results(self, old, new):
+        """Iterate through the results for this operation for both clients."""
+        old_iter = self._iter_for_result(self.iter_steps(old))
+        new_iter = self._iter_for_result(self.iter_steps(new))
+        return self._iter_test_results(old_iter, new_iter)
 
 
 class BootstrapAttempt(StageAttempt):
