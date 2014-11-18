@@ -21,7 +21,8 @@ import (
 // TODO(ericsnow) This code should be in the backups package.
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	return state.NewBackups(st)
+	stor := state.NewBackupStorage(st)
+	return backups.NewBackups(stor), stor
 }
 
 // backupHandler handles backup requests.
