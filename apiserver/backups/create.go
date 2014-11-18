@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
 
@@ -25,7 +24,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	// TODO(ericsnow) #1389362 The machine ID needs to be introspected
 	// from the API server, likely through a Resource.
 	machine := "0"
-	meta, err := state.NewBackupMetadata(a.st, machine)
+	meta, err := backups.NewMetadataState(a.st, machine)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

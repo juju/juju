@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"time"
 
@@ -561,26 +560,4 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 
 	backups := backups.NewBackups(stor)
 	return backups, stor
-}
-
-//---------------------------
-// utilities
-
-// NewBackupMetadata composes a new backup metadata with its origin
-// values set.  The environment UUID comes from state.  The hostname is
-// retrieved from the OS.
-func NewBackupMetadata(st *State, machine string) (*backups.Metadata, error) {
-	// hostname could be derived from the environment...
-	hostname, err := os.Hostname()
-	if err != nil {
-		// If os.Hostname() is not working, something is woefully wrong.
-		// Run for the hills.
-		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
-	}
-
-	meta := backups.NewMetadata()
-	meta.Origin.Environment = st.EnvironTag().Id()
-	meta.Origin.Machine = machine
-	meta.Origin.Hostname = hostname
-	return meta, nil
 }
