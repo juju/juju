@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -130,9 +129,9 @@ func (s *uniterBaseSuite) testSetStatus(
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: "unit-mysql-0", Status: juju.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: juju.StatusStopped, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: juju.StatusStarted, Info: "blah"},
+			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: params.StatusStarted, Info: "blah"},
 		}}
 	result, err := facade.SetStatus(args)
 	c.Assert(err, gc.IsNil)
@@ -1356,7 +1355,7 @@ func (s *uniterBaseSuite) testRelation(
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: juju.Life(rel.Life().String()),
+				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
@@ -1398,7 +1397,7 @@ func (s *uniterBaseSuite) testRelationById(
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: juju.Life(rel.Life().String()),
+				Life: params.Life(rel.Life().String()),
 				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,

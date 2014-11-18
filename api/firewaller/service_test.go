@@ -8,8 +8,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/firewaller"
+	"github.com/juju/juju/apiserver/params"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -43,7 +43,7 @@ func (s *serviceSuite) TestTag(c *gc.C) {
 }
 
 func (s *serviceSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiService.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 
 	w, err := s.apiService.Watch()
 	c.Assert(err, gc.IsNil)
@@ -68,15 +68,15 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiService.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 
 	err := s.service.Destroy()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiService.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 
 	err = s.apiService.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiService.Life(), gc.Equals, juju.Dying)
+	c.Assert(s.apiService.Life(), gc.Equals, params.Dying)
 }
 
 func (s *serviceSuite) TestIsExposed(c *gc.C) {

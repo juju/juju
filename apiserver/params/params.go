@@ -723,9 +723,9 @@ type RebootActionResult struct {
 type Life multiwatcher.Life
 
 const (
-	Alive  = Life(multiwatcher.Alive)
+	Alive = Life(multiwatcher.Alive)
 	Dying = Life(multiwatcher.Dying)
-	Dead = Life(multiwatcher.Dead)
+	Dead  = Life(multiwatcher.Dead)
 )
 
 // Status represents the status of an entity.
@@ -733,25 +733,25 @@ const (
 type Status multiwatcher.Status
 
 const (
-        // The entity is not yet participating in the environment.
-        StatusPending = Status(multiwatcher.StatusPending)
+	// The entity is not yet participating in the environment.
+	StatusPending = Status(multiwatcher.StatusPending)
 
-        // The unit has performed initial setup and is adapting itself to
-        // the environment. Not applicable to machines.
-        StatusInstalled = Status(multiwatcher.StatusInstalled)
+	// The unit has performed initial setup and is adapting itself to
+	// the environment. Not applicable to machines.
+	StatusInstalled = Status(multiwatcher.StatusInstalled)
 
-        // The entity is actively participating in the environment.
-        StatusStarted = Status(multiwatcher.StatusStarted)
+	// The entity is actively participating in the environment.
+	StatusStarted = Status(multiwatcher.StatusStarted)
 
-        // The entity's agent will perform no further action, other than
-        // to set the unit to Dead at a suitable moment.
-        StatusStopped = Status(multiwatcher.StatusStopped)
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped = Status(multiwatcher.StatusStopped)
 
-        // The entity requires human intervention in order to operate
-        // correctly.
-        StatusError = Status(multiwatcher.StatusError)
+	// The entity requires human intervention in order to operate
+	// correctly.
+	StatusError = Status(multiwatcher.StatusError)
 
-        // The entity ought to be signalling activity, but it cannot be
-        // detected.
-        StatusDown = Status(multiwatcher.StatusDown)
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown = Status(multiwatcher.StatusDown)
 )

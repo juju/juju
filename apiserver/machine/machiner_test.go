@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/machine"
 	"github.com/juju/juju/apiserver/params"
@@ -61,9 +60,9 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: "machine-1", Status: juju.StatusError, Info: "not really"},
-			{Tag: "machine-0", Status: juju.StatusStopped, Info: "foobar"},
-			{Tag: "machine-42", Status: juju.StatusStarted, Info: "blah"},
+			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
+			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, gc.IsNil)
