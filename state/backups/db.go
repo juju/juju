@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils"
 )
 
@@ -55,16 +55,9 @@ var ignoredDatabases = set.NewStrings(
 	"presence",
 )
 
-type dbProvider interface {
-	// MongoConnectionInfo returns the mongo conn info to use for backups.
-	MongoConnectionInfo() *mongo.MongoInfo
-	// MongoSession return the session to use for backups.
-	MongoSession() *mgo.Session
-}
-
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
-func NewDBBackupInfo(st dbProvider) (*DBInfo, error) {
+func NewDBBackupInfo(st *state.State) (*DBInfo, error) {
 	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
 	targets, err := getBackupTargetDatabases(st)
 	if err != nil {
@@ -92,7 +85,7 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
 	return &info
 }
 
-func getBackupTargetDatabases(st dbProvider) (set.Strings, error) {
+func getBackupTargetDatabases(st *state.State) (set.Strings, error) {
 	dbNames, err := st.MongoSession().DatabaseNames()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get DB names")
