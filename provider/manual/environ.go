@@ -264,7 +264,7 @@ func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (*manualEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
+	return errors.NotSupportedf("ReleaseAddress")
 }
 
 // Subnets returns basic information about all subnets known
@@ -272,7 +272,7 @@ func (*manualEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addr
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the manual provider yet.
 func (*manualEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {

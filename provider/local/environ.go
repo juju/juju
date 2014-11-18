@@ -449,7 +449,7 @@ func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
+	return errors.NotSupportedf("ReleaseAddress")
 }
 
 // Subnets returns basic information about all subnets known
@@ -457,7 +457,7 @@ func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addre
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
 func (*localEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.
