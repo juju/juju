@@ -15,14 +15,13 @@ var _ = gc.Suite(&DirectiveSuite{})
 
 func (s *DirectiveSuite) TestParseDirective(c *gc.C) {
 	parseStorageTests := []struct {
-		arg              string
-		expectSource     string
-		expectName       string
-		expectCount      int
-		expectSize       uint64
-		expectPersistent bool
-		expectOptions    string
-		err              string
+		arg           string
+		expectSource  string
+		expectName    string
+		expectCount   int
+		expectSize    uint64
+		expectOptions string
+		err           string
 	}{{
 		arg: "",
 		err: `storage name missing`,
