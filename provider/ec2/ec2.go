@@ -800,9 +800,7 @@ const minDiskSize uint64 = 8 * 1024
 //
 // The first entry is always the root disk mapping, instance stores
 // (ephemeral disks) last.
-func getBlockDeviceMappings(
-	cons constraints.Value,
-) ([]ec2.BlockDeviceMapping, error) {
+func getBlockDeviceMappings(cons constraints.Value) ([]ec2.BlockDeviceMapping, error) {
 	rootDiskSize := minDiskSize
 	if cons.RootDisk != nil {
 		if *cons.RootDisk >= minDiskSize {
