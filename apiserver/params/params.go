@@ -718,8 +718,7 @@ type RebootActionResult struct {
 	Error  *Error       `json:error,omitempty`
 }
 
-// Life describes the lifecycle state of an entity ("alive", "dying"
-// or "dead").
+// Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
 type Life multiwatcher.Life
 
 const (

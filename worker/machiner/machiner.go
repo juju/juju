@@ -99,7 +99,7 @@ func (mr *Machiner) Handle() error {
 	} else if err != nil {
 		return err
 	}
-	if mr.machine.Life() == "alive" {
+	if mr.machine.Life() == params.Alive {
 		return nil
 	}
 	logger.Debugf("%q is now %s", mr.tag, mr.machine.Life())
