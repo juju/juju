@@ -47,11 +47,10 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	logDirRes := resources.Get("logDir")
 	logDir, ok := logDirRes.(common.StringResource)
 	if !ok {
-		if logDirRes == nil {
-			logDir = ""
-		} else {
+		if logDirRes != nil {
 			return nil, errors.Errorf("invalid logDir resource: %v", logDirRes)
 		}
+		logDir = ""
 	}
 
 	paths := backups.Paths{
