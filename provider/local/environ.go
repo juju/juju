@@ -446,12 +446,18 @@ func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotSupportedf("AllocateAddress")
 }
 
-// Subnets returns basic information about all nesubnets known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
 func (*localEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.
