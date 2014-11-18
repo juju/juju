@@ -55,6 +55,7 @@ var shortAttempt = utils.AttemptStrategy{
 var (
 	ReleaseNodes     = releaseNodes
 	ReserveIPAddress = reserveIPAddress
+	ReleaseIPAddress = releaseIPAddress
 )
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -67,6 +68,13 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	params.Add("network", cidr)
 	params.Add("ip", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
+	return err
+}
+
+func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
+	params := url.Values{}
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("release", params)
 	return err
 }
 
@@ -1133,8 +1141,13 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (*maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
+func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) error {
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	err := ReleaseIPAddress(ipaddresses, addr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Subnets returns basic information about all subnets known
