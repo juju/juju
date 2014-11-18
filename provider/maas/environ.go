@@ -52,8 +52,10 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-var ReleaseNodes = releaseNodes
-var ReserveIPAddress = reserveIPAddress
+var (
+	ReleaseNodes     = releaseNodes
+	ReserveIPAddress = reserveIPAddress
+)
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
@@ -1089,7 +1091,10 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
 	subnets, err := environ.Subnets(instId)
-	if err != nil {
+	if err == environs.ErrNoInstances {
+		return errors.NotFoundf("instance %v", instId)
+	} else if err != nil {
+
 		return errors.Trace(err)
 	}
 	var foundSub *network.BasicInfo
@@ -1126,7 +1131,6 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 		return errors.Trace(err)
 	}
 
-	// everything is fine
 	return nil
 }
 

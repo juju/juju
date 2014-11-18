@@ -1025,7 +1025,7 @@ func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	err := env.AllocateAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "no instances found")
+	c.Assert(err, gc.ErrorMatches, "instance foo not found")
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
