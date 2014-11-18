@@ -5,10 +5,13 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/environs/config"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -93,39 +96,49 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 	return env, nil
 }
 
-// NewEnvironment records information about an environment. At this stage it
-// only records the name, owner, state of life, and the UUIDs for the
-// environment and for the state server that the environment is running
-// within.  When a juju environment is bootstrapped, the environment is
-// created through state.Initialize.  That is the initial environment, and
-// will have both the environment UUID and the server UUID the same.  New
-// environments running in the same state server will have different
-// environment UUIDs but the server UUID will be the environment UUID of the
-// initial environment.  Having the server UUIDs stored with the environment
-// document means that we have a way to represent external environments,
-// perhaps for future use around cross environment relations.
-func (st *State) NewEnvironment(env, server names.EnvironTag, owner names.UserTag, name string) (*Environment, error) {
-	op := createEnvironmentOp(st, owner, name, env.Id(), server.Id())
-	doc := op.Insert.(*environmentDoc)
+// NewEnvironment creates a new environment with its own UUID and
+// prepares it for use. Environment and State instances for the new
+// environment are returned.
+//
+// The state server environment's UUID is attached to the new
+// environment's document. Having the server UUIDs stored with each
+// environment document means that we have a way to represent external
+// environments, perhaps for future use around cross environment
+// relations.
+func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Environment, _ *State, err error) {
+	ssEnv, err := st.StateServerEnvironment()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not load state server environment")
+	}
 
-	err := st.runTransaction([]txn.Op{op})
+	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not create state for new environment")
+	}
+	defer func() {
+		if err != nil {
+			newState.Close()
+		}
+	}()
+
+	ops, err := newState.envSetupOps(cfg, ssEnv.UUID(), owner)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "failed to create new environment")
+	}
+	err = newState.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("environment already exists")
 	}
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
-	environment := &Environment{
-		st:  st,
-		doc: *doc,
-		annotator: annotator{
-			globalKey: environGlobalKey,
-			tag:       env,
-			st:        st,
-		},
+	newEnv, err := newState.Environment()
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "could not load new environment")
 	}
-	return environment, nil
+
+	return newEnv, newState, nil
 }
 
 // Tag returns a name identifying the environment.

@@ -129,8 +129,8 @@ func (st *State) envSetupOps(cfg *config.Config, serverUUID string, owner names.
 	}
 	st.environTag = names.NewEnvironTag(uuid)
 
-	// When creating the state server environment, the environment
-	// UUID is also for the state server.
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
 	if serverUUID == "" {
 		serverUUID = uuid
 	}
