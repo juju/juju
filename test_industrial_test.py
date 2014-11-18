@@ -736,9 +736,10 @@ class TestDestroyEnvironmentAttempt(TestCase):
             with self.assertRaisesRegexp(
                 Exception, (
                     r'Security group\(s\) not cleaned up: foo-group.')):
-                destroy_env.check_security_groups(
-                    client, {'foo-id': 'foo', 'bar-id': 'bar'},
-                    timeout=0.00001)
+                    with patch('industrial_test.until_timeout',
+                               lambda x: iter([None])):
+                        destroy_env.check_security_groups(
+                            client, {'foo-id': 'foo', 'bar-id': 'bar'})
         env = AWSAccount.from_config(client.env.config).get_environ()
         co_mock.assert_called_once_with(
             ['euca-describe-groups', '--filter', 'description=juju group'],

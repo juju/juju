@@ -328,19 +328,11 @@ class BootstrapAttempt(StageAttempt):
 class DestroyEnvironmentAttempt(SteppedStageAttempt):
     """Implementation of a destroy-environment stage."""
 
-    title = 'destroy environment'
-
-    test_id = 'destroy-env'
-
     @staticmethod
     def get_test_info():
         return OrderedDict([
             ('destroy-env', {'title': 'destroy environment'}),
             ('substrate-clean', {'title': 'check substrate clean'})])
-
-    def _operation(self, client):
-        client.juju('destroy-environment', ('-y', client.env.environment),
-                    include_e=False)
 
     @staticmethod
     def get_substrate(client):
@@ -358,11 +350,12 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
                         if 'instance-id' in m]
         return dict(substrate.list_instance_security_groups(instance_ids))
 
-    def check_security_groups(cls, client, env_groups, timeout=30):
+    @classmethod
+    def check_security_groups(cls, client, env_groups):
         substrate = cls.get_substrate(client)
         if substrate is None:
             return
-        for x in until_timeout(timeout):
+        for x in until_timeout(30):
             remain_groups = dict(substrate.list_security_groups())
             leftovers = set(remain_groups).intersection(env_groups)
             if len(leftovers) == 0:
@@ -372,10 +365,10 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
             raise Exception(
                 'Security group(s) not cleaned up: {}.'.format(group_text))
 
-    def iter_steps(self, client):
+    def iter_steps(cls, client):
         results = {'test_id': 'destroy-env'}
         yield results
-        groups = self.get_security_groups(client)
+        groups = cls.get_security_groups(client)
         client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
         # If it hasn't raised an exception, destroy-environment succeeded.
@@ -383,12 +376,9 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'substrate-clean'}
         yield results
-        self.check_security_groups(client, groups)
+        cls.check_security_groups(client, groups)
         results['result'] = True
         yield results
-
-    def _result(self, client):
-        return True
 
 
 class EnsureAvailabilityAttempt(StageAttempt):
