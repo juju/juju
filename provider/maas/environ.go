@@ -55,6 +55,7 @@ var shortAttempt = utils.AttemptStrategy{
 var (
 	ReleaseNodes     = releaseNodes
 	ReserveIPAddress = reserveIPAddress
+	ReleaseIPAddress = releaseIPAddress
 )
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -67,6 +68,13 @@ func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr networ
 	params.Add("network", cidr)
 	params.Add("ip", addr.Value)
 	_, err := ipaddresses.CallPost("reserve", params)
+	return err
+}
+
+func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
+	params := url.Values{}
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("release", params)
 	return err
 }
 
@@ -1112,7 +1120,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 		if !ok {
 			return errors.Trace(err)
 		}
-		// For an "out of range" ip address, maas raises
+		// For an "out of range" IP address, maas raises
 		// StaticIPAddressOutOfRange - an error 403
 		// If there are no more addresses we get
 		// StaticIPAddressExhaustion - an error 503
@@ -1133,8 +1141,17 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (*maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
+func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) error {
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	// This can return a 404 error if the address has already been released
+	// or is unknown by maas. However this, like any other error, would be
+	// unexpected - so we don't treat it specially and just return it to
+	// the caller.
+	err := ReleaseIPAddress(ipaddresses, addr)
+	if err != nil {
+		return errors.Annotatef(err, "failed to release IP address %v", addr.Value)
+	}
+	return nil
 }
 
 // Subnets returns basic information about all subnets known

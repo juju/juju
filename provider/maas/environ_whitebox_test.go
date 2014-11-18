@@ -1056,6 +1056,22 @@ func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (suite *environSuite) TestReleaseAddress(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.IsNil)
+
+	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.IsNil)
+
+	// by releasing again we can test that the first release worked, *and*
+	// the error handling of ReleaseError
+	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*failed to release IP address 192\\.168\\.2\\.1(.|\n)*")
+}
+
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
