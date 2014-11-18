@@ -6,13 +6,11 @@
 package backups
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	stdtesting "testing"
@@ -129,62 +127,6 @@ var yamlLines = []string{
 	"stateport: 1",
 	"apiport: 2",
 	"cacert: aLengthyCACert",
-}
-
-func (r *RestoreSuite) TestFetchConfigFromBackupFailures(c *gc.C) {
-	testCases := []backupConfigTests{{
-		yamlFile:      bytes.NewBuffer([]byte{}),
-		expectedError: fmt.Errorf("config file unmarshalled to %T not %T", nil, map[interface{}]interface{}{}),
-		message:       "Fails on emtpy/invalid yaml.",
-	}, {
-		yamlFile:      bytes.NewBuffer([]byte(strings.Join(yamlLines[:2], "\n"))),
-		expectedError: fmt.Errorf("tag not found in configuration"),
-		message:       "Fails when tag key is not present.",
-	}, {
-		yamlFile:      bytes.NewBuffer([]byte(strings.Join(yamlLines[:3], "\n"))),
-		expectedError: fmt.Errorf("agent tag user password not found in configuration"),
-		message:       "Fails when state password key is not present.",
-	}, {
-		yamlFile:      bytes.NewBuffer([]byte(strings.Join(yamlLines[:4], "\n"))),
-		expectedError: fmt.Errorf("agent admin password not found in configuration"),
-		message:       "Fails when oldpassword key is not pressent.",
-	}, {
-		yamlFile:      bytes.NewBuffer([]byte(strings.Join(yamlLines[:5], "\n"))),
-		expectedError: fmt.Errorf("state port not found in configuration"),
-		message:       "Fails when stateport key is not present.",
-	}, {
-		yamlFile:      bytes.NewBuffer([]byte(strings.Join(yamlLines[:6], "\n"))),
-		expectedError: fmt.Errorf("api port not found in configuration"),
-		message:       "Fails when apiport key is not present.",
-	}, {
-		yamlFile:      bytes.NewBuffer([]byte(strings.Join(yamlLines[:7], "\n"))),
-		expectedError: fmt.Errorf("CACert not found in configuration"),
-		message:       "Fails when cacert key is not present.",
-	},
-	}
-	for _, tCase := range testCases {
-		_, err := fetchAgentConfigFromBackup(tCase.yamlFile)
-		logger.Infof(tCase.message)
-		c.Assert(err, gc.DeepEquals, tCase.expectedError)
-	}
-}
-
-func (r *RestoreSuite) TestFetchConfigFromBackupSuccess(c *gc.C) {
-	yamlFile := bytes.NewBuffer([]byte(strings.Join(yamlLines, "\n")))
-	aConf, err := fetchAgentConfigFromBackup(yamlFile)
-	c.Assert(err, gc.IsNil)
-	expectedConf := agentConfig{
-		credentials: credentials{
-			tag:           "aTag",
-			tagPassword:   "aStatePassword",
-			adminUsername: "admin",
-			adminPassword: "anOldPassword",
-		},
-		apiPort:   "2",
-		statePort: "1",
-		cACert:    "aLengthyCACert",
-	}
-	c.Assert(aConf, gc.DeepEquals, expectedConf)
 }
 
 func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {

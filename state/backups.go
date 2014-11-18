@@ -19,9 +19,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/backups"
-	backupsdb "github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -560,14 +557,6 @@ func NewBackupStorage(st *State) filestorage.FileStorage {
 	return filestorage.NewFileStorage(docs, files)
 }
 
-// NewBackups returns a new backups based on the state.
-func NewBackups(st *State) (backups.Backups, io.Closer) {
-	stor := NewBackupStorage(st)
-
-	backups := backups.NewBackups(stor)
-	return backups, stor
-}
-
 //---------------------------
 // utilities
 
@@ -578,37 +567,7 @@ var ignoredDatabases = set.NewStrings(
 	"presence",
 )
 
-// NewDBBackupInfo returns the information needed by backups to dump
-// the database.
-func NewDBBackupInfo(st *State) (*backupsdb.Info, error) {
-	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
-	targets, err := getBackupTargetDatabases(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	info := backupsdb.Info{
-		ConnInfo: *connInfo,
-		Targets:  targets,
-	}
-	return &info, nil
-}
-
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
-	info := backupsdb.ConnInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		info.Username = mgoInfo.Tag.String()
-	}
-
-	return &info
-}
-
-func getBackupTargetDatabases(st *State) (set.Strings, error) {
+func GetBackupTargetDatabases(st *State) (set.Strings, error) {
 	dbNames, err := st.MongoSession().DatabaseNames()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get DB names")

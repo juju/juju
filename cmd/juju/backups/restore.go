@@ -13,6 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -98,7 +99,7 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
-
+		return errors.Trace(err)
 	}
 	restoreTarget := c.filename
 	if c.filename == "" {
@@ -148,7 +149,7 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	}
 
 	args := bootstrap.BootstrapParams{Constraints: cons}
-	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
+	if err := bootstrap.Bootstrap(envcmd.BootstrapContext(ctx), env, args); err != nil {
 		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return nil

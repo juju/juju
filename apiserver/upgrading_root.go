@@ -33,10 +33,11 @@ var allowedMethodsDuringUpgrades = set.NewStrings(
 )
 
 func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
+	fullName := methodName
 	if rootName != "Client" {
-		return false
+		fullName = rootName + "." + methodName
 	}
-	return allowedMethodsDuringUpgrades.Contains(methodName)
+	return allowedMethodsDuringUpgrades.Contains(fullName)
 }
 
 // FindMethod returns inUpgradeError for most API calls except those that are

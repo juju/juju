@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/metadata"
 )
@@ -140,38 +138,4 @@ func (s *backupSuite) TestSetBackupStoredNotFound(c *gc.C) {
 	err := state.SetBackupStored(s.State, "spam", stored)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-}
-
-func (s *backupSuite) TestNewMongoConnInfoOkay(c *gc.C) {
-	tag, err := names.ParseTag("machine-0")
-	c.Assert(err, gc.IsNil)
-	mgoInfo := mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs: []string{"localhost:8080"},
-		},
-		Tag:      tag,
-		Password: "eggs",
-	}
-
-	connInfo := state.NewMongoConnInfo(&mgoInfo)
-	err = connInfo.Validate()
-	c.Assert(err, gc.IsNil)
-
-	c.Check(connInfo.Address, gc.Equals, "localhost:8080")
-	c.Check(connInfo.Username, gc.Equals, "machine-0")
-	c.Check(connInfo.Password, gc.Equals, "eggs")
-}
-
-func (s *backupSuite) TestNewMongoConnInfoMissingTag(c *gc.C) {
-	mgoInfo := mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs: []string{"localhost:8080"},
-		},
-		Password: "eggs",
-	}
-
-	connInfo := state.NewMongoConnInfo(&mgoInfo)
-	err := connInfo.Validate()
-
-	c.Check(err, gc.ErrorMatches, "missing username")
 }

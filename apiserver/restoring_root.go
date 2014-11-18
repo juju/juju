@@ -55,7 +55,12 @@ func (r *aboutToRestoreRoot) FindMethod(rootName string, version int, methodName
 }
 
 var allowedMethodsAboutToRestore = set.NewStrings(
-	"Backups.Restore", // for "juju backups restore"
+	"Client.FullStatus",     // for "juju status"
+	"Client.EnvironmentGet", // for "juju ssh"
+	"Client.PrivateAddress", // for "juju ssh"
+	"Client.PublicAddress",  // for "juju ssh"
+	"Client.WatchDebugLog",  // for "juju debug-log"
+	"Backups.Restore",       // for "juju backups restore"
 )
 
 // isMethodAllowedAboutToRestore return true if this method is allowed when the server is in state.RestorePreparing mode

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
@@ -57,7 +58,7 @@ func (i *fakeBackups) Remove(string) error {
 	return nil
 }
 
-func (i *fakeBackups) Restore(io.ReadCloser, *metadata.Metadata, string, *state.State) error {
+func (i *fakeBackups) Restore(io.ReadCloser, *metadata.Metadata, string, instance.Id) error {
 	if i.err != nil {
 		return errors.Trace(i.err)
 	}

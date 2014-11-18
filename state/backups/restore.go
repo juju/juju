@@ -8,22 +8,17 @@ package backups
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/tar"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -55,18 +50,22 @@ func getFilesystemRoot() string {
 
 // newDialInfo returns mgo.DialInfo with the given address using the minimal
 // possible setup.
-func newDialInfo(privateAddr string, conf agentConfig) (*mgo.DialInfo, error) {
+func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 	dialOpts := mongo.DialOpts{Direct: true}
+	ssi, ok := conf.StateServingInfo()
+	if !ok {
+		errors.Errorf("cannot get state serving info to dial")
+	}
 	info := mongo.Info{
-		Addrs:  []string{fmt.Sprintf("%s:%s", privateAddr, conf.statePort)},
-		CACert: conf.cACert,
+		Addrs:  []string{fmt.Sprintf("%s:%d", privateAddr, ssi.StatePort)},
+		CACert: conf.CACert(),
 	}
 	dialInfo, err := mongo.DialInfo(info, dialOpts)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot produce a dial info")
 	}
-	dialInfo.Username = conf.credentials.adminUsername
-	dialInfo.Password = conf.credentials.adminPassword
+	dialInfo.Username = "admin"
+	dialInfo.Password = conf.OldPassword()
 	return dialInfo, nil
 }
 
@@ -85,113 +84,22 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 	return nil
 }
 
-// credentials for mongo in backed up agent.conf.
-type credentials struct {
-	tag           string
-	tagPassword   string
-	adminUsername string
-	adminPassword string
-}
-
-// agentConfig config from the backed up agent.conf.
-type agentConfig struct {
-	credentials credentials
-	apiPort     string
-	statePort   string
-	cACert      string
-}
-
-// fetchAgentConfigFromBackup parses <dataDir>/machine-0/agents/machine-0/agent.conf
-// and returns an agentConfig struct filled with the data that will not change
-// from the backed up one (typically everything but the hosts).
-func fetchAgentConfigFromBackup(innerBackupHandler io.Reader) (agentConfig, error) {
-	// TODO (perrito666) obtain this pat path from the proper place here and in backup
-	// if the backup contains the series of the machine we can generate it.
-	_, agentConf, err := tar.FindFile(innerBackupHandler, "var/lib/juju/agents/machine-0/agent.conf")
-	if err != nil {
-		return agentConfig{}, errors.Annotatef(err, "could not find agent configuration in tar file")
-	}
-
-	data, err := ioutil.ReadAll(agentConf)
-	if err != nil {
-		return agentConfig{}, errors.Annotate(err, "failed to read agent config file")
-	}
-	var conf interface{}
-	if err := goyaml.Unmarshal(data, &conf); err != nil {
-		return agentConfig{}, errors.Annotate(err, "cannot unmarshal agent config file")
-	}
-	m, ok := conf.(map[interface{}]interface{})
-	if !ok {
-		return agentConfig{}, errors.Errorf("config file unmarshalled to %T not %T", conf, m)
-	}
-
-	tagUser, ok := m["tag"].(string)
-	if !ok || tagUser == "" {
-		return agentConfig{}, errors.Errorf("tag not found in configuration")
-	}
-
-	tagPassword, ok := m["statepassword"].(string)
-	if !ok || tagPassword == "" {
-		return agentConfig{}, errors.Errorf("agent tag user password not found in configuration")
-	}
-
-	adminPassword, ok := m["oldpassword"].(string)
-	if !ok || adminPassword == "" {
-		return agentConfig{}, errors.Errorf("agent admin password not found in configuration")
-	}
-
-	statePortNum, ok := m["stateport"].(int)
-	if !ok {
-		return agentConfig{}, errors.Errorf("state port not found in configuration")
-	}
-	statePort := strconv.Itoa(statePortNum)
-
-	apiPortNum, ok := m["apiport"].(int)
-	if !ok {
-		return agentConfig{}, errors.Errorf("api port not found in configuration")
-	}
-	apiPort := strconv.Itoa(apiPortNum)
-
-	cacert, ok := m["cacert"].(string)
-	if !ok {
-		return agentConfig{}, errors.Errorf("CACert not found in configuration")
-	}
-
-	return agentConfig{
-		credentials: credentials{
-			tag:           tagUser,
-			tagPassword:   tagPassword,
-			adminUsername: "admin",
-			adminPassword: adminPassword,
-		},
-		statePort: statePort,
-		apiPort:   apiPort,
-		cACert:    cacert,
-	}, nil
-}
-
 // newStateConnection tries to connect to the newly restored state server.
-func newStateConnection(agentConf agentConfig) (*state.State, error) {
-	caCert := agentConf.cACert
-	// TODO(dfc) agenConf.credentials should supply a Tag
-	tag, err := names.ParseTag(agentConf.credentials.tag)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot obtain tag from agent config")
-	}
+func newStateConnection(agentConf agent.Config) (*state.State, error) {
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
-	var st *state.State
+	var (
+		st  *state.State
+		err error
+	)
+	info, ok := agentConf.MongoInfo()
+	if !ok {
+		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
+	}
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&mongo.MongoInfo{
-			Info: mongo.Info{
-				Addrs:  []string{fmt.Sprintf("localhost:%s", agentConf.statePort)},
-				CACert: caCert,
-			},
-			Tag:      tag,
-			Password: agentConf.credentials.tagPassword,
-		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+		st, err = state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 		if err == nil {
 			break
 		}
@@ -204,8 +112,7 @@ func newStateConnection(agentConf agentConfig) (*state.State, error) {
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(privateAddress string, agentConf agentConfig, st *state.State) error {
-	privateHostPorts := fmt.Sprintf("%s:%s", privateAddress, agentConf.statePort)
+func updateAllMachines(privateAddress string, st *state.State) error {
 	machines, err := st.AllMachines()
 	if err != nil {
 		return err
@@ -223,7 +130,7 @@ func updateAllMachines(privateAddress string, agentConf agentConfig, st *state.S
 		pendingMachineCount++
 
 		go func() {
-			err := runMachineUpdate(machine, setAgentAddressScript(privateHostPorts))
+			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
 			done <- errors.Annotatef(err, "failed to update machine %s", machine)
 		}()
 	}
@@ -244,7 +151,7 @@ set -exu
 cd /var/lib/juju/agents
 for agent in *
 do
-	initctl stop jujud-$agent
+	initctl stop jujud-$agent > /dev/null
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
@@ -259,7 +166,8 @@ do
 	then
 		find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
-	initctl start jujud-$agent
+	# Just in case is a stale unit
+	initctl start jujud-$agent > /dev/null
 done
 `))
 

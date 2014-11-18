@@ -372,23 +372,32 @@ func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
 	defer configFile.Close()
 	dir := filepath.Dir(configFilePath)
 	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
-	legacyFormatFile, err := os.Open(legacyFormatPath)
-	defer legacyFormatFile.Close()
-	config, err := ParseConfig(configFile, legacyFormatFile)
-	if err != nil {
+
+	var legacyFormatFile io.Reader
+	if formatFile, err := os.Open(legacyFormatPath); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Annotatef(err, "cannot read format file")
+		}
+	} else {
+		legacyFormatFile = formatFile
+	}
+
+	var config *configInternal
+	if config, err = ParseConfig(configFile, legacyFormatFile, configFilePath); err != nil {
 		return nil, err
 	}
-	config.configFilePath = configFilePath
-	err = os.Remove(legacyFormatPath)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, errors.Annotatef(err, "cannot remove legacy format file %q", legacyFormatPath)
+
+	if legacyFormatFile != nil {
+		if err = os.Remove(legacyFormatPath); err != nil {
+			return nil, errors.Annotatef(err, "cannot remove legacy format file %q", legacyFormatPath)
+		}
 	}
 
 	return config, err
 }
 
 // ParseConfig reads configuration data from the given reader.
-func ParseConfig(configFile, legacyFormatFile io.Reader) (*configInternal, error) {
+func ParseConfig(configFile, legacyFormatFile io.Reader, configFilePath string) (*configInternal, error) {
 	var (
 		format formatter
 		config *configInternal
@@ -397,12 +406,13 @@ func ParseConfig(configFile, legacyFormatFile io.Reader) (*configInternal, error
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot read agent config file contents")
 	}
-	formatBytes, err := ioutil.ReadAll(legacyFormatFile)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot read format file contents")
-	}
-	formatData := string(formatBytes)
 	if legacyFormatFile != nil {
+		formatBytes, err := ioutil.ReadAll(legacyFormatFile)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot read format file contents")
+		}
+		formatData := string(formatBytes)
+
 		// It exists, so unmarshal with a legacy formatter.
 		// Drop the format prefix to leave the version only.
 		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
@@ -421,8 +431,12 @@ func ParseConfig(configFile, legacyFormatFile io.Reader) (*configInternal, error
 		return nil, err
 	}
 	logger.Debugf("read agent config, format %q", format.version())
+	config.configFilePath = configFilePath
 
 	if format != currentFormat {
+		if configFilePath == "" {
+			return nil, errors.Errorf("cannot save config migrated from %s to %s, missing config file path", format.version(), currentFormat.version())
+		}
 		// Migrate from a legacy format to the new one.
 		err := config.Write()
 		if err != nil {

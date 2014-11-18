@@ -12,12 +12,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/metadata"
 )
 
 const restoreUserHome = "/home/ubuntu/"
 
-func (a *API) backupFileAndMeta(backupId, fileName string) (io.ReadCloser, *metadata.Metadata, error) {
+func (a *API) backupFileAndMeta(backupId, fileName string, backup backups.Backups) (io.ReadCloser, *metadata.Metadata, error) {
 	var (
 		fileHandler io.ReadCloser
 		meta        *metadata.Metadata
@@ -25,7 +26,7 @@ func (a *API) backupFileAndMeta(backupId, fileName string) (io.ReadCloser, *meta
 	)
 	switch {
 	case backupId != "":
-		if meta, fileHandler, err = a.backups.Get(backupId); err != nil {
+		if meta, fileHandler, err = backup.Get(backupId); err != nil {
 			return nil, nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
 		}
 	case fileName != "":
@@ -44,7 +45,10 @@ func (a *API) backupFileAndMeta(backupId, fileName string) (io.ReadCloser, *meta
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
-	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, p.FileName)
+	backup, closer := newBackups(a.st)
+	defer closer.Close()
+
+	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, p.FileName, backup)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain a backup")
 	}
@@ -73,12 +77,13 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	// Restore
-	if err := a.backups.Restore(fileHandler, meta, addr, instanceId); err != nil {
+	if err := backup.Restore(fileHandler, meta, addr, instanceId); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work
-	os.Exit(0)
+	// Exiting with 0 would prevent upstart to respawn the process
+	os.Exit(1)
 	return nil
 }
 

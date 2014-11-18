@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/utils/filestorage"
 	"github.com/juju/utils/tar"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
@@ -69,6 +72,14 @@ type Backups interface {
 
 type backups struct {
 	storage filestorage.FileStorage
+}
+
+// NewBackups returns a new backups based on the state.
+func NewBackupsFromState(st *state.State) (Backups, io.Closer) {
+	stor := state.NewBackupStorage(st)
+
+	backups := NewBackups(stor)
+	return backups, stor
 }
 
 // NewBackups returns a new Backups value using the provided DB info and
@@ -173,8 +184,11 @@ func (b *backups) Remove(id string) error {
 // old instances
 // * updates config in all agents.
 func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, newInstId instance.Id) error {
-	workDir := os.TempDir()
-	defer os.RemoveAll(workDir)
+	workDir, err := ioutil.TempDir("", "juju-backup")
+	if err != nil {
+		return errors.Annotate(err, "cannot create temp folder")
+	}
+	defer os.Remove(workDir)
 
 	// Extract outer container (a juju-backup folder inside the tar)
 	tarFile, err := gzip.NewReader(backupFile)
@@ -185,10 +199,6 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 		return errors.Trace(err)
 	}
 
-	// delete all the files to be replaced
-	if err := files.PrepareMachineForRestore(); err != nil {
-		return errors.Annotate(err, "cannot delete existing files")
-	}
 	backupFilesPath := filepath.Join(workDir, "juju-backup")
 	// just in case, we dont want to leave these sensitive files hanging around.
 
@@ -199,20 +209,52 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 
 	// Extract inner container (root.tar inside the juju-backup)
 	innerBackup := filepath.Join(backupFilesPath, "root.tar")
-	innerBackupHandler, err := os.Open(innerBackup)
+	var innerBackupHandler io.ReadSeeker
+	innerBackupHandler, err = os.Open(innerBackup)
 	if err != nil {
 		return errors.Annotatef(err, "cannot open the backups inner tar file %q", innerBackup)
 	}
-	defer innerBackupHandler.Close()
+
 	// Load configuration values that are to remain
 	// without these values, lets leave before doing any possible damage on the system
-	agentConf, err := fetchAgentConfigFromBackup(innerBackupHandler)
+	_, agentConfFile, err := tar.FindFile(innerBackupHandler, "var/lib/juju/agents/machine-0/agent.conf")
+	if err != nil {
+		return errors.Annotatef(err, "could not find agent configuration in tar file")
+	}
+
+	var agentConfig agent.ConfigSetterWriter
+	agentConfig, err = agent.ParseConfig(agentConfFile, nil, "")
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain agent configuration information")
 	}
 
+	// delete all the files to be replaced
+	if err := files.PrepareMachineForRestore(); err != nil {
+		return errors.Annotate(err, "cannot delete existing files")
+	}
+
+	// Reset cursor to 0 since tar wont do this
+	innerBackupHandler.Seek(0, 0)
+
 	if err := tar.UntarFiles(innerBackupHandler, filesystemRoot()); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
+	}
+	if agentConfig, err = agent.ReadConfig("/var/lib/juju/agents/machine-0/agent.conf"); err != nil {
+		return errors.Annotate(err, "cannot load agent config from disk")
+	}
+	ssi, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return errors.Errorf("cannot determine state serving info")
+	}
+
+	APIHostPort := network.HostPort{Address: network.Address{
+		Value: privateAddress,
+		Type:  network.DeriveAddressType(privateAddress),
+	},
+		Port: ssi.APIPort}
+	agentConfig.SetAPIHostPorts([][]network.HostPort{{APIHostPort}})
+	if err := agentConfig.Write(); err != nil {
+		return errors.Annotate(err, "cannot write new agent configuration")
 	}
 
 	// Restore backed up mongo
@@ -222,11 +264,12 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	}
 
 	// Re-start replicaset with the new value for server address
-	dialInfo, err := newDialInfo(privateAddress, agentConf)
+	dialInfo, err := newDialInfo(privateAddress, agentConfig)
 	if err != nil {
 		return errors.Annotate(err, "cannot produce dial information")
 	}
-	memberHostPort := fmt.Sprintf("%s:%s", privateAddress, agentConf.statePort)
+
+	memberHostPort := fmt.Sprintf("%s:%d", privateAddress, ssi.StatePort)
 	err = resetReplicaSet(dialInfo, memberHostPort)
 	if err != nil {
 		return errors.Annotate(err, "cannot reset replicaSet")
@@ -239,14 +282,14 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	}
 
 	// From here we work with the restored state server
-	st, err := newStateConnection(agentConf)
+	st, err := newStateConnection(agentConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer st.Close()
 
 	// update all agents known to the new state server.
-	err = updateAllMachines(privateAddress, agentConf, st)
+	err = updateAllMachines(privateAddress, st)
 	if err != nil {
 		return errors.Annotate(err, "cannot update agents")
 	}

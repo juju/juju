@@ -64,6 +64,7 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we succssfully populate the replicaset config.
 	var err error
+	attemptNo := 0
 	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
 		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort, force)
 		if err == nil {
@@ -73,6 +74,7 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 		if attempt.HasNext() {
 			logger.Debugf("replica set initiation failed, will retry: %v", err)
 		}
+		attemptNo += 1
 	}
 	return errors.Annotatef(err, "cannot initiate replica set")
 }
@@ -85,17 +87,15 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
-
-	if !force {
-		if cfg, err := replicaset.CurrentConfig(session); err == nil && len(cfg.Members) > 0 {
-			logger.Infof("replica set configuration already found: %#v", cfg)
-			return nil
-		}
-	}
-
+	cfg, err := replicaset.CurrentConfig(session)
 	if err != nil && err != mgo.ErrNotFound {
 		return errors.Errorf("cannot get replica set configuration: %v", err)
 	}
+	if !force && err == nil && len(cfg.Members) > 0 {
+		logger.Infof("replica set configuration already found: %#v", cfg)
+		return nil
+	}
+
 	return replicaset.Initiate(
 		session,
 		memberHostPort,
