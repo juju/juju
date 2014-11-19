@@ -73,6 +73,11 @@ var (
 	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
 	ErrBadRequest     = stderrors.New("invalid request")
 	ErrTryAgain       = stderrors.New("try again")
+
+	ErrOperationBlocked = &params.Error{
+		Code:    params.CodeOperationBlocked,
+		Message: "The operation has been blocked.",
+	}
 )
 
 var singletonErrorCodes = map[error]string{

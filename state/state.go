@@ -86,9 +86,6 @@ const (
 	// toolsmetadataC is the collection used to store tools metadata.
 	toolsmetadataC = "toolsmetadata"
 
-	// This collection is used just for storing metadata.
-	backupsMetaC = "backupsmetadata"
-
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"
 	txnsC   = "txns"
