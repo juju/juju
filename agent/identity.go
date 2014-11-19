@@ -5,7 +5,7 @@ package agent
 
 import (
 	"fmt"
-	"os"
+	_ "os"
 
 	"github.com/juju/utils"
 )
@@ -22,7 +22,8 @@ func WriteSystemIdentityFile(c Config) error {
 			return fmt.Errorf("cannot write system identity: %v", err)
 		}
 	} else {
-		os.Remove(c.SystemIdentityPath())
+		logger.Infof("would be deleting %q", c.SystemIdentityPath())
+		//os.Remove(c.SystemIdentityPath())
 	}
 	return nil
 }
