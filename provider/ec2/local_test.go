@@ -714,7 +714,7 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 
 	// No network interface
 	err = env.AllocateAddress(instId, "", addr)
-	c.Assert(err, gc.ErrorMatches, "unexpected AWS response: network interface not found")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Environ, instance.Id) {
