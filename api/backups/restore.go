@@ -72,7 +72,7 @@ func (c *Client) Restore(backupFileName, backupId string, apiRoot func() (*api.S
 // by restore.
 func (c *Client) PrepareRestore() error {
 	var err error
-	ver rErr error
+	var rErr error
 	strategy := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Min: 10,
