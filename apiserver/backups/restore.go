@@ -25,21 +25,20 @@ func (a *API) backupFileAndMeta(backupId, fileName string, backup backups.Backup
 		err         error
 	)
 	switch {
-	case backupId != "":
-		if meta, fileHandler, err = backup.Get(backupId); err != nil {
-			return nil, nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
-		}
-	case fileName != "":
-		fileName := restoreUserHome + fileName
+	case strings.HasPrefix(backupId, backups.FilenamePrefix):
+		fileName := strings.TrimPrefix(backupId, backups.FilenamePrefix)
+		fileName = restoreUserHome + fileName
 		if fileHandler, err = os.Open(fileName); err != nil {
 			return nil, nil, errors.Annotatef(err, "error opening %q", fileName)
 		}
-	default:
+	case backupId == "":
 		return nil, nil, errors.Errorf("no backup file or id given")
-
+	default:
+		if meta, fileHandler, err = backup.Get(backupId); err != nil {
+			return nil, nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
+		}
 	}
 	return fileHandler, meta, nil
-
 }
 
 // Restore implements the server side of Backups.Restore.
@@ -48,7 +47,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	backup, closer := newBackups(a.st)
 	defer closer.Close()
 
-	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, p.FileName, backup)
+	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, backup)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain a backup")
 	}

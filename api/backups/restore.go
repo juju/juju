@@ -18,18 +18,41 @@ import (
 // machine has been bootstraped, it receives the name of a backup
 // file on server and will return error on failure.
 func (c *Client) Restore(backupFileName, backupId string, apiRoot func() (*api.State, error)) error {
-	restoreArgs := params.RestoreArgs{
-		FileName: backupFileName,
-		BackupId: backupId,
-		Machine:  "0",
-	}
-	// We will want to retry until upgrade is finished
+	var (
+		err error
+		rErr error
+	)
 	strategy := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Min:   10,
 	}
-	var rErr error
-	var err error
+
+	// PrepareRestore puts the server into a state that only allows
+	// for restore to be called. This is to avoid the data loss if
+	// users try to perform actions that are going to be overwritten
+	// by restore.
+	for a := strategy.Start(); a.Next(); {
+		err = c.facade.FacadeCall("PrepareRestore", nil, &rErr)
+		if err != nil && !params.IsCodeUpgradeInProgress(rErr) {
+			return errors.Trace(err)
+		}
+	}
+	if err != nil{
+		return errors.Annotate(rErr, "could not start restore process")
+	}
+
+	// Upload
+	if backupFileName != "" {
+		if backupId, err = c.Upload(backupFileName); err != nil {
+			return errors.Annotatef(err, "cannot upload backup file %s", backupFileName)
+		}
+	}
+
+	// Restore
+	restoreArgs := params.RestoreArgs{
+		BackupId: backupId,
+		Machine:  "0",
+	}
 	for a := strategy.Start(); a.Next(); {
 		err = c.facade.FacadeCall("Restore", restoreArgs, &rErr)
 		// This signals that Restore almost certainly finished and
@@ -64,24 +87,4 @@ func (c *Client) Restore(backupFileName, backupId string, apiRoot func() (*api.S
 		}
 	}
 	return nil
-}
-
-// PrepareRestore puts the server into a state that only allows
-// for restore to be called. This is to avoid the data loss if
-// users try to perform actions that are going to be overwritten
-// by restore.
-func (c *Client) PrepareRestore() error {
-	var err error
-	var rErr error
-	strategy := utils.AttemptStrategy{
-		Delay: 10 * time.Second,
-		Min:   10,
-	}
-	for a := strategy.Start(); a.Next(); {
-		err = c.facade.FacadeCall("PrepareRestore", nil, &rErr)
-		if err != nil && !params.IsCodeUpgradeInProgress(rErr) {
-			return errors.Trace(err)
-		}
-	}
-	return errors.Annotate(rErr, "could not start restore process")
 }

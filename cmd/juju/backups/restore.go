@@ -155,28 +155,6 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	return nil
 }
 
-// doUpload will copy a local backup file to a location in the ubuntu user
-// home in the server to be restored.
-func (c *RestoreCommand) doUpload() error {
-	client, err := c.NewBaseAPIClient()
-	if err != nil {
-		return errors.Annotate(err, "cannot connect to API for uploading")
-	}
-	defer client.Close()
-	// TODO (perrito666) Find the machine in a non hardcoded way
-	addr, err := client.PublicAddress("0")
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	fileName := filepath.Base(c.filename)
-
-	if err := ssh.Copy([]string{c.filename, fmt.Sprintf("ubuntu@%s:%s", addr, fileName)}, nil); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // Run is the entry point for this command.
 func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
@@ -190,20 +168,6 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer client.Close()
-
-	if err := client.PrepareRestore(); err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.Errorf(restoreAPIIncompatibility)
-		}
-		return errors.Trace(err)
-	}
-
-	// there is a filename, we need to upload it to the server
-	if c.filename != "" {
-		if err := c.doUpload(); err != nil {
-			return errors.Annotatef(err, "cannot upload backup")
-		}
-	}
 
 	return c.runRestore(ctx, client)
 }
