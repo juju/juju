@@ -82,6 +82,14 @@ class JujuCITestCase(TestCase):
             self.assertTrue(kwargs['verbose'])
             self.assertTrue(kwargs['dry_run'])
 
+    def test_main_get_options(self):
+        with patch('jujuci.get_artifacts') as mock:
+            main(['-d', '-v', '-b', '1234', 'get', 'foo', '*.tar.gz', 'bar'])
+            args, kwargs = mock.call_args
+            self.assertEqual(('foo', '1234', '*.tar.gz', 'bar'), args)
+            self.assertTrue(kwargs['verbose'])
+            self.assertTrue(kwargs['dry_run'])
+
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
         json_io = StringIO(json.dumps(expected_data))
