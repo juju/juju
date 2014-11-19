@@ -71,6 +71,10 @@ const (
 
 	// Only use numactl if user specifically requests it
 	DefaultNumaControlPolicy = false
+
+	// Only prevent destroy-environment from running
+	// if user specifically requests it. Otherwise, let it run.
+	DefaultPreventDestroyEnvironment = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -116,6 +120,12 @@ const (
 
 	// NumaControlPolicyKey stores the value for this setting
 	SetNumaControlPolicyKey = "set-numa-control-policy"
+
+	// BlockKeyPrefix is the prefix used for environment variables that block commands
+	BlockKeyPrefix = "block-"
+
+	// PreventDestroyEnvironmentKey stores the value for this setting
+	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
 
 	//
 	// Deprecated Settings Attributes
@@ -716,6 +726,15 @@ func (c *Config) NumaCtlPreference() bool {
 	return DefaultNumaControlPolicy
 }
 
+// PreventDestroyEnvironment returns if destroy-environment
+// should be blocked from proceeding, thus preventing the operation.
+func (c *Config) PreventDestroyEnvironment() bool {
+	if attrValue, ok := c.defined[PreventDestroyEnvironmentKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventDestroyEnvironment
+}
+
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
@@ -1096,6 +1115,7 @@ var fields = schema.Fields{
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
 	SetNumaControlPolicyKey:      schema.Bool(),
+	PreventDestroyEnvironmentKey: schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1137,6 +1157,7 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1200,6 +1221,7 @@ func allDefaults() schema.Defaults {
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
