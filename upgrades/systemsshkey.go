@@ -71,9 +71,9 @@ func ensureSystemSSHKeyRedux(context Context) error {
 				logger.Errorf("failed to read state serving info: %v", err)
 				return errors.Trace(err)
 			}
-			if stateInfo.SystemIdentity != "" {
+			if stateInfo.SystemIdentity == "" {
 				logger.Errorf("but the transaction said it would be there...")
-				return errors.New("Some weird state inconsistency exists.")
+				return errors.New("some weird state inconsistency exists")
 			}
 			if err := writeSystemIdentity(context, stateInfo.SystemIdentity); err != nil {
 				logger.Errorf("failed to write the system identity file: %v", err)
@@ -102,7 +102,7 @@ func ensureSystemSSHKeyRedux(context Context) error {
 	return nil
 }
 
-func readOrMakeSystemIdentity(context Context) (string, string, error) {
+func readOrMakeSystemIdentity(context Context) (privateKey, publicKey string, err error) {
 	identityFile := context.AgentConfig().SystemIdentityPath()
 	// Don't generate a key unless we have to.
 	keyExists, err := systemKeyExists(identityFile)
@@ -122,7 +122,7 @@ func readOrMakeSystemIdentity(context Context) (string, string, error) {
 	}
 
 	logger.Infof("generating new key")
-	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
+	privateKey, publicKey, err = ssh.GenerateKey(config.JujuSystemKey)
 	if err != nil {
 		return "", "", errors.Annotate(err, "failed to create system key")
 	}
