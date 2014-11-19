@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/filestorage"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -59,15 +59,10 @@ func NewMetadata() *Metadata {
 	}
 }
 
-type envTagger interface {
-	// EnvironTag returns the environment's tag.
-	EnvironTag() names.EnvironTag
-}
-
 // NewMetadataState composes a new backup metadata with its origin
 // values set.  The environment UUID comes from state.  The hostname is
 // retrieved from the OS.
-func NewMetadataState(st envTagger, machine string) (*Metadata, error) {
+func NewMetadataState(st *state.State, machine string) (*Metadata, error) {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
