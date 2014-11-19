@@ -385,24 +385,20 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 		return nil, err
 	}
 	err = u.operationExecutor.Run(op)
-	if err != nil {
-		return nil, err
+	if err == nil {
+		select {
+		case response := <-responseChan:
+			results, err = response.response, response.err
+		default:
+			err = errors.New("command response never sent")
+		}
 	}
-
-	select {
-	case response := <-responseChan:
-		results, err = response.response, response.err
-	default:
-		return nil, errors.New("command response never sent")
-	}
-
-	switch err {
-	case context.ErrRequeueAndReboot:
-		logger.Warningf("not requeueing anything: command run via juju-run")
-		fallthrough
-	case context.ErrReboot:
+	if errors.Cause(err) == operation.ErrNeedsReboot {
 		u.tomb.Kill(worker.ErrRebootMachine)
 		err = nil
+	}
+	if err != nil {
+		u.tomb.Kill(err)
 	}
 	return results, err
 }

@@ -21,8 +21,8 @@ type Operation interface {
 }
 
 var ErrSkipExecute = errors.New("operation already executed")
-var ErrNeedsReboot = errors.New("machine needs to reboot")
-var ErrHookFailed = errors.New("hook failed to complete")
+var ErrNeedsReboot = errors.New("reboot request issued")
+var ErrHookFailed = errors.New("hook failed")
 
 type StateChange struct {
 	Kind     Kind

@@ -45,6 +45,13 @@ func (rc *runCommands) Execute(state State) (*StateChange, error) {
 
 	runner := context.NewRunner(rc.context, rc.paths)
 	response, err := runner.RunCommands(rc.commands)
+	switch err {
+	case context.ErrRequeueAndReboot:
+		logger.Warningf("cannot requeue external commands")
+		fallthrough
+	case context.ErrReboot:
+		err = ErrNeedsReboot
+	}
 	rc.sendResponse(response, err)
 	// Commands only make sense at runtime; this is totally ephemeral; no
 	// state change at all.

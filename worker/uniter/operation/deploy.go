@@ -27,7 +27,7 @@ func (d *deploy) String() string {
 }
 
 func (d *deploy) Prepare(state State) (*StateChange, error) {
-	if err := d.checkAlreadyStated(state); err != nil {
+	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, err
 	}
 	info, err := d.getInfo(d.charmURL)
@@ -64,7 +64,7 @@ func (d *deploy) Commit(state State) (*StateChange, error) {
 	return change, nil
 }
 
-func (d *deploy) checkAlreadyStated(state State) error {
+func (d *deploy) checkAlreadyDone(state State) error {
 	if state.Kind != d.kind {
 		return nil
 	}
