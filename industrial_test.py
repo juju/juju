@@ -19,7 +19,7 @@ from jujupy import (
     uniquify_local,
     )
 from substrate import (
-    AWSAccount,
+    make_substrate,
     terminate_instances,
     )
 from utility import until_timeout
@@ -334,15 +334,9 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
             ('destroy-env', {'title': 'destroy environment'}),
             ('substrate-clean', {'title': 'check substrate clean'})])
 
-    @staticmethod
-    def get_substrate(client):
-        if client.env.config['type'] != 'ec2':
-            return None
-        return AWSAccount.from_config(client.env.config)
-
     @classmethod
     def get_security_groups(cls, client):
-        substrate = cls.get_substrate(client)
+        substrate = make_substrate(client.env.config)
         if substrate is None:
             return
         status = client.get_status()
@@ -352,7 +346,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
 
     @classmethod
     def check_security_groups(cls, client, env_groups):
-        substrate = cls.get_substrate(client)
+        substrate = make_substrate(client.env.config)
         if substrate is None:
             return
         for x in until_timeout(30):

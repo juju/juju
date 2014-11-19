@@ -194,6 +194,14 @@ class OpenStackAccount:
                     if v in group_names)
 
 
+def make_substrate(config):
+    substrate_factory = {
+        'ec2': AWSAccount.from_config,
+        'openstack': OpenStackAccount.from_config,
+        }
+    return substrate_factory.get(config['type'], lambda x: None)(config)
+
+
 def start_libvirt_domain(URI, domain):
     """Call virsh to start the domain.
 

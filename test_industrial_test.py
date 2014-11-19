@@ -36,7 +36,12 @@ from jujupy import (
     )
 from substrate import AWSAccount
 from test_jujupy import assert_juju_call
-from test_substrate import get_aws_env
+from test_substrate import (
+    get_aws_env,
+    get_os_config,
+    make_os_security_group_instance,
+    make_os_security_groups,
+    )
 
 
 @contextmanager
@@ -700,7 +705,13 @@ class TestDestroyEnvironmentAttempt(TestCase):
         client.env = get_aws_env()
         return client
 
-    def test_get_security_groups(self):
+    @staticmethod
+    def get_openstack_client():
+        client = FakeEnvJujuClient()
+        client.env.config = get_os_config()
+        return client
+
+    def test_get_security_groups_aws(self):
         client = self.get_aws_client()
         destroy_env = DestroyEnvironmentAttempt()
         yaml_instances = yaml.safe_dump({'machines': {
@@ -716,7 +727,7 @@ class TestDestroyEnvironmentAttempt(TestCase):
                 ])]),
         ]
         with patch(
-                'industrial_test.AWSAccount.get_ec2_connection') as gec_mock:
+                'substrate.AWSAccount.get_ec2_connection') as gec_mock:
             with patch('subprocess.check_output', return_value=yaml_instances):
                 gai_mock = gec_mock.return_value.get_all_instances
                 gai_mock.return_value = aws_instances
@@ -725,6 +736,31 @@ class TestDestroyEnvironmentAttempt(TestCase):
                     })
         gec_mock.assert_called_once_with()
         gai_mock.assert_called_once_with(instance_ids=['foo-id'])
+
+    def test_get_security_groups_openstack(self):
+        client = self.get_openstack_client()
+        destroy_env = DestroyEnvironmentAttempt()
+        yaml_instances = yaml.safe_dump({'machines': {
+            'foo': {'instance-id': 'bar-id'},
+            'bar': {'instance-id': 'baz-qux-id'},
+            }})
+        os_instances = [
+            make_os_security_group_instance(['bar']),
+            make_os_security_group_instance(['baz', 'qux']),
+        ]
+        with patch(
+                'substrate.OpenStackAccount.get_client') as gc_mock:
+            os_client = gc_mock.return_value
+            os_client.servers.list.return_value = os_instances
+            security_groups = make_os_security_groups(['bar', 'baz', 'qux'])
+            os_client.security_groups.list.return_value = security_groups
+            with patch('subprocess.check_output', return_value=yaml_instances):
+                self.assertEqual(destroy_env.get_security_groups(client), {
+                    'baz-id': 'baz', 'bar-id': 'bar', 'qux-id': 'qux'
+                    })
+
+        gc_mock.assert_called_once_with()
+        os_client.servers.list.assert_called_once_with()
 
     def test_get_security_groups_non_aws(self):
         client = FakeEnvJujuClient()
