@@ -1032,7 +1032,21 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
 func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	if err != nil {
+		return errors.Annotatef(err, "failed to unassign IP address %q to instance %q", addr, instId)
+	}
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = ec2Inst.UnassignPrivateIPAddresses(networkInterfaceId, []string{addr.Value})
+		if err == nil {
+			break
+		}
 
+	}
+	if err != nil {
+		return errors.Annotatef(err, "failed to unassign IP address %q for instance %q", addr, instId)
+	}
 	return nil
 }
 
