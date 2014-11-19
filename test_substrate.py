@@ -8,6 +8,7 @@ from mock import (
     ANY,
     call,
     MagicMock,
+    Mock,
     patch,
     )
 
@@ -19,6 +20,7 @@ from jujupy import SimpleEnvironment
 from substrate import (
     AWSAccount,
     get_libvirt_domstate,
+    OpenStackAccount,
     start_libvirt_domain,
     stop_libvirt_domain,
     terminate_instances,
@@ -296,6 +298,44 @@ class TestAWSAccount(TestCase):
             'InvalidNetworkInterfaceID')
         with self.assertRaises(EC2ResponseError):
             aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+
+
+class TestOpenstackAccount(TestCase):
+
+    @property
+    def os_config(self):
+        return {
+            'username': 'foo', 'password': 'bar',
+            'tenant-name': 'baz', 'auth-url': 'qux', 'region': 'quxx'}
+
+    def test_from_config(self):
+        account = OpenStackAccount.from_config(self.os_config)
+        self.assertEqual(account.username, 'foo')
+        self.assertEqual(account.password, 'bar')
+        self.assertEqual(account.tenant_name, 'baz')
+        self.assertEqual(account.auth_url, 'qux')
+        self.assertEqual(account.region_name, 'quxx')
+
+    def test_get_client(self):
+        account = OpenStackAccount.from_config(self.os_config)
+        with patch('substrate.Client') as ncc_mock:
+            account.get_client()
+        ncc_mock.assert_called_once_with(
+            '1.1', 'foo', 'bar', 'baz', 'qux', region_name='quxx',
+            service_type='compute', insecure=False)
+
+    def test_list_instance_security_groups(self):
+        account = OpenStackAccount.from_config(self.os_config)
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            instance = MagicMock(security_groups=[{'name': 'foo'}])
+            client.servers.list.return_value = [instance]
+            groups = [Mock(id='foo-id'), Mock(id='bar-id')]
+            groups[0].name = 'foo'
+            groups[1].name = 'bar'
+            client.security_groups.list.return_value = groups
+            result = account.list_instance_security_groups()
+        self.assertEqual(result, {'foo-id': 'foo'})
 
 
 class TestLibvirt(TestCase):
