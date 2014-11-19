@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	_ "os"
 
 	"github.com/juju/utils"
 )
@@ -22,8 +21,11 @@ func WriteSystemIdentityFile(c Config) error {
 			return fmt.Errorf("cannot write system identity: %v", err)
 		}
 	} else {
+		// Removed the removal code due to race condition in 1.20.12 upgrade.
+		// In practice this is unlikely to ever occur as we don't actually
+		// support a machine turning from a state server machine into one that
+		// no longer does that.  Machines are terminated.
 		logger.Infof("would be deleting %q", c.SystemIdentityPath())
-		//os.Remove(c.SystemIdentityPath())
 	}
 	return nil
 }

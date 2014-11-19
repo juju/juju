@@ -30,6 +30,7 @@ func (s *systemSSHKeySuite) SetUpTest(c *gc.C) {
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{dataDir: s.DataDir()},
 		apiState:    apiState,
+		state:       s.State,
 	}
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -83,4 +84,50 @@ func (s *systemSSHKeySuite) TestIdempotent(c *gc.C) {
 	privateKey2, err := ioutil.ReadFile(s.keyFile())
 	c.Assert(err, gc.IsNil)
 	c.Assert(privateKey, gc.DeepEquals, privateKey2)
+}
+
+func (s *systemSSHKeySuite) TestReduxSystemKeyCreated(c *gc.C) {
+	err := upgrades.EnsureSystemSSHKeyRedux(s.ctx)
+	c.Assert(err, gc.IsNil)
+	s.assertKeyCreation(c)
+}
+
+func (s *systemSSHKeySuite) TestReduxIdempotent(c *gc.C) {
+	err := upgrades.EnsureSystemSSHKeyRedux(s.ctx)
+	c.Assert(err, gc.IsNil)
+
+	privateKey, err := ioutil.ReadFile(s.keyFile())
+	c.Assert(err, gc.IsNil)
+
+	err = upgrades.EnsureSystemSSHKeyRedux(s.ctx)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure we haven't generated the key again a second time.
+	privateKey2, err := ioutil.ReadFile(s.keyFile())
+	c.Assert(err, gc.IsNil)
+	c.Assert(privateKey, gc.DeepEquals, privateKey2)
+}
+
+func (s *systemSSHKeySuite) TestReduxExistsInStateServingInfo(c *gc.C) {
+	err := state.SetSystemIdentity(s.State, "ssh-private-key")
+	c.Assert(err, gc.IsNil)
+
+	err = upgrades.EnsureSystemSSHKeyRedux(s.ctx)
+	c.Assert(err, gc.IsNil)
+
+	info, err := s.State.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.SystemIdentity, gc.Equals, "ssh-private-key")
+}
+
+func (s *systemSSHKeySuite) TestReduxExistsOnDisk(c *gc.C) {
+	err := ioutil.WriteFile(s.keyFile(), []byte("ssh-private-key"), 0600)
+	c.Assert(err, gc.IsNil)
+
+	err = upgrades.EnsureSystemSSHKeyRedux(s.ctx)
+	c.Assert(err, gc.IsNil)
+
+	info, err := s.State.StateServingInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.SystemIdentity, gc.Equals, "ssh-private-key")
 }

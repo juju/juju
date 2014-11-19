@@ -20,4 +20,6 @@ var (
 	UpdateRsyslogPort                      = updateRsyslogPort
 	ProcessDeprecatedEnvSettings           = processDeprecatedEnvSettings
 	MigrateLocalProviderAgentConfig        = migrateLocalProviderAgentConfig
+	// 1.20.12 upgrade function
+	EnsureSystemSSHKeyRedux = ensureSystemSSHKeyRedux
 )
