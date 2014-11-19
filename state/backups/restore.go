@@ -147,11 +147,14 @@ func updateAllMachines(privateAddress string, st *state.State) error {
 // agentAddressTemplate is the template used to replace the api server data
 // in the agents for the new ones if the machine has been rebootstraped.
 var agentAddressTemplate = template.Must(template.New("").Parse(`
-set -exu
+set -xu
 cd /var/lib/juju/agents
 for agent in *
 do
-	initctl stop jujud-$agent > /dev/null
+	status  jujud-$agent| grep -q "^jujud-$agent start" > /dev/null
+	if [ $? -eq 0 ]; then
+		initctl stop jujud-$agent 
+	fi
 	sed -i.old -r "/^(stateaddresses|apiaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
@@ -167,7 +170,10 @@ do
 		find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
 	# Just in case is a stale unit
-	initctl start jujud-$agent > /dev/null
+	status  jujud-$agent| grep -q "^jujud-$agent stop" > /dev/null
+	if [ $? -eq 0 ]; then
+		initctl start jujud-$agent
+	fi
 done
 `))
 
