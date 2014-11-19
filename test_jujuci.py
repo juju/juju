@@ -6,10 +6,11 @@ from unittest import TestCase
 from jujuci import (
     get_build_data,
     list_files,
+    main,
 )
 
 
-def make_build_data():
+def make_build_data(number='lastSuccessfulBuild'):
     return {
         "actions": [
             {
@@ -67,14 +68,22 @@ def make_build_data():
         "number": 2102,
         "result": "SUCCESS",
         "timestamp": 1416382502379,
-        "url": "http://juju-ci.vapour.ws:8080/job/build-revision/2102/"
+        "url": "http://juju-ci.vapour.ws:8080/job/build-revision/%s/" % number
     }
 
 
 class JujuCITestCase(TestCase):
 
+    def test_main_list_options(self):
+        with patch('jujuci.list_artifacts') as mock:
+            main(['-d', '-v', '-b', '1234', 'list', 'foo', '*.tar.gz'])
+            args, kwargs = mock.call_args
+            self.assertEqual(('foo', '1234', '*.tar.gz'), args)
+            self.assertTrue(kwargs['verbose'])
+            self.assertTrue(kwargs['dry_run'])
+
     def test_get_build_data(self):
-        expected_data = make_build_data()
+        expected_data = make_build_data(1234)
         json_io = StringIO(json.dumps(expected_data))
         with patch('urllib2.urlopen', return_value=json_io) as mock:
             build_data = get_build_data('http://foo:8080', 'bar', '1234')

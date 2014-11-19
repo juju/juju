@@ -1,7 +1,10 @@
 """Access Juju CI artifacts and data."""
 
+from argparse import ArgumentParser
 import fnmatch
 import json
+import sys
+import traceback
 import urllib2
 
 
@@ -20,3 +23,67 @@ def list_files(build_data, glob='*'):
         if fnmatch.fnmatch(file_name, glob):
             found.append(file_name)
     return found
+
+
+def download_files(files, path):
+    for file_name in files:
+        pass
+
+
+def list_artifacts(job, build, glob, dry_run=False, verbose=False):
+    pass
+
+
+def get_artifacts(job, build, glob, path, dry_run=False, verbose=False):
+    pass
+
+
+def parse_args(args=None):
+    """Return the argument parser for this program."""
+    parser = ArgumentParser("List and get artifacts from Juju CI.")
+    parser.add_argument(
+        '-d', '--dry-run', action="store_true", default=False,
+        help='Do not make changes.')
+    parser.add_argument(
+        '-v', '--verbose', action="store_true", default=False,
+        help='Increase verbosity.')
+    parser.add_argument(
+        '-b', '--build',
+        help="The specific build to examine (default: lastSuccessfulBuild).")
+    parser.add_argument(
+        'command', choices=['list', 'get'], help='The action to perform.')
+    parser.add_argument(
+        'job', help="The job that collected the artifacts.")
+    parser.add_argument(
+        'glob', nargs='?', default='*',
+        help="The glob pattern to match artifact file names.")
+    parser.add_argument(
+        'path', nargs='?', default='.',
+        help="The path to download the files to.")
+    return parser.parse_args(args)
+
+
+def main(argv):
+    """Manage list and get files from jujuci builds."""
+    args = parse_args(argv)
+    try:
+        if args.command == 'list':
+            list_artifacts(
+                args.job, args.build, args.glob,
+                dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'get':
+            get_artifacts(
+                args.job, args.build, args.glob, args.path,
+                dry_run=args.dry_run, verbose=args.verbose)
+    except Exception as e:
+        print(e)
+        if args.verbose:
+            traceback.print_tb(sys.exc_info()[2])
+        return 2
+    if args.verbose:
+        print("Done.")
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
