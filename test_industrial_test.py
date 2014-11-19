@@ -492,14 +492,17 @@ class TestSteppedStageAttempt(TestCase):
             {'test_id': 'bar-id', 'result': False}])
 
     def test__iter_for_result_exception(self):
+        error = ValueError('Bad value')
 
         def iterator():
             yield {'test_id': 'foo-id'}
-            raise ValueError('Bad value')
+            raise error
 
-        output = list(SteppedStageAttempt._iter_for_result(iterator()))
+        with patch('logging.exception') as le_mock:
+            output = list(SteppedStageAttempt._iter_for_result(iterator()))
         self.assertEqual(output,
                          [None, {'test_id': 'foo-id', 'result': False}])
+        le_mock.assert_called_once_with(error)
 
     def test_iter_for_result_id_change(self):
         iterator = iter([
@@ -569,6 +572,7 @@ class TestSteppedStageAttempt(TestCase):
     def test_iter_test_results(self):
         old = FakeEnvJujuClient()
         new = FakeEnvJujuClient()
+        error = ValueError('asdf')
 
         class StubSA(SteppedStageAttempt):
 
@@ -577,13 +581,15 @@ class TestSteppedStageAttempt(TestCase):
                 yield {'test_id': 'test-1', 'result': client is old}
                 yield {'test_id': 'test-2'}
                 if client is not new:
-                    raise ValueError('asdf')
+                    raise error
                 else:
                     yield {'test_id': 'test-2', 'result': True}
 
-        self.assertItemsEqual(
-            StubSA().iter_test_results(old, new),
-            [('test-1', True, False), ('test-2', False, True)])
+        with patch('logging.exception') as le_mock:
+            self.assertItemsEqual(
+                StubSA().iter_test_results(old, new),
+                [('test-1', True, False), ('test-2', False, True)])
+        le_mock.assert_called_once_with(error)
 
 
 class FakeEnvJujuClient(EnvJujuClient):
