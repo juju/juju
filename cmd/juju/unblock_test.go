@@ -4,9 +4,12 @@
 package main
 
 import (
+	"strings"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
 
@@ -21,19 +24,20 @@ func runUnblockCommand(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *UnblockCommandSuite) runUnblockTestAndCompare(c *gc.C, operation string, expectedVarValue bool) {
-	s.mockClient.operation = operation
-	s.mockClient.expectedVarValue = expectedVarValue
+func (s *UnblockCommandSuite) runUnblockTestAndCompare(c *gc.C, operation string, expectedValue bool) {
 	err := runUnblockCommand(c, operation)
 	c.Assert(err, gc.IsNil)
+
+	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
+	c.Assert(s.mockClient.cfg[expectedOp], gc.Equals, expectedValue)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
-	s.assertErrorMatches(c, runUnblockCommand(c), `.*specify operation.*`)
+	s.assertErrorMatches(c, runUnblockCommand(c), `.*must specify one of.*`)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, runUnblockCommand(c, "destroy-environment", "change"), `.*specify operation.*`)
+	s.assertErrorMatches(c, runUnblockCommand(c, "destroy-environment", "change"), `.*must specify one of.*`)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdOperationWithSeparator(c *gc.C) {

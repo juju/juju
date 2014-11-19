@@ -4,9 +4,9 @@
 package main
 
 import (
-	"fmt"
-	gc "gopkg.in/check.v1"
 	"strings"
+
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
@@ -33,13 +33,8 @@ func (s *ProtectionCommandSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ProtectionCommandSuite) TearDownTest(c *gc.C) {
-	s.FakeJujuHomeSuite.TearDownTest(c)
-}
-
 type mockClient struct {
-	operation        string
-	expectedVarValue bool
+	cfg map[string]interface{}
 }
 
 func (c *mockClient) Close() error {
@@ -47,10 +42,7 @@ func (c *mockClient) Close() error {
 }
 
 func (c *mockClient) EnvironmentSet(attrs map[string]interface{}) error {
-	expectedOp := config.BlockKeyPrefix + strings.ToLower(c.operation)
-	if val := attrs[expectedOp]; val == "" || val != c.expectedVarValue {
-		return fmt.Errorf("env var %q was %v but was expected %v", expectedOp, val, c.expectedVarValue)
-	}
+	c.cfg = attrs
 	return nil
 }
 
@@ -65,19 +57,20 @@ func runBlockCommand(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *BlockCommandSuite) runBlockTestAndCompare(c *gc.C, operation string, expectedVarValue bool) {
-	s.mockClient.operation = operation
-	s.mockClient.expectedVarValue = expectedVarValue
+func (s *BlockCommandSuite) runBlockTestAndCompare(c *gc.C, operation string, expectedValue bool) {
 	err := runBlockCommand(c, operation)
 	c.Assert(err, gc.IsNil)
+
+	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
+	c.Assert(s.mockClient.cfg[expectedOp], gc.Equals, expectedValue)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdNoOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c), `.*specify operation.*`)
+	s.assertErrorMatches(c, runBlockCommand(c), `.*must specify one of.*`)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdMoreThanOneOperation(c *gc.C) {
-	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment", "change"), `.*specify operation.*`)
+	s.assertErrorMatches(c, runBlockCommand(c, "destroy-environment", "change"), `.*must specify one of.*`)
 }
 
 func (s *BlockCommandSuite) TestBlockCmdOperationWithSeparator(c *gc.C) {

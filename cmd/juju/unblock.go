@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 )
@@ -37,7 +38,7 @@ See Also:
 func (c *UnblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
-		Args:    fmt.Sprintf("%v", blockArgs),
+		Args:    fmt.Sprintf(strings.Join(blockArgs, " | ")),
 		Purpose: "unblock an operation that would alter a running environment",
 		Doc:     unblockDoc,
 	}

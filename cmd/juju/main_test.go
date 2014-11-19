@@ -140,12 +140,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check block command registered properly",
 		args:    []string{"block"},
 		code:    0,
-		out:     "error: must specify operation [destroy-environment] to block\n",
+		out:     "error: must specify one of [destroy-environment] to block\n",
 	}, {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},
 		code:    0,
-		out:     "error: must specify operation [destroy-environment] to unblock\n",
+		out:     "error: must specify one of [destroy-environment] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)

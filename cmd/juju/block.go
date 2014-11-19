@@ -50,7 +50,7 @@ func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
 // assignValidOperation verifies that supplied operation is supported.
 func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("must specify operation %v to %v", blockArgs, cmd)
+		return fmt.Errorf("must specify one of %v to %v", blockArgs, cmd)
 	}
 	var err error
 	p.operation, err = p.obtainValidArgument(args[0])
@@ -97,7 +97,7 @@ See Also:
 func (c *BlockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "block",
-		Args:    fmt.Sprintf("%v", blockArgs),
+		Args:    fmt.Sprintf(strings.Join(blockArgs, " | ")),
 		Purpose: "block an operation that would alter a running environment",
 		Doc:     blockDoc,
 	}
