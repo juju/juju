@@ -310,11 +310,11 @@ class TestOpenstackAccount(TestCase):
 
     def test_from_config(self):
         account = OpenStackAccount.from_config(self.os_config)
-        self.assertEqual(account.username, 'foo')
-        self.assertEqual(account.password, 'bar')
-        self.assertEqual(account.tenant_name, 'baz')
-        self.assertEqual(account.auth_url, 'qux')
-        self.assertEqual(account.region_name, 'quxx')
+        self.assertEqual(account._username, 'foo')
+        self.assertEqual(account._password, 'bar')
+        self.assertEqual(account._tenant_name, 'baz')
+        self.assertEqual(account._auth_url, 'qux')
+        self.assertEqual(account._region_name, 'quxx')
 
     def test_get_client(self):
         account = OpenStackAccount.from_config(self.os_config)
@@ -332,6 +332,16 @@ class TestOpenstackAccount(TestCase):
             group.name = name
             groups.append(group)
         return groups
+
+    def test_list_security_groups(self):
+        account = OpenStackAccount.from_config(self.os_config)
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            groups = self.make_security_groups(['foo', 'bar', 'baz'])
+            client.security_groups.list.return_value = groups
+            result = account.list_security_groups()
+        self.assertEqual(result, {
+            'foo-id': 'foo', 'bar-id': 'bar', 'baz-id': 'baz'})
 
     def test_list_instance_security_groups(self):
         account = OpenStackAccount.from_config(self.os_config)
@@ -357,6 +367,7 @@ class TestOpenstackAccount(TestCase):
             client.security_groups.list.return_value = groups
             result = account.list_instance_security_groups(['foo-bar-id'])
         self.assertEqual(result, {'foo-id': 'foo', 'bar-id': 'bar'})
+
 
 class TestLibvirt(TestCase):
 

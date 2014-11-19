@@ -155,11 +155,12 @@ class AWSAccount:
 class OpenStackAccount:
 
     def __init__(self, username, password, tenant_name, auth_url, region_name):
-        self.username = username
-        self.password = password
-        self.tenant_name = tenant_name
-        self.auth_url = auth_url
-        self.region_name = region_name
+        self._username = username
+        self._password = password
+        self._tenant_name = tenant_name
+        self._auth_url = auth_url
+        self._region_name = region_name
+        self._client = None
 
     @classmethod
     def from_config(cls, config):
@@ -168,21 +169,29 @@ class OpenStackAccount:
             config['auth-url'], config['region'])
 
     def get_client(self):
-        return Client('1.1', self.username, self.password,
-                      self.tenant_name, self.auth_url,
-                      region_name=self.region_name, service_type='compute',
+        return Client('1.1', self._username, self._password,
+                      self._tenant_name, self._auth_url,
+                      region_name=self._region_name, service_type='compute',
                       insecure=False)
 
+    @property
+    def client(self):
+        if self._client is None:
+            self._client = self.get_client()
+        return self._client
+
+    def list_security_groups(self):
+        return dict((g.id, g.name) for g in self.client.security_groups.list())
+
     def list_instance_security_groups(self, instance_ids=None):
-        client = self.get_client()
         group_names = set()
-        for server in client.servers.list():
+        for server in self.client.servers.list():
             if instance_ids is not None and server.id not in instance_ids:
                 continue
             groups = (getattr(server, 'security_groups', []))
             group_names.update(group['name'] for group in groups)
-        return dict((g.id, g.name) for g in client.security_groups.list()
-                    if g.name in group_names)
+        return dict((k, v) for k, v in self.list_security_groups().items()
+                    if v in group_names)
 
 
 def start_libvirt_domain(URI, domain):
