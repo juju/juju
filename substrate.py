@@ -1,3 +1,5 @@
+__metaclass__ = type
+
 import logging
 import os
 import subprocess
@@ -5,6 +7,9 @@ from time import sleep
 
 from boto import ec2
 from boto.exception import EC2ResponseError
+#from keystoneclient.auth.identity import v2
+#from keystoneclient import session
+from novaclient.client import Client
 
 from jujuconfig import (
     get_euca_env,
@@ -147,6 +152,35 @@ class AWSAccount:
                         unclean.update(g.id for g in interface.groups)
                     break
         return unclean
+
+
+class OpenStackAccount:
+
+    def __init__(self, auth_url, username, password, tenant_name, region_name):
+        self.auth_url = auth_url
+        self.username = username
+        self.password = password
+        self.tenant_name = tenant_name
+        self.region_name = region_name
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['auth-url'], config['username'], config['password'],
+                   config['tenant-name'], config['region'])
+
+    def get_client(self):
+        return Client('1.1', self.username, self.password,
+                      self.tenant_name, self.auth_url, insecure=False,
+                      region_name=self.region_name, service_type='compute')
+
+    def list_instance_security_groups(self, instance_ids=None):
+        client = self.get_client()
+        group_names = set()
+        for server in client.servers.list():
+            groups = (getattr(server, 'security_groups', []))
+            group_names.update(group['name'] for group in groups)
+        return dict((g.id, g.name) for g in client.security_groups.list()
+                    if g.name in group_names)
 
 
 def start_libvirt_domain(URI, domain):
