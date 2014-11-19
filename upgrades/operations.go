@@ -15,6 +15,16 @@ var upgradeOperations = func() []Operation {
 			version.MustParse("1.18.0"),
 			stepsFor118(),
 		},
+		upgradeToVersion{
+			version.MustParse("1.20.12"),
+			[]Step{
+				&upgradeStep{
+					description: "make sure the system-identity is recorded in state",
+					targets:     []Target{StateServer},
+					run:         ensureSystemSSHKeyRedux,
+				},
+			},
+		},
 	}
 	return steps
 }

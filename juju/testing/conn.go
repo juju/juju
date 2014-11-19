@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -237,6 +238,16 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
 	s.environ = environ
+
+	// Insert expected values...
+	servingInfo := params.StateServingInfo{
+		PrivateKey:   testing.ServerKey,
+		Cert:         testing.ServerCert,
+		SharedSecret: "really, really secret",
+		APIPort:      4321,
+		StatePort:    1234,
+	}
+	s.State.SetStateServingInfo(servingInfo)
 }
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
