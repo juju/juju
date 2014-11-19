@@ -1,11 +1,20 @@
 """Access Juju CI artifacts and data."""
 
+from __future__ import print_function
+
 from argparse import ArgumentParser
 import fnmatch
 import json
 import sys
 import traceback
 import urllib2
+
+
+JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
+
+
+def print_now(string):
+    print(string)
 
 
 def get_build_data(jenkins_url, job_name, build='lastSuccessfulBuild'):
@@ -30,8 +39,11 @@ def download_files(files, path):
         pass
 
 
-def list_artifacts(job, build, glob, dry_run=False, verbose=False):
-    pass
+def list_artifacts(job_name, build, glob, dry_run=False, verbose=False):
+    build_data = get_build_data(JENKINS_URL, job_name, build)
+    files = list_files(build_data, glob)
+    for file_name in files:
+        print_now(file_name)
 
 
 def get_artifacts(job, build, glob, path, dry_run=False, verbose=False):

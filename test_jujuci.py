@@ -5,6 +5,8 @@ from unittest import TestCase
 
 from jujuci import (
     get_build_data,
+    JENKINS_URL,
+    list_artifacts,
     list_files,
     main,
 )
@@ -118,3 +120,15 @@ class JujuCITestCase(TestCase):
         expected_data = make_build_data()
         files = list_files(expected_data, '*.tar.gz')
         self.assertEqual(['juju-core_1.22-alpha1.tar.gz'], files)
+
+    def test_list_artifacts(self):
+        build_data = make_build_data(1234)
+        with patch('jujuci.get_build_data', return_value=build_data) as mock:
+            with patch('jujuci.print_now') as pn_mock:
+                list_artifacts('foo', '1234', '*')
+        mock.assert_called_once([JENKINS_URL, 'foo', '1234'])
+        files = sorted(call[1][0] for call in pn_mock.mock_calls)
+        self.assertEqual(
+            ['buildvars.bash', 'buildvars.json',
+             'juju-core_1.22-alpha1.tar.gz'],
+            files)
