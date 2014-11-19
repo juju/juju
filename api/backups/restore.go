@@ -26,7 +26,7 @@ func (c *Client) Restore(backupFileName, backupId string, apiRoot func() (*api.S
 	// We will want to retry until upgrade is finished
 	strategy := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Min: 10,
+		Min:   10,
 	}
 	var rErr error
 	var err error
@@ -75,7 +75,7 @@ func (c *Client) PrepareRestore() error {
 	var rErr error
 	strategy := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Min: 10,
+		Min:   10,
 	}
 	for a := strategy.Start(); a.Next(); {
 		err = c.facade.FacadeCall("PrepareRestore", nil, &rErr)

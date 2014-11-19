@@ -100,5 +100,3 @@ func PlaceNewMongo(newMongoDumpPath string, version int) error {
 
 	return nil
 }
-
-
