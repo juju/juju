@@ -138,6 +138,8 @@ func updateAuthorizedKeys(context Context, publicKey string) error {
 	if apiErr == nil {
 		apiErr = errResults[0].Error
 	}
+	// Check both errors as `errResults[0].Error` is a type, and apiErr is an
+	// interface, so we'd get a typed nil which `!= nil`.
 	if err != nil || errResults[0].Error != nil {
 		return errors.Annotate(apiErr, "failed to update authorised keys with new system key")
 	}
