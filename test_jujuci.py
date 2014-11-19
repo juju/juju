@@ -1,12 +1,13 @@
 import json
 from mock import patch
+from StringIO import StringIO
 from unittest import TestCase
 
 from jujuci import get_build_data
 
 
 def make_build_json():
-    return json.dunps({
+    return json.dumps({
         "actions": [],
         "buildable": True,
         "builds": [
@@ -68,7 +69,18 @@ def make_build_json():
 class JujuCITestCase(TestCase):
 
     def test_get_build_data(self):
-        with patch('urllib2.urlopen', return_value=make_build_json()) as mock:
+        expected_json = make_build_json()
+        json_io = StringIO(expected_json)
+        with patch('urllib2.urlopen', return_value=json_io) as mock:
             build_data = get_build_data('http://foo:8080', 'bar', '1234')
-        args, kwargs = mock.call_args
-        self.assertEqual(('http://foo:8080', 'bar', '1234'), args)
+        mock.assert_called_once(['http://foo:8080/job/bar/1234/api/json'])
+        expected_data = json.loads(expected_json)
+        self.assertEqual(expected_data, build_data)
+
+    def test_get_build_data_with_default_build(self):
+        expected_json = make_build_json()
+        json_io = StringIO(expected_json)
+        with patch('urllib2.urlopen', return_value=json_io) as mock:
+            get_build_data('http://foo:8080', 'bar')
+        mock.assert_called_once(
+            ['http://foo:8080/job/bar/lastSuccessfulBuild/api/json'])
