@@ -20,7 +20,6 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -50,6 +50,10 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
+// CollectMetricsSignal is the signature of the function used to generate a collect-metrics
+// signal.
+type CollectMetricsSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
+
 // collectMetricsTimer returns a channel that will signal the collect metrics hook
 // as close to metricsPollInterval after the last run as possible.
 func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
@@ -58,9 +62,15 @@ func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan 
 	return time.After(waitDuration)
 }
 
-// collectMetricsAt defines a function that will be used to generate signals
-// for the collect-metrics hook. It will be replaced in tests.
-var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time = collectMetricsTimer
+// activeMetricsTimer is the timer function used to generate metrics collections
+// signals for metrics-enabled charms.
+var activeMetricsTimer CollectMetricsSignal = collectMetricsTimer
+
+// inactiveMetricsTimer is the default metrics signal generation function, that returns no signal.
+// It will be used in charms that do not declare metrics.
+func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
+	return nil
+}
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
@@ -69,7 +79,7 @@ var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-c
 type Uniter struct {
 	tomb          tomb.Tomb
 	st            *uniter.State
-	f             *filter
+	f             filter.Filter
 	unit          *uniter.Unit
 	service       *uniter.Service
 	relationers   map[int]*Relationer
@@ -88,6 +98,10 @@ type Uniter struct {
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
+
+	// collectMetricsAt defines a function that will be used to generate signals
+	// for the collect-metrics hook.
+	collectMetricsAt CollectMetricsSignal
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -95,9 +109,10 @@ type Uniter struct {
 // hooks and operations provoked by changes in st.
 func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
-		st:       st,
-		paths:    NewPaths(dataDir, unitTag),
-		hookLock: hookLock,
+		st:               st,
+		paths:            NewPaths(dataDir, unitTag),
+		hookLock:         hookLock,
+		collectMetricsAt: inactiveMetricsTimer,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -124,7 +139,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	u.watchForProxyChanges(environWatcher)
 
 	// Start filtering state change events for consumption by modes.
-	u.f, err = newFilter(u.st, unitTag)
+	u.f, err = filter.NewFilter(u.st, unitTag)
 	if err != nil {
 		return err
 	}
@@ -167,7 +182,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	if u.unit.Life() == juju.Dead {
+	if u.unit.Life() == params.Dead {
 		// If we started up already dead, we should not progress further. If we
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental
@@ -330,6 +345,14 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 			return err
 		}
 	}
+
+	// The new charm may have declared metrics where the old one had none (or vice versa),
+	// so reset the metrics collection policy according to current state.
+	err := u.initializeMetricsCollector()
+	if err != nil {
+		return err
+	}
+
 	logger.Infof("charm %q is deployed", curl)
 	status := operation.Queued
 	if hi != nil {
@@ -346,6 +369,19 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 		}
 	}
 	return u.writeOperationState(operation.RunHook, status, hi, nil)
+}
+
+// initializeMetricsCollector enables the periodic collect-metrics hook
+// for charms that declare metrics.
+func (u *Uniter) initializeMetricsCollector() error {
+	charm, err := u.getCharm()
+	if err != nil {
+		return err
+	}
+	if metrics := charm.Metrics(); metrics != nil && len(metrics.Metrics) > 0 {
+		u.collectMetricsAt = activeMetricsTimer
+	}
+	return nil
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -441,12 +477,11 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 func (u *Uniter) runAction(hi hook.Info) (err error) {
 	hctx, err := u.contextFactory.NewActionContext(hi.ActionId)
 	if cause := errors.Cause(err); context.IsBadActionError(cause) {
-		return u.st.ActionFinish(
-			names.NewActionTag(hi.ActionId),
-			params.ActionFailed,
-			nil,
-			err.Error(),
-		)
+		tag, ok := names.ParseActionTagFromId(hi.ActionId)
+		if !ok {
+			return errors.Annotatef(err, "invalid actionId %q", hi.ActionId)
+		}
+		return u.st.ActionFinish(tag, params.ActionFailed, nil, err.Error())
 	} else if cause == context.ErrActionNotAvailable {
 		return nil
 	} else if err != nil {
@@ -673,7 +708,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			if rel.Life() == juju.Dying {
+			if rel.Life() == params.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
 				} else if r.IsImplicit() {
@@ -691,7 +726,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			}
 			return nil, err
 		}
-		if rel.Life() != juju.Alive {
+		if rel.Life() != params.Alive {
 			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm.

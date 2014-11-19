@@ -12,11 +12,8 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 	u.observer = observer
 }
 
-func PatchMetricsTimer(newTimer func(now, lastRun time.Time, interval time.Duration) <-chan time.Time) {
-	collectMetricsAt = newTimer
-}
-
 var (
+	ActiveMetricsTimer  = &activeMetricsTimer
 	CollectMetricsTimer = collectMetricsTimer
 )
 

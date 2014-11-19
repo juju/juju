@@ -161,6 +161,13 @@ type OpAllocateAddress struct {
 	Address    network.Address
 }
 
+type OpReleaseAddress struct {
+	Env        string
+	InstanceId instance.Id
+	NetworkId  network.Id
+	Address    network.Address
+}
+
 type OpListNetworks struct {
 	Env  string
 	Info []network.BasicInfo
@@ -1005,10 +1012,6 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.maxAddr++
-	// TODO(dimitern) Once we have integrated networks
-	// and addresses, make sure we return a valid address
-	// for the given network, and we also have the network
-	// already registered.
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
@@ -1018,9 +1021,32 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	return nil
 }
 
-// ListNetworks implements environs.Environ.ListNetworks.
-func (env *environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	if err := env.checkBroken("ListNetworks"); err != nil {
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	if err := env.checkBroken("ReleaseAddress"); err != nil {
+		return err
+	}
+
+	estate, err := env.state()
+	if err != nil {
+		return err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	estate.maxAddr++
+	estate.ops <- OpReleaseAddress{
+		Env:        env.name,
+		InstanceId: instId,
+		NetworkId:  netId,
+		Address:    addr,
+	}
+	return nil
+}
+
+// Subnets implements environs.Environ.Subnets.
+func (env *environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
 

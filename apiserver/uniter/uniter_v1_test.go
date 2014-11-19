@@ -20,7 +20,8 @@ type uniterV1Suite struct {
 	uniterBaseSuite
 	*commontesting.EnvironWatcherTest
 
-	uniter *uniter.UniterAPIV1
+	uniter        *uniter.UniterAPIV1
+	meteredUniter *uniter.UniterAPIV1
 }
 
 var _ = gc.Suite(&uniterV1Suite{})
@@ -35,6 +36,16 @@ func (s *uniterV1Suite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	s.uniter = uniterAPIV1
+
+	meteredAuthorizer := apiservertesting.FakeAuthorizer{
+		Tag: s.meteredUnit.Tag(),
+	}
+	s.meteredUniter, err = uniter.NewUniterAPIV1(
+		s.State,
+		s.resources,
+		meteredAuthorizer,
+	)
+	c.Assert(err, gc.IsNil)
 
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
 		s.uniter,
@@ -271,7 +282,7 @@ func (s *uniterV1Suite) TestWatchUnitAddresses(c *gc.C) {
 }
 
 func (s *uniterV1Suite) TestAddMetrics(c *gc.C) {
-	s.testAddMetrics(c, s.uniter)
+	s.testAddMetrics(c, s.meteredUniter)
 }
 
 func (s *uniterV1Suite) TestAddMetricsIncorrectTag(c *gc.C) {

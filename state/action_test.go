@@ -46,7 +46,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	tag := action.Tag()
-	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_0")
+	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+action.UUID())
 
 	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, gc.IsNil)
@@ -58,8 +58,8 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	actionResult := r[0]
 	c.Assert(actionResult, gc.DeepEquals, result)
 
-	arTag := actionResult.Tag()
-	c.Assert(arTag.String(), gc.Equals, "actionresult-wordpress/0_ar_0")
+	tag = actionResult.Tag()
+	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+actionResult.UUID())
 }
 
 func (s *ActionSuite) TestAddAction(c *gc.C) {
@@ -144,7 +144,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
-	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
 func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
@@ -161,7 +161,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
-	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
 func (s *ActionSuite) TestFail(c *gc.C) {
@@ -301,9 +301,9 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	preventUnitDestroyRemove(c, unit2)
 
 	// queue some actions before starting the watcher
-	_, err = unit1.AddAction("fakeaction", nil)
+	fa1, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
-	_, err = unit1.AddAction("fakeaction", nil)
+	fa2, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 
 	// set up watcher on first unit
@@ -311,7 +311,7 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
-	expect := expectActionIds(unit1, "0", "1")
+	expect := expectActionIds(fa1, fa2)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 
@@ -324,65 +324,22 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
-	_, err = unit2.AddAction("fakeaction", nil)
+	fa3, err := unit2.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
-	expect2 := expectActionIds(unit2, "0")
+	expect2 := expectActionIds(fa3)
 	wc2.AssertChange(expect2...)
 	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
-	_, err = unit1.AddAction("fakeaction", nil)
+	fa4, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
-	_, err = unit1.AddAction("fakeaction", nil)
+	fa5, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 
-	expect = expectActionIds(unit1, "2", "3")
+	expect = expectActionIds(fa4, fa5)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
-}
-
-func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
-	unit1, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
-	preventUnitDestroyRemove(c, unit1)
-
-	unit2, err := s.State.Unit(s.unit2.Name())
-	c.Assert(err, gc.IsNil)
-	preventUnitDestroyRemove(c, unit2)
-
-	action0, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
-	action1, err := unit2.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
-	action2, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
-
-	_, err = action2.Finish(state.ActionResults{Status: state.ActionFailed})
-	c.Assert(err, gc.IsNil)
-	_, err = action1.Finish(state.ActionResults{Status: state.ActionCompleted})
-	c.Assert(err, gc.IsNil)
-
-	w1 := unit1.WatchActionResults()
-	defer statetesting.AssertStop(c, w1)
-	wc1 := statetesting.NewStringsWatcherC(c, s.State, w1)
-	expect := expectActionResultIds(unit1, "1")
-	wc1.AssertChange(expect...)
-	wc1.AssertNoChange()
-
-	w2 := unit2.WatchActionResults()
-	defer statetesting.AssertStop(c, w2)
-	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
-	expect = expectActionResultIds(unit2, "0")
-	wc2.AssertChange(expect...)
-	wc2.AssertNoChange()
-
-	_, err = action0.Finish(state.ActionResults{Status: state.ActionCompleted})
-	c.Assert(err, gc.IsNil)
-
-	expect = expectActionResultIds(unit1, "0")
-	wc1.AssertChange(expect...)
-	wc1.AssertNoChange()
 }
 
 func (s *ActionSuite) TestMergeIds(c *gc.C) {
@@ -514,18 +471,18 @@ func (s *ActionSuite) TestWatchActions(c *gc.C) {
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	w := s.State.WatchActions()
+	w := u.WatchActions()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
 	// add 3 actions
-	_, err = u.AddAction("fakeaction1", nil)
+	fa1, err := u.AddAction("fakeaction1", nil)
 	c.Assert(err, gc.IsNil)
 	fa2, err := u.AddAction("fakeaction2", nil)
 	c.Assert(err, gc.IsNil)
-	_, err = u.AddAction("fakeaction3", nil)
+	fa3, err := u.AddAction("fakeaction3", nil)
 	c.Assert(err, gc.IsNil)
 
 	// fail the middle one
@@ -535,25 +492,15 @@ func (s *ActionSuite) TestWatchActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// expect the first and last one in the watcher
-	expect := expectActionIds(u, "0", "2")
+	expect := expectActionIds(fa1, fa3)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 }
 
-func expectActionIds(u *state.Unit, suffixes ...string) []string {
-	ids := make([]string, len(suffixes))
-	prefix := state.EnsureActionMarker(u.Name())
-	for i, suffix := range suffixes {
-		ids[i] = prefix + suffix
-	}
-	return ids
-}
-
-func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
-	ids := make([]string, len(suffixes))
-	prefix := state.EnsureActionResultMarker(u.Name())
-	for i, suffix := range suffixes {
-		ids[i] = prefix + suffix
+func expectActionIds(actions ...*state.Action) []string {
+	ids := make([]string, len(actions))
+	for i, action := range actions {
+		ids[i] = action.NotificationId()
 	}
 	return ids
 }

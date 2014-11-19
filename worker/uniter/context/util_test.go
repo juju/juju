@@ -81,10 +81,11 @@ type HookContextSuite struct {
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
 
-	st          *api.State
-	uniter      *uniter.State
-	apiUnit     *uniter.Unit
-	apiRelunits map[int]*uniter.RelationUnit
+	st             *api.State
+	uniter         *uniter.State
+	apiUnit        *uniter.Unit
+	meteredApiUnit *uniter.Unit
+	apiRelunits    map[int]*uniter.RelationUnit
 }
 
 func (s *HookContextSuite) SetUpTest(c *gc.C) {
@@ -94,6 +95,13 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.service = s.AddTestingService(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
+	meteredCharm := s.AddTestingCharm(c, "metered")
+	meteredService := s.AddTestingService(c, "m", meteredCharm)
+	meteredUnit, err := meteredService.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = meteredUnit.SetCharmURL(meteredCharm.URL())
+	c.Assert(err, gc.IsNil)
+
 	password, err := utils.RandomPassword()
 	err = s.unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
@@ -102,6 +110,13 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
+	c.Assert(err, gc.IsNil)
+
+	err = meteredUnit.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
+	meteredUniter, err := meteredState.Uniter()
+	s.meteredApiUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 
 	// Note: The unit must always have a charm URL set, because this
@@ -185,7 +200,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
+	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)

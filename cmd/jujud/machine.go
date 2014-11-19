@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -97,6 +98,7 @@ var (
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
+	newDiskManager           = diskmanager.NewWorker
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -494,6 +496,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+	a.startWorkerAfterUpgrade(runner, "diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+	})
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
@@ -552,11 +561,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			})
 
 			logger.Infof("starting metric workers")
-			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
-				return metricworker.NewCleanup(getMetricAPI(st)), nil
-			})
-			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
-				return metricworker.NewSender(getMetricAPI(st)), nil
+			a.startWorkerAfterUpgrade(runner, "metricmanagerworker", func() (worker.Worker, error) {
+				return metricworker.NewMetricsManager(getMetricAPI(st))
 			})
 		case juju.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -609,7 +615,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	machine, err := pr.Machine(tag)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == juju.Dead {
+	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
 		return worker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -1058,7 +1064,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status juju.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {

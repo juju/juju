@@ -75,7 +75,7 @@ func (api *AgentAPIV0) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 		err = common.NotSupportedError(tag, "life cycles")
 		return
 	}
-	result.Life = juju.Life(entity.Life().String())
+	result.Life = params.Life(entity.Life().String())
 	if machine, ok := entity.(*state.Machine); ok {
 		result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
 		result.ContainerType = machine.ContainerType()

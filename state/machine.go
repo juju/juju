@@ -644,6 +644,7 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
+		removeBlockDevicesOp(m.st, m.Id()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
@@ -1350,7 +1351,13 @@ func (m *Machine) markInvalidContainers() error {
 	return nil
 }
 
+// SetMachineBlockDevices sets the block devices visible on the machine.
 func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
-	// TODO(axw) implement me
-	return errors.New("SetMachineBlockDevices is not implemented")
+	return setMachineBlockDevices(m.st, m.Id(), devices)
+}
+
+// BlockDevices gets the aggregated list of block devices attached to the
+// machine.
+func (m *Machine) BlockDevices() ([]storage.BlockDevice, error) {
+	return getBlockDevices(m.st, m.Id())
 }

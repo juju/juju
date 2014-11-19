@@ -4,19 +4,13 @@
 package diskmanager
 
 import (
-	"bufio"
-	"bytes"
-	"os/exec"
-	"regexp"
-	"strconv"
-	"strings"
+	"reflect"
+
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -38,100 +32,38 @@ type BlockDeviceSetter interface {
 	SetMachineBlockDevices([]storage.BlockDevice) error
 }
 
+// ListBlockDevicesFunc is the type of a function that is supplied to
+// NewWorker for listing block devices available on the local host.
+type ListBlockDevicesFunc func() ([]storage.BlockDevice, error)
+
+// DefaultListBlockDevices is the default function for listing block
+// devices for the operating system of the local host.
+var DefaultListBlockDevices ListBlockDevicesFunc
+
 // NewWorker returns a worker that lists block devices
 // attached to the machine, and records them in state.
-func NewWorker(b BlockDeviceSetter) (worker.Worker, error) {
-	switch version.Current.OS {
-	default:
-		logger.Infof(
-			"block device support has not been implemented for %s",
-			version.Current.OS,
-		)
-		// Eventually we should support listing disks attached to
-		// a Windows machine. For now, return a no-op worker.
-		return worker.NewNoOpWorker(), nil
-	case version.Ubuntu:
-		return worker.NewPeriodicWorker(func(stop <-chan struct{}) error {
-			blockDevices, err := listBlockDevices()
-			if err != nil {
-				return err
-			}
-			return b.SetMachineBlockDevices(blockDevices)
-		}, listBlockDevicesPeriod), nil
+func NewWorker(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
+	var old []storage.BlockDevice
+	f := func(stop <-chan struct{}) error {
+		return doWork(l, b, &old)
 	}
+	return worker.NewPeriodicWorker(f, listBlockDevicesPeriod)
 }
 
-var pairsRE = regexp.MustCompile(`([A-Z]+)=(?:"(.*?)")`)
-
-func listBlockDevices() ([]storage.BlockDevice, error) {
-	columns := []string{
-		"KNAME", // kernel name
-		"SIZE",  // size
-		"LABEL", // filesystem label
-		"UUID",  // filesystem UUID
-	}
-
-	logger.Debugf("executing lsblk")
-	output, err := exec.Command(
-		"lsblk",
-		"-b", // output size in bytes
-		"-P", // output fields as key=value pairs
-		"-o", strings.Join(columns, ","),
-	).Output()
+func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.BlockDevice) error {
+	blockDevices, err := listf()
 	if err != nil {
-		return nil, errors.Annotate(
-			err, "cannot list block devices: lsblk failed",
-		)
+		return err
 	}
-
-	blockDeviceMap := make(map[string]storage.BlockDevice)
-	s := bufio.NewScanner(bytes.NewReader(output))
-	for s.Scan() {
-		pairs := pairsRE.FindAllStringSubmatch(s.Text(), -1)
-		var dev storage.BlockDevice
-		for _, pair := range pairs {
-			switch pair[1] {
-			case "KNAME":
-				dev.DeviceName = pair[2]
-			case "SIZE":
-				size, err := strconv.ParseUint(pair[2], 10, 64)
-				if err != nil {
-					logger.Errorf(
-						"invalid size %q from lsblk: %v", pair[2], err,
-					)
-				} else {
-					dev.Size = size / bytesInMiB
-				}
-			case "LABEL":
-				dev.Label = pair[2]
-			case "UUID":
-				dev.UUID = pair[2]
-			default:
-				logger.Debugf("unexpected field from lsblk: %q", pair[1])
-			}
-		}
-
-		// Check if the block device is in use. We need to know this so we can
-		// issue an error if the user attempts to allocate an in-use disk to a
-		// unit.
-		dev.InUse, err = blockDeviceInUse(dev)
-		if err != nil {
-			logger.Errorf(
-				"error checking if %q is in use: %v", dev.DeviceName, err,
-			)
-			// We cannot detect, so err on the side of caution and default to
-			// "in use" so the device cannot be used.
-			dev.InUse = true
-		}
-		blockDeviceMap[dev.DeviceName] = dev
+	storage.SortBlockDevices(blockDevices)
+	if reflect.DeepEqual(blockDevices, *old) {
+		logger.Debugf("no changes to block devices detected")
+		return nil
 	}
-	if err := s.Err(); err != nil {
-		return nil, errors.Annotate(err, "cannot parse lsblk output")
+	logger.Debugf("block devices changed: %v", blockDevices)
+	if err := b.SetMachineBlockDevices(blockDevices); err != nil {
+		return err
 	}
-
-	blockDevices := make([]storage.BlockDevice, 0, len(blockDeviceMap))
-	for _, dev := range blockDeviceMap {
-		blockDevices = append(blockDevices, dev)
-	}
-	return blockDevices, nil
+	*old = blockDevices
+	return nil
 }

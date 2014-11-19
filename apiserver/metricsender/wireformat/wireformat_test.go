@@ -21,7 +21,9 @@ type WireFormatSuite struct {
 var _ = gc.Suite(&WireFormatSuite{})
 
 func (s *WireFormatSuite) TestToWire(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	now := time.Now().Round(time.Second)
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	result := wireformat.ToWire(metric)

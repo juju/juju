@@ -268,6 +268,36 @@ func stringp(val string) *string {
 	return &val
 }
 
+func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	node, err := env.selectNode(snArgs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(node, gc.NotNil)
+}
+
+func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
+	env := suite.makeEnviron()
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	_, err := env.selectNode(snArgs)
+	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
+}
+
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
@@ -520,6 +550,45 @@ func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	env := suite.makeEnviron()
 	err := env.StopInstances("test1")
 	c.Assert(err, gc.IsNil)
+}
+
+func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
+	attemptedNodes := [][]string{}
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		attemptedNodes = append(attemptedNodes, ids["nodes"])
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1", "test2")
+	c.Assert(err, gc.IsNil)
+
+	expectedNodes := [][]string{[]string{"test1", "test2"}, []string{"test1"}, []string{"test2"}}
+	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 405}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(maasErr.StatusCode, gc.Equals, 405)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return environs.ErrNoInstances
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
 func (suite *environSuite) TestStateServerInstances(c *gc.C) {
@@ -906,12 +975,101 @@ func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
+func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
+	test_instance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, gc.IsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	// resulting CIDR 192.168.2.1/24
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	// resulting CIDR 192.168.3.1/24
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	// resulting CIDR 192.168.1.1/24
+	suite.getNetwork("WLAN", 1, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	return test_instance
+}
+
+func (suite *environSuite) TestSubnets(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+
+	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
+	c.Assert(err, gc.IsNil)
+
+	expectedInfo := []network.BasicInfo{
+		network.BasicInfo{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		network.BasicInfo{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		network.BasicInfo{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
+	}
+	c.Assert(netInfo, jc.SameContents, expectedInfo)
+}
+
+func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	// note that the default test server always succeeds if we provide a
+	// valid instance id and net id
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.IsNil)
+}
+
+func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
+	env := suite.makeEnviron()
+	err := env.AllocateAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.ErrorMatches, "instance foo not found")
+}
+
+func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
+	test_instance := suite.getInstance("node1")
+	env := suite.makeEnviron()
+	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
+}
+
+func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
+
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.Equals, environs.ErrIPAddressUnavailable)
+}
+
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	placement := "zone=zone1"
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
+}
+
+func (suite *environSuite) TestReleaseAddress(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.IsNil)
+
+	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.IsNil)
+
+	// by releasing again we can test that the first release worked, *and*
+	// the error handling of ReleaseError
+	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*failed to release IP address 192\\.168\\.2\\.1(.|\n)*")
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
@@ -1128,4 +1286,26 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 		"zone":       []string{"zone2"},
 		"agent_name": []string{exampleAgentName},
 	}})
+}
+
+func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{
+			ZoneName: "zone1",
+		}, {
+			ZoneName: "zone2",
+		}},
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	s.testMAASObject.TestServer.AddZone("zone1", "description")
+	s.testMAASObject.TestServer.AddZone("zone2", "description")
+	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
+	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+
+	env := s.bootstrap(c)
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
+		// one acquire for the bootstrap, one for StartInstance.
+		"acquire", "acquire",
+	})
 }

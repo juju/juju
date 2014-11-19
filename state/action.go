@@ -4,10 +4,10 @@
 package state
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -31,10 +31,6 @@ type ActionReceiver interface {
 	// to the queued actions for this ActionReceiver.
 	WatchActions() StringsWatcher
 
-	// WatchActionResults returns a StringsWatcher that will notify on
-	// changes to the action results for this ActionReceiver.
-	WatchActionResults() StringsWatcher
-
 	// Actions returns the list of Actions queued for this ActionReceiver.
 	Actions() ([]*Action, error)
 
@@ -55,9 +51,28 @@ var (
 
 const actionMarker string = "_a_"
 
+type actionNotificationDoc struct {
+	// DocId is the composite _id that can be matched by an
+	// idPrefixWatcher that is configured to watch for the
+	// ActionReceiver Name() which makes up the first part of this
+	// composite _id.
+	DocId string `bson:"_id"`
+
+	// EnvUUID is the environment identifier.
+	EnvUUID string `bson:"env-uuid"`
+
+	// Receiver is the Name of the Unit or any other ActionReceiver for
+	// which this notification is queued.
+	Receiver string `bson:"receiver"`
+
+	// ActionID is the unique identifier for the Action this notification
+	// represents.
+	ActionID string `bson:"uuid"`
+}
+
 type actionDoc struct {
 	// DocId is the key for this document. The structure of the key is
-	// a composite of ActionReceiver.ActionKey() and a unique sequence,
+	// a composite of ActionReceiver.ActionKey() and a UUID
 	// to facilitate indexing and prefix filtering.
 	DocId string `bson:"_id"`
 
@@ -68,9 +83,9 @@ type actionDoc struct {
 	// which this Action is queued.
 	Receiver string `bson:"receiver"`
 
-	// Sequence is the unique identifier for this instance of this Action,
+	// UUID is the unique identifier for this instance of this Action,
 	// and is encoded in the DocId too.
-	Sequence int `bson:"sequence"`
+	UUID string `bson:"uuid"`
 
 	// Name identifies the action that should be run; it should
 	// match an action defined by the unit's charm.
@@ -96,15 +111,20 @@ func (a *Action) Id() string {
 	return a.st.localID(a.doc.DocId)
 }
 
+// NotificationId returns the Id used in the notification watcher.
+func (a *Action) NotificationId() string {
+	return ensureActionMarker(a.Receiver()) + a.Id()
+}
+
 // Receiver returns the Name of the ActionReceiver for which this action
 // is enqueued.  Usually this is a Unit Name().
 func (a *Action) Receiver() string {
 	return a.doc.Receiver
 }
 
-// Sequence returns the unique suffix of the _id of this Action.
-func (a *Action) Sequence() int {
-	return a.doc.Sequence
+// UUID returns the unique id of this Action.
+func (a *Action) UUID() string {
+	return a.doc.UUID
 }
 
 // Name returns the name of the action, as defined in the charm.
@@ -125,6 +145,13 @@ func (a *Action) Enqueued() time.Time {
 	return a.doc.Enqueued
 }
 
+// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
+// that the Action can produce a valid Tag.
+func (a *Action) ValidateTag() bool {
+	_, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
+	return ok
+}
+
 // Tag implements the Entity interface and returns a names.Tag that
 // is a names.ActionTag.
 func (a *Action) Tag() names.Tag {
@@ -134,7 +161,7 @@ func (a *Action) Tag() names.Tag {
 // ActionTag returns an ActionTag constructed from this action's
 // Prefix and Sequence.
 func (a *Action) ActionTag() names.ActionTag {
-	return names.JoinActionTag(a.Receiver(), a.Sequence())
+	return names.JoinActionTag(a.Receiver(), a.UUID())
 }
 
 // ActionResults is a data transfer object that holds the key Action
@@ -156,10 +183,13 @@ func (a *Action) Finish(results ActionResults) (*ActionResult, error) {
 func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (*ActionResult, error) {
 	doc := newActionResultDoc(a, finalStatus, results, message)
 	err := a.st.runTransaction([]txn.Op{
-		addActionResultOp(a.st, &doc),
-		{
+		addActionResultOp(a.st, &doc), {
 			C:      actionsC,
 			Id:     a.doc.DocId,
+			Remove: true,
+		}, {
+			C:      actionNotificationsC,
+			Id:     a.st.docID(ensureActionMarker(a.Receiver()) + a.UUID()),
 			Remove: true,
 		},
 	})
@@ -178,23 +208,28 @@ func newAction(st *State, adoc actionDoc) *Action {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, error) {
+func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(ar.Name())
-	sequence, err := st.sequence(prefix)
+	actionId, err := utils.NewUUID()
 	if err != nil {
-		return actionDoc{}, err
+		return actionDoc{}, actionNotificationDoc{}, err
 	}
 	envuuid := st.EnvironUUID()
-	actionId := st.docID(fmt.Sprintf("%s%d", prefix, sequence))
+
 	return actionDoc{
-		DocId:      actionId,
-		EnvUUID:    envuuid,
-		Receiver:   ar.Name(),
-		Sequence:   sequence,
-		Name:       actionName,
-		Parameters: parameters,
-		Enqueued:   nowToTheSecond(),
-	}, nil
+			DocId:      st.docID(actionId.String()),
+			EnvUUID:    envuuid,
+			Receiver:   ar.Name(),
+			UUID:       actionId.String(),
+			Name:       actionName,
+			Parameters: parameters,
+			Enqueued:   nowToTheSecond(),
+		}, actionNotificationDoc{
+			DocId:    st.docID(prefix + actionId.String()),
+			EnvUUID:  envuuid,
+			Receiver: ar.Name(),
+			ActionID: actionId.String(),
+		}, nil
 }
 
 var ensureActionMarker = ensureSuffixFn(actionMarker)
@@ -205,5 +240,5 @@ func actionIdFromTag(tag names.ActionTag) string {
 	if ptag == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s%d", ensureActionMarker(ptag.Id()), tag.Sequence())
+	return tag.Suffix()
 }

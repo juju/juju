@@ -6,7 +6,6 @@ package machiner
 import (
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -16,7 +15,7 @@ import (
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
 	tag  names.MachineTag
-	life juju.Life
+	life params.Life
 	st   *State
 }
 
@@ -26,7 +25,7 @@ func (m *Machine) Tag() names.Tag {
 }
 
 // Life returns the machine's lifecycle value.
-func (m *Machine) Life() juju.Life {
+func (m *Machine) Life() params.Life {
 	return m.life
 }
 
@@ -41,7 +40,7 @@ func (m *Machine) Refresh() error {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status juju.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{

@@ -259,7 +259,7 @@ type RelationUnitsSettings struct {
 // or an error.
 type RelationResult struct {
 	Error    *Error
-	Life     juju.Life
+	Life     Life
 	Id       int
 	Key      string
 	Endpoint multiwatcher.Endpoint
@@ -319,7 +319,7 @@ type BytesResult struct {
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {
-	Life  juju.Life
+	Life  Life
 	Error *Error
 }
 
@@ -431,7 +431,7 @@ type MachineNetworkInfoResults struct {
 // EntityStatus holds an entity tag, status and extra info.
 type EntityStatus struct {
 	Tag    string
-	Status juju.Status
+	Status Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -446,8 +446,8 @@ type SetStatus struct {
 type StatusResult struct {
 	Error  *Error
 	Id     string
-	Life   juju.Life
-	Status juju.Status
+	Life   Life
+	Status Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -488,7 +488,7 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          juju.Life
+	Life          Life
 	Jobs          []juju.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error

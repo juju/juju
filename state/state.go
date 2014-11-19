@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -54,19 +53,29 @@ const (
 	settingsrefsC      = "settingsrefs"
 	constraintsC       = "constraints"
 	unitsC             = "units"
-	actionsC           = "actions"
-	actionresultsC     = "actionresults"
-	usersC             = "users"
-	envUsersC          = "envusers"
-	presenceC          = "presence"
-	cleanupsC          = "cleanups"
-	annotationsC       = "annotations"
-	statusesC          = "statuses"
-	stateServersC      = "stateServers"
-	openedPortsC       = "openedPorts"
-	metricsC           = "metrics"
-	upgradeInfoC       = "upgradeInfo"
-	rebootC            = "reboot"
+
+	// actionsC and related collections store state of Actions that
+	// have been enqueued.
+	actionsC = "actions"
+	// actionNotificationsC are only used for notification of newly
+	// enqueued Actions.
+	actionNotificationsC = "actionnotifications"
+	// actionResultsC is deprecated and will soon be folded into
+	// actionsC.
+	actionresultsC = "actionresults"
+
+	usersC        = "users"
+	envUsersC     = "envusers"
+	presenceC     = "presence"
+	cleanupsC     = "cleanups"
+	annotationsC  = "annotations"
+	statusesC     = "statuses"
+	stateServersC = "stateServers"
+	openedPortsC  = "openedPorts"
+	metricsC      = "metrics"
+	upgradeInfoC  = "upgradeInfo"
+	rebootC       = "reboot"
+	blockDevicesC = "blockdevices"
 
 	// sequenceC is used to generate unique identifiers.
 	sequenceC = "sequence"
@@ -106,7 +115,7 @@ type State struct {
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
-	allManager *multiwatcher.StoreManager
+	allManager *storeManager
 	environTag names.EnvironTag
 }
 
@@ -222,13 +231,13 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
-func (st *State) Watch() *multiwatcher.Watcher {
+func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
-		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+		st.allManager = newStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
-	return multiwatcher.NewWatcher(st.allManager)
+	return NewMultiwatcher(st.allManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -1682,6 +1691,7 @@ func (st *State) Action(id string) (*Action, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get action %q", id)
 	}
+
 	return newAction(st, doc), nil
 }
 

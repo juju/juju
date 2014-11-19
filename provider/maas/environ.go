@@ -52,10 +52,29 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-var ReleaseNodes = releaseNodes
+var (
+	ReleaseNodes     = releaseNodes
+	ReserveIPAddress = reserveIPAddress
+	ReleaseIPAddress = releaseIPAddress
+)
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
+	return err
+}
+
+func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+	params := url.Values{}
+	params.Add("network", cidr)
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("reserve", params)
+	return err
+}
+
+func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
+	params := url.Values{}
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("release", params)
 	return err
 }
 
@@ -778,28 +797,18 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
-	var err error
-	var node gomaasapi.MAASObject
-	for i, zoneName := range availabilityZones {
-		node, err = environ.acquireNode(
-			nodeName,
-			zoneName,
-			args.Constraints,
-			includeNetworks,
-			excludeNetworks,
-		)
-		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
-			if i+1 < len(availabilityZones) {
-				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
-				continue
-			}
-		}
-		if err != nil {
-			return nil, fmt.Errorf("cannot run instances: %v", err)
-		}
+	snArgs := selectNodeArgs{
+		AvailabilityZones: availabilityZones,
+		NodeName:          nodeName,
+		IncludeNetworks:   includeNetworks,
+		ExcludeNetworks:   excludeNetworks,
+	}
+	node, err := environ.selectNode(snArgs)
+	if err != nil {
+		return nil, errors.Errorf("cannot run instances: %v", err)
 	}
 
-	inst := &maasInstance{maasObject: &node, environ: environ}
+	inst := &maasInstance{maasObject: node, environ: environ}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -871,6 +880,43 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}, nil
 }
 
+type selectNodeArgs struct {
+	AvailabilityZones []string
+	NodeName          string
+	Constraints       constraints.Value
+	IncludeNetworks   []string
+	ExcludeNetworks   []string
+}
+
+func (environ *maasEnviron) selectNode(args selectNodeArgs) (*gomaasapi.MAASObject, error) {
+	var err error
+	var node gomaasapi.MAASObject
+
+	for i, zoneName := range args.AvailabilityZones {
+		node, err = environ.acquireNode(
+			args.NodeName,
+			zoneName,
+			args.Constraints,
+			args.IncludeNetworks,
+			args.ExcludeNetworks,
+		)
+
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
+			if i+1 < len(args.AvailabilityZones) {
+				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
+				continue
+			}
+		}
+		if err != nil {
+			return nil, errors.Errorf("cannot run instances: %v", err)
+		}
+		// Since a return at the end of the function is required
+		// just break here.
+		break
+	}
+	return &node, nil
+}
+
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
 func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series string) (*cloudinit.Config, error) {
@@ -915,6 +961,53 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 	return cloudcfg, nil
 }
 
+func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
+	err := ReleaseNodes(nodes, ids)
+	if err == nil {
+		return nil
+	}
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Annotate(err, "cannot release nodes")
+	}
+
+	// StatusCode 409 means a node couldn't be released due to
+	// a state conflict. Likely it's already released or disk
+	// erasing. We're assuming an error of 409 *only* means it's
+	// safe to assume the instance is already released.
+	// MaaS also releases (or attempts) all nodes, and raises
+	// a single error on failure. So even with an error 409, all
+	// nodes have been released.
+	if maasErr.StatusCode == 409 {
+		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
+		return nil
+	}
+
+	// a status code of 400, 403 or 404 means one of the nodes
+	// couldn't be found and none have been released. We have
+	// to release all the ones we can individually.
+	if maasErr.StatusCode != 400 && maasErr.StatusCode != 403 && maasErr.StatusCode != 404 {
+		return errors.Annotate(err, "cannot release nodes")
+	}
+	if !recurse {
+		// this node has already been released and we're golden
+		return nil
+	}
+
+	var lastErr error
+	for _, id := range ids["nodes"] {
+		idFilter := url.Values{}
+		idFilter.Add("nodes", id)
+		err := environ.releaseNodes(nodes, idFilter, false)
+		if err != nil {
+			lastErr = err
+			logger.Errorf("error while releasing node %v (%v)", id, err)
+		}
+	}
+	return errors.Trace(lastErr)
+
+}
+
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
@@ -922,21 +1015,13 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 		return nil
 	}
 	nodes := environ.getMAASClient().GetSubObject("nodes")
-	err := ReleaseNodes(nodes, getSystemIdValues("nodes", ids))
+	err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
 	if err != nil {
-		maasErr, ok := err.(gomaasapi.ServerError)
-		// StatusCode 409 means a node couldn't be released due to
-		// a state conflict. Likely it's already released or disk
-		// erasing. We're assuming an error of 409 *only* means it's
-		// safe to assume the instance is already released.
-		// MaaS also releases (or attempts) all nodes, and raises
-		// a single error on failure. So even with an error 409, all
-		// nodes have been released.
-		if !ok || maasErr.StatusCode != 409 {
-			return errors.Annotate(err, "cannot release nodes")
-		}
+		// error will already have been wrapped
+		return err
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
+
 }
 
 // acquireInstances calls the MAAS API to list acquired nodes.
@@ -1011,21 +1096,103 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 }
 
 // AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// MAAS provider yet.
-func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	// TODO(dimitern) 2014-05-06 bug #1316627
-	// Once MAAS API allows allocating an address,
-	// implement this using the API.
-	return errors.NotImplementedf("AllocateAddress")
+// given instance on the given network.
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	subnets, err := environ.Subnets(instId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var foundSub *network.BasicInfo
+	for i, sub := range subnets {
+		if sub.ProviderId == netId {
+			foundSub = &subnets[i]
+			break
+		}
+	}
+	if foundSub == nil {
+		return errors.Errorf("could not find network matching %v", netId)
+	}
+	cidr := foundSub.CIDR
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	err = ReserveIPAddress(ipaddresses, cidr, addr)
+	if err != nil {
+		maasErr, ok := err.(gomaasapi.ServerError)
+		if !ok {
+			return errors.Trace(err)
+		}
+		// For an "out of range" IP address, maas raises
+		// StaticIPAddressOutOfRange - an error 403
+		// If there are no more addresses we get
+		// StaticIPAddressExhaustion - an error 503
+		// For an address already in use we get
+		// StaticIPAddressUnavailable - an error 404
+		if maasErr.StatusCode == 404 {
+			return environs.ErrIPAddressUnavailable
+		} else if maasErr.StatusCode == 503 {
+			return environs.ErrIPAddressesExhausted
+		}
+		// any error other than a 404 or 503 is "unexpected" and should
+		// be returned directly.
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
-// ListNetworks returns basic information about all networks known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the MAAS provider yet.
-func (*maasEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) error {
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	// This can return a 404 error if the address has already been released
+	// or is unknown by maas. However this, like any other error, would be
+	// unexpected - so we don't treat it specially and just return it to
+	// the caller.
+	err := ReleaseIPAddress(ipaddresses, addr)
+	if err != nil {
+		return errors.Annotatef(err, "failed to release IP address %v", addr.Value)
+	}
+	return nil
+}
+
+// Subnets returns basic information about all subnets known
+// by the provider for the environment, for a specific instance.
+func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, error) {
+	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not find instance %v", instId)
+	}
+	if len(instances) == 0 {
+		return nil, errors.NotFoundf("instance %v", instId)
+	}
+	inst := instances[0]
+	networks, err := environ.getInstanceNetworks(inst)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
+	}
+	logger.Debugf("node %q has networks %v", instId, networks)
+	var networkInfo []network.BasicInfo
+	for _, netw := range networks {
+		netCIDR := &net.IPNet{
+			IP:   net.ParseIP(netw.IP),
+			Mask: net.IPMask(net.ParseIP(netw.Mask)),
+		}
+		netInfo := network.BasicInfo{
+			CIDR:       netCIDR.String(),
+			VLANTag:    netw.VLANTag,
+			ProviderId: network.Id(netw.Name),
+		}
+
+		// Verify we filled-in everything for all networks
+		// and drop incomplete records.
+		if netInfo.ProviderId == "" || netInfo.CIDR == "" {
+			logger.Warningf("ignoring network  %q: missing information (%#v)", netw.Name, netInfo)
+			continue
+		}
+
+		networkInfo = append(networkInfo, netInfo)
+	}
+	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
+	return networkInfo, nil
 }
 
 // AllInstances returns all the instance.Instance in this provider.

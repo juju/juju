@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -21,10 +20,15 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
-const BackupsMetaC = backupsMetaC
+const (
+	UnitsC       = unitsC
+	ServicesC    = servicesC
+	SettingsC    = settingsC
+	BackupsMetaC = backupsMetaC
+)
 
 var (
 	GetManagedStorage     = (*State).getManagedStorage
@@ -34,7 +38,7 @@ var (
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
-func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
+func newBackupDoc(meta *backups.Metadata) *backupMetaDoc {
 	var doc backupMetaDoc
 	doc.UpdateFromMetadata(meta)
 	return &doc
@@ -46,12 +50,14 @@ func getBackupDBWrapper(st *State) *backupDBWrapper {
 	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
 }
 
-func NewBackupID(meta *metadata.Metadata) string {
+// NewBackupID creates a new backup ID based on the metadata.
+func NewBackupID(meta *backups.Metadata) string {
 	doc := newBackupDoc(meta)
 	return newBackupID(doc)
 }
 
-func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
+// GetBackupMetadata returns the metadata retrieved from storage.
+func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc, err := getBackupMetadata(db, id)
@@ -61,24 +67,29 @@ func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
-func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
+// AddBackupMetadata adds the metadata to storage.
+func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadata(db, doc)
 }
 
-func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
+// AddBackupMetadataID adds the metadata to storage, using the given
+// backup ID.
+func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadataID(db, doc, id)
 }
 
-func SetBackupStored(st *State, id string, stored time.Time) error {
+// SetBackupStoredTime stores the time of when the identified backup archive
+// file was stored.
+func SetBackupStoredTime(st *State, id string, stored time.Time) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	return setBackupStored(db, id, stored)
+	return setBackupStoredTime(db, id, stored)
 }
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -254,6 +265,10 @@ func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
 	return st.parseTag(tag)
 }
 
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
+}
+
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
@@ -266,16 +281,6 @@ func CheckUserExists(st *State, name string) (bool, error) {
 }
 
 var StateServerAvailable = &stateServerAvailable
-
-func EnsureActionMarker(prefix string) string {
-	return ensureActionMarker(prefix)
-}
-
-var EnsureActionResultMarker = ensureSuffixFn(actionResultMarker)
-
-func GetActionResultId(actionId string) (string, bool) {
-	return convertActionIdToActionResultId(actionId)
-}
 
 func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
 	return mergeIds(st, changeset, updates)
@@ -329,13 +334,4 @@ func StrictLocalID(st *State, id string) (string, error) {
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
-}
-
-func SetServiceCharmURL(st *State, serviceName string, URL string) error {
-	ops := []txn.Op{{
-		C:      servicesC,
-		Id:     st.docID(serviceName),
-		Update: bson.D{{"$set", bson.D{{"charmurl", URL}}}},
-	}}
-	return errors.Trace(st.runTransaction(ops))
 }

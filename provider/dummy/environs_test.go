@@ -143,7 +143,33 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 }
 
-func (s *suite) TestListNetworks(c *gc.C) {
+func (s *suite) TestReleaseAddress(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, gc.IsNil)
+	}()
+
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	c.Assert(inst, gc.NotNil)
+	netId := network.Id("net1")
+
+	opc := make(chan dummy.Operation, 200)
+	dummy.Listen(opc)
+
+	address := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	err := e.ReleaseAddress(inst.Id(), netId, address)
+	c.Assert(err, gc.IsNil)
+
+	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
+
+	address = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	err = e.ReleaseAddress(inst.Id(), netId, address)
+	c.Assert(err, gc.IsNil)
+	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
+}
+
+func (s *suite) TestSubnets(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {
 		err := e.Destroy()
@@ -157,10 +183,10 @@ func (s *suite) TestListNetworks(c *gc.C) {
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
-	netInfo, err := e.ListNetworks("")
+	netInfo, err := e.Subnets("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
-	assertListNetworks(c, e, opc, expectInfo)
+	assertSubnets(c, e, opc, expectInfo)
 }
 
 func (s *suite) TestPreferIPv6On(c *gc.C) {
@@ -207,7 +233,23 @@ func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation
 	}
 }
 
-func assertListNetworks(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.BasicInfo) {
+func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {
+	select {
+	case op := <-opc:
+		addrOp, ok := op.(dummy.OpReleaseAddress)
+		if !ok {
+			c.Fatalf("unexpected op: %#v", op)
+		}
+		c.Check(addrOp.NetworkId, gc.Equals, expectNetId)
+		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
+		c.Check(addrOp.Address, gc.Equals, expectAddress)
+		return
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("time out wating for operation")
+	}
+}
+
+func assertSubnets(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.BasicInfo) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpListNetworks)

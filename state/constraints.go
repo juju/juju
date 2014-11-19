@@ -17,6 +17,7 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
+	EnvUUID      string `bson:"env-uuid"`
 	Arch         *string
 	CpuCores     *uint64
 	CpuPower     *uint64
@@ -42,8 +43,9 @@ func (doc constraintsDoc) value() constraints.Value {
 	}
 }
 
-func newConstraintsDoc(cons constraints.Value) constraintsDoc {
+func newConstraintsDoc(st *State, cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
+		EnvUUID:      st.EnvironUUID(),
 		Arch:         cons.Arch,
 		CpuCores:     cons.CpuCores,
 		CpuPower:     cons.CpuPower,
@@ -59,25 +61,25 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     id,
+		Id:     st.docID(id),
 		Assert: txn.DocMissing,
-		Insert: newConstraintsDoc(cons),
+		Insert: newConstraintsDoc(st, cons),
 	}
 }
 
 func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     id,
+		Id:     st.docID(id),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", newConstraintsDoc(cons)}},
+		Update: bson.D{{"$set", newConstraintsDoc(st, cons)}},
 	}
 }
 
 func removeConstraintsOp(st *State, id string) txn.Op {
 	return txn.Op{
 		C:      constraintsC,
-		Id:     id,
+		Id:     st.docID(id),
 		Remove: true,
 	}
 }
@@ -87,7 +89,7 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 	defer closer()
 
 	doc := constraintsDoc{}
-	if err := constraintsCollection.FindId(id).One(&doc); err == mgo.ErrNotFound {
+	if err := constraintsCollection.FindId(st.docID(id)).One(&doc); err == mgo.ErrNotFound {
 		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err

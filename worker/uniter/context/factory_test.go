@@ -349,7 +349,7 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 		"outfile": "/some/file.bz2",
 	})
 	c.Assert(err, gc.IsNil)
-	ctx, err := s.factory.NewActionContext(action.Id())
+	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Assert(err, gc.IsNil)
 	data, err := ctx.ActionData()
 	c.Assert(err, gc.IsNil)
@@ -367,7 +367,7 @@ func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	action, err := s.unit.AddAction("no-such-action", nil)
 	c.Assert(err, gc.IsNil) // this will fail when state is done right
-	ctx, err := s.factory.NewActionContext(action.Id())
+	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
@@ -379,7 +379,7 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 		"outfile": 123,
 	})
 	c.Assert(err, gc.IsNil) // this will fail when state is done right
-	ctx, err := s.factory.NewActionContext(action.Id())
+	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
@@ -391,7 +391,7 @@ func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, gc.IsNil)
-	ctx, err := s.factory.NewActionContext(action.Id())
+	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
@@ -403,7 +403,7 @@ func (s *FactorySuite) TestNewActionContextUnauthAction(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	action, err := otherUnit.AddAction("snapshot", nil)
 	c.Assert(err, gc.IsNil)
-	ctx, err := s.factory.NewActionContext(action.Id())
+	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, context.ErrActionNotAvailable)

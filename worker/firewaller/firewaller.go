@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -404,13 +403,13 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 		}
 		if unitd, known := fw.unitds[unitTag]; known {
 			knownMachineTag := fw.unitds[unitTag].machined.tag
-			if unit == nil || unit.Life() == juju.Dead || machineTag != knownMachineTag {
+			if unit == nil || unit.Life() == params.Dead || machineTag != knownMachineTag {
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
 				logger.Debugf("stopped watching unit %s", name)
 			}
 			// TODO(dfc) fw.machineds should be map[names.Tag]
-		} else if unit != nil && unit.Life() != juju.Dead && fw.machineds[machineTag] != nil {
+		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
 			err = fw.startUnit(unit, machineTag)
 			if err != nil {
 				return err
@@ -613,7 +612,7 @@ func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 	if found && err != nil {
 		return err
 	}
-	dead := !found || m.Life() == juju.Dead
+	dead := !found || m.Life() == params.Dead
 	machined, known := fw.machineds[tag]
 	if known && dead {
 		return fw.forgetMachine(machined)

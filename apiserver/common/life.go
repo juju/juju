@@ -5,7 +5,6 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
@@ -26,7 +25,7 @@ func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
 	}
 }
 
-func (lg *LifeGetter) oneLife(tag names.Tag) (juju.Life, error) {
+func (lg *LifeGetter) oneLife(tag names.Tag) (params.Life, error) {
 	entity0, err := lg.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -35,7 +34,7 @@ func (lg *LifeGetter) oneLife(tag names.Tag) (juju.Life, error) {
 	if !ok {
 		return "", NotSupportedError(tag, "life cycles")
 	}
-	return juju.Life(entity.Life().String()), nil
+	return params.Life(entity.Life().String()), nil
 }
 
 // Life returns the life status of every supplied entity, where available.

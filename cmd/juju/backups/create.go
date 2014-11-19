@@ -12,12 +12,13 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/state/backups"
 )
 
 const (
-	notset           = "juju-backup-<date>-<time>.tar.gz"
-	filenameTemplate = "juju-backup-20060102-150405.tar.gz"
-	downloadWarning  = "WARNING: downloading backup archives is recommended; " +
+	notset          = backups.FilenamePrefix + "<date>-<time>.tar.gz"
+	downloadWarning = "WARNING: downloading backup archives is recommended; " +
 		"backups stored remotely are not guaranteed to be available"
 )
 
@@ -131,7 +132,7 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 	}
 
 	// Downloading but no filename given, so generate one.
-	return timestamp.Format(filenameTemplate)
+	return timestamp.Format(backups.FilenameTemplate)
 }
 
 func (c *CreateCommand) download(ctx *cmd.Context, client APIClient, id string, filename string) error {

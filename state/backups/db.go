@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package db
+package backups
 
 import (
 	"io/ioutil"
@@ -11,14 +11,101 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/utils"
 )
+
+// db is a surrogate for the proverbial DB layer abstraction that we
+// wish we had for juju state.  To that end, the package holds the DB
+// implementation-specific details and functionality needed for backups.
+// Currently that means mongo-specific details.  However, as a stand-in
+// for a future DB layer abstraction, the db package does not expose any
+// low-level details publicly.  Thus the backups implementation remains
+// oblivious to the underlying DB implementation.
+
+var runCommand = utils.RunCommand
+
+// DBConnInfo is a simplification of authentication.MongoInfo, focused
+// on the needs of juju state backups.  To ensure that the info is valid
+// for use in backups, use the Check() method to get the contained
+// values.
+type DBConnInfo struct {
+	// Address is the DB system's host address.
+	Address string
+	// Username is used when connecting to the DB system.
+	Username string
+	// Password is used when connecting to the DB system.
+	Password string
+}
+
+// DBInfo wraps all the DB-specific information backups needs to dump
+// and restore the database.
+type DBInfo struct {
+	DBConnInfo
+	// Targets is a list of databases to dump.
+	Targets set.Strings
+}
+
+// ignoredDatabases is the list of databases that should not be
+// backed up.
+var ignoredDatabases = set.NewStrings(
+	"backups",
+	"presence",
+)
+
+type dbProvider interface {
+	// MongoConnectionInfo returns the mongo conn info to use for backups.
+	MongoConnectionInfo() *mongo.MongoInfo
+	// MongoSession return the session to use for backups.
+	MongoSession() *mgo.Session
+}
+
+// NewDBBackupInfo returns the information needed by backups to dump
+// the database.
+func NewDBBackupInfo(st dbProvider) (*DBInfo, error) {
+	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
+	targets, err := getBackupTargetDatabases(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := DBInfo{
+		DBConnInfo: *connInfo,
+		Targets:    targets,
+	}
+	return &info, nil
+}
+
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
+	info := DBConnInfo{
+		Address:  mgoInfo.Addrs[0],
+		Password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		info.Username = mgoInfo.Tag.String()
+	}
+
+	return &info
+}
+
+func getBackupTargetDatabases(st dbProvider) (set.Strings, error) {
+	dbNames, err := st.MongoSession().DatabaseNames()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get DB names")
+	}
+
+	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
+	return targets, nil
+}
 
 const dumpName = "mongodump"
 
-// Dumper is any type that dumps something to a dump dir.
-type Dumper interface {
+// DBDumper is any type that dumps something to a dump dir.
+type DBDumper interface {
 	// Dump something to dumpDir.
 	Dump(dumpDir string) error
 }
@@ -43,26 +130,21 @@ var getMongodumpPath = func() (string, error) {
 }
 
 type mongoDumper struct {
-	Info
+	*DBInfo
 	// binPath is the path to the dump executable.
 	binPath string
 }
 
-// NewDumper returns a new value with a Dump method for dumping the
+// NewDBDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDumper(info Info) (Dumper, error) {
-	err := info.Validate()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func NewDBDumper(info *DBInfo) (DBDumper, error) {
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return nil, errors.Annotate(err, "mongodump not available")
 	}
 
 	dumper := mongoDumper{
-		Info:    info,
+		DBInfo:  info,
 		binPath: mongodumpPath,
 	}
 	return &dumper, nil
@@ -134,7 +216,7 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 func listDatabases(dumpDir string) (set.Strings, error) {
 	list, err := ioutil.ReadDir(dumpDir)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return set.Strings{}, errors.Trace(err)
 	}
 
 	databases := make(set.Strings)

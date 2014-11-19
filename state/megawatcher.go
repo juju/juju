@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -26,10 +25,10 @@ type allWatcherStateBacking struct {
 
 type backingMachine machineDoc
 
-func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.MachineInfo{
 		Id:                       m.Id,
-		Life:                     juju.Life(m.Life.String()),
+		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
 		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
@@ -45,7 +44,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		if err != nil {
 			return err
 		}
-		info.Status = juju.Status(sdoc.Status)
+		info.Status = multiwatcher.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status and
@@ -71,7 +70,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 	return nil
 }
 
-func (m *backingMachine) removed(st *State, store *multiwatcher.Store, id interface{}) {
+func (m *backingMachine) removed(st *State, store *multiwatcherStore, id interface{}) {
 	// TODO(mjs) This isn't correct - the store should be using
 	// environment UUID prefixed ids but we can't fix it properly
 	// until davecheney smashes the allwatcher to apiserver/params
@@ -88,7 +87,7 @@ func (m *backingMachine) mongoId() interface{} {
 
 type backingUnit unitDoc
 
-func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.UnitInfo{
 		Name:        u.Name,
 		Service:     u.Service,
@@ -108,7 +107,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		if err != nil {
 			return err
 		}
-		info.Status = juju.Status(sdoc.Status)
+		info.Status = multiwatcher.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -139,7 +138,7 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 	return publicAddress, privateAddress, nil
 }
 
-func (u *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) {
+func (u *backingUnit) removed(st *State, store *multiwatcherStore, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "unit",
@@ -153,7 +152,7 @@ func (u *backingUnit) mongoId() interface{} {
 
 type backingService serviceDoc
 
-func (svc *backingService) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (svc *backingService) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	if svc.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
@@ -166,7 +165,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
 		OwnerTag:    svc.fixOwnerTag(env),
-		Life:        juju.Life(svc.Life.String()),
+		Life:        multiwatcher.Life(svc.Life.String()),
 		MinUnits:    svc.MinUnits,
 		Subordinate: svc.Subordinate,
 	}
@@ -206,7 +205,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 	return nil
 }
 
-func (svc *backingService) removed(st *State, store *multiwatcher.Store, id interface{}) {
+func (svc *backingService) removed(st *State, store *multiwatcherStore, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "service",
@@ -229,7 +228,7 @@ func (svc *backingService) mongoId() interface{} {
 
 type backingRelation relationDoc
 
-func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (r *backingRelation) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	eps := make([]multiwatcher.Endpoint, len(r.Endpoints))
 	for i, ep := range r.Endpoints {
 		eps[i] = multiwatcher.Endpoint{
@@ -246,7 +245,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 	return nil
 }
 
-func (r *backingRelation) removed(st *State, store *multiwatcher.Store, id interface{}) {
+func (r *backingRelation) removed(st *State, store *multiwatcherStore, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "relation",
@@ -260,7 +259,7 @@ func (r *backingRelation) mongoId() interface{} {
 
 type backingAnnotation annotatorDoc
 
-func (a *backingAnnotation) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.AnnotationInfo{
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
@@ -269,10 +268,11 @@ func (a *backingAnnotation) updated(st *State, store *multiwatcher.Store, id int
 	return nil
 }
 
-func (a *backingAnnotation) removed(st *State, store *multiwatcher.Store, id interface{}) {
-	tag, ok := tagForGlobalKey(id.(string))
+func (a *backingAnnotation) removed(st *State, store *multiwatcherStore, id interface{}) {
+	localID := st.localID(id.(string))
+	tag, ok := tagForGlobalKey(localID)
 	if !ok {
-		panic(fmt.Errorf("unknown global key %q in state", id))
+		panic(fmt.Errorf("unknown global key %q in state", localID))
 	}
 	store.Remove(multiwatcher.EntityId{
 		Kind: "annotation",
@@ -286,8 +286,8 @@ func (a *backingAnnotation) mongoId() interface{} {
 
 type backingStatus statusDoc
 
-func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	parentId, ok := backingEntityIdForGlobalKey(id.(string))
+func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	parentId, ok := backingEntityIdForGlobalKey(st.localID(id.(string)))
 	if !ok {
 		return nil
 	}
@@ -298,13 +298,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		return nil
 	case *multiwatcher.UnitInfo:
 		newInfo := *info
-		newInfo.Status = juju.Status(s.Status)
+		newInfo.Status = multiwatcher.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		newInfo.Status = juju.Status(s.Status)
+		newInfo.Status = multiwatcher.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
@@ -315,7 +315,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 	return nil
 }
 
-func (s *backingStatus) removed(st *State, store *multiwatcher.Store, id interface{}) {
+func (s *backingStatus) removed(st *State, store *multiwatcherStore, id interface{}) {
 	// If the status is removed, the parent will follow not long after,
 	// so do nothing.
 }
@@ -326,8 +326,9 @@ func (s *backingStatus) mongoId() interface{} {
 
 type backingConstraints constraintsDoc
 
-func (c *backingConstraints) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	parentId, ok := backingEntityIdForGlobalKey(id.(string))
+func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id interface{}) error {
+	localID := st.localID(id.(string))
+	parentId, ok := backingEntityIdForGlobalKey(localID)
 	if !ok {
 		return nil
 	}
@@ -344,13 +345,13 @@ func (c *backingConstraints) updated(st *State, store *multiwatcher.Store, id in
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
 	default:
-		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))
+		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", localID, info))
 	}
 	store.Update(info0)
 	return nil
 }
 
-func (c *backingConstraints) removed(st *State, store *multiwatcher.Store, id interface{}) {}
+func (c *backingConstraints) removed(st *State, store *multiwatcherStore, id interface{}) {}
 
 func (c *backingConstraints) mongoId() interface{} {
 	panic("cannot find mongo id from constraints document")
@@ -358,7 +359,7 @@ func (c *backingConstraints) mongoId() interface{} {
 
 type backingSettings map[string]interface{}
 
-func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (s *backingSettings) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	localID := st.localID(id.(string))
 	parentId, url, ok := backingEntityIdForSettingsKey(localID)
 	if !ok {
@@ -389,7 +390,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id inter
 	return nil
 }
 
-func (s *backingSettings) removed(st *State, store *multiwatcher.Store, id interface{}) {}
+func (s *backingSettings) removed(st *State, store *multiwatcherStore, id interface{}) {}
 
 func (s *backingSettings) mongoId() interface{} {
 	panic("cannot find mongo id from settings document")
@@ -438,12 +439,12 @@ func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
 type backingEntityDoc interface {
 	// updated is called when the document has changed.
 	// The mongo _id value of the document is provided in id.
-	updated(st *State, store *multiwatcher.Store, id interface{}) error
+	updated(st *State, store *multiwatcherStore, id interface{}) error
 
 	// removed is called when the document has changed.
 	// The receiving instance will not contain any data.
 	// The mongo _id value of the document is provided in id.
-	removed(st *State, store *multiwatcher.Store, id interface{})
+	removed(st *State, store *multiwatcherStore, id interface{})
 
 	// mongoId returns the mongo _id field of the document.
 	// It is currently never called for subsidiary documents.
@@ -465,7 +466,7 @@ type allWatcherStateCollection struct {
 	subsidiary bool
 }
 
-func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
+func newAllWatcherStateBacking(st *State) Backing {
 	collectionByType := make(map[reflect.Type]allWatcherStateCollection)
 	b := &allWatcherStateBacking{
 		st:               st,
@@ -530,7 +531,7 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 }
 
 // GetAll fetches all items that we want to watch from the state.
-func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
+func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 	db, closer := b.st.newDB()
 	defer closer()
 
@@ -555,7 +556,7 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher.Change) error {
+func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
 	db, closer := b.st.newDB()
 	defer closer()
 

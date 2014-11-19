@@ -1797,30 +1797,30 @@ func ensureSuffixFn(marker string) func(string) string {
 	}
 }
 
-// WatchActions starts and returns a StringsWatcher that notifies on any
-// changes to the actions collection
-func (st *State) WatchActions() StringsWatcher {
-	return newIdPrefixWatcher(st, actionsC, makeIdFilter(st, actionMarker))
+// watchEnqueuedActions starts and returns a StringsWatcher that
+// notifies on new Actions being enqueued.
+func (st *State) watchEnqueuedActions() StringsWatcher {
+	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker))
 }
 
-// WatchActionsFilteredBy starts and returns a StringsWatcher that
-// notifies on changes to the actions collection that have Id's matching
-// the specified ActionReceivers
-func (st *State) WatchActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionsC, makeIdFilter(st, actionMarker, receivers...))
+// watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
+// that notifies on new Actions being enqueued on the ActionRecevers
+// being watched.
+func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
+	return newIdPrefixWatcher(st, actionNotificationsC, makeIdFilter(st, actionMarker, receivers...))
 }
 
-// WatchActionResults returns a StringsWatcher that notifies on changes
-// to the actionresults collection
+// WatchActionResults starts and returns a StringsWatcher that
+// notifies on new ActionResults being added.
 func (st *State) WatchActionResults() StringsWatcher {
-	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionResultMarker))
+	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionMarker))
 }
 
-// WatchActionResultsFilteredBy starts and returns a StringsWatcher that
-// notifies on changes to the actionresults collection that have Id's
-// matching the specified ActionReceivers
+// WatchActionResultsFilteredBy starts and returns a StringsWatcher
+// that notifies on new ActionResults being added for the ActionRecevers
+// being watched.
 func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionResultMarker, receivers...))
+	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionMarker, receivers...))
 }
 
 // machineInterfacesWatcher notifies about changes to all network interfaces

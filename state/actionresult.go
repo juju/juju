@@ -4,8 +4,6 @@
 package state
 
 import (
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/juju/names"
@@ -77,9 +75,9 @@ func (a *ActionResult) Receiver() string {
 	return a.doc.Action.Receiver
 }
 
-// Sequence returns the unique suffix of the ActionResult _id.
-func (a *ActionResult) Sequence() int {
-	return a.doc.Action.Sequence
+// UUID returns the unique suffix of the ActionResult _id.
+func (a *ActionResult) UUID() string {
+	return a.doc.Action.UUID
 }
 
 // Name returns the name of the Action.
@@ -93,11 +91,6 @@ func (a *ActionResult) Parameters() map[string]interface{} {
 	return a.doc.Action.Parameters
 }
 
-// Action returns an Action containing the original actionDoc.
-func (a *ActionResult) Action() *Action {
-	return newAction(a.st, a.doc.Action)
-}
-
 // Status returns the final state of the action.
 func (a *ActionResult) Status() ActionStatus {
 	return a.doc.Status
@@ -108,23 +101,23 @@ func (a *ActionResult) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
 }
 
-// Tag implements the Entity interface and returns a names.Tag that
-// is a names.ActionResultTag.
-func (a *ActionResult) Tag() names.Tag {
-	return a.ActionResultTag()
+// ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
+// that the ActionResult can produce a valid Tag.
+func (a *ActionResult) ValidateTag() bool {
+	_, ok := names.ParseActionTagFromParts(a.Receiver(), a.UUID())
+	return ok
 }
 
-// ActionResultTag returns an ActionResultTag constructed from this
-// actionResult's Prefix and Sequence.
-func (a *ActionResult) ActionResultTag() names.ActionResultTag {
-	return names.NewActionResultTag(a.Id())
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionTag.
+func (a *ActionResult) Tag() names.Tag {
+	return a.ActionTag()
 }
 
 // ActionTag returns the ActionTag for the Action that this ActionResult
 // is for.
 func (a *ActionResult) ActionTag() names.ActionTag {
-	ar := a.ActionResultTag()
-	return names.JoinActionTag(ar.Prefix(), ar.Sequence())
+	return names.JoinActionTag(a.Receiver(), a.UUID())
 }
 
 // Completed returns the completion time of the Action.
@@ -144,13 +137,8 @@ func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
 // newActionResultDoc converts an Action into an actionResultDoc given
 // the finalStatus and the output of the action, and any error.
 func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]interface{}, message string) actionResultDoc {
-	actionId := a.Id()
-	id, ok := convertActionIdToActionResultId(actionId)
-	if !ok {
-		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", actionId))
-	}
 	return actionResultDoc{
-		DocId:     a.st.docID(id),
+		DocId:     a.st.docID(a.Id()),
 		EnvUUID:   a.doc.EnvUUID,
 		Action:    a.doc,
 		Status:    finalStatus,
@@ -158,16 +146,6 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 		Message:   message,
 		Completed: nowToTheSecond(),
 	}
-}
-
-// convertActionIdToActionResultId builds an actionResultId from an actionId.
-func convertActionIdToActionResultId(actionId string) (string, bool) {
-	parts := strings.Split(actionId, actionMarker)
-	if len(parts) != 2 {
-		return "", false
-	}
-	actionResultId := strings.Join(parts, actionResultMarker)
-	return actionResultId, true
 }
 
 // actionResultPrefix returns a string prefix for matching action results for
@@ -186,15 +164,11 @@ func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	}
 }
 
-// ensureActionResultMarker makes sure that the provided string has the
-// action result marker token at the end of the string.
-var ensureActionResultMarker = ensureSuffixFn(actionResultMarker)
-
 // actionResultIdFromTag converts an ActionTag to an actionResultId.
 func actionResultIdFromTag(tag names.ActionTag) string {
 	ptag := tag.PrefixTag()
 	if ptag == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s%d", ensureActionResultMarker(ptag.Id()), tag.Sequence())
+	return tag.Suffix()
 }

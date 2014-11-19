@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
@@ -46,7 +45,23 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		}
 	}
 
-	// Filter out states not related to charm deployment.
+	// Resume interrupted deployment operations.
+	if u.operationState.Kind == operation.Install {
+		logger.Infof("resuming charm install")
+		return ModeInstalling(u.operationState.CharmURL), nil
+	} else if u.operationState.Kind == operation.Upgrade {
+		logger.Infof("resuming charm upgrade")
+		return ModeUpgrading(u.operationState.CharmURL), nil
+	}
+
+	// If we got this far, we should have an installed charm,
+	// so initialize the metrics collector according to what's
+	// deployed.
+	err = u.initializeMetricsCollector()
+	if err != nil {
+		return nil, err
+	}
+
 	switch u.operationState.Kind {
 	case operation.Continue:
 		logger.Infof("continuing after %q hook", u.operationState.Hook.Kind)
@@ -83,17 +98,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		logger.Infof("awaiting error resolution for %q hook", u.operationState.Hook.Kind)
 		return ModeHookError, nil
 	}
-
-	// Resume interrupted deployment operations.
-	curl := u.operationState.CharmURL
-	if u.operationState.Kind == operation.Install {
-		logger.Infof("resuming charm install")
-		return ModeInstalling(curl), nil
-	} else if u.operationState.Kind == operation.Upgrade {
-		logger.Infof("resuming charm upgrade")
-		return ModeUpgrading(curl), nil
-	}
-	panic(fmt.Errorf("unhandled uniter operation %q", u.operationState.Kind))
+	return nil, fmt.Errorf("unhandled uniter operation %q", u.operationState.Kind)
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
@@ -126,7 +131,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.operationState.Started {
-		if err = u.unit.SetStatus(juju.StatusInstalled, "", nil); err != nil {
+		if err = u.unit.SetStatus(params.StatusInstalled, "", nil); err != nil {
 			return nil, err
 		}
 	}
@@ -164,7 +169,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(juju.StatusStopped, "", nil); err != nil {
+	if err = u.unit.SetStatus(params.StatusStopped, "", nil); err != nil {
 		return nil, err
 	}
 	w, err := u.unit.Watch()
@@ -219,7 +224,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err := u.fixDeployer(); err != nil {
 		return nil, err
 	}
-	if err = u.unit.SetStatus(juju.StatusStarted, "", nil); err != nil {
+	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
@@ -246,7 +251,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
 		lastCollectMetrics := time.Unix(u.operationState.CollectMetricsTime, 0)
-		collectMetricsSignal := collectMetricsAt(
+		collectMetricsSignal := u.collectMetricsAt(
 			time.Now(), lastCollectMetrics, metricsPollInterval,
 		)
 		hi := hook.Info{}
@@ -341,7 +346,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			data["remote-unit"] = u.operationState.Hook.RemoteUnit
 		}
 	}
-	if err = u.unit.SetStatus(juju.StatusError, msg, data); err != nil {
+	if err = u.unit.SetStatus(params.StatusError, msg, data); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
@@ -381,7 +386,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetStatus(juju.StatusError, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()
