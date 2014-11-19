@@ -324,19 +324,39 @@ class TestOpenstackAccount(TestCase):
             '1.1', 'foo', 'bar', 'baz', 'qux', region_name='quxx',
             service_type='compute', insecure=False)
 
+    @staticmethod
+    def make_security_groups(names):
+        groups = []
+        for name in names:
+            group = Mock(id='{}-id'.format(name))
+            group.name = name
+            groups.append(group)
+        return groups
+
     def test_list_instance_security_groups(self):
         account = OpenStackAccount.from_config(self.os_config)
         with patch.object(account, 'get_client') as gc_mock:
             client = gc_mock.return_value
             instance = MagicMock(security_groups=[{'name': 'foo'}])
             client.servers.list.return_value = [instance]
-            groups = [Mock(id='foo-id'), Mock(id='bar-id')]
-            groups[0].name = 'foo'
-            groups[1].name = 'bar'
+            groups = self.make_security_groups(['foo', 'bar'])
             client.security_groups.list.return_value = groups
             result = account.list_instance_security_groups()
         self.assertEqual(result, {'foo-id': 'foo'})
 
+    def test_list_instance_security_groups_instance_ids(self):
+        account = OpenStackAccount.from_config(self.os_config)
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            foo_bar = MagicMock(id='foo-bar-id', security_groups=[
+                {'name': 'foo'}, {'name': 'bar'}])
+            baz_bar = MagicMock(id='baz-bar-id', security_groups=[
+                {'name': 'baz'}, {'name': 'bar'}])
+            client.servers.list.return_value = [foo_bar, baz_bar]
+            groups = self.make_security_groups(['foo', 'bar', 'baz'])
+            client.security_groups.list.return_value = groups
+            result = account.list_instance_security_groups(['foo-bar-id'])
+        self.assertEqual(result, {'foo-id': 'foo', 'bar-id': 'bar'})
 
 class TestLibvirt(TestCase):
 

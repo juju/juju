@@ -177,6 +177,8 @@ class OpenStackAccount:
         client = self.get_client()
         group_names = set()
         for server in client.servers.list():
+            if instance_ids is not None and server.id not in instance_ids:
+                continue
             groups = (getattr(server, 'security_groups', []))
             group_names.update(group['name'] for group in groups)
         return dict((g.id, g.name) for g in client.security_groups.list()
