@@ -396,21 +396,24 @@ class EnsureAvailabilityAttempt(StageAttempt):
         return True
 
 
-class DeployManyAttempt(StageAttempt):
+class DeployManyAttempt(SteppedStageAttempt):
 
-    title = 'deploy many'
-
-    test_id = 'deploy-many'
+    @staticmethod
+    def get_test_info():
+        return {'deploy-many': {'title': 'deploy many'}}
 
     def __init__(self, host_count=10, container_count=10):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
 
-    def _operation(self, client):
+    def iter_steps(self, client):
+        results = {'test_id': 'deploy-many'}
+        yield results
         old_status = client.get_status()
         for machine in range(self.host_count):
             client.juju('add-machine', ())
+        yield results
         new_status = client.wait_for_started()
         new_machines = dict(new_status.iter_new_machines(old_status))
         if len(new_machines) != self.host_count:
@@ -421,10 +424,10 @@ class DeployManyAttempt(StageAttempt):
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
-
-    def _result(self, client):
+        yield results
         client.wait_for_started()
-        return True
+        results['result'] = True
+        yield results
 
 
 class BackupRestoreAttempt(StageAttempt):
