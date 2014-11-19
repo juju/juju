@@ -200,7 +200,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 }
 
 func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
-	return st.parseTag(tag)
+	return st.tagToCollectionAndId(tag)
 }
 
 func RunTransaction(st *State, ops []txn.Op) error {

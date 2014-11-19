@@ -637,9 +637,9 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	}
 }
 
-// parseTag, given an entity tag, returns the collection name and id
+// tagToCollectionAndId, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
+func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error) {
 	if tag == nil {
 		return "", nil, errors.Errorf("tag is nil")
 	}
