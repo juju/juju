@@ -776,6 +776,12 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
+func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	err := env.ReleaseAddress(instId, "", network.Address{Value: "8.0.0.4"})
+	c.Assert(err, jc.IsNil)
+}
+
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
