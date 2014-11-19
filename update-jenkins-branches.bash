@@ -76,7 +76,7 @@ done
 if [[ -n "$SKIPPED" ]]; then
     set +x
     echo
-    echo "These hosts were skipped because thee was an error"
+    echo "These hosts were skipped because there was an error"
     echo "$SKIPPED"
 fi
 
