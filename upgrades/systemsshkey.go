@@ -73,7 +73,7 @@ func ensureSystemSSHKeyRedux(context Context) error {
 			}
 			if stateInfo.SystemIdentity == "" {
 				logger.Errorf("but the transaction said it would be there...")
-				return errors.New("some weird state inconsistency exists")
+				return errors.New("system identity is not set")
 			}
 			if err := writeSystemIdentity(context, stateInfo.SystemIdentity); err != nil {
 				logger.Errorf("failed to write the system identity file: %v", err)
