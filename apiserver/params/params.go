@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -754,3 +755,16 @@ const (
 	// detected.
 	StatusDown = Status(multiwatcher.StatusDown)
 )
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of a datastore.
+type DatastoreResult struct {
+	Result storage.Datastore `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of multiple datastores.
+type DatastoreResults struct {
+	Results []DatastoreResult `json:"results,omitempty"`
+}
