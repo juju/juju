@@ -29,7 +29,8 @@ func (s *UnblockCommandSuite) runUnblockTestAndCompare(c *gc.C, operation string
 	c.Assert(err, gc.IsNil)
 
 	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
-	c.Assert(s.mockClient.cfg[expectedOp], gc.Equals, expectedValue)
+	expectedCfg := map[string]interface{}{expectedOp: expectedValue}
+	c.Assert(s.mockClient.cfg, gc.DeepEquals, expectedCfg)
 }
 
 func (s *UnblockCommandSuite) TestUnblockCmdNoOperation(c *gc.C) {
