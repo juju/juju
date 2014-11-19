@@ -141,9 +141,13 @@ func (p PortRange) String() string {
 
 // portsDoc represents the state of ports opened on machines for networks
 type portsDoc struct {
-	Id       string `bson:"_id"`
-	Ports    []PortRange
-	TxnRevno int64 `bson:"txn-revno"`
+	DocID       string `bson:"_id"`
+	EnvUUID     string `bson:"env-uuid"`
+	Id          string `bson:"port-id"`
+	MachineID   string `bson:"machine-id"`
+	NetworkName string `bson:"network-name"`
+	Ports       []PortRange
+	TxnRevno    int64 `bson:"txn-revno"`
 }
 
 // Ports represents the state of ports on a machine.
@@ -161,11 +165,7 @@ func (p *Ports) Id() string {
 
 // String returns p as a user-readable string.
 func (p *Ports) String() string {
-	// We do not check for errors here, as we assume
-	// the values have been validated on construction.
-	machineId, _ := p.MachineId()
-	networkName, _ := p.NetworkName()
-	return portsIdAsString(machineId, networkName)
+	return portsIdAsString(p.doc.MachineID, p.doc.NetworkName)
 }
 
 // portsIdAsString returns a human-readable description of a ports
@@ -186,22 +186,46 @@ func extractPortsIdPart(id string, part portIdPart) (string, error) {
 	if part <= fullId || part > networkNamePart {
 		return "", errors.Errorf("invalid ports document name part: %v", part)
 	}
-	if parts := portsIdRe.FindStringSubmatch(id); len(parts) == 3 {
-		return parts[part], nil
+	parts, err := extractPortsIdParts(id)
+	if err != nil {
+		return "", errors.Errorf("invalid ports document name: %v", id)
 	}
-	return "", errors.Errorf("invalid ports document name: %v", id)
+	return parts[part], nil
+}
+
+// extractPortsIdPart parses the given ports global key and extracts
+// its parts.
+func extractPortsIdParts(id string) (parts []string, err error) {
+	if parts = portsIdRe.FindStringSubmatch(id); len(parts) != 3 {
+		err = errors.Errorf("invalid ports document name: %v", id)
+	}
+	return
 }
 
 // MachineId returns the machine id associated with this ports
 // document.
 func (p *Ports) MachineId() (string, error) {
-	return extractPortsIdPart(p.doc.Id, machineIdPart)
+	var err error
+	if p.doc.MachineID == "" {
+		p.doc.MachineID, err = extractPortsIdPart(p.doc.Id, machineIdPart)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	return p.doc.MachineID, nil
 }
 
 // NetworkName returns the network name associated with this ports
 // document.
 func (p *Ports) NetworkName() (string, error) {
-	return extractPortsIdPart(p.doc.Id, networkNamePart)
+	var err error
+	if p.doc.NetworkName == "" {
+		p.doc.NetworkName, err = extractPortsIdPart(p.doc.Id, networkNamePart)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+	}
+	return p.doc.NetworkName, nil
 }
 
 // OpenPorts adds the specified port range to the list of ports
@@ -213,12 +237,6 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		return errors.Trace(err)
 	}
 	ports := Ports{st: p.st, doc: p.doc, areNew: p.areNew}
-
-	var machineId string
-	machineId, err = ports.MachineId()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -251,11 +269,11 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		if ports.areNew {
 			// Create a new document.
 			assert := txn.DocMissing
-			return addPortsDocOps(p.st, machineId, ports.Id(), assert, portRange), nil
+			return addPortsDocOps(p.st, ports, assert, portRange)
 		} else {
 			// Update an existing document.
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			return updatePortsDocOps(p.st, machineId, ports.Id(), assert, portRange), nil
+			return updatePortsDocOps(p.st, ports.doc, assert, portRange), nil
 		}
 	}
 	// Run the transaction using the state transaction runner.
@@ -278,12 +296,6 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 	}
 	var newPorts []PortRange
 	ports := Ports{st: p.st, doc: p.doc, areNew: p.areNew}
-
-	var machineId string
-	machineId, err = ports.MachineId()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -316,7 +328,7 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 			return p.removeOps(), nil
 		} else {
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			return setPortsDocOps(p.st, machineId, ports.Id(), assert, newPorts...), nil
+			return setPortsDocOps(p.st, ports.doc, assert, newPorts...), nil
 		}
 	}
 	if err = p.st.run(buildTxn); err != nil {
@@ -343,8 +355,7 @@ func (p *Ports) PortsForUnit(unit string) []PortRange {
 func (p *Ports) Refresh() error {
 	openedPorts, closer := p.st.getCollection(openedPortsC)
 	defer closer()
-
-	err := openedPorts.FindId(p.Id()).One(&p.doc)
+	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf(p.String())
 	} else if err != nil {
@@ -402,7 +413,7 @@ func (m *Machine) AllPorts() ([]*Ports, error) {
 	openedPorts, closer := m.st.getCollection(openedPortsC)
 	defer closer()
 
-	idRegex := fmt.Sprintf("m#%s#n#.*", m.Id())
+	idRegex := fmt.Sprintf("%s:m#%s#n#.*", m.st.EnvironUUID(), m.Id())
 	docs := []portsDoc{}
 	query := bson.M{"_id": bson.M{"$regex": idRegex}}
 	err := openedPorts.Find(query).All(&docs)
@@ -432,7 +443,7 @@ func (st *State) Ports(key string) (*Ports, error) {
 	portsId := portsIdAsString(machineId, networkName)
 
 	var doc portsDoc
-	err = openedPorts.FindId(key).One(&doc)
+	err = openedPorts.FindId(st.docID(key)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf(portsId)
 	}
@@ -446,30 +457,42 @@ func (st *State) Ports(key string) (*Ports, error) {
 // addPortsDocOps returns the ops for adding a number of port ranges
 // to an new ports document. portsAssert allows specifying an assert
 // statement for on the openedPorts collection op.
-func addPortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, ports ...PortRange) []txn.Op {
+func addPortsDocOps(st *State, mPorts Ports, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+	mID, err := mPorts.MachineId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	nID, err := mPorts.NetworkName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	pdoc := &portsDoc{
-		Id:    portsId,
-		Ports: ports,
+		DocID:       st.docID(mPorts.Id()),
+		EnvUUID:     st.EnvironUUID(),
+		MachineID:   mID,
+		NetworkName: nID,
+		Id:          mPorts.Id(),
+		Ports:       ports,
 	}
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     st.docID(machineId),
+		Id:     st.docID(pdoc.MachineID),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
-		Id:     portsId,
+		Id:     pdoc.DocID,
 		Assert: portsAssert,
 		Insert: pdoc,
-	}}
+	}}, nil
 }
 
 // updatePortsDocOps returns the ops for adding a port range to an
 // existing ports document. portsAssert allows specifying an assert
 // statement on the openedPorts collection op.
-func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, portRange PortRange) []txn.Op {
+func updatePortsDocOps(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     st.docID(machineId),
+		Id:     st.docID(pDoc.MachineID),
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
@@ -477,7 +500,7 @@ func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interfa
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
-		Id:     portsId,
+		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
 	}}
@@ -486,14 +509,14 @@ func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interfa
 // setPortsDocOps returns the ops for setting given port ranges to an
 // existing ports document. portsAssert allows specifying an assert
 // statement on the openedPorts collection op.
-func setPortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, ports ...PortRange) []txn.Op {
+func setPortsDocOps(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     st.docID(machineId),
+		Id:     st.docID(pDoc.MachineID),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
-		Id:     portsId,
+		Id:     pDoc.DocID,
 		Assert: portsAssert,
 		Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
 	}}
@@ -504,7 +527,7 @@ func setPortsDocOps(st *State, machineId, portsId string, portsAssert interface{
 func (p *Ports) removeOps() []txn.Op {
 	return []txn.Op{{
 		C:      openedPortsC,
-		Id:     p.Id(),
+		Id:     p.doc.DocID,
 		Remove: true,
 	}}
 }
@@ -545,7 +568,7 @@ func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 		}
 		if len(keepPorts) > 0 {
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
-			ops = append(ops, setPortsDocOps(st, machineId, ports.Id(), assert, keepPorts...)...)
+			ops = append(ops, setPortsDocOps(st, ports.doc, assert, keepPorts...)...)
 		} else {
 			// No other ports left, remove the doc.
 			ops = append(ops, ports.removeOps()...)
@@ -563,7 +586,7 @@ func getPorts(st *State, machineId, networkName string) (*Ports, error) {
 	var doc portsDoc
 	key := portsGlobalKey(machineId, networkName)
 	stringId := portsIdAsString(machineId, networkName)
-	err := openedPorts.FindId(key).One(&doc)
+	err := openedPorts.FindId(st.docID(key)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf(stringId)
 	}
@@ -580,7 +603,13 @@ func getOrCreatePorts(st *State, machineId, networkName string) (*Ports, error) 
 	ports, err := getPorts(st, machineId, networkName)
 	if errors.IsNotFound(err) {
 		key := portsGlobalKey(machineId, networkName)
-		doc := portsDoc{Id: key}
+		doc := portsDoc{
+			DocID:       st.docID(key),
+			MachineID:   machineId,
+			NetworkName: networkName,
+			EnvUUID:     st.EnvironUUID(),
+			Id:          key,
+		}
 		ports = &Ports{st, doc, true}
 	} else if err != nil {
 		return nil, errors.Trace(err)

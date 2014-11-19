@@ -1997,15 +1997,11 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 // "m#42#n#juju-public") into a colon-separated string with the
 // machine id and network name (e.g. "42:juju-public").
 func (w *openedPortsWatcher) transformId(globalKey string) (string, error) {
-	machineId, err := extractPortsIdPart(globalKey, machineIdPart)
+	parts, err := extractPortsIdParts(globalKey)
 	if err != nil {
-		return "", errors.Annotatef(err, "cannot parse ports key %q", globalKey)
+		return "", errors.Trace(err)
 	}
-	networkName, err := extractPortsIdPart(globalKey, networkNamePart)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot parse ports key %q", globalKey)
-	}
-	return fmt.Sprintf("%s:%s", machineId, networkName), nil
+	return fmt.Sprintf("%s:%s", parts[machineIdPart], parts[networkNamePart]), nil
 }
 
 func (w *openedPortsWatcher) initial() (set.Strings, error) {
@@ -2063,9 +2059,13 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	if !ok {
 		return errors.Errorf("id %v is not of type string, got %T", id, id)
 	}
+	localID, err := w.st.strictLocalID(id)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if change.Revno == -1 {
-		delete(w.known, id)
-		if changeId, err := w.transformId(id); err != nil {
+		delete(w.known, localID)
+		if changeId, err := w.transformId(localID); err != nil {
 			logger.Errorf(err.Error())
 		} else {
 			// Report the removed id.
@@ -2073,17 +2073,16 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		}
 		return nil
 	}
-
 	openedPorts, closer := w.st.getCollection(openedPortsC)
 	currentRevno, err := getTxnRevno(openedPorts, id)
 	closer()
 	if err != nil {
 		return err
 	}
-	knownRevno, isKnown := w.known[id]
-	w.known[id] = currentRevno
+	knownRevno, isKnown := w.known[localID]
+	w.known[localID] = currentRevno
 	if !isKnown || currentRevno > knownRevno {
-		if changeId, err := w.transformId(id); err != nil {
+		if changeId, err := w.transformId(localID); err != nil {
 			logger.Errorf(err.Error())
 		} else {
 			// Report the unknown-so-far id.

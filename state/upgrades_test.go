@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/juju/version"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
@@ -301,6 +303,64 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
 
 func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToOpenPorts(c *gc.C) {
+	range1 := []PortRange{{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: "wordpress/0",
+		Protocol: "TCP",
+	}, {
+		FromPort: 300,
+		ToPort:   400,
+		UnitName: "mysql/1",
+		Protocol: "UDP",
+	}}
+
+	range2 := []PortRange{{
+		FromPort: 800,
+		ToPort:   900,
+		UnitName: "ghost/1",
+		Protocol: "UDP",
+	}, {
+		FromPort: 500,
+		ToPort:   600,
+		UnitName: "mongo/0",
+		Protocol: "TCP",
+	}}
+
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToOpenPorts, openedPortsC,
+		bson.M{
+			"_id":   "m#0#n#net2",
+			"ports": range1,
+		},
+		bson.M{
+			"_id":   "m#1#n#net3",
+			"ports": range2,
+		},
+	)
+	defer closer()
+
+	var newDoc portsDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "m#0#n#net2")
+	c.Assert(newDoc.Ports, gc.DeepEquals, range1)
+	c.Assert(newDoc.MachineID, gc.Equals, "0")
+	c.Assert(newDoc.NetworkName, gc.Equals, "net2")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "m#1#n#net3")
+	c.Assert(newDoc.Ports, gc.DeepEquals, range2)
+	c.Assert(newDoc.MachineID, gc.Equals, "1")
+	c.Assert(newDoc.NetworkName, gc.Equals, "net3")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToOpenPortsIdempotent(c *gc.C) {
+	oldID := "m#0#n#net1"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToOpenPorts, openedPortsC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToAnnotations(c *gc.C) {
@@ -1285,6 +1345,10 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
+	if version.Current.Compare(version.Number{1, 22, "alpha", 1, 0}) >= 0 {
+		c.Skip("skipping pre 1.22-alpha upgrade step")
+	}
+
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1303,6 +1367,11 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
+	if version.Current.Compare(version.Number{1, 22, "alpha", 1, 0}) >= 0 {
+		c.Skip("skipping pre 1.22-alpha upgrade step")
+	}
+
+	// if version.Current.Number
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
