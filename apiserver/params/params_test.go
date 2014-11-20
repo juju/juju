@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -45,7 +44,7 @@ var marshalTestCases = []struct {
 			Life:                    multiwatcher.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXC},
-			Jobs:                    []juju.MachineJob{state.JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},

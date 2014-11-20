@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -221,7 +221,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		c.Assert(mcfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
-		c.Assert(mcfg.Jobs, gc.DeepEquals, []juju.MachineJob{juju.JobManageEnviron})
+		c.Assert(mcfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
 		return nil
 	}
 	s.PatchValue(local.ExecuteCloudConfig, mockFinish)

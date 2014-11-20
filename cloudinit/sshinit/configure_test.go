@@ -8,7 +8,6 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -16,6 +15,7 @@ import (
 	envcloudinit "github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -58,11 +58,11 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
 		c.Assert(err, gc.IsNil)
 		mcfg.InstanceId = "instance-id"
-		mcfg.Jobs = []juju.MachineJob{juju.JobManageEnviron, juju.JobHostUnits}
+		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
 		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, nil, nil, nil)
 		c.Assert(err, gc.IsNil)
-		mcfg.Jobs = []juju.MachineJob{juju.JobHostUnits}
+		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
 		Version: vers,

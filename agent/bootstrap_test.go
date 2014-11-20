@@ -10,7 +10,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -76,7 +76,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	mcfg := agent.BootstrapMachineConfig{
 		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
-		Jobs:            []juju.MachineJob{juju.JobManageEnviron},
+		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
@@ -213,7 +213,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []juju.MachineJob{juju.JobManageEnviron},
+		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -238,20 +238,20 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name juju.MachineJob
+		name multiwatcher.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: juju.JobHostUnits,
+		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: juju.JobManageEnviron,
+		name: multiwatcher.JobManageEnviron,
 		want: state.JobManageEnviron,
 	}, {
-		name: juju.JobManageNetworking,
+		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
 	}, {
-		name: juju.JobManageStateDeprecated,
+		name: multiwatcher.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",
