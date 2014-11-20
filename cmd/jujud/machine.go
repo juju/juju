@@ -240,6 +240,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
+	a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
+		inner := func(stopch <-chan struct{}) error {
+			agentConfig := a.CurrentConfig()
+			return agent.WriteSystemIdentityFile(agentConfig)
+		}
+		return worker.NewSimpleWorker(inner), nil
+	})
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
@@ -641,11 +648,6 @@ func (a *MachineAgent) updateSupportedContainers(
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
-
-	// Create system-identity file.
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return nil, err
-	}
 
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {

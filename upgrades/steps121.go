@@ -155,5 +155,10 @@ func stepsFor121() []Step {
 			targets:     []Target{DatabaseMaster},
 			run:         migrateJobManageNetworking,
 		},
+		&upgradeStep{
+			description: "make sure the system-identity is recorded in state",
+			targets:     []Target{StateServer},
+			run:         ensureSystemSSHKeyRedux,
+		},
 	}
 }
