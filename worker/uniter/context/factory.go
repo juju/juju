@@ -175,10 +175,11 @@ func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
 		return nil, errors.Trace(err)
 	}
 
-	tag, ok := names.ParseActionTagFromId(actionId)
+	ok := names.IsValidAction(actionId)
 	if !ok {
 		return nil, &badActionError{actionId, "not valid actionId"}
 	}
+	tag := names.NewActionTag(actionId)
 	action, err := f.state.Action(tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
 		return nil, ErrActionNotAvailable

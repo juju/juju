@@ -52,7 +52,9 @@ func (s *actionSuite) TestAction(c *gc.C) {
 			actionTest.action.Parameters)
 		c.Assert(err, jc.ErrorIsNil)
 
-		actionTag := names.JoinActionTag(s.uniterSuite.wordpressUnit.Name(), a.Id())
+		ok := names.IsValidAction(a.Id())
+		c.Assert(ok, gc.Equals, true)
+		actionTag := names.NewActionTag(a.Id())
 		c.Assert(a.Tag(), gc.Equals, actionTag)
 
 		retrievedAction, err := s.uniter.Action(actionTag)
@@ -64,9 +66,9 @@ func (s *actionSuite) TestAction(c *gc.C) {
 }
 
 func (s *actionSuite) TestActionNotFound(c *gc.C) {
-	_, err := s.uniter.Action(names.JoinActionTag("wordpress/0", "0"))
+	_, err := s.uniter.Action(names.NewActionTag("feedface-0123-4567-8901-2345deadbeef"))
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, `action "0" not found`)
+	c.Assert(err, gc.ErrorMatches, `action "feedface-0123-4567-8901-2345deadbeef" not found`)
 }
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {

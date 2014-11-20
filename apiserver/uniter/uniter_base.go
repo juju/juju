@@ -1448,20 +1448,26 @@ func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, e
 	}
 
 	return func(tag string) (*state.Action, error) {
-		atag, err := names.ParseActionTag(tag)
+		actionTag, err := names.ParseActionTag(tag)
 		if err != nil {
-			return nil, common.ErrBadId
+			return nil, err
 		}
-		unitTag := atag.PrefixTag()
-		if unitTag != unit {
+		action, err := u.st.ActionByTag(actionTag)
+		if err != nil {
+			return nil, err
+		}
+		receiverTag, err := names.ActionReceiverTag(action.Receiver())
+		if err != nil {
+			return nil, err
+		}
+		if unit != receiverTag {
 			return nil, common.ErrPerm
 		}
 
-		if !canAccess(unitTag) {
+		if !canAccess(receiverTag) {
 			return nil, common.ErrPerm
 		}
-
-		return u.st.ActionByTag(atag)
+		return action, nil
 	}, nil
 }
 

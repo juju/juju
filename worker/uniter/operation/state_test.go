@@ -107,7 +107,7 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
-				ActionId: "wordpress/0_a_1",
+				ActionId: "feedface-dead-4567-beef-123456789012",
 			},
 		},
 	}, {

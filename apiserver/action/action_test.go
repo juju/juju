@@ -102,6 +102,67 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 }
 
+func (s *actionSuite) TestActions(c *gc.C) {
+	// arrange
+	arg := params.Actions{
+		Actions: []params.Action{
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}},
+			{Receiver: s.mysqlUnit.Tag().String(), Name: "action-2", Parameters: map[string]interface{}{}},
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "action-3", Parameters: map[string]interface{}{"foo": 1, "bar": "please"}},
+			{Receiver: s.mysqlUnit.Tag().String(), Name: "action-4", Parameters: map[string]interface{}{"baz": true}},
+		}}
+
+	r, err := s.action.Enqueue(arg)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+
+	entities := make([]params.Entity, len(r.Results))
+	for i, result := range r.Results {
+		entities[i] = params.Entity{Tag: result.Action.Tag}
+	}
+
+	// act
+	actions, err := s.action.Actions(params.Entities{Entities: entities})
+	c.Assert(err, gc.Equals, nil)
+
+	// assert
+	c.Assert(len(actions.Results), gc.Equals, len(entities))
+	for i, got := range actions.Results {
+		c.Logf("check index %d (%s: %s)", i, entities[i].Tag, arg.Actions[i].Name)
+		c.Assert(got.Error, gc.Equals, (*params.Error)(nil))
+		c.Assert(got.Action, gc.Not(gc.Equals), (*params.Action)(nil))
+		c.Assert(got.Action.Tag, gc.Equals, entities[i].Tag)
+		c.Assert(got.Action.Name, gc.Equals, arg.Actions[i].Name)
+		c.Assert(got.Action.Receiver, gc.Equals, arg.Actions[i].Receiver)
+		c.Assert(got.Action.Parameters, gc.DeepEquals, arg.Actions[i].Parameters)
+		c.Assert(got.Status, gc.Equals, params.ActionPending)
+		c.Assert(got.Message, gc.Equals, "")
+		c.Assert(got.Output, gc.DeepEquals, map[string]interface{}{})
+	}
+}
+
+func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
+	// arrange
+	// TODO(jcw4) inject the UUID and test multiple similiar ids
+	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}}}}
+	r, err := s.action.Enqueue(arg)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+
+	// act
+	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
+	c.Assert(err, gc.Equals, nil)
+	prefix := actionTag.Id()[:7]
+	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
+	c.Assert(err, gc.Equals, nil)
+
+	// assert
+	entities, ok := tags.Matches[prefix]
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(len(entities), gc.Equals, 1)
+	c.Assert(entities[0].Tag, gc.Equals, actionTag.String())
+}
+
 func (s *actionSuite) TestEnqueue(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()

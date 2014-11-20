@@ -38,6 +38,59 @@ func NewActionAPI(st *state.State, resources *common.Resources, authorizer commo
 	}, nil
 }
 
+// Actions takes a list of ActionTags, and returns the full
+// Action for each ID.
+func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
+	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
+	for i, entity := range arg.Entities {
+		current := &response.Results[i]
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			current.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+		actionTag, ok := tag.(names.ActionTag)
+		if !ok {
+			current.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+		action, err := a.state.ActionByTag(actionTag)
+		if err != nil {
+			current.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+		receiverTag, err := names.ActionReceiverTag(action.Receiver())
+		if err != nil {
+			current.Error = common.ServerError(err)
+			continue
+		}
+		current.Action = &params.Action{
+			Tag:        actionTag.String(),
+			Receiver:   receiverTag.String(),
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+		}
+		current.Status = string(action.Status())
+		current.Output, current.Message = action.Results()
+	}
+	return response, nil
+}
+
+// FindActionTagsByPrefix takes a list of string prefixes and finds
+// corresponding ActionTags that match that prefix.
+func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
+	response := params.FindTagsResults{Matches: make(map[string][]params.Entity)}
+	for _, prefix := range arg.Prefixes {
+		found := a.state.FindActionTagsByPrefix(prefix)
+		matches := make([]params.Entity, len(found))
+		for i, tag := range found {
+			matches[i] = params.Entity{Tag: tag.String()}
+		}
+		response.Matches[prefix] = matches
+	}
+	return response, nil
+}
+
 // Enqueue takes a list of Actions and queues them up to be executed by
 // the designated ActionReceiver, returning the params.Action for each
 // queued Action, or an error if there was a problem queueing up the
@@ -105,27 +158,24 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 			current.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		receiver, err := tagToActionReceiver(a.state, actionTag.PrefixTag().String())
-		if err != nil {
-			current.Error = common.ServerError(err)
-			continue
-		}
-
 		action, err := a.state.ActionByTag(actionTag)
 		if err != nil {
 			current.Error = common.ServerError(err)
 			continue
 		}
-
-		result, err := receiver.CancelAction(action)
+		result, err := action.Finish(state.ActionResults{Status: state.ActionCancelled, Message: "action cancelled via the API"})
 		if err != nil {
 			current.Error = common.ServerError(err)
 			continue
 		}
-
+		receiverTag, err := names.ActionReceiverTag(result.Receiver())
+		if err != nil {
+			current.Error = common.ServerError(err)
+			continue
+		}
 		current.Action = &params.Action{
 			Tag:        actionTag.String(),
-			Receiver:   receiver.Tag().String(),
+			Receiver:   receiverTag.String(),
 			Name:       result.Name(),
 			Parameters: result.Parameters(),
 		}
