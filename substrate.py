@@ -1,3 +1,5 @@
+__metaclass__ = type
+
 import logging
 import os
 import subprocess
@@ -5,6 +7,7 @@ from time import sleep
 
 from boto import ec2
 from boto.exception import EC2ResponseError
+from novaclient.client import Client
 
 from jujuconfig import (
     get_euca_env,
@@ -82,8 +85,11 @@ class AWSAccount:
         for line in lines.splitlines():
             yield line.split('\t')
 
-    def list_security_groups(self):
-        """List the security groups created by juju in this account."""
+    def iter_security_groups(self):
+        """Iterate through security groups created by juju in this account.
+
+        :return: an itertator of (group-id, group-name) tuples.
+        """
         lines = self.get_euca_output(
             'describe-groups', ['--filter', 'description=juju group'])
         for field in self.iter_field_lists(lines):
@@ -91,8 +97,13 @@ class AWSAccount:
                 continue
             yield field[1], field[3]
 
-    def list_instance_security_groups(self, instance_ids=None):
-        """List the security groups used by instances in this account."""
+    def iter_instance_security_groups(self, instance_ids=None):
+        """List the security groups used by instances in this account.
+
+        :param instance_ids: If supplied, list only security groups used by
+            the specified instances.
+        :return: an itertator of (group-id, group-name) tuples.
+        """
         logging.info('Listing security groups in use.')
         connection = self.get_ec2_connection()
         reservations = connection.get_all_instances(instance_ids=instance_ids)
@@ -147,6 +158,77 @@ class AWSAccount:
                         unclean.update(g.id for g in interface.groups)
                     break
         return unclean
+
+
+class OpenStackAccount:
+    """Represent the credentials/region of an OpenStack account."""
+
+    def __init__(self, username, password, tenant_name, auth_url, region_name):
+        self._username = username
+        self._password = password
+        self._tenant_name = tenant_name
+        self._auth_url = auth_url
+        self._region_name = region_name
+        self._client = None
+
+    @classmethod
+    def from_config(cls, config):
+        """Create an OpenStackAccount from a juju environment dict."""
+        return cls(
+            config['username'], config['password'], config['tenant-name'],
+            config['auth-url'], config['region'])
+
+    def get_client(self):
+        """Return a novaclient Client for this account."""
+        return Client('1.1', self._username, self._password,
+                      self._tenant_name, self._auth_url,
+                      region_name=self._region_name, service_type='compute',
+                      insecure=False)
+
+    @property
+    def client(self):
+        """A novaclient Client for this account.  May come from cache."""
+        if self._client is None:
+            self._client = self.get_client()
+        return self._client
+
+    def iter_security_groups(self):
+        """Iterate through security groups created by juju in this account.
+
+        :return: an itertator of (group-id, group-name) tuples.
+        """
+        return ((g.id, g.name) for g in self.client.security_groups.list()
+                if g.description == 'juju group')
+
+    def iter_instance_security_groups(self, instance_ids=None):
+        """List the security groups used by instances in this account.
+
+        :param instance_ids: If supplied, list only security groups used by
+            the specified instances.
+        :return: an itertator of (group-id, group-name) tuples.
+        """
+        group_names = set()
+        for server in self.client.servers.list():
+            if instance_ids is not None and server.id not in instance_ids:
+                continue
+            # A server that errors before security groups are assigned will
+            # have no security_groups attribute.
+            groups = (getattr(server, 'security_groups', []))
+            group_names.update(group['name'] for group in groups)
+        return ((k, v) for k, v in self.iter_security_groups()
+                if v in group_names)
+
+
+def make_substrate(config):
+    """Return an Account for the config's substrate.
+
+    Returns None if the substrate is not supported.
+    """
+    substrate_factory = {
+        'ec2': AWSAccount.from_config,
+        'openstack': OpenStackAccount.from_config,
+        }
+    return substrate_factory.get(config['type'], lambda x: None)(config)
 
 
 def start_libvirt_domain(URI, domain):

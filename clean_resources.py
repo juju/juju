@@ -21,8 +21,8 @@ def main():
     logging.getLogger('boto').setLevel(logging.CRITICAL)
     env = SimpleEnvironment.from_config(args.env)
     substrate = AWSAccount.from_config(env.config)
-    all_groups = dict(substrate.list_security_groups())
-    instance_groups = dict(substrate.list_instance_security_groups())
+    all_groups = dict(substrate.iter_security_groups())
+    instance_groups = dict(substrate.iter_instance_security_groups())
     non_instance_groups = dict((k, v) for k, v in all_groups.items()
                                if k not in instance_groups)
     unclean = substrate.delete_detached_interfaces(

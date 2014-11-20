@@ -8,6 +8,7 @@ from mock import (
     ANY,
     call,
     MagicMock,
+    Mock,
     patch,
     )
 
@@ -19,6 +20,8 @@ from jujupy import SimpleEnvironment
 from substrate import (
     AWSAccount,
     get_libvirt_domstate,
+    OpenStackAccount,
+    make_substrate,
     start_libvirt_domain,
     stop_libvirt_domain,
     terminate_instances,
@@ -120,6 +123,7 @@ class TestAWSAccount(TestCase):
             'EC2_SECRET_KEY': 'hoover',
             'EC2_URL': 'https://france.ec2.amazonaws.com',
             })
+        self.assertEqual(aws.region, 'france')
 
     def test_get_environ(self):
         aws = AWSAccount.from_config(get_aws_env().config)
@@ -147,7 +151,7 @@ class TestAWSAccount(TestCase):
                                         env=aws.get_environ())
         self.assertEqual(result, 'quxx')
 
-    def test_list_security_groups(self):
+    def test_iter_security_groups(self):
         aws = AWSAccount.from_config(get_aws_env().config)
 
         def make_group(name):
@@ -161,14 +165,14 @@ class TestAWSAccount(TestCase):
         return_value += '\n'
         with patch('subprocess.check_output',
                    return_value=return_value) as co_mock:
-            groups = list(aws.list_security_groups())
+            groups = list(aws.iter_security_groups())
         co_mock.assert_called_once_with(
             ['euca-describe-groups', '--filter', 'description=juju group'],
             env=aws.get_environ())
         self.assertEqual(groups, [
             ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
 
-    def test_list_instance_security_groups(self):
+    def test_iter_instance_security_groups(self):
         aws = AWSAccount.from_config(get_aws_env().config)
         with patch.object(aws, 'get_ec2_connection') as gec_mock:
             instances = [
@@ -182,13 +186,13 @@ class TestAWSAccount(TestCase):
             ]
             gai_mock = gec_mock.return_value.get_all_instances
             gai_mock.return_value = instances
-            groups = list(aws.list_instance_security_groups())
+            groups = list(aws.iter_instance_security_groups())
         gec_mock.assert_called_once_with()
         self.assertEqual(groups, [
             ('foo', 'bar'), ('baz', 'qux'),  ('quxx-id', 'quxx')])
         gai_mock.assert_called_once_with(instance_ids=None)
 
-    def test_list_instance_security_groups_instances(self):
+    def test_iter_instance_security_groups_instances(self):
         aws = AWSAccount.from_config(get_aws_env().config)
         with patch.object(aws, 'get_ec2_connection') as gec_mock:
             instances = [
@@ -202,7 +206,7 @@ class TestAWSAccount(TestCase):
             ]
             gai_mock = gec_mock.return_value.get_all_instances
             gai_mock.return_value = instances
-            list(aws.list_instance_security_groups(['abc', 'def']))
+            list(aws.iter_instance_security_groups(['abc', 'def']))
         gai_mock.assert_called_once_with(instance_ids=['abc', 'def'])
 
     def test_destroy_security_groups(self):
@@ -296,6 +300,122 @@ class TestAWSAccount(TestCase):
             'InvalidNetworkInterfaceID')
         with self.assertRaises(EC2ResponseError):
             aws.delete_detached_interfaces(['bar-id', 'foo-id'])
+
+
+def get_os_config():
+    return {
+        'type': 'openstack', 'username': 'foo', 'password': 'bar',
+        'tenant-name': 'baz', 'auth-url': 'qux', 'region': 'quxx'}
+
+
+def make_os_security_groups(names, non_juju=()):
+    groups = []
+    for name in names:
+        group = Mock(id='{}-id'.format(name))
+        group.name = name
+        if name in non_juju:
+            group.description = 'asdf'
+        else:
+            group.description = 'juju group'
+        groups.append(group)
+    return groups
+
+
+def make_os_security_group_instance(names):
+    instance_id = '-'.join(names) + '-id'
+    return MagicMock(
+        id=instance_id, security_groups=[{'name': n} for n in names])
+
+
+class TestOpenstackAccount(TestCase):
+
+    def test_from_config(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        self.assertEqual(account._username, 'foo')
+        self.assertEqual(account._password, 'bar')
+        self.assertEqual(account._tenant_name, 'baz')
+        self.assertEqual(account._auth_url, 'qux')
+        self.assertEqual(account._region_name, 'quxx')
+
+    def test_get_client(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        with patch('substrate.Client') as ncc_mock:
+            account.get_client()
+        ncc_mock.assert_called_once_with(
+            '1.1', 'foo', 'bar', 'baz', 'qux', region_name='quxx',
+            service_type='compute', insecure=False)
+
+    def test_iter_security_groups(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            groups = make_os_security_groups(['foo', 'bar', 'baz'])
+            client.security_groups.list.return_value = groups
+            result = account.iter_security_groups()
+        self.assertEqual(list(result), [
+            ('foo-id', 'foo'), ('bar-id', 'bar'), ('baz-id', 'baz')])
+
+    def test_iter_security_groups_non_juju(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            groups = make_os_security_groups(
+                ['foo', 'bar', 'baz'], non_juju=['foo', 'baz'])
+            client.security_groups.list.return_value = groups
+            result = account.iter_security_groups()
+        self.assertEqual(list(result), [('bar-id', 'bar')])
+
+    def test_iter_instance_security_groups(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            instance = MagicMock(security_groups=[{'name': 'foo'}])
+            client.servers.list.return_value = [instance]
+            groups = make_os_security_groups(['foo', 'bar'])
+            client.security_groups.list.return_value = groups
+            result = account.iter_instance_security_groups()
+        self.assertEqual(list(result), [('foo-id', 'foo')])
+
+    def test_iter_instance_security_groups_instance_ids(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            foo_bar = make_os_security_group_instance(['foo', 'bar'])
+            baz_bar = make_os_security_group_instance(['baz', 'bar'])
+            client.servers.list.return_value = [foo_bar, baz_bar]
+            groups = make_os_security_groups(['foo', 'bar', 'baz'])
+            client.security_groups.list.return_value = groups
+            result = account.iter_instance_security_groups(['foo-bar-id'])
+        self.assertEqual(list(result), [('foo-id', 'foo'), ('bar-id', 'bar')])
+
+
+class TestMakeSubstrate(TestCase):
+
+    def test_make_substrate_aws(self):
+        aws_env = get_aws_env()
+        aws = make_substrate(aws_env.config)
+        self.assertIs(type(aws), AWSAccount)
+        self.assertEqual(aws.euca_environ, {
+            'EC2_ACCESS_KEY': 'skeleton-key',
+            'EC2_SECRET_KEY': 'secret-skeleton-key',
+            'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
+            })
+        self.assertEqual(aws.region, 'ca-west')
+
+    def test_make_substrate_openstack(self):
+        config = get_os_config()
+        account = make_substrate(config)
+        self.assertIs(type(account), OpenStackAccount)
+        self.assertEqual(account._username, 'foo')
+        self.assertEqual(account._password, 'bar')
+        self.assertEqual(account._tenant_name, 'baz')
+        self.assertEqual(account._auth_url, 'qux')
+        self.assertEqual(account._region_name, 'quxx')
+
+    def test_make_substrate_other(self):
+        config = get_os_config()
+        config['type'] = 'other'
+        self.assertIs(make_substrate(config), None)
 
 
 class TestLibvirt(TestCase):
