@@ -49,6 +49,7 @@ func (s *steps121Suite) TestStateStepsFor121(c *gc.C) {
 		"migrate individual unit ports to openedPorts collection",
 		"create entries in meter status collection for existing units",
 		"migrate machine jobs into ones with JobManageNetworking based on rules",
+		"make sure the system-identity is recorded in state",
 	}
 	assertStateSteps(c, version.MustParse("1.21.0"), expected)
 }
