@@ -301,10 +301,12 @@ class TestAWSAccount(TestCase):
         with self.assertRaises(EC2ResponseError):
             aws.delete_detached_interfaces(['bar-id', 'foo-id'])
 
+
 def get_os_config():
     return {
         'type': 'openstack', 'username': 'foo', 'password': 'bar',
         'tenant-name': 'baz', 'auth-url': 'qux', 'region': 'quxx'}
+
 
 def make_os_security_groups(names):
     groups = []
@@ -314,10 +316,12 @@ def make_os_security_groups(names):
         groups.append(group)
     return groups
 
+
 def make_os_security_group_instance(names):
     instance_id = '-'.join(names) + '-id'
     return MagicMock(
         id=instance_id, security_groups=[{'name': n} for n in names])
+
 
 class TestOpenstackAccount(TestCase):
 
