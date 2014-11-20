@@ -30,4 +30,5 @@ var (
 	MigrateCharmStorage        = migrateCharmStorage
 	MigrateCustomImageMetadata = migrateCustomImageMetadata
 	MigrateToolsStorage        = migrateToolsStorage
+	EnsureSystemSSHKeyRedux    = ensureSystemSSHKeyRedux
 )

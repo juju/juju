@@ -1913,6 +1913,19 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	return nil
 }
 
+// SetSystemIdentity sets the system identity value in the database
+// if and only iff it is empty.
+func SetSystemIdentity(st *State, identity string) error {
+	ops := []txn.Op{{
+		C:      stateServersC,
+		Id:     stateServingInfoKey,
+		Assert: bson.D{{"systemidentity", ""}},
+		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
+	}}
+
+	return errors.Trace(st.runTransaction(ops))
+}
+
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	's': names.ServiceTagKind + "-",

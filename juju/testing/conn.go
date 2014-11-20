@@ -266,6 +266,16 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.Environ = environ
+
+	// Insert expected values...
+	servingInfo := state.StateServingInfo{
+		PrivateKey:   testing.ServerKey,
+		Cert:         testing.ServerCert,
+		SharedSecret: "really, really secret",
+		APIPort:      4321,
+		StatePort:    1234,
+	}
+	s.State.SetStateServingInfo(servingInfo)
 }
 
 // AddToolsToState adds tools to tools storage.
