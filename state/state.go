@@ -1923,10 +1923,7 @@ func SetSystemIdentity(st *State, identity string) error {
 		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
 	}}
 
-	if err := st.runTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(st.runTransaction(ops))
 }
 
 var tagPrefix = map[byte]string{

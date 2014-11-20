@@ -241,7 +241,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return terminationworker.NewWorker(), nil
 	})
 	a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
-		inner := func(stopch <-chan struct{}) error {
+		inner := func(<-chan struct{}) error {
 			agentConfig := a.CurrentConfig()
 			return agent.WriteSystemIdentityFile(agentConfig)
 		}

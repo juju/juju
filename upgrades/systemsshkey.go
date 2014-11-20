@@ -90,7 +90,7 @@ func ensureSystemSSHKeyRedux(context Context) error {
 	// from the file on disk already, so we are done.
 	if publicKey == "" {
 		logger.Infof("publicKey is empty, so we have read it from disk, so should be in auth keys already")
-		return nil
+		return updateSystemIdentityInAgentConfig(context, privateKey)
 	}
 
 	if err := updateAuthorizedKeys(context, publicKey); err != nil {
