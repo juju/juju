@@ -9,13 +9,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -380,7 +380,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var jobs []juju.MachineJob
+	var jobs []multiwatcher.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}

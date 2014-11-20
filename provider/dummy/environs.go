@@ -38,7 +38,6 @@ import (
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -53,6 +52,7 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -183,7 +183,7 @@ type OpStartInstance struct {
 	Networks      []string
 	NetworkInfo   []network.Info
 	Info          *mongo.MongoInfo
-	Jobs          []juju.MachineJob
+	Jobs          []multiwatcher.MachineJob
 	APIInfo       *api.Info
 	Secret        string
 }

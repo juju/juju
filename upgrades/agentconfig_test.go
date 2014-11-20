@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -96,7 +96,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	expectedLogDir := filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
-	expectedJobs := []juju.MachineJob{juju.JobManageEnviron}
+	expectedJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	tag := s.ctx.AgentConfig().Tag()
 
 	// We need to read the actual migrated agent config.

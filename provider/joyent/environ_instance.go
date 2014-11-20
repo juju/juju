@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -158,7 +158,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		env:     env,
 	}
 
-	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

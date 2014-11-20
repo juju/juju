@@ -20,13 +20,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -86,7 +86,7 @@ type Config interface {
 	SystemIdentityPath() string
 
 	// Jobs returns a list of MachineJobs that need to run.
-	Jobs() []juju.MachineJob
+	Jobs() []multiwatcher.MachineJob
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
@@ -208,7 +208,7 @@ type ConfigSetterWriter interface {
 type MigrateParams struct {
 	DataDir      string
 	LogDir       string
-	Jobs         []juju.MachineJob
+	Jobs         []multiwatcher.MachineJob
 	DeleteValues []string
 	Values       map[string]string
 }
@@ -236,7 +236,7 @@ type configInternal struct {
 	logDir            string
 	tag               names.Tag
 	nonce             string
-	jobs              []juju.MachineJob
+	jobs              []multiwatcher.MachineJob
 	upgradedToVersion version.Number
 	caCert            string
 	stateDetails      *connectionDetails
@@ -250,7 +250,7 @@ type configInternal struct {
 type AgentConfigParams struct {
 	DataDir           string
 	LogDir            string
-	Jobs              []juju.MachineJob
+	Jobs              []multiwatcher.MachineJob
 	UpgradedToVersion version.Number
 	Tag               names.Tag
 	Password          string
@@ -421,7 +421,7 @@ func (c0 *configInternal) Clone() Config {
 	// by ConfigSetter methods.
 	c1.stateDetails = c0.stateDetails.clone()
 	c1.apiDetails = c0.apiDetails.clone()
-	c1.jobs = append([]juju.MachineJob{}, c0.jobs...)
+	c1.jobs = append([]multiwatcher.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
 	for key, val := range c0.values {
 		c1.values[key] = val
@@ -438,7 +438,7 @@ func (config *configInternal) Migrate(newParams MigrateParams) error {
 		config.logDir = newParams.LogDir
 	}
 	if len(newParams.Jobs) > 0 {
-		config.jobs = make([]juju.MachineJob, len(newParams.Jobs))
+		config.jobs = make([]multiwatcher.MachineJob, len(newParams.Jobs))
 		copy(config.jobs, newParams.Jobs)
 	}
 	for _, key := range newParams.DeleteValues {
@@ -528,7 +528,7 @@ func (c *configInternal) SystemIdentityPath() string {
 	return filepath.Join(c.dataDir, SystemIdentity)
 }
 
-func (c *configInternal) Jobs() []juju.MachineJob {
+func (c *configInternal) Jobs() []multiwatcher.MachineJob {
 	return c.jobs
 }
 

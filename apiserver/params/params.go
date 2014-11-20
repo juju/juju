@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -111,7 +110,7 @@ type AddMachineParams struct {
 	// new machine when it is created.
 	Series      string
 	Constraints constraints.Value
-	Jobs        []juju.MachineJob
+	Jobs        []multiwatcher.MachineJob
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
