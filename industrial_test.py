@@ -342,7 +342,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         status = client.get_status()
         instance_ids = [m['instance-id'] for k, m in status.iter_machines()
                         if 'instance-id' in m]
-        return dict(substrate.list_instance_security_groups(instance_ids))
+        return dict(substrate.iter_instance_security_groups(instance_ids))
 
     @classmethod
     def check_security_groups(cls, client, env_groups):
@@ -350,7 +350,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         if substrate is None:
             return
         for x in until_timeout(30):
-            remain_groups = dict(substrate.list_security_groups())
+            remain_groups = dict(substrate.iter_security_groups())
             leftovers = set(remain_groups).intersection(env_groups)
             if len(leftovers) == 0:
                 break
