@@ -16,6 +16,7 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.api.backups")
+
 type ClientConnection func() (*Client, func() error, error)
 
 // Restore is responsable for finishing a restore after a placeholder
@@ -23,7 +24,7 @@ type ClientConnection func() (*Client, func() error, error)
 // file on server and will return error on failure.
 func (c *Client) Restore(backupFileName, backupId string, newClient ClientConnection) error {
 	var (
-		err error
+		err  error
 		rErr error
 	)
 	strategy := utils.AttemptStrategy{
@@ -49,11 +50,10 @@ func (c *Client) Restore(backupFileName, backupId string, newClient ClientConnec
 			return errors.Trace(err)
 		}
 	}
-	if err != nil{
+	if err != nil {
 		return errors.Annotatef(err, "could not start restore process: %v", rErr)
 	}
 	logger.Debugf("Server in 'about to restore' mode")
-
 
 	// Upload
 	if backupFileName != "" {
@@ -115,7 +115,7 @@ func (c *Client) Restore(backupFileName, backupId string, newClient ClientConnec
 			return errors.Annotatef(err, "cannot complete restore: %v", rErr)
 		}
 	}
-	if err != nil{
+	if err != nil {
 		return errors.Annotatef(err, "could not finish restore process: %v", rErr)
 	}
 	return nil

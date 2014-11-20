@@ -160,14 +160,14 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *RestoreCommand) newClient () (*backups.Client, func() error, error){
+func (c *RestoreCommand) newClient() (*backups.Client, func() error, error) {
 	client, err := c.NewAPIClient()
 	if err != nil {
-		return nil, func() error {return nil}, errors.Trace(err)
+		return nil, func() error { return nil }, errors.Trace(err)
 	}
 	backupsClient, ok := client.(*backups.Client)
 	if !ok {
-		return nil, func() error {return nil}, errors.Errorf("invalid client for backups")
+		return nil, func() error { return nil }, errors.Errorf("invalid client for backups")
 	}
 	return backupsClient, client.Close, nil
 
@@ -180,7 +180,6 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-
 
 	return c.runRestore(ctx)
 }

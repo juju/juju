@@ -556,4 +556,3 @@ func NewStorage(st *state.State) filestorage.FileStorage {
 	docs := newMetadataStorage(dbWrap)
 	return filestorage.NewFileStorage(docs, files)
 }
-

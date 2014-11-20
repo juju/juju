@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -191,7 +191,7 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 
 // UpdateResult updates the result with the information in the
 // metadata value.
-func (meta *Metadata) UpdateResult(result *params.BackupsMetadataResult){
+func (meta *Metadata) UpdateResult(result *params.BackupsMetadataResult) {
 	result.ID = meta.ID()
 
 	result.Checksum = meta.Checksum()

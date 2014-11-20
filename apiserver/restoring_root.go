@@ -61,7 +61,7 @@ var allowedMethodsAboutToRestore = set.NewStrings(
 	"Client.PublicAddress",  // for "juju ssh"
 	"Client.WatchDebugLog",  // for "juju debug-log"
 	"Backups.Restore",       // for "juju backups restore"
-	"Backups.FinishRestore",       // for "juju backups restore"
+	"Backups.FinishRestore", // for "juju backups restore"
 )
 
 // isMethodAllowedAboutToRestore return true if this method is allowed when the server is in state.RestorePreparing mode

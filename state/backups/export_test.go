@@ -26,7 +26,7 @@ var (
 	StoreArchiveRef      = &storeArchive
 	GetMongodumpPath     = &getMongodumpPath
 	RunCommand           = &runCommand
-	ReplaceableFolders = &replaceableFolders
+	ReplaceableFolders   = &replaceableFolders
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
@@ -161,5 +161,3 @@ func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadat
 		return errors.New(failure)
 	}
 }
-
-

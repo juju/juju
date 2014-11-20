@@ -11,10 +11,7 @@
 package db
 
 import (
-
 	coreutils "github.com/juju/juju/utils"
 )
 
 var runCommand = coreutils.RunCommand
-
-
