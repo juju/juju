@@ -25,9 +25,10 @@ const (
 )
 
 type meterStatusDoc struct {
-	Id   string          `bson:"_id"`
-	Code MeterStatusCode `bson:"code"`
-	Info string          `bson:"info"`
+	DocID   string          `bson:"_id"`
+	EnvUUID string          `bson:"env-uuid"`
+	Code    MeterStatusCode `bson:"code"`
+	Info    string          `bson:"info"`
 }
 
 // SetMeterStatus sets the meter status for the unit.
@@ -67,7 +68,7 @@ func (u *Unit) SetMeterStatus(codeRaw, info string) error {
 				Assert: isAliveDoc,
 			}, {
 				C:      meterStatusC,
-				Id:     u.globalKey(),
+				Id:     u.st.docID(u.globalKey()),
 				Assert: txn.DocExists,
 				Update: bson.D{{"$set", bson.D{{"code", code}, {"info", info}}}},
 			}}, nil
@@ -78,9 +79,10 @@ func (u *Unit) SetMeterStatus(codeRaw, info string) error {
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
 func createMeterStatusOp(st *State, globalKey string, doc meterStatusDoc) txn.Op {
+	doc.EnvUUID = st.EnvironUUID()
 	return txn.Op{
 		C:      meterStatusC,
-		Id:     globalKey,
+		Id:     st.docID(globalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -91,7 +93,7 @@ func createMeterStatusOp(st *State, globalKey string, doc meterStatusDoc) txn.Op
 func removeMeterStatusOp(st *State, globalKey string) txn.Op {
 	return txn.Op{
 		C:      meterStatusC,
-		Id:     globalKey,
+		Id:     st.docID(globalKey),
 		Remove: true,
 	}
 }
@@ -109,7 +111,7 @@ func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 	meterStatuses, closer := u.st.getCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
-	err := meterStatuses.FindId(u.globalKey()).One(&status)
+	err := meterStatuses.FindId(u.st.docID(u.globalKey())).One(&status)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

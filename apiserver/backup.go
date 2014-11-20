@@ -21,7 +21,7 @@ import (
 // TODO(ericsnow) This file should be in the apiserver/backups package.
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	stor := state.NewBackupStorage(st)
+	stor := backups.NewStorage(st)
 	return backups.NewBackups(stor), stor
 }
 

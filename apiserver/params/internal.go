@@ -679,3 +679,23 @@ type MachineBlockDevices struct {
 type SetMachineBlockDevices struct {
 	MachineBlockDevices []MachineBlockDevices
 }
+
+// BlockDeviceResult holds the result of an API call to retrieve details
+// of a block device.
+type BlockDeviceResult struct {
+	Result storage.BlockDevice `json:"result"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// BlockDeviceResults holds the result of an API call to retrieve details
+// of multiple block devices.
+type BlockDeviceResults struct {
+	Results []BlockDeviceResult `json:"results,omitempty"`
+}
+
+// DatastoreFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified datastore.
+type DatastoreFilesystem struct {
+	DatastoreId storage.DatastoreId `json:"datastoreid"`
+	Filesystem  storage.Filesystem  `json:"filesystem"`
+}

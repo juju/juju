@@ -5,6 +5,7 @@ package state_test
 
 import (
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -36,6 +37,16 @@ func (s *UnitSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, "GREEN")
 	c.Assert(info, gc.Equals, "Additional information.")
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *UnitSuite) TestMeterStatusIncludesEnvUUID(c *gc.C) {
+	jujuDB := s.MgoSuite.Session.DB("juju")
+	meterStatus := jujuDB.C("meterStatus")
+	var docs []bson.M
+	err := meterStatus.Find(nil).All(&docs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["env-uuid"], gc.Equals, s.State.EnvironUUID())
 }
 
 func (s *UnitSuite) TestSetMeterStatusIncorrect(c *gc.C) {
