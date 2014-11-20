@@ -199,8 +199,8 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
-	return st.parseTag(tag)
+func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interface{}, error) {
+	return st.tagToCollectionAndId(tag)
 }
 
 func RunTransaction(st *State, ops []txn.Op) error {
