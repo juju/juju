@@ -42,7 +42,7 @@ func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C) {
 	var expectedSubCommmands = [][]string{
 		[]string{"defined", "WIP: show actions defined for a service"},
 		[]string{"do", "TODO: queue an action for execution"},
-		[]string{"fetch", "TODO: retrieve the results of an action"},
+		[]string{"fetch", "WIP: show results of an action by UUID"},
 		[]string{"help", "show help on a command or other topic"},
 		[]string{"kill", "TODO: remove an action from the queue"},
 		[]string{"log", "TODO: fetch logged action results"},
