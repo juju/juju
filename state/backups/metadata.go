@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -55,6 +57,25 @@ func NewMetadata() *Metadata {
 			Version: version.Current.Number,
 		},
 	}
+}
+
+// NewMetadataState composes a new backup metadata with its origin
+// values set.  The environment UUID comes from state.  The hostname is
+// retrieved from the OS.
+func NewMetadataState(st *state.State, machine string) (*Metadata, error) {
+	// hostname could be derived from the environment...
+	hostname, err := os.Hostname()
+	if err != nil {
+		// If os.Hostname() is not working, something is woefully wrong.
+		// Run for the hills.
+		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
+	}
+
+	meta := NewMetadata()
+	meta.Origin.Environment = st.EnvironTag().Id()
+	meta.Origin.Machine = machine
+	meta.Origin.Hostname = hostname
+	return meta, nil
 }
 
 // MarkComplete populates the remaining metadata values.  The default
@@ -131,4 +152,38 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 		return nil, errors.Trace(err)
 	}
 	return &outfile, nil
+}
+
+// NewMetadataJSONReader extracts a new metadata from the JSON file.
+func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
+	var flat flatMetadata
+	if err := json.NewDecoder(in).Decode(&flat); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	meta := NewMetadata()
+	meta.SetID(flat.ID)
+
+	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !flat.Stored.IsZero() {
+		meta.SetStored(&flat.Stored)
+	}
+
+	meta.Started = flat.Started
+	if !flat.Finished.IsZero() {
+		meta.Finished = &flat.Finished
+	}
+	meta.Notes = flat.Notes
+	meta.Origin = Origin{
+		Environment: flat.Environment,
+		Machine:     flat.Machine,
+		Hostname:    flat.Hostname,
+		Version:     flat.Version,
+	}
+
+	return meta, nil
 }

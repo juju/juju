@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/juju/version"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
@@ -332,7 +330,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToOpenPorts(c *gc.C) {
 
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToOpenPorts, openedPortsC,
 		bson.M{
-			"_id":   "m#0#n#net2",
+			"_id":   "m#2#n#juju-public",
 			"ports": range1,
 		},
 		bson.M{
@@ -344,13 +342,13 @@ func (s *upgradesSuite) TestAddEnvUUIDToOpenPorts(c *gc.C) {
 
 	var newDoc portsDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.Id, gc.Equals, "m#0#n#net2")
+	c.Assert(newDoc.PortID, gc.Equals, "m#2#n#juju-public")
 	c.Assert(newDoc.Ports, gc.DeepEquals, range1)
-	c.Assert(newDoc.MachineID, gc.Equals, "0")
-	c.Assert(newDoc.NetworkName, gc.Equals, "net2")
+	c.Assert(newDoc.MachineID, gc.Equals, "2")
+	c.Assert(newDoc.NetworkName, gc.Equals, "juju-public")
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.Id, gc.Equals, "m#1#n#net3")
+	c.Assert(newDoc.PortID, gc.Equals, "m#1#n#net3")
 	c.Assert(newDoc.Ports, gc.DeepEquals, range2)
 	c.Assert(newDoc.MachineID, gc.Equals, "1")
 	c.Assert(newDoc.NetworkName, gc.Equals, "net3")
@@ -861,6 +859,31 @@ func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
+		bson.M{
+			"_id":  "u#foo/0",
+			"code": MeterGreen,
+		},
+		bson.M{
+			"_id":  "u#bar/0",
+			"code": MeterRed,
+		},
+	)
+	defer closer()
+
+	var newDoc meterStatusDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterGreen)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterRed)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMeterStatus, meterStatusC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,
@@ -1055,6 +1078,8 @@ func openLegacyRange(c *gc.C, unit *Unit, from, to int, proto string) {
 }
 
 func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Unit) {
+	defer patchPortOptFuncs()()
+
 	// Setup the test scenario by creating 3 services with 1, 2, and 3
 	// units respectively, and 3 machines. Then assign the units like
 	// this:
@@ -1145,7 +1170,7 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	//   without opening the ports on the unit itself)
 	portRange, err := NewPortRange(units[2][1].Name(), 100, 110, "tcp")
 	c.Assert(err, gc.IsNil)
-	portsMachine2, err := GetOrCreatePorts(
+	portsMachine2, err := getOrCreateOldPorts(
 		s.state, machines[2].Id(), network.DefaultPublic,
 	)
 	c.Assert(err, gc.IsNil)
@@ -1246,8 +1271,7 @@ func (s *upgradesSuite) newRange(from, to int, proto string) network.PortRange {
 
 func (s *upgradesSuite) assertInitialMachinePorts(c *gc.C, machines []*Machine, units map[int][]*Unit) {
 	for i := range machines {
-		portsKey := PortsGlobalKey(machines[i].Id(), network.DefaultPublic)
-		ports, err := s.state.Ports(portsKey)
+		ports, err := getOldPorts(s.state, machines[i].Id(), network.DefaultPublic)
 		if i != 2 {
 			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 			c.Assert(ports, gc.IsNil)
@@ -1345,10 +1369,6 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
-	if version.Current.Compare(version.Number{1, 22, "alpha", 1, 0}) >= 0 {
-		c.Skip("skipping pre 1.22-alpha upgrade step")
-	}
-
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1367,11 +1387,6 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
-	if version.Current.Compare(version.Number{1, 22, "alpha", 1, 0}) >= 0 {
-		c.Skip("skipping pre 1.22-alpha upgrade step")
-	}
-
-	// if version.Current.Number
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,

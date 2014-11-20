@@ -30,7 +30,6 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -386,7 +385,7 @@ var installHookTests = []uniterTest{
 
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"config-changed", "start"},
 	), ut(
@@ -396,7 +395,7 @@ var installHookTests = []uniterTest{
 
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "install"`,
 			data: map[string]interface{}{
 				"hook": "install",
@@ -408,7 +407,7 @@ var installHookTests = []uniterTest{
 
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 	),
@@ -426,7 +425,7 @@ var startHookTests = []uniterTest{
 
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"config-changed"},
 		verifyRunning{},
@@ -437,7 +436,7 @@ var startHookTests = []uniterTest{
 
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
 				"hook": "start",
@@ -449,7 +448,7 @@ var startHookTests = []uniterTest{
 		fixHook{"start"},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"start", "config-changed"},
 		verifyRunning{},
@@ -467,7 +466,7 @@ var multipleErrorsTests = []uniterTest{
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "install"`,
 			data: map[string]interface{}{
 				"hook": "install",
@@ -475,7 +474,7 @@ var multipleErrorsTests = []uniterTest{
 		},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
 			data: map[string]interface{}{
 				"hook": "config-changed",
@@ -483,7 +482,7 @@ var multipleErrorsTests = []uniterTest{
 		},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
 				"hook": "start",
@@ -508,7 +507,7 @@ var configChangedHookTests = []uniterTest{
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"start", "config-changed"},
 		// If we'd accidentally retried that hook, somehow, we would get
@@ -522,7 +521,7 @@ var configChangedHookTests = []uniterTest{
 
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
 			data: map[string]interface{}{
 				"hook": "config-changed",
@@ -534,7 +533,7 @@ var configChangedHookTests = []uniterTest{
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"config-changed", "start"},
 		verifyRunning{},
@@ -549,7 +548,7 @@ var configChangedHookTests = []uniterTest{
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		assertYaml{"charm/config.out", map[string]interface{}{
@@ -596,7 +595,7 @@ var hookSynchronizationTests = []uniterTest{
 		waitHooks{},
 		verifyHookSyncLockLocked,
 		releaseHookSyncLock,
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 	),
 }
@@ -664,7 +663,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -676,7 +675,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1, forced: true},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -688,7 +687,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
 			data: map[string]interface{}{
 				"hook": "upgrade-charm",
@@ -701,7 +700,7 @@ var steadyUpgradeTests = []uniterTest{
 
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		waitHooks{"config-changed"},
@@ -712,7 +711,7 @@ var steadyUpgradeTests = []uniterTest{
 		createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
 			data: map[string]interface{}{
 				"hook": "upgrade-charm",
@@ -725,7 +724,7 @@ var steadyUpgradeTests = []uniterTest{
 
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
 			data: map[string]interface{}{
 				"hook": "upgrade-charm",
@@ -738,7 +737,7 @@ var steadyUpgradeTests = []uniterTest{
 		fixHook{"upgrade-charm"},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -791,7 +790,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{
-				status: juju.StatusStarted,
+				status: params.StatusStarted,
 			},
 			waitHooks{"install", "config-changed", "start"},
 
@@ -804,7 +803,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: juju.StatusStarted,
+				status: params.StatusStarted,
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -862,7 +861,7 @@ var errorUpgradeTests = []uniterTest{
 		createCharm{revision: 1},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
 				"hook": "start",
@@ -874,7 +873,7 @@ var errorUpgradeTests = []uniterTest{
 
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		waitHooks{"config-changed", "upgrade-charm", "config-changed"},
@@ -891,7 +890,7 @@ var errorUpgradeTests = []uniterTest{
 		// the charm has been downloaded and verified). However, it's still
 		// useful to wait until that point...
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
 				"hook": "start",
@@ -907,7 +906,7 @@ var errorUpgradeTests = []uniterTest{
 
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		waitHooks{"config-changed"},
@@ -945,7 +944,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: juju.StatusStarted,
+				status: params.StatusStarted,
 				charm:  1,
 			},
 			verifyCharm{
@@ -964,7 +963,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: juju.StatusStarted,
+				status: params.StatusStarted,
 				charm:  1,
 			},
 			verifyCharm{revision: 1},
@@ -978,7 +977,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 2},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: juju.StatusStarted,
+				status: params.StatusStarted,
 				charm:  2,
 			},
 			verifyCharm{
@@ -1004,7 +1003,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 2, forced: true},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: juju.StatusStarted,
+				status: params.StatusStarted,
 				charm:  2,
 			},
 
@@ -1034,7 +1033,7 @@ var upgradeConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		verifyCharm{revision: 1},
@@ -1049,7 +1048,7 @@ var upgradeConflictsTests = []uniterTest{
 		upgradeCharm{revision: 2, forced: true},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  2,
 		},
 		verifyCharm{revision: 2},
@@ -1235,7 +1234,7 @@ var relationsTests = []uniterTest{
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		addRelation{waitJoin: true},
@@ -1273,7 +1272,7 @@ var relationsErrorTests = []uniterTest{
 		"hook error during join of a relation",
 		startupRelationError{"db-relation-joined"},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "db-relation-joined"`,
 			data: map[string]interface{}{
 				"hook":        "db-relation-joined",
@@ -1285,7 +1284,7 @@ var relationsErrorTests = []uniterTest{
 		"hook error during change of a relation",
 		startupRelationError{"db-relation-changed"},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "db-relation-changed"`,
 			data: map[string]interface{}{
 				"hook":        "db-relation-changed",
@@ -1299,7 +1298,7 @@ var relationsErrorTests = []uniterTest{
 		waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 		removeRelationUnit{"mysql/0"},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "db-relation-departed"`,
 			data: map[string]interface{}{
 				"hook":        "db-relation-departed",
@@ -1314,7 +1313,7 @@ var relationsErrorTests = []uniterTest{
 		waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 		relationDying,
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "db-relation-broken"`,
 			data: map[string]interface{}{
 				"hook":        "db-relation-broken",
@@ -1351,7 +1350,7 @@ var collectMetricsEventTests = []uniterTest{
 		},
 		serveCharm{},
 		createUniter{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		metricsTick{},
@@ -1369,7 +1368,7 @@ var collectMetricsEventTests = []uniterTest{
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"config-changed", "start", "collect-metrics"},
 		verifyRunning{},
@@ -1388,7 +1387,7 @@ var collectMetricsEventTests = []uniterTest{
 		startUniter{},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"config-changed", "start", "collect-metrics"},
 		verifyRunning{},
@@ -1419,7 +1418,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log", nil},
@@ -1428,7 +1427,7 @@ var actionEventTests = []uniterTest{
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"action-fail causes the action to fail with a message",
 		createCharm{
@@ -1442,7 +1441,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log-fail", nil},
@@ -1454,7 +1453,7 @@ var actionEventTests = []uniterTest{
 			message: "I'm afraid I can't let you do that, Dave.",
 			status:  params.ActionFailed,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"action-fail with the wrong arguments fails but is not an error",
 		createCharm{
@@ -1468,7 +1467,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log-fail-error", nil},
@@ -1480,7 +1479,7 @@ var actionEventTests = []uniterTest{
 			message: "A real message",
 			status:  params.ActionFailed,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
@@ -1494,7 +1493,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{
@@ -1515,7 +1514,7 @@ var actionEventTests = []uniterTest{
 			},
 			status: params.ActionCompleted,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions with incorrect params passed are not an error but fail",
 		createCharm{
@@ -1529,7 +1528,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{
@@ -1542,7 +1541,7 @@ var actionEventTests = []uniterTest{
 			status:  params.ActionFailed,
 			message: `cannot run "snapshot" action: JSON validation failed: (root).outfile : must be of type string, given 2`,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not defined in actions.yaml fail without causing a uniter error",
 		createCharm{
@@ -1555,7 +1554,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
@@ -1565,7 +1564,7 @@ var actionEventTests = []uniterTest{
 			status:  params.ActionFailed,
 			message: `cannot run "snapshot" action: not defined`,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"pending actions get consumed",
 		createCharm{
@@ -1582,7 +1581,7 @@ var actionEventTests = []uniterTest{
 		addAction{"action-log", nil},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		waitActionResults{[]actionResult{{
@@ -1598,7 +1597,7 @@ var actionEventTests = []uniterTest{
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not implemented fail but are not errors",
 		createCharm{
@@ -1611,7 +1610,7 @@ var actionEventTests = []uniterTest{
 		createServiceAndUnit{},
 		startUniter{},
 		waitAddresses{},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log", nil},
@@ -1621,7 +1620,7 @@ var actionEventTests = []uniterTest{
 			status:  params.ActionFailed,
 			message: `action not implemented on unit "u/0"`,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
 		startupErrorWithCustomCharm{
@@ -1633,7 +1632,7 @@ var actionEventTests = []uniterTest{
 		},
 		addAction{"action-log", nil},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
 				"hook": "start",
@@ -1642,13 +1641,13 @@ var actionEventTests = []uniterTest{
 		verifyNoActionResults{},
 		verifyWaiting{},
 		resolveError{state.ResolvedNoHooks},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
 		}}},
-		waitUnit{status: juju.StatusStarted},
+		waitUnit{status: params.StatusStarted},
 	),
 }
 
@@ -1821,7 +1820,7 @@ var rebootTests = []uniterTest{
 		startUniter{},
 		waitAddresses{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitActionResults{[]actionResult{{
 			name: "action-reboot",
@@ -1849,7 +1848,7 @@ var rebootTests = []uniterTest{
 		waitHooks{"install"},
 		startUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"config-changed", "start"},
 	),
@@ -1870,7 +1869,7 @@ var rebootTests = []uniterTest{
 		waitHooks{},
 		startUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 	),
@@ -1888,7 +1887,7 @@ var rebootTests = []uniterTest{
 		startUniter{},
 		waitAddresses{},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   fmt.Sprintf(`hook failed: "install"`),
 		},
 	),
@@ -2199,7 +2198,7 @@ func (s startupErrorWithCustomCharm) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{
-		status: juju.StatusError,
+		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
@@ -2221,7 +2220,7 @@ func (s startupError) step(c *gc.C, ctx *context) {
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
 	step(c, ctx, waitUnit{
-		status: juju.StatusError,
+		status: params.StatusError,
 		info:   fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range []string{"install", "config-changed", "start"} {
@@ -2240,7 +2239,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: juju.StatusStarted})
+	step(c, ctx, waitUnit{status: params.StatusStarted})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
@@ -2263,7 +2262,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: juju.StatusStarted})
+	step(c, ctx, waitUnit{status: params.StatusStarted})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -2280,7 +2279,7 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 }
 
 type waitUnit struct {
-	status   juju.Status
+	status   params.Status
 	info     string
 	data     map[string]interface{}
 	charm    int
@@ -2399,7 +2398,7 @@ func (s waitActionResults) step(c *gc.C, ctx *context) {
 		case changes, ok := <-resultsWatcher.Changes():
 			c.Logf("Got changes: %#v", changes)
 			c.Assert(ok, jc.IsTrue)
-			stateActionResults, err := ctx.unit.ActionResults()
+			stateActionResults, err := ctx.unit.CompletedActions()
 			c.Assert(err, gc.IsNil)
 			if len(stateActionResults) != len(s.expectedResults) {
 				continue
@@ -2447,7 +2446,7 @@ type verifyNoActionResults struct{}
 
 func (s verifyNoActionResults) step(c *gc.C, ctx *context) {
 	time.Sleep(coretesting.ShortWait)
-	result, err := ctx.unit.ActionResults()
+	result, err := ctx.unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.HasLen, 0)
 }
@@ -2544,7 +2543,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -2553,7 +2552,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
@@ -2572,7 +2571,7 @@ type verifyWaitingUpgradeError struct {
 func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 	verifyCharmSteps := []stepper{
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  s.revision,
 		},

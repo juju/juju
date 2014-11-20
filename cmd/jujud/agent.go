@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
@@ -269,7 +268,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		}
 	}()
 	entity, err := st.Agent().Entity(a.Tag())
-	if err == nil && entity.Life() == juju.Dead {
+	if err == nil && entity.Life() == params.Dead {
 		logger.Errorf("agent terminating - entity %q is dead", a.Tag())
 		return nil, nil, worker.ErrTerminateAgent
 	}

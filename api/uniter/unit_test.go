@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -63,7 +62,7 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.apiUnit.SetStatus(juju.StatusStarted, "blah", nil)
+	err = s.apiUnit.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.wordpressUnit.Status()
@@ -135,19 +134,19 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	err := s.apiUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	err = s.apiUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Dead)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	w, err := s.apiUnit.Watch()
 	c.Assert(err, gc.IsNil)
@@ -159,7 +158,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = s.apiUnit.SetStatus(juju.StatusStarted, "not really", nil)
+	err = s.apiUnit.SetStatus(params.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -412,8 +411,8 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *unitSuite) TestWatchActions(c *gc.C) {
-	w, err := s.apiUnit.WatchActions()
+func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
+	w, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err, gc.IsNil)
 
 	defer statetesting.AssertStop(c, w)
@@ -443,19 +442,19 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *unitSuite) TestWatchActionsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(result interface{}) error {
 			return fmt.Errorf("Test error")
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "Test error")
 }
 
-func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsErrorResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 1)
@@ -470,23 +469,23 @@ func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
 }
 
-func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsNoResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(results interface{}) error {
 			return nil
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
 }
 
-func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 2)
@@ -495,7 +494,7 @@ func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 

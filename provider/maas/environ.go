@@ -52,10 +52,29 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-var ReleaseNodes = releaseNodes
+var (
+	ReleaseNodes     = releaseNodes
+	ReserveIPAddress = reserveIPAddress
+	ReleaseIPAddress = releaseIPAddress
+)
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
 	_, err := nodes.CallPost("release", ids)
+	return err
+}
+
+func reserveIPAddress(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+	params := url.Values{}
+	params.Add("network", cidr)
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("reserve", params)
+	return err
+}
+
+func releaseIPAddress(ipaddresses gomaasapi.MAASObject, addr network.Address) error {
+	params := url.Values{}
+	params.Add("ip", addr.Value)
+	_, err := ipaddresses.CallPost("release", params)
 	return err
 }
 
@@ -1077,16 +1096,65 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 }
 
 // AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// MAAS provider yet.
-func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	// TODO(dimitern) 2014-05-06 bug #1316627
-	// Once MAAS API allows allocating an address,
-	// implement this using the API.
-	return errors.NotImplementedf("AllocateAddress")
+// given instance on the given network.
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	subnets, err := environ.Subnets(instId)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var foundSub *network.BasicInfo
+	for i, sub := range subnets {
+		if sub.ProviderId == netId {
+			foundSub = &subnets[i]
+			break
+		}
+	}
+	if foundSub == nil {
+		return errors.Errorf("could not find network matching %v", netId)
+	}
+	cidr := foundSub.CIDR
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	err = ReserveIPAddress(ipaddresses, cidr, addr)
+	if err != nil {
+		maasErr, ok := err.(gomaasapi.ServerError)
+		if !ok {
+			return errors.Trace(err)
+		}
+		// For an "out of range" IP address, maas raises
+		// StaticIPAddressOutOfRange - an error 403
+		// If there are no more addresses we get
+		// StaticIPAddressExhaustion - an error 503
+		// For an address already in use we get
+		// StaticIPAddressUnavailable - an error 404
+		if maasErr.StatusCode == 404 {
+			return environs.ErrIPAddressUnavailable
+		} else if maasErr.StatusCode == 503 {
+			return environs.ErrIPAddressesExhausted
+		}
+		// any error other than a 404 or 503 is "unexpected" and should
+		// be returned directly.
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
-// Subnets returns basic information about all nesubnets known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr network.Address) error {
+	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
+	// This can return a 404 error if the address has already been released
+	// or is unknown by maas. However this, like any other error, would be
+	// unexpected - so we don't treat it specially and just return it to
+	// the caller.
+	err := ReleaseIPAddress(ipaddresses, addr)
+	if err != nil {
+		return errors.Annotatef(err, "failed to release IP address %v", addr.Value)
+	}
+	return nil
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment, for a specific instance.
 func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
@@ -1094,7 +1162,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, er
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
 	}
 	if len(instances) == 0 {
-		return nil, environs.ErrNoInstances
+		return nil, errors.NotFoundf("instance %v", instId)
 	}
 	inst := instances[0]
 	networks, err := environ.getInstanceNetworks(inst)

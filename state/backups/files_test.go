@@ -100,7 +100,7 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
 	}
-	files, err := backups.GetFilesToBackUp(s.root, paths)
+	files, err := backups.GetFilesToBackUp(s.root, &paths)
 	c.Assert(err, gc.IsNil)
 
 	expected := []string{

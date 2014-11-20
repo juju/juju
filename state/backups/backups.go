@@ -7,11 +7,23 @@ package backups
 
 import (
 	"io"
+	"os"
+	"os/user"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
+)
+
+const (
+	// FilenamePrefix is the prefix used for backup archive files.
+	FilenamePrefix = "juju-backup-"
+
+	// FilenameTemplate is used with time.Time.Format to generate a filename.
+	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
 )
 
 var logger = loggo.GetLogger("juju.state.backups")
@@ -47,7 +59,7 @@ type Backups interface {
 
 	// Create creates and stores a new juju backup archive. It updates
 	// the provided metadata.
-	Create(meta *Metadata, paths Paths, dbInfo DBInfo) error
+	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error
 
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*Metadata, io.ReadCloser, error)
@@ -73,7 +85,7 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and updates the
 // provided metadata.
-func (b *backups) Create(meta *Metadata, paths Paths, dbInfo DBInfo) error {
+func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
 	meta.Started = time.Now().UTC()
 
 	// The metadata file will not contain the ID or the "finished" data.
@@ -119,6 +131,15 @@ func (b *backups) Create(meta *Metadata, paths Paths, dbInfo DBInfo) error {
 
 // Get pulls the associated metadata and archive file from environment storage.
 func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
+	if strings.HasPrefix(id, uploadedPrefix) {
+		archiveFile, err := openUploaded(id)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		// TODO(ericsnow) Extract the metadata from the file.
+		return nil, archiveFile, nil
+	}
+
 	rawmeta, archiveFile, err := b.storage.Get(id)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -153,4 +174,52 @@ func (b *backups) List() ([]*Metadata, error) {
 // Remove deletes the backup from storage.
 func (b *backups) Remove(id string) error {
 	return errors.Trace(b.storage.Remove(id))
+}
+
+// The following code is temporary and in support of the initial
+// restore patch.  Once we have an HTTP-based upload this code will
+// be removed.
+
+const (
+	uploadedPrefix = "file://"
+	sshUsername    = "ubuntu"
+)
+
+type sendFunc func(host, filename string, archive io.Reader) error
+
+// SimpleUpload sends the backup archive to the server where it is saved
+// in the home directory of the SSH user.  The returned ID may be used
+// to locate the file on the server.
+func SimpleUpload(publicAddress string, archive io.Reader, send sendFunc) (string, error) {
+	filename := time.Now().UTC().Format(FilenameTemplate)
+	host := sshUsername + "@" + publicAddress
+	err := send(host, filename, archive)
+	return uploadedPrefix + filename, errors.Trace(err)
+}
+
+func resolveUploaded(id string) (string, error) {
+	filename := strings.TrimPrefix(id, uploadedPrefix)
+	filename = filepath.FromSlash(filename)
+	if !strings.HasPrefix(filepath.Base(filename), FilenamePrefix) {
+		return "", errors.Errorf("invalid ID for uploaded file: %q", id)
+	}
+	if filepath.IsAbs(filename) {
+		return "", errors.Errorf("expected relative path in ID, got %q", id)
+	}
+
+	sshUser, err := user.Lookup(sshUsername)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	filename = filepath.Join(sshUser.HomeDir, filename)
+	return filename, nil
+}
+
+func openUploaded(id string) (io.ReadCloser, error) {
+	filename, err := resolveUploaded(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	archive, err := os.Open(filename)
+	return archive, errors.Trace(err)
 }

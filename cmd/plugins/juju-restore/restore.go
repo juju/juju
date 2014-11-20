@@ -24,7 +24,6 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
-	jj "github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -492,7 +491,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 	for _, machineStatus := range status.Machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machineStatus.HasVote || machineStatus.WantsVote || jj.Life(machineStatus.Life) == jj.Dead {
+		if machineStatus.HasVote || machineStatus.WantsVote || machineStatus.Life == "dead" {
 			continue
 		}
 		pendingMachineCount++

@@ -259,7 +259,7 @@ type RelationUnitsSettings struct {
 // or an error.
 type RelationResult struct {
 	Error    *Error
-	Life     juju.Life
+	Life     Life
 	Id       int
 	Key      string
 	Endpoint multiwatcher.Endpoint
@@ -319,7 +319,7 @@ type BytesResult struct {
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {
-	Life  juju.Life
+	Life  Life
 	Error *Error
 }
 
@@ -431,7 +431,7 @@ type MachineNetworkInfoResults struct {
 // EntityStatus holds an entity tag, status and extra info.
 type EntityStatus struct {
 	Tag    string
-	Status juju.Status
+	Status Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -446,8 +446,8 @@ type SetStatus struct {
 type StatusResult struct {
 	Error  *Error
 	Id     string
-	Life   juju.Life
-	Status juju.Status
+	Life   Life
+	Status Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -488,7 +488,7 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          juju.Life
+	Life          Life
 	Jobs          []juju.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error
@@ -678,4 +678,24 @@ type MachineBlockDevices struct {
 // devices present on a set of machines.
 type SetMachineBlockDevices struct {
 	MachineBlockDevices []MachineBlockDevices
+}
+
+// BlockDeviceResult holds the result of an API call to retrieve details
+// of a block device.
+type BlockDeviceResult struct {
+	Result storage.BlockDevice `json:"result"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// BlockDeviceResults holds the result of an API call to retrieve details
+// of multiple block devices.
+type BlockDeviceResults struct {
+	Results []BlockDeviceResult `json:"results,omitempty"`
+}
+
+// DatastoreFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified datastore.
+type DatastoreFilesystem struct {
+	DatastoreId storage.DatastoreId `json:"datastoreid"`
+	Filesystem  storage.Filesystem  `json:"filesystem"`
 }

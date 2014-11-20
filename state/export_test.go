@@ -7,92 +7,28 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/utils/filestorage"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/state/backups"
 )
 
 const (
-	UnitsC       = unitsC
-	ServicesC    = servicesC
-	SettingsC    = settingsC
-	BackupsMetaC = backupsMetaC
+	UnitsC    = unitsC
+	ServicesC = servicesC
+	SettingsC = settingsC
 )
 
 var (
-	NewMongoConnInfo = newMongoConnInfo
-
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
-
-var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
-
-func newBackupDoc(meta *backups.Metadata) *backupMetaDoc {
-	var doc backupMetaDoc
-	doc.UpdateFromMetadata(meta)
-	return &doc
-}
-
-func getBackupDBWrapper(st *State) *backupDBWrapper {
-	envUUID := st.EnvironTag().Id()
-	db := st.db.Session.DB(backupDB)
-	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
-}
-
-// NewBackupID creates a new backup ID based on the metadata.
-func NewBackupID(meta *backups.Metadata) string {
-	doc := newBackupDoc(meta)
-	return newBackupID(doc)
-}
-
-// GetBackupMetadata returns the metadata retrieved from storage.
-func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc, err := getBackupMetadata(db, id)
-	if err != nil {
-		return nil, err
-	}
-	return doc.asMetadata(), nil
-}
-
-// AddBackupMetadata adds the metadata to storage.
-func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addBackupMetadata(db, doc)
-}
-
-// AddBackupMetadataID adds the metadata to storage, using the given
-// backup ID.
-func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addBackupMetadataID(db, doc, id)
-}
-
-// SetBackupStoredTime stores the time of when the identified backup archive
-// file was stored.
-func SetBackupStoredTime(st *State, id string, stored time.Time) error {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	return setBackupStoredTime(db, id, stored)
-}
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
@@ -294,6 +230,10 @@ func WatcherEnsureSuffixFn(marker string) func(string) string {
 
 func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	return makeIdFilter(st, marker, receivers...)
+}
+
+func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
+	return newActionStatusWatcher(st, receivers, statuses...)
 }
 
 var (

@@ -143,7 +143,7 @@ func (p PortRange) String() string {
 type portsDoc struct {
 	DocID       string `bson:"_id"`
 	EnvUUID     string `bson:"env-uuid"`
-	Id          string `bson:"port-id"`
+	PortID      string `bson:"port-id"`
 	MachineID   string `bson:"machine-id"`
 	NetworkName string `bson:"network-name"`
 	Ports       []PortRange
@@ -158,20 +158,9 @@ type Ports struct {
 	areNew bool
 }
 
-// Id returns the id of the ports document.
-func (p *Ports) Id() string {
-	return p.doc.Id
-}
-
 // String returns p as a user-readable string.
 func (p *Ports) String() string {
-	return portsIdAsString(p.doc.MachineID, p.doc.NetworkName)
-}
-
-// portsIdAsString returns a human-readable description of a ports
-// document for the given machineId and networkName.
-func portsIdAsString(machineId, networkName string) string {
-	return fmt.Sprintf("ports for machine %q, network %q", machineId, networkName)
+	return fmt.Sprintf("ports for machine %q, network %q", p.doc.MachineID, p.doc.NetworkName)
 }
 
 // portsGlobalKey returns the global database key for the opened ports
@@ -188,7 +177,7 @@ func extractPortsIdPart(id string, part portIdPart) (string, error) {
 	}
 	parts, err := extractPortsIdParts(id)
 	if err != nil {
-		return "", errors.Errorf("invalid ports document name: %v", id)
+		return "", errors.Trace(err)
 	}
 	return parts[part], nil
 }
@@ -202,30 +191,10 @@ func extractPortsIdParts(id string) (parts []string, err error) {
 	return
 }
 
-// MachineId returns the machine id associated with this ports
-// document.
-func (p *Ports) MachineId() (string, error) {
-	var err error
-	if p.doc.MachineID == "" {
-		p.doc.MachineID, err = extractPortsIdPart(p.doc.Id, machineIdPart)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	}
-	return p.doc.MachineID, nil
-}
-
 // NetworkName returns the network name associated with this ports
 // document.
-func (p *Ports) NetworkName() (string, error) {
-	var err error
-	if p.doc.NetworkName == "" {
-		p.doc.NetworkName, err = extractPortsIdPart(p.doc.Id, networkNamePart)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	}
-	return p.doc.NetworkName, nil
+func (p *Ports) NetworkName() string {
+	return p.doc.NetworkName
 }
 
 // OpenPorts adds the specified port range to the list of ports
@@ -399,8 +368,7 @@ func (p *Ports) Remove() error {
 // OpenedPorts returns this machine ports document for the given
 // network.
 func (m *Machine) OpenedPorts(networkName string) (*Ports, error) {
-	key := portsGlobalKey(m.Id(), networkName)
-	ports, err := m.st.Ports(key)
+	ports, err := getPorts(m.st, m.Id(), networkName)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -413,9 +381,8 @@ func (m *Machine) AllPorts() ([]*Ports, error) {
 	openedPorts, closer := m.st.getCollection(openedPortsC)
 	defer closer()
 
-	idRegex := fmt.Sprintf("%s:m#%s#n#.*", m.st.EnvironUUID(), m.Id())
 	docs := []portsDoc{}
-	query := bson.M{"_id": bson.M{"$regex": idRegex}}
+	query := bson.M{"env-uuid": m.st.EnvironUUID(), "machine-id": m.Id()}
 	err := openedPorts.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -427,51 +394,27 @@ func (m *Machine) AllPorts() ([]*Ports, error) {
 	return results, nil
 }
 
-// Ports returns the opened ports document with the given global key.
-func (st *State) Ports(key string) (*Ports, error) {
-	openedPorts, closer := st.getCollection(openedPortsC)
-	defer closer()
-
-	machineId, err := extractPortsIdPart(key, machineIdPart)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	networkName, err := extractPortsIdPart(key, networkNamePart)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	portsId := portsIdAsString(machineId, networkName)
-
-	var doc portsDoc
-	err = openedPorts.FindId(st.docID(key)).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf(portsId)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get %s", portsId)
-	}
-
-	return &Ports{st, doc, false}, nil
-}
-
 // addPortsDocOps returns the ops for adding a number of port ranges
-// to an new ports document. portsAssert allows specifying an assert
+// to a new ports document. portsAssert allows specifying an assert
 // statement for on the openedPorts collection op.
-func addPortsDocOps(st *State, mPorts Ports, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
-	mID, err := mPorts.MachineId()
+var addPortsDocOps = addPortsDocOpsFunc
+
+func addPortsDocOpsFunc(st *State, mPorts Ports, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+	mID, err := extractPortsIdPart(mPorts.doc.PortID, machineIdPart)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	nID, err := mPorts.NetworkName()
+	nID, err := extractPortsIdPart(mPorts.doc.PortID, networkNamePart)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	localID := portsGlobalKey(mID, nID)
 	pdoc := &portsDoc{
-		DocID:       st.docID(mPorts.Id()),
+		DocID:       st.docID(localID),
 		EnvUUID:     st.EnvironUUID(),
 		MachineID:   mID,
 		NetworkName: nID,
-		Id:          mPorts.Id(),
+		PortID:      localID,
 		Ports:       ports,
 	}
 	return []txn.Op{{
@@ -489,7 +432,9 @@ func addPortsDocOps(st *State, mPorts Ports, portsAssert interface{}, ports ...P
 // updatePortsDocOps returns the ops for adding a port range to an
 // existing ports document. portsAssert allows specifying an assert
 // statement on the openedPorts collection op.
-func updatePortsDocOps(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
+var updatePortsDocOps = updatePortsDocOpsFunc
+
+func updatePortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     st.docID(pDoc.MachineID),
@@ -509,7 +454,9 @@ func updatePortsDocOps(st *State, pDoc portsDoc, portsAssert interface{}, portRa
 // setPortsDocOps returns the ops for setting given port ranges to an
 // existing ports document. portsAssert allows specifying an assert
 // statement on the openedPorts collection op.
-func setPortsDocOps(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
+var setPortsDocOps = setPortsDocOpsFunc
+
+func setPortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
 		Id:     st.docID(pDoc.MachineID),
@@ -585,13 +532,15 @@ func getPorts(st *State, machineId, networkName string) (*Ports, error) {
 
 	var doc portsDoc
 	key := portsGlobalKey(machineId, networkName)
-	stringId := portsIdAsString(machineId, networkName)
 	err := openedPorts.FindId(st.docID(key)).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf(stringId)
-	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get %s", stringId)
+		doc.MachineID = machineId
+		doc.NetworkName = networkName
+		p := Ports{st, doc, false}
+		if err == mgo.ErrNotFound {
+			return nil, errors.NotFoundf(p.String())
+		}
+		return nil, errors.Annotatef(err, "cannot get %s", p.String())
 	}
 
 	return &Ports{st, doc, false}, nil
@@ -608,7 +557,7 @@ func getOrCreatePorts(st *State, machineId, networkName string) (*Ports, error) 
 			MachineID:   machineId,
 			NetworkName: networkName,
 			EnvUUID:     st.EnvironUUID(),
-			Id:          key,
+			PortID:      key,
 		}
 		ports = &Ports{st, doc, true}
 	} else if err != nil {

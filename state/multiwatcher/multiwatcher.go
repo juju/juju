@@ -16,6 +16,60 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// Life describes the lifecycle state of an entity ("alive", "dying"
+// or "dead").
+type Life string
+
+const (
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
+)
+
+// Status represents the status of an entity.
+// It could be a unit, machine or its agent.
+type Status string
+
+const (
+	// The entity is not yet participating in the environment.
+	StatusPending Status = "pending"
+
+	// The unit has performed initial setup and is adapting itself to
+	// the environment. Not applicable to machines.
+	StatusInstalled Status = "installed"
+
+	// The entity is actively participating in the environment.
+	StatusStarted Status = "started"
+
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
+
+	// The entity requires human intervention in order to operate
+	// correctly.
+	StatusError Status = "error"
+
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown Status = "down"
+)
+
+// Valid returns true if status has a known value.
+func (status Status) Valid() bool {
+	switch status {
+	case
+		StatusPending,
+		StatusInstalled,
+		StatusStarted,
+		StatusStopped,
+		StatusError,
+		StatusDown:
+	default:
+		return false
+	}
+	return true
+}
+
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
@@ -113,10 +167,10 @@ type UnitSettings struct {
 type MachineInfo struct {
 	Id                       string `bson:"_id"`
 	InstanceId               string
-	Status                   juju.Status
+	Status                   Status
 	StatusInfo               string
 	StatusData               map[string]interface{}
-	Life                     juju.Life
+	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
@@ -137,7 +191,7 @@ type ServiceInfo struct {
 	Exposed     bool
 	CharmURL    string
 	OwnerTag    string
-	Life        juju.Life
+	Life        Life
 	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
@@ -160,7 +214,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []network.Port
-	Status         juju.Status
+	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
 	Subordinate    bool

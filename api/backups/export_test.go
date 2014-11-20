@@ -7,6 +7,8 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
+var TestSSHUpload = &sshUpload
+
 // ExposeFacade returns the client's underlying FacadeCaller.
 func ExposeFacade(c *Client) base.FacadeCaller {
 	return c.facade
@@ -24,6 +26,18 @@ func SetHTTP(c *Client, http httpClient) {
 func PatchClientFacadeCall(c *Client, mockCall func(request string, params interface{}, response interface{}) error) func() {
 	orig := c.facade
 	c.facade = &resultCaller{mockCall}
+	return func() {
+		c.facade = orig
+	}
+}
+
+// PatchClientFacadeCall changes the internal FacadeCaller to one that lets
+// you mock out the FacadeCall method. The function returned by
+// PatchClientFacadeCall is a cleanup function that returns the client to its
+// original state.
+func PatchBaseFacadeCall(c *Client, mockCall func(request string, params interface{}, response interface{}) error) func() {
+	orig := c.baseFacade
+	c.baseFacade = &resultCaller{mockCall}
 	return func() {
 		c.facade = orig
 	}

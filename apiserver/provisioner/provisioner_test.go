@@ -322,13 +322,13 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: s.machines[0].Tag().String(), Status: juju.StatusError, Info: "not really",
+			{Tag: s.machines[0].Tag().String(), Status: params.StatusError, Info: "not really",
 				Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: s.machines[1].Tag().String(), Status: juju.StatusStopped, Info: "foobar"},
-			{Tag: s.machines[2].Tag().String(), Status: juju.StatusStarted, Info: "again"},
-			{Tag: "machine-42", Status: juju.StatusStarted, Info: "blah"},
-			{Tag: "unit-foo-0", Status: juju.StatusStopped, Info: "foobar"},
-			{Tag: "service-bar", Status: juju.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[1].Tag().String(), Status: params.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: params.StatusStarted, Info: "again"},
+			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "unit-foo-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "service-bar", Status: params.StatusStopped, Info: "foobar"},
 		}}
 	result, err := s.provisioner.SetStatus(args)
 	c.Assert(err, gc.IsNil)
@@ -560,9 +560,9 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: juju.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
-			{Status: juju.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
-			{Status: juju.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
+			{Status: params.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
+			{Status: params.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
