@@ -6,9 +6,10 @@ package action
 import (
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // DefinedCommand lists actions defined by the charm of a given service.
