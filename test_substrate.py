@@ -339,7 +339,7 @@ class TestOpenstackAccount(TestCase):
 
     def test_get_client(self):
         account = OpenStackAccount.from_config(get_os_config())
-        with patch('substrate.Client') as ncc_mock:
+        with patch('novaclient.client.Client') as ncc_mock:
             account.get_client()
         ncc_mock.assert_called_once_with(
             '1.1', 'foo', 'bar', 'baz', 'qux', region_name='quxx',

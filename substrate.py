@@ -7,7 +7,6 @@ from time import sleep
 
 from boto import ec2
 from boto.exception import EC2ResponseError
-from novaclient.client import Client
 
 from jujuconfig import (
     get_euca_env,
@@ -180,10 +179,11 @@ class OpenStackAccount:
 
     def get_client(self):
         """Return a novaclient Client for this account."""
-        return Client('1.1', self._username, self._password,
-                      self._tenant_name, self._auth_url,
-                      region_name=self._region_name, service_type='compute',
-                      insecure=False)
+        from novaclient import client
+        return client.Client(
+            '1.1', self._username, self._password, self._tenant_name,
+            self._auth_url, region_name=self._region_name,
+            service_type='compute', insecure=False)
 
     @property
     def client(self):
