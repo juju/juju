@@ -33,6 +33,14 @@ Host 10.* 192.168.*
   IdentityFile /var/lib/jenkins/cloud-city/$KEY
 EOC"
 
+# Install stable juju.
+ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
+sudo apt-add-repository -y ppa:juju/stable
+sudo apt-get update
+sudo apt-get install -y juju-local juju bzr \
+    uvtool-libvirt uvtool python-novaclient euca2ools s3cmd python-requests
+EOT
+
 # Place a copy of cloud city on the slave as jenkins using your Lp privs.
 bzr branch lp:~juju-qa/+junk/cloud-city \
     bzr+ssh://jenkins@$SLAVE_ADDRESS/var/lib/jenkins/cloud-city
@@ -46,14 +54,6 @@ bzr branch lp:juju-ci-tools/repository repository
 chmod 600 cloud-city/$KEY*
 ln -s /var/lib/jenkins/cloud-city/$KEY .ssh/id_rsa
 ln -s /var/lib/jenkins/cloud-city/$KEY.pub .ssh/id_rsa.pub
-EOT
-
-# Install stable juju.
-ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
-sudo apt-add-repository -y ppa:juju/stable
-sudo apt-get update
-sudo apt-get install -y juju-local juju \
-    uvtool-libvirt uvtool python-novaclient euca2ools s3cmd python-requests
 sudo /usr/share/jenkins/bin/download-slave.sh $MASTER
 EOT
 
