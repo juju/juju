@@ -3,6 +3,11 @@
 
 package multiwatcher
 
+import (
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+)
+
 var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ServiceInfo)(nil)
@@ -10,3 +15,16 @@ var (
 	_ EntityInfo = (*RelationInfo)(nil)
 	_ EntityInfo = (*AnnotationInfo)(nil)
 )
+
+type ConstantsSuite struct{}
+
+var _ = gc.Suite(&ConstantsSuite{})
+
+func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
+	c.Assert(AnyJobNeedsState(), jc.IsFalse)
+	c.Assert(AnyJobNeedsState(JobHostUnits), jc.IsFalse)
+	c.Assert(AnyJobNeedsState(JobManageNetworking), jc.IsFalse)
+	c.Assert(AnyJobNeedsState(JobManageStateDeprecated), jc.IsFalse)
+	c.Assert(AnyJobNeedsState(JobManageEnviron), jc.IsTrue)
+	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageEnviron), jc.IsTrue)
+}
