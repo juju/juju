@@ -263,6 +263,13 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 	defer st.Close()
 
 	// update all agents known to the new state server.
+	// TODO(perrito666): We should never stop process because of this
+	// it is too late to go back and errors in a couple of agents have
+	// better change of being fixed by the user, if we where to fail
+	// we risk an inconsistent state server because of one unresponsive
+	// agent, we should nevertheless return the err info to the user.
+	// for this updateAllMachines will not return errors for individual
+	// agent update failures
 	err = updateAllMachines(privateAddress, st)
 	if err != nil {
 		return errors.Annotate(err, "cannot update agents")

@@ -129,14 +129,13 @@ func updateAllMachines(privateAddress string, st *state.State) error {
 			done <- errors.Annotatef(err, "failed to update machine %s", machine)
 		}()
 	}
-	err = nil
 	for ; pendingMachineCount > 0; pendingMachineCount-- {
 		if updateErr := <-done; updateErr != nil && err == nil {
-			err = errors.Annotate(updateErr, "machine update failed")
+			logger.Errorf("failed updating machine: %v", err)
 		}
 	}
-	// error is annotated in the above iteration.
-	return err
+	// We should return errors encapsulated in a digest.
+	return nil
 }
 
 // agentAddressTemplate is the template used to replace the api server data
