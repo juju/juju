@@ -21,7 +21,6 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/constraints"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -105,10 +105,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// machine-0 if missing.
 	jobs := agentConfig.Jobs()
 	if len(jobs) == 0 {
-		jobs = []juju.MachineJob{
-			juju.JobManageEnviron,
-			juju.JobHostUnits,
-			juju.JobManageNetworking,
+		jobs = []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
+			multiwatcher.JobManageNetworking,
 		}
 	}
 

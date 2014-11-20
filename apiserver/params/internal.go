@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -489,7 +488,7 @@ type AgentGetEntitiesResults struct {
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
 	Life          Life
-	Jobs          []juju.MachineJob
+	Jobs          []multiwatcher.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error
 }
@@ -623,7 +622,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
-	Jobs        []juju.MachineJob
+	Jobs        []multiwatcher.MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

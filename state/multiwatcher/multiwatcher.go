@@ -10,7 +10,6 @@ import (
 
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -175,7 +174,7 @@ type MachineInfo struct {
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
-	Jobs                     []juju.MachineJob
+	Jobs                     []MachineJob
 	Addresses                []network.Address
 }
 

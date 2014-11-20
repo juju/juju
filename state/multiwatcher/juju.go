@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package juju
+package multiwatcher
 
 // temporary types to break the state <> apiserver dependency loop
 
