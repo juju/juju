@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -90,6 +92,11 @@ type MetricParams struct {
 	Time    *time.Time
 	Metrics []state.Metric
 	Sent    bool
+}
+
+type EnvParams struct {
+	Name  string
+	Owner names.Tag
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -387,4 +394,34 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 	c.Assert(err, gc.IsNil)
 
 	return relation
+}
+
+// MakeEnvironment creates an environment with specified params,
+// filling in sane defaults for missing values. If params is nil,
+// defaults are used for all values.
+//
+// By default the new enviroment shares the same owner as the calling
+// Factory's environment.
+func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State {
+	if params == nil {
+		params = new(EnvParams)
+	}
+	if params.Name == "" {
+		params.Name = factory.UniqueString("testenv")
+	}
+	if params.Owner == nil {
+		origEnv, err := factory.st.Environment()
+		c.Assert(err, jc.IsNil)
+		params.Owner = origEnv.Owner()
+	}
+
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.IsNil)
+	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": params.Name,
+		"uuid": uuid.String(),
+	})
+	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
+	c.Assert(err, jc.IsNil)
+	return st
 }
