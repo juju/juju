@@ -26,7 +26,7 @@ func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *DiskManagerWorkerSuite) TestWorkerNoOp(c *gc.C) {
+func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
 	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
 		close(done)
