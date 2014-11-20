@@ -411,8 +411,8 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *unitSuite) TestWatchActions(c *gc.C) {
-	w, err := s.apiUnit.WatchActions()
+func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
+	w, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err, gc.IsNil)
 
 	defer statetesting.AssertStop(c, w)
@@ -442,19 +442,19 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *unitSuite) TestWatchActionsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(result interface{}) error {
 			return fmt.Errorf("Test error")
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "Test error")
 }
 
-func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsErrorResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 1)
@@ -469,23 +469,23 @@ func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
 }
 
-func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsNoResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(results interface{}) error {
 			return nil
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
 }
 
-func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
+func (s *unitSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActionNotifications",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 2)
@@ -494,7 +494,7 @@ func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
 		},
 	)
 
-	_, err := s.apiUnit.WatchActions()
+	_, err := s.apiUnit.WatchActionNotifications()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 

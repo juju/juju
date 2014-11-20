@@ -64,15 +64,16 @@ func IsUnknownEnviromentError(err error) bool {
 }
 
 var (
-	ErrBadId          = stderrors.New("id not found")
-	ErrBadCreds       = stderrors.New("invalid entity name or password")
-	ErrPerm           = stderrors.New("permission denied")
-	ErrNotLoggedIn    = stderrors.New("not logged in")
-	ErrUnknownWatcher = stderrors.New("unknown watcher id")
-	ErrUnknownPinger  = stderrors.New("unknown pinger id")
-	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
-	ErrBadRequest     = stderrors.New("invalid request")
-	ErrTryAgain       = stderrors.New("try again")
+	ErrBadId              = stderrors.New("id not found")
+	ErrBadCreds           = stderrors.New("invalid entity name or password")
+	ErrPerm               = stderrors.New("permission denied")
+	ErrNotLoggedIn        = stderrors.New("not logged in")
+	ErrUnknownWatcher     = stderrors.New("unknown watcher id")
+	ErrUnknownPinger      = stderrors.New("unknown pinger id")
+	ErrStoppedWatcher     = stderrors.New("watcher has been stopped")
+	ErrBadRequest         = stderrors.New("invalid request")
+	ErrTryAgain           = stderrors.New("try again")
+	ErrActionNotAvailable = stderrors.New("action no longer available")
 
 	ErrOperationBlocked = &params.Error{
 		Code:    params.CodeOperationBlocked,
@@ -93,6 +94,7 @@ var singletonErrorCodes = map[error]string{
 	ErrUnknownWatcher:            params.CodeNotFound,
 	ErrStoppedWatcher:            params.CodeStopped,
 	ErrTryAgain:                  params.CodeTryAgain,
+	ErrActionNotAvailable:        params.CodeActionNotAvailable,
 }
 
 func singletonCode(err error) (string, bool) {
