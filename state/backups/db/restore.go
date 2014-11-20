@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/version"
 )
 
 // runExternalCommand it is intended to be a wrapper around utils.RunCommand
@@ -50,35 +51,27 @@ func mongorestorePath() (string, error) {
 // Version 0: a dump made with --db, stoping the state server.
 // Version 1: a dump made with --oplog with a running state server.
 // TODO (perrito666) change versions to use metadata version
-func mongoRestoreArgsForVersion(version int, dumpPath string) ([]string, error) {
-	MGORestoreVersions := map[int][]string{}
+func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
 	dbDir := filepath.Join(agent.DefaultDataDir, "db")
-
-	MGORestoreVersions[0] = []string{
-		"--drop",
-		"--dbpath", dbDir,
-		dumpPath}
-
-	MGORestoreVersions[1] = []string{
-		"--drop",
-		"--oplogReplay",
-		"--dbpath", dbDir,
-		dumpPath}
-	if restoreCommand, ok := MGORestoreVersions[version]; ok {
-		return restoreCommand, nil
+	switch {
+	case ver.Major == 1 && ver.Minor < 22:
+		return []string{"--drop", "--dbpath", dbDir, dumpPath}, nil
+	case ver.Major == 1 && ver.Minor >= 22:
+		return []string{"--drop", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
+	default:
+		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
 	}
-	return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
 }
 
 // PlaceNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
-func PlaceNewMongo(newMongoDumpPath string, version int) error {
+func PlaceNewMongo(newMongoDumpPath string, ver version.Number) error {
 	mongoRestore, err := mongorestorePath()
 	if err != nil {
 		return errors.Annotate(err, "mongorestore not available")
 	}
 
-	mgoRestoreArgs, err := mongoRestoreArgsForVersion(version, newMongoDumpPath)
+	mgoRestoreArgs, err := mongoRestoreArgsForVersion(ver, newMongoDumpPath)
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}

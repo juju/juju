@@ -6,7 +6,6 @@ package agent
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -362,61 +361,30 @@ func ConfigPath(dataDir string, tag names.Tag) string {
 	return filepath.Join(Dir(dataDir, tag), agentConfigFilename)
 }
 
-// ReadConfig is just a wrapper around ParseConfig that allows us to
-// separate functions that take a path and a reader
+// ReadConfig reads configuration data from the given location.
 func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
-	configFile, err := os.Open(configFilePath)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot read agent config %q", configFilePath)
-	}
-	defer configFile.Close()
-	dir := filepath.Dir(configFilePath)
-	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
-
-	var legacyFormatFile io.Reader
-	if formatFile, err := os.Open(legacyFormatPath); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, errors.Annotatef(err, "cannot read format file")
-		}
-	} else {
-		legacyFormatFile = formatFile
-	}
-
-	var config *configInternal
-	if config, err = ParseConfig(configFile, legacyFormatFile, configFilePath); err != nil {
-		return nil, err
-	}
-
-	if legacyFormatFile != nil {
-		if err = os.Remove(legacyFormatPath); err != nil {
-			return nil, errors.Annotatef(err, "cannot remove legacy format file %q", legacyFormatPath)
-		}
-	}
-
-	return config, err
-}
-
-// ParseConfig reads configuration data from the given reader.
-func ParseConfig(configFile, legacyFormatFile io.Reader, configFilePath string) (*configInternal, error) {
 	var (
 		format formatter
 		config *configInternal
 	)
-	configData, err := ioutil.ReadAll(configFile)
+	configData, err := ioutil.ReadFile(configFilePath)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot read agent config file contents")
+		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
 	}
-	if legacyFormatFile != nil {
-		formatBytes, err := ioutil.ReadAll(legacyFormatFile)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot read format file contents")
-		}
-		formatData := string(formatBytes)
 
+	// Try to read the legacy format file.
+	dir := filepath.Dir(configFilePath)
+	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
+	formatBytes, err := ioutil.ReadFile(legacyFormatPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cannot read format file: %v", err)
+	}
+	formatData := string(formatBytes)
+	if err == nil {
 		// It exists, so unmarshal with a legacy formatter.
 		// Drop the format prefix to leave the version only.
 		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
-			return nil, errors.Errorf("malformed agent config format %q", formatData)
+			return nil, fmt.Errorf("malformed agent config format %q", formatData)
 		}
 		format, err = getFormatter(strings.TrimPrefix(formatData, legacyFormatPrefix))
 		if err != nil {
@@ -432,17 +400,17 @@ func ParseConfig(configFile, legacyFormatFile io.Reader, configFilePath string) 
 	}
 	logger.Debugf("read agent config, format %q", format.version())
 	config.configFilePath = configFilePath
-
 	if format != currentFormat {
-		if configFilePath == "" {
-			return nil, errors.Errorf("cannot save config migrated from %s to %s, missing config file path", format.version(), currentFormat.version())
-		}
 		// Migrate from a legacy format to the new one.
 		err := config.Write()
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot migrate %s agent config to %s", format.version(), currentFormat.version())
+			return nil, fmt.Errorf("cannot migrate %s agent config to %s: %v", format.version(), currentFormat.version(), err)
 		}
 		logger.Debugf("migrated agent config from %s to %s", format.version(), currentFormat.version())
+		err = os.Remove(legacyFormatPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("cannot remove legacy format file %q: %v", legacyFormatPath, err)
+		}
 	}
 	return config, nil
 }

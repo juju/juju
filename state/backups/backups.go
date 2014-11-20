@@ -6,10 +6,8 @@
 package backups
 
 import (
-	"compress/gzip"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -19,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
-	"github.com/juju/utils/tar"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/instance"
@@ -79,7 +76,7 @@ type Backups interface {
 	// Remove deletes the backup from storage.
 	Remove(id string) error
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(io.ReadCloser, *Metadata, string, instance.Id) error
+	Restore(io.ReadCloser, string, instance.Id) error
 }
 
 type backups struct {
@@ -194,62 +191,29 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *Metadata, privateAddress string, newInstId instance.Id) error {
-	workDir, err := ioutil.TempDir("", "juju-backup")
+func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newInstId instance.Id) error {
+	workspace, err := NewArchiveWorkspaceReader(backupFile)
 	if err != nil {
-		return errors.Annotate(err, "cannot create temp folder")
+		return errors.Annotate(err, "cannot unpack backup file")
 	}
-	defer os.Remove(workDir)
+	defer workspace.Close()
 
-	// Extract outer container (a juju-backup folder inside the tar)
-	tarFile, err := gzip.NewReader(backupFile)
+	meta, err := workspace.Metadata()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot read metadata file, this backup is either too old or corrupt")
 	}
-	if err := tar.UntarFiles(tarFile, workDir); err != nil {
-		return errors.Trace(err)
-	}
-
-	backupFilesPath := filepath.Join(workDir, "juju-backup")
-	// just in case, we dont want to leave these sensitive files hanging around.
-
-	version, err := backupVersion(backupMetadata, backupFilesPath)
-	if err != nil {
-		return errors.Errorf("this is not a valid backup file")
-	}
-
-	// Extract inner container (root.tar inside the juju-backup)
-	innerBackup := filepath.Join(backupFilesPath, "root.tar")
-	var innerBackupHandler io.ReadSeeker
-	innerBackupHandler, err = os.Open(innerBackup)
-	if err != nil {
-		return errors.Annotatef(err, "cannot open the backups inner tar file %q", innerBackup)
-	}
-
-	// Load configuration values that are to remain
-	// without these values, lets leave before doing any possible damage on the system
-	_, agentConfFile, err := tar.FindFile(innerBackupHandler, "var/lib/juju/agents/machine-0/agent.conf")
-	if err != nil {
-		return errors.Annotatef(err, "could not find agent configuration in tar file")
-	}
-
-	var agentConfig agent.ConfigSetterWriter
-	agentConfig, err = agent.ParseConfig(agentConfFile, nil, "")
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain agent configuration information")
-	}
+	version := meta.Origin.Version
 
 	// delete all the files to be replaced
 	if err := PrepareMachineForRestore(); err != nil {
 		return errors.Annotate(err, "cannot delete existing files")
 	}
 
-	// Reset cursor to 0 since tar wont do this
-	innerBackupHandler.Seek(0, 0)
-
-	if err := tar.UntarFiles(innerBackupHandler, filesystemRoot()); err != nil {
+	if err := workspace.UnpackFilesBundle(filesystemRoot()); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
+
+	var agentConfig agent.ConfigSetterWriter
 	if agentConfig, err = agent.ReadConfig("/var/lib/juju/agents/machine-0/agent.conf"); err != nil {
 		return errors.Annotate(err, "cannot load agent config from disk")
 	}
@@ -269,8 +233,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *Metadata, pr
 	}
 
 	// Restore backed up mongo
-	mongoDump := filepath.Join(backupFilesPath, "dump")
-	if err := db.PlaceNewMongo(mongoDump, version); err != nil {
+	if err := db.PlaceNewMongo(workspace.DBDumpDir, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
 	}
 

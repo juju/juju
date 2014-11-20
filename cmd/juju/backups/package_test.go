@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
+	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
 	jujutesting "github.com/juju/juju/testing"
@@ -222,14 +222,6 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) PrepareRestore() error {
-	return nil
-}
-
-func (c *fakeAPIClient) FinishRestore() error {
-	return nil
-}
-
-func (c *fakeAPIClient) Restore(string, string, func() (*api.State, error)) error {
+func (c *fakeAPIClient) Restore(string, string, apibackups.ClientConnection) error {
 	return nil
 }

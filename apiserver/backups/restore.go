@@ -18,10 +18,9 @@ import (
 
 const restoreUserHome = "/home/ubuntu/"
 
-func (a *API) backupFileAndMeta(backupId string, backup backups.Backups) (io.ReadCloser, *backups.Metadata, error) {
+func (a *API) backupFile(backupId string, backup backups.Backups) (io.ReadCloser, error) {
 	var (
 		fileHandler io.ReadCloser
-		meta        *backups.Metadata
 		err         error
 	)
 	switch {
@@ -29,16 +28,16 @@ func (a *API) backupFileAndMeta(backupId string, backup backups.Backups) (io.Rea
 		fileName := strings.TrimPrefix(backupId, backups.FilenamePrefix)
 		fileName = restoreUserHome + fileName
 		if fileHandler, err = os.Open(fileName); err != nil {
-			return nil, nil, errors.Annotatef(err, "error opening %q", fileName)
+			return nil, errors.Annotatef(err, "error opening %q", fileName)
 		}
 	case backupId == "":
-		return nil, nil, errors.Errorf("no backup file or id given")
+		return nil, errors.Errorf("no backup file or id given")
 	default:
-		if meta, fileHandler, err = backup.Get(backupId); err != nil {
-			return nil, nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
+		if _, fileHandler, err = backup.Get(backupId); err != nil {
+			return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
 		}
 	}
-	return fileHandler, meta, nil
+	return fileHandler, nil
 }
 
 // Restore implements the server side of Backups.Restore.
@@ -46,7 +45,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
 	defer closer.Close()
-	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, backup)
+	fileHandler, err := a.backupFile(p.BackupId, backup)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain a backup")
 	}
@@ -80,7 +79,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	// Restore
-	if err := backup.Restore(fileHandler, meta, addr, instanceId); err != nil {
+	if err := backup.Restore(fileHandler, addr, instanceId); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
