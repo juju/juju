@@ -123,8 +123,7 @@ func (factory *Factory) UniqueString(prefix string) string {
 // MakeUser will create a user with values defined by the params.
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
 		params = &UserParams{}
@@ -234,8 +233,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 // MakeMachine will add a machine with values defined in params. For some
 // values in params, if they are missing, some meaningful empty values will be
 // set.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
@@ -254,8 +252,7 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 //   all-hooks, category, dummy, format2, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
 //   varnish-alternative, wordpress.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	if params == nil {
 		params = &CharmParams{}
@@ -284,8 +281,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 
 // MakeService creates a service with the specified parameters, substituting
 // sane defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Service {
 	if params == nil {
 		params = &ServiceParams{}
@@ -308,8 +304,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 
 // MakeUnit creates a service unit with specified params, filling in
 // sane defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	if params == nil {
 		params = &UnitParams{}
@@ -334,8 +329,7 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 
 // MakeMetric makes a metric with specified params, filling in
 // sane defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params stuct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricBatch {
 	now := time.Now().Round(time.Second).UTC()
 	if params == nil {
@@ -364,8 +358,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 
 // MakeRelation create a relation with specified params, filling in sane
 // defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Relation {
 	if params == nil {
 		params = &RelationParams{}
