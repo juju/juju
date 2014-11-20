@@ -801,6 +801,31 @@ func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
+		bson.M{
+			"_id":  "u#foo/0",
+			"code": MeterGreen,
+		},
+		bson.M{
+			"_id":  "u#bar/0",
+			"code": MeterRed,
+		},
+	)
+	defer closer()
+
+	var newDoc meterStatusDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterGreen)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterRed)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMeterStatus, meterStatusC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,

@@ -704,6 +704,12 @@ func AddEnvUUIDToRelationScopes(st *State) error {
 	return addEnvUUIDToEntityCollection(st, relationScopesC, "key")
 }
 
+// AddEnvUUIDToMeterStatus prepends the environment UUID to the ID of
+// all meterStatus docs and adds new "env-uuid" field and "id" fields.
+func AddEnvUUIDToMeterStatus(st *State) error {
+	return addEnvUUIDToEntityCollection(st, meterStatusC, "")
+}
+
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {
 	env, err := st.Environment()
 	if err != nil {
