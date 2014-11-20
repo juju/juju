@@ -300,6 +300,8 @@ func (st *State) addAction(ar ActionReceiver, actionName string, payload map[str
 			return nil, err
 		} else if !notDead {
 			return nil, ErrDead
+		} else if attempt != 0 {
+			return nil, errors.Errorf("unexpected attempt number '%d'", attempt)
 		}
 		return ops, nil
 	}
