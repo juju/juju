@@ -308,11 +308,15 @@ def get_os_config():
         'tenant-name': 'baz', 'auth-url': 'qux', 'region': 'quxx'}
 
 
-def make_os_security_groups(names):
+def make_os_security_groups(names, non_juju=()):
     groups = []
     for name in names:
         group = Mock(id='{}-id'.format(name))
         group.name = name
+        if name in non_juju:
+            group.description = 'asdf'
+        else:
+            group.description = 'juju group'
         groups.append(group)
     return groups
 
@@ -350,6 +354,16 @@ class TestOpenstackAccount(TestCase):
             result = account.iter_security_groups()
         self.assertEqual(list(result), [
             ('foo-id', 'foo'), ('bar-id', 'bar'), ('baz-id', 'baz')])
+
+    def test_iter_security_groups_non_juju(self):
+        account = OpenStackAccount.from_config(get_os_config())
+        with patch.object(account, 'get_client') as gc_mock:
+            client = gc_mock.return_value
+            groups = make_os_security_groups(
+                ['foo', 'bar', 'baz'], non_juju=['foo', 'baz'])
+            client.security_groups.list.return_value = groups
+            result = account.iter_security_groups()
+        self.assertEqual(list(result), [('bar-id', 'bar')])
 
     def test_iter_instance_security_groups(self):
         account = OpenStackAccount.from_config(get_os_config())

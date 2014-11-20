@@ -193,11 +193,12 @@ class OpenStackAccount:
         return self._client
 
     def iter_security_groups(self):
-        """Iterate through security groups in this account.
+        """Iterate through security groups created by juju in this account.
 
         :return: an itertator of (group-id, group-name) tuples.
         """
-        return ((g.id, g.name) for g in self.client.security_groups.list())
+        return ((g.id, g.name) for g in self.client.security_groups.list()
+                if g.description == 'juju group')
 
     def iter_instance_security_groups(self, instance_ids=None):
         """List the security groups used by instances in this account.
