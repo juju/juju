@@ -3,6 +3,10 @@
 
 package storage
 
+// DefaultFilesystemType is the default filesystem type to create on a
+// block device if no preferences are specified or viable.
+const DefaultFilesystemType = "ext4"
+
 // Specification is a fully specified set of requirements for storage,
 // derived from a Directive and a charm's storage metadata.
 type Specification struct {
@@ -25,4 +29,16 @@ type Specification struct {
 	// Persistent indicates that the storage should be made persistent,
 	// beyond the lifetime of the entity it is attached to, if possible.
 	Persistent bool
+
+	// FilesystemPreferences defines the preferences of filesystems to
+	// create/use. If none are specified, Juju will use DefaultFilesystemType.
+	FilesystemPreferences []FilesystemPreference
+}
+
+// FilesystemPreference describes a filesystem to attempt to create
+// on a block device, and any options that should be used to do so
+// and later mount it.
+type FilesystemPreference struct {
+	Filesystem
+	MkfsOptions []string `yaml:"mkfsoptions,omitempty"`
 }
