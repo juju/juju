@@ -249,19 +249,19 @@ func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.ActionResu
 	if err != nil {
 		return items, err
 	}
-	for _, result := range actions {
-		if result == nil {
+	for _, action := range actions {
+		if action == nil {
 			continue
 		}
-		output, message := result.Results()
+		output, message := action.Results()
 		items = append(items, params.ActionResult{
 			Action: &params.Action{
 				Receiver:   ar.Tag(),
-				Tag:        result.ActionTag(),
-				Name:       result.Name(),
-				Parameters: result.Parameters(),
+				Tag:        action.ActionTag(),
+				Name:       action.Name(),
+				Parameters: action.Parameters(),
 			},
-			Status:  string(result.Status()),
+			Status:  string(action.Status()),
 			Message: message,
 			Output:  output,
 		})

@@ -51,11 +51,11 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, gc.IsNil)
 
-	r, err := s.unit.CompletedActions()
+	actions, err := s.unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(r), gc.Equals, 1)
+	c.Assert(len(actions), gc.Equals, 1)
 
-	actionResult := r[0]
+	actionResult := actions[0]
 	c.Assert(actionResult, gc.DeepEquals, result)
 
 	tag = actionResult.Tag()
