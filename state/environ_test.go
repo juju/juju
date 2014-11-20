@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type EnvironSuite struct {
@@ -110,19 +111,12 @@ func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments
 	})
 }
 
-// createTestEnvConfig use the existing State's config to create a new
-// environment config for testing.
+// createTestEnvConfig returns a new environment config and its UUID for testing.
 func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.IsNil)
-	uuidStr := uuid.String()
-
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, jc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{
+	c.Assert(err, gc.IsNil)
+	return testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": "testing",
-		"uuid": uuidStr,
-	})
-	c.Assert(err, jc.IsNil)
-	return cfg, uuidStr
+		"uuid": uuid.String(),
+	}), uuid.String()
 }
