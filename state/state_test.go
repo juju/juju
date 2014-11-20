@@ -2457,7 +2457,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
-	coll, id, err := state.ParseTag(s.State, nil)
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, nil)
 	c.Assert(err, gc.ErrorMatches, "tag is nil")
 	c.Assert(coll, gc.Equals, "")
 	c.Assert(id, gc.IsNil)
@@ -2466,7 +2466,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, m.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, m.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, state.DocID(s.State, m.Id()))
@@ -2474,7 +2474,7 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 
 func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
-	coll, id, err := state.ParseTag(s.State, svc.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, svc.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, state.DocID(s.State, svc.Name()))
@@ -2484,7 +2484,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, u.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, u.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, state.DocID(s.State, u.Name()))
@@ -2498,7 +2498,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	action, err := s.State.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), action.Id()))
-	coll, id, err := state.ParseTag(s.State, action.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, action.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
@@ -2506,7 +2506,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	user := s.factory.MakeUser(c, nil)
-	coll, id, err := state.ParseTag(s.State, user.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, user.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
@@ -2515,7 +2515,7 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, env.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, env.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
@@ -2529,7 +2529,7 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 		VLANTag:    0,
 	})
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, net1.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, net1.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
