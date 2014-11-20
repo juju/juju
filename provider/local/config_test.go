@@ -58,7 +58,20 @@ func (s *configSuite) TestDefaultNetworkBridge(c *gc.C) {
 	config := minimalConfig(c)
 	unknownAttrs := config.UnknownAttrs()
 	c.Assert(unknownAttrs["container"], gc.Equals, "lxc")
-	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "")
+	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "lxcbr0")
+}
+
+func (s *configSuite) TestDefaultNetworkBridgeForKVMContainersWithOldDefault(c *gc.C) {
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"container":      "kvm",
+		"network-bridge": "lxcbr0",
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, gc.IsNil)
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.KVM))
+	//should have corrected default for kvm container
+	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
 }
 
 func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {

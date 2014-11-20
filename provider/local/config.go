@@ -22,10 +22,13 @@ var checkIfRoot = func() bool {
 }
 
 var (
+	NetworkBridgeKey = "network-bridge"
+)
+var (
 	configFields = schema.Fields{
 		"root-dir":       schema.String(),
 		"bootstrap-ip":   schema.String(),
-		"network-bridge": schema.String(),
+		NetworkBridgeKey: schema.String(),
 		"container":      schema.String(),
 		"storage-port":   schema.ForceInt(),
 		"namespace":      schema.String(),
@@ -36,7 +39,7 @@ var (
 	// range.
 	configDefaults = schema.Defaults{
 		"root-dir":       "",
-		"network-bridge": "",
+		NetworkBridgeKey: "",
 		"container":      string(instance.LXC),
 		"bootstrap-ip":   schema.Omit,
 		"storage-port":   8040,
@@ -50,10 +53,14 @@ type environConfig struct {
 }
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
-	return &environConfig{
+	environConfig := &environConfig{
 		Config: config,
 		attrs:  attrs,
 	}
+	// Set correct default network bridge if needed
+	// fix for http://pad.lv/1394450
+	environConfig.setDefaultNetworkBridge()
+	return environConfig
 }
 
 // Since it is technically possible for two different users on one machine to
@@ -71,23 +78,33 @@ func (c *environConfig) container() instance.ContainerType {
 	return instance.ContainerType(c.attrs["container"].(string))
 }
 
-func (c *environConfig) networkBridge() string {
-	// We don't care if it's not a string, because Validate takes care
-	// of that.
-	name, _ := c.attrs["network-bridge"].(string)
+// setDefaultNetworkBridge sets default network bridge if none is provided.
+// Default network bridge varies based on container type.
+// Originally, default values were returned in getter. However,
+// this meant that older clients were getting incorrect defaults
+// (http://pad.lv/1394450)
+func (c *environConfig) setDefaultNetworkBridge() {
+	name := c.networkBridge()
 	switch c.container() {
 	case instance.LXC:
 		if name == "" {
-			return lxc.DefaultLxcBridge
+			name = lxc.DefaultLxcBridge
 		}
 	case instance.KVM:
 		if name == "" || name == lxc.DefaultLxcBridge {
 			// Older versions of juju used "lxcbr0" by default,
 			// without checking the container type. See also
 			// http://pad.lv/1307677.
-			return kvm.DefaultKvmBridge
+			name = kvm.DefaultKvmBridge
 		}
 	}
+	c.attrs[NetworkBridgeKey] = name
+}
+
+func (c *environConfig) networkBridge() string {
+	// We don't care if it's not a string, because Validate takes care
+	// of that.
+	name, _ := c.attrs[NetworkBridgeKey].(string)
 	return name
 }
 
