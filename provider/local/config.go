@@ -21,9 +21,9 @@ var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
-var (
-	NetworkBridgeKey = "network-bridge"
-)
+// Attribute keys
+var NetworkBridgeKey = "network-bridge"
+
 var (
 	configFields = schema.Fields{
 		"root-dir":       schema.String(),
