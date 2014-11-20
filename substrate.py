@@ -211,6 +211,8 @@ class OpenStackAccount:
         for server in self.client.servers.list():
             if instance_ids is not None and server.id not in instance_ids:
                 continue
+            # A server that errors before security groups are assigned will
+            # have no security_groups attribute.
             groups = (getattr(server, 'security_groups', []))
             group_names.update(group['name'] for group in groups)
         return ((k, v) for k, v in self.iter_security_groups()
