@@ -26,8 +26,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 const (
@@ -81,7 +79,7 @@ type Backups interface {
 	// Remove deletes the backup from storage.
 	Remove(id string) error
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(io.ReadCloser, *metadata.Metadata, string, instance.Id) error
+	Restore(io.ReadCloser, *Metadata, string, instance.Id) error
 }
 
 type backups struct {
@@ -196,7 +194,7 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, newInstId instance.Id) error {
+func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *Metadata, privateAddress string, newInstId instance.Id) error {
 	workDir, err := ioutil.TempDir("", "juju-backup")
 	if err != nil {
 		return errors.Annotate(err, "cannot create temp folder")
@@ -242,7 +240,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	}
 
 	// delete all the files to be replaced
-	if err := files.PrepareMachineForRestore(); err != nil {
+	if err := PrepareMachineForRestore(); err != nil {
 		return errors.Annotate(err, "cannot delete existing files")
 	}
 

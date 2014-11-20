@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -226,7 +225,7 @@ func runViaSSH(addr string, script string) error {
 // Version 1: juju backups create (first implementation) for the
 // moment this version is determined by checking for metadata but not
 // its contents.
-func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) (int, error) {
+func backupVersion(backupMetadata *Metadata, backupFilesPath string) (int, error) {
 	backupMetadataFile := true
 	if _, err := os.Stat(filepath.Join(backupFilesPath, "metadata.json")); os.IsNotExist(err) {
 		backupMetadataFile = false

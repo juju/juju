@@ -38,6 +38,10 @@ type FakeBackups struct {
 	DBInfoArg *backups.DBInfo
 	// MetaArg holds the backup metadata that was passed in.
 	MetaArg *backups.Metadata
+	// Holds the address for the internal network of the machine.
+	PrivateAddr string
+	// Is the id of the machine to be restored.
+	InstanceId instance.Id
 }
 
 var _ backups.Backups = (*FakeBackups)(nil)
@@ -79,7 +83,7 @@ func (b *FakeBackups) Remove(id string) error {
 }
 
 // Restore restores a machine to a backed up status.
-func (b *FakeBackups) Restore(bkpFile io.ReadCloser, meta *metadata.Metadata, privateAddress string, newInstId instance.Id) error {
+func (b *FakeBackups) Restore(bkpFile io.ReadCloser, meta *backups.Metadata, privateAddress string, newInstId instance.Id) error {
 	b.Calls = append(b.Calls, "Restore")
 	b.Meta = meta
 	b.PrivateAddr = privateAddress

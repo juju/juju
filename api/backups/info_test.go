@@ -26,7 +26,7 @@ func (s *infoSuite) TestInfo(c *gc.C) {
 			c.Check(p.ID, gc.Equals, "spam")
 
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.Meta)
+				s.Meta.UpdateResult(result)
 			} else {
 				c.Fatalf("wrong output structure")
 			}

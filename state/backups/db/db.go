@@ -11,41 +11,10 @@
 package db
 
 import (
-	"github.com/juju/errors"
 
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	coreutils "github.com/juju/juju/utils"
 )
 
 var runCommand = coreutils.RunCommand
 
-// NewDBBackupInfo returns the information needed by backups to dump
-// the database.
-func NewDBBackupInfo(st *state.State) (*Info, error) {
-	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
-	targets, err := state.GetBackupTargetDatabases(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	info := Info{
-		ConnInfo: *connInfo,
-		Targets:  targets,
-	}
-	return &info, nil
-}
-
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *ConnInfo {
-	info := ConnInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		info.Username = mgoInfo.Tag.String()
-	}
-
-	return &info
-}

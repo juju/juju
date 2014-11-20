@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/utils/ssh"
 )
 
 // RestoreCommand is a subcommand of backups that implement the restore behaior
@@ -92,9 +92,14 @@ const restoreAPIIncompatibility = "server version not compatible for " +
 
 // runRestore will implement the actual calls to the different Client parts
 // of restore.
-func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
-
-	if err := client.Restore(c.filename, c.backupId, c.NewAPIRoot); err != nil {
+func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
+	client, closer, err := c.newClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer closer()
+	apiclient := *client
+	if err := apiclient.Restore(c.filename, c.backupId, c.newClient); err != nil {
 		// Backwards compatibility
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
@@ -155,6 +160,19 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	return nil
 }
 
+func (c *RestoreCommand) newClient () (*backups.Client, func() error, error){
+	client, err := c.NewAPIClient()
+	if err != nil {
+		return nil, func() error {return nil}, errors.Trace(err)
+	}
+	backupsClient, ok := client.(*backups.Client)
+	if !ok {
+		return nil, func() error {return nil}, errors.Errorf("invalid client for backups")
+	}
+	return backupsClient, client.Close, nil
+
+}
+
 // Run is the entry point for this command.
 func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
@@ -163,11 +181,6 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	client, err := c.NewAPIClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
 
-	return c.runRestore(ctx, client)
+	return c.runRestore(ctx)
 }

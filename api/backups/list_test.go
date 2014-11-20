@@ -26,7 +26,7 @@ func (s *listSuite) TestList(c *gc.C) {
 			if result, ok := resp.(*params.BackupsListResult); ok {
 				result.List = make([]params.BackupsMetadataResult, 1)
 				var resultItem params.BackupsMetadataResult
-				resultItem.UpdateFromMetadata(s.Meta)
+				s.Meta.UpdateResult(&resultItem)
 				result.List[0] = resultItem
 			} else {
 				c.Fatalf("wrong output structure")

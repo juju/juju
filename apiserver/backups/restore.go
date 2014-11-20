@@ -6,6 +6,7 @@ package backups
 import (
 	"io"
 	"os"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -13,15 +14,14 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 const restoreUserHome = "/home/ubuntu/"
 
-func (a *API) backupFileAndMeta(backupId, fileName string, backup backups.Backups) (io.ReadCloser, *metadata.Metadata, error) {
+func (a *API) backupFileAndMeta(backupId string, backup backups.Backups) (io.ReadCloser, *backups.Metadata, error) {
 	var (
 		fileHandler io.ReadCloser
-		meta        *metadata.Metadata
+		meta        *backups.Metadata
 		err         error
 	)
 	switch {
@@ -46,7 +46,6 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
 	defer closer.Close()
-
 	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, backup)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain a backup")
@@ -58,6 +57,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	addr := network.SelectInternalAddress(machine.Addresses(), false)
 	if addr == "" {
 		return errors.Errorf("machine %q has no internal address", machine)
@@ -68,7 +68,11 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	err = rInfo.SetStatus(state.RestoreInProgress)
+	if err != nil {
+		return errors.Annotatef(err, "cannot set the server to %q mode", state.RestoreInProgress)
+	}
 
 	instanceId, err := machine.InstanceId()
 	if err != nil {

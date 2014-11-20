@@ -21,7 +21,7 @@ func (s *backupsSuite) TestInfoOkay(c *gc.C) {
 	result, err := s.api.Info(args)
 	c.Assert(err, gc.IsNil)
 	expected := params.BackupsMetadataResult{}
-	expected.UpdateFromMetadata(s.meta)
+	s.meta.UpdateResult(&expected)
 
 	c.Check(result, gc.DeepEquals, expected)
 }
@@ -34,7 +34,7 @@ func (s *backupsSuite) TestInfoMissingFile(c *gc.C) {
 	result, err := s.api.Info(args)
 	c.Assert(err, gc.IsNil)
 	expected := params.BackupsMetadataResult{}
-	expected.UpdateFromMetadata(s.meta)
+	s.meta.UpdateResult(&expected)
 
 	c.Check(result, gc.DeepEquals, expected)
 }

@@ -147,7 +147,7 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer fhr.Close()
 
-	s.PatchValue(files.ReplaceableFolders, func() (map[string]os.FileMode, error) {
+	s.PatchValue(backups.ReplaceableFolders, func() (map[string]os.FileMode, error) {
 		replaceables := map[string]os.FileMode{}
 		for _, replaceable := range []string{
 			recreatableFolder,
@@ -162,7 +162,7 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 		return replaceables, nil
 	})
 
-	err = files.PrepareMachineForRestore()
+	err = backups.PrepareMachineForRestore()
 	c.Assert(err, gc.IsNil)
 
 	_, err = os.Stat(deletableFolder)

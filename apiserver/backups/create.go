@@ -37,7 +37,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 		return p, errors.Trace(err)
 	}
 
-	p.UpdateFromMetadata(meta)
+	meta.UpdateResult(&p)
 
 	return p, nil
 }

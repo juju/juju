@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
