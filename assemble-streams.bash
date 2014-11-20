@@ -324,7 +324,6 @@ archive_tools() {
             echo "No new tools were found for $RELEASE, exiting early."
             echo "Use 'IGNORE' as the release version if you want to generate."
             echo "streams from tools in $DEST_DIST/tools/releases"
-            #exit 0
         fi
     fi
 }
@@ -342,6 +341,7 @@ copy_proposed_to_release() {
     count=$(find $DEST_DIST/tools/releases -name "juju-${RELEASE}*.tgz" | wc -l)
     cp $proposed_releases/juju-${RELEASE}*.tgz  $DEST_DIST/tools/releases
     if [[ $((count)) == 0  ]]; then
+        echo "Setting --added $RELEASE for validation"
         ADDED="--added $RELEASE"
     fi
 }
