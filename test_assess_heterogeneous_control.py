@@ -10,6 +10,7 @@ from jujupy import (
     SimpleEnvironment,
     )
 
+
 class TestDumping_env(TestCase):
 
     def test_dumping_env_exception(self):
