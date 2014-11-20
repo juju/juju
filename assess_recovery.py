@@ -6,6 +6,7 @@ from __future__ import print_function
 __metaclass__ = type
 
 from argparse import ArgumentParser
+import logging
 import os
 import re
 import subprocess
@@ -194,7 +195,7 @@ def main():
             client.destroy_environment()
     except Exception as e:
         print_now("\nEXCEPTION CAUGHT:\n")
-        print_now(e)
+        logging.exception(e)
         if getattr(e, 'output', None):
             print_now('\n')
             print_now(e.output)
