@@ -346,7 +346,7 @@ func (st *State) matchingActionNotificationsByReceiverId(id string) ([]names.Act
 	defer closer()
 
 	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", id}}
+	sel := bson.D{{"$and", []bson.D{{{"env-uuid", envuuid}, {"receiver", id}}}}}
 	iter := notificationCollection.Find(sel).Iter()
 
 	for iter.Next(&doc) {
