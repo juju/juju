@@ -1648,7 +1648,6 @@ func newActionStatusWatcher(st *State, receivers []ActionReceiver, statusSet ...
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.sink)
-		defer close(w.source)
 		w.tomb.Kill(w.loop())
 	}()
 
@@ -1670,8 +1669,8 @@ func (w *actionStatusWatcher) loop() error {
 	watchLogger.Tracef("actionStatusWatcher loop()")
 	var (
 		changes []string
-		in      = (<-chan watcher.Change)(w.source)
-		out     = (chan<- []string)(w.sink)
+		in      <-chan watcher.Change = w.source
+		out     chan<- []string       = w.sink
 	)
 
 	w.st.watcher.WatchCollection(actionsC, w.source)
@@ -1700,7 +1699,7 @@ func (w *actionStatusWatcher) loop() error {
 				out = w.sink
 			}
 		case out <- changes:
-			changes = []string{}
+			changes = nil
 			out = nil
 		}
 	}
@@ -1719,8 +1718,6 @@ func (w *actionStatusWatcher) initial() ([]string, error) {
 // Actions that also have one of the supplied _id's.
 func (w *actionStatusWatcher) matchingIds(ids ...string) ([]string, error) {
 	watchLogger.Tracef("actionStatusWatcher matchingIds() ids:'%+v'", ids)
-	var found []string
-	var doc actionDoc
 
 	coll, closer := w.st.getCollection(actionsC)
 	defer closer()
@@ -1728,6 +1725,8 @@ func (w *actionStatusWatcher) matchingIds(ids ...string) ([]string, error) {
 	idFilter := localIdInCollectionOp(w.st, ids...)
 	query := bson.D{{"$and", []bson.D{idFilter, w.receiverFilter, w.statusFilter}}}
 	iter := coll.Find(query).Iter()
+	var found []string
+	var doc actionDoc
 	for iter.Next(&doc) {
 		found = append(found, w.st.localID(doc.DocId))
 	}
@@ -1742,7 +1741,7 @@ func (w *actionStatusWatcher) matchingIds(ids ...string) ([]string, error) {
 // dropped.
 func (w *actionStatusWatcher) filterAndMergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
 	watchLogger.Tracef("actionStatusWatcher filterAndMergeIds(changes:'%+v', updates:'%+v')", changes, updates)
-	adds := []string{}
+	var adds []string
 	for id, exists := range updates {
 		switch id := id.(type) {
 		case string:
