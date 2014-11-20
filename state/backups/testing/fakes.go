@@ -38,9 +38,9 @@ type FakeBackups struct {
 	DBInfoArg *backups.DBInfo
 	// MetaArg holds the backup metadata that was passed in.
 	MetaArg *backups.Metadata
-	// Holds the address for the internal network of the machine.
+	// PrivateAddr Holds the address for the internal network of the machine.
 	PrivateAddr string
-	// Is the id of the machine to be restored.
+	// InstanceId Is the id of the machine to be restored.
 	InstanceId instance.Id
 }
 

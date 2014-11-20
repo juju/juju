@@ -37,7 +37,6 @@ func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
 		dialInfo.Username,
 		dialInfo.Password,
 	}
-
 	return peergrouper.InitiateMongoServer(params, true)
 }
 
@@ -104,9 +103,7 @@ func newStateConnection(agentConf agent.Config) (*state.State, error) {
 		}
 		logger.Errorf("cannot open state, retrying: %v", err)
 	}
-
 	return st, errors.Annotate(err, "cannot open state")
-
 }
 
 // updateAllMachines finds all machines and resets the stored state address
@@ -114,7 +111,7 @@ func newStateConnection(agentConf agent.Config) (*state.State, error) {
 func updateAllMachines(privateAddress string, st *state.State) error {
 	machines, err := st.AllMachines()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	pendingMachineCount := 0
 	done := make(chan error)
@@ -127,7 +124,6 @@ func updateAllMachines(privateAddress string, st *state.State) error {
 			continue
 		}
 		pendingMachineCount++
-
 		go func() {
 			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
 			done <- errors.Annotatef(err, "failed to update machine %s", machine)

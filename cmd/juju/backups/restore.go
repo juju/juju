@@ -67,7 +67,6 @@ func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "id", "", "provide the name of the backup to be restored.")
-
 }
 
 // Init is where the preconditions for this commands can be checked.
@@ -170,7 +169,6 @@ func (c *RestoreCommand) newClient() (*backups.Client, func() error, error) {
 		return nil, func() error { return nil }, errors.Errorf("invalid client for backups")
 	}
 	return backupsClient, client.Close, nil
-
 }
 
 // Run is the entry point for this command.
@@ -180,6 +178,5 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-
 	return c.runRestore(ctx)
 }
