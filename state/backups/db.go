@@ -80,13 +80,13 @@ func NewDBBackupInfo(db DB) (*DBInfo, error) {
 
 	connInfo := newMongoConnInfo(db.MongoConnectionInfo())
 	info := DBInfo{
-		DBConnInfo: *connInfo,
+		DBConnInfo: connInfo,
 		Targets:    targets,
 	}
 	return &info, nil
 }
 
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) DBConnInfo {
 	info := DBConnInfo{
 		Address:  mgoInfo.Addrs[0],
 		Password: mgoInfo.Password,
@@ -97,7 +97,7 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
 		info.Username = mgoInfo.Tag.String()
 	}
 
-	return &info
+	return info
 }
 
 func getBackupTargetDatabases(db DB) (set.Strings, error) {
