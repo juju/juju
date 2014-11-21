@@ -426,7 +426,7 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", args.Commands)
 
-	remoteUnitName, err := ParseRemoteUnit(u.relationers, args)
+	remoteUnitName, err := InferRemoteUnit(u.relationers, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -867,7 +867,7 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 // remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
 // the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
 // a given relationId an error is returned for display to the user.
-func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
+func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
 	if args.SkipRemoteUnitCheck {
 		return "", nil
 	}

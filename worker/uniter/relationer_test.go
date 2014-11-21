@@ -394,11 +394,11 @@ func (s *RelationerSuite) TestParseRemoteUnitInvalidInput(c *gc.C) {
 	relationers := map[int]*uniter.Relationer{}
 
 	// Bad remote unit
-	c.Assert(func() { uniter.ParseRemoteUnit(relationers, args) }, gc.PanicMatches, `"my-bad-remote-unit" is not a valid unit name`)
+	c.Assert(func() { uniter.InferRemoteUnit(relationers, args) }, gc.PanicMatches, `"my-bad-remote-unit" is not a valid unit name`)
 
 	// Good remote unit
 	args.RemoteUnitName = "u/0"
-	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
+	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, jc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
@@ -435,12 +435,12 @@ func (s *RelationerSuite) TestParseRemoteUnitAmbiguous(c *gc.C) {
 	}
 
 	// Ambiguous
-	_, err = uniter.ParseRemoteUnit(relationers, args)
+	_, err = uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, gc.ErrorMatches, `unable to determine remote-unit, please disambiguate:.*`)
 
 	// Disambiguate
 	args.RemoteUnitName = "u/0"
-	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
+	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, jc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
@@ -472,7 +472,7 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 	err = r.CommitHook(joined)
 	c.Assert(err, gc.IsNil)
 
-	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
+	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/1")
 
@@ -503,12 +503,12 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 
 	// Ensure the call with the same args fails, explicitly warning
 	// the user about the lack of a remote unit.
-	_, err = uniter.ParseRemoteUnit(relationers, args)
+	_, err = uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, use --skip-remote-unit-check to execute the commands anyway")
 
 	// Run the command passing in the SkipRemoteUnitCheck flag
 	args.SkipRemoteUnitCheck = true
-	remoteUnit, err = uniter.ParseRemoteUnit(relationers, args)
+	remoteUnit, err = uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "")
 }
