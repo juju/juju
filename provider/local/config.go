@@ -53,14 +53,10 @@ type environConfig struct {
 }
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
-	environConfig := &environConfig{
+	return &environConfig{
 		Config: config,
 		attrs:  attrs,
 	}
-	// Set correct default network bridge if needed
-	// fix for http://pad.lv/1394450
-	environConfig.setDefaultNetworkBridge()
-	return environConfig
 }
 
 // Since it is technically possible for two different users on one machine to
