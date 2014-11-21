@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/state"
@@ -71,10 +72,16 @@ func AddBackupMetadata(st *state.State, meta *Metadata) (string, error) {
 // AddBackupMetadataID adds the metadata to storage, using the given
 // backup ID.
 func AddBackupMetadataID(st *state.State, meta *Metadata, id string) error {
+	restore := testing.PatchValue(&newStorageID, func(*storageMetaDoc) string {
+		return id
+	})
+	defer restore()
+
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
-	return addStorageMetadataID(db, doc, id)
+	_, err := addStorageMetadata(db, doc)
+	return err
 }
 
 // SetBackupStoredTime stores the time of when the identified backup archive

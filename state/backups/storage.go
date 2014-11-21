@@ -330,27 +330,24 @@ func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, e
 // consumable (in contrast to a plain UUID string).  Ideally we would
 // use some form of environment name rather than the UUID, but for now
 // the raw env ID is sufficient.
-func newStorageID(doc *storageMetaDoc) string {
+var newStorageID = func(doc *storageMetaDoc) string {
 	started := time.Unix(doc.Started, 0).UTC()
 	timestamp := started.Format(backupIDTimestamp)
 	return timestamp + "." + doc.Environment
 }
 
 // addStorageMetadata stores metadata for a backup where it can be
-// accessed later.  It returns a new ID that is associated with the
-// backup.  If the provided metadata already has an ID set, it is
-// ignored.
+// accessed later. It returns a new ID that is associated with the
+// backup. If the provided metadata already has an ID set, it is
+// ignored. The new ID is set on the doc, even when there is an error.
 func addStorageMetadata(dbWrap *storageDBWrapper, doc *storageMetaDoc) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
 	id := newStorageID(doc)
-	return id, addStorageMetadataID(dbWrap, doc, id)
-}
 
-func addStorageMetadataID(dbWrap *storageDBWrapper, doc *storageMetaDoc, id string) error {
 	doc.ID = id
 	if err := doc.validate(); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	op := dbWrap.txnOp(id)
@@ -359,12 +356,12 @@ func addStorageMetadataID(dbWrap *storageDBWrapper, doc *storageMetaDoc, id stri
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
-			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
+			return "", errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
-		return errors.Annotate(err, "while running transaction")
+		return "", errors.Annotate(err, "while running transaction")
 	}
 
-	return nil
+	return id, nil
 }
 
 // setStorageStoredTime updates the backup metadata associated with "id"
