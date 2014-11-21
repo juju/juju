@@ -873,7 +873,10 @@ func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 	}
 
 	remoteUnit := args.RemoteUnitName
-	if args.RelationId != -1 && len(remoteUnit) == 0 {
+	noRemoteUnit := len(remoteUnit) == 0
+	noRelationId := args.RelationId != -1
+
+	if noRelationId && noRemoteUnit {
 		relationer, found := relationers[args.RelationId]
 		if !found {
 			return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
@@ -897,6 +900,14 @@ func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 		if err != nil {
 			return "", errors.Trace(err)
 		}
+
+		return remoteUnit, nil
 	}
-	return remoteUnit, nil
+
+	if noRemoteUnit {
+		return "", nil
+	}
+
+	unitTag := names.NewUnitTag(remoteUnit)
+	return unitTag.Id(), nil
 }

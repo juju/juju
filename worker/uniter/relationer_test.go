@@ -384,6 +384,25 @@ func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
 	}
 }
 
+func (s *RelationerSuite) TestParseRemoteUnitInvalidInput(c *gc.C) {
+	args := uniter.RunCommandsArgs{
+		Commands:       "some-command",
+		RelationId:     0,
+		RemoteUnitName: "my-bad-remote-unit",
+	}
+
+	relationers := map[int]*uniter.Relationer{}
+
+	// Bad remote unit
+	c.Assert(func() { uniter.ParseRemoteUnit(relationers, args) }, gc.PanicMatches, `"my-bad-remote-unit" is not a valid unit name`)
+
+	// Good remote unit
+	args.RemoteUnitName = "u/0"
+	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
+	c.Assert(err, jc.IsNil)
+	c.Assert(remoteUnit, gc.Equals, "u/0")
+}
+
 func (s *RelationerSuite) TestParseRemoteUnitAmbiguous(c *gc.C) {
 	s.AddRelationUnit(c, "u/1")
 	s.AddRelationUnit(c, "u/2")
