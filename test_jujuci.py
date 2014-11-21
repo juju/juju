@@ -89,9 +89,11 @@ class JujuCITestCase(TestCase):
 
     def test_main_get_options(self):
         with patch('jujuci.get_artifacts') as mock:
-            main(['-d', '-v', '-b', '1234', 'get', 'foo', '*.tar.gz', 'bar'])
+            main(['-d', '-v', '-a', '-b', '1234',
+                  'get', 'foo', '*.tar.gz', 'bar'])
             args, kwargs = mock.call_args
             self.assertEqual(('foo', '1234', '*.tar.gz', 'bar'), args)
+            self.assertTrue(kwargs['archive'])
             self.assertTrue(kwargs['verbose'])
             self.assertTrue(kwargs['dry_run'])
 
@@ -180,3 +182,11 @@ class JujuCITestCase(TestCase):
                 get_artifacts(
                     'foo', '1234', '*.bash', './', dry_run=True)
         self.assertEqual(0, uo_mock.call_count)
+
+    def test_get_artifacts_with_archive(self):
+        build_data = make_build_data(1234)
+        with patch('jujuci.get_build_data', return_value=build_data):
+            with patch('urllib.URLopener.retrieve'):
+                with self.assertRaises(ValueError):
+                    get_artifacts(
+                        'foo', '1234', '*.bash', '/foo-bar-baz', archive=True)

@@ -8,6 +8,7 @@ from collections import namedtuple
 import fnmatch
 import json
 import os
+import shutil
 import sys
 import traceback
 import urllib
@@ -57,8 +58,14 @@ def list_artifacts(job_name, build, glob, verbose=False):
             print_now(artifact.file_name)
 
 
-def get_artifacts(job_name, build, glob, path, dry_run=False, verbose=False):
+def get_artifacts(job_name, build, glob, path,
+                  archive=False, dry_run=False, verbose=False):
     full_path = os.path.expanduser(path)
+    if archive:
+        if not os.path.isdir(full_path):
+            raise ValueError('%s does not exist' % full_path)
+        shutil.rmtree(full_path)
+        os.makedirs(full_path)
     build_data = get_build_data(JENKINS_URL, job_name, build)
     artifacts = find_artifacts(build_data, glob)
     opener = urllib.URLopener()
@@ -77,11 +84,14 @@ def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("List and get artifacts from Juju CI.")
     parser.add_argument(
-        '-d', '--dry-run', action="store_true", default=False,
+        '-d', '--dry-run', action='store_true', default=False,
         help='Do not make changes.')
     parser.add_argument(
-        '-v', '--verbose', action="store_true", default=False,
+        '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
+    parser.add_argument(
+        '-a', '--archive', action='store_true', default=False,
+        help='Ensure the download path exists and remove older files.')
     parser.add_argument(
         '-b', '--build', default='lastSuccessfulBuild',
         help="The specific build to examine (default: lastSuccessfulBuild).")
@@ -108,7 +118,8 @@ def main(argv):
         elif args.command == 'get':
             get_artifacts(
                 args.job, args.build, args.glob, args.path,
-                dry_run=args.dry_run, verbose=args.verbose)
+                archive=args.archive, dry_run=args.dry_run,
+                verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:
