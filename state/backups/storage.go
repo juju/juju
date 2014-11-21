@@ -250,8 +250,8 @@ func (b *storageDBWrapper) allMetadata(docs interface{}) error {
 	return errors.Trace(err)
 }
 
-// removeMetadata removes the identified metadata from storage.
-func (b *storageDBWrapper) removeMetadata(id string) error {
+// removeMetadataID removes the identified metadata from storage.
+func (b *storageDBWrapper) removeMetadataID(id string) error {
 	err := b.metaColl.RemoveId(id)
 	return errors.Trace(err)
 }
@@ -465,7 +465,7 @@ func (s *backupsDocStorage) RemoveDoc(id string) error {
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
 
-	return errors.Trace(dbWrap.removeMetadata(id))
+	return errors.Trace(dbWrap.removeMetadataID(id))
 }
 
 // Close releases the DB resources.
