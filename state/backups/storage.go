@@ -307,7 +307,6 @@ func (b *storageDBWrapper) Close() error {
 // juju/errors.IsNotFound() is returned.
 func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, error) {
 	var doc storageMetaDoc
-	// There can only be one!
 	err := dbWrap.metadata(id, &doc)
 	if errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
