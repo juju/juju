@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from collections import namedtuple
 import fnmatch
 import json
 import sys
@@ -11,6 +12,8 @@ import urllib2
 
 
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
+
+Artifact = namedtuple('Artifact', ['file_name', 'location'])
 
 
 def print_now(string):
@@ -30,7 +33,9 @@ def list_files(build_data, glob='*'):
     for artifact in build_data['artifacts']:
         file_name = artifact['fileName']
         if fnmatch.fnmatch(file_name, glob):
-            found.append(file_name)
+            location = '%sartifacts/%s' % (build_data['url'], file_name)
+            artifact = Artifact(file_name, location)
+            found.append(artifact)
     return found
 
 
@@ -41,9 +46,9 @@ def download_files(files, path):
 
 def list_artifacts(job_name, build, glob, dry_run=False, verbose=False):
     build_data = get_build_data(JENKINS_URL, job_name, build)
-    files = list_files(build_data, glob)
-    for file_name in files:
-        print_now(file_name)
+    artifacts = list_files(build_data, glob)
+    for artifact in artifacts:
+        print_now(artifact.file_name)
 
 
 def get_artifacts(job, build, glob, path, dry_run=False, verbose=False):

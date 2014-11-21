@@ -110,16 +110,21 @@ class JujuCITestCase(TestCase):
 
     def test_list_files_all(self):
         expected_data = make_build_data()
-        files = list_files(expected_data)
+        artifacts = list_files(expected_data)
         self.assertEqual(
             ['buildvars.bash', 'buildvars.json',
              'juju-core_1.22-alpha1.tar.gz'],
-            sorted(files))
+            sorted(a.file_name for a in artifacts))
 
     def test_list_files_glob_tarball(self):
         expected_data = make_build_data()
-        files = list_files(expected_data, '*.tar.gz')
-        self.assertEqual(['juju-core_1.22-alpha1.tar.gz'], files)
+        artifacts = list_files(expected_data, '*.tar.gz')
+        artifact = artifacts[0]
+        self.assertEqual('juju-core_1.22-alpha1.tar.gz', artifact.file_name)
+        self.assertEqual(
+            'http://juju-ci.vapour.ws:8080/job/build-revision/'
+            'lastSuccessfulBuild/artifacts/juju-core_1.22-alpha1.tar.gz',
+            artifact.location)
 
     def test_list_artifacts(self):
         build_data = make_build_data(1234)
