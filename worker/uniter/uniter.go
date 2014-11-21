@@ -75,9 +75,10 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 
 // deployerProxy exists because we're not yet sure if we can legitimately
 // drop support for charm.gitDeployer. If we can, then the uniter doesn't
-// need a deployer reference at all: and we can drop fixDeployer, and the
-// Notify* method calls, and simply hald the deployer we create over to
-// the operationFactory already.
+// need a deployer reference at all: and we can drop fixDeployer, and even
+// the Notify* methods on the Deployer interface, and simply hand the
+// deployer we create over to the operationFactory at creation and forget
+// about it.
 type deployerProxy struct {
 	charm.Deployer
 }
@@ -220,13 +221,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	u.operationFactory = operation.NewFactory(
-		u.st,
-		&runHookHelper{u},
 		u.paths,
-		contextFactory,
-		u.acquireHookLock,
-		u.setCharmURL,
 		u.deployer,
+		contextFactory,
+		&operationCallbacks{u},
 		u.tomb.Dying(),
 	)
 
@@ -282,25 +280,6 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-func (u *Uniter) acquireHookLock(message string) (unlock func(), err error) {
-	// We want to make sure we don't block forever when locking, but take the
-	// tomb into account.
-	checkTomb := func() error {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		default:
-			// no-op to fall through to return.
-		}
-		return nil
-	}
-	message = fmt.Sprintf("%s: %s", u.unit.Name(), message)
-	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
-		return nil, err
-	}
-	return func() { u.hookLock.Unlock() }, nil
-}
-
 func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
 	relationInfos := map[int]*context.RelationInfo{}
 	for id, r := range u.relationers {
@@ -320,10 +299,6 @@ func (u *Uniter) getCharm() (corecharm.Charm, error) {
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	charmURL, _, err := u.service.CharmURL()
 	return charmURL, err
-}
-
-func (u *Uniter) setCharmURL(charmURL *corecharm.URL) error {
-	return u.f.SetCharm(charmURL)
 }
 
 func (u *Uniter) operationState() operation.State {

@@ -4,21 +4,18 @@
 package operation
 
 import (
-	utilexec "github.com/juju/utils/exec"
-
 	"github.com/juju/juju/worker/uniter/context"
 )
-
-type CommandResponseFunc func(*utilexec.ExecResponse, error)
 
 type runCommands struct {
 	commands     string
 	sendResponse CommandResponseFunc
 
-	contextFactory context.Factory
 	paths          context.Paths
-	context        context.Context
-	acquireLock    func(message string) (func(), error)
+	callbacks      Callbacks
+	contextFactory context.Factory
+
+	context context.Context
 }
 
 func (rc *runCommands) String() string {
@@ -39,7 +36,7 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 }
 
 func (rc *runCommands) Execute(state State) (*State, error) {
-	unlock, err := rc.acquireLock("run commands")
+	unlock, err := rc.callbacks.AcquireExecutionLock("run commands")
 	if err != nil {
 		return nil, err
 	}

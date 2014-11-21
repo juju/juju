@@ -16,10 +16,10 @@ import (
 type deploy struct {
 	kind     Kind
 	charmURL *corecharm.URL
-	getInfo  func(*corecharm.URL) (charm.BundleInfo, error)
-	setCharm func(*corecharm.URL) error
-	deployer charm.Deployer
-	abort    <-chan struct{}
+
+	callbacks Callbacks
+	deployer  charm.Deployer
+	abort     <-chan struct{}
 }
 
 func (d *deploy) String() string {
@@ -30,14 +30,21 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, err
 	}
-	info, err := d.getInfo(d.charmURL)
+	info, err := d.callbacks.GetArchiveInfo(d.charmURL)
 	if err != nil {
 		return nil, err
 	}
 	if err := d.deployer.Stage(info, d.abort); err != nil {
 		return nil, err
 	}
-	if err := d.setCharm(d.charmURL); err != nil {
+	// note: yes, this *should* be in Prepare, not Execute. Before we can safely
+	// write out local state referencing the charm url (by returning the new
+	// State to the Executor, below), we have to register our interest in that
+	// charm on the state server. If we neglected to do so, the operation could
+	// race with a new service-charm-url change on the state server, and lead to
+	// failures on resume in which we try to obtain archive info for a charm that
+	// has already been removed from the state server.
+	if err := d.callbacks.SetCurrentCharm(d.charmURL); err != nil {
 		return nil, err
 	}
 	return d.getState(state, Pending), nil

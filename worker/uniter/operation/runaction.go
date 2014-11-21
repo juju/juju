@@ -7,23 +7,19 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
-	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/context"
 )
 
 type runAction struct {
-	state     *apiuniter.State
-	actionId  string
-	actionTag names.ActionTag
-	name      string
+	actionId string
 
-	contextFactory context.Factory
 	paths          context.Paths
-	context        context.Context
-	acquireLock    func(message string) (func(), error)
+	callbacks      Callbacks
+	contextFactory context.Factory
+
+	name    string
+	context context.Context
 }
 
 func (ra *runAction) String() string {
@@ -33,12 +29,8 @@ func (ra *runAction) String() string {
 func (ra *runAction) Prepare(state State) (*State, error) {
 	ctx, err := ra.contextFactory.NewActionContext(ra.actionId)
 	if cause := errors.Cause(err); context.IsBadActionError(cause) {
-		print(fmt.Sprintf("%v\n%v\n", err, cause))
-		finishErr := ra.state.ActionFinish(ra.actionTag, params.ActionFailed, nil, err.Error())
-		if params.IsCodeNotFoundOrCodeUnauthorized(finishErr) {
-			return nil, ErrSkipExecute
-		} else if finishErr != nil {
-			return nil, finishErr
+		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
+			return nil, err
 		}
 		return nil, ErrSkipExecute
 	} else if cause == context.ErrActionNotAvailable {
@@ -62,7 +54,7 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 
 func (ra *runAction) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
-	unlock, err := ra.acquireLock(message)
+	unlock, err := ra.callbacks.AcquireExecutionLock(message)
 	if err != nil {
 		return nil, err
 	}

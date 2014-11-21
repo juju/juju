@@ -8,12 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type FactoryTest struct {
+type DeployTest struct {
 	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&FactoryTest{})
+var _ = gc.Suite(&DeployTest{})
 
-func (s *FactoryTest) TestFatal(c *gc.C) {
+func (s *DeployTest) TestFatal(c *gc.C) {
 	c.Fatalf("XXX")
 }
