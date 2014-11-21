@@ -60,7 +60,12 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 	owner := names.Tag(env.Owner())
 	// TODO(wallyworld) - replace stub with real canRead function
 	// For now, only admins can read authorised ssh keys.
-	canRead := func(_ string) bool {
+	canRead := func(user string) bool {
+		// Are we a machine agent operating as the system identity?
+		if user == config.JujuSystemKey {
+			_, ismachinetag := authorizer.GetAuthTag().(names.MachineTag)
+			return ismachinetag
+		}
 		return authorizer.GetAuthTag() == owner
 	}
 	// TODO(wallyworld) - replace stub with real canWrite function

@@ -33,5 +33,8 @@ func (s *steps122Suite) TestStateStepsFor122(c *gc.C) {
 }
 
 func (s *steps122Suite) TestStepsFor122(c *gc.C) {
-	assertSteps(c, version.MustParse("1.22.0"), []string{})
+	expected := []string{
+		"update the authorized keys for the system identity",
+	}
+	assertSteps(c, version.MustParse("1.22.0"), expected)
 }

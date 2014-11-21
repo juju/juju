@@ -49,7 +49,8 @@ func ensureSystemSSHKeyRedux(context Context) error {
 	if stateInfo.SystemIdentity != "" {
 		logger.Infof("state serving info has a system identity already, all good")
 		// We are good. One exists already.
-		return nil
+		// Make sure that the agent things that it is the same.
+		return updateSystemIdentityInAgentConfig(context, stateInfo.SystemIdentity)
 	}
 
 	privateKey, publicKey, err := readOrMakeSystemIdentity(context)
@@ -79,27 +80,95 @@ func ensureSystemSSHKeyRedux(context Context) error {
 				logger.Errorf("failed to write the system identity file: %v", err)
 				return errors.Trace(err)
 			}
-			return updateSystemIdentityInAgentConfig(context, privateKey)
+			return updateSystemIdentityInAgentConfig(context, stateInfo.SystemIdentity)
 		}
 
 		logger.Errorf("failed to set system identity: %v", err)
 		return errors.Annotate(err, "cannot set state serving info")
 	}
 
-	// If the public key is empty then the system identity was read
-	// from the file on disk already, so we are done.
-	if publicKey == "" {
-		logger.Infof("publicKey is empty, so we have read it from disk, so should be in auth keys already")
-		return nil
-	}
-
-	if err := updateAuthorizedKeys(context, publicKey); err != nil {
-		return errors.Trace(err)
-	}
-	if err := writeSystemIdentity(context, privateKey); err != nil {
-		return errors.Trace(err)
+	if publicKey != "" {
+		if err := writeSystemIdentity(context, privateKey); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return updateSystemIdentityInAgentConfig(context, privateKey)
+}
+
+// updateAuthorizedKeysForSystemIdentity makes sure that the authorized keys
+// list is up to date with the system identity.  Due to changes in the way
+// upgrades are done in 1.22, this part, which uses the API had to be split
+// from the first part which used the state connection.
+func updateAuthorizedKeysForSystemIdentity(context Context) error {
+	agentInfo, ok := context.AgentConfig().StateServingInfo()
+	if !ok {
+		return errors.New("missing state serving info for the agent")
+	}
+	publicKey, err := ssh.PublicKey([]byte(agentInfo.SystemIdentity), config.JujuSystemKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(updateAuthorizedKeys(context, publicKey))
+}
+
+func updateAuthorizedKeys(context Context, publicKey string) error {
+	// Look for an existing authorized key.
+	logger.Infof("setting new authorized key for %q", publicKey)
+	keyManager := keymanager.NewClient(context.APIState())
+
+	result, err := keyManager.ListKeys(ssh.FullKeys, config.JujuSystemKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result[0].Error != nil {
+		return errors.Trace(result[0].Error)
+	}
+	keys := result[0].Result
+
+	// Loop through the keys. If we find a key that matches the publicKey
+	// then we are good, and done.  If the comment on the key is for the system identity
+	// but it is not the same, remove it.
+	var keysToRemove []string
+	for _, key := range keys {
+		// The list of keys returned don't have carriage returns, but the
+		// publicKey does, so add one one before testing for equality.
+		if (key + "\n") == publicKey {
+			logger.Infof("system identity key already in authorized list")
+			return nil
+		}
+
+		fingerprint, comment, err := ssh.KeyFingerprint(key)
+		if err != nil {
+			// Log the error, but it doesn't stop us doing what we need to do.
+			logger.Errorf("bad key in authorized keys: %v", err)
+		} else if comment == config.JujuSystemKey {
+			keysToRemove = append(keysToRemove, fingerprint)
+		}
+	}
+	if keysToRemove != nil {
+		logger.Infof("removing %d keys", len(keysToRemove))
+		results, err := keyManager.DeleteKeys(config.JujuSystemKey, keysToRemove...)
+		if err != nil {
+			// Log the error but continue.
+			logger.Errorf("failed to remove keys: %v", err)
+		} else {
+			for _, err := range results {
+				if err.Error != nil {
+					// Log the error but continue.
+					logger.Errorf("failed to remove key: %v", err.Error)
+				}
+			}
+		}
+	}
+
+	errResults, err := keyManager.AddKeys(config.JujuSystemKey, publicKey)
+	if err != nil {
+		return errors.Annotate(err, "failed to update authorised keys with new system key")
+	}
+	if err := errResults[0].Error; err != nil {
+		return errors.Annotate(err, "failed to update authorised keys with new system key")
+	}
+	return nil
 }
 
 func updateSystemIdentityInAgentConfig(context Context, systemIdentity string) error {
@@ -139,23 +208,6 @@ func readOrMakeSystemIdentity(context Context) (privateKey, publicKey string, er
 		return "", "", errors.Annotate(err, "failed to create system key")
 	}
 	return privateKey, publicKey, nil
-}
-
-func updateAuthorizedKeys(context Context, publicKey string) error {
-	logger.Infof("setting new authorized key for %q", publicKey)
-
-	keyManager := keymanager.NewClient(context.APIState())
-	errResults, err := keyManager.AddKeys(config.JujuSystemKey, publicKey)
-	apiErr := err
-	if apiErr == nil {
-		apiErr = errResults[0].Error
-	}
-	// Check both errors as `errResults[0].Error` is a type, and apiErr is an
-	// interface, so we'd get a typed nil which `!= nil`.
-	if err != nil || errResults[0].Error != nil {
-		return errors.Annotate(apiErr, "failed to update authorised keys with new system key")
-	}
-	return nil
 }
 
 func writeSystemIdentity(context Context, privateKey string) error {

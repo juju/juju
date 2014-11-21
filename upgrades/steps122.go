@@ -65,3 +65,14 @@ func stateStepsFor122() []Step {
 		},
 	}
 }
+
+// stepsFor122 returns upgrade steps form Juju 1.22 that only need the API.
+func stepsFor122() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "update the authorized keys for the system identity",
+			targets:     []Target{DatabaseMaster},
+			run:         updateAuthorizedKeysForSystemIdentity,
+		},
+	}
+}
