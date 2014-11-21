@@ -67,6 +67,8 @@ def get_artifacts(job_name, build, glob, path, dry_run=False, verbose=False):
             os.path.join(full_path, artifact.file_name))
         if verbose:
             print_now('Retrieving %s => %s' % (artifact.location, local_path))
+        else:
+            print_now(artifact.file_name)
         if not dry_run:
             opener.retrieve(artifact.location, local_path)
 

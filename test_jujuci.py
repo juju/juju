@@ -86,7 +86,6 @@ class JujuCITestCase(TestCase):
             args, kwargs = mock.call_args
             self.assertEqual(('foo', '1234', '*.tar.gz'), args)
             self.assertTrue(kwargs['verbose'])
-            self.assertTrue(kwargs['dry_run'])
 
     def test_main_get_options(self):
         with patch('jujuci.get_artifacts') as mock:
