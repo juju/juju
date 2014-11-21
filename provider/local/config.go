@@ -104,8 +104,7 @@ func (c *environConfig) setDefaultNetworkBridge() {
 func (c *environConfig) networkBridge() string {
 	// We don't care if it's not a string, because Validate takes care
 	// of that.
-	name, _ := c.attrs[NetworkBridgeKey].(string)
-	return name
+	return c.attrs[NetworkBridgeKey].(string)
 }
 
 func (c *environConfig) storageDir() string {
