@@ -867,6 +867,10 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 // the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
 // a given relationId an error is returned for display to the user.
 func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
+	if args.SkipRemoteUnitCheck {
+		return "", nil
+	}
+
 	remoteUnit := args.RemoteUnitName
 	if args.RelationId != -1 && len(remoteUnit) == 0 {
 		relationer, found := relationers[args.RelationId]
@@ -880,7 +884,7 @@ func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 
 		switch numRemoteUnits {
 		case 0:
-			if !args.SkipRemoteUnit {
+			if !args.SkipRemoteUnitCheck {
 				err = errors.Errorf("no remote unit found for relation id: %d, use --skip-remote-unit-check to execute the commands anyway", args.RelationId)
 			}
 		case 1:

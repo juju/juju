@@ -21,10 +21,10 @@ const JujuRunEndpoint = "JujuRunServer.RunCommands"
 
 // RunCommandsArgs stores the arguments for a RunCommands call.
 type RunCommandsArgs struct {
-	Commands       string
-	RelationId     int
-	RemoteUnitName string
-	SkipRemoteUnit bool
+	Commands            string
+	RelationId          int
+	RemoteUnitName      string
+	SkipRemoteUnitCheck bool
 }
 
 // A CommandRunner is something that will actually execute the commands and

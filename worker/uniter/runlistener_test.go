@@ -59,10 +59,10 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 
 	var result exec.ExecResponse
 	args := uniter.RunCommandsArgs{
-		Commands:       "some-command",
-		RelationId:     -1,
-		RemoteUnitName: "",
-		SkipRemoteUnit: false,
+		Commands:            "some-command",
+		RelationId:          -1,
+		RemoteUnitName:      "",
+		SkipRemoteUnitCheck: false,
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	c.Assert(err, gc.IsNil)

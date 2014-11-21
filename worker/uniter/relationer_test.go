@@ -445,8 +445,8 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 	_, err = uniter.ParseRemoteUnit(relationers, args)
 	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, use --skip-remote-unit-check to execute the commands anyway")
 
-	// Run the command passing in the SkipRemoteUnit flag
-	args.SkipRemoteUnit = true
+	// Run the command passing in the SkipRemoteUnitCheck flag
+	args.SkipRemoteUnitCheck = true
 	remoteUnit, err = uniter.ParseRemoteUnit(relationers, args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "")
