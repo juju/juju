@@ -33,7 +33,7 @@ def find_artifacts(build_data, glob='*'):
     for artifact in build_data['artifacts']:
         file_name = artifact['fileName']
         if fnmatch.fnmatch(file_name, glob):
-            location = '%sartifacts/%s' % (build_data['url'], file_name)
+            location = '%sartifact/%s' % (build_data['url'], file_name)
             artifact = Artifact(file_name, location)
             found.append(artifact)
     return found

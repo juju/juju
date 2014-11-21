@@ -13,6 +13,8 @@ from jujuci import (
 
 
 def make_build_data(number='lastSuccessfulBuild'):
+    if number == 'lastSuccessfulBuild':
+        number = 2112
     return {
         "actions": [
             {
@@ -122,8 +124,8 @@ class JujuCITestCase(TestCase):
         artifact = artifacts[0]
         self.assertEqual('juju-core_1.22-alpha1.tar.gz', artifact.file_name)
         self.assertEqual(
-            'http://juju-ci.vapour.ws:8080/job/build-revision/'
-            'lastSuccessfulBuild/artifacts/juju-core_1.22-alpha1.tar.gz',
+            'http://juju-ci.vapour.ws:8080/job/build-revision/2112/'
+            'artifact/juju-core_1.22-alpha1.tar.gz',
             artifact.location)
 
     def test_list_artifacts(self):
