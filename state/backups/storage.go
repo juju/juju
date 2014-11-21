@@ -112,10 +112,18 @@ func (doc *storageMetaDoc) validate() error {
 	return nil
 }
 
+func metadocUnixToTime(t int64) time.Time {
+	return time.Unix(t, 0).UTC()
+}
+
+func metadocTimeToUnix(t time.Time) int64 {
+	return t.UTC().Unix()
+}
+
 // docAsMetadata returns a new backups.Metadata based on the storageMetaDoc.
 func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta := NewMetadata()
-	meta.Started = time.Unix(doc.Started, 0).UTC()
+	meta.Started = metadocUnixToTime(doc.Started)
 	meta.Notes = doc.Notes
 
 	meta.Origin.Environment = doc.Environment
@@ -128,7 +136,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	if doc.isFileInfoComplete() {
 		// Set the file-related fields.
 
-		finished := time.Unix(doc.Finished, 0).UTC()
+		finished := metadocUnixToTime(doc.Finished)
 		meta.Finished = &finished
 
 		// The doc should have already been validated when stored.
@@ -137,7 +145,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 		meta.FileMetadata.Raw.ChecksumFormat = doc.ChecksumFormat
 
 		if doc.Stored != 0 {
-			stored := time.Unix(doc.Stored, 0).UTC()
+			stored := metadocUnixToTime(doc.Stored)
 			meta.SetStored(&stored)
 		}
 	}
@@ -156,12 +164,13 @@ func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 	doc.ChecksumFormat = meta.ChecksumFormat()
 	doc.Size = meta.Size()
 	if meta.Stored() != nil {
-		doc.Stored = meta.Stored().Unix()
+		stored := meta.Stored()
+		doc.Stored = metadocTimeToUnix(*stored)
 	}
 
-	doc.Started = meta.Started.Unix()
+	doc.Started = metadocTimeToUnix(meta.Started)
 	if meta.Finished != nil {
-		doc.Finished = meta.Finished.Unix()
+		doc.Finished = metadocTimeToUnix(*meta.Finished)
 	}
 	doc.Notes = meta.Notes
 
@@ -296,7 +305,7 @@ func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, e
 // use some form of environment name rather than the UUID, but for now
 // the raw env ID is sufficient.
 var newStorageID = func(doc *storageMetaDoc) string {
-	started := time.Unix(doc.Started, 0).UTC()
+	started := metadocUnixToTime(doc.Started)
 	timestamp := started.Format(backupIDTimestamp)
 	return timestamp + "." + doc.Environment
 }
@@ -337,7 +346,7 @@ func setStorageStoredTime(dbWrap *storageDBWrapper, id string, stored time.Time)
 	op := dbWrap.txnOp(id)
 	op.Assert = txn.DocExists
 	op.Update = bson.D{{"$set", bson.D{
-		{"stored", stored.UTC().Unix()},
+		{"stored", metadocTimeToUnix(stored)},
 	}}}
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
