@@ -6,8 +6,10 @@ from argparse import ArgumentParser
 from collections import namedtuple
 import fnmatch
 import json
+import os
 import sys
 import traceback
+import urllib
 import urllib2
 
 
@@ -44,7 +46,7 @@ def download_files(files, path):
         pass
 
 
-def list_artifacts(job_name, build, glob, dry_run=False, verbose=False):
+def list_artifacts(job_name, build, glob, verbose=False):
     build_data = get_build_data(JENKINS_URL, job_name, build)
     artifacts = find_artifacts(build_data, glob)
     for artifact in artifacts:
@@ -54,8 +56,18 @@ def list_artifacts(job_name, build, glob, dry_run=False, verbose=False):
             print_now(artifact.file_name)
 
 
-def get_artifacts(job, build, glob, path, dry_run=False, verbose=False):
-    pass
+def get_artifacts(job_name, build, glob, path, dry_run=False, verbose=False):
+    full_path = os.path.expanduser(path)
+    build_data = get_build_data(JENKINS_URL, job_name, build)
+    artifacts = find_artifacts(build_data, glob)
+    opener = urllib.URLopener()
+    for artifact in artifacts:
+        local_path = os.path.abspath(
+            os.path.join(full_path, artifact.file_name))
+        if verbose:
+            print_now('Retrieving %s => %s' % (artifact.location, local_path))
+        if not dry_run:
+            opener.retrieve(artifact.location, local_path)
 
 
 def parse_args(args=None):
