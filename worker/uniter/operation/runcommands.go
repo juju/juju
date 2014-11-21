@@ -25,7 +25,7 @@ func (rc *runCommands) String() string {
 	return "run commands"
 }
 
-func (rc *runCommands) Prepare(state State) (*StateChange, error) {
+func (rc *runCommands) Prepare(state State) (*State, error) {
 	ctx, err := rc.contextFactory.NewRunContext()
 	if err != nil {
 		return nil, err
@@ -33,10 +33,12 @@ func (rc *runCommands) Prepare(state State) (*StateChange, error) {
 	rc.context = ctx
 	// Commands only make sense at runtime; this is totally ephemeral; no
 	// state change at all.
+	// TODO(fwereade): we *should* handle interrupted actions, and make sure
+	// they;re marked as failed, but that's not for now.
 	return nil, nil
 }
 
-func (rc *runCommands) Execute(state State) (*StateChange, error) {
+func (rc *runCommands) Execute(state State) (*State, error) {
 	unlock, err := rc.acquireLock("run commands")
 	if err != nil {
 		return nil, err
@@ -58,7 +60,7 @@ func (rc *runCommands) Execute(state State) (*StateChange, error) {
 	return nil, nil
 }
 
-func (rc *runCommands) Commit(state State) (*StateChange, error) {
+func (rc *runCommands) Commit(state State) (*State, error) {
 	// Commands only make sense at runtime; this is totally ephemeral; no
 	// state change at all.
 	return nil, nil

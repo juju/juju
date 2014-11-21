@@ -230,9 +230,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		u.tomb.Dying(),
 	)
 
-	operationStateFile := operation.NewStateFile(u.paths.State.OperationsFile)
 	operationExecutor, err := operation.NewExecutor(
-		operationStateFile, u.getServiceCharmURL,
+		u.paths.State.OperationsFile, u.getServiceCharmURL,
 	)
 	if err != nil {
 		return err

@@ -5,11 +5,9 @@ package operation
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 )
 
 type Executor interface {
@@ -20,7 +18,7 @@ type Executor interface {
 
 type executorStep struct {
 	verb string
-	run  func(op Operation, state State) (*StateChange, error)
+	run  func(op Operation, state State) (*State, error)
 }
 
 func (step executorStep) message(op Operation) string {
@@ -38,7 +36,8 @@ type executor struct {
 	state *State
 }
 
-func NewExecutor(file *StateFile, getInstallCharm func() (*corecharm.URL, error)) (Executor, error) {
+func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error)) (Executor, error) {
+	file := NewStateFile(stateFilePath)
 	state, err := file.Read()
 	if err == ErrNoStateFile {
 		charmURL, err := getInstallCharm()
@@ -87,7 +86,7 @@ func (x *executor) do(op Operation, step executorStep) (err error) {
 	logger.Infof(message)
 	stateChange, firstErr := step.run(op, *x.state)
 	if stateChange != nil {
-		writeErr := errors.Annotatef(x.writeChange(*stateChange), "writing state")
+		writeErr := x.writeChange(*stateChange)
 		if firstErr == nil {
 			firstErr = writeErr
 		} else if writeErr != nil {
@@ -97,31 +96,12 @@ func (x *executor) do(op Operation, step executorStep) (err error) {
 	return errors.Annotatef(firstErr, message)
 }
 
-func (x *executor) writeChange(change StateChange) error {
-	newState := *x.state
-	if (change.Kind == RunHook && change.Step == Done) || (change.Kind == Continue && change.Hook != nil) {
-		switch change.Hook.Kind {
-		case hooks.Start:
-			newState.Started = true
-		case hooks.CollectMetrics:
-			newState.CollectMetricsTime = time.Now().Unix()
-		}
-	}
-	newState.Kind = change.Kind
-	newState.Step = change.Step
-	newState.Hook = change.Hook
-	newState.CharmURL = change.CharmURL
-	newState.ActionId = change.ActionId
-	if err := x.file.Write(
-		newState.Started,
-		newState.Kind,
-		newState.Step,
-		newState.Hook,
-		newState.CharmURL,
-		newState.ActionId,
-		newState.CollectMetricsTime,
-	); err != nil {
+func (x *executor) writeChange(newState State) error {
+	if err := newState.validate(); err != nil {
 		return err
+	}
+	if err := x.file.Write(&newState); err != nil {
+		return errors.Annotatef(err, "writing state")
 	}
 	x.state = &newState
 	return nil

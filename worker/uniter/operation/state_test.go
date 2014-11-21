@@ -174,7 +174,7 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		_, err := file.Read()
 		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
 		write := func() {
-			err := file.Write(t.st.Started, t.st.Kind, t.st.Step, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
+			err := file.Write(&t.st)
 			c.Assert(err, gc.IsNil)
 		}
 		if t.err != "" {
@@ -190,4 +190,5 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(*st, gc.DeepEquals, t.st)
 	}
+	c.Fatalf("needs ActionId tests")
 }

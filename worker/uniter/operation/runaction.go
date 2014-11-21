@@ -30,7 +30,7 @@ func (ra *runAction) String() string {
 	return fmt.Sprintf("run action %s", ra.actionId)
 }
 
-func (ra *runAction) Prepare(state State) (*StateChange, error) {
+func (ra *runAction) Prepare(state State) (*State, error) {
 	ctx, err := ra.contextFactory.NewActionContext(ra.actionId)
 	if cause := errors.Cause(err); context.IsBadActionError(cause) {
 		print(fmt.Sprintf("%v\n%v\n", err, cause))
@@ -52,15 +52,15 @@ func (ra *runAction) Prepare(state State) (*StateChange, error) {
 		return nil, errors.Trace(err)
 	}
 	ra.context = ctx
-	return &StateChange{
+	return stateChange{
 		Kind:     RunAction,
 		Step:     Pending,
 		ActionId: &ra.actionId,
 		Hook:     state.Hook,
-	}, nil
+	}.apply(state), nil
 }
 
-func (ra *runAction) Execute(state State) (*StateChange, error) {
+func (ra *runAction) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
 	unlock, err := ra.acquireLock(message)
 	if err != nil {
@@ -75,18 +75,18 @@ func (ra *runAction) Execute(state State) (*StateChange, error) {
 		// be handled inside the Runner, and returned as nil.
 		return nil, errors.Annotatef(err, "running action %q", ra.name)
 	}
-	return &StateChange{
+	return stateChange{
 		Kind:     RunAction,
 		Step:     Done,
 		ActionId: &ra.actionId,
 		Hook:     state.Hook,
-	}, nil
+	}.apply(state), nil
 }
 
-func (ra *runAction) Commit(state State) (*StateChange, error) {
-	return &StateChange{
+func (ra *runAction) Commit(state State) (*State, error) {
+	return stateChange{
 		Kind: Continue,
 		Step: Pending,
 		Hook: state.Hook,
-	}, nil
+	}.apply(state), nil
 }

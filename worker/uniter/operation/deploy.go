@@ -26,7 +26,7 @@ func (d *deploy) String() string {
 	return fmt.Sprintf("%s %s", d.kind, d.charmURL)
 }
 
-func (d *deploy) Prepare(state State) (*StateChange, error) {
+func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, err
 	}
@@ -40,28 +40,28 @@ func (d *deploy) Prepare(state State) (*StateChange, error) {
 	if err := d.setCharm(d.charmURL); err != nil {
 		return nil, err
 	}
-	return d.getChange(state, Pending), nil
+	return d.getState(state, Pending), nil
 }
 
-func (d *deploy) Execute(state State) (*StateChange, error) {
+func (d *deploy) Execute(state State) (*State, error) {
 	if err := d.deployer.Deploy(); err != nil {
 		return nil, err
 	}
-	return d.getChange(state, Done), nil
+	return d.getState(state, Done), nil
 }
 
-func (d *deploy) Commit(state State) (*StateChange, error) {
-	change := &StateChange{
+func (d *deploy) Commit(state State) (*State, error) {
+	change := &stateChange{
 		Kind: RunHook,
 	}
 	if hookInfo := d.interruptedHook(state); hookInfo != nil {
 		change.Hook = hookInfo
 		change.Step = Pending
-		return change, nil
+	} else {
+		change.Hook = &hook.Info{Kind: deployHookKinds[d.kind]}
+		change.Step = Queued
 	}
-	change.Hook = &hook.Info{Kind: deployHookKinds[d.kind]}
-	change.Step = Queued
-	return change, nil
+	return change.apply(state), nil
 }
 
 func (d *deploy) checkAlreadyDone(state State) error {
@@ -77,13 +77,13 @@ func (d *deploy) checkAlreadyDone(state State) error {
 	return nil
 }
 
-func (d *deploy) getChange(state State, step Step) *StateChange {
-	return &StateChange{
+func (d *deploy) getState(state State, step Step) *State {
+	return stateChange{
 		Kind:     d.kind,
 		Step:     step,
 		CharmURL: d.charmURL,
 		Hook:     d.interruptedHook(state),
-	}
+	}.apply(state)
 }
 
 func (d *deploy) interruptedHook(state State) *hook.Info {

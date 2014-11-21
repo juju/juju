@@ -5,6 +5,9 @@ package operation
 
 import (
 	"fmt"
+	"time"
+
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -45,7 +48,7 @@ func (rh *runHook) String() string {
 	return fmt.Sprintf("%s%s", rh.info.Kind, suffix)
 }
 
-func (rh *runHook) Prepare(state State) (*StateChange, error) {
+func (rh *runHook) Prepare(state State) (*State, error) {
 	if err := rh.checkAlreadyStarted(state); err != nil {
 		return nil, err
 	}
@@ -59,14 +62,14 @@ func (rh *runHook) Prepare(state State) (*StateChange, error) {
 	}
 	rh.name = name
 	rh.context = ctx
-	return &StateChange{
+	return stateChange{
 		Kind: RunHook,
 		Step: Pending,
 		Hook: &rh.info,
-	}, nil
+	}.apply(state), nil
 }
 
-func (rh *runHook) Execute(state State) (*StateChange, error) {
+func (rh *runHook) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running hook %s", rh.name)
 	unlock, err := rh.acquireLock(message)
 	if err != nil {
@@ -101,22 +104,29 @@ func (rh *runHook) Execute(state State) (*StateChange, error) {
 	} else {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}
-	return &StateChange{
+	return stateChange{
 		Kind: RunHook,
 		Step: step,
 		Hook: &rh.info,
-	}, err
+	}.apply(state), err
 }
 
-func (rh *runHook) Commit(state State) (*StateChange, error) {
+func (rh *runHook) Commit(state State) (*State, error) {
 	if err := rh.helper.CommitHook(rh.info); err != nil {
 		return nil, err
 	}
-	return &StateChange{
+	newState := stateChange{
 		Kind: Continue,
 		Step: Pending,
 		Hook: &rh.info,
-	}, nil
+	}.apply(state)
+	switch rh.info.Kind {
+	case hooks.Start:
+		newState.Started = true
+	case hooks.CollectMetrics:
+		newState.CollectMetricsTime = time.Now().Unix()
+	}
+	return newState, nil
 }
 
 func (rh *runHook) checkAlreadyStarted(state State) error {
