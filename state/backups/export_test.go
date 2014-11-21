@@ -32,12 +32,6 @@ var (
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
-func newBackupDoc(meta *Metadata) *storageMetaDoc {
-	var doc storageMetaDoc
-	doc.UpdateFromMetadata(meta)
-	return &doc
-}
-
 func getBackupDBWrapper(st *state.State) *storageDBWrapper {
 	envUUID := st.EnvironTag().Id()
 	db := st.MongoSession().DB(storageDBName)
@@ -46,8 +40,8 @@ func getBackupDBWrapper(st *state.State) *storageDBWrapper {
 
 // NewBackupID creates a new backup ID based on the metadata.
 func NewBackupID(meta *Metadata) string {
-	doc := newBackupDoc(meta)
-	return newStorageID(doc)
+	doc := newStorageMetaDoc(meta)
+	return newStorageID(&doc)
 }
 
 // GetBackupMetadata returns the metadata retrieved from storage.
@@ -65,8 +59,8 @@ func GetBackupMetadata(st *state.State, id string) (*Metadata, error) {
 func AddBackupMetadata(st *state.State, meta *Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addStorageMetadata(db, doc)
+	doc := newStorageMetaDoc(meta)
+	return addStorageMetadata(db, &doc)
 }
 
 // AddBackupMetadataID adds the metadata to storage, using the given
@@ -79,8 +73,8 @@ func AddBackupMetadataID(st *state.State, meta *Metadata, id string) error {
 
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	doc := newBackupDoc(meta)
-	_, err := addStorageMetadata(db, doc)
+	doc := newStorageMetaDoc(meta)
+	_, err := addStorageMetadata(db, &doc)
 	return err
 }
 

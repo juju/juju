@@ -182,9 +182,11 @@ func (doc *storageMetaDoc) asMetadata() *Metadata {
 	return meta
 }
 
-// UpdateFromMetadata copies the corresponding data from the backup
-// Metadata into the storageMetaDoc.
-func (doc *storageMetaDoc) UpdateFromMetadata(meta *Metadata) {
+// newStorageMetaDoc creates a storageMetaDoc using the corresponding
+// values from the backup Metadata.
+func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
+	var doc storageMetaDoc
+
 	// Ignore metadata.ID.
 
 	doc.Checksum = meta.Checksum()
@@ -204,6 +206,8 @@ func (doc *storageMetaDoc) UpdateFromMetadata(meta *Metadata) {
 	doc.Machine = meta.Origin.Machine
 	doc.Hostname = meta.Origin.Hostname
 	doc.Version = meta.Origin.Version
+
+	return doc
 }
 
 //---------------------------
@@ -415,13 +419,12 @@ func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	if !ok {
 		return "", errors.Errorf("doc must be of type *backups.Metadata")
 	}
-	var storageMetaDoc storageMetaDoc
-	storageMetaDoc.UpdateFromMetadata(metadata)
+	metaDoc := newStorageMetaDoc(metadata)
 
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
 
-	id, err := addStorageMetadata(dbWrap, &storageMetaDoc)
+	id, err := addStorageMetadata(dbWrap, &metaDoc)
 	return id, errors.Trace(err)
 }
 
