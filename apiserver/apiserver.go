@@ -259,6 +259,12 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler{state: srv.state},
 		}},
 	)
+	handleAll(mux, "/images/:kind/:series/:arch/:filename",
+		&imagesDownloadHandler{httpHandler{state: srv.state}},
+	)
+	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
+		&imagesDownloadHandler{httpHandler{state: srv.state}},
+	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)

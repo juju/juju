@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -307,6 +308,9 @@ func (s *LxcSuite) ensureTemplateStopped(name string) <-chan struct{} {
 func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, id string) {
 	c.Assert(event.Action, gc.Equals, expected)
 	c.Assert(event.InstanceId, gc.Equals, id)
+	if expected == mock.Created {
+		c.Assert(event.EnvArgs, gc.Not(gc.HasLen), 0)
+	}
 }
 
 func (s *LxcSuite) TestCreateContainerEvents(c *gc.C) {
@@ -351,10 +355,16 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		aptMirror,
 		true,
 		true,
+		"imageURL",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
-	s.AssertEvent(c, <-s.events, mock.Created, name)
+
+	createEvent := <-s.events
+	c.Assert(createEvent.Action, gc.Equals, mock.Created)
+	c.Assert(createEvent.InstanceId, gc.Equals, name)
+	argsSet := set.NewStrings(createEvent.TemplateArgs...)
+	c.Assert(argsSet.Contains("imageURL"), jc.IsTrue)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 	s.AssertEvent(c, <-s.events, mock.Stopped, name)
 

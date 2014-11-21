@@ -92,6 +92,9 @@ const (
 	// toolsmetadataC is the collection used to store tools metadata.
 	toolsmetadataC = "toolsmetadata"
 
+	// imagemetadataC is the collection used to store image metadata.
+	imagemetadataC = "imagemetadata"
+
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"
 	txnsC   = "txns"

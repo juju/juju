@@ -22,10 +22,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils/keyvalues"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -217,12 +220,14 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
 
-	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(network, directory)
+	// If we need to create a container, we direct the lxc utilities to download
+	// image from the state server, so we can cache them. Here we construct the
+	// URL used to download the image and which is passed to lxc.
+	hostArch := arch.HostArch()
+	imageURL, err := api.ImageURL(machineConfig.APIInfo, instance.LXC, series, hostArch)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to write config file")
+		return nil, nil, errors.Annotate(err, "failed to create the image URL")
 	}
-
 	var lxcContainer golxc.Container
 	if manager.createWithClone {
 		templateContainer, err := EnsureCloneTemplate(
@@ -234,6 +239,7 @@ func (manager *containerManager) CreateContainer(
 			machineConfig.AptMirror,
 			machineConfig.EnableOSRefreshUpdate,
 			machineConfig.EnableOSUpgrade,
+			imageURL,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -270,12 +276,10 @@ func (manager *containerManager) CreateContainer(
 			"--userdata", userDataFilename, // Our groovey cloud-init
 			"--hostid", name, // Use the container name as the hostid
 			"-r", series,
+			"-T", imageURL,
 		}
-
-		// Create the container.
-		logger.Tracef("create the container")
-		if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
-			return nil, nil, errors.Annotate(err, "lxc container creation failed")
+		if err = createContainer(lxcContainer, network, directory, nil, templateParams); err != nil {
+			return nil, nil, err
 		}
 	}
 
@@ -319,6 +323,66 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	return &lxcInstance{lxcContainer, name}, hardware, nil
+}
+
+func createContainer(lxcContainer golxc.Container, network *container.NetworkConfig, containerDirectory string,
+	extraCreateArgs, templateParams []string,
+) error {
+	logger.Tracef("write the lxc.conf file")
+	configFile, err := writeLxcConfig(network, containerDirectory)
+	if err != nil {
+		return errors.Annotatef(err, "failed to write config file")
+	}
+
+	execEnv, closer, err := wgetEnvironment()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get environment for wget execution")
+	}
+	defer closer()
+
+	// Create the container.
+	logger.Tracef("create the container")
+	if err := lxcContainer.Create(configFile, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
+		return errors.Annotatef(err, "lxc container creation failed")
+	}
+	return nil
+}
+
+// wgetEnvironment creates a script to call wget with the
+// --no-check-certificate argument, patching the PATH to ensure
+// the script is invoked by the lxc template bash script.
+// It returns a slice of env variables to pass to the lxc create command.
+func wgetEnvironment() (execEnv []string, closer func(), _ error) {
+	env := os.Environ()
+	kv, err := keyvalues.Parse(env, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	wget := `#!/bin/bash
+/usr/bin/wget --no-check-certificate $*
+
+`
+	// Create a wget bash script in /tmp.
+	tmpDir, err := ioutil.TempDir("", "wget")
+	if err != nil {
+		return nil, nil, err
+	}
+	closer = func() {
+		os.RemoveAll(tmpDir)
+	}
+	err = ioutil.WriteFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
+	if err != nil {
+		return nil, closer, err
+	}
+
+	// Update the path to point to the script.
+	for k, v := range kv {
+		if strings.ToUpper(k) == "PATH" {
+			v = strings.Join([]string{tmpDir, v}, string(os.PathListSeparator))
+		}
+		execEnv = append(execEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+	return execEnv, closer, nil
 }
 
 func appendToContainerConfig(name, line string) error {
