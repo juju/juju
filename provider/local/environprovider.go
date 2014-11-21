@@ -241,6 +241,9 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		return nil, errors.Annotatef(err, "failed to validate unknown attrs")
 	}
 	localConfig := newEnvironConfig(cfg, validated)
+	// Set correct default network bridge if needed
+	// fix for http://pad.lv/1394450
+	localConfig.setDefaultNetworkBridge()
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
 	containerType := localConfig.container()
