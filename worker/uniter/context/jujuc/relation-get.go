@@ -49,7 +49,7 @@ func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(newRelationIdValue(&rV, &c.RelationId), "r", "specify a relation by id")
-	f.Var(newRelationIdValue(&rV, &c.RelationId), "relation", "specify a relation by id")
+	f.Var(newRelationIdValue(&rV, &c.RelationId), "relation", "")
 }
 
 func (c *RelationGetCommand) Init(args []string) error {

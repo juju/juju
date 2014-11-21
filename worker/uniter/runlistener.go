@@ -21,9 +21,13 @@ const JujuRunEndpoint = "JujuRunServer.RunCommands"
 
 // RunCommandsArgs stores the arguments for a RunCommands call.
 type RunCommandsArgs struct {
-	Commands            string
-	RelationId          int
-	RemoteUnitName      string
+	// Commands is the arbitrary commands to execute on the unit
+	Commands string
+	// RelationId is the relation context to execute the commands in.
+	RelationId int
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteUnitName string
+	// SkipRemoteUnitCheck bypasses the requiring of a remote unit for a relation context.
 	SkipRemoteUnitCheck bool
 }
 
