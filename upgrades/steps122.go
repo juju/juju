@@ -62,6 +62,10 @@ func stateStepsFor122() []Step {
 			run: func(context Context) error {
 				return state.AddEnvUUIDToConstraints(context.State())
 			},
+		}, &upgradeStep{
+			description: "update system identity in state",
+			targets:     []Target{DatabaseMaster},
+			run:         ensureSystemSSHKeyRedux,
 		},
 	}
 }

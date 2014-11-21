@@ -222,10 +222,13 @@ func writeSystemIdentity(context Context, privateKey string) error {
 func systemKeyExists(identityFile string) (bool, error) {
 	_, err := os.Stat(identityFile)
 	if err == nil {
+		logger.Infof("identity file %q exists", identityFile)
 		return true, nil
 	}
 	if !os.IsNotExist(err) {
+		logger.Infof("error looking for identity file %q: %v", identityFile, err)
 		return false, err
 	}
+	logger.Infof("identity file %q does not exist", identityFile)
 	return false, nil
 }
