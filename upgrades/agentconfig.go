@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/utils/symlink"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 var (
@@ -84,7 +84,7 @@ func migrateLocalProviderAgentConfig(context Context) error {
 	localLogDir := filepath.Join(rootDir, "log")
 	// rsyslogd is restricted to write to /var/log
 	logDir := fmt.Sprintf("%s/juju-%s", rootLogDir, namespace)
-	jobs := []juju.MachineJob{juju.JobManageEnviron}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	values := map[string]string{
 		agent.Namespace: namespace,
 		// ContainerType is empty on the bootstrap node.

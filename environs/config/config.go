@@ -408,7 +408,10 @@ func (c *Config) fillInStringDefault(attr string) {
 // Ths ensures that older versions of Juju which require that deprecated
 // attribute values still be used will work as expected.
 func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interface{} {
-	processedAttrs := attrs
+	processedAttrs := make(map[string]interface{}, len(attrs))
+	for k, v := range attrs {
+		processedAttrs[k] = v
+	}
 	// The tools url has changed so ensure that both old and new values are in the config so that
 	// upgrades work. "agent-metadata-url" is the old attribute name.
 	if oldToolsURL, ok := attrs[ToolsMetadataURLKey]; ok && oldToolsURL.(string) != "" {

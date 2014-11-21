@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v4"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -2119,7 +2119,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []juju.MachineJob{juju.JobManageEnviron},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 				HasVote:        false,
 				WantsVote:      true,
 			},
@@ -2131,7 +2131,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "hello",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []juju.MachineJob{juju.JobHostUnits},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				HasVote:        false,
 				WantsVote:      false,
 			},

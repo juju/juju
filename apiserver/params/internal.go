@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -489,7 +488,7 @@ type AgentGetEntitiesResults struct {
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
 	Life          Life
-	Jobs          []juju.MachineJob
+	Jobs          []multiwatcher.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error
 }
@@ -623,7 +622,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
-	Jobs        []juju.MachineJob
+	Jobs        []multiwatcher.MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -678,4 +677,24 @@ type MachineBlockDevices struct {
 // devices present on a set of machines.
 type SetMachineBlockDevices struct {
 	MachineBlockDevices []MachineBlockDevices
+}
+
+// BlockDeviceResult holds the result of an API call to retrieve details
+// of a block device.
+type BlockDeviceResult struct {
+	Result storage.BlockDevice `json:"result"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// BlockDeviceResults holds the result of an API call to retrieve details
+// of multiple block devices.
+type BlockDeviceResults struct {
+	Results []BlockDeviceResult `json:"results,omitempty"`
+}
+
+// DatastoreFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified datastore.
+type DatastoreFilesystem struct {
+	DatastoreId storage.DatastoreId `json:"datastoreid"`
+	Filesystem  storage.Filesystem  `json:"filesystem"`
 }

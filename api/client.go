@@ -23,12 +23,12 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -78,7 +78,7 @@ type MachineStatus struct {
 	Id            string
 	Containers    map[string]MachineStatus
 	Hardware      string
-	Jobs          []juju.MachineJob
+	Jobs          []multiwatcher.MachineJob
 	HasVote       bool
 	WantsVote     bool
 }

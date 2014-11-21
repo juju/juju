@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // AgentAPIV0 implements the version 0 of the API provided to an agent.
@@ -116,10 +116,10 @@ func (api *AgentAPIV0) IsMaster() (params.IsMasterResult, error) {
 	}
 }
 
-func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []juju.MachineJob {
-	pjobs := make([]juju.MachineJob, len(jobs))
+func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
+	pjobs := make([]multiwatcher.MachineJob, len(jobs))
 	for i, job := range jobs {
-		pjobs[i] = juju.MachineJob(job.String())
+		pjobs[i] = multiwatcher.MachineJob(job.String())
 	}
 	return pjobs
 }

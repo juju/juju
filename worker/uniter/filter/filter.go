@@ -320,7 +320,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer f.maybeStopWatcher(configw)
-	actionsw, err := f.unit.WatchActions()
+	actionsw, err := f.unit.WatchActionNotifications()
 	if err != nil {
 		return err
 	}

@@ -199,8 +199,8 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
-	return st.parseTag(tag)
+func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interface{}, error) {
+	return st.tagToCollectionAndId(tag)
 }
 
 func RunTransaction(st *State, ops []txn.Op) error {
@@ -230,6 +230,10 @@ func WatcherEnsureSuffixFn(marker string) func(string) string {
 
 func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	return makeIdFilter(st, marker, receivers...)
+}
+
+func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
+	return newActionStatusWatcher(st, receivers, statuses...)
 }
 
 var (

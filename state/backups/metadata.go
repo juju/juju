@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -62,7 +61,7 @@ func NewMetadata() *Metadata {
 // NewMetadataState composes a new backup metadata with its origin
 // values set.  The environment UUID comes from state.  The hostname is
 // retrieved from the OS.
-func NewMetadataState(st *state.State, machine string) (*Metadata, error) {
+func NewMetadataState(db DB, machine string) (*Metadata, error) {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -72,7 +71,7 @@ func NewMetadataState(st *state.State, machine string) (*Metadata, error) {
 	}
 
 	meta := NewMetadata()
-	meta.Origin.Environment = st.EnvironTag().Id()
+	meta.Origin.Environment = db.EnvironTag().Id()
 	meta.Origin.Machine = machine
 	meta.Origin.Hostname = hostname
 	return meta, nil

@@ -17,7 +17,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -546,7 +545,7 @@ const (
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewStorage(st *state.State) filestorage.FileStorage {
+func NewStorage(st DB) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
 	db := st.MongoSession().DB(storageDBName)
 	dbWrap := newStorageDBWrapper(db, storageMetaName, envUUID)

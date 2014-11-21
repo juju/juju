@@ -2398,7 +2398,7 @@ func (s waitActionResults) step(c *gc.C, ctx *context) {
 		case changes, ok := <-resultsWatcher.Changes():
 			c.Logf("Got changes: %#v", changes)
 			c.Assert(ok, jc.IsTrue)
-			stateActionResults, err := ctx.unit.ActionResults()
+			stateActionResults, err := ctx.unit.CompletedActions()
 			c.Assert(err, gc.IsNil)
 			if len(stateActionResults) != len(s.expectedResults) {
 				continue
@@ -2446,7 +2446,7 @@ type verifyNoActionResults struct{}
 
 func (s verifyNoActionResults) step(c *gc.C, ctx *context) {
 	time.Sleep(coretesting.ShortWait)
-	result, err := ctx.unit.ActionResults()
+	result, err := ctx.unit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.HasLen, 0)
 }

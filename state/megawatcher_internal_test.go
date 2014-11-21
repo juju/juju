@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -104,7 +103,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Status:                  multiwatcher.StatusPending,
 		Life:                    multiwatcher.Alive,
 		Series:                  "quantal",
-		Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
+		Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 	})
@@ -197,7 +196,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			StatusInfo:              m.Tag().String(),
 			Life:                    multiwatcher.Alive,
 			Series:                  "quantal",
-			Jobs:                    []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		})
@@ -322,7 +321,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						StatusInfo: "failure",
 						Life:       multiwatcher.Alive,
 						Series:     "quantal",
-						Jobs:       []juju.MachineJob{JobHostUnits.ToParams()},
+						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:  []network.Address{},
 					}}}
 		},
@@ -356,7 +355,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						StatusInfo:               "another failure",
 						Life:                     multiwatcher.Alive,
 						Series:                   "trusty",
-						Jobs:                     []juju.MachineJob{JobManageEnviron.ToParams()},
+						Jobs:                     []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
@@ -991,7 +990,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    multiwatcher.StatusPending,
 			Life:      multiwatcher.Alive,
 			Series:    "trusty",
-			Jobs:      []juju.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1000,7 +999,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    multiwatcher.StatusPending,
 			Life:      multiwatcher.Alive,
 			Series:    "saucy",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}}, "")
@@ -1052,7 +1051,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:                  multiwatcher.StatusPending,
 			Life:                    multiwatcher.Alive,
 			Series:                  "trusty",
-			Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		},
@@ -1063,7 +1062,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    multiwatcher.StatusPending,
 			Life:      multiwatcher.Alive,
 			Series:    "saucy",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1072,7 +1071,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    multiwatcher.StatusPending,
 			Life:      multiwatcher.Alive,
 			Series:    "quantal",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {

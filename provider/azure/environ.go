@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 const (
@@ -677,13 +677,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	vhd := env.newOSDisk(sourceImageName)
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
-	stateServer := false
-	for _, job := range args.MachineConfig.Jobs {
-		if job == juju.JobManageEnviron {
-			stateServer = true
-			break
-		}
-	}
+	stateServer := multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...)
 	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {

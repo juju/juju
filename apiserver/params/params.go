@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -110,7 +110,7 @@ type AddMachineParams struct {
 	// new machine when it is created.
 	Series      string
 	Constraints constraints.Value
-	Jobs        []juju.MachineJob
+	Jobs        []multiwatcher.MachineJob
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
@@ -754,3 +754,16 @@ const (
 	// detected.
 	StatusDown = Status(multiwatcher.StatusDown)
 )
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of a datastore.
+type DatastoreResult struct {
+	Result storage.Datastore `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of multiple datastores.
+type DatastoreResults struct {
+	Results []DatastoreResult `json:"results,omitempty"`
+}
