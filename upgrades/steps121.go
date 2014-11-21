@@ -173,10 +173,5 @@ func stateStepsFor121() []Step {
 				return state.MigrateJobManageNetworking(context.State())
 			},
 		},
-		&upgradeStep{
-			description: "make sure the system-identity is recorded in state",
-			targets:     []Target{StateServer},
-			run:         ensureSystemSSHKeyRedux,
-		},
 	}
 }

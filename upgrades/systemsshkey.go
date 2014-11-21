@@ -49,7 +49,7 @@ func ensureSystemSSHKeyRedux(context Context) error {
 	if stateInfo.SystemIdentity != "" {
 		logger.Infof("state serving info has a system identity already, all good")
 		// We are good. One exists already.
-		// Make sure that the agent things that it is the same.
+		// Make sure that the agent thinks that it is the same.
 		return updateSystemIdentityInAgentConfig(context, stateInfo.SystemIdentity)
 	}
 
