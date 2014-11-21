@@ -7,7 +7,7 @@ from jujuci import (
     get_build_data,
     JENKINS_URL,
     list_artifacts,
-    list_files,
+    find_artifacts,
     main,
 )
 
@@ -108,17 +108,17 @@ class JujuCITestCase(TestCase):
         mock.assert_called_once(
             ['http://foo:8080/job/bar/lastSuccessfulBuild/api/json'])
 
-    def test_list_files_all(self):
+    def test_find_artifacts_all(self):
         expected_data = make_build_data()
-        artifacts = list_files(expected_data)
+        artifacts = find_artifacts(expected_data)
         self.assertEqual(
             ['buildvars.bash', 'buildvars.json',
              'juju-core_1.22-alpha1.tar.gz'],
             sorted(a.file_name for a in artifacts))
 
-    def test_list_files_glob_tarball(self):
+    def test_find_artifacts_glob_tarball(self):
         expected_data = make_build_data()
-        artifacts = list_files(expected_data, '*.tar.gz')
+        artifacts = find_artifacts(expected_data, '*.tar.gz')
         artifact = artifacts[0]
         self.assertEqual('juju-core_1.22-alpha1.tar.gz', artifact.file_name)
         self.assertEqual(

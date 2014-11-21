@@ -28,7 +28,7 @@ def get_build_data(jenkins_url, job_name, build='lastSuccessfulBuild'):
     return build_data
 
 
-def list_files(build_data, glob='*'):
+def find_artifacts(build_data, glob='*'):
     found = []
     for artifact in build_data['artifacts']:
         file_name = artifact['fileName']
@@ -46,7 +46,7 @@ def download_files(files, path):
 
 def list_artifacts(job_name, build, glob, dry_run=False, verbose=False):
     build_data = get_build_data(JENKINS_URL, job_name, build)
-    artifacts = list_files(build_data, glob)
+    artifacts = find_artifacts(build_data, glob)
     for artifact in artifacts:
         print_now(artifact.file_name)
 
