@@ -10,10 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils"
 )
 
@@ -55,15 +56,29 @@ var ignoredDatabases = set.NewStrings(
 	"presence",
 )
 
+// DB represents the set of methods required to perform a backup.
+// It exists to break the strict dependency between state and this package,
+// and those that depend on this package.
+type DB interface {
+	// MongoConnectionInfo returns information for connecting to mongo.
+	MongoConnectionInfo() *mongo.MongoInfo
+
+	// MongoSession returns the underlying mongodb session.
+	MongoSession() *mgo.Session
+
+	// EnvironTag is the concrete environ tag for this database.
+	EnvironTag() names.EnvironTag
+}
+
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
-func NewDBBackupInfo(st *state.State) (*DBInfo, error) {
-	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
-	targets, err := getBackupTargetDatabases(st)
+func NewDBBackupInfo(db DB) (*DBInfo, error) {
+	targets, err := getBackupTargetDatabases(db)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	connInfo := newMongoConnInfo(db.MongoConnectionInfo())
 	info := DBInfo{
 		DBConnInfo: *connInfo,
 		Targets:    targets,
@@ -85,8 +100,8 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
 	return &info
 }
 
-func getBackupTargetDatabases(st *state.State) (set.Strings, error) {
-	dbNames, err := st.MongoSession().DatabaseNames()
+func getBackupTargetDatabases(db DB) (set.Strings, error) {
+	dbNames, err := db.MongoSession().DatabaseNames()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get DB names")
 	}
