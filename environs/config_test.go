@@ -431,7 +431,7 @@ environments:
 
 const (
 	// This is a standard configuration warning when old attribute was specified.
-	standardDeprecationWarning = `.*Your configuration should be updated to set .*`
+	standardDeprecationWarning = `.*Your configuration should be updated to set .* %v.*`
 
 	// This is a standard deprecation warning when both old and new attributes were specified.
 	standardDeprecationWarningWithNew = `.*is deprecated and will be ignored since the new .*`
@@ -441,14 +441,14 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
 		"tools-metadata-url": "aknowndeprecatedfield",
 	}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, "aknowndeprecatedfield")
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarning(c *gc.C) {
 	// Test that the warning is logged.
 	attrs := testing.Attrs{"provisioner-safe-mode": true}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, "destroyed")
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -479,13 +479,13 @@ func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 
 func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
 	attrs := testing.Attrs{"lxc-use-clone": true}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, true)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWarning(c *gc.C) {
 	attrs := testing.Attrs{"tools-stream": "devel"}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, "devel")
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
