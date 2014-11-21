@@ -62,6 +62,8 @@ def get_artifacts(job_name, build, glob, path,
                   archive=False, dry_run=False, verbose=False):
     full_path = os.path.expanduser(path)
     if archive:
+        if verbose:
+            print_now('Cleaning %s' % full_path)
         if not os.path.isdir(full_path):
             raise ValueError('%s does not exist' % full_path)
         shutil.rmtree(full_path)

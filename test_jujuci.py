@@ -12,6 +12,7 @@ from jujuci import (
     find_artifacts,
     main,
 )
+from utility import temp_dir
 
 
 def make_build_data(number='lastSuccessfulBuild'):
@@ -184,6 +185,21 @@ class JujuCITestCase(TestCase):
         self.assertEqual(0, uo_mock.call_count)
 
     def test_get_artifacts_with_archive(self):
+        build_data = make_build_data(1234)
+        with patch('jujuci.get_build_data', return_value=build_data):
+            with patch('urllib.URLopener.retrieve'):
+                with temp_dir() as base_dir:
+                    path = os.path.join(base_dir, 'foo')
+                    os.mkdir(path)
+                    old_file_path = os.path.join(path, 'old_file.txt')
+                    with open(old_file_path, 'w') as old_file:
+                        old_file.write('old')
+                    get_artifacts(
+                        'foo', '1234', '*.bash', path, archive=True)
+                    self.assertFalse(os.path.isfile(old_file_path))
+                    self.assertTrue(os.path.isdir(path))
+
+    def test_get_artifacts_with_archive_error(self):
         build_data = make_build_data(1234)
         with patch('jujuci.get_build_data', return_value=build_data):
             with patch('urllib.URLopener.retrieve'):
