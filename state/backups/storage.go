@@ -52,7 +52,7 @@ type storageMetaDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
-func (doc *storageMetaDoc) fileSet() bool {
+func (doc *storageMetaDoc) isFileInfoComplete() bool {
 	if doc.Finished == 0 {
 		return false
 	}
@@ -89,7 +89,7 @@ func (doc *storageMetaDoc) validate() error {
 	}
 
 	// Check the file-related fields.
-	if !doc.fileSet() {
+	if !doc.isFileInfoComplete() {
 		if doc.Stored != 0 {
 			return errors.New(`"Stored" flag is unexpectedly true`)
 		}
@@ -125,7 +125,7 @@ func (doc *storageMetaDoc) asMetadata() *Metadata {
 
 	meta.SetID(doc.ID)
 
-	if doc.fileSet() {
+	if doc.isFileInfoComplete() {
 		// Set the file-related fields.
 
 		finished := time.Unix(doc.Finished, 0).UTC()
