@@ -139,3 +139,14 @@ class JujuCITestCase(TestCase):
             ['buildvars.bash', 'buildvars.json',
              'juju-core_1.22-alpha1.tar.gz'],
             files)
+
+    def test_list_artifacts_verbose(self):
+        build_data = make_build_data(1234)
+        with patch('jujuci.get_build_data', return_value=build_data):
+            with patch('jujuci.print_now') as pn_mock:
+                list_artifacts('foo', '1234', '*.bash', verbose=True)
+        files = sorted(call[1][0] for call in pn_mock.mock_calls)
+        self.assertEqual(
+            ['http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
+             'buildvars.bash'],
+            files)

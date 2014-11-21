@@ -48,7 +48,10 @@ def list_artifacts(job_name, build, glob, dry_run=False, verbose=False):
     build_data = get_build_data(JENKINS_URL, job_name, build)
     artifacts = find_artifacts(build_data, glob)
     for artifact in artifacts:
-        print_now(artifact.file_name)
+        if verbose:
+            print_now(artifact.location)
+        else:
+            print_now(artifact.file_name)
 
 
 def get_artifacts(job, build, glob, path, dry_run=False, verbose=False):
