@@ -384,7 +384,20 @@ func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
 	}
 }
 
-func (s *RelationerSuite) TestParseRemoteUnitInvalidInput(c *gc.C) {
+func (s *RelationerSuite) TestInferRemoteUnitInvalidInput(c *gc.C) {
+	s.AddRelationUnit(c, "u/1")
+	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	c.Assert(r.IsImplicit(), gc.Equals, false)
+	err := r.Join()
+	c.Assert(err, gc.IsNil)
+
+	err = r.CommitHook(hook.Info{
+		RelationId: 0,
+		Kind:       hooks.RelationJoined,
+		RemoteUnit: "u/0",
+	})
+	c.Assert(err, gc.IsNil)
+
 	args := uniter.RunCommandsArgs{
 		Commands:       "some-command",
 		RelationId:     0,
@@ -392,18 +405,20 @@ func (s *RelationerSuite) TestParseRemoteUnitInvalidInput(c *gc.C) {
 	}
 
 	relationers := map[int]*uniter.Relationer{}
+	relationers[0] = r
 
 	// Bad remote unit
-	c.Assert(func() { uniter.InferRemoteUnit(relationers, args) }, gc.PanicMatches, `"my-bad-remote-unit" is not a valid unit name`)
+	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
+	c.Assert(err, gc.ErrorMatches, "no remote unit found:.*, override to execute command")
 
 	// Good remote unit
 	args.RemoteUnitName = "u/0"
-	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
+	remoteUnit, err = uniter.InferRemoteUnit(relationers, args)
 	c.Assert(err, jc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
 
-func (s *RelationerSuite) TestParseRemoteUnitAmbiguous(c *gc.C) {
+func (s *RelationerSuite) TestInferRemoteUnitAmbiguous(c *gc.C) {
 	s.AddRelationUnit(c, "u/1")
 	s.AddRelationUnit(c, "u/2")
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
@@ -445,7 +460,7 @@ func (s *RelationerSuite) TestParseRemoteUnitAmbiguous(c *gc.C) {
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
 
-func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
+func (s *RelationerSuite) TestInferRemoteUnit(c *gc.C) {
 	relationers := map[int]*uniter.Relationer{}
 
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
@@ -504,13 +519,19 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 	// Ensure the call with the same args fails, explicitly warning
 	// the user about the lack of a remote unit.
 	_, err = uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, use --skip-remote-unit-check to execute the commands anyway")
+	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, override to execute commands")
 
 	// Run the command passing in the SkipRemoteUnitCheck flag
+	// this should fail since the remoteUnit cannot be infered
+	// and is empty.
 	args.SkipRemoteUnitCheck = true
+	c.Assert(func() { uniter.InferRemoteUnit(relationers, args) }, gc.PanicMatches, `"" is not a valid unit name`)
+
+	// Now with SkipRemoteUnitCheck flag and a manual remoteUnit set
+	// we validate the remoteUnit is well formed, but skip membership / existence validation.
+	args.RemoteUnitName = "u/1"
 	remoteUnit, err = uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(remoteUnit, gc.Equals, "")
+	c.Assert(remoteUnit, gc.Equals, "u/1")
 }
 
 type stopper interface {

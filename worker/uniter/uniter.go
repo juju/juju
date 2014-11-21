@@ -863,33 +863,29 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 	}()
 }
 
-// ParseRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
+// InferRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
 // remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
 // the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
 // a given relationId an error is returned for display to the user.
 func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
-	if args.SkipRemoteUnitCheck {
-		return "", nil
-	}
 
 	remoteUnit := args.RemoteUnitName
 	noRemoteUnit := len(remoteUnit) == 0
-	noRelationId := args.RelationId != -1
 
-	if noRelationId && noRemoteUnit {
-		relationer, found := relationers[args.RelationId]
-		if !found {
-			return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
-		}
+	relationer, found := relationers[args.RelationId]
+	if !found {
+		return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
+	}
 
+	remoteUnits := relationer.ContextInfo().MemberNames
+	numRemoteUnits := len(remoteUnits)
+
+	if noRemoteUnit {
 		var err error
-		remoteUnits := relationer.ContextInfo().MemberNames
-		numRemoteUnits := len(remoteUnits)
-
 		switch numRemoteUnits {
 		case 0:
 			if !args.SkipRemoteUnitCheck {
-				err = errors.Errorf("no remote unit found for relation id: %d, use --skip-remote-unit-check to execute the commands anyway", args.RelationId)
+				err = errors.Errorf("no remote unit found for relation id: %d, override to execute commands", args.RelationId)
 			}
 		case 1:
 			remoteUnit = remoteUnits[0]
@@ -900,12 +896,19 @@ func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-
-		return remoteUnit, nil
-	}
-
-	if noRemoteUnit {
-		return "", nil
+	} else {
+		if !args.SkipRemoteUnitCheck {
+			found := false
+			for _, value := range remoteUnits {
+				if value == remoteUnit {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return "", errors.Errorf("no remote unit found: %s, override to execute command", remoteUnit)
+			}
+		}
 	}
 
 	unitTag := names.NewUnitTag(remoteUnit)
