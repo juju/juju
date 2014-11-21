@@ -34,10 +34,10 @@ func (c *RelationSetCommand) Info() *cmd.Info {
 }
 
 func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
-	rV := relationIdValue{ctx: c.ctx}
+	rV := newRelationIdValue(c.ctx, &c.RelationId)
 
-	f.Var(newRelationIdValue(&rV, &c.RelationId), "r", "specify a relation by id")
-	f.Var(newRelationIdValue(&rV, &c.RelationId), "relation", "")
+	f.Var(rV, "r", "specify a relation by id")
+	f.Var(rV, "relation", "")
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }

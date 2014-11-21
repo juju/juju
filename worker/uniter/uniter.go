@@ -425,11 +425,6 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", args.Commands)
-	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
-	if err = u.acquireHookLock(lockMessage); err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer u.hookLock.Unlock()
 
 	remoteUnitName, err := ParseRemoteUnit(u.relationers, args)
 	if err != nil {
@@ -440,6 +435,12 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer u.hookLock.Unlock()
 
 	result, err := context.NewRunner(hctx, u.paths).RunCommands(args.Commands)
 	if result != nil {
