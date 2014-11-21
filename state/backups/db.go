@@ -67,7 +67,7 @@ type DB interface {
 	MongoSession() *mgo.Session
 
 	// EnvironTag is the concrete environ tag for this database.
-	EnvironTag() names.Tag
+	EnvironTag() names.EnvironTag
 }
 
 // NewDBBackupInfo returns the information needed by backups to dump
