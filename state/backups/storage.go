@@ -112,8 +112,8 @@ func (doc *storageMetaDoc) validate() error {
 	return nil
 }
 
-// asMetadata returns a new backups.Metadata based on the storageMetaDoc.
-func (doc *storageMetaDoc) asMetadata() *Metadata {
+// docAsMetadata returns a new backups.Metadata based on the storageMetaDoc.
+func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta := NewMetadata()
 	meta.Started = time.Unix(doc.Started, 0).UTC()
 	meta.Notes = doc.Notes
@@ -401,7 +401,7 @@ func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 		return nil, errors.Trace(err)
 	}
 
-	metadata := doc.asMetadata()
+	metadata := docAsMetadata(doc)
 	return metadata, nil
 }
 
@@ -417,7 +417,7 @@ func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 
 	list := make([]filestorage.Document, len(docs))
 	for i, doc := range docs {
-		meta := doc.asMetadata()
+		meta := docAsMetadata(&doc)
 		list[i] = meta
 	}
 	return list, nil

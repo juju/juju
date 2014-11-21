@@ -52,7 +52,7 @@ func GetBackupMetadata(st *state.State, id string) (*Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	return doc.asMetadata(), nil
+	return docAsMetadata(doc), nil
 }
 
 // AddBackupMetadata adds the metadata to storage.
