@@ -2363,3 +2363,97 @@ func (w *rebootWatcher) loop() error {
 		}
 	}
 }
+
+// blockDevicesWatcher notifies about changes to all block devices
+// attached to a machine, optionally filtering to those assigned to
+// a specific unit's datastores.
+type blockDevicesWatcher struct {
+	commonWatcher
+	machineId string // required
+	unitName  string // optional
+	out       chan struct{}
+}
+
+var _ NotifyWatcher = (*blockDevicesWatcher)(nil)
+
+// WatchAttachedBlockDevices returns a new StringsWatcher watching block
+// devices attached to u's datastores.
+func (u *Unit) WatchAttachedBlockDevices() (NotifyWatcher, error) {
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		return nil, err
+	}
+	return newBlockDevicesWatcher(u.st, machineId, u.Name()), nil
+}
+
+func newBlockDevicesWatcher(st *State, machineId, unitName string) NotifyWatcher {
+	w := &blockDevicesWatcher{
+		commonWatcher: commonWatcher{st: st},
+		machineId:     machineId,
+		unitName:      unitName,
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *blockDevicesWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *blockDevicesWatcher) current() ([]blockDevice, error) {
+	// TODO(axw) only get attached block devices.
+	blockDevices, err := getBlockDevices(w.st, w.machineId)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(axw) filter by those that are assigned to datastores
+	// owned by the specified unit.
+	return blockDevices, nil
+}
+
+func (w *blockDevicesWatcher) loop() error {
+	// Get the initial revno and construct the watcher.
+	docId := w.st.docID(w.machineId)
+	blockDevicesColl, closer := w.st.getCollection(blockDevicesC)
+	revno, err := getTxnRevno(blockDevicesColl, docId)
+	closer()
+	if err != nil {
+		return err
+	}
+	in := make(chan watcher.Change)
+	w.st.watcher.Watch(blockDevicesC, docId, revno, in)
+	defer w.st.watcher.Unwatch(blockDevicesC, docId, in)
+
+	// Get the current block devices.
+	blockDevices, err := w.current()
+	if err != nil {
+		return err
+	}
+	out := w.out
+
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-in:
+			newBlockDevices, err := w.current()
+			if err != nil {
+				return err
+			}
+			if !blockDevicesEqual(newBlockDevices, blockDevices) {
+				blockDevices = newBlockDevices
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}

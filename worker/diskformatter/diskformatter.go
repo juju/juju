@@ -25,8 +25,8 @@ var logger = loggo.GetLogger("juju.worker.diskformatter")
 // AttachedBlockDeviceWatcher is an interface used to watch and retrieve details of
 // the block devices attached to datastores owned by the authenticated unit agent.
 type AttachedBlockDeviceWatcher interface {
-	WatchAttachedBlockDevices() (watcher.StringsWatcher, error)
-	AttachedBlockDevices([]storage.BlockDeviceId) (params.BlockDeviceResults, error)
+	WatchAttachedBlockDevices() (watcher.NotifyWatcher, error)
+	AttachedBlockDevices() ([]storage.BlockDevice, error)
 }
 
 // BlockDeviceDatastoreGetter is an interface used to retrieve details of the
@@ -48,14 +48,14 @@ func NewWorker(
 	getter BlockDeviceDatastoreGetter,
 	setter DatastoreFilesystemSetter,
 ) worker.Worker {
-	return worker.NewStringsWorker(newDiskFormatter(watcher, getter, setter))
+	return worker.NewNotifyWorker(newDiskFormatter(watcher, getter, setter))
 }
 
 func newDiskFormatter(
 	watcher AttachedBlockDeviceWatcher,
 	getter BlockDeviceDatastoreGetter,
 	setter DatastoreFilesystemSetter,
-) worker.StringsWatchHandler {
+) worker.NotifyWatchHandler {
 	return &diskFormatter{watcher, getter, setter}
 }
 
@@ -65,7 +65,7 @@ type diskFormatter struct {
 	setter  DatastoreFilesystemSetter
 }
 
-func (f *diskFormatter) SetUp() (watcher.StringsWatcher, error) {
+func (f *diskFormatter) SetUp() (watcher.NotifyWatcher, error) {
 	return f.watcher.WatchAttachedBlockDevices()
 }
 
@@ -73,21 +73,16 @@ func (f *diskFormatter) TearDown() error {
 	return nil
 }
 
-func (f *diskFormatter) Handle(changes []string) error {
-	blockDeviceIds := make([]storage.BlockDeviceId, len(changes))
-	for i, id := range changes {
-		blockDeviceIds[i] = storage.BlockDeviceId(id)
-	}
-
-	// getAttachedBlockDevices returns only the block devices
-	// that are present in the "machine block devices" subdoc;
+func (f *diskFormatter) Handle() error {
+	// getAttachedBlockDevices returns the block devices that
+	// are present in the "machine block devices" subdoc;
 	// i.e. those that are attached and visible to the machine.
-	blockDevices, err := f.attachedBlockDevices(blockDeviceIds)
+	blockDevices, err := f.watcher.AttachedBlockDevices()
 	if err != nil {
 		return errors.Annotate(err, "cannot get block devices")
 	}
 
-	blockDeviceIds = make([]storage.BlockDeviceId, len(blockDevices))
+	blockDeviceIds := make([]storage.BlockDeviceId, len(blockDevices))
 	for i, dev := range blockDevices {
 		blockDeviceIds[i] = dev.Id
 	}
@@ -141,24 +136,6 @@ func (f *diskFormatter) Handle(changes []string) error {
 		}
 	}
 	return nil
-}
-
-func (f *diskFormatter) attachedBlockDevices(ids []storage.BlockDeviceId) ([]storage.BlockDevice, error) {
-	results, err := f.watcher.AttachedBlockDevices(ids)
-	if err != nil {
-		return nil, err
-	}
-	devices := make([]storage.BlockDevice, 0, len(ids))
-	for i, result := range results.Results {
-		if result.Error != nil {
-			// This could happen if the block device was removed from the
-			// system after the watcher notified us of changes.
-			logger.Errorf("cannot get details for block device %q: %v", ids[i], result.Error)
-			continue
-		}
-		devices = append(devices, result.Result)
-	}
-	return devices, nil
 }
 
 func createFilesystem(devicePath string, spec *storage.Specification) *storage.FilesystemPreference {

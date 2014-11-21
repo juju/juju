@@ -1382,5 +1382,9 @@ func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
 // BlockDevices gets the aggregated list of block devices attached to the
 // machine.
 func (m *Machine) BlockDevices() ([]storage.BlockDevice, error) {
-	return getBlockDevices(m.st, m.Id())
+	subdocs, err := getBlockDevices(m.st, m.Id())
+	if err != nil {
+		return nil, err
+	}
+	return toBlockDevices(subdocs), nil
 }
