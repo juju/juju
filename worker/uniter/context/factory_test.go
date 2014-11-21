@@ -142,6 +142,11 @@ func (s *FactorySuite) TestNewRunContextRelationId(c *gc.C) {
 	s.AssertRelationContext(c, ctx, 0)
 }
 
+func (s *FactorySuite) TestNewRunContextRelationIdDoesNotExist(c *gc.C) {
+	_, err := s.factory.NewRunContext(12, "baz")
+	c.Assert(err, gc.ErrorMatches, `unknown relation id:.*`)
+}
+
 func (s *FactorySuite) TestNewHookContext(c *gc.C) {
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, gc.IsNil)
