@@ -1,0 +1,3 @@
+options:
+  blog-title: {default: My Title, description: A descriptive title used for the blog., type: string}
+

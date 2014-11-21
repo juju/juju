@@ -33,7 +33,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -542,10 +544,14 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 					"snapshot": charm.ActionSpec{
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
-							"outfile": map[string]interface{}{
-								"default":     "foo.bz2",
-								"description": "The file to write out to.",
-								"type":        "string",
+							"type":        "object",
+							"description": "this boilerplate is insane, we have to fix it",
+							"properties": map[string]interface{}{
+								"outfile": map[string]interface{}{
+									"default":     "foo.bz2",
+									"description": "The file to write out to.",
+									"type":        "string",
+								},
 							},
 						},
 					},
@@ -1500,7 +1506,7 @@ func addCharm(c *gc.C, name string) (*charm.URL, charm.Charm) {
 }
 
 func addSeriesCharm(c *gc.C, series, name string) (*charm.URL, charm.Charm) {
-	bundle := charmtesting.Charms.CharmArchive(c.MkDir(), name)
+	bundle := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := client.CharmStore.(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
@@ -1677,14 +1683,14 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, gc.IsNil)
-	if !c.Check(deltas, gc.DeepEquals, []params.Delta{{
-		Entity: &params.MachineInfo{
+	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  params.StatusPending,
-			Life:                    params.Alive,
+			Status:                  multiwatcher.StatusPending,
+			Life:                    multiwatcher.Alive,
 			Series:                  "quantal",
-			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
@@ -1988,7 +1994,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -2005,7 +2011,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Series: "quantal",
-			Jobs:   []params.MachineJob{params.JobHostUnits},
+			Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -2022,7 +2028,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
-		Jobs:          []params.MachineJob{params.JobHostUnits},
+		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		ContainerType: instance.LXC,
 		ParentId:      "0",
 		Series:        "quantal",
@@ -2036,7 +2042,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	// The last machine has some constraints.
@@ -2054,7 +2060,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 4)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	apiParams[0].Placement = instance.MustParsePlacement("lxc")
@@ -2079,7 +2085,7 @@ func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	apiParams[1].ContainerType = instance.LXC
@@ -2093,7 +2099,7 @@ func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachines1dot18SomeErrors(c *gc.C) {
 	apiParams := []params.AddMachineParams{{
-		Jobs:     []params.MachineJob{params.JobHostUnits},
+		Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		ParentId: "123",
 	}}
 	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
@@ -2121,7 +2127,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	// This will cause a machine add to fail due to an unsupported container.
@@ -2145,7 +2151,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs:       []params.MachineJob{params.JobHostUnits},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:      "foo",
 			HardwareCharacteristics: hc,
@@ -2191,7 +2197,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	// no longer refers to InjectMachine.
 	args := params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs:       []params.MachineJob{params.JobHostUnits},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			InstanceId: "i-foo",
 			Nonce:      "nonce",
 		}},
@@ -2207,7 +2213,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// converting it to a cloudinit.MachineConfig, and disabling
 	// apt_upgrade.
 	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
+		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
@@ -2245,7 +2251,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 
 func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
+		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
@@ -2322,10 +2328,10 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	c.Assert(err, gc.IsNil)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
-	c.Assert(store.TestMode, gc.Equals, true)
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
+	c.Assert(store.TestMode(), gc.Equals, true)
 
-	store.AuthAttrs = ""
+	store.SetAuthAttrs("")
 
 	curl, _ = addCharm(c, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
@@ -2333,22 +2339,22 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 
 	curl, _ = addCharm(c, "riak")
 	err = s.APIState.Client().AddCharm(curl)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 }
 
 func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.makeMockCharmStore()
 
-	blobs := make(map[string]bool)
+	var blobs blobs
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
 		storage := st.Storage()
-		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}
+		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
 	client := s.APIState.Client()
@@ -2362,7 +2368,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := charmtesting.Charms.CharmDir("dummy")
+	charmDir := testcharms.Repo.CharmDir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
@@ -2371,7 +2377,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
-	c.Assert(blobs, gc.HasLen, 0)
+
+	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = addCharm(c, "wordpress")
@@ -2406,7 +2413,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	for i, test := range resolveCharmCases {
 		c.Logf("test %d: %#v", i, test)
 		// Mock charm store will use this to resolve a charm reference.
-		store.DefaultSeries = test.defaultSeries
+		store.SetDefaultSeries(test.defaultSeries)
 
 		client := s.APIState.Client()
 		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
@@ -2434,11 +2441,37 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	}
 }
 
+type blobs struct {
+	sync.Mutex
+	m map[string]bool // maps path to added (true), or deleted (false)
+}
+
+// Add adds a path to the list of known paths.
+func (b *blobs) Add(path string) {
+	b.Lock()
+	defer b.Unlock()
+	b.check()
+	b.m[path] = true
+}
+
+// Remove marks a path as deleted, even if it was not previously Added.
+func (b *blobs) Remove(path string) {
+	b.Lock()
+	defer b.Unlock()
+	b.check()
+	b.m[path] = false
+}
+
+func (b *blobs) check() {
+	if b.m == nil {
+		b.m = make(map[string]bool)
+	}
+}
+
 type recordingStorage struct {
-	*sync.Mutex
 	state.Storage
-	blobs      map[string]bool
 	putBarrier *sync.WaitGroup
+	blobs      *blobs
 }
 
 func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
@@ -2448,35 +2481,29 @@ func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
 		s.putBarrier.Done()
 		s.putBarrier.Wait()
 	}
-	err := s.Storage.Put(path, r, size)
-	if err == nil {
-		s.Lock()
-		defer s.Unlock()
-		s.blobs[path] = true
+	if err := s.Storage.Put(path, r, size); err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	s.blobs.Add(path)
+	return nil
 }
 
 func (s *recordingStorage) Remove(path string) error {
-	err := s.Storage.Remove(path)
-	if err == nil {
-		s.Lock()
-		defer s.Unlock()
-		s.blobs[path] = false
+	if err := s.Storage.Remove(path); err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	s.blobs.Remove(path)
+	return nil
 }
 
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	s.makeMockCharmStore()
 
-	var blobsMu sync.Mutex
-	blobs := make(map[string]bool)
 	var putBarrier sync.WaitGroup
+	var blobs blobs
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
 		storage := st.Storage()
-		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs,
-			putBarrier: &putBarrier}
+		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
 	client := s.APIState.Client()
@@ -2504,15 +2531,17 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	}
 	wg.Wait()
 
-	c.Assert(blobs, gc.HasLen, 10)
+	blobs.Lock()
+
+	c.Assert(blobs.m, gc.HasLen, 10)
 
 	// Verify there is only a single uploaded charm remains and it
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	storagePath := sch.StoragePath()
-	c.Assert(blobs[storagePath], jc.IsTrue)
-	for path, exists := range blobs {
+	c.Assert(blobs.m[storagePath], jc.IsTrue)
+	for path, exists := range blobs.m {
 		if path != storagePath {
 			c.Assert(exists, jc.IsFalse)
 		}
@@ -2610,20 +2639,20 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 
 func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name params.MachineJob
+		name multiwatcher.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: params.JobHostUnits,
+		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: params.JobManageEnviron,
+		name: multiwatcher.JobManageEnviron,
 		want: state.JobManageEnviron,
 	}, {
-		name: params.JobManageNetworking,
+		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
 	}, {
-		name: params.JobManageStateDeprecated,
+		name: multiwatcher.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",

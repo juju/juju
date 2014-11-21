@@ -7,79 +7,28 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"time"
 
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/utils/filestorage"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/state/backups/metadata"
 )
 
-const BackupsMetaC = backupsMetaC
+const (
+	UnitsC    = unitsC
+	ServicesC = servicesC
+	SettingsC = settingsC
+)
 
 var (
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
-
-var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
-
-func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
-	var doc backupMetaDoc
-	doc.UpdateFromMetadata(meta)
-	return &doc
-}
-
-func getBackupDBWrapper(st *State) *backupDBWrapper {
-	envUUID := st.EnvironTag().Id()
-	db := st.db.Session.DB(backupDB)
-	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
-}
-
-func NewBackupID(meta *metadata.Metadata) string {
-	doc := newBackupDoc(meta)
-	return newBackupID(doc)
-}
-
-func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc, err := getBackupMetadata(db, id)
-	if err != nil {
-		return nil, err
-	}
-	return doc.asMetadata(), nil
-}
-
-func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addBackupMetadata(db, doc)
-}
-
-func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addBackupMetadataID(db, doc, id)
-}
-
-func SetBackupStored(st *State, id string, stored time.Time) error {
-	db := getBackupDBWrapper(st)
-	defer db.Close()
-	return setBackupStored(db, id, stored)
-}
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
@@ -132,14 +81,14 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(st.docID(key)).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
+	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
@@ -155,7 +104,7 @@ func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, o
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := charmtesting.Charms.ClonedDirPath(c.MkDir(), name)
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
@@ -250,8 +199,12 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
-	return st.parseTag(tag)
+func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interface{}, error) {
+	return st.tagToCollectionAndId(tag)
+}
+
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
 }
 
 // Return the PasswordSalt that goes along with the PasswordHash
@@ -267,18 +220,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func EnsureActionMarker(prefix string) string {
-	return ensureActionMarker(prefix)
-}
-
-var EnsureActionResultMarker = ensureSuffixFn(actionResultMarker)
-
-func GetActionResultId(actionId string) (string, bool) {
-	return convertActionIdToActionResultId(actionId)
-}
-
-func WatcherMergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
-	return mergeIds(st, changes, initial, updates)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changeset, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
@@ -287,6 +230,10 @@ func WatcherEnsureSuffixFn(marker string) func(string) string {
 
 func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	return makeIdFilter(st, marker, receivers...)
+}
+
+func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
+	return newActionStatusWatcher(st, receivers, statuses...)
 }
 
 var (

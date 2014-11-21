@@ -4,6 +4,9 @@
 package context_test
 
 import (
+	"os"
+	"syscall"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -12,6 +15,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/utils/exec"
 )
 
 type InterfaceSuite struct {
@@ -162,7 +166,9 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 		hctx := context.GetStubActionContext(t.initial)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, gc.IsNil)
-		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
+		actionData, err := hctx.ActionData()
+		c.Assert(err, gc.IsNil)
+		c.Assert(actionData.ResultsMap, jc.DeepEquals, t.expected)
 	}
 }
 
@@ -171,7 +177,9 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, gc.IsNil)
-	c.Check(hctx.ActionFailed(), jc.IsTrue)
+	actionData, err := hctx.ActionData()
+	c.Assert(err, gc.IsNil)
+	c.Check(actionData.ActionFailed, jc.IsTrue)
 }
 
 // TestSetActionMessage ensures SetActionMessage works properly.
@@ -179,7 +187,59 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, gc.IsNil)
-	message, err := hctx.ActionMessage()
+	actionData, err := hctx.ActionData()
 	c.Check(err, gc.IsNil)
-	c.Check(message, gc.Equals, "because reasons")
+	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
+}
+
+func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
+	command := exec.RunParams{
+		Commands: "trap 'exit 0' SIGTERM; while true;do sleep 1;done",
+	}
+	err := command.Run()
+	c.Assert(err, gc.IsNil)
+	p := command.Process()
+	s.AddCleanup(func(c *gc.C) { p.Kill() })
+	return p
+}
+
+func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
+	ctx := context.HookContext{}
+	p := s.startProcess(c)
+	ctx.SetProcess(p)
+	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	c.Assert(err, gc.IsNil)
+	err = syscall.Kill(p.Pid, syscall.SIGTERM)
+	c.Assert(err, gc.IsNil)
+	_, err = p.Wait()
+	c.Assert(err, gc.IsNil)
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
+}
+
+func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
+	ctx := context.HookContext{}
+	p := s.startProcess(c)
+	ctx.SetProcess(p)
+	go func() {
+		_, err := p.Wait()
+		c.Assert(err, gc.IsNil)
+	}()
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, gc.IsNil)
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+}
+
+func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
+	// A normal hook run or a juju-run command will record the *os.Process
+	// object of the running command, in HookContext. When requesting a
+	// reboot with the --now flag, the process is killed and only
+	// then will we set the reboot priority. This test basically simulates
+	// the case when the process calling juju-reboot is not recorded.
+	ctx := context.HookContext{}
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, gc.ErrorMatches, "no process to kill")
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootNow)
 }

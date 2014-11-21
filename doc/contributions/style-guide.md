@@ -31,7 +31,8 @@ unless you've pushed the code.
 
 ## Comments
 
-Comments should be full sentences with proper capitalization and punctuation. 
+Comments should be full sentences with one space after a period, proper 
+capitalization and punctuation.
 
 Avoid adding non-useful information, such as flagging the layout of a file with 
 block comments or explaining behaviour that is immediately evident from reading 

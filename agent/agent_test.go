@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -235,9 +236,9 @@ func (*suite) TestMigrate(c *gc.C) {
 		Nonce:             "nonce",
 		Password:          "secret",
 		UpgradedToVersion: version.MustParse("1.16.5"),
-		Jobs: []params.MachineJob{
-			params.JobManageEnviron,
-			params.JobHostUnits,
+		Jobs: []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
 		},
 		CACert:         "ca cert",
 		StateAddresses: []string{"localhost:1234"},
@@ -273,7 +274,7 @@ func (*suite) TestMigrate(c *gc.C) {
 	}, {
 		fields: []string{"Jobs"},
 		newParams: agent.MigrateParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		},
 	}, {
 		comment:   "invalid/immutable field specified",

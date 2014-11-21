@@ -13,13 +13,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -185,7 +185,7 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -303,6 +303,130 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToAnnotations(c *gc.C) {
+	annotations := map[string]string{"foo": "bar", "arble": "baz"}
+	annotations2 := map[string]string{"foo": "bar", "arble": "baz"}
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToAnnotations, annotationsC,
+		bson.M{
+			"_id":         "m#0",
+			"tag":         "machine-0",
+			"annotations": annotations,
+		},
+		bson.M{
+			"_id":         "m#1",
+			"tag":         "machine-1",
+			"annotations": annotations2,
+		},
+	)
+	defer closer()
+
+	var newDoc annotatorDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.GlobalKey, gc.Equals, "m#0")
+	c.Assert(newDoc.Tag, gc.Equals, "machine-0")
+	c.Assert(newDoc.Annotations, gc.DeepEquals, annotations)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.GlobalKey, gc.Equals, "m#1")
+	c.Assert(newDoc.Tag, gc.Equals, "machine-1")
+	c.Assert(newDoc.Annotations, gc.DeepEquals, annotations2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToAnnotationsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToAnnotations, annotationsC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToNetworks(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToNetworks, networksC,
+		bson.M{
+			"_id":        "net1",
+			"providerid": "net1",
+			"cidr":       "0.1.2.0/24",
+		},
+		bson.M{
+			"_id":        "net2",
+			"providerid": "net2",
+			"cidr":       "0.2.2.0/24",
+		},
+	)
+	defer closer()
+
+	var newDoc networkDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net1"))
+	c.Assert(newDoc.CIDR, gc.Equals, "0.1.2.0/24")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.ProviderId, gc.Equals, network.Id("net2"))
+	c.Assert(newDoc.CIDR, gc.Equals, "0.2.2.0/24")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToNetworksIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToNetworks, networksC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRequestedNetworks(c *gc.C) {
+	reqNetworks1 := []string{"net1", "net2"}
+	reqNetworks2 := []string{"net3", "net4"}
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRequestedNetworks, requestedNetworksC,
+		bson.M{
+			"_id":      "0",
+			"networks": reqNetworks1,
+		},
+		bson.M{
+			"_id":      "1",
+			"networks": reqNetworks2,
+		},
+	)
+	defer closer()
+
+	var newDoc requestedNetworksDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Networks, gc.DeepEquals, reqNetworks1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Networks, gc.DeepEquals, reqNetworks2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRequestedNetworksIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRequestedNetworks, requestedNetworksC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToNetworkInterfaces(c *gc.C) {
+	coll, closer, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToNetworkInterfaces, networkInterfacesC,
+		[]bson.M{
+			{
+				"_id":         bson.NewObjectId(),
+				"machineid":   "2",
+				"networkname": "net1",
+			}, {
+
+				"_id":         bson.NewObjectId(),
+				"machineid":   "4",
+				"networkname": "net2",
+			}},
+		false)
+	defer closer()
+	c.Assert(count, gc.Equals, 2)
+
+	var newDoc networkInterfaceDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.NetworkName, gc.Equals, "net1")
+	c.Assert(newDoc.MachineId, gc.Equals, "2")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.NetworkName, gc.Equals, "net2")
+	c.Assert(newDoc.MachineId, gc.Equals, "4")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToNetworkInterfacesIdempotent(c *gc.C) {
+	oldID := "foo"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToNetworkInterfaces, networkInterfacesC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, oldID)
+	c.Assert(docs[0]["env-uuid"], gc.Equals, s.state.EnvironUUID())
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToMinUnits(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMinUnits, minUnitsC,
 		bson.M{
@@ -324,6 +448,10 @@ func (s *upgradesSuite) TestAddEnvUUIDToMinUnits(c *gc.C) {
 	s.FindId(c, coll, newIDs[1], &newDoc)
 	c.Assert(newDoc.ServiceName, gc.Equals, "mediawiki")
 	c.Assert(newDoc.Revno, gc.Equals, 2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMinUnitsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMinUnits, minUnitsC)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToCleanups(c *gc.C) {
@@ -349,12 +477,143 @@ func (s *upgradesSuite) TestAddEnvUUIDToCleanups(c *gc.C) {
 	c.Assert(string(newDoc.Kind), gc.Equals, "service")
 }
 
-func (s *upgradesSuite) TestAddEnvUUIDToMinUnitsIdempotent(c *gc.C) {
-	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMinUnits, minUnitsC)
+func (s *upgradesSuite) TestAddEnvUUIDToCleanupsIdempotent(c *gc.C) {
+	oldID := bson.NewObjectId()
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToCleanups, cleanupsC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
 }
 
-func (s *upgradesSuite) TestAddEnvUUIDToCleanupsIdempotent(c *gc.C) {
-	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToCleanups, cleanupsC)
+func (s *upgradesSuite) TestAddEnvUUIDToConstraints(c *gc.C) {
+	networks1 := []string{"net1", "net2"}
+	networks2 := []string{"net3", "net4"}
+	coll, closer, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToConstraints, constraintsC,
+		[]bson.M{
+			{
+				"_id":      "s#wordpress",
+				"cpucores": 4,
+				"networks": networks1,
+			},
+			{
+				"_id":      "s#mediawiki",
+				"cpucores": 8,
+				"networks": networks2,
+			},
+		},
+		true)
+	defer closer()
+	// The test expects three records because there is a preexisting environment constraints doc in mongo.
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc constraintsDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(4))
+	c.Assert(*newDoc.Networks, gc.DeepEquals, networks1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(*newDoc.CpuCores, gc.Equals, uint64(8))
+	c.Assert(*newDoc.Networks, gc.DeepEquals, networks2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToConstraintsIdempotent(c *gc.C) {
+	oldID := "s#ghost"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToConstraints, constraintsC)
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint("e")))
+	c.Assert(docs[1]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToStatuses(c *gc.C) {
+	statusData := map[string]interface{}{
+		"1st-key": "one",
+		"2nd-key": 2,
+		"3rd-key": true,
+	}
+
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToStatuses, statusesC,
+		bson.M{
+			"_id":    "u#wordpress/0",
+			"status": StatusStarted,
+		},
+		bson.M{
+			"_id":        "m#0",
+			"status":     StatusError,
+			"statusdata": statusData,
+		},
+	)
+	defer closer()
+
+	var newDoc statusDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Status, gc.Equals, StatusStarted)
+	c.Assert(newDoc.StatusData, gc.IsNil)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Status, gc.Equals, StatusError)
+	c.Assert(newDoc.StatusData, gc.DeepEquals, statusData)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToStatusesIdempotent(c *gc.C) {
+	oldID := "m#1"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToCleanups, cleanupsC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(oldID))
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettingsRefs(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToSettingsRefs, settingsrefsC,
+		bson.M{
+			"_id":      "something",
+			"refcount": 3,
+		},
+		bson.M{
+			"_id":      "config",
+			"refcount": 8,
+		},
+	)
+	defer closer()
+
+	var newDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc["refcount"], gc.Equals, 3)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc["refcount"], gc.Equals, 8)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettingsRefsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToSettingsRefs, settingsrefsC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettings(c *gc.C) {
+	coll, closer, newIDs, count := s.checkEnvUUID(c, AddEnvUUIDToSettings, settingsC,
+		[]bson.M{
+			{
+				"_id":  "something",
+				"key2": "value2",
+			},
+			{
+				"_id":  "config",
+				"key3": "value3",
+			}},
+		true)
+	defer closer()
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc["key2"], gc.Equals, "value2")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc["key3"], gc.Equals, "value3")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettingsIdempotent(c *gc.C) {
+	oldID := "foo"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToSettings, settingsC)
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint("e")))
+	c.Assert(docs[1]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
@@ -542,12 +801,49 @@ func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
+		bson.M{
+			"_id":  "u#foo/0",
+			"code": MeterGreen,
+		},
+		bson.M{
+			"_id":  "u#bar/0",
+			"code": MeterRed,
+		},
+	)
+	defer closer()
+
+	var newDoc meterStatusDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterGreen)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterRed)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMeterStatus, meterStatusC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,
 	collName string,
 	oldDocs ...bson.M,
-) (*mgo.Collection, func(), []string) {
+) (*mgo.Collection, func(), []interface{}) {
+	coll, closer, ids, count := s.checkEnvUUID(c, upgradeStep, collName, oldDocs, true)
+	c.Assert(count, gc.Equals, len(oldDocs))
+	return coll, closer, ids
+}
+
+func (s *upgradesSuite) checkEnvUUID(
+	c *gc.C,
+	upgradeStep func(*State) error,
+	collName string,
+	oldDocs []bson.M,
+	idUpdated bool,
+) (*mgo.Collection, func(), []interface{}, int) {
 	c.Assert(len(oldDocs) >= 2, jc.IsTrue)
 	for _, oldDoc := range oldDocs {
 		s.addLegacyDoc(c, collName, oldDoc)
@@ -560,26 +856,25 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	// env-uuid has been added correctly.
 	coll, closer := s.state.getCollection(collName)
 	var d map[string]string
-	var ids []string
+	var ids []interface{}
 	envTag := s.state.EnvironUUID()
 	for _, oldDoc := range oldDocs {
-		oldID := fmt.Sprint(oldDoc["_id"])
-		newID := s.state.docID(oldID)
+		id := oldDoc["_id"]
+		if idUpdated {
+			id = s.state.docID(fmt.Sprint(oldDoc["_id"]))
+			err = coll.FindId(oldDoc["_id"]).One(&d)
+			c.Assert(err, gc.Equals, mgo.ErrNotFound)
+		}
 
-		err = coll.FindId(oldID).One(&d)
-		c.Assert(err, gc.Equals, mgo.ErrNotFound)
-
-		err = coll.FindId(newID).One(&d)
+		err = coll.FindId(id).One(&d)
 		c.Assert(err, gc.IsNil)
 		c.Assert(d["env-uuid"], gc.Equals, envTag)
 
-		ids = append(ids, newID)
+		ids = append(ids, id)
 	}
 	count, err := coll.Find(nil).Count()
 	c.Assert(err, gc.IsNil)
-	c.Assert(count, gc.Equals, len(oldDocs))
-
-	return coll, closer, ids
+	return coll, closer, ids, count
 }
 
 func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
@@ -587,13 +882,18 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	upgradeStep func(*State) error,
 	collName string,
 ) {
-	var oldID interface{}
-	if collName == cleanupsC {
-		oldID = bson.NewObjectId()
-	} else {
-		oldID = "foo"
-	}
+	oldID := "foo"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, upgradeStep, collName)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+}
 
+func (s *upgradesSuite) checkEnvUUIDIdempotent(
+	c *gc.C,
+	oldID interface{},
+	upgradeStep func(*State) error,
+	collName string,
+) (docs []map[string]string) {
 	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
 
 	err := upgradeStep(s.state)
@@ -604,11 +904,9 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 
 	coll, closer := s.state.getCollection(collName)
 	defer closer()
-	var docs []map[string]string
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+	return docs
 }
 
 func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
@@ -628,7 +926,7 @@ func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, do
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

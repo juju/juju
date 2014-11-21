@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -47,10 +47,10 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		MachineNonce: "gxshasqlnng",
 		DataDir:      environs.DataDir,
 		LogDir:       agent.DefaultLogDir,
-		Jobs: []params.MachineJob{
-			params.JobManageEnviron,
-			params.JobHostUnits,
-			params.JobManageNetworking,
+		Jobs: []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
+			multiwatcher.JobManageNetworking,
 		},
 		CloudInitOutputLog: cloudInitOutputLog,
 		Tools: &tools.Tools{

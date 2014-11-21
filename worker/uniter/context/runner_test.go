@@ -5,44 +5,20 @@ package context_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
 )
-
-type RealPaths struct {
-	tools  string
-	charm  string
-	socket string
-}
-
-func NewRealPaths(c *gc.C) RealPaths {
-	return RealPaths{
-		tools:  c.MkDir(),
-		charm:  c.MkDir(),
-		socket: filepath.Join(c.MkDir(), "jujuc.socket"),
-	}
-}
-
-func (p RealPaths) GetToolsDir() string {
-	return p.tools
-}
-
-func (p RealPaths) GetCharmDir() string {
-	return p.charm
-}
-
-func (p RealPaths) GetJujucSocket() string {
-	return p.socket
-}
 
 type RunCommandSuite struct {
 	HookContextSuite
@@ -72,6 +48,7 @@ exit 42
 	c.Assert(result.Code, gc.Equals, 42)
 	c.Assert(string(result.Stdout), gc.Equals, paths.charm+"\n")
 	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
+	c.Assert(ctx.GetProcess(), gc.NotNil)
 }
 
 type RunHookSuite struct {
@@ -79,56 +56,6 @@ type RunHookSuite struct {
 }
 
 var _ = gc.Suite(&RunHookSuite{})
-
-type hookSpec struct {
-	// name is the name of the hook.
-	name string
-	// perm is the file permissions of the hook.
-	perm os.FileMode
-	// code is the exit status of the hook.
-	code int
-	// stdout holds a string to print to stdout
-	stdout string
-	// stderr holds a string to print to stderr
-	stderr string
-	// background holds a string to print in the background after 0.2s.
-	background string
-}
-
-// makeCharm constructs a fake charm dir containing a single named hook
-// with permissions perm and exit code code.  If output is non-empty,
-// the charm will write it to stdout and stderr, with each one prefixed
-// by name of the stream.
-func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
-	hooksDir := filepath.Join(charmDir, "hooks")
-	err := os.Mkdir(hooksDir, 0755)
-	c.Assert(err, gc.IsNil)
-	c.Logf("openfile perm %v", spec.perm)
-	hook, err := os.OpenFile(filepath.Join(hooksDir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm)
-	c.Assert(err, gc.IsNil)
-	defer hook.Close()
-
-	printf := func(f string, a ...interface{}) {
-		_, err := fmt.Fprintf(hook, f+"\n", a...)
-		c.Assert(err, gc.IsNil)
-	}
-	printf("#!/bin/bash")
-	if spec.stdout != "" {
-		printf("echo %s", spec.stdout)
-	}
-	if spec.stderr != "" {
-		printf("echo %s >&2", spec.stderr)
-	}
-	if spec.background != "" {
-		// Print something fairly quickly, then sleep for
-		// quite a long time - if the hook execution is
-		// blocking because of the background process,
-		// the hook execution will take much longer than
-		// expected.
-		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
-	}
-	printf("exit %d", spec.code)
-}
 
 // LineBufferSize matches the constant used when creating
 // the bufio line reader.
@@ -194,6 +121,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		var hookExists bool
 		if t.spec.perm != 0 {
 			spec := t.spec
+			spec.dir = "hooks"
 			spec.name = "something-happened"
 			c.Logf("makeCharm %#v", spec)
 			makeCharm(c, spec, paths.charm)
@@ -214,258 +142,152 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	}
 }
 
-func (s *RunHookSuite) TestRunHookRelationFlushingError(c *gc.C) {
-	// TODO(fwereade): these should be testing a public Flush() method on
-	// the context, or something, instead of faking up an unnecessary hook
-	// execution.
+type MockContext struct {
+	context.Context
+	actionData   *context.ActionData
+	expectPid    int
+	flushBadge   string
+	flushFailure error
+	flushResult  error
+}
 
-	// Create a charm with a breaking hook.
-	uuid, err := utils.NewUUID()
+func (ctx *MockContext) UnitName() string {
+	return "some-unit/999"
+}
+
+func (ctx *MockContext) HookVars(paths context.Paths) []string {
+	return []string{"VAR=value"}
+}
+
+func (ctx *MockContext) ActionData() (*context.ActionData, error) {
+	if ctx.actionData == nil {
+		return nil, errors.New("blam")
+	}
+	return ctx.actionData, nil
+}
+
+func (ctx *MockContext) SetProcess(process *os.Process) {
+	ctx.expectPid = process.Pid
+}
+
+func (ctx *MockContext) FlushContext(badge string, failure error) error {
+	ctx.flushBadge = badge
+	ctx.flushFailure = failure
+	return ctx.flushResult
+}
+
+type RunMockContextSuite struct {
+	envtesting.IsolationSuite
+	paths RealPaths
+}
+
+var _ = gc.Suite(&RunMockContextSuite{})
+
+func (s *RunMockContextSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.paths = NewRealPaths(c)
+}
+
+func (s *RunMockContextSuite) assertRecordedPid(c *gc.C, expectPid int) {
+	path := filepath.Join(s.paths.charm, "pid")
+	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
-	paths := NewRealPaths(c)
+	expectContent := fmt.Sprintf("%d\n", expectPid)
+	c.Assert(string(content), gc.Equals, expectContent)
+}
+
+func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+	}
 	makeCharm(c, hookSpec{
+		dir:  "hooks",
+		name: "something-happened",
+		perm: 0700,
+	}, s.paths.charm)
+	actualErr := context.NewRunner(ctx, s.paths).RunHook("something-happened")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+	}
+	makeCharm(c, hookSpec{
+		dir:  "hooks",
 		name: "something-happened",
 		perm: 0700,
 		code: 123,
-	}, paths.charm)
-
-	// Mess with multiple relation settings.
-	relCtx0, ok := ctx.Relation(0)
-	c.Assert(ok, jc.IsTrue)
-	node0, err := relCtx0.Settings()
-	c.Assert(err, gc.IsNil)
-	node0.Set("foo", "1")
-	relCtx1, ok := ctx.Relation(1)
-	c.Assert(ok, jc.IsTrue)
-	node1, err := relCtx1.Settings()
-	c.Assert(err, gc.IsNil)
-	node1.Set("bar", "2")
-
-	// Run the failing hook.
-	err = context.NewRunner(ctx, paths).RunHook("something-happened")
-	c.Assert(err, gc.ErrorMatches, "exit status 123")
-
-	// Check that the changes have not been written to state.
-	settings0, err := s.relunits[0].ReadSettings("u/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{"relation-name": "db0"})
-	settings1, err := s.relunits[1].ReadSettings("u/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{"relation-name": "db1"})
+	}, s.paths.charm)
+	actualErr := context.NewRunner(ctx, s.paths).RunHook("something-happened")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
+	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
+	s.assertRecordedPid(c, ctx.expectPid)
 }
 
-func (s *RunHookSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
-	// TODO(fwereade): these should be testing a public Flush() method on
-	// the context, or something, instead of faking up an unnecessary hook
-	// execution.
-
-	// Create a charm with a working hook, and mess with settings again.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
-	paths := NewRealPaths(c)
-	makeCharm(c, hookSpec{
-		name: "something-happened",
-		perm: 0700,
-	}, paths.charm)
-
-	// Mess with multiple relation settings.
-	relCtx0, ok := ctx.Relation(0)
-	c.Assert(ok, jc.IsTrue)
-	node0, err := relCtx0.Settings()
-	c.Assert(err, gc.IsNil)
-	node0.Set("baz", "3")
-	relCtx1, ok := ctx.Relation(1)
-	c.Assert(ok, jc.IsTrue)
-	node1, err := relCtx1.Settings()
-	c.Assert(err, gc.IsNil)
-	node1.Set("qux", "4")
-
-	// Run the hook.
-	err = context.NewRunner(ctx, paths).RunHook("something-happened")
-	c.Assert(err, gc.IsNil)
-
-	// Check that the changes have been written to state.
-	settings0, err := s.relunits[0].ReadSettings("u/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{
-		"relation-name": "db0",
-		"baz":           "3",
-	})
-	settings1, err := s.relunits[1].ReadSettings("u/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{
-		"relation-name": "db1",
-		"qux":           "4",
-	})
-}
-
-func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
-	// TODO(fwereade): these should be testing a public Flush() method on
-	// the context, or something, instead of faking up an unnecessary hook
-	// execution.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
-	paths := NewRealPaths(c)
-	makeCharm(c, hookSpec{
-		name: "collect-metrics",
-		perm: 0700,
-	}, paths.charm)
-
-	now := time.Now()
-	ctx.AddMetric("key", "50", now)
-
-	// Run the hook.
-	err = context.NewRunner(ctx, paths).RunHook("collect-metrics")
-	c.Assert(err, gc.IsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, gc.IsNil)
-	c.Assert(metricBatches, gc.HasLen, 1)
-	metrics := metricBatches[0].Metrics()
-	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Key, gc.Equals, "key")
-	c.Assert(metrics[0].Value, gc.Equals, "50")
-}
-
-func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
-	// TODO(fwereade): these should be testing a public Flush() method on
-	// the context, or something, instead of faking up an unnecessary hook
-	// execution.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, false, s.metricsDefinition("key"))
-	paths := NewRealPaths(c)
-	makeCharm(c, hookSpec{
-		name: "some-hook",
-		perm: 0700,
-	}, paths.charm)
-
-	now := time.Now()
-	err = ctx.AddMetric("key", "50", now)
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
-
-	// Run the hook.
-	err = context.NewRunner(ctx, paths).RunHook("some-hook")
-	c.Assert(err, gc.IsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, gc.IsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
-}
-
-func (s *RunHookSuite) TestRunHookMetricSendingUndeclared(c *gc.C) {
-	// TODO(fwereade): these should be testing a public Flush() method on
-	// the context, or something, instead of faking up an unnecessary hook
-	// execution.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, nil)
-	paths := NewRealPaths(c)
-	makeCharm(c, hookSpec{
-		name: "some-hook",
-		perm: 0700,
-	}, paths.charm)
-
-	now := time.Now()
-	err = ctx.AddMetric("key", "50", now)
-	c.Assert(err, gc.ErrorMatches, "metrics disabled")
-
-	// Run the hook.
-	err = context.NewRunner(ctx, paths).RunHook("some-hook")
-	c.Assert(err, gc.IsNil)
-
-	metricBatches, err := s.State.MetricBatches()
-	c.Assert(err, gc.IsNil)
-	c.Assert(metricBatches, gc.HasLen, 0)
-}
-
-func (s *RunHookSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
-	// TODO(fwereade): these should be testing a public Flush() method on
-	// the context, or something, instead of faking up an unnecessary hook
-	// execution.
-	// Initially, no port ranges are open on the unit or its machine.
-	unitRanges, err := s.unit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unitRanges, gc.HasLen, 0)
-	machinePorts, err := s.machine.AllPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machinePorts, gc.HasLen, 0)
-
-	// Add another unit on the same machine.
-	otherUnit, err := s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	err = otherUnit.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
-
-	// Open some ports on both units.
-	err = s.unit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, gc.IsNil)
-	err = otherUnit.OpenPorts("udp", 200, 300)
-	c.Assert(err, gc.IsNil)
-
-	unitRanges, err = s.unit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
-		{100, 200, "tcp"},
-	})
-
-	// Get the context.
-	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
-	paths := NewRealPaths(c)
-	makeCharm(c, hookSpec{
-		name: "some-hook",
-		perm: 0700,
-	}, paths.charm)
-
-	// Try opening some ports via the context.
-	err = ctx.OpenPorts("tcp", 100, 200)
-	c.Assert(err, gc.IsNil) // duplicates are ignored
-	err = ctx.OpenPorts("udp", 200, 300)
-	c.Assert(err, gc.ErrorMatches, `cannot open 200-300/udp \(unit "u/0"\): conflicts with existing 200-300/udp \(unit "u/1"\)`)
-	err = ctx.OpenPorts("udp", 100, 200)
-	c.Assert(err, gc.ErrorMatches, `cannot open 100-200/udp \(unit "u/0"\): conflicts with existing 200-300/udp \(unit "u/1"\)`)
-	err = ctx.OpenPorts("udp", 10, 20)
-	c.Assert(err, gc.IsNil)
-	err = ctx.OpenPorts("tcp", 50, 100)
-	c.Assert(err, gc.ErrorMatches, `cannot open 50-100/tcp \(unit "u/0"\): conflicts with existing 100-200/tcp \(unit "u/0"\)`)
-	err = ctx.OpenPorts("tcp", 50, 80)
-	c.Assert(err, gc.IsNil)
-	err = ctx.OpenPorts("tcp", 40, 90)
-	c.Assert(err, gc.ErrorMatches, `cannot open 40-90/tcp \(unit "u/0"\): conflicts with 50-80/tcp requested earlier`)
-
-	// Now try closing some ports as well.
-	err = ctx.ClosePorts("udp", 8080, 8088)
-	c.Assert(err, gc.IsNil) // not existing -> ignored
-	err = ctx.ClosePorts("tcp", 100, 200)
-	c.Assert(err, gc.IsNil)
-	err = ctx.ClosePorts("tcp", 100, 200)
-	c.Assert(err, gc.IsNil) // duplicates are ignored
-	err = ctx.ClosePorts("udp", 200, 300)
-	c.Assert(err, gc.ErrorMatches, `cannot close 200-300/udp \(opened by "u/1"\) from "u/0"`)
-	err = ctx.ClosePorts("tcp", 50, 80)
-	c.Assert(err, gc.IsNil) // still pending -> no longer pending
-
-	// Ensure the ports are not actually changed on the unit yet.
-	unitRanges, err = s.unit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
-		{100, 200, "tcp"},
-	})
-
-	// Simulate a hook ran and was committed successfully.
-	err = context.NewRunner(ctx, paths).RunHook("some-hook")
-	c.Assert(err, gc.IsNil)
-
-	// Verify the unit ranges are now open.
-	expectUnitRanges := []network.PortRange{
-		{FromPort: 10, ToPort: 20, Protocol: "udp"},
+func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		actionData:  &context.ActionData{},
 	}
-	unitRanges, err = s.unit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unitRanges, jc.DeepEquals, expectUnitRanges)
+	makeCharm(c, hookSpec{
+		dir:  "actions",
+		name: "do-something",
+		perm: 0700,
+	}, s.paths.charm)
+	actualErr := context.NewRunner(ctx, s.paths).RunAction("do-something")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "do-something")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+		actionData:  &context.ActionData{},
+	}
+	makeCharm(c, hookSpec{
+		dir:  "actions",
+		name: "do-something",
+		perm: 0700,
+		code: 123,
+	}, s.paths.charm)
+	actualErr := context.NewRunner(ctx, s.paths).RunAction("do-something")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "do-something")
+	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
+	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+	}
+	_, actualErr := context.NewRunner(ctx, s.paths).RunCommands("echo $$ > pid")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
+	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertRecordedPid(c, ctx.expectPid)
+}
+
+func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
+	expectErr := errors.New("pew pew pew")
+	ctx := &MockContext{
+		flushResult: expectErr,
+	}
+	_, actualErr := context.NewRunner(ctx, s.paths).RunCommands("echo $$ > pid; exit 123")
+	c.Assert(actualErr, gc.Equals, expectErr)
+	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
+	c.Assert(ctx.flushFailure, gc.IsNil) // exit code in _ result, as tested elsewhere
+	s.assertRecordedPid(c, ctx.expectPid)
 }

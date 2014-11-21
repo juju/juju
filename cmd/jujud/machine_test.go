@@ -45,15 +45,16 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/networker"
@@ -98,7 +99,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.agentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
-	s.singularRecord = &singularRunnerRecord{}
+	s.singularRecord = &singularRunnerRecord{startedWorkers: make(set.Strings)}
 	s.agentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
@@ -365,7 +366,8 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		inited: make(chan struct{}),
+		inited:   make(chan struct{}),
+		deployed: make(set.Strings),
 	}
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
@@ -629,35 +631,6 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	})
-}
-
-func (s *MachineSuite) TestUpgradeTarget(c *gc.C) {
-	for i, test := range []struct {
-		job      params.MachineJob
-		master   bool
-		expected upgrades.Target
-	}{
-		{
-		// empty gives empty
-		}, {
-			job:      params.JobManageEnviron,
-			expected: upgrades.StateServer,
-		}, {
-			job:      params.JobManageEnviron,
-			master:   true,
-			expected: upgrades.DatabaseMaster,
-		}, {
-			job:      params.JobHostUnits,
-			expected: upgrades.HostMachine,
-		}, {
-			job:      params.JobHostUnits,
-			master:   true,
-			expected: upgrades.HostMachine,
-		},
-	} {
-		c.Logf("Test %v", i)
-		c.Assert(upgradeTarget(test.job, test.master), gc.Equals, test.expected)
-	}
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
@@ -1064,6 +1037,53 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	started := make(chan struct{})
+	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newDiskManager, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for diskmanager worker to start")
+	}
+}
+
+func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
+		return expected, nil
+	})
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Wait for state to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		devices, err := m.BlockDevices()
+		c.Assert(err, gc.IsNil)
+		if len(devices) > 0 {
+			c.Assert(devices, gc.DeepEquals, expected)
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {

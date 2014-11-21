@@ -82,6 +82,44 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	}
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
+	ops, err := st.envSetupOps(cfg, "", owner)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ops = append(ops,
+		createInitialUserOp(st, owner, info.Password),
+		txn.Op{
+			C:      stateServersC,
+			Id:     environGlobalKey,
+			Assert: txn.DocMissing,
+			Insert: &stateServersDoc{
+				EnvUUID: st.EnvironUUID(),
+			},
+		},
+		txn.Op{
+			C:      stateServersC,
+			Id:     apiHostPortsKey,
+			Assert: txn.DocMissing,
+			Insert: &apiHostPortsDoc{},
+		},
+		txn.Op{
+			C:      stateServersC,
+			Id:     stateServingInfoKey,
+			Assert: txn.DocMissing,
+			Insert: &StateServingInfo{},
+		},
+	)
+
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		// The config was created in the meantime.
+		return st, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st, nil
+}
+
+func (st *State) envSetupOps(cfg *config.Config, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,39 +128,20 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
 	st.environTag = names.NewEnvironTag(uuid)
-	newEnvUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
+
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
+	if serverUUID == "" {
+		serverUUID = uuid
+	}
+	envUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createInitialUserOp(st, owner, info.Password),
-		createEnvironmentOp(st, owner, cfg.Name(), uuid, uuid),
-		newEnvUserOp,
-		{
-			C:      stateServersC,
-			Id:     environGlobalKey,
-			Assert: txn.DocMissing,
-			Insert: &stateServersDoc{
-				EnvUUID: uuid,
-			},
-		}, {
-			C:      stateServersC,
-			Id:     apiHostPortsKey,
-			Assert: txn.DocMissing,
-			Insert: &apiHostPortsDoc{},
-		}, {
-			C:      stateServersC,
-			Id:     stateServingInfoKey,
-			Assert: txn.DocMissing,
-			Insert: &StateServingInfo{},
-		},
+		createEnvironmentOp(st, owner, cfg.Name(), uuid, serverUUID),
+		envUserOp,
 	}
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		// The config was created in the meantime.
-		return st, nil
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st, nil
+	return ops, nil
 }
 
 var indexes = []struct {
@@ -145,6 +164,7 @@ var indexes = []struct {
 	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
 	{networkInterfacesC, []string{"networkname"}, false},
 	{networkInterfacesC, []string{"machineid"}, false},
+	{blockDevicesC, []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.

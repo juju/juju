@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 const (
@@ -624,14 +624,14 @@ func deploymentNameV2(serviceName string) string {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ instance.Instance, _ *instance.HardwareCharacteristics, _ []network.Info, err error) {
+func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	err = environs.FinishMachineConfig(args.MachineConfig, env.Config())
+	err := environs.FinishMachineConfig(args.MachineConfig, env.Config())
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// Pick envtools.  Needed for the custom data (which is what we normally
@@ -642,7 +642,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	// Compose userdata.
 	userData, err := makeCustomData(args.MachineConfig)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("custom data: %v", err)
+		return nil, errors.Annotate(err, "cannot compose user data")
 	}
 
 	snapshot := env.getSnapshot()
@@ -654,7 +654,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	// We use the cloud service label as a way to group instances with
@@ -664,7 +664,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	if args.DistributionGroup != nil && snapshot.ecfg.availabilitySetsEnabled() {
 		instanceIds, err := args.DistributionGroup()
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		for _, id := range instanceIds {
 			cloudServiceName, _ = env.splitInstanceId(id)
@@ -677,17 +677,11 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	vhd := env.newOSDisk(sourceImageName)
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
-	stateServer := false
-	for _, job := range args.MachineConfig.Jobs {
-		if job == params.JobManageEnviron {
-			stateServer = true
-			break
-		}
-	}
+	stateServer := multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...)
 	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	hc := &instance.HardwareCharacteristics{
 		Mem:      &instanceType.Mem,
@@ -697,7 +691,10 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	if len(instanceType.Arches) == 1 {
 		hc.Arch = &instanceType.Arches[0]
 	}
-	return inst, hc, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: hc,
+	}, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
@@ -860,7 +857,7 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 			continue
 		}
 		// Filter the instances that have no corresponding role.
-		var roleNames set.Strings
+		roleNames := make(set.Strings)
 		for _, role := range service.Deployments[0].RoleList {
 			roleNames.Add(role.RoleName)
 		}
@@ -936,7 +933,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	}
 
 	instancesIds := make([]instanceId, len(ids))
-	var serviceNames set.Strings
+	serviceNames := make(set.Strings)
 	for i, id := range ids {
 		serviceName, roleName := env.splitInstanceId(id)
 		if serviceName == "" {
@@ -998,12 +995,18 @@ func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*azureEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the Azure provider yet.
-func (*azureEnviron) ListNetworks() ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*azureEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

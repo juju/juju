@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -193,12 +194,12 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("machine-id cannot be specified when adding machines")
 	}
 
-	jobs := []params.MachineJob{params.JobHostUnits}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	if config.Type() != provider.MAAS {
 		// In case of MAAS JobManageNetworking is not added to ensure
 		// the non-intrusive start of a networker like above for the
 		// manual provisioning.
-		jobs = append(jobs, params.JobManageNetworking)
+		jobs = append(jobs, multiwatcher.JobManageNetworking)
 	}
 
 	machineParams := params.AddMachineParams{

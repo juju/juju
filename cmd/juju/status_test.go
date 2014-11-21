@@ -13,11 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -25,7 +23,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -1770,7 +1770,7 @@ type addCharm struct {
 }
 
 func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
 	dummy, err := ctx.st.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
@@ -1779,7 +1779,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 }
 
 func (ac addCharm) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	ac.addCharmStep(c, ctx, "cs", ch.Revision())
 }
 
@@ -1847,7 +1847,7 @@ type addCharmPlaceholder struct {
 }
 
 func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
 	err := ctx.st.AddStoreCharmPlaceholder(curl)
@@ -2119,7 +2119,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []params.MachineJob{params.JobManageEnviron},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 				HasVote:        false,
 				WantsVote:      true,
 			},
@@ -2131,7 +2131,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "hello",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []params.MachineJob{params.JobHostUnits},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				HasVote:        false,
 				WantsVote:      false,
 			},
@@ -2428,6 +2428,34 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 			"  logging/0 started                       dummyenv-1.dns \n"+
 			"\n",
 	)
+}
+
+func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+	}
+
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+
+	client := fakeApiClient{}
+	var status = client.Status
+	s.PatchValue(&status, func(_ []string) (*api.Status, error) {
+		return nil, nil
+	})
+	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+		return &client, nil
+	})
+
+	code, _, stderr := runStatus(c, "--format", "tabular")
+	c.Check(code, gc.Equals, 1)
+	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
 }
 
 //

@@ -344,6 +344,38 @@ var configTests = []configTest{
 			"disable-network-management": true,
 		},
 	}, {
+		about:       "set-numa-control-policy on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": true,
+		},
+	}, {
+		about:       "set-numa-control-policy off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": false,
+		},
+	}, {
+		about:       "block-destroy-environment on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"block-destroy-environment": true,
+		},
+	}, {
+		about:       "block-destroy-environment off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"block-destroy-environment": false,
+		},
+	}, {
 		about:       "Invalid prefer-ipv6 flag",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1264,6 +1296,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
+	attrs["set-numa-control-policy"] = false
+	attrs["block-destroy-environment"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

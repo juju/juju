@@ -67,7 +67,10 @@ func isAliveWithSession(coll *mgo.Collection, id interface{}) (bool, error) {
 func isNotDead(db *mgo.Database, collName string, id interface{}) (bool, error) {
 	coll, closer := mongo.CollectionFromName(db, collName)
 	defer closer()
+	return isNotDeadWithSession(coll, id)
+}
 
+func isNotDeadWithSession(coll *mgo.Collection, id interface{}) (bool, error) {
 	n, err := coll.Find(bson.D{{"_id", id}, {"life", bson.D{{"$ne", Dead}}}}).Count()
 	return n == 1, err
 }

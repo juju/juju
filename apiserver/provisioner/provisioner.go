@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -276,7 +277,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 // MachinesWithTransientErrors returns status data for machines with provisioning
 // errors which are transient.
 func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, error) {
-	results := params.StatusResults{}
+	var results params.StatusResults
 	canAccessFunc, err := p.getAuthFunc()
 	if err != nil {
 		return results, err
@@ -295,7 +296,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			// status to Started yet.
 			continue
 		}
-		result := params.StatusResult{}
+		var result params.StatusResult
 		var st state.Status
 		st, result.Info, result.Data, err = machine.Status()
 		if err != nil {
@@ -379,7 +380,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var jobs []params.MachineJob
+	var jobs []multiwatcher.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}
@@ -456,7 +457,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 	if err != nil {
 		return nil, err
 	}
-	var instanceIdSet set.Strings
+	instanceIdSet := make(set.Strings)
 	for _, unit := range units {
 		if !unit.IsPrincipal() {
 			continue

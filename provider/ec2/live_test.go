@@ -123,7 +123,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	c.Assert(len(insts), gc.Equals, 1)
 
 	ec2inst := ec2.InstanceEC2(insts[0])
-	c.Assert(ec2inst.DNSName, gc.Equals, addresses[0].Value)
+	c.Assert(ec2inst.IPAddress, gc.Equals, addresses[0].Value)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.small")
 }
 

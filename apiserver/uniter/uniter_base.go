@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -569,10 +570,11 @@ func (u *uniterBaseAPI) WatchMeterStatus(args params.Entities) (params.NotifyWat
 	return result, nil
 }
 
-// WatchActions returns an ActionWatcher for observing incoming action calls
-// to a unit.  See also state/watcher.go Unit.WatchActions().  This method
-// is called from api/uniter/uniter.go WatchActions().
-func (u *uniterBaseAPI) WatchActions(args params.Entities) (params.StringsWatchResults, error) {
+// WatchActionNotifications returns a StringsWatcher for observing
+// incoming action calls to a unit. See also state/watcher.go
+// Unit.WatchActionNotifications(). This method is called from
+// api/uniter/uniter.go WatchActionNotifications().
+func (u *uniterBaseAPI) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
 	nothing := params.StringsWatchResults{}
 
 	result := params.StringsWatchResults{
@@ -589,7 +591,7 @@ func (u *uniterBaseAPI) WatchActions(args params.Entities) (params.StringsWatchR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			result.Results[i], err = u.watchOneUnitActions(tag)
+			result.Results[i], err = u.watchOneUnitActionNotifications(tag)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -724,6 +726,10 @@ func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResult
 		action, err := actionFn(actionTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if action.Status() != state.ActionPending {
+			results.Results[i].Error = common.ServerError(common.ErrActionNotAvailable)
 			continue
 		}
 		results.Results[i].Action.Action = &params.Action{
@@ -1234,7 +1240,7 @@ func (u *uniterBaseAPI) prepareRelationResult(rel *state.Relation, unit *state.U
 		Id:   rel.Id(),
 		Key:  rel.String(),
 		Life: params.Life(rel.Life().String()),
-		Endpoint: params.Endpoint{
+		Endpoint: multiwatcher.Endpoint{
 			ServiceName: ep.ServiceName,
 			Relation:    ep.Relation,
 		},
@@ -1304,13 +1310,13 @@ func (u *uniterBaseAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, e
 	return "", watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) watchOneUnitActions(tag names.UnitTag) (params.StringsWatchResult, error) {
+func (u *uniterBaseAPI) watchOneUnitActionNotifications(tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return nothing, err
 	}
-	watch := unit.WatchActions()
+	watch := unit.WatchActionNotifications()
 
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{

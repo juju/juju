@@ -23,7 +23,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -105,10 +105,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// machine-0 if missing.
 	jobs := agentConfig.Jobs()
 	if len(jobs) == 0 {
-		jobs = []params.MachineJob{
-			params.JobManageEnviron,
-			params.JobHostUnits,
-			params.JobManageNetworking,
+		jobs = []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
+			multiwatcher.JobManageNetworking,
 		}
 	}
 
@@ -243,6 +243,17 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		}
 	}
 
+	// If numa ctl preference is specified in the agent configuration, use that.
+	// Otherwise leave the default false value to indicate to EnsureServer
+	// that numactl should not be used.
+	var numaCtlPolicy bool
+	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
+		var err error
+		if numaCtlPolicy, err = strconv.ParseBool(numaCtlString); err != nil {
+			return mongo.EnsureServerParams{}, fmt.Errorf("invalid numactl preference: %q", numaCtlString)
+		}
+	}
+
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
@@ -256,9 +267,10 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 
-		DataDir:   agentConfig.DataDir(),
-		Namespace: agentConfig.Value(agent.Namespace),
-		OplogSize: oplogSize,
+		DataDir:              agentConfig.DataDir(),
+		Namespace:            agentConfig.Value(agent.Namespace),
+		OplogSize:            oplogSize,
+		SetNumaControlPolicy: numaCtlPolicy,
 	}
 	return params, nil
 }

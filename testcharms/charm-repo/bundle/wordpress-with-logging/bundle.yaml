@@ -1,0 +1,13 @@
+services:
+    wordpress:
+        charm: wordpress
+        num_units: 1
+    mysql:
+        charm: mysql
+        num_units: 1
+    logging:
+        charm: logging
+relations:
+    - ["wordpress:db", "mysql:server"]
+    - ["wordpress:juju-info", "logging:info"]
+    - ["mysql:juju-info", "logging:info"]

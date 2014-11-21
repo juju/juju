@@ -37,9 +37,11 @@ type NetworkInfo struct {
 // networkDoc represents a configured network that a machine can be a
 // part of.
 type networkDoc struct {
+	DocID string `bson:"_id"`
 	// Name is the network's name. It should be one of the machine's
 	// included networks.
-	Name string `bson:"_id"`
+	Name    string `bson:"name"`
+	EnvUUID string `bson:"env-uuid"`
 
 	ProviderId network.Id
 	CIDR       string
@@ -50,8 +52,10 @@ func newNetwork(st *State, doc *networkDoc) *Network {
 	return &Network{st, *doc}
 }
 
-func newNetworkDoc(args NetworkInfo) *networkDoc {
+func (st *State) newNetworkDoc(args NetworkInfo) *networkDoc {
 	return &networkDoc{
+		DocID:      st.docID(args.Name),
+		EnvUUID:    st.EnvironUUID(),
 		Name:       args.Name,
 		ProviderId: args.ProviderId,
 		CIDR:       args.CIDR,

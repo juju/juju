@@ -108,7 +108,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   before we create the scope doc, because the existence of a scope doc
 	//   is considered to be a guarantee of the existence of a settings doc.
 	settingsChanged := func() (bool, error) { return false, nil }
-	if count, err := db.C(settingsC).FindId(ruKey).Count(); err != nil {
+	if count, err := db.C(settingsC).FindId(ru.st.docID(ruKey)).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))

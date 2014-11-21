@@ -112,7 +112,9 @@ func retrieveLatestCharmInfo(deployedCharms map[string]*charm.URL, uuid string) 
 	store := charm.Store.WithJujuAttrs("environment_uuid=" + uuid)
 	revInfo, err := store.Latest(curls...)
 	if err != nil {
-		return nil, errors.LoggedErrorf(logger, "finding charm revision info: %v", err)
+		err = errors.Annotate(err, "finding charm revision info")
+		logger.Infof(err.Error())
+		return nil, err
 	}
 	var latestCurls []*charm.URL
 	for i, info := range revInfo {

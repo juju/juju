@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -25,6 +26,7 @@ type metricsManagerSuite struct {
 
 	metricsmanager *metricsmanager.MetricsManagerAPI
 	authorizer     apiservertesting.FakeAuthorizer
+	unit           *state.Unit
 }
 
 var _ = gc.Suite(&metricsManagerSuite{})
@@ -38,6 +40,9 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.metricsmanager = manager
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 }
 
 func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C) {
@@ -69,11 +74,11 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C)
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
-	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
-	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
+	metric := state.Metric{"pings", "5", newTime, []byte{}}
+	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &oldTime, Metrics: []state.Metric{metric}})
+	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &newTime, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
 		{s.State.EnvironTag().String()},
 	}}
@@ -114,10 +119,10 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	var sender metricsender.MockSender
 	metricsmanager.PatchSender(&sender)
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
-	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	metric := state.Metric{"pings", "5", now, []byte{}}
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
+	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
 		{s.State.EnvironTag().String()},
 	}}

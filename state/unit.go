@@ -351,7 +351,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}
 	ops := []txn.Op{{
 		C:      statusesC,
-		Id:     sdocId,
+		Id:     u.st.docID(sdocId),
 		Assert: bson.D{{"status", StatusPending}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
@@ -828,12 +828,7 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
 // An error will be returned if the unit is dead, or the charm URL not known.
-func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
-	defer func() {
-		if err == nil {
-			u.doc.CharmURL = curl
-		}
-	}()
+func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
@@ -844,28 +839,35 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	charms := db.C(charmsC)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
-			return nil, err
-		} else if !notDead {
-			return nil, fmt.Errorf("unit %q is dead", u)
+		if attempt > 0 {
+			// NOTE: We're explicitly allowing SetCharmURL to succeed
+			// when the unit is Dying, because service/charm upgrades
+			// should still be allowed to apply to dying units, so
+			// that bugs in departed/broken hooks can be addressed at
+			// runtime.
+			if notDead, err := isNotDeadWithSession(units, u.doc.DocID); err != nil {
+				return nil, errors.Trace(err)
+			} else if !notDead {
+				return nil, ErrDead
+			}
 		}
 		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
 		if count, err := units.Find(sel).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count == 1 {
 			// Already set
 			return nil, jujutxn.ErrNoOperations
 		}
 		if count, err := charms.FindId(u.st.docID(curl.String())).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count < 1 {
-			return nil, fmt.Errorf("unknown charm url %q", curl)
+			return nil, errors.Errorf("unknown charm url %q", curl)
 		}
 
 		// Add a reference to the service settings for the new charm.
 		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 
 		// Set the new charm URL.
@@ -882,13 +884,17 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			// Drop the reference to the old charm.
 			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			ops = append(ops, decOps...)
 		}
 		return ops, nil
 	}
-	return u.st.run(buildTxn)
+	err := u.st.run(buildTxn)
+	if err == nil {
+		u.doc.CharmURL = curl
+	}
+	return err
 }
 
 // AgentPresence returns whether the respective remote agent is alive.
@@ -1538,49 +1544,35 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	doc, err := newActionDoc(u.st, u, name, payload)
-	if err != nil {
-		return nil, fmt.Errorf("cannot add action; %v", err)
-	}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-	}, {
-		C:      actionsC,
-		Id:     doc.DocId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
-			return nil, err
-		} else if !notDead {
-			return nil, fmt.Errorf("unit %q is dead", u)
-		}
-		return ops, nil
-	}
-	if err = u.st.run(buildTxn); err == nil {
-		return newAction(u.st, doc), nil
-	}
-	return nil, err
+	return u.st.addAction(u, name, payload)
 }
 
 // CancelAction removes a pending Action from the queue for this
 // ActionReceiver and marks it as cancelled.
-func (u *Unit) CancelAction(action *Action) (*ActionResult, error) {
+func (u *Unit) CancelAction(action *Action) (*Action, error) {
 	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
-// Actions returns a list of actions for this unit
+// WatchActionNotifications starts and returns a StringsWatcher that
+// notifies when actions with Id prefixes matching this Unit are added
+func (u *Unit) WatchActionNotifications() StringsWatcher {
+	return u.st.watchEnqueuedActionsFilteredBy(u)
+}
+
+// Actions returns a list of actions pending or completed for this unit.
 func (u *Unit) Actions() ([]*Action, error) {
 	return u.st.matchingActions(u)
 }
 
-// ActionResults returns a list of action results for this unit
-func (u *Unit) ActionResults() ([]*ActionResult, error) {
-	return u.st.matchingActionResults(u)
+// CompletedActions returns a list of actions that have finished for
+// this unit.
+func (u *Unit) CompletedActions() ([]*Action, error) {
+	return u.st.matchingActionsCompleted(u)
+}
+
+// PendingActions returns a list of actions pending for this unit.
+func (u *Unit) PendingActions() ([]*Action, error) {
+	return u.st.matchingActionsPending(u)
 }
 
 // Resolve marks the unit as having had any previous state transition
@@ -1652,18 +1644,6 @@ func (u *Unit) ClearResolved() error {
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
-}
-
-// WatchActions starts and returns a StringsWatcher that notifies when
-// actions with Id prefixes matching this Unit are added
-func (u *Unit) WatchActions() StringsWatcher {
-	return u.st.WatchActionsFilteredBy(u)
-}
-
-// WatchActionResults starts and returns a StringsWatcher that notifies
-// when actionresults with Id prefixes matching this Unit are added
-func (u *Unit) WatchActionResults() StringsWatcher {
-	return u.st.WatchActionResultsFilteredBy(u)
 }
 
 // AddMetric adds a new batch of metrics to the database.

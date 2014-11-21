@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -191,10 +192,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
-	allJobs := []params.MachineJob{
-		params.JobManageEnviron,
-		params.JobHostUnits,
-		params.JobManageNetworking,
+	allJobs := []multiwatcher.MachineJob{
+		multiwatcher.JobManageEnviron,
+		multiwatcher.JobHostUnits,
+		multiwatcher.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",

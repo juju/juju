@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -75,7 +76,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	mcfg := agent.BootstrapMachineConfig{
 		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobManageEnviron},
+		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
@@ -212,7 +213,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobManageEnviron},
+		Jobs:            []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -237,20 +238,20 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name params.MachineJob
+		name multiwatcher.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: params.JobHostUnits,
+		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: params.JobManageEnviron,
+		name: multiwatcher.JobManageEnviron,
 		want: state.JobManageEnviron,
 	}, {
-		name: params.JobManageNetworking,
+		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
 	}, {
-		name: params.JobManageStateDeprecated,
+		name: multiwatcher.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",

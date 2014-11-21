@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -207,7 +208,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 
-				var jobs []params.MachineJob
+				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
 					jobs = append(jobs, job.ToParams())
 				}
@@ -258,7 +259,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
-		c.Fatalf("unexpected operation %#v", o)
+		c.Fatalf("unexpected operation %+v", o)
 	case <-time.After(coretesting.ShortWait):
 		return
 	}
@@ -556,6 +557,125 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 2)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
+	// send the error message TWICE, because the provisioner will retry only ONCE
+	errorInjectionChannel <- retryableError
+	errorInjectionChannel <- destroyError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkNoOperations(c)
+
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, gc.IsNil)
+		if status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, state.StatusError)
+		// check that the status matches the error message
+		c.Assert(info, gc.Equals, destroyError.Error())
+		break
+	}
+
+}
+
+func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetryableCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message once
+	// - instance creation should succeed
+	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	errorInjectionChannel <- retryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message once
+	// - instance creation should succeed
+	retryableError := errors.Wrap(errors.New(""), instance.NewRetryableCreationError("container failed to start and was destroyed"))
+	errorInjectionChannel <- retryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message once
+	// - instance creation should succeed
+	nonRetryableError := errors.New("some nonretryable error")
+	errorInjectionChannel <- nonRetryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkNoOperations(c)
+
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, gc.IsNil)
+		if status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, state.StatusError)
+		// check that the status matches the error message
+		c.Assert(info, gc.Equals, nonRetryableError.Error())
+		break
+	}
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
@@ -1109,7 +1229,7 @@ type mockBroker struct {
 	ids        []string
 }
 
-func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// All machines except machines 3, 4 are provisioned successfully the first time.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
@@ -1122,7 +1242,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 	} else {
 		b.retryCount[id] = retries + 1
 	}
-	return nil, nil, nil, fmt.Errorf("error: some error")
+	return nil, fmt.Errorf("error: some error")
 }
 
 type mockToolsFinder struct {

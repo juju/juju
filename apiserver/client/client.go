@@ -22,9 +22,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -301,8 +302,8 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 
-	_, err = juju.DeployService(c.api.state,
-		juju.DeployServiceParams{
+	_, err = jjj.DeployService(c.api.state,
+		jjj.DeployServiceParams{
 			ServiceName: args.ServiceName,
 			// TODO(dfc) ServiceOwner should be a tag
 			ServiceOwner:   c.api.auth.GetAuthTag().String(),
@@ -477,7 +478,7 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
-	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
+	return jjj.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -689,7 +690,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+func stateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
 		newJob, err := machineJobFromParams(job)
@@ -701,18 +702,18 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	return newJobs, nil
 }
 
-// machineJobFromParams returns the job corresponding to params.MachineJob.
+// machineJobFromParams returns the job corresponding to multiwatcher.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case params.JobHostUnits:
+	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case params.JobManageEnviron:
+	case multiwatcher.JobManageEnviron:
 		return state.JobManageEnviron, nil
-	case params.JobManageNetworking:
+	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case params.JobManageStateDeprecated:
+	case multiwatcher.JobManageStateDeprecated:
 		// Deprecated in 1.18.
 		return state.JobManageStateDeprecated, nil
 	default:
@@ -1037,8 +1038,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	store := config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := store.Get(charmURL)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
+	downloadedCharm, err := CharmStore.Get(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}
@@ -1112,11 +1113,11 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	repo := config.SpecializeCharmRepo(CharmStore, envConfig)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, repo)
+		curl, err := c.resolveCharm(&ref, CharmStore)
 		if err != nil {
 			result.Error = err.Error()
 		} else {

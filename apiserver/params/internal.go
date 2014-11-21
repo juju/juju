@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -259,7 +261,7 @@ type RelationResult struct {
 	Life     Life
 	Id       int
 	Key      string
-	Endpoint Endpoint
+	Endpoint multiwatcher.Endpoint
 }
 
 // RelationResults holds the result of an API call that returns
@@ -486,7 +488,7 @@ type AgentGetEntitiesResults struct {
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
 	Life          Life
-	Jobs          []MachineJob
+	Jobs          []multiwatcher.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error
 }
@@ -561,32 +563,11 @@ type StringsWatchResults struct {
 	Results []StringsWatchResult
 }
 
-// UnitSettings holds information about a service unit's settings
-// within a relation.
-type UnitSettings struct {
-	Version int64
-}
-
-// RelationUnitsChange holds notifications of units entering and leaving the
-// scope of a RelationUnit, and changes to the settings of those units known
-// to have entered.
-//
-// When remote units first enter scope and then when their settings
-// change, the changes will be noted in the Changed field, which holds
-// the unit settings for every such unit, indexed by the unit id.
-//
-// When remote units leave scope, their ids will be noted in the
-// Departed field, and no further events will be sent for those units.
-type RelationUnitsChange struct {
-	Changed  map[string]UnitSettings
-	Departed []string
-}
-
 // RelationUnitsWatchResult holds a RelationUnitsWatcher id, changes
 // and an error (if any).
 type RelationUnitsWatchResult struct {
 	RelationUnitsWatcherId string
-	Changes                RelationUnitsChange
+	Changes                multiwatcher.RelationUnitsChange
 	Error                  *Error
 }
 
@@ -641,7 +622,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
-	Jobs        []MachineJob
+	Jobs        []multiwatcher.MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -683,4 +664,37 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
+}
+
+// MachineBlockDevices holds a machine tag and the block devices present
+// on that machine.
+type MachineBlockDevices struct {
+	Machine      string
+	BlockDevices []storage.BlockDevice
+}
+
+// SetMachineBlockDevices holds the arguments for recording the block
+// devices present on a set of machines.
+type SetMachineBlockDevices struct {
+	MachineBlockDevices []MachineBlockDevices
+}
+
+// BlockDeviceResult holds the result of an API call to retrieve details
+// of a block device.
+type BlockDeviceResult struct {
+	Result storage.BlockDevice `json:"result"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// BlockDeviceResults holds the result of an API call to retrieve details
+// of multiple block devices.
+type BlockDeviceResults struct {
+	Results []BlockDeviceResult `json:"results,omitempty"`
+}
+
+// DatastoreFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified datastore.
+type DatastoreFilesystem struct {
+	DatastoreId storage.DatastoreId `json:"datastoreid"`
+	Filesystem  storage.Filesystem  `json:"filesystem"`
 }

@@ -11,9 +11,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
-)
 
-const archivePrefix = "juju-backup-"
+	"github.com/juju/juju/state/backups"
+)
 
 const downloadDoc = `
 "download" retrieves a backup archive file.
@@ -97,7 +97,7 @@ func (c *DownloadCommand) Run(ctx *cmd.Context) error {
 func (c *DownloadCommand) ResolveFilename() string {
 	filename := c.Filename
 	if filename == "" {
-		filename = archivePrefix + c.ID + ".tar.gz"
+		filename = backups.FilenamePrefix + c.ID + ".tar.gz"
 	}
 	return filename
 }

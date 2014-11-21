@@ -470,12 +470,14 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit:    unit,
 		Time:    &now,
 		Sent:    true,
-		Metrics: []state.Metric{state.Metric{"itemA", "foo", now, []byte("somecreds")}},
+		Metrics: []state.Metric{state.Metric{"pings", "1", now, []byte("somecreds")}},
 	})
 	c.Assert(metric, gc.NotNil)
 
@@ -488,8 +490,38 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(metric.Sent(), jc.IsTrue)
 	c.Assert(saved.Sent(), jc.IsTrue)
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
-	c.Assert(saved.Metrics()[0].Key, gc.Equals, "itemA")
-	c.Assert(saved.Metrics()[0].Value, gc.Equals, "foo")
+	c.Assert(saved.Metrics()[0].Key, gc.Equals, "pings")
+	c.Assert(saved.Metrics()[0].Value, gc.Equals, "1")
 	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
 	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("somecreds"))
+}
+
+func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Name(), gc.Equals, "testenv-1")
+	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	origEnv, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
+}
+
+func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
+	owner := names.NewUserTag("owner@local")
+	params := &factory.EnvParams{
+		Name:  "foo",
+		Owner: owner,
+	}
+
+	st := s.Factory.MakeEnvironment(c, params)
+	defer st.Close()
+
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Name(), gc.Equals, "foo")
+	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	c.Assert(env.Owner(), gc.Equals, owner)
 }

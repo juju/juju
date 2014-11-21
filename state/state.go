@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -54,19 +53,29 @@ const (
 	settingsrefsC      = "settingsrefs"
 	constraintsC       = "constraints"
 	unitsC             = "units"
-	actionsC           = "actions"
-	actionresultsC     = "actionresults"
-	usersC             = "users"
-	envUsersC          = "envusers"
-	presenceC          = "presence"
-	cleanupsC          = "cleanups"
-	annotationsC       = "annotations"
-	statusesC          = "statuses"
-	stateServersC      = "stateServers"
-	openedPortsC       = "openedPorts"
-	metricsC           = "metrics"
-	upgradeInfoC       = "upgradeInfo"
-	rebootC            = "reboot"
+
+	// actionsC and related collections store state of Actions that
+	// have been enqueued.
+	actionsC = "actions"
+	// actionNotificationsC are only used for notification of newly
+	// enqueued Actions.
+	actionNotificationsC = "actionnotifications"
+	// actionResultsC is deprecated and will soon be folded into
+	// actionsC.
+	actionresultsC = "actionresults"
+
+	usersC        = "users"
+	envUsersC     = "envusers"
+	presenceC     = "presence"
+	cleanupsC     = "cleanups"
+	annotationsC  = "annotations"
+	statusesC     = "statuses"
+	stateServersC = "stateServers"
+	openedPortsC  = "openedPorts"
+	metricsC      = "metrics"
+	upgradeInfoC  = "upgradeInfo"
+	rebootC       = "reboot"
+	blockDevicesC = "blockdevices"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
@@ -79,9 +88,6 @@ const (
 
 	// toolsmetadataC is the collection used to store tools metadata.
 	toolsmetadataC = "toolsmetadata"
-
-	// This collection is used just for storing metadata.
-	backupsMetaC = "backupsmetadata"
 
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"
@@ -110,7 +116,7 @@ type State struct {
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
-	allManager *multiwatcher.StoreManager
+	allManager *storeManager
 	environTag names.EnvironTag
 }
 
@@ -226,13 +232,13 @@ func (st *State) ResumeTransactions() error {
 	return st.txnRunner(session).ResumeTransactions()
 }
 
-func (st *State) Watch() *multiwatcher.Watcher {
+func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {
-		st.allManager = multiwatcher.NewStoreManager(newAllWatcherStateBacking(st))
+		st.allManager = newStoreManager(newAllWatcherStateBacking(st))
 	}
 	st.mu.Unlock()
-	return multiwatcher.NewWatcher(st.allManager)
+	return NewMultiwatcher(st.allManager)
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
@@ -372,7 +378,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     environGlobalKey,
+				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
 				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 			},
@@ -572,7 +578,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		// This is required to allow loading of machines before the
 		// environment UUID migration has been applied to the machines
 		// collection. Without this, a machine agent can't come up to
-		// run the database migration..
+		// run the database migration.
 		if mdoc.Id == "" {
 			mdoc.Id = mdoc.DocID
 		}
@@ -635,9 +641,9 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	}
 }
 
-// parseTag, given an entity tag, returns the collection name and id
+// tagToCollectionAndId, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
+func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error) {
 	if tag == nil {
 		return "", nil, errors.Errorf("tag is nil")
 	}
@@ -666,9 +672,10 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 		coll = environmentsC
 	case names.NetworkTag:
 		coll = networksC
+		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
-		id = actionIdFromTag(tag)
+		id = tag.Suffix()
 	default:
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -1184,9 +1191,11 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      settingsrefsC,
-			Id:     svc.settingsKey(),
+			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		},
 		{
 			C:      servicesC,
@@ -1242,10 +1251,10 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.VLANTag < 0 || args.VLANTag > 4094 {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
-	doc := newNetworkDoc(args)
+	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{{
 		C:      networksC,
-		Id:     args.Name,
+		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
@@ -1278,7 +1287,7 @@ func (st *State) Network(name string) (*Network, error) {
 	defer closer()
 
 	doc := &networkDoc{}
-	err := networks.FindId(name).One(doc)
+	err := networks.FindId(st.docID(name)).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("network %q", name)
 	}
@@ -1294,6 +1303,7 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 	defer closer()
 
 	docs := []networkDoc{}
+	// TODO(waigani) - ENVUUID - query needs to filter by env: bson.D{{"env-uuid", st.EnvironUUID()}}
 	err = networksCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all networks")
@@ -1397,7 +1407,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		}
 		for _, ep1 := range eps1 {
 			for _, ep2 := range eps2 {
-				if ep1.CanRelateTo(ep2) {
+				if ep1.CanRelateTo(ep2) && containerScopeOk(st, ep1, ep2) {
 					candidates = append(candidates, []Endpoint{ep1, ep2})
 				}
 			}
@@ -1440,6 +1450,23 @@ func isPeer(ep Endpoint) bool {
 
 func notPeer(ep Endpoint) bool {
 	return ep.Role != charm.RolePeer
+}
+
+func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
+	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
+		return true
+	}
+	var subordinateCount int
+	for _, ep := range []Endpoint{ep1, ep2} {
+		svc, err := st.Service(ep.ServiceName)
+		if err != nil {
+			return false
+		}
+		if svc.doc.Subordinate {
+			subordinateCount++
+		}
+	}
+	return subordinateCount == 1
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1521,6 +1548,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
@@ -1530,6 +1558,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			} else if svc.doc.Life != Alive {
 				return nil, errors.Errorf("service %q is not alive", ep.ServiceName)
+			}
+			if svc.doc.Subordinate {
+				subordinateCount++
 			}
 			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
@@ -1549,6 +1580,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
+			return nil, errors.Errorf("container scoped relation requires one subordinate service")
+		}
+
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
@@ -1642,92 +1677,6 @@ func (rdc relationDocSlice) Len() int      { return len(rdc) }
 func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
 func (rdc relationDocSlice) Less(i, j int) bool {
 	return rdc[i].Id < rdc[j].Id
-}
-
-// Action returns an Action by Id.
-func (st *State) Action(id string) (*Action, error) {
-	actions, closer := st.getCollection(actionsC)
-	defer closer()
-
-	doc := actionDoc{}
-	err := actions.FindId(st.docID(id)).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("action %q", id)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get action %q", id)
-	}
-	return newAction(st, doc), nil
-}
-
-// matchingActions finds actions that match ActionReceiver
-func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
-	return st.matchingActionsByReceiverName(ar.Name())
-}
-
-// matchingActionsByReceiverName returns all Actions associated with the
-// ActionReceiver with the given name.
-func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, error) {
-	var doc actionDoc
-	var actions []*Action
-
-	actionsCollection, closer := st.getCollection(actionsC)
-	defer closer()
-
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", receiver}}
-	iter := actionsCollection.Find(sel).Iter()
-
-	for iter.Next(&doc) {
-		actions = append(actions, newAction(st, doc))
-	}
-	return actions, errors.Trace(iter.Close())
-
-}
-
-// ActionByTag returns an Action given an ActionTag.
-func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
-	return st.Action(actionIdFromTag(tag))
-}
-
-// ActionResult returns an ActionResult by Id.
-func (st *State) ActionResult(id string) (*ActionResult, error) {
-	actionresults, closer := st.getCollection(actionresultsC)
-	defer closer()
-
-	doc := actionResultDoc{}
-	err := actionresults.FindId(st.docID(id)).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("action result %q", id)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get actionresult %q", id)
-	}
-	return newActionResult(st, doc), nil
-}
-
-// ActionResultByTag returns an ActionResult given an ActionTag. We
-// intentionally use the ActionTag rather than an ActionResultTag
-// because conceptually they're the same Action.
-func (st *State) ActionResultByTag(tag names.ActionTag) (*ActionResult, error) {
-	return st.ActionResult(actionResultIdFromTag(tag))
-}
-
-// matchingActionResults finds action results from a given ActionReceiver.
-func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, error) {
-	var doc actionResultDoc
-	var results []*ActionResult
-
-	actionresults, closer := st.getCollection(actionresultsC)
-	defer closer()
-
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
-	iter := actionresults.Find(sel).Iter()
-	for iter.Next(&doc) {
-		results = append(results, newActionResult(st, doc))
-	}
-	return results, errors.Trace(iter.Close())
 }
 
 // Unit returns a unit by name.
@@ -1898,6 +1847,22 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	}}
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set state serving info")
+	}
+	return nil
+}
+
+// SetSystemIdentity sets the system identity value in the database
+// if and only iff it is empty.
+func SetSystemIdentity(st *State, identity string) error {
+	ops := []txn.Op{{
+		C:      stateServersC,
+		Id:     stateServingInfoKey,
+		Assert: bson.D{{"systemidentity", ""}},
+		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
+	}}
+
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

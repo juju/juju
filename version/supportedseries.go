@@ -21,6 +21,18 @@ const (
 	OSX
 )
 
+func (t OSType) String() string {
+	switch t {
+	case Ubuntu:
+		return "Ubuntu"
+	case Windows:
+		return "Windows"
+	case OSX:
+		return "OSX"
+	}
+	return "Unknown"
+}
+
 // seriesVersions provides a mapping between Ubuntu series names and version numbers.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.

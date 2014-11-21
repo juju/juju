@@ -15,7 +15,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -82,10 +82,10 @@ func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) 
 	return validator, nil
 }
 
-func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, errors.New("starting instances with networks is not supported yet")
+		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
 	series := args.Tools.OneSeries()
@@ -97,27 +97,27 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "cannot make user data")
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 
 	// Unzipping as Joyent API expects it as string
 	userData, err = utils.Gunzip(userData)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "cannot make user data")
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("joyent user data: %d bytes", len(userData))
 
@@ -130,7 +130,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Config().Name()},
 	})
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "cannot create instances")
+		return nil, errors.Annotate(err, "cannot create instances")
 	}
 	machineId := machine.Id
 
@@ -138,7 +138,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 
 	machine, err = env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
-		return nil, nil, nil, errors.Annotate(err, "cannot start instances")
+		return nil, errors.Annotate(err, "cannot start instances")
 	}
 
 	// wait for machine to start
@@ -147,7 +147,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 
 		machine, err = env.compute.cloudapi.GetMachine(machineId)
 		if err != nil {
-			return nil, nil, nil, errors.Annotate(err, "cannot start instances")
+			return nil, errors.Annotate(err, "cannot start instances")
 		}
 	}
 
@@ -158,7 +158,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		env:     env,
 	}
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -173,7 +173,10 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		RootDisk: &disk64,
 	}
 
-	return inst, &hc, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: &hc,
+	}, nil
 }
 
 func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
@@ -240,12 +243,18 @@ func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known by
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*joyentEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known by
 // the provider for the environment. They may be unknown to juju yet
 // (i.e. when called initially or when a new network was created).
 // This is not implemented on the Joyent provider yet.
-func (*joyentEnviron) ListNetworks() ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*joyentEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {

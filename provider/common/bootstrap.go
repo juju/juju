@@ -12,11 +12,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs"
@@ -60,28 +62,42 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	}
 	machineConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	machineConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+	maybeSetBridge := func(mcfg *cloudinit.MachineConfig) {
+		// If we need to override the default bridge name, do it now. When
+		// args.ContainerBridgeName is empty, the default names for LXC
+		// (lxcbr0) and KVM (virbr0) will be used.
+		if args.ContainerBridgeName != "" {
+			logger.Debugf("using %q as network bridge for all container types", args.ContainerBridgeName)
+			if mcfg.AgentEnvironment == nil {
+				mcfg.AgentEnvironment = make(map[string]string)
+			}
+			mcfg.AgentEnvironment[agent.LxcBridge] = args.ContainerBridgeName
+		}
+	}
+	maybeSetBridge(machineConfig)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
-	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
+	result, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   args.Constraints,
 		Tools:         availableTools,
 		MachineConfig: machineConfig,
 		Placement:     args.Placement,
 	})
 	if err != nil {
-		return "", "", nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return "", "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
-	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
+	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
 	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
-		mcfg.InstanceId = inst.Id()
-		mcfg.HardwareCharacteristics = hw
+		mcfg.InstanceId = result.Instance.Id()
+		mcfg.HardwareCharacteristics = result.Hardware
 		if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
 			return err
 		}
-		return FinishBootstrap(ctx, client, inst, mcfg)
+		maybeSetBridge(mcfg)
+		return FinishBootstrap(ctx, client, result.Instance, mcfg)
 	}
-	return *hw.Arch, series, finalize, nil
+	return *result.Hardware.Arch, series, finalize, nil
 }
 
 // FinishBootstrap completes the bootstrap process by connecting

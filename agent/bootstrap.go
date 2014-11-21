@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -34,7 +35,7 @@ type BootstrapMachineConfig struct {
 	Constraints constraints.Value
 
 	// Jobs holds the jobs that the machine agent will run.
-	Jobs []params.MachineJob
+	Jobs []multiwatcher.MachineJob
 
 	// InstanceId holds the instance id of the bootstrap machine.
 	InstanceId instance.Id
@@ -198,15 +199,15 @@ func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, 
 // machineJobFromParams returns the job corresponding to params.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case params.JobHostUnits:
+	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case params.JobManageEnviron:
+	case multiwatcher.JobManageEnviron:
 		return state.JobManageEnviron, nil
-	case params.JobManageNetworking:
+	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case params.JobManageStateDeprecated:
+	case multiwatcher.JobManageStateDeprecated:
 		// Deprecated in 1.18.
 		return state.JobManageStateDeprecated, nil
 	default:

@@ -15,8 +15,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -73,7 +73,7 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 	config, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
-	c.Assert(config.Jobs(), jc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
+	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
 	c.Assert(config.PreferIPv6(), jc.IsTrue)
 }
 

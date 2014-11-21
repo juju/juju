@@ -12,11 +12,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/state/backups"
 )
 
 const (
-	notset           = "juju-backup-<date>-<time>.tar.gz"
-	filenameTemplate = "juju-backup-%04d%02d%02d-%02d%02d%02d.tar.gz"
+	notset          = backups.FilenamePrefix + "<date>-<time>.tar.gz"
+	downloadWarning = "WARNING: downloading backup archives is recommended; " +
+		"backups stored remotely are not guaranteed to be available"
 )
 
 const createDoc = `
@@ -44,8 +47,8 @@ type CreateCommand struct {
 	CommandBase
 	// Quiet indicates that the full metadata should not be dumped.
 	Quiet bool
-	// Download indicates that the backups archive should be downloaded.
-	Download bool
+	// NoDownload means the backups archive should not be downloaded.
+	NoDownload bool
 	// Filename is where the backup should be downloaded.
 	Filename string
 	// Notes is the custom message to associated with the new backup.
@@ -65,7 +68,7 @@ func (c *CreateCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
-	f.BoolVar(&c.Download, "download", false, "download the archive")
+	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
 	f.StringVar(&c.Filename, "filename", notset, "download to this file")
 }
 
@@ -76,6 +79,14 @@ func (c *CreateCommand) Init(args []string) error {
 		return err
 	}
 	c.Notes = notes
+
+	if c.Filename != notset && c.NoDownload {
+		return errors.Errorf("cannot mix --no-download and --filename")
+	}
+	if c.Filename == "" {
+		return errors.Errorf("missing filename")
+	}
+
 	return nil
 }
 
@@ -93,6 +104,9 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.Quiet {
+		if c.NoDownload {
+			fmt.Fprintln(ctx.Stderr, downloadWarning)
+		}
 		c.dumpMetadata(ctx, result)
 	}
 
@@ -110,18 +124,15 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
-	if filename == "" {
-		fmt.Fprintln(ctx.Stderr, "missing filename")
-	} else if c.Filename == notset {
-		if c.Download {
-			y, m, d := timestamp.Date()
-			H, M, S := timestamp.Clock()
-			filename = fmt.Sprintf(filenameTemplate, y, m, d, H, M, S)
-		} else {
-			filename = ""
-		}
+	if filename != notset {
+		return filename
 	}
-	return filename
+	if c.NoDownload {
+		return ""
+	}
+
+	// Downloading but no filename given, so generate one.
+	return timestamp.Format(backups.FilenameTemplate)
 }
 
 func (c *CreateCommand) download(ctx *cmd.Context, client APIClient, id string, filename string) error {

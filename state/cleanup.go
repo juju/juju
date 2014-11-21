@@ -112,7 +112,7 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 	// delete directly.
 	settings, closer := st.getCollection(settingsC)
 	defer closer()
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}
 	if count, err := settings.Find(sel).Count(); err != nil {
 		return fmt.Errorf("cannot detect cleanup targets: %v", err)
 	} else if count != 0 {
@@ -213,7 +213,7 @@ func (st *State) cleanupDyingUnit(name string) error {
 // cleanupRemovedUnit takes care of all the final cleanup required when
 // a unit is removed.
 func (st *State) cleanupRemovedUnit(unitId string) error {
-	actions, err := st.matchingActionsByReceiverName(unitId)
+	actions, err := st.matchingActionsByReceiverId(unitId)
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -215,7 +215,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 }
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, storagePath, bundleSHA256 string) {
-	ch = charmtesting.Charms.CharmDir("dummy")
+	ch = testcharms.Repo.CharmDir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
 	} else {
@@ -245,7 +245,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
@@ -434,7 +434,7 @@ options:
   ...: {description: oh boy, type: int}
   just$: {description: no no, type: float}
 `[1:])
-	chDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	chDir := testcharms.Repo.ClonedDirPath(c.MkDir(), "dummy")
 	err := utils.AtomicWriteFile(
 		filepath.Join(chDir, "config.yaml"),
 		configWithProblematicKeys,
@@ -508,7 +508,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -1396,6 +1396,12 @@ var inferEndpointsTests = []struct {
 		},
 		err: `no relations found`,
 	}, {
+		summary: "container scoped relations only considered when there's exactly one subordinate service",
+		inputs: [][]string{
+			{"lg-p", "wp"},
+		},
+		err: `no relations found`,
+	}, {
 		summary: "valid peer relation",
 		inputs: [][]string{
 			{"rk1"},
@@ -1520,6 +1526,7 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 	riak := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "rk1", riak)
 	s.AddTestingService(c, "rk2", riak)
+	s.AddTestingService(c, "lg-p", s.AddTestingCharm(c, "logging-principal"))
 
 	for i, t := range inferEndpointsTests {
 		c.Logf("test %d", i)
@@ -2115,7 +2122,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
-	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
+	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"name", 1}}}})
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
@@ -2147,7 +2154,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = settings.UpdateId("e", bson.D{{"$set", bson.D{{"name", "foo"}}}})
+	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$set", bson.D{{"name", "foo"}}}})
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
 	err = s.State.UpdateEnvironConfig(fixed, nil, nil)
@@ -2368,7 +2375,7 @@ var findEntityTests = []findEntityTest{{
 	tag: names.NewNetworkTag("net1"),
 }, {
 	tag: names.NewActionTag("ser-vice2_a_0"),
-	err: `action "ser-vice2_a_0" not found`,
+	err: `action "0" not found`,
 }, {
 	tag: names.NewUserTag("eric"),
 }, {
@@ -2450,7 +2457,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
-	coll, id, err := state.ParseTag(s.State, nil)
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, nil)
 	c.Assert(err, gc.ErrorMatches, "tag is nil")
 	c.Assert(coll, gc.Equals, "")
 	c.Assert(id, gc.IsNil)
@@ -2459,7 +2466,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, m.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, m.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, state.DocID(s.State, m.Id()))
@@ -2467,7 +2474,7 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 
 func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
-	coll, id, err := state.ParseTag(s.State, svc.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, svc.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, state.DocID(s.State, svc.Name()))
@@ -2477,7 +2484,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, u.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, u.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, state.DocID(s.State, u.Name()))
@@ -2490,8 +2497,8 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	f, err := u.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	action, err := s.State.Action(f.Id())
-	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), 0))
-	coll, id, err := state.ParseTag(s.State, action.Tag())
+	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), action.Id()))
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, action.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
@@ -2499,7 +2506,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	user := s.factory.MakeUser(c, nil)
-	coll, id, err := state.ParseTag(s.State, user.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, user.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
@@ -2508,7 +2515,7 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, env.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, env.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
@@ -2522,10 +2529,10 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 		VLANTag:    0,
 	})
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, net1.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, net1.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "networks")
-	c.Assert(id, gc.Equals, net1.Name())
+	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {

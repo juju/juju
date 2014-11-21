@@ -18,12 +18,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -50,13 +51,13 @@ const (
 	JobManageStateDeprecated
 )
 
-var jobNames = map[MachineJob]params.MachineJob{
-	JobHostUnits:        params.JobHostUnits,
-	JobManageEnviron:    params.JobManageEnviron,
-	JobManageNetworking: params.JobManageNetworking,
+var jobNames = map[MachineJob]multiwatcher.MachineJob{
+	JobHostUnits:        multiwatcher.JobHostUnits,
+	JobManageEnviron:    multiwatcher.JobManageEnviron,
+	JobManageNetworking: multiwatcher.JobManageNetworking,
 
 	// Deprecated in 1.18.
-	JobManageStateDeprecated: params.JobManageStateDeprecated,
+	JobManageStateDeprecated: multiwatcher.JobManageStateDeprecated,
 }
 
 // AllJobs returns all supported machine jobs.
@@ -68,21 +69,21 @@ func AllJobs() []MachineJob {
 	}
 }
 
-// ToParams returns the job as params.MachineJob.
-func (job MachineJob) ToParams() params.MachineJob {
-	if paramsJob, ok := jobNames[job]; ok {
-		return paramsJob
+// ToParams returns the job as multiwatcher.MachineJob.
+func (job MachineJob) ToParams() multiwatcher.MachineJob {
+	if jujuJob, ok := jobNames[job]; ok {
+		return jujuJob
 	}
-	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+	return multiwatcher.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
-// paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
-	paramsJobs := make([]params.MachineJob, len(jobs))
+// params.JobsFromJobs converts state jobs to juju jobs.
+func paramsJobsFromJobs(jobs []MachineJob) []multiwatcher.MachineJob {
+	jujuJobs := make([]multiwatcher.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
-		paramsJobs[i] = machineJob.ToParams()
+		jujuJobs[i] = machineJob.ToParams()
 	}
-	return paramsJobs
+	return jujuJobs
 }
 
 func (job MachineJob) String() string {
@@ -94,7 +95,7 @@ func (job MachineJob) String() string {
 const manualMachinePrefix = "manual:"
 
 // machineDoc represents the internal state of a machine in MongoDB.
-// Note the correspondence with MachineInfo in apiserver/params.
+// Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
 	DocID         string `bson:"_id"`
 	Id            string `bson:"machineid"`
@@ -643,6 +644,7 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
+		removeBlockDevicesOp(m.st, m.Id()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
@@ -917,7 +919,7 @@ func IsNotProvisionedError(err error) bool {
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
 	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	var providerValues set.Strings
+	providerValues := make(set.Strings)
 	for _, address := range providerAddresses {
 		// Older versions of Juju may have stored an empty address so ignore it here.
 		if address.Value == "" {
@@ -1035,7 +1037,8 @@ func (m *Machine) Networks() ([]*Network, error) {
 	networksCollection, closer := m.st.getCollection(networksC)
 	defer closer()
 
-	sel := bson.D{{"_id", bson.D{{"$in", requestedNetworks}}}}
+	// TODO(waigani) - ENVUUID - query needs to filter by env: {"env-uuid", m.st.EnvironUUID()}
+	sel := bson.D{{"name", bson.D{{"$in", requestedNetworks}}}}
 	err = networksCollection.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
@@ -1083,12 +1086,10 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	doc := newNetworkInterfaceDoc(args)
-	doc.MachineId = m.doc.Id
-	doc.Id = bson.NewObjectId()
+	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
 	ops := []txn.Op{{
 		C:      networksC,
-		Id:     args.NetworkName,
+		Id:     m.st.docID(args.NetworkName),
 		Assert: txn.DocExists,
 	}, {
 		C:      machinesC,
@@ -1348,4 +1349,15 @@ func (m *Machine) markInvalidContainers() error {
 		}
 	}
 	return nil
+}
+
+// SetMachineBlockDevices sets the block devices visible on the machine.
+func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+	return setMachineBlockDevices(m.st, m.Id(), devices)
+}
+
+// BlockDevices gets the aggregated list of block devices attached to the
+// machine.
+func (m *Machine) BlockDevices() ([]storage.BlockDevice, error) {
+	return getBlockDevices(m.st, m.Id())
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -49,6 +50,10 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
+// CollectMetricsSignal is the signature of the function used to generate a collect-metrics
+// signal.
+type CollectMetricsSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
+
 // collectMetricsTimer returns a channel that will signal the collect metrics hook
 // as close to metricsPollInterval after the last run as possible.
 func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
@@ -57,9 +62,15 @@ func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan 
 	return time.After(waitDuration)
 }
 
-// collectMetricsAt defines a function that will be used to generate signals
-// for the collect-metrics hook. It will be replaced in tests.
-var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time = collectMetricsTimer
+// activeMetricsTimer is the timer function used to generate metrics collections
+// signals for metrics-enabled charms.
+var activeMetricsTimer CollectMetricsSignal = collectMetricsTimer
+
+// inactiveMetricsTimer is the default metrics signal generation function, that returns no signal.
+// It will be used in charms that do not declare metrics.
+func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
+	return nil
+}
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
@@ -68,7 +79,7 @@ var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-c
 type Uniter struct {
 	tomb          tomb.Tomb
 	st            *uniter.State
-	f             *filter
+	f             filter.Filter
 	unit          *uniter.Unit
 	service       *uniter.Service
 	relationers   map[int]*Relationer
@@ -87,6 +98,10 @@ type Uniter struct {
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
+
+	// collectMetricsAt defines a function that will be used to generate signals
+	// for the collect-metrics hook.
+	collectMetricsAt CollectMetricsSignal
 }
 
 // NewUniter creates a new Uniter which will install, run, and upgrade
@@ -94,9 +109,10 @@ type Uniter struct {
 // hooks and operations provoked by changes in st.
 func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
-		st:       st,
-		paths:    NewPaths(dataDir, unitTag),
-		hookLock: hookLock,
+		st:               st,
+		paths:            NewPaths(dataDir, unitTag),
+		hookLock:         hookLock,
+		collectMetricsAt: inactiveMetricsTimer,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -123,7 +139,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	u.watchForProxyChanges(environWatcher)
 
 	// Start filtering state change events for consumption by modes.
-	u.f, err = newFilter(u.st, unitTag)
+	u.f, err = filter.NewFilter(u.st, unitTag)
 	if err != nil {
 		return err
 	}
@@ -329,6 +345,14 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 			return err
 		}
 	}
+
+	// The new charm may have declared metrics where the old one had none (or vice versa),
+	// so reset the metrics collection policy according to current state.
+	err := u.initializeMetricsCollector()
+	if err != nil {
+		return err
+	}
+
 	logger.Infof("charm %q is deployed", curl)
 	status := operation.Queued
 	if hi != nil {
@@ -345,6 +369,19 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 		}
 	}
 	return u.writeOperationState(operation.RunHook, status, hi, nil)
+}
+
+// initializeMetricsCollector enables the periodic collect-metrics hook
+// for charms that declare metrics.
+func (u *Uniter) initializeMetricsCollector() error {
+	charm, err := u.getCharm()
+	if err != nil {
+		return err
+	}
+	if metrics := charm.Metrics(); metrics != nil && len(metrics.Metrics) > 0 {
+		u.collectMetricsAt = activeMetricsTimer
+	}
+	return nil
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -388,19 +425,27 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
+	hctx, err := u.contextFactory.NewRunContext()
+	if err != nil {
+		return nil, err
+	}
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return nil, err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.contextFactory.NewRunContext()
-	if err != nil {
-		return nil, err
-	}
 	result, err := context.NewRunner(hctx, u.paths).RunCommands(commands)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
+	}
+	switch err {
+	case context.ErrRequeueAndReboot:
+		logger.Warningf("not requeueing anything. Command run via juju-run.")
+		fallthrough
+	case context.ErrReboot:
+		u.tomb.Kill(worker.ErrRebootMachine)
+		err = nil
 	}
 	return result, err
 }
@@ -428,99 +473,60 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 	}
 }
 
-// validateAction validates the given Action params against the spec defined
-// for the charm.
-func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
-	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
-	if err != nil {
-		return false, err
-	}
-
-	// Note that ch.Actions() will never be nil, rather an empty struct.
-	actionSpecs := ch.Actions()
-
-	spec, ok := actionSpecs.ActionSpecs[name]
-	if !ok {
-		return false, fmt.Errorf("no spec was defined for action %q", name)
-	}
-
-	return spec.ValidateParams(params)
-}
-
 // runAction executes the supplied hook.Info as an Action.
 func (u *Uniter) runAction(hi hook.Info) (err error) {
-	if err = hi.Validate(); err != nil {
-		return err
+	hctx, err := u.contextFactory.NewActionContext(hi.ActionId)
+	if cause := errors.Cause(err); context.IsBadActionError(cause) {
+		tag, ok := names.ParseActionTagFromId(hi.ActionId)
+		if !ok {
+			return errors.Annotatef(err, "invalid actionId %q", hi.ActionId)
+		}
+		return u.st.ActionFinish(tag, params.ActionFailed, nil, err.Error())
+	} else if cause == context.ErrActionNotAvailable {
+		return nil
+	} else if err != nil {
+		return errors.Annotatef(err, "cannot create context for action %q", hi.ActionId)
 	}
 
-	tag := names.NewActionTag(hi.ActionId)
-	action, err := u.st.Action(tag)
+	actionName, err := hctx.ActionName()
 	if err != nil {
-		return err
+		// this should *really* never happen, but let's not panic
+		return errors.Trace(err)
 	}
-
-	actionParams := action.Params()
-	actionName := action.Name()
-	_, actionParamsErr := u.validateAction(actionName, actionParams)
-	if actionParamsErr != nil {
-		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", actionName)
-	}
-
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), actionName)
+	lockMessage := fmt.Sprintf("%s: running action %q", u.unit.Name(), actionName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
-
-	hctx, err := u.contextFactory.NewActionContext(tag, actionName, actionParams)
-	if err != nil {
-		return err
-	}
-
-	if actionParamsErr != nil {
-		// If errors come back here, we have a problem; this should
-		// never happen, since errors will only occur if the context
-		// had a nil actionData, and actionData != nil runs this
-		// method.
-		err = hctx.SetActionMessage(actionParamsErr.Error())
-		if err != nil {
-			return err
-		}
-		err = hctx.SetActionFailed()
-		if err != nil {
-			return err
-		}
-	}
 
 	// err will be any unhandled error from finalizeContext.
 	err = context.NewRunner(hctx, u.paths).RunAction(actionName)
 	if err != nil {
 		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
 		logger.Errorf("action failed: %s", err.Error())
-		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
+
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	message, err := hctx.ActionMessage()
+	actionData, err := hctx.ActionData()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	logger.Infof(message)
-	u.notifyHookCompleted(actionName, hctx)
+	logger.Infof(actionData.ResultsMessage)
 	return u.commitHook(hi)
 }
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
-	if hi.Kind == hooks.Action {
-		return u.runAction(hi)
-	}
-
 	if err = hi.Validate(); err != nil {
 		return err
+	}
+
+	if hi.Kind == hooks.Action {
+		return u.runAction(hi)
 	}
 
 	// If it wasn't an Action, continue as normal.
@@ -533,12 +539,6 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 			return err
 		}
 	}
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
-	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
-	}
-	defer u.hookLock.Unlock()
-
 	hctx, err := u.contextFactory.NewHookContext(hi)
 	if err != nil {
 		return err
@@ -550,15 +550,37 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	logger.Infof("running %q hook", hookName)
 
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
+
 	ranHook := true
 	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
-	if context.IsMissingHookError(err) {
+
+	switch {
+	case context.IsMissingHookError(err):
 		ranHook = false
-	} else if err != nil {
-		logger.Errorf("hook %q failed: %s", hookName, err)
+	case err == context.ErrRequeueAndReboot:
+		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, &hi, nil); stErr != nil {
+			logger.Errorf("failed to requeue hook: %v", stErr)
+		}
+		return worker.ErrRebootMachine
+	case err == context.ErrReboot:
+		// Reboot after hook. We want to commit the running hook
+		defer func() {
+			if err != nil {
+				logger.Errorf("error while preparing for reboot: %v", err)
+			}
+			err = worker.ErrRebootMachine
+		}()
+	case err != nil:
+		logger.Errorf("hook %q failed: %v", hookName, err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
+
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}

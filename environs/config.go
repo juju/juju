@@ -72,7 +72,9 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 
 	// If deprecated config attributes are used, log warnings so the user can know
 	// that they need to be fixed.
-	envs.logDeprecatedWarnings(attrs, config.ToolsMetadataURLKey, config.AgentMetadataURLKey)
+	// We also look up what any new values might be so we can tell the user.
+	newAttrs := config.ProcessDeprecatedAttributes(attrs)
+	envs.logDeprecatedWarnings(attrs, newAttrs, config.ToolsMetadataURLKey, config.AgentMetadataURLKey)
 
 	// null has been renamed to manual (with an alias for existing config).
 	if oldType, _ := attrs["type"].(string); oldType == "null" {
@@ -82,13 +84,13 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		)
 	}
 	// lxc-use-clone has been renamed to lxc-clone
-	envs.logDeprecatedWarnings(attrs, config.LxcUseClone, config.LxcClone)
+	envs.logDeprecatedWarnings(attrs, newAttrs, config.LxcUseClone, config.LxcClone)
 
 	// provisioner-safe-mode has been renamed to provisioner-harvest-mode, so log warnings to the user
-	envs.logDeprecatedWarnings(attrs, config.ProvisionerSafeModeKey, config.ProvisionerHarvestModeKey)
+	envs.logDeprecatedWarnings(attrs, newAttrs, config.ProvisionerSafeModeKey, config.ProvisionerHarvestModeKey)
 
 	// tools-stream has been renamed to agent-stream, so log warnings to the user
-	envs.logDeprecatedWarnings(attrs, config.ToolsStreamKey, config.AgentStreamKey)
+	envs.logDeprecatedWarnings(attrs, newAttrs, config.ToolsStreamKey, config.AgentStreamKey)
 
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
@@ -101,7 +103,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 // It checks if both old and new attribute names are provided.
 // When both are provided, the message warns to remove old attribute from configuration.
 // When only old attribute name is used, the message advises to replace it with the new name.
-func (envs *Environs) logDeprecatedWarnings(attrs map[string]interface{}, oldKey, newKey string) {
+func (envs *Environs) logDeprecatedWarnings(attrs, newAttrs map[string]interface{}, oldKey, newKey string) {
 	if oldValue := attrs[oldKey]; oldValue != nil {
 		// no need to warn if attribute is unused
 		if oldStr, ok := oldValue.(string); ok && oldStr == "" {
@@ -120,7 +122,7 @@ func (envs *Environs) logDeprecatedWarnings(attrs map[string]interface{}, oldKey
 				"Config attribute %q (%v) is deprecated. \n"+
 					"It is replaced by %q attribute. \n"+
 					"Your configuration should be updated to set %q as follows \n%v: %v.",
-				oldKey, oldValue, newKey, newKey, newKey, oldValue)
+				oldKey, oldValue, newKey, newKey, newKey, newAttrs[newKey])
 		}
 		logger.Warningf(msg)
 	}

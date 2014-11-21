@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -167,13 +168,13 @@ func testPasswordHash() string {
 	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
 		// Add default jobs.
-		jobs = []params.MachineJob{
-			params.JobManageEnviron,
-			params.JobHostUnits,
-			params.JobManageNetworking,
+		jobs = []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
+			multiwatcher.JobManageNetworking,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -348,7 +349,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []params.MachineJob{params.JobManageEnviron}
+	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
@@ -602,7 +603,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	var expectedSeries set.Strings
+	expectedSeries := make(set.Strings)
 	if exploded {
 		for _, series := range version.SupportedSeries() {
 			os, err := version.GetOSFromSeries(series)

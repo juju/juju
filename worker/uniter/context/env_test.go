@@ -5,8 +5,10 @@ package context_test
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
 
+	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
@@ -45,20 +47,6 @@ type EnvSuite struct {
 
 var _ = gc.Suite(&EnvSuite{})
 
-type MockEnvPaths struct{}
-
-func (MockEnvPaths) GetToolsDir() string {
-	return "/path/to/tools"
-}
-
-func (MockEnvPaths) GetCharmDir() string {
-	return "/path/to/charm"
-}
-
-func (MockEnvPaths) GetJujucSocket() string {
-	return "/path/to/jujuc.socket"
-}
-
 func (s *EnvSuite) assertVars(c *gc.C, actual []string, expect ...[]string) {
 	var fullExpect []string
 	for _, someExpect := range expect {
@@ -72,9 +60,9 @@ func (s *EnvSuite) assertVars(c *gc.C, actual []string, expect ...[]string) {
 func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 	// note: path-munging is os-dependent, not included in expectVars
 	return MockEnvPaths{}, []string{
-		"CHARM_DIR=/path/to/charm",
-		"JUJU_CHARM_DIR=/path/to/charm",
-		"JUJU_AGENT_SOCKET=/path/to/jujuc.socket",
+		"CHARM_DIR=path-to-charm",
+		"JUJU_CHARM_DIR=path-to-charm",
+		"JUJU_AGENT_SOCKET=path-to-jujuc.socket",
 	}
 }
 
@@ -93,6 +81,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 				Ftp:     "some-ftp-proxy",
 				NoProxy: "some-no-proxy",
 			},
+			names.NewMachineTag("42"),
 		), []string{
 			"JUJU_CONTEXT_ID=some-context-id",
 			"JUJU_ENV_UUID=env-uuid-deadbeef",
@@ -101,6 +90,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			"JUJU_METER_STATUS=PURPLE",
 			"JUJU_METER_INFO=proceed with care",
 			"JUJU_API_ADDRESSES=he.re:12345 the.re:23456",
+			"JUJU_MACHINE_ID=42",
 			"http_proxy=some-http-proxy",
 			"HTTP_PROXY=some-http-proxy",
 			"https_proxy=some-https-proxy",
@@ -128,17 +118,17 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 	os.Setenv("Path", "foo;bar")
 	os.Setenv("PSModulePath", "ping;pong")
 	windowsVars := []string{
-		"Path=/path/to/tools;foo;bar",
-		"PSModulePath=ping;pong;/path/to/charm/Modules;/path/to/charm/hooks/Modules",
+		"Path=path-to-tools;foo;bar",
+		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
 	}
 
 	ctx, contextVars := s.getContext()
 	paths, pathsVars := s.getPaths()
-	actualVars := context.HookVars(ctx, paths)
+	actualVars := ctx.HookVars(paths)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars)
 
 	relationVars := s.setRelation(ctx)
-	actualVars = context.HookVars(ctx, paths)
+	actualVars = ctx.HookVars(paths)
 	s.assertVars(c, actualVars, contextVars, pathsVars, windowsVars, relationVars)
 }
 
@@ -146,17 +136,17 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&version.Current.OS, version.Ubuntu)
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
-		"PATH=/path/to/tools:foo:bar",
+		"PATH=path-to-tools:foo:bar",
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
 	}
 
 	ctx, contextVars := s.getContext()
 	paths, pathsVars := s.getPaths()
-	actualVars := context.HookVars(ctx, paths)
+	actualVars := ctx.HookVars(paths)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 	relationVars := s.setRelation(ctx)
-	actualVars = context.HookVars(ctx, paths)
+	actualVars = ctx.HookVars(paths)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
 }

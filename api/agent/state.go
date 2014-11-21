@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // State provides access to an agent's view of the state.
@@ -93,7 +94,7 @@ func (m *Entity) Life() params.Life {
 // if the API is running on behalf of a machine agent.
 // When running for other agents, it will return
 // the empty list.
-func (m *Entity) Jobs() []params.MachineJob {
+func (m *Entity) Jobs() []multiwatcher.MachineJob {
 	return m.doc.Jobs
 }
 

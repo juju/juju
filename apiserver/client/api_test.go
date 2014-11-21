@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -160,7 +160,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []params.MachineJob{params.JobManageEnviron},
+			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 			HasVote:        false,
 			WantsVote:      true,
 		},
@@ -175,7 +175,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []params.MachineJob{params.JobHostUnits},
+			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},
@@ -190,7 +190,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []params.MachineJob{params.JobHostUnits},
+			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},

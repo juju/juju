@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -55,6 +56,7 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -97,6 +99,7 @@ var (
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
+	newDiskManager           = diskmanager.NewWorker
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -240,6 +243,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("statestarter", a.newStateStarterWorker)
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
+	})
+	a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
+		inner := func(stopch <-chan struct{}) error {
+			agentConfig := a.CurrentConfig()
+			return agent.WriteSystemIdentityFile(agentConfig)
+		}
+		return worker.NewSimpleWorker(inner), nil
 	})
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
@@ -425,7 +435,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageEnviron {
+		if job == multiwatcher.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)
@@ -487,11 +497,18 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+	a.startWorkerAfterUpgrade(runner, "diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+	})
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageNetworking {
+		if job == multiwatcher.JobManageNetworking {
 			intrusiveMode = true
 			break
 		}
@@ -519,13 +536,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	for _, job := range entity.Jobs() {
 		switch job {
-		case params.JobHostUnits:
+		case multiwatcher.JobHostUnits:
 			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
-		case params.JobManageEnviron:
+		case multiwatcher.JobManageEnviron:
 			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
@@ -545,13 +562,10 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			})
 
 			logger.Infof("starting metric workers")
-			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
-				return metricworker.NewCleanup(getMetricAPI(st)), nil
+			a.startWorkerAfterUpgrade(runner, "metricmanagerworker", func() (worker.Worker, error) {
+				return metricworker.NewMetricsManager(getMetricAPI(st))
 			})
-			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
-				return metricworker.NewSender(getMetricAPI(st)), nil
-			})
-		case params.JobManageStateDeprecated:
+		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
@@ -642,11 +656,6 @@ func (a *MachineAgent) updateSupportedContainers(
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
-
-	// Create system-identity file.
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return nil, err
-	}
 
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {

@@ -33,8 +33,8 @@ type Factory interface {
 	NewHookContext(hookInfo hook.Info) (*HookContext, error)
 
 	// NewActionContext returns an execution context suitable for running the
-	// supplied action (which is assumed to be already validated).
-	NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error)
+	// action identified by the supplied id.
+	NewActionContext(actionId string) (*HookContext, error)
 }
 
 // CharmFunc is used to get a snapshot of the charm at context creation time.
@@ -158,12 +158,39 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 }
 
 // NewActionContext exists to satisfy the Factory interface.
-func (f *factory) NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error) {
+func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
+	ch, err := f.getCharm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tag, ok := names.ParseActionTagFromId(actionId)
+	if !ok {
+		return nil, &badActionError{actionId, "not valid actionId"}
+	}
+	action, err := f.state.Action(tag)
+	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
+		return nil, ErrActionNotAvailable
+	} else if params.IsCodeActionNotAvailable(errors.Cause(err)) {
+		return nil, ErrActionNotAvailable
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	name := action.Name()
+	spec, ok := ch.Actions().ActionSpecs[name]
+	if !ok {
+		return nil, &badActionError{name, "not defined"}
+	}
+	params := action.Params()
+	if _, err := spec.ValidateParams(params); err != nil {
+		return nil, &badActionError{name, err.Error()}
+	}
+
 	ctx, err := f.coreContext()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.actionData = NewActionData(&tag, params)
+	ctx.actionData = newActionData(name, &tag, params)
 	ctx.id = f.newId(name)
 	return ctx, nil
 }
@@ -177,17 +204,18 @@ func (f *factory) newId(name string) string {
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *factory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
-		unit:           f.unit,
-		state:          f.state,
-		uuid:           f.envUUID,
-		envName:        f.envName,
-		unitName:       f.unit.Name(),
-		serviceOwner:   f.ownerTag,
-		relations:      f.getContextRelations(),
-		relationId:     -1,
-		canAddMetrics:  false,
-		definedMetrics: nil,
-		pendingPorts:   make(map[PortRange]PortRangeInfo),
+		unit:               f.unit,
+		state:              f.state,
+		uuid:               f.envUUID,
+		envName:            f.envName,
+		unitName:           f.unit.Name(),
+		assignedMachineTag: f.machineTag,
+		serviceOwner:       f.ownerTag,
+		relations:          f.getContextRelations(),
+		relationId:         -1,
+		canAddMetrics:      false,
+		definedMetrics:     nil,
+		pendingPorts:       make(map[PortRange]PortRangeInfo),
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err

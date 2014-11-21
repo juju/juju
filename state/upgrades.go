@@ -581,6 +581,57 @@ func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
 }
 
+// AddEnvUUIDToAnnotations prepends the environment UUID to the ID of
+// all annotation docs and adds new "env-uuid" field.
+func AddEnvUUIDToAnnotations(st *State) error {
+	return addEnvUUIDToEntityCollection(st, annotationsC, "globalkey")
+}
+
+// AddEnvUUIDToStatuses prepends the environment UUID to the ID of
+// all Statuses docs and adds new "env-uuid" field.
+func AddEnvUUIDToStatuses(st *State) error {
+	return addEnvUUIDToEntityCollection(st, statusesC, "")
+}
+
+// AddEnvUUIDToNetworks prepends the environment UUID to the ID of
+// all network docs and adds new "env-uuid" field.
+func AddEnvUUIDToNetworks(st *State) error {
+	return addEnvUUIDToEntityCollection(st, networksC, "name")
+}
+
+// AddEnvUUIDToRequestedNetworks prepends the environment UUID to the ID of
+// all requestedNetworks docs and adds new "env-uuid" field.
+func AddEnvUUIDToRequestedNetworks(st *State) error {
+	return addEnvUUIDToEntityCollection(st, requestedNetworksC, "requestednetworkid")
+}
+
+// AddEnvUUIDToNetworkInterfaces prepends adds a new "env-uuid" field to all
+// networkInterfaces docs.
+func AddEnvUUIDToNetworkInterfaces(st *State) error {
+	coll, closer := st.getCollection(networkInterfacesC)
+	defer closer()
+
+	upgradesLogger.Debugf("adding the env uuid %q to the %s collection", st.EnvironUUID(), networkInterfacesC)
+	iter := coll.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+
+	var doc bson.M
+	ops := []txn.Op{}
+	for iter.Next(&doc) {
+		ops = append(ops,
+			txn.Op{
+				C:      networkInterfacesC,
+				Id:     doc["_id"],
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"env-uuid", st.EnvironUUID()}}}},
+			})
+		doc = nil // Force creation of new map for the next iteration
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(ops)
+}
+
 // AddEnvUUIDToCharms prepends the environment UUID to the ID of
 // all charm docs and adds new "env-uuid" field.
 func AddEnvUUIDToCharms(st *State) error {
@@ -623,6 +674,24 @@ func AddEnvUUIDToCleanups(st *State) error {
 	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
 }
 
+// AddEnvUUIDToConstraints prepends the environment UUID to the ID of
+// all constraints docs and adds new "env-uuid" field.
+func AddEnvUUIDToConstraints(st *State) error {
+	return addEnvUUIDToEntityCollection(st, constraintsC, "")
+}
+
+// AddEnvUUIDToSettings prepends the environment UUID to the ID of
+// all settings docs and adds new "env-uuid" field.
+func AddEnvUUIDToSettings(st *State) error {
+	return addEnvUUIDToEntityCollection(st, settingsC, "")
+}
+
+// AddEnvUUIDToSettingsRefs prepends the environment UUID to the ID of
+// all settingRef docs and adds new "env-uuid" field.
+func AddEnvUUIDToSettingsRefs(st *State) error {
+	return addEnvUUIDToEntityCollection(st, settingsrefsC, "")
+}
+
 // AddEnvUUIDToRelations prepends the environment UUID to the ID of
 // all relations docs and adds new "env-uuid" and "key" fields.
 func AddEnvUUIDToRelations(st *State) error {
@@ -633,6 +702,12 @@ func AddEnvUUIDToRelations(st *State) error {
 // all relationscopes docs and adds new "env-uuid" field and "key" fields.
 func AddEnvUUIDToRelationScopes(st *State) error {
 	return addEnvUUIDToEntityCollection(st, relationScopesC, "key")
+}
+
+// AddEnvUUIDToMeterStatus prepends the environment UUID to the ID of
+// all meterStatus docs and adds new "env-uuid" field and "id" fields.
+func AddEnvUUIDToMeterStatus(st *State) error {
+	return addEnvUUIDToEntityCollection(st, meterStatusC, "")
 }
 
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {

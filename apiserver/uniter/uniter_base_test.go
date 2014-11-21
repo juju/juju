@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
@@ -38,6 +40,7 @@ type uniterBaseSuite struct {
 	mysql         *state.Service
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
+	meteredUnit   *state.Unit
 }
 
 func (s *uniterBaseSuite) setUpTest(c *gc.C) {
@@ -76,6 +79,18 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Service: s.mysql,
 		Machine: s.machine1,
+	})
+
+	meteredCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "metered",
+		URL:  "cs:quantal/metered",
+	})
+	meteredService := s.Factory.MakeService(c, &jujuFactory.ServiceParams{
+		Charm: meteredCharm,
+	})
+	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service:     meteredService,
+		SetCharmURL: true,
 	})
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -874,10 +889,10 @@ func (s *uniterBaseSuite) testWatchConfigSettings(
 }
 
 type watchActions interface {
-	WatchActions(args params.Entities) (params.StringsWatchResults, error)
+	WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error)
 }
 
-func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActions) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, gc.IsNil)
 
@@ -888,12 +903,12 @@ func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := facade.WatchActions(args)
+	result, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -910,7 +925,7 @@ func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
 
 	addedAction, err := s.wordpressUnit.AddAction("snapshot", nil)
 
-	wc.AssertChange(addedAction.Id())
+	wc.AssertChange(addedAction.NotificationId())
 	wc.AssertNoChange()
 }
 
@@ -929,10 +944,11 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	results, err := facade.WatchActions(args)
+	s.State.StartSync()
+	results, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.IsNil)
 
-	checkUnorderedActionIdsEqual(c, []string{action1.Id(), action2.Id()}, results)
+	checkUnorderedActionIdsEqual(c, []string{action1.NotificationId(), action2.NotificationId()}, results)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -946,42 +962,42 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 
 	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(addedAction.Id())
+	wc.AssertChange(addedAction.NotificationId())
 	wc.AssertNoChange()
 }
 
-func (s *uniterBaseSuite) testWatchActionsMalformedTag(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsMalformedTag(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	_, err := facade.WatchActions(args)
+	_, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionsMalformedUnitName(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsMalformedUnitName(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	_, err := facade.WatchActions(args)
+	_, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionsNotUnit(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsNotUnit(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "action-mysql/0_a_0"},
 	}}
-	_, err := facade.WatchActions(args)
+	_, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `"action-mysql/0_a_0" is not a valid unit tag`)
 }
 
-func (s *uniterBaseSuite) testWatchActionsPermissionDenied(c *gc.C, facade watchActions) {
+func (s *uniterBaseSuite) testWatchActionNotificationsPermissionDenied(c *gc.C, facade watchActions) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-nonexistentgarbage-0"},
 	}}
-	results, err := facade.WatchActions(args)
+	results, err := facade.WatchActionNotifications(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1130,7 +1146,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 			actionTest.action.Action.Name,
 			actionTest.action.Action.Parameters)
 		c.Assert(err, gc.IsNil)
-		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
+		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), a.Id())
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
@@ -1150,9 +1166,11 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 }
 
 func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", 0).String(),
+			Tag: names.JoinActionTag("wordpress/0", uuid.String()).String(),
 		}},
 	}
 	results, err := facade.Actions(args)
@@ -1161,7 +1179,7 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	actionsQueryResult := results.Results[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}" not found`)
 }
 
 func (s *uniterBaseSuite) testActionsWrongUnit(
@@ -1177,7 +1195,7 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", 0).String(),
+			Tag: names.JoinActionTag("wordpress/0", "0").String(),
 		}},
 	}
 	actions, err := mysqlUnitFacade.Actions(args)
@@ -1190,7 +1208,7 @@ func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
 	// Same unit, but not one that has access.
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("mysql/0", 0).String(),
+			Tag: names.JoinActionTag("mysql/0", "0").String(),
 		}},
 	}
 	actions, err := facade.Actions(args)
@@ -1207,9 +1225,9 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 	testName := "frobz"
 	testOutput := map[string]interface{}{"output": "completed frobz successfully"}
 
-	results, err := s.wordpressUnit.ActionResults()
+	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
@@ -1225,7 +1243,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
-	results, err = s.wordpressUnit.ActionResults()
+	results, err = s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
@@ -1239,9 +1257,9 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 	testName := "wgork"
 	testError := "wgork was a dismal failure"
 
-	results, err := s.wordpressUnit.ActionResults()
+	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+	c.Assert(results, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
@@ -1258,7 +1276,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
-	results, err = s.wordpressUnit.ActionResults()
+	results, err = s.wordpressUnit.CompletedActions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
@@ -1338,7 +1356,7 @@ func (s *uniterBaseSuite) testRelation(
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
-				Endpoint: params.Endpoint{
+				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1380,7 +1398,7 @@ func (s *uniterBaseSuite) testRelationById(
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
-				Endpoint: params.Endpoint{
+				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1851,8 +1869,8 @@ func (s *uniterBaseSuite) testWatchRelationUnits(
 	c.Assert(mysqlChanges, gc.NotNil)
 	changed, ok := mysqlChanges.Changed["mysql/0"]
 	c.Assert(ok, jc.IsTrue)
-	expectChanges := params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{"mysql/0": changed},
+	expectChanges := multiwatcher.RelationUnitsChange{
+		Changed: map[string]multiwatcher.UnitSettings{"mysql/0": changed},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{
@@ -1955,14 +1973,11 @@ type addMetrics interface {
 }
 
 func (s *uniterBaseSuite) testAddMetrics(c *gc.C, facade addMetrics) {
-	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
-	c.Assert(err, gc.IsNil)
-
 	now := time.Now()
-	sentMetrics := []params.Metric{{"A", "5", now}, {"B", "0.71", now}}
+	sentMetrics := []params.Metric{{"pings", "5", now}, {"juju-unit-time", "0.71", now}}
 	args := params.MetricsParams{
 		Metrics: []params.MetricsParam{{
-			Tag:     s.wordpressUnit.Tag().String(),
+			Tag:     s.meteredUnit.Tag().String(),
 			Metrics: sentMetrics,
 		}},
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -31,6 +32,10 @@ var DataDir = agent.DefaultDataDir
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+
+// DefaultBridgeName is the network bridge device name used for LXC
+// and KVM containers.
+const DefaultBridgeName = "juju-br0"
 
 // NewMachineConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
@@ -58,7 +63,7 @@ func NewMachineConfig(
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
-		Jobs:                    []params.MachineJob{params.JobHostUnits, params.JobManageNetworking},
+		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -85,10 +90,9 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.Jobs = []params.MachineJob{
-		params.JobManageEnviron,
-		params.JobHostUnits,
-		params.JobManageNetworking,
+	mcfg.Jobs = []multiwatcher.MachineJob{
+		multiwatcher.JobManageEnviron,
+		multiwatcher.JobHostUnits,
 	}
 	mcfg.Constraints = cons
 	return mcfg, nil
@@ -156,6 +160,13 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		return err
 	}
 
+	if isStateMachineConfig(mcfg) {
+		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
+		// Only makes sense for state server
+		logger.Debugf("Setting numa ctl preference to %v", cfg.NumaCtlPreference())
+		// Unfortunately, AgentEnvironment can only take strings as values
+		mcfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
+	}
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
 	// will probably change.
@@ -195,6 +206,18 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	}
 
 	return nil
+}
+
+// isStateMachineConfig determines if given machine configuration
+// is for State Server by iterating over machine's jobs.
+// If JobManageEnviron is present, this is a state server.
+func isStateMachineConfig(mcfg *cloudinit.MachineConfig) bool {
+	for _, aJob := range mcfg.Jobs {
+		if aJob == multiwatcher.JobManageEnviron {
+			return true
+		}
+	}
+	return false
 }
 
 func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) (cloudinit.UserdataConfig, error) {

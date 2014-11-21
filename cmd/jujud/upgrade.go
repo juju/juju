@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -64,7 +65,7 @@ type upgradeWorkerContext struct {
 	machineId       string
 	isMaster        bool
 	apiState        *api.State
-	jobs            []params.MachineJob
+	jobs            []multiwatcher.MachineJob
 	agentConfig     agent.Config
 	isStateServer   bool
 	st              *state.State
@@ -95,7 +96,7 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 func (c *upgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
 	apiState *api.State,
-	jobs []params.MachineJob,
+	jobs []multiwatcher.MachineJob,
 ) worker.Worker {
 	c.agent = agent
 	c.apiState = apiState
@@ -155,7 +156,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range c.jobs {
-		if job == params.JobManageEnviron {
+		if job == multiwatcher.JobManageEnviron {
 			c.isStateServer = true
 		}
 	}
@@ -311,41 +312,33 @@ func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 	}
 }
 
-// runUpgradeSteps runs the required upgrade steps, retrying on
-// failure. The agent's UpgradedToVersion is set once the upgrade is
-// complete.
+// runUpgradeSteps runs the required upgrade steps for the machine
+// agent, retrying on failure. The agent's UpgradedToVersion is set
+// once the upgrade is complete.
 //
 // This function conforms to the AgentConfigMutator type and is
 // designed to be called via a machine agent's ChangeConfig method.
 func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
-
 	a := c.agent
-	a.setMachineStatus(c.apiState, params.StatusStarted,
-		fmt.Sprintf("upgrading to %v", c.toVersion))
+	a.setMachineStatus(c.apiState, params.StatusStarted, fmt.Sprintf("upgrading to %v", c.toVersion))
 
 	context := upgrades.NewContext(agentConfig, c.apiState, c.st)
-	for _, job := range c.jobs {
-		target := upgradeTarget(job, c.isMaster)
-		if target == "" {
-			continue
-		}
-		logger.Infof("starting upgrade from %v to %v for %v %q",
-			c.fromVersion, c.toVersion, target, c.tag)
+	logger.Infof("starting upgrade from %v to %v for %q", c.fromVersion, c.toVersion, c.tag)
 
-		attempts := getUpgradeRetryStrategy()
-		for attempt := attempts.Start(); attempt.Next(); {
-			upgradeErr = upgradesPerformUpgrade(c.fromVersion, target, context)
-			if upgradeErr == nil {
-				break
-			}
-			if connectionIsDead(c.apiState) {
-				// API connection has gone away - abort!
-				return &apiLostDuringUpgrade{upgradeErr}
-			}
-			if attempt.HasNext() {
-				c.reportUpgradeFailure(upgradeErr, true)
-			}
+	targets := jobsToTargets(c.jobs, c.isMaster)
+	attempts := getUpgradeRetryStrategy()
+	for attempt := attempts.Start(); attempt.Next(); {
+		upgradeErr = upgradesPerformUpgrade(c.fromVersion, targets, context)
+		if upgradeErr == nil {
+			break
+		}
+		if connectionIsDead(c.apiState) {
+			// API connection has gone away - abort!
+			return &apiLostDuringUpgrade{upgradeErr}
+		}
+		if attempt.HasNext() {
+			c.reportUpgradeFailure(upgradeErr, true)
 		}
 	}
 	if upgradeErr != nil {
@@ -450,15 +443,20 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 	}
 }
 
-func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
-	switch job {
-	case params.JobManageEnviron:
-		if isMaster {
-			return upgrades.DatabaseMaster
+// jobsToTargets determines the upgrade targets corresponding to the
+// jobs assigned to a machine agent. This determines the upgrade steps
+// which will run during an upgrade.
+func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
+	for _, job := range jobs {
+		switch job {
+		case multiwatcher.JobManageEnviron:
+			targets = append(targets, upgrades.StateServer)
+			if isMaster {
+				targets = append(targets, upgrades.DatabaseMaster)
+			}
+		case multiwatcher.JobHostUnits:
+			targets = append(targets, upgrades.HostMachine)
 		}
-		return upgrades.StateServer
-	case params.JobHostUnits:
-		return upgrades.HostMachine
 	}
-	return ""
+	return
 }

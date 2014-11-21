@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 func Password(config Config) string {
@@ -26,7 +26,7 @@ func PatchConfig(config Config, fieldName string, value interface{}) error {
 	case "LogDir":
 		conf.logDir = value.(string)
 	case "Jobs":
-		conf.jobs = value.([]params.MachineJob)[:]
+		conf.jobs = value.([]multiwatcher.MachineJob)[:]
 	case "DeleteValues":
 		for _, key := range value.([]string) {
 			delete(conf.values, key)

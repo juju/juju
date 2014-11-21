@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -29,7 +30,7 @@ var _ = gc.Suite(&formatSuite{})
 var agentParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
-	Jobs:              []params.MachineJob{params.JobHostUnits},
+	Jobs:              []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},

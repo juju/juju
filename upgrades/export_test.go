@@ -5,6 +5,7 @@ package upgrades
 
 var (
 	UpgradeOperations         = &upgradeOperations
+	StateUpgradeOperations    = &stateUpgradeOperations
 	UbuntuHome                = &ubuntuHome
 	RootLogDir                = &rootLogDir
 	RootSpoolDir              = &rootSpoolDir
@@ -30,4 +31,8 @@ var (
 	MigrateCharmStorage        = migrateCharmStorage
 	MigrateCustomImageMetadata = migrateCustomImageMetadata
 	MigrateToolsStorage        = migrateToolsStorage
+
+	// 122 upgrade functions
+	EnsureSystemSSHKeyRedux               = ensureSystemSSHKeyRedux
+	UpdateAuthorizedKeysForSystemIdentity = updateAuthorizedKeysForSystemIdentity
 )
