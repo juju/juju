@@ -28,10 +28,14 @@ func (s *steps122Suite) TestStateStepsFor122(c *gc.C) {
 		"prepend the environment UUID to the ID of all statuses docs",
 		"prepend the environment UUID to the ID of all annotations docs",
 		"prepend the environment UUID to the ID of all constraints docs",
+		"update system identity in state",
 	}
 	assertStateSteps(c, version.MustParse("1.22.0"), expected)
 }
 
 func (s *steps122Suite) TestStepsFor122(c *gc.C) {
-	assertSteps(c, version.MustParse("1.22.0"), []string{})
+	expected := []string{
+		"update the authorized keys for the system identity",
+	}
+	assertSteps(c, version.MustParse("1.22.0"), expected)
 }

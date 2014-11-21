@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -158,6 +159,7 @@ type mockAgentConfig struct {
 	apiAddresses []string
 	values       map[string]string
 	mongoInfo    *mongo.MongoInfo
+	servingInfo  params.StateServingInfo
 }
 
 func (mock *mockAgentConfig) Tag() names.Tag {
@@ -190,6 +192,14 @@ func (mock *mockAgentConfig) Value(name string) string {
 
 func (mock *mockAgentConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	return mock.mongoInfo, true
+}
+
+func (mock *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
+	return mock.servingInfo, true
+}
+
+func (mock *mockAgentConfig) SetStateServingInfo(info params.StateServingInfo) {
+	mock.servingInfo = info
 }
 
 func stateUpgradeOperations() []upgrades.Operation {
@@ -635,7 +645,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"1.18.0"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.22.0"})
 }
 
 func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
