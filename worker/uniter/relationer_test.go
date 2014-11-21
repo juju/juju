@@ -384,6 +384,48 @@ func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
 	}
 }
 
+func (s *RelationerSuite) TestParseRemoteUnitAmbiguous(c *gc.C) {
+	s.AddRelationUnit(c, "u/1")
+	s.AddRelationUnit(c, "u/2")
+	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	c.Assert(r.IsImplicit(), gc.Equals, false)
+	err := r.Join()
+	c.Assert(err, gc.IsNil)
+
+	err = r.CommitHook(hook.Info{
+		RelationId: 0,
+		Kind:       hooks.RelationJoined,
+		RemoteUnit: "u/0",
+	})
+	c.Assert(err, gc.IsNil)
+
+	err = r.CommitHook(hook.Info{
+		RelationId: 0,
+		Kind:       hooks.RelationJoined,
+		RemoteUnit: "u/1",
+	})
+	c.Assert(err, gc.IsNil)
+
+	relationers := map[int]*uniter.Relationer{}
+	relationers[0] = r
+
+	args := uniter.RunCommandsArgs{
+		Commands:       "some-command",
+		RelationId:     0,
+		RemoteUnitName: "",
+	}
+
+	// Ambiguous
+	_, err = uniter.ParseRemoteUnit(relationers, args)
+	c.Assert(err, gc.ErrorMatches, `unable to determine remote-unit, please disambiguate:.*`)
+
+	// Disambiguate
+	args.RemoteUnitName = "u/0"
+	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
+	c.Assert(err, jc.IsNil)
+	c.Assert(remoteUnit, gc.Equals, "u/0")
+}
+
 func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 	relationers := map[int]*uniter.Relationer{}
 
