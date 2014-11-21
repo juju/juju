@@ -50,7 +50,7 @@ func GetBackupMetadata(st *state.State, id string) (*Metadata, error) {
 	defer db.Close()
 	doc, err := getStorageMetadata(db, id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return docAsMetadata(doc), nil
 }
@@ -75,7 +75,7 @@ func AddBackupMetadataID(st *state.State, meta *Metadata, id string) error {
 	defer db.Close()
 	doc := newStorageMetaDoc(meta)
 	_, err := addStorageMetadata(db, &doc)
-	return err
+	return errors.Trace(err)
 }
 
 // SetBackupStoredTime stores the time of when the identified backup archive

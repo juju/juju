@@ -478,7 +478,7 @@ func (s *backupBlobStorage) path(id string) string {
 // File returns the identified file from storage.
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
 	file, _, err := s.storeImpl.GetForEnvironment(s.envUUID, s.path(id))
-	return file, err
+	return file, errors.Trace(err)
 }
 
 // AddFile adds the file to storage.
