@@ -3,7 +3,9 @@
 
 /*
 Package backups contains all the stand-alone backup-related
-functionality for juju state.
+functionality for juju state. That functionality is encapsulated by
+the backups.Backups type. The package also exposes a few key helpers
+and components.
 
 Backups are not a part of juju state nor of normal state operations.
 However, they certainly are tightly coupled with state (the very
