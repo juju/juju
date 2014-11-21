@@ -178,11 +178,11 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 		if t.err != "" {
-			c.Assert(write, gc.PanicMatches, "invalid uniter state: "+t.err)
+			c.Assert(write, gc.PanicMatches, "invalid operation state: "+t.err)
 			err := utils.WriteYaml(path, &t.st)
 			c.Assert(err, gc.IsNil)
 			_, err = file.Read()
-			c.Assert(err, gc.ErrorMatches, "cannot read charm state at .*: invalid uniter state: "+t.err)
+			c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: `+t.err)
 			continue
 		}
 		write()

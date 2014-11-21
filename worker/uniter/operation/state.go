@@ -89,7 +89,7 @@ type State struct {
 
 // validate returns an error if the state violates expectations.
 func (st State) validate() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid uniter state")
+	defer errors.DeferredAnnotatef(&err, "invalid operation state")
 	hasHook := st.Hook != nil
 	hasActionId := st.ActionId != nil
 	hasCharm := st.CharmURL != nil
@@ -142,6 +142,24 @@ func (st State) CollectedMetricsAt() time.Time {
 	return time.Unix(st.CollectMetricsTime, 0)
 }
 
+// stateChange is useful for a variety of Operation implementations.
+type stateChange struct {
+	Kind     Kind
+	Step     Step
+	Hook     *hook.Info
+	ActionId *string
+	CharmURL *charm.URL
+}
+
+func (change stateChange) apply(state State) *State {
+	state.Kind = change.Kind
+	state.Step = change.Step
+	state.Hook = change.Hook
+	state.ActionId = change.ActionId
+	state.CharmURL = change.CharmURL
+	return &state
+}
+
 // StateFile holds the disk state for a uniter.
 type StateFile struct {
 	path string
@@ -151,8 +169,6 @@ type StateFile struct {
 func NewStateFile(path string) *StateFile {
 	return &StateFile{path}
 }
-
-var ErrNoStateFile = errors.New("uniter state file does not exist")
 
 // Read reads a State from the file. If the file does not exist it returns
 // ErrNoStateFile.
@@ -164,7 +180,7 @@ func (f *StateFile) Read() (*State, error) {
 		}
 	}
 	if err := st.validate(); err != nil {
-		return nil, fmt.Errorf("cannot read charm state at %q: %v", f.path, err)
+		return nil, fmt.Errorf("cannot read %q: %v", f.path, err)
 	}
 	return &st, nil
 }

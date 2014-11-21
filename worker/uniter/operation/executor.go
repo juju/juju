@@ -10,12 +10,6 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 )
 
-type Executor interface {
-	State() State
-	Run(Operation) error
-	Skip(Operation) error
-}
-
 type executorStep struct {
 	verb string
 	run  func(op Operation, state State) (*State, error)

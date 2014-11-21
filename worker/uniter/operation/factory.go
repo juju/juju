@@ -14,13 +14,6 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-type Factory interface {
-	NewDeploy(charmURL *corecharm.URL, kind Kind) (Operation, error)
-	NewHook(hookInfo hook.Info) (Operation, error)
-	NewAction(actionId string) (Operation, error)
-	NewCommands(commands string, sendResponse CommandResponseFunc) (Operation, error)
-}
-
 func NewFactory(
 	state *apiuniter.State,
 	hookHelper RunHookHelper,
