@@ -158,7 +158,7 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
 	var doc storageMetaDoc
 
-	// Ignore metadata.ID.
+	// Ignore metadata.ID. It will be set by storage later.
 
 	doc.Checksum = meta.Checksum()
 	doc.ChecksumFormat = meta.ChecksumFormat()
