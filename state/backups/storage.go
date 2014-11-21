@@ -4,7 +4,6 @@
 package backups
 
 import (
-	"fmt"
 	"io"
 	"path"
 	"time"
@@ -56,6 +55,11 @@ through functions that take State, rather than as methods on State.
 Furthermore, the bulk of the backup-related code, which does not need
 direct interaction with State, lives in the state/backups package.
 */
+
+// backupIDTimstamp is used to format the timestamp from a backup
+// metadata into a string. The result is used as the first half of the
+// corresponding backup ID.
+const backupIDTimestamp = "20060102-150405"
 
 //---------------------------
 // Backup metadata document
@@ -327,11 +331,8 @@ func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, e
 // use some form of environment name rather than the UUID, but for now
 // the raw env ID is sufficient.
 func newStorageID(doc *storageMetaDoc) string {
-	rawts := time.Unix(doc.Started, 0).UTC()
-	Y, M, D := rawts.Date()
-	h, m, s := rawts.Clock()
-	timestamp := fmt.Sprintf("%04d%02d%02d-%02d%02d%02d", Y, M, D, h, m, s)
-
+	started := time.Unix(doc.Started, 0).UTC()
+	timestamp := started.Format(backupIDTimestamp)
 	return timestamp + "." + doc.Environment
 }
 
