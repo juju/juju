@@ -1,3 +1,4 @@
+#!/usr/bin/python
 """Access Juju CI artifacts and data."""
 
 from __future__ import print_function
@@ -80,7 +81,7 @@ def parse_args(args=None):
         '-v', '--verbose', action="store_true", default=False,
         help='Increase verbosity.')
     parser.add_argument(
-        '-b', '--build',
+        '-b', '--build', default='lastSuccessfulBuild',
         help="The specific build to examine (default: lastSuccessfulBuild).")
     parser.add_argument(
         'command', choices=['list', 'get'], help='The action to perform.')
@@ -101,8 +102,7 @@ def main(argv):
     try:
         if args.command == 'list':
             list_artifacts(
-                args.job, args.build, args.glob,
-                dry_run=args.dry_run, verbose=args.verbose)
+                args.job, args.build, args.glob, verbose=args.verbose)
         elif args.command == 'get':
             get_artifacts(
                 args.job, args.build, args.glob, args.path,
