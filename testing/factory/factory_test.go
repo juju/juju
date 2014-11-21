@@ -495,3 +495,33 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
 	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("somecreds"))
 }
+
+func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Name(), gc.Equals, "testenv-1")
+	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	origEnv, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
+}
+
+func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
+	owner := names.NewUserTag("owner@local")
+	params := &factory.EnvParams{
+		Name:  "foo",
+		Owner: owner,
+	}
+
+	st := s.Factory.MakeEnvironment(c, params)
+	defer st.Close()
+
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.Name(), gc.Equals, "foo")
+	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	c.Assert(env.Owner(), gc.Equals, owner)
+}
