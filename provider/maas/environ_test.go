@@ -202,43 +202,13 @@ var expectedCloudinitConfig = []interface{}{
 	"ifdown eth0",
 	"cat >> /etc/network/interfaces << EOF\n\niface eth0 inet manual\n\nauto juju-br0\niface juju-br0 inet dhcp\n    bridge_ports eth0\nEOF\ngrep -q 'iface eth0 inet dhcp' /etc/network/interfaces && \\\nsed -i 's/iface eth0 inet dhcp//' /etc/network/interfaces",
 	"ifup juju-br0",
-	// Configuring networks / VLANs.
-	"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",
-	"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
-	"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
-	"vconfig add eth0 99",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth0.99\niface eth0.99 inet dhcp\nEOF\n",
-	"ifup eth0.99",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth1\niface eth1 inet dhcp\nEOF\n",
-	"ifup eth1",
-	"vconfig add eth1 42",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth1.42\niface eth1.42 inet dhcp\nEOF\n",
-	"ifup eth1.42",
-	"vconfig add eth1 69",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth1.69\niface eth1.69 inet dhcp\nEOF\n",
-	"ifup eth1.69",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth2\niface eth2 inet dhcp\nEOF\n",
-	"ifup eth2",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth3\niface eth3 inet dhcp\nEOF\n",
-	"ifup eth3",
-	"vconfig add eth3 123",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
-	"ifup eth3.123",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth4\niface eth4 inet dhcp\nEOF\n",
-	"ifup eth4",
-	"vconfig add eth4 12",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth4.12\niface eth4.12 inet dhcp\nEOF\n",
-	"ifup eth4.12",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth5\niface eth5 inet dhcp\nEOF\n",
-	"ifup eth5",
-	"vconfig add eth5 66",
-	"cat >> /etc/network/interfaces << EOF\n\nauto eth5.66\niface eth5.66 inet dhcp\nEOF\n",
-	"ifup eth5.66",
 }
 
 var nwInfo = []network.Info{
 	// physical eth0 won't be touched, but it can have VLANs on it.
 	{InterfaceName: "eth0", VLANTag: 0, Disabled: false},
+	// NOTE: Due to LP bug #1395081 none of the interfaces below will
+	// be configured at boot.
 	{InterfaceName: "eth0", VLANTag: 99, Disabled: false},
 	// physical NIC given explicitly, then a couple of virtual ones using it.
 	{InterfaceName: "eth1", VLANTag: 0, Disabled: false},
