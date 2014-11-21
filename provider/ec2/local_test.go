@@ -714,7 +714,7 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 
 	// No network interface
 	err = env.AllocateAddress(instId, "", addr)
-	c.Assert(err, gc.ErrorMatches, "unexpected AWS response: network interface not found")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
 }
 
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Environ, instance.Id) {
@@ -774,6 +774,23 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 
 	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
+}
+
+func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	addr := network.Address{Value: "8.0.0.4"}
+	// Allocate the address first so we can release it
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(err, jc.IsNil)
+
+	err = env.ReleaseAddress(instId, "", addr)
+	c.Assert(err, jc.IsNil)
+
+	// Releasing a second time tests that the first call actually released
+	// it plus tests the error handling of ReleaseAddress
+	err = env.ReleaseAddress(instId, "", addr)
+	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {

@@ -21,7 +21,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -1571,16 +1571,16 @@ func (s *startInstanceSuite) TestStartInstanceDistributionGroup(c *gc.C) {
 func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// If the machine has the JobManagesEnviron job,
 	// we should see stateServer==true.
-	s.params.MachineConfig.Jobs = []juju.MachineJob{
-		juju.JobHostUnits,
-		juju.JobManageNetworking,
+	s.params.MachineConfig.Jobs = []multiwatcher.MachineJob{
+		multiwatcher.JobHostUnits,
+		multiwatcher.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
-	s.params.MachineConfig.Jobs = []juju.MachineJob{
-		juju.JobHostUnits,
-		juju.JobManageEnviron,
-		juju.JobManageNetworking,
+	s.params.MachineConfig.Jobs = []multiwatcher.MachineJob{
+		multiwatcher.JobHostUnits,
+		multiwatcher.JobManageEnviron,
+		multiwatcher.JobManageNetworking,
 	}
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)

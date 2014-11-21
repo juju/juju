@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -110,8 +110,8 @@ func (fakeAPIOpenConfig) OldPassword() string {
 	return "old"
 }
 
-func (fakeAPIOpenConfig) Jobs() []juju.MachineJob {
-	return []juju.MachineJob{}
+func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob {
+	return []multiwatcher.MachineJob{}
 }
 
 var _ = gc.Suite(&apiOpenSuite{})

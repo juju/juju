@@ -18,15 +18,16 @@ import (
 	"github.com/juju/utils/apt"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
@@ -174,7 +175,7 @@ func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
 	s.captureLogs(c)
 	s.oldVersion = version.Current // nothing to do
 
-	workerErr, config, _, context := s.runUpgradeWorker(c, juju.JobHostUnits)
+	workerErr, config, _, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -193,7 +194,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	attemptsP := s.countUpgradeAttempts(errors.New("boom"))
 	s.captureLogs(c)
 
-	workerErr, config, agent, context := s.runUpgradeWorker(c, juju.JobHostUnits)
+	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	// The worker shouldn't return an error so that the worker and
 	// agent keep running.
@@ -226,7 +227,7 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
-	workerErr, config, agent, context := s.runUpgradeWorker(c, juju.JobHostUnits)
+	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attempts, gc.Equals, 2)
@@ -250,7 +251,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
 	s.captureLogs(c)
 
-	workerErr, config, agent, context := s.runUpgradeWorker(c, juju.JobManageEnviron)
+	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade almost finished
@@ -274,7 +275,7 @@ func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
 	s.connectionDead = true // Make the connection to state appear to be dead
 	s.captureLogs(c)
 
-	workerErr, config, _, context := s.runUpgradeWorker(c, juju.JobHostUnits)
+	workerErr, config, _, context := s.runUpgradeWorker(c, multiwatcher.JobHostUnits)
 
 	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -294,7 +295,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	workerErr, config, agent, context := s.runUpgradeWorker(c, juju.JobManageEnviron)
+	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -313,7 +314,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 			"aborted wait for other state servers:" + causeMsg},
 	})
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, []MachineStatusCall{{
-		juju.StatusError,
+		params.StatusError,
 		fmt.Sprintf(
 			"upgrade to %s failed (giving up): aborted wait for other state servers:"+causeMsg,
 			version.Current.Number),
@@ -330,7 +331,7 @@ func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 	config := s.makeFakeConfig()
 	agent := NewFakeUpgradingMachineAgent(config)
 	close(agent.DyingCh)
-	workerErr, context := s.runUpgradeWorkerUsingAgent(c, agent, juju.JobManageEnviron)
+	workerErr, context := s.runUpgradeWorkerUsingAgent(c, agent, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -379,7 +380,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 
-	workerErr, config, agent, context := s.runUpgradeWorker(c, juju.JobManageEnviron)
+	workerErr, config, agent, context := s.runUpgradeWorker(c, multiwatcher.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -395,17 +396,17 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 }
 
 func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
-	check := func(jobs []juju.MachineJob, isMaster bool, expectedTargets ...upgrades.Target) {
+	check := func(jobs []multiwatcher.MachineJob, isMaster bool, expectedTargets ...upgrades.Target) {
 		c.Assert(jobsToTargets(jobs, isMaster), jc.SameContents, expectedTargets)
 	}
 
-	check([]juju.MachineJob{juju.JobHostUnits}, false, upgrades.HostMachine)
-	check([]juju.MachineJob{juju.JobManageEnviron}, false, upgrades.StateServer)
-	check([]juju.MachineJob{juju.JobManageEnviron}, true,
+	check([]multiwatcher.MachineJob{multiwatcher.JobHostUnits}, false, upgrades.HostMachine)
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron}, false, upgrades.StateServer)
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron}, true,
 		upgrades.StateServer, upgrades.DatabaseMaster)
-	check([]juju.MachineJob{juju.JobManageEnviron, juju.JobHostUnits}, false,
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}, false,
 		upgrades.StateServer, upgrades.HostMachine)
-	check([]juju.MachineJob{juju.JobManageEnviron, juju.JobHostUnits}, true,
+	check([]multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}, true,
 		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
@@ -578,7 +579,7 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 
 // Run just the upgrade-steps worker with a fake machine agent and
 // fake agent config.
-func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...juju.MachineJob) (
+func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...multiwatcher.MachineJob) (
 	error, *fakeConfigSetter, *fakeUpgradingMachineAgent, *upgradeWorkerContext,
 ) {
 	config := s.makeFakeConfig()
@@ -592,7 +593,7 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...juju.MachineJob) (
 func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 	c *gc.C,
 	agent *fakeUpgradingMachineAgent,
-	jobs ...juju.MachineJob,
+	jobs ...multiwatcher.MachineJob,
 ) (error, *upgradeWorkerContext) {
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, jobs)
@@ -662,22 +663,22 @@ func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 
 func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, failReason string) []MachineStatusCall {
 	calls := []MachineStatusCall{{
-		juju.StatusStarted,
+		params.StatusStarted,
 		fmt.Sprintf("upgrading to %s", version.Current.Number),
 	}}
 	for i := 0; i < retryCount; i++ {
 		calls = append(calls, MachineStatusCall{
-			juju.StatusError,
+			params.StatusError,
 			fmt.Sprintf("upgrade to %s failed (will retry): %s", version.Current.Number, failReason),
 		})
 	}
 	if expectFail {
 		calls = append(calls, MachineStatusCall{
-			juju.StatusError,
+			params.StatusError,
 			fmt.Sprintf("upgrade to %s failed (giving up): %s", version.Current.Number, failReason),
 		})
 	} else {
-		calls = append(calls, MachineStatusCall{juju.StatusStarted, ""})
+		calls = append(calls, MachineStatusCall{params.StatusStarted, ""})
 	}
 	return calls
 }
@@ -910,11 +911,11 @@ type fakeUpgradingMachineAgent struct {
 }
 
 type MachineStatusCall struct {
-	Status juju.Status
+	Status params.Status
 	Info   string
 }
 
-func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status juju.Status, info string) error {
+func (a *fakeUpgradingMachineAgent) setMachineStatus(_ *api.State, status params.Status, info string) error {
 	// Record setMachineStatus calls for later inspection.
 	a.MachineStatusCalls = append(a.MachineStatusCalls, MachineStatusCall{status, info})
 	return nil

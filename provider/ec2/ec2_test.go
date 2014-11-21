@@ -22,6 +22,20 @@ type RootDiskTest struct {
 	device     amzec2.BlockDeviceMapping
 }
 
+var commonInstanceStoreDisks = []amzec2.BlockDeviceMapping{{
+	DeviceName:  "/dev/sdb",
+	VirtualName: "ephemeral0",
+}, {
+	DeviceName:  "/dev/sdc",
+	VirtualName: "ephemeral1",
+}, {
+	DeviceName:  "/dev/sdd",
+	VirtualName: "ephemeral2",
+}, {
+	DeviceName:  "/dev/sde",
+	VirtualName: "ephemeral3",
+}}
+
 var rootDiskTests = []RootDiskTest{
 	{
 		"nil constraint",
@@ -49,13 +63,14 @@ var rootDiskTests = []RootDiskTest{
 	},
 }
 
-func (*Suite) TestRootDisk(c *gc.C) {
+func (*Suite) TestBlockDeviceMappings(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
-		device, size := getDiskSize(cons)
-		c.Check(size, gc.Equals, t.disksize)
-		c.Check(device, gc.DeepEquals, t.device)
+		mappings, err := getBlockDeviceMappings(cons)
+		c.Assert(err, gc.IsNil)
+		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
+		c.Assert(mappings, gc.DeepEquals, expected)
 	}
 }
 

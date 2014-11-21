@@ -19,7 +19,6 @@ import (
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
@@ -140,7 +140,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	mcfg.Jobs = []juju.MachineJob{juju.JobManageEnviron}
+	mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
@@ -446,12 +446,18 @@ func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotSupportedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
-func (*localEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*localEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

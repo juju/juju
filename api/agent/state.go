@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // State provides access to an agent's view of the state.
@@ -86,7 +86,7 @@ func (m *Entity) Tag() string {
 }
 
 // Life returns the current life cycle state of the entity.
-func (m *Entity) Life() juju.Life {
+func (m *Entity) Life() params.Life {
 	return m.doc.Life
 }
 
@@ -94,7 +94,7 @@ func (m *Entity) Life() juju.Life {
 // if the API is running on behalf of a machine agent.
 // When running for other agents, it will return
 // the empty list.
-func (m *Entity) Jobs() []juju.MachineJob {
+func (m *Entity) Jobs() []multiwatcher.MachineJob {
 	return m.doc.Jobs
 }
 

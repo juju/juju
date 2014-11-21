@@ -30,7 +30,7 @@ func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
 			return nil
 		}
 		select {
-		case notify <- struct{}{}:
+		case notify <- "senderCalled":
 		default:
 		}
 		return nil

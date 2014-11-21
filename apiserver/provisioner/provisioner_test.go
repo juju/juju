@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -322,13 +322,13 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: s.machines[0].Tag().String(), Status: juju.StatusError, Info: "not really",
+			{Tag: s.machines[0].Tag().String(), Status: params.StatusError, Info: "not really",
 				Data: map[string]interface{}{"foo": "bar"}},
-			{Tag: s.machines[1].Tag().String(), Status: juju.StatusStopped, Info: "foobar"},
-			{Tag: s.machines[2].Tag().String(), Status: juju.StatusStarted, Info: "again"},
-			{Tag: "machine-42", Status: juju.StatusStarted, Info: "blah"},
-			{Tag: "unit-foo-0", Status: juju.StatusStopped, Info: "foobar"},
-			{Tag: "service-bar", Status: juju.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[1].Tag().String(), Status: params.StatusStopped, Info: "foobar"},
+			{Tag: s.machines[2].Tag().String(), Status: params.StatusStarted, Info: "again"},
+			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "unit-foo-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "service-bar", Status: params.StatusStopped, Info: "foobar"},
 		}}
 	result, err := s.provisioner.SetStatus(args)
 	c.Assert(err, gc.IsNil)
@@ -560,9 +560,9 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: juju.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
-			{Status: juju.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
-			{Status: juju.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
+			{Status: params.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
+			{Status: params.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -749,14 +749,14 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
-				Jobs:     []juju.MachineJob{juju.JobHostUnits},
+				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			}},
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
 				Constraints: template.Constraints,
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
-				Jobs:        []juju.MachineJob{juju.JobHostUnits},
+				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -789,7 +789,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
-				Jobs:     []juju.MachineJob{juju.JobHostUnits},
+				Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},

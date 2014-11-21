@@ -136,6 +136,16 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"version"},
 		code:    0,
 		out:     version.Current.String() + "\n",
+	}, {
+		summary: "check block command registered properly",
+		args:    []string{"block"},
+		code:    0,
+		out:     "error: must specify one of [destroy-environment] to block\n",
+	}, {
+		summary: "check unblock command registered properly",
+		args:    []string{"unblock"},
+		code:    0,
+		out:     "error: must specify one of [destroy-environment] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -171,6 +181,7 @@ var commandNames = []string{
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"backups",
+	"block",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
@@ -210,6 +221,7 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
+	"unblock",
 	"unexpose",
 	"unset",
 	"unset-env", // alias for unset-environment

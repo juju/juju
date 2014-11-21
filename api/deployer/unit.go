@@ -6,7 +6,6 @@ package deployer
 import (
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -14,7 +13,7 @@ import (
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
 	tag  names.UnitTag
-	life juju.Life
+	life params.Life
 	st   *State
 }
 
@@ -29,7 +28,7 @@ func (u *Unit) Name() string {
 }
 
 // Life returns the unit's lifecycle value.
-func (u *Unit) Life() juju.Life {
+func (u *Unit) Life() params.Life {
 	return u.life
 }
 

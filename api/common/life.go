@@ -7,14 +7,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
 
 // Life requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
-func Life(caller base.FacadeCaller, tag names.Tag) (juju.Life, error) {
+func Life(caller base.FacadeCaller, tag names.Tag) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},

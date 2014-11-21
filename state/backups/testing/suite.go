@@ -7,14 +7,14 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 // The base suite for backups testing.
 type BaseSuite struct {
 	testing.IsolationSuite
 	// Meta is a Metadata with standard test values.
-	Meta *metadata.Metadata
+	Meta *backups.Metadata
 	// Storage is a FileStorage to use when testing backups.
 	Storage *FakeStorage
 }

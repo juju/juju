@@ -145,28 +145,28 @@ func (s *uniterV0Suite) TestWatchConfigSettings(c *gc.C) {
 	s.testWatchConfigSettings(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActions(c *gc.C) {
-	s.testWatchActions(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotifications(c *gc.C) {
+	s.testWatchActionNotifications(c, s.uniter)
 }
 
 func (s *uniterV0Suite) TestWatchPreexistingActions(c *gc.C) {
 	s.testWatchPreexistingActions(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsMalformedTag(c *gc.C) {
-	s.testWatchActionsMalformedTag(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
+	s.testWatchActionNotificationsMalformedTag(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsMalformedUnitName(c *gc.C) {
-	s.testWatchActionsMalformedUnitName(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
+	s.testWatchActionNotificationsMalformedUnitName(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsNotUnit(c *gc.C) {
-	s.testWatchActionsNotUnit(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsNotUnit(c *gc.C) {
+	s.testWatchActionNotificationsNotUnit(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsPermissionDenied(c *gc.C) {
-	s.testWatchActionsPermissionDenied(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
+	s.testWatchActionNotificationsPermissionDenied(c, s.uniter)
 }
 
 func (s *uniterV0Suite) TestConfigSettings(c *gc.C) {

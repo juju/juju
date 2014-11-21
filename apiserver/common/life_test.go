@@ -8,7 +8,6 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -55,9 +54,9 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: juju.Alive},
+			{Life: params.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Life: juju.Dead},
+			{Life: params.Dead},
 			{Error: &params.Error{Message: "x3 error"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

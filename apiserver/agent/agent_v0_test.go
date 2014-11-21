@@ -4,13 +4,13 @@ import (
 	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // Definition of reusable V0 tests.
@@ -53,7 +53,7 @@ func (s *baseSuite) testGetEntitiesV0(c *gc.C, api getEntitiesV0) {
 		Entities: []params.AgentGetEntitiesResult{
 			{
 				Life: "alive",
-				Jobs: []juju.MachineJob{juju.JobHostUnits},
+				Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -80,7 +80,7 @@ func (s *baseSuite) testGetEntitiesContainerV0(c *gc.C, api getEntitiesV0) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Life:          "dying",
-				Jobs:          []juju.MachineJob{juju.JobHostUnits},
+				Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				ContainerType: instance.LXC,
 			},
 			{Error: apiservertesting.ErrUnauthorized},

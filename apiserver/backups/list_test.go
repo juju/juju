@@ -14,10 +14,11 @@ import (
 
 func (s *backupsSuite) TestListOkay(c *gc.C) {
 	impl := s.setBackups(c, s.meta, "")
-	impl.archive = ioutil.NopCloser(bytes.NewBufferString("spamspamspam"))
+	impl.Archive = ioutil.NopCloser(bytes.NewBufferString("spamspamspam"))
 	args := params.BackupsListArgs{}
 	result, err := s.api.List(args)
 	c.Assert(err, gc.IsNil)
+
 	item := params.BackupsMetadataResult{}
 	item.UpdateFromMetadata(s.meta)
 	expected := params.BackupsListResult{

@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -101,10 +100,10 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	add(&multiwatcher.MachineInfo{
 		Id:                      "0",
 		InstanceId:              "i-machine-0",
-		Status:                  juju.StatusPending,
-		Life:                    juju.Alive,
+		Status:                  multiwatcher.StatusPending,
+		Life:                    multiwatcher.Alive,
 		Series:                  "quantal",
-		Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
+		Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 	})
@@ -122,7 +121,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		OwnerTag:    s.owner.String(),
-		Life:        juju.Alive,
+		Life:        multiwatcher.Alive,
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
@@ -141,7 +140,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Name:        "logging",
 		CharmURL:    serviceCharmURL(logging).String(),
 		OwnerTag:    s.owner.String(),
-		Life:        juju.Alive,
+		Life:        multiwatcher.Alive,
 		Config:      charm.Settings{},
 		Subordinate: true,
 	})
@@ -173,7 +172,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Series:      m.Series(),
 			MachineId:   m.Id(),
 			Ports:       []network.Port{},
-			Status:      juju.StatusPending,
+			Status:      multiwatcher.StatusPending,
 			Subordinate: false,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
@@ -193,11 +192,11 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		add(&multiwatcher.MachineInfo{
 			Id:                      fmt.Sprint(i + 1),
 			InstanceId:              "i-" + m.Tag().String(),
-			Status:                  juju.StatusError,
+			Status:                  multiwatcher.StatusError,
 			StatusInfo:              m.Tag().String(),
-			Life:                    juju.Alive,
+			Life:                    multiwatcher.Alive,
 			Series:                  "quantal",
-			Jobs:                    []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		})
@@ -227,7 +226,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Service:     "logging",
 			Series:      "quantal",
 			Ports:       []network.Port{},
-			Status:      juju.StatusPending,
+			Status:      multiwatcher.StatusPending,
 			Subordinate: true,
 		})
 	}
@@ -264,7 +263,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 	expectEntities := s.setUpScenario(c)
 	b := newAllWatcherStateBacking(s.State)
-	all := NewStore()
+	all := newStore()
 	err := b.GetAll(all)
 	c.Assert(err, gc.IsNil)
 	var gotEntities entityInfoSlice = all.All()
@@ -318,11 +317,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
-						Life:       juju.Alive,
+						Life:       multiwatcher.Alive,
 						Series:     "quantal",
-						Jobs:       []juju.MachineJob{JobHostUnits.ToParams()},
+						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:  []network.Address{},
 					}}}
 		},
@@ -340,7 +339,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				add: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "another failure",
 					},
 				},
@@ -352,11 +351,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					&multiwatcher.MachineInfo{
 						Id:                       "0",
 						InstanceId:               "i-0",
-						Status:                   juju.StatusError,
+						Status:                   multiwatcher.StatusError,
 						StatusInfo:               "another failure",
-						Life:                     juju.Alive,
+						Life:                     multiwatcher.Alive,
 						Series:                   "trusty",
-						Jobs:                     []juju.MachineJob{JobManageEnviron.ToParams()},
+						Jobs:                     []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
@@ -405,7 +404,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:     "quantal",
 						MachineId:  "0",
 						Ports:      []network.Port{},
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
@@ -423,7 +422,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "unit is updated if it's in backing and in multiwatcher.Store",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "another failure",
 				}},
 				change: watcher.Change{
@@ -437,7 +436,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:     "quantal",
 						MachineId:  "0",
 						Ports:      []network.Port{},
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "another failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
@@ -472,7 +471,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						PrivateAddress: "private",
 						MachineId:      "0",
 						Ports:          []network.Port{},
-						Status:         juju.StatusError,
+						Status:         multiwatcher.StatusError,
 						StatusInfo:     "failure",
 					}}}
 		},
@@ -511,7 +510,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Exposed:  true,
 						CharmURL: "local:quantal/quantal-wordpress-3",
 						OwnerTag: s.owner.String(),
-						Life:     juju.Alive,
+						Life:     multiwatcher.Alive,
 						MinUnits: 42,
 						Config:   charm.Settings{},
 					}}}
@@ -538,7 +537,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Name:        "wordpress",
 						CharmURL:    "local:quantal/quantal-wordpress-3",
 						OwnerTag:    s.owner.String(),
-						Life:        juju.Alive,
+						Life:        multiwatcher.Alive,
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
 					}}}
@@ -564,7 +563,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Name:     "wordpress",
 						CharmURL: "local:quantal/quantal-wordpress-3",
 						OwnerTag: s.owner.String(),
-						Life:     juju.Alive,
+						Life:     multiwatcher.Alive,
 						Config:   charm.Settings{"blog-title": "boring"},
 					}}}
 		},
@@ -612,7 +611,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no annotation in state, no annotation in store -> do nothing",
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
@@ -620,7 +619,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				add:   []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{Tag: "machine-0"}},
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
@@ -632,7 +631,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "annotation is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.AnnotationInfo{
@@ -661,7 +660,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "annotations",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.AnnotationInfo{
@@ -677,24 +676,24 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no unit in state -> do nothing",
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
 				about: "no change if status is not in backing",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
@@ -708,17 +707,17 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "status is changed if the unit exists in the store",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     juju.StatusStarted,
+						Status:     multiwatcher.StatusStarted,
 						StatusData: make(map[string]interface{}),
 					}}}
 		}, func(c *gc.C, st *State) testCase {
@@ -736,16 +735,16 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "status is changed with additional status data",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:   "wordpress/0",
-					Status: juju.StatusStarted,
+					Status: multiwatcher.StatusStarted,
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "u#wordpress/0",
+					Id: st.docID("u#wordpress/0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "hook error",
 						StatusData: map[string]interface{}{
 							"1st-key": "one",
@@ -759,24 +758,24 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no machine in state -> do nothing",
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
 				about: "no change if status is not in backing",
 				add: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
 					Id:         "0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
@@ -789,17 +788,17 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "status is changed if the machine exists in the store",
 				add: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
 					Id:         "0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
 					C:  "statuses",
-					Id: "m#0",
+					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusStarted,
+						Status:     multiwatcher.StatusStarted,
 						StatusData: make(map[string]interface{}),
 					}}}
 		},
@@ -809,7 +808,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no service in state -> do nothing",
 				change: watcher.Change{
 					C:  "constraints",
-					Id: "s#wordpress",
+					Id: st.docID("s#wordpress"),
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			return testCase{
@@ -820,7 +819,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "constraints",
-					Id: "s#wordpress",
+					Id: st.docID("s#wordpress"),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ServiceInfo{
 					Name:        "wordpress",
@@ -839,7 +838,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  "constraints",
-					Id: "s#wordpress",
+					Id: st.docID("s#wordpress"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ServiceInfo{
@@ -957,7 +956,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
-		all := NewStore()
+		all := newStore()
 		for _, info := range test.add {
 			all.Update(info)
 		}
@@ -981,26 +980,26 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(m1.Id(), gc.Equals, "1")
 
 	b := newAllWatcherStateBacking(s.State)
-	aw := NewStoreManager(b)
+	aw := newStoreManager(b)
 	defer aw.Stop()
 	w := NewMultiwatcher(aw)
 	s.State.StartSync()
 	checkNext(c, w, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "0",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "trusty",
-			Jobs:      []juju.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "1",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "saucy",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}}, "")
@@ -1049,10 +1048,10 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      "0",
 			InstanceId:              "i-0",
-			Status:                  juju.StatusPending,
-			Life:                    juju.Alive,
+			Status:                  multiwatcher.StatusPending,
+			Life:                    multiwatcher.Alive,
 			Series:                  "trusty",
-			Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		},
@@ -1060,19 +1059,19 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "1",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "saucy",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "2",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "quantal",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -208,7 +208,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 
-				var jobs []juju.MachineJob
+				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
 					jobs = append(jobs, job.ToParams())
 				}

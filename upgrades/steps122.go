@@ -44,6 +44,39 @@ func stateStepsFor122() []Step {
 			run: func(context Context) error {
 				return state.AddEnvUUIDToNetworkInterfaces(context.State())
 			},
+		}, &upgradeStep{
+			description: "prepend the environment UUID to the ID of all statuses docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToStatuses(context.State())
+			},
+		}, &upgradeStep{
+			description: "prepend the environment UUID to the ID of all annotations docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToAnnotations(context.State())
+			},
+		}, &upgradeStep{
+			description: "prepend the environment UUID to the ID of all constraints docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToConstraints(context.State())
+			},
+		}, &upgradeStep{
+			description: "update system identity in state",
+			targets:     []Target{DatabaseMaster},
+			run:         ensureSystemSSHKeyRedux,
+		},
+	}
+}
+
+// stepsFor122 returns upgrade steps form Juju 1.22 that only need the API.
+func stepsFor122() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "update the authorized keys for the system identity",
+			targets:     []Target{DatabaseMaster},
+			run:         updateAuthorizedKeysForSystemIdentity,
 		},
 	}
 }

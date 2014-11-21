@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/files"
 )
 
 func init() {
@@ -24,7 +23,7 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 // API serves backup-specific API methods.
 type API struct {
 	st    *state.State
-	paths files.Paths
+	paths *backups.Paths
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -32,6 +31,8 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
+
+	// Get the backup paths.
 
 	dataDirRes := resources.Get("dataDir")
 	dataDir, ok := dataDirRes.(common.StringResource)
@@ -46,25 +47,26 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	logDirRes := resources.Get("logDir")
 	logDir, ok := logDirRes.(common.StringResource)
 	if !ok {
-		if logDirRes == nil {
-			logDir = ""
-		} else {
+		if logDirRes != nil {
 			return nil, errors.Errorf("invalid logDir resource: %v", logDirRes)
 		}
+		logDir = ""
 	}
 
-	var paths files.Paths
-	paths.DataDir = dataDir.String()
-	paths.LogsDir = logDir.String()
+	paths := backups.Paths{
+		DataDir: dataDir.String(),
+		LogsDir: logDir.String(),
+	}
 
+	// Build the API.
 	b := API{
 		st:    st,
-		paths: paths,
+		paths: &paths,
 	}
 	return &b, nil
 }
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
-	backups, stor := state.NewBackups(st)
-	return backups, stor
+	stor := backups.NewStorage(st)
+	return backups.NewBackups(stor), stor
 }

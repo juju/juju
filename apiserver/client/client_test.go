@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
@@ -1688,10 +1687,10 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  juju.StatusPending,
-			Life:                    juju.Alive,
+			Status:                  multiwatcher.StatusPending,
+			Life:                    multiwatcher.Alive,
 			Series:                  "quantal",
-			Jobs:                    []juju.MachineJob{state.JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
@@ -1995,7 +1994,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []juju.MachineJob{juju.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -2012,7 +2011,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Series: "quantal",
-			Jobs:   []juju.MachineJob{juju.JobHostUnits},
+			Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -2029,7 +2028,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
-		Jobs:          []juju.MachineJob{juju.JobHostUnits},
+		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		ContainerType: instance.LXC,
 		ParentId:      "0",
 		Series:        "quantal",
@@ -2043,7 +2042,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []juju.MachineJob{juju.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	// The last machine has some constraints.
@@ -2061,7 +2060,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 4)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []juju.MachineJob{juju.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	apiParams[0].Placement = instance.MustParsePlacement("lxc")
@@ -2086,7 +2085,7 @@ func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []juju.MachineJob{juju.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	apiParams[1].ContainerType = instance.LXC
@@ -2100,7 +2099,7 @@ func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachines1dot18SomeErrors(c *gc.C) {
 	apiParams := []params.AddMachineParams{{
-		Jobs:     []juju.MachineJob{juju.JobHostUnits},
+		Jobs:     []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		ParentId: "123",
 	}}
 	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
@@ -2128,7 +2127,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []juju.MachineJob{juju.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		}
 	}
 	// This will cause a machine add to fail due to an unsupported container.
@@ -2152,7 +2151,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs:       []juju.MachineJob{juju.JobHostUnits},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			InstanceId: instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:      "foo",
 			HardwareCharacteristics: hc,
@@ -2198,7 +2197,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	// no longer refers to InjectMachine.
 	args := params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs:       []juju.MachineJob{juju.JobHostUnits},
+			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			InstanceId: "i-foo",
 			Nonce:      "nonce",
 		}},
@@ -2214,7 +2213,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// converting it to a cloudinit.MachineConfig, and disabling
 	// apt_upgrade.
 	apiParams := params.AddMachineParams{
-		Jobs:       []juju.MachineJob{juju.JobHostUnits},
+		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
@@ -2252,7 +2251,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 
 func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:       []juju.MachineJob{juju.JobHostUnits},
+		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
@@ -2640,20 +2639,20 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 
 func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name juju.MachineJob
+		name multiwatcher.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: juju.JobHostUnits,
+		name: multiwatcher.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: juju.JobManageEnviron,
+		name: multiwatcher.JobManageEnviron,
 		want: state.JobManageEnviron,
 	}, {
-		name: juju.JobManageNetworking,
+		name: multiwatcher.JobManageNetworking,
 		want: state.JobManageNetworking,
 	}, {
-		name: juju.JobManageStateDeprecated,
+		name: multiwatcher.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",

@@ -5,22 +5,22 @@ package params_test
 
 import (
 	"encoding/json"
-	"testing"
+	stdtesting "testing"
 
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -42,10 +42,10 @@ var marshalTestCases = []struct {
 			InstanceId:              "Shazam",
 			Status:                  "error",
 			StatusInfo:              "foo",
-			Life:                    juju.Alive,
+			Life:                    multiwatcher.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXC},
-			Jobs:                    []juju.MachineJob{state.JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
@@ -58,7 +58,7 @@ var marshalTestCases = []struct {
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:quantal/name",
-			Life:        juju.Dying,
+			Life:        multiwatcher.Dying,
 			OwnerTag:    "test-owner",
 			MinUnits:    42,
 			Constraints: constraints.MustParse("arch=armhf mem=1024M"),
@@ -252,5 +252,16 @@ func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}
+	}
+}
+
+type importSuite struct{}
+
+var _ = gc.Suite(&importSuite{})
+
+func (*importSuite) TestParamsDoesNotDependOnState(c *gc.C) {
+	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/apiserver/params")
+	for _, i := range imports {
+		c.Assert(i, gc.Not(gc.Equals), "state")
 	}
 }

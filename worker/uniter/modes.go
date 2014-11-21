@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
@@ -116,7 +115,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.operationState().Started {
-		if err = u.unit.SetStatus(juju.StatusInstalled, "", nil); err != nil {
+		if err = u.unit.SetStatus(params.StatusInstalled, "", nil); err != nil {
 			return nil, err
 		}
 	}
@@ -154,7 +153,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(juju.StatusStopped, "", nil); err != nil {
+	if err = u.unit.SetStatus(params.StatusStopped, "", nil); err != nil {
 		return nil, err
 	}
 	w, err := u.unit.Watch()
@@ -209,7 +208,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err := u.fixDeployer(); err != nil {
 		return nil, err
 	}
-	if err = u.unit.SetStatus(juju.StatusStarted, "", nil); err != nil {
+	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
@@ -337,7 +336,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	if err = u.unit.SetStatus(juju.StatusError, statusMessage, statusData); err != nil {
+	if err = u.unit.SetStatus(params.StatusError, statusMessage, statusData); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
@@ -377,7 +376,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
 		// TODO(mue) Add helpful data here too in later CL.
-		if err = u.unit.SetStatus(juju.StatusError, "upgrade failed", nil); err != nil {
+		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()

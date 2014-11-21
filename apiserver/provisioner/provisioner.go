@@ -9,13 +9,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -266,7 +266,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 			r := &result.Results[i]
 			var st state.Status
 			st, r.Info, r.Data, err = machine.Status()
-			r.Status = juju.Status(st)
+			r.Status = params.Status(st)
 
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -302,8 +302,8 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		if err != nil {
 			continue
 		}
-		result.Status = juju.Status(st)
-		if result.Status != juju.StatusError {
+		result.Status = params.Status(st)
+		if result.Status != params.StatusError {
 			continue
 		}
 		// Transient errors are marked as such in the status data.
@@ -311,7 +311,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		result.Id = machine.Id()
-		result.Life = juju.Life(machine.Life().String())
+		result.Life = params.Life(machine.Life().String())
 		results.Results = append(results.Results, result)
 	}
 	return results, nil
@@ -380,7 +380,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var jobs []juju.MachineJob
+	var jobs []multiwatcher.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}

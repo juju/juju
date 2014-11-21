@@ -20,7 +20,6 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -178,7 +177,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	if u.unit.Life() == juju.Dead {
+	if u.unit.Life() == params.Dead {
 		// If we started up already dead, we should not progress further. If we
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental
@@ -486,7 +485,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			if err := rel.Refresh(); err != nil {
 				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
 			}
-			if rel.Life() == juju.Dying {
+			if rel.Life() == params.Dying {
 				if err := r.SetDying(); err != nil {
 					return nil, err
 				} else if r.IsImplicit() {
@@ -504,7 +503,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			}
 			return nil, err
 		}
-		if rel.Life() != juju.Alive {
+		if rel.Life() != params.Alive {
 			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm.

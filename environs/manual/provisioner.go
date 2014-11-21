@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 const manualInstancePrefix = "manual:"
@@ -197,7 +197,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
 		Addrs:                   addrs,
-		Jobs:                    []juju.MachineJob{juju.JobHostUnits},
+		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	}
 	return machineParams, nil
 }

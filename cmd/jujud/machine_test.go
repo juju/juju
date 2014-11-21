@@ -24,7 +24,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	jj "github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
@@ -33,6 +32,7 @@ import (
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/params"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
@@ -53,6 +54,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/networker"
@@ -739,7 +741,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, jj.Alive)
+		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
 }
 
@@ -1035,6 +1037,53 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	started := make(chan struct{})
+	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newDiskManager, newWorker)
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for diskmanager worker to start")
+	}
+}
+
+func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
+		return expected, nil
+	})
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Wait for state to be updated.
+	s.BackingState.StartSync()
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		devices, err := m.BlockDevices()
+		c.Assert(err, gc.IsNil)
+		if len(devices) > 0 {
+			c.Assert(devices, gc.DeepEquals, expected)
+			return
+		}
+	}
+	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {

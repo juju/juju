@@ -6,7 +6,7 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
 
@@ -60,7 +60,7 @@ type BackupsMetadataResult struct {
 
 // UpdateFromMetadata updates the result with the information in the
 // metadata value.
-func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
+func (r *BackupsMetadataResult) UpdateFromMetadata(meta *backups.Metadata) {
 	r.ID = meta.ID()
 
 	r.Checksum = meta.Checksum()

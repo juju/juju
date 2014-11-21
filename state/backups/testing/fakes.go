@@ -11,9 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 // FakeBackups is an implementation of Backups to use for testing.
@@ -22,9 +19,9 @@ type FakeBackups struct {
 	Calls []string
 
 	// Meta holds the Metadata to return.
-	Meta *metadata.Metadata
+	Meta *backups.Metadata
 	// MetaList holds the Metadata list to return.
-	MetaList []metadata.Metadata
+	MetaList []*backups.Metadata
 	// Archive holds the archive file to return.
 	Archive io.ReadCloser
 	// Error holds the Metadata to return.
@@ -33,39 +30,40 @@ type FakeBackups struct {
 	// IDArg holds the ID that was passed in.
 	IDArg string
 	// PathsArg holds the Paths that was passed in.
-	PathsArg *files.Paths
+	PathsArg *backups.Paths
 	// DBInfoArg holds the ConnInfo that was passed in.
-	DBInfoArg *db.Info
-	// OriginArg holds the Origin that was passed in.
-	OriginArg *metadata.Origin
-	// NotesArg holds the notes string that was passed in.
-	NotesArg string
+	DBInfoArg *backups.DBInfo
+	// MetaArg holds the backup metadata that was passed in.
+	MetaArg *backups.Metadata
 }
 
 var _ backups.Backups = (*FakeBackups)(nil)
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *FakeBackups) Create(paths files.Paths, dbInfo db.Info, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
+func (b *FakeBackups) Create(meta *backups.Metadata, paths *backups.Paths, dbInfo *backups.DBInfo) error {
 	b.Calls = append(b.Calls, "Create")
 
-	b.PathsArg = &paths
-	b.DBInfoArg = &dbInfo
-	b.OriginArg = &origin
-	b.NotesArg = notes
+	b.PathsArg = paths
+	b.DBInfoArg = dbInfo
+	b.MetaArg = meta
 
-	return b.Meta, b.Error
+	if b.Meta != nil {
+		*meta = *b.Meta
+	}
+
+	return b.Error
 }
 
 // Get returns the metadata and archive file associated with the ID.
-func (b *FakeBackups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
+func (b *FakeBackups) Get(id string) (*backups.Metadata, io.ReadCloser, error) {
 	b.Calls = append(b.Calls, "Get")
 	b.IDArg = id
 	return b.Meta, b.Archive, b.Error
 }
 
 // List returns the metadata for all stored backups.
-func (b *FakeBackups) List() ([]metadata.Metadata, error) {
+func (b *FakeBackups) List() ([]*backups.Metadata, error) {
 	b.Calls = append(b.Calls, "List")
 	return b.MetaList, b.Error
 }
