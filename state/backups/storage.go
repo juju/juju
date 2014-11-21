@@ -236,12 +236,31 @@ func (b *storageDBWrapper) removeMetadataID(id string) error {
 }
 
 // txnOp returns a single transaction operation populated with the id
-// and the metadata collection name.
-func (b *storageDBWrapper) txnOp(id string) txn.Op {
+// and the metadata collection name. The caller should set other op
+// values as needed.
+func (b *storageDBWrapper) txnOpBase(id string) txn.Op {
 	op := txn.Op{
 		C:  b.metaColl.Name,
 		Id: id,
 	}
+	return op
+}
+
+// txnOpInsert returns a single transaction operation that will insert
+// the document into storage.
+func (b *storageDBWrapper) txnOpInsert(id string, doc interface{}) txn.Op {
+	op := b.txnOpBase(id)
+	op.Assert = txn.DocMissing
+	op.Insert = doc
+	return op
+}
+
+// txnOpInsert returns a single transaction operation that will update
+// the already stored document.
+func (b *storageDBWrapper) txnOpUpdate(id string, updates ...bson.DocElem) txn.Op {
+	op := b.txnOpBase(id)
+	op.Assert = txn.DocExists
+	op.Update = bson.D{{"$set", bson.D(updates)}}
 	return op
 }
 
@@ -324,9 +343,7 @@ func addStorageMetadata(dbWrap *storageDBWrapper, doc *storageMetaDoc) (string, 
 		return "", errors.Trace(err)
 	}
 
-	op := dbWrap.txnOp(id)
-	op.Assert = txn.DocMissing
-	op.Insert = doc
+	op := dbWrap.txnOpInsert(id, doc)
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
@@ -343,11 +360,7 @@ func addStorageMetadata(dbWrap *storageDBWrapper, doc *storageMetaDoc) (string, 
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
 func setStorageStoredTime(dbWrap *storageDBWrapper, id string, stored time.Time) error {
-	op := dbWrap.txnOp(id)
-	op.Assert = txn.DocExists
-	op.Update = bson.D{{"$set", bson.D{
-		{"stored", metadocTimeToUnix(stored)},
-	}}}
+	op := dbWrap.txnOpUpdate(id, bson.DocElem{"stored", metadocTimeToUnix(stored)})
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
