@@ -47,11 +47,6 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	for i, action := range arg.Actions {
 		current := &response.Results[i]
 
-		if action.Receiver == nil {
-			current.Error = common.ServerError(common.ErrBadId)
-			continue
-		}
-
 		receiver, err := tagToActionReceiver(a.state, action.Receiver)
 		if err != nil {
 			current.Error = common.ServerError(err)
@@ -64,8 +59,8 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			continue
 		}
 		current.Action = &params.Action{
-			Receiver:   receiver.Tag(),
-			Tag:        queued.ActionTag(),
+			Receiver:   receiver.Tag().String(),
+			Tag:        queued.ActionTag().String(),
 			Name:       queued.Name(),
 			Parameters: queued.Parameters(),
 		}
@@ -74,39 +69,49 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	return response, nil
 }
 
-// ListAll takes a list of Tags representing ActionReceivers and returns
+// ListAll takes a list of Entities representing ActionReceivers and returns
 // all of the Actions that have been queued or run by each of those
 // Entities.
-func (a *ActionAPI) ListAll(arg params.Tags) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, combine(actionReceiverToActions, actionReceiverToActionResults))
 }
 
-// ListPending takes a list of Tags representing ActionReceivers
+// ListPending takes a list of Entities representing ActionReceivers
 // and returns all of the Actions that are queued for each of those
 // Entities.
-func (a *ActionAPI) ListPending(arg params.Tags) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) ListPending(arg params.Entities) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, actionReceiverToActions)
 }
 
-// ListCompleted takes a list of Tags representing ActionReceivers
+// ListCompleted takes a list of Entities representing ActionReceivers
 // and returns all of the Actions that have been run on each of those
 // Entities.
-func (a *ActionAPI) ListCompleted(arg params.Tags) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, actionReceiverToActionResults)
 }
 
 // Cancel attempts to cancel queued up Actions from running.
-func (a *ActionAPI) Cancel(arg params.ActionTags) (params.ActionResults, error) {
-	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
-	for i, tag := range arg.Actions {
+func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
+	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
+	for i, entity := range arg.Entities {
 		current := &response.Results[i]
-		receiver, err := tagToActionReceiver(a.state, tag.PrefixTag())
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			current.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+		atag, ok := tag.(names.ActionTag)
+		if !ok {
+			current.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+		receiver, err := tagToActionReceiver(a.state, atag.PrefixTag().String())
 		if err != nil {
 			current.Error = common.ServerError(err)
 			continue
 		}
 
-		action, err := a.state.ActionByTag(tag)
+		action, err := a.state.ActionByTag(atag)
 		if err != nil {
 			current.Error = common.ServerError(err)
 			continue
@@ -119,8 +124,8 @@ func (a *ActionAPI) Cancel(arg params.ActionTags) (params.ActionResults, error) 
 		}
 
 		current.Action = &params.Action{
-			Tag:        tag,
-			Receiver:   receiver.Tag(),
+			Tag:        atag.String(),
+			Receiver:   receiver.Tag().String(),
 			Name:       result.Name(),
 			Parameters: result.Parameters(),
 		}
@@ -133,10 +138,17 @@ func (a *ActionAPI) Cancel(arg params.ActionTags) (params.ActionResults, error) 
 }
 
 // ServicesCharmActions returns a slice of charm Actions for a slice of services.
-func (a *ActionAPI) ServicesCharmActions(args params.ServiceTags) (params.ServicesCharmActionsResults, error) {
+func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesCharmActionsResults, error) {
 	result := params.ServicesCharmActionsResults{}
-	for _, svcTag := range args.ServiceTags {
-		newResult := params.ServiceCharmActionsResult{ServiceTag: svcTag}
+	for _, entity := range args.Entities {
+		newResult := params.ServiceCharmActionsResult{}
+		svcTag, err := names.ParseServiceTag(entity.Tag)
+		if err != nil {
+			newResult.Error = common.ServerError(common.ErrBadId)
+			result.Results = append(result.Results, newResult)
+			continue
+		}
+		newResult.ServiceTag = svcTag.String()
 		svc, err := a.state.Service(svcTag.Id())
 		if err != nil {
 			newResult.Error = common.ServerError(err)
@@ -156,19 +168,19 @@ func (a *ActionAPI) ServicesCharmActions(args params.ServiceTags) (params.Servic
 	return result, nil
 }
 
-// internalList takes a list of Tags representing ActionReceivers and
+// internalList takes a list of Entities representing ActionReceivers and
 // returns all of the Actions the extractorFn can get out of the
 // ActionReceiver.
-func (a *ActionAPI) internalList(arg params.Tags, fn extractorFn) (params.ActionsByReceivers, error) {
-	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Tags))}
-	for i, tag := range arg.Tags {
+func (a *ActionAPI) internalList(arg params.Entities, fn extractorFn) (params.ActionsByReceivers, error) {
+	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Entities))}
+	for i, entity := range arg.Entities {
 		current := &response.Actions[i]
-		receiver, err := tagToActionReceiver(a.state, tag)
+		receiver, err := tagToActionReceiver(a.state, entity.Tag)
 		if err != nil {
 			current.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		current.Receiver = receiver.Tag()
+		current.Receiver = receiver.Tag().String()
 
 		results, err := fn(receiver)
 		if err != nil {
@@ -180,10 +192,14 @@ func (a *ActionAPI) internalList(arg params.Tags, fn extractorFn) (params.Action
 	return response, nil
 }
 
-// tagToActionReceiver takes a names.Tag and tries to convert it to an
+// tagToActionReceiver takes a tag string and tries to convert it to an
 // ActionReceiver.
-func tagToActionReceiver(st *state.State, tag names.Tag) (state.ActionReceiver, error) {
-	entity, err := st.FindEntity(tag)
+func tagToActionReceiver(st *state.State, tag string) (state.ActionReceiver, error) {
+	receiverTag, err := names.ParseTag(tag)
+	if err != nil {
+		return nil, common.ErrBadId
+	}
+	entity, err := st.FindEntity(receiverTag)
 	if err != nil {
 		return nil, common.ErrBadId
 	}
@@ -229,8 +245,8 @@ func actionReceiverToActions(ar state.ActionReceiver) ([]params.ActionResult, er
 		}
 		items = append(items, params.ActionResult{
 			Action: &params.Action{
-				Receiver:   ar.Tag(),
-				Tag:        action.ActionTag(),
+				Receiver:   ar.Tag().String(),
+				Tag:        action.ActionTag().String(),
 				Name:       action.Name(),
 				Parameters: action.Parameters(),
 			},
@@ -256,8 +272,8 @@ func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.ActionResu
 		output, message := action.Results()
 		items = append(items, params.ActionResult{
 			Action: &params.Action{
-				Receiver:   ar.Tag(),
-				Tag:        action.ActionTag(),
+				Receiver:   ar.Tag().String(),
+				Tag:        action.ActionTag().String(),
 				Name:       action.Name(),
 				Parameters: action.Parameters(),
 			},

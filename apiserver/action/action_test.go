@@ -121,11 +121,11 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 			// No receiver.
 			{Name: "foo"},
 			// Good.
-			{Receiver: s.wordpressUnit.Tag(), Name: expectedName, Parameters: expectedParameters},
+			{Receiver: s.wordpressUnit.Tag().String(), Name: expectedName, Parameters: expectedParameters},
 			// Service tag instead of Unit tag.
-			{Receiver: s.wordpress.Tag(), Name: "baz"},
+			{Receiver: s.wordpress.Tag().String(), Name: "baz"},
 			// TODO(jcw4) notice no Name. Shouldn't Action Names be required?
-			{Receiver: s.mysqlUnit.Tag(), Parameters: expectedParameters},
+			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},
 		},
 	}
 	res, err := s.action.Enqueue(arg)
@@ -139,7 +139,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 
 	c.Assert(res.Results[1].Error, gc.IsNil)
 	c.Assert(res.Results[1].Action, gc.NotNil)
-	c.Assert(res.Results[1].Action.Receiver, gc.Equals, s.wordpressUnit.Tag())
+	c.Assert(res.Results[1].Action.Receiver, gc.Equals, s.wordpressUnit.Tag().String())
 	c.Assert(res.Results[1].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
 
 	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
@@ -148,7 +148,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	// TODO(jcw4) shouldn't Action Names be required?
 	c.Assert(res.Results[3].Error, gc.IsNil)
 	c.Assert(res.Results[3].Action, gc.NotNil)
-	c.Assert(res.Results[3].Action.Receiver, gc.Equals, s.mysqlUnit.Tag())
+	c.Assert(res.Results[3].Action.Receiver, gc.Equals, s.mysqlUnit.Tag().String())
 	c.Assert(res.Results[3].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
 
 	// Make sure an Action was enqueued for the wordpress Unit.
@@ -211,12 +211,12 @@ var listTestCases = []testCase{{
 func (s *actionSuite) TestListAll(c *gc.C) {
 	for _, testCase := range listTestCases {
 		// set up query args
-		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
+		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
 
 		// prepare state, and set up expectations.
 		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
 		for i, group := range testCase.Groups {
-			arg.Tags[i] = group.Receiver
+			arg.Entities[i] = params.Entity{Tag: group.Receiver.String()}
 
 			cur := &expected.Actions[i]
 			cur.Error = group.ExpectedError
@@ -226,7 +226,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 				continue
 			}
 
-			cur.Receiver = group.Receiver
+			cur.Receiver = group.Receiver.String()
 			cur.Actions = make([]params.ActionResult, len(group.Actions))
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
@@ -252,7 +252,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 				// make expectation
 				exp := &cur.Actions[j]
 				exp.Action = &params.Action{
-					Tag:        added.ActionTag(),
+					Tag:        added.ActionTag().String(),
 					Name:       action.Name,
 					Parameters: action.Parameters,
 				}
@@ -263,7 +263,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					fa, err := added.Finish(state.ActionResults{status, output, message})
+					fa, err := added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
 					c.Assert(err, gc.IsNil)
 					c.Assert(fa.Status(), gc.Equals, state.ActionCompleted)
 
@@ -284,12 +284,12 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 func (s *actionSuite) TestListPending(c *gc.C) {
 	for _, testCase := range listTestCases {
 		// set up query args
-		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
+		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
 
 		// prepare state, and set up expectations.
 		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
 		for i, group := range testCase.Groups {
-			arg.Tags[i] = group.Receiver
+			arg.Entities[i] = params.Entity{Tag: group.Receiver.String()}
 
 			cur := &expected.Actions[i]
 			cur.Error = group.ExpectedError
@@ -299,7 +299,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 				continue
 			}
 
-			cur.Receiver = group.Receiver
+			cur.Receiver = group.Receiver.String()
 			cur.Actions = []params.ActionResult{}
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
@@ -327,14 +327,14 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					fa, err := added.Finish(state.ActionResults{status, output, message})
+					fa, err := added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
 					c.Assert(err, gc.IsNil)
 					c.Assert(fa.Status(), gc.Equals, state.ActionCompleted)
 				} else {
 					// add expectation
 					exp := params.ActionResult{
 						Action: &params.Action{
-							Tag:        added.ActionTag(),
+							Tag:        added.ActionTag().String(),
 							Name:       action.Name,
 							Parameters: action.Parameters,
 						},
@@ -355,12 +355,12 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 func (s *actionSuite) TestListCompleted(c *gc.C) {
 	for _, testCase := range listTestCases {
 		// set up query args
-		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
+		arg := params.Entities{Entities: make([]params.Entity, len(testCase.Groups))}
 
 		// prepare state, and set up expectations.
 		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
 		for i, group := range testCase.Groups {
-			arg.Tags[i] = group.Receiver
+			arg.Entities[i] = params.Entity{Tag: group.Receiver.String()}
 
 			cur := &expected.Actions[i]
 			cur.Error = group.ExpectedError
@@ -370,7 +370,7 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 				continue
 			}
 
-			cur.Receiver = group.Receiver
+			cur.Receiver = group.Receiver.String()
 			cur.Actions = []params.ActionResult{}
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
@@ -398,13 +398,13 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					_, err = added.Finish(state.ActionResults{status, output, message})
+					_, err = added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
 					c.Assert(err, gc.IsNil)
 
 					// add expectation
 					exp := params.ActionResult{
 						Action: &params.Action{
-							Tag:        added.ActionTag(),
+							Tag:        added.ActionTag().String(),
 							Name:       action.Name,
 							Parameters: action.Parameters,
 						},
@@ -438,16 +438,16 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	// Add Actions.
 	tests := params.Actions{
 		Actions: []params.Action{{
-			Receiver: s.wordpressUnit.Tag(),
+			Receiver: s.wordpressUnit.Tag().String(),
 			Name:     "wp-one",
 		}, {
-			Receiver: s.wordpressUnit.Tag(),
+			Receiver: s.wordpressUnit.Tag().String(),
 			Name:     "wp-two",
 		}, {
-			Receiver: s.mysqlUnit.Tag(),
+			Receiver: s.mysqlUnit.Tag().String(),
 			Name:     "my-one",
 		}, {
-			Receiver: s.mysqlUnit.Tag(),
+			Receiver: s.mysqlUnit.Tag().String(),
 			Name:     "my-two",
 		}},
 	}
@@ -460,19 +460,19 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	}
 
 	// Cancel Some.
-	arg := params.ActionTags{
-		Actions: []names.ActionTag{
+	arg := params.Entities{
+		Entities: []params.Entity{
 			// "wp-two"
-			results.Results[1].Action.Tag,
+			{Tag: results.Results[1].Action.Tag},
 			// "my-one"
-			results.Results[2].Action.Tag,
+			{Tag: results.Results[2].Action.Tag},
 		}}
 	results, err = s.action.Cancel(arg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 
 	// Assert the Actions are all in the expected state.
-	tags := params.Tags{Tags: []names.Tag{s.wordpressUnit.Tag(), s.mysqlUnit.Tag()}}
+	tags := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}, {Tag: s.mysqlUnit.Tag().String()}}}
 	obtained, err := s.action.ListAll(tags)
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained.Actions, gc.HasLen, 2)
@@ -513,9 +513,9 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	}{{
 		serviceNames: []string{"dummy"},
 		expectedResults: params.ServicesCharmActionsResults{
-			[]params.ServiceCharmActionsResult{
+			Results: []params.ServiceCharmActionsResult{
 				params.ServiceCharmActionsResult{
-					ServiceTag: names.NewServiceTag("dummy"),
+					ServiceTag: names.NewServiceTag("dummy").String(),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
 							"snapshot": charm.ActionSpec{
@@ -530,9 +530,9 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	}, {
 		serviceNames: []string{"wordpress"},
 		expectedResults: params.ServicesCharmActionsResults{
-			[]params.ServiceCharmActionsResult{
+			Results: []params.ServiceCharmActionsResult{
 				params.ServiceCharmActionsResult{
-					ServiceTag: names.NewServiceTag("wordpress"),
+					ServiceTag: names.NewServiceTag("wordpress").String(),
 					Actions:    &charm.Actions{},
 				},
 			},
@@ -540,9 +540,9 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	}, {
 		serviceNames: []string{"nonsense"},
 		expectedResults: params.ServicesCharmActionsResults{
-			[]params.ServiceCharmActionsResult{
+			Results: []params.ServiceCharmActionsResult{
 				params.ServiceCharmActionsResult{
-					ServiceTag: names.NewServiceTag("nonsense"),
+					ServiceTag: names.NewServiceTag("nonsense").String(),
 					Error: &params.Error{
 						Message: `service "nonsense" not found`,
 						Code:    "not found",
@@ -555,13 +555,13 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: services: %#v", i, t.serviceNames)
 
-		svcTags := params.ServiceTags{
-			ServiceTags: make([]names.ServiceTag, len(t.serviceNames)),
+		svcTags := params.Entities{
+			Entities: make([]params.Entity, len(t.serviceNames)),
 		}
 
 		for j, svc := range t.serviceNames {
 			svcTag := names.NewServiceTag(svc)
-			svcTags.ServiceTags[j] = svcTag
+			svcTags.Entities[j] = params.Entity{Tag: svcTag.String()}
 		}
 
 		results, err := s.action.ServicesCharmActions(svcTags)

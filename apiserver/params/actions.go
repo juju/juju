@@ -4,7 +4,7 @@
 package params
 
 import (
-	"github.com/juju/names"
+	// TODO(jcw4) per fwereade 2014-11-21 remove this dependency
 	"gopkg.in/juju/charm.v4"
 )
 
@@ -28,20 +28,20 @@ const (
 
 // Actions is a slice of Action for bulk requests.
 type Actions struct {
-	Actions []Action `json"actions,omitempty"`
+	Actions []Action `json:"actions,omitempty"`
 }
 
 // Action describes an Action that will be or has been queued up.
 type Action struct {
-	Tag        names.ActionTag        `json:"tag"`
-	Receiver   names.Tag              `json:"receiver"`
+	Tag        string                 `json:"tag"`
+	Receiver   string                 `json:"receiver"`
 	Name       string                 `json:"name"`
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
 
 // ActionResults is a slice of ActionResult for bulk requests.
 type ActionResults struct {
-	Results []ActionResult `json"results,omitempty"`
+	Results []ActionResult `json:"results,omitempty"`
 }
 
 // ActionResult describes an ActionResult that will be or has been queued up.
@@ -53,11 +53,6 @@ type ActionResult struct {
 	Error   *Error                 `json:"error,omitempty"`
 }
 
-// Tags wrap a slice of names.Tag for API calls.
-type Tags struct {
-	Tags []names.Tag `json:"tags"`
-}
-
 // ActionsByReceivers wrap a slice of Actions for API calls.
 type ActionsByReceivers struct {
 	Actions []ActionsByReceiver `json:"actions,omitempty"`
@@ -66,14 +61,9 @@ type ActionsByReceivers struct {
 // ActionsByReceiver is a bulk API call wrapper containing Actions,
 // either as input paramters or as results.
 type ActionsByReceiver struct {
-	Receiver names.Tag      `json:"receiver,omitempty"`
+	Receiver string         `json:"receiver,omitempty"`
 	Actions  []ActionResult `json:"actions,omitempty"`
 	Error    *Error         `json:"error,omitempty"`
-}
-
-// ActionTags are an array of ActionTag for bulk API calls
-type ActionTags struct {
-	Actions []names.ActionTag `json:"actions,omitempty"`
 }
 
 // ActionsQueryResults holds a slice of responses from the Actions
@@ -84,7 +74,7 @@ type ActionsQueryResults struct {
 
 // ActionsQueryResult holds the name and parameters of an query result.
 type ActionsQueryResult struct {
-	Receiver names.Tag    `json:"receiver,omitempty"`
+	Receiver string       `json:"receiver,omitempty"`
 	Action   ActionResult `json:"action,omitempty"`
 	Error    *Error       `json:"error,omitempty"`
 }
@@ -98,7 +88,7 @@ type ActionExecutionResults struct {
 // ActionExecutionResult holds the action tag and output used when
 // recording the result of an action.
 type ActionExecutionResult struct {
-	ActionTag names.ActionTag        `json:"actiontag"`
+	ActionTag string                 `json:"actiontag"`
 	Status    string                 `json:"status"`
 	Results   map[string]interface{} `json:"results,omitempty"`
 	Message   string                 `json:"message,omitempty"`
@@ -114,7 +104,7 @@ type ServicesCharmActionsResults struct {
 // If an error such as a missing charm or malformed service name occurs, it
 // is encapsulated in this type.
 type ServiceCharmActionsResult struct {
-	ServiceTag names.ServiceTag `json:"servicetag,omitempty"`
-	Actions    *charm.Actions   `json:"actions,omitempty"`
-	Error      *Error           `json:"error,omitempty"`
+	ServiceTag string         `json:"servicetag,omitempty"`
+	Actions    *charm.Actions `json:"actions,omitempty"`
+	Error      *Error         `json:"error,omitempty"`
 }
