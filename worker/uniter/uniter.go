@@ -172,6 +172,21 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	return err
 }
 
+func (u *Uniter) setupLocks() (err error) {
+	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
+		// Look to see if it was us that held the lock before.  If it was, we
+		// should be safe enough to break it, as it is likely that we died
+		// before unlocking, and have been restarted by upstart.
+		parts := strings.SplitN(message, ":", 2)
+		if len(parts) > 1 && parts[0] == u.unit.Name() {
+			if err := u.hookLock.BreakLock(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -262,21 +277,6 @@ func (u *Uniter) Stop() error {
 
 func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
-}
-
-func (u *Uniter) setupLocks() (err error) {
-	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
-		// Look to see if it was us that held the lock before.  If it was, we
-		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by upstart.
-		parts := strings.SplitN(message, ":", 2)
-		if len(parts) > 1 && parts[0] == u.unit.Name() {
-			if err := u.hookLock.BreakLock(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
