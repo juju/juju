@@ -14,6 +14,7 @@ import (
 var unitgetKeys = []string{
 	"private-address",
 	"public-address",
+	"zone",
 }
 
 // UnitGetCommand implements the unit-get command.
@@ -32,7 +33,7 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unit-get",
 		Args:    "<setting>",
-		Purpose: "print public-address or private-address",
+		Purpose: "print zone, public-address, or private-address",
 	}
 }
 
@@ -61,6 +62,9 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 		value, ok = c.ctx.PrivateAddress()
 	case "public-address":
 		value, ok = c.ctx.PublicAddress()
+	case "zone":
+		value = "<some zone>"
+		ok = true
 	}
 	if !ok {
 		return fmt.Errorf("%s not set", c.Key)
