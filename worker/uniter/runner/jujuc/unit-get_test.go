@@ -46,9 +46,9 @@ func (s *UnitGetSuite) TestOutputFormat(c *gc.C) {
 		com := s.createCommand(c)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Matches, t.out)
+		c.Check(code, gc.Equals, 0)
+		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Check(bufferString(ctx.Stdout), gc.Matches, t.out)
 	}
 }
 

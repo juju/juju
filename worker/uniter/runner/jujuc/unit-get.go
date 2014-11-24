@@ -11,6 +11,11 @@ import (
 	"launchpad.net/gnuflag"
 )
 
+var unitgetKeys = []string{
+	"private-address",
+	"public-address",
+}
+
 // UnitGetCommand implements the unit-get command.
 type UnitGetCommand struct {
 	cmd.CommandBase
@@ -39,22 +44,27 @@ func (c *UnitGetCommand) Init(args []string) error {
 	if args == nil {
 		return errors.New("no setting specified")
 	}
-	if args[0] != "private-address" && args[0] != "public-address" {
-		return fmt.Errorf("unknown setting %q", args[0])
+	for _, key := range unitgetKeys {
+		if args[0] == key {
+			c.Key = key
+			return cmd.CheckEmpty(args[1:])
+		}
 	}
-	c.Key = args[0]
-	return cmd.CheckEmpty(args[1:])
+	return fmt.Errorf("unknown setting %q", args[0])
 }
 
 func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 	value, ok := "", false
-	if c.Key == "private-address" {
+
+	switch c.Key {
+	case "private-address":
 		value, ok = c.ctx.PrivateAddress()
-	} else {
+	case "public-address":
 		value, ok = c.ctx.PublicAddress()
 	}
 	if !ok {
 		return fmt.Errorf("%s not set", c.Key)
 	}
+
 	return c.out.Write(ctx, value)
 }
