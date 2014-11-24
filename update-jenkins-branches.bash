@@ -67,6 +67,10 @@ if [[ -z $SLAVES ]]; then
     echo "Set JUJU_HOME to juju-qa's environments and switch to juju-ci."
     exit 1
 fi
+if [[ ! $SLAVES =~ ^.*10\.125\.0\.10.*$ ]]; then
+    echo "The kvm-slave lost its machine and unit agents."
+    SLAVES="$SLAVES 10.125.0.10"
+fi
 
 SKIPPED=""
 for host in $MASTER $SLAVES; do
