@@ -1234,7 +1234,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 
 	actionResults := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{{
-			ActionTag: action.ActionTag(),
+			ActionTag: action.ActionTag().String(),
 			Status:    params.ActionCompleted,
 			Results:   testOutput,
 		}},
@@ -1266,7 +1266,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 
 	actionResults := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{{
-			ActionTag: action.ActionTag(),
+			ActionTag: action.ActionTag().String(),
 			Status:    params.ActionFailed,
 			Results:   nil,
 			Message:   testError,
@@ -1305,7 +1305,7 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	actionResults := params.ActionExecutionResults{Results: make([]params.ActionExecutionResult, len(tests))}
 	for i, test := range tests {
 		actionResults.Results[i] = params.ActionExecutionResult{
-			ActionTag: test.actionTag,
+			ActionTag: test.actionTag.String(),
 			Status:    params.ActionCompleted,
 			Results:   map[string]interface{}{},
 		}
