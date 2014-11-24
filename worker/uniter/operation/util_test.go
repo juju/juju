@@ -7,10 +7,93 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 )
+
+type MockGetArchiveInfo struct {
+	gotCharmURL *corecharm.URL
+	info        charm.BundleInfo
+	err         error
+}
+
+func (mock *MockGetArchiveInfo) Call(charmURL *corecharm.URL) (charm.BundleInfo, error) {
+	mock.gotCharmURL = charmURL
+	return mock.info, mock.err
+}
+
+type MockSetCurrentCharm struct {
+	gotCharmURL *corecharm.URL
+	err         error
+}
+
+func (mock *MockSetCurrentCharm) Call(charmURL *corecharm.URL) error {
+	mock.gotCharmURL = charmURL
+	return mock.err
+}
+
+type DeployCallbacks struct {
+	operation.Callbacks
+	*MockGetArchiveInfo
+	*MockSetCurrentCharm
+}
+
+func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
+	return cb.MockGetArchiveInfo.Call(charmURL)
+}
+
+func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
+	return cb.MockSetCurrentCharm.Call(charmURL)
+}
+
+func NewPrepareDeploySuccessCallbacks() *DeployCallbacks {
+	return &DeployCallbacks{
+		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockSetCurrentCharm: &MockSetCurrentCharm{},
+	}
+}
+
+type MockBundleInfo struct {
+	charm.BundleInfo
+}
+
+type MockStage struct {
+	gotInfo  *charm.BundleInfo
+	gotAbort *<-chan struct{}
+	err      error
+}
+
+func (mock *MockStage) Call(info charm.BundleInfo, abort <-chan struct{}) error {
+	mock.gotInfo = &info
+	mock.gotAbort = &abort
+	return mock.err
+}
+
+type MockDeploy struct {
+	called bool
+	err    error
+}
+
+func (mock *MockDeploy) Call() error {
+	mock.called = true
+	return mock.err
+}
+
+type MockDeployer struct {
+	charm.Deployer
+	*MockStage
+	*MockDeploy
+}
+
+func (d *MockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error {
+	return d.MockStage.Call(info, abort)
+}
+
+func (d *MockDeployer) Deploy() error {
+	return d.MockDeploy.Call()
+}
 
 type MockPrepareHook struct {
 	gotHook *hook.Info
@@ -161,11 +244,14 @@ func NewPrepareHookSuccessFixture() (*PrepareHookCallbacks, *MockHookContextFact
 		}
 }
 
+var curl = corecharm.MustParseURL
 var dumbActionId = "foo_a_1"
 var overwriteState = operation.State{
+	Kind:               operation.Continue,
+	Step:               operation.Pending,
 	Started:            true,
 	CollectMetricsTime: 1234567,
-	CharmURL:           corecharm.MustParseURL("cs:quantal/wordpress-2"),
+	CharmURL:           curl("cs:quantal/wordpress-2"),
 	ActionId:           &dumbActionId,
 	Hook:               &hook.Info{Kind: hooks.Install},
 }
