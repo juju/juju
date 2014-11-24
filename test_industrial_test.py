@@ -138,7 +138,8 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.attempt_count, 7)
         self.assertEqual(mit.max_attempts, 14)
         self.assertEqual(
-            mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
+            mit.stages, [BootstrapAttempt, DeployManyAttempt,
+                         DestroyEnvironmentAttempt])
         args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
                          quick=False, new_agent_url=None)
         mit = MultiIndustrialTest.from_args(args)
