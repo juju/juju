@@ -1225,6 +1225,58 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	return svc, nil
 }
 
+// AddSubnet creates a new subnet
+func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
+	// Sanity checks.
+	if exists, err := isNotDead(st.db, subnetsC, args.CIDR); err != nil {
+		return nil, errors.Trace(err)
+	} else if exists {
+		return nil, errors.Errorf("subnet already exists")
+	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, errors.Trace(err)
+	} else if env.Life() != Alive {
+		return nil, errors.Errorf("environment is no longer alive")
+	}
+	subnetID := st.docID(args.CIDR)
+	subDoc := subnetDoc{
+		DocID:             subnetID,
+		EnvUUID:           env.UUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        string(args.ProviderId),
+		AllocatableIPHigh: args.AllocatableIPHigh,
+		AllocatableIPLow:  args.AllocatableIPLow,
+		AvailabilityZone:  args.AvailabilityZone,
+	}
+	subnet = &Subnet{doc: subDoc, st: st}
+	ops := []txn.Op{
+		env.assertAliveOp(),
+		createConstraintsOp(st, subnet.globalKey(), constraints.Value{}),
+		{
+			C:      subnetsC,
+			Id:     subnetID,
+			Assert: txn.DocMissing,
+			Insert: subDoc,
+		}}
+
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
+		err := env.Refresh()
+		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
+			return nil, errors.Errorf("environment is no longer alive")
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.Errorf("subnet already exists")
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return subnet, nil
+}
+
 // AddNetwork creates a new network with the given params. If a
 // network with the same name or provider id already exists in state,
 // an error satisfying errors.IsAlreadyExists is returned.

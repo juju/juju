@@ -7,10 +7,31 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 )
+
+// SubnetInfo describes a single network.
+type SubnetInfo struct {
+	// ProviderId is a provider-specific network id.
+	ProviderId network.Id
+
+	// CIDR of the network, in 123.45.67.89/24 format.
+	CIDR string
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for normal
+	// networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int
+
+	// AllocatableIPHigh and Low describe the allocatable portion of the
+	// subnet. The remainder, if any, is reserved by the provider.
+	AllocatableIPHigh string
+	AllocatableIPLow  string
+
+	AvailabilityZone string
+}
 
 type Subnet struct {
 	st  *State
@@ -80,6 +101,7 @@ func (s *Subnet) Destroy() (err error) {
 }
 
 func (s *Subnet) destroyOps() ([]txn.Op, error) {
+	// XXX we also need to destroy related addresses
 	if s.doc.Life == Dying {
 		return nil, errAlreadyDying
 	}
@@ -89,4 +111,8 @@ func (s *Subnet) destroyOps() ([]txn.Op, error) {
 		Remove: true,
 	}}
 	return ops, nil
+}
+
+func (s *Subnet) globalKey() string {
+	return "sn#" + s.doc.CIDR
 }
