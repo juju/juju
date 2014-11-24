@@ -23,11 +23,9 @@ PUBLISH_REVISION = 'publish-revision'
 def find_publish_revision_number(br_number, limit=20):
     """Return the publish-revsion number paired with build-revision number."""
     description = 'Revision build: %s' % br_number
-    print('looking for %s' % description)
     found_number = None
     job_number = 'lastSuccessfulBuild'
     for i in range(limit):
-        print('trying %s' % job_number)
         build_data = get_build_data(
             JENKINS_URL, PUBLISH_REVISION, build=job_number)
         if not build_data:
@@ -68,7 +66,7 @@ def update_candate(branch, path, br_number,
     if not pr_number:
         pr_number = find_publish_revision_number(br_number)
     get_artifacts(
-        PUBLISH_REVISION, pr_number, '*', candidate_dir,
+        PUBLISH_REVISION, pr_number, 'juju-core*', candidate_dir,
         dry_run=dry_run, verbose=verbose)
 
 
