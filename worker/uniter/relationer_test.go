@@ -472,6 +472,39 @@ func (s *RelationerSuite) TestInferRemoteUnitMissingRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "remote unit: remote/0, provided without a relation")
 }
 
+func (s *RelationerSuite) TestInferRemoteValidDepartedSkip(c *gc.C) {
+	relationers := map[int]*uniter.Relationer{}
+
+	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	err := r.Join()
+	c.Assert(err, gc.IsNil)
+
+	relationers[0] = r
+
+	args := uniter.RunCommandsArgs{
+		Commands:            "some-command",
+		RelationId:          0,
+		RemoteUnitName:      "departed/0",
+		SkipRemoteUnitCheck: true,
+	}
+
+	// Test with valid RemoteUnit
+	joined := hook.Info{
+		Kind:       hooks.RelationJoined,
+		RemoteUnit: "u/1",
+	}
+	name, err := r.PrepareHook(joined)
+	c.Assert(err, gc.IsNil)
+	c.Assert(name, gc.Equals, "ring-relation-joined")
+
+	err = r.CommitHook(joined)
+	c.Assert(err, gc.IsNil)
+
+	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(remoteUnit, gc.Equals, "departed/0")
+}
+
 func (s *RelationerSuite) TestInferRemoteUnit(c *gc.C) {
 	relationers := map[int]*uniter.Relationer{}
 
