@@ -886,24 +886,22 @@ func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 	remoteUnits := relationer.ContextInfo().MemberNames
 	numRemoteUnits := len(remoteUnits)
 
-	if noRemoteUnit {
-		var err error
-		switch numRemoteUnits {
-		case 0:
-			if !args.SkipRemoteUnitCheck {
+	if !args.ForceRemoteUnit {
+		if noRemoteUnit {
+			var err error
+			switch numRemoteUnits {
+			case 0:
 				err = errors.Errorf("no remote unit found for relation id: %d, override to execute commands", args.RelationId)
+			case 1:
+				remoteUnit = remoteUnits[0]
+			default:
+				err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
 			}
-		case 1:
-			remoteUnit = remoteUnits[0]
-		default:
-			err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
-		}
 
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	} else {
-		if !args.SkipRemoteUnitCheck {
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		} else {
 			found := false
 			for _, value := range remoteUnits {
 				if value == remoteUnit {
@@ -915,6 +913,10 @@ func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 				return "", errors.Errorf("no remote unit found: %s, override to execute command", remoteUnit)
 			}
 		}
+	}
+
+	if noRemoteUnit && args.ForceRemoteUnit {
+		return remoteUnit, nil
 	}
 
 	unitTag := names.NewUnitTag(remoteUnit)

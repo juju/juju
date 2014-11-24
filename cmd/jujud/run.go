@@ -23,13 +23,13 @@ import (
 
 type RunCommand struct {
 	cmd.CommandBase
-	unit                names.UnitTag
-	commands            string
-	showHelp            bool
-	noContext           bool
-	skipRemoteUnitCheck bool
-	relationId          string
-	remoteUnitName      string
+	unit            names.UnitTag
+	commands        string
+	showHelp        bool
+	noContext       bool
+	forceRemoteUnit bool
+	relationId      string
+	remoteUnitName  string
 }
 
 const runCommandDoc = `
@@ -63,7 +63,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
 	f.StringVar(&c.relationId, "relation", "", "")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
-	f.BoolVar(&c.skipRemoteUnitCheck, "skip-remote-unit-check", false, "run the commands for a specific relation context, bypassing the remote unit check")
+	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
 }
 
 func (c *RunCommand) Init(args []string) error {
@@ -151,10 +151,10 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 
 	var result exec.ExecResponse
 	args := uniter.RunCommandsArgs{
-		Commands:            c.commands,
-		RelationId:          relationId,
-		RemoteUnitName:      c.remoteUnitName,
-		SkipRemoteUnitCheck: c.skipRemoteUnitCheck,
+		Commands:        c.commands,
+		RelationId:      relationId,
+		RemoteUnitName:  c.remoteUnitName,
+		ForceRemoteUnit: c.forceRemoteUnit,
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	return &result, errors.Trace(err)

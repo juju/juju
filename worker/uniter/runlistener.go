@@ -27,8 +27,8 @@ type RunCommandsArgs struct {
 	RelationId int
 	// RemoteUnitName is the remote unit for the relation context.
 	RemoteUnitName string
-	// SkipRemoteUnitCheck bypasses the requiring of a remote unit for a relation context.
-	SkipRemoteUnitCheck bool
+	// ForceRemoteUnit skips relation membership and existence validation.
+	ForceRemoteUnit bool
 }
 
 // A CommandRunner is something that will actually execute the commands and
