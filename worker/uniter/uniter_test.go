@@ -1114,6 +1114,17 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				adminTag.String() + "\nprivate.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
+			"run commands: jujuc environment",
+			quickStartRelation{},
+			relationRunCommands{
+				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
+				fmt.Sprintf("echo $JUJU_REMOTE_UNIT >> %s", testFile("jujuc-env.output")),
+			},
+			verifyFile{
+				testFile("jujuc-env.output"),
+				"db:0\nmysql/0\n",
+			},
+		), ut(
 			"run commands: proxy settings set",
 			quickStartRelation{},
 			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
@@ -2965,6 +2976,22 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		}
 	}
 	c.Fatal("settings didn't get noticed by the uniter")
+}
+
+type relationRunCommands []string
+
+func (cmds relationRunCommands) step(c *gc.C, ctx *context) {
+	commands := strings.Join(cmds, "\n")
+	args := uniter.RunCommandsArgs{
+		Commands:       commands,
+		RelationId:     0,
+		RemoteUnitName: "",
+	}
+	result, err := ctx.uniter.RunCommands(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Code, gc.Equals, 0)
+	c.Check(string(result.Stdout), gc.Equals, "")
+	c.Check(string(result.Stderr), gc.Equals, "")
 }
 
 type runCommands []string

@@ -199,7 +199,7 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 // the worker/uniter/context/factory package.
 func checkRelationId(value string) (int, error) {
 	if len(value) == 0 {
-		return -1, errors.Errorf("relation id cannot be empty")
+		return -1, nil
 	}
 
 	trim := value
