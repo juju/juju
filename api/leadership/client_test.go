@@ -2,25 +2,24 @@ package leadership
 
 import (
 	"fmt"
-	svc "github.com/juju/juju/apiserver/leadership"
-	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
-	gc "gopkg.in/check.v1"
 	"testing"
 	"time"
+
+	"github.com/juju/names"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 /*
-Test that the clieant is translating incoming parameters to the
+Test that the client is translating incoming parameters to the
 service layer correctly, and also translates the results back
 correctly.
 */
 
 func Test(t *testing.T) { gc.TestingT(t) }
 
-var (
-	_ = gc.Suite(&clientSuite{})
-)
+var _ = gc.Suite(&clientSuite{})
 
 type clientSuite struct{}
 
@@ -46,18 +45,20 @@ func (s *stubFacade) Close() error        { return nil }
 func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 
 	const claimTime = 5 * time.Hour
+	numStubCalls := 0
 
 	stub := &stubFacade{
 		FacadeCallFn: func(name string, parameters, response interface{}) error {
+			numStubCalls++
 			c.Check(name, gc.Equals, "ClaimLeadership")
 			c.Assert(parameters, gc.Not(gc.IsNil))
 
-			typedP, ok := parameters.(svc.ClaimLeadershipBulkParams)
+			typedP, ok := parameters.(params.ClaimLeadershipBulkParams)
 			c.Assert(ok, gc.Equals, true)
 
-			typedR, ok := response.(*svc.ClaimLeadershipBulkResults)
+			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []svc.ClaimLeadershipResults{svc.ClaimLeadershipResults{
+			typedR.Results = []params.ClaimLeadershipResults{params.ClaimLeadershipResults{
 				ClaimDurationInSec: claimTime.Seconds(),
 			}}
 
@@ -73,18 +74,21 @@ func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	claimInterval, err := client.ClaimLeadership(StubServiceNm, StubUnitNm)
 
 	c.Assert(err, gc.IsNil)
-	c.Check(claimInterval, gc.Equals, 5*time.Hour)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(claimInterval, gc.Equals, claimTime)
 }
 
 func (s *clientSuite) TestClaimLeadershipErrorTranslation(c *gc.C) {
 
 	// First check translating errors embedded in the result.
 	errMsg := "I'm trying!"
+	numStubCalls := 0
 	stub := &stubFacade{
 		FacadeCallFn: func(name string, parameters, response interface{}) error {
-			typedR, ok := response.(*svc.ClaimLeadershipBulkResults)
+			numStubCalls++
+			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []svc.ClaimLeadershipResults{svc.ClaimLeadershipResults{
+			typedR.Results = []params.ClaimLeadershipResults{params.ClaimLeadershipResults{
 				Error: &params.Error{Message: errMsg},
 			}}
 			return nil
@@ -93,29 +97,35 @@ func (s *clientSuite) TestClaimLeadershipErrorTranslation(c *gc.C) {
 
 	client := NewClient(stub, stub)
 	_, err := client.ClaimLeadership(StubServiceNm, StubUnitNm)
+	c.Check(numStubCalls, gc.Equals, 1)
 	c.Check(err, gc.ErrorMatches, errMsg)
 
 	// Now check errors returned from the function itself.
-	errMsg = "Well, I just give up."
+	errMsg = "well, I just give up."
+	numStubCalls = 0
 	stub.FacadeCallFn = func(name string, parameters, response interface{}) error {
+		numStubCalls++
 		return fmt.Errorf(errMsg)
 	}
 
 	_, err = client.ClaimLeadership(StubServiceNm, StubUnitNm)
-	c.Check(err, gc.ErrorMatches, errMsg)
+	c.Check(numStubCalls, gc.Equals, 1)
+	c.Check(err, gc.ErrorMatches, "error making a leadership claim: "+errMsg)
 }
 
 func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 
+	numStubCalls := 0
 	stub := &stubFacade{
 		FacadeCallFn: func(name string, parameters, response interface{}) error {
+			numStubCalls++
 			c.Check(name, gc.Equals, "ReleaseLeadership")
 			c.Assert(parameters, gc.Not(gc.IsNil))
 
-			typedP, ok := parameters.(svc.ReleaseLeadershipBulkParams)
+			typedP, ok := parameters.(params.ReleaseLeadershipBulkParams)
 			c.Assert(ok, gc.Equals, true)
 
-			typedR, ok := response.(*svc.ReleaseLeadershipBulkResults)
+			typedR, ok := response.(*params.ReleaseLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
 			typedR.Errors = []*params.Error{nil}
 
@@ -130,13 +140,16 @@ func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	client := NewClient(stub, stub)
 	err := client.ReleaseLeadership(StubServiceNm, StubUnitNm)
 
+	c.Check(numStubCalls, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *clientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 
+	numStubCalls := 0
 	stub := &stubFacade{
 		FacadeCallFn: func(name string, parameters, response interface{}) error {
+			numStubCalls++
 			c.Check(name, gc.Equals, "BlockUntilLeadershipReleased")
 			c.Assert(parameters, gc.Not(gc.IsNil))
 
@@ -154,5 +167,6 @@ func (s *clientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	client := NewClient(stub, stub)
 	err := client.BlockUntilLeadershipReleased(StubServiceNm)
 
+	c.Check(numStubCalls, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
 }

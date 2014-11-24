@@ -1,20 +1,24 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+/*
+Package leadership implements the client to the analog leadership
+service.
+*/
 package leadership
 
 import (
 	"time"
 
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/leadership"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/names"
+
+	"github.com/juju/errors"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
-var (
-	logger                  = loggo.GetLogger("juju.api.leadership")
-	_      LeadershipClient = (*client)(nil)
-)
+var logger = loggo.GetLogger("juju.api.leadership")
 
 type facadeCaller interface {
 	FacadeCall(request string, params, response interface{}) error
@@ -25,14 +29,16 @@ type client struct {
 	facadeCaller
 }
 
+// NewClient returns a new LeadershipClient instance.
 func NewClient(facade base.ClientFacade, caller facadeCaller) LeadershipClient {
 	return &client{facade, caller}
 }
 
+// ClaimLeadership implements LeadershipManager.
 func (c *client) ClaimLeadership(serviceId, unitId string) (time.Duration, error) {
 
-	params := c.PrepareClaimLeadership(serviceId, unitId)
-	results, err := c.BulkClaimLeadership(params)
+	params := c.prepareClaimLeadership(serviceId, unitId)
+	results, err := c.bulkClaimLeadership(params.Params...)
 	if err != nil {
 		return 0, err
 	}
@@ -42,9 +48,10 @@ func (c *client) ClaimLeadership(serviceId, unitId string) (time.Duration, error
 	return time.Duration(result.ClaimDurationInSec) * time.Second, result.Error
 }
 
+// ReleaseLeadership implements LeadershipManager.
 func (c *client) ReleaseLeadership(serviceId, unitId string) error {
-	params := c.PrepareReleaseLeadership(serviceId, unitId)
-	results, err := c.BulkReleaseLeadership(params)
+	params := c.prepareReleaseLeadership(serviceId, unitId)
+	results, err := c.bulkReleaseLeadership(params.Params...)
 	if err != nil {
 		return err
 	}
@@ -53,11 +60,12 @@ func (c *client) ReleaseLeadership(serviceId, unitId string) error {
 	return results.Errors[0]
 }
 
+// BlockUntilLeadershipReleased implements LeadershipManager.
 func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 	var result *params.Error
 	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewServiceTag(serviceId), result)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "error blocking on leadership release")
 	}
 	return result
 }
@@ -66,17 +74,29 @@ func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 // Prepare functions for building bulk-calls.
 //
 
-func (c *client) PrepareClaimLeadership(serviceId, unitId string) leadership.ClaimLeadershipParams {
-	return leadership.ClaimLeadershipParams{
-		names.NewServiceTag(serviceId),
-		names.NewUnitTag(unitId),
+// prepareClaimLeadership creates a single set of params in
+// preperation for making a bulk call.
+func (c *client) prepareClaimLeadership(serviceId, unitId string) params.ClaimLeadershipBulkParams {
+	return params.ClaimLeadershipBulkParams{
+		[]params.ClaimLeadershipParams{
+			params.ClaimLeadershipParams{
+				names.NewServiceTag(serviceId),
+				names.NewUnitTag(unitId),
+			},
+		},
 	}
 }
 
-func (c *client) PrepareReleaseLeadership(serviceId, unitId string) leadership.ReleaseLeadershipParams {
-	return leadership.ReleaseLeadershipParams{
-		names.NewServiceTag(serviceId),
-		names.NewUnitTag(unitId),
+// prepareReleaseLeadership creates a single set of params in
+// preperation for making a bulk call.
+func (c *client) prepareReleaseLeadership(serviceId, unitId string) params.ReleaseLeadershipBulkParams {
+	return params.ReleaseLeadershipBulkParams{
+		[]params.ReleaseLeadershipParams{
+			params.ReleaseLeadershipParams{
+				names.NewServiceTag(serviceId),
+				names.NewUnitTag(unitId),
+			},
+		},
 	}
 }
 
@@ -84,30 +104,42 @@ func (c *client) PrepareReleaseLeadership(serviceId, unitId string) leadership.R
 // Bulk calls.
 //
 
-func (c *client) BulkClaimLeadership(params ...leadership.ClaimLeadershipParams) (*leadership.ClaimLeadershipBulkResults, error) {
+func (c *client) bulkClaimLeadership(args ...params.ClaimLeadershipParams) (*params.ClaimLeadershipBulkResults, error) {
 	// Don't make the jump over the network if we don't have to.
-	if len(params) <= 0 {
-		return &leadership.ClaimLeadershipBulkResults{}, nil
+	if len(args) <= 0 {
+		return &params.ClaimLeadershipBulkResults{}, nil
 	}
 
-	bulkParams := leadership.ClaimLeadershipBulkParams{params}
-	var results leadership.ClaimLeadershipBulkResults
+	// Translate & collect wire-format args.
+	var wireParams []params.ClaimLeadershipParams
+	for _, arg := range args {
+		wireParams = append(wireParams, params.ClaimLeadershipParams(arg))
+	}
+
+	bulkParams := params.ClaimLeadershipBulkParams{wireParams}
+	var results params.ClaimLeadershipBulkResults
 	if err := c.FacadeCall("ClaimLeadership", bulkParams, &results); err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "error making a leadership claim")
 	}
 	return &results, nil
 }
 
-func (c *client) BulkReleaseLeadership(params ...leadership.ReleaseLeadershipParams) (*leadership.ReleaseLeadershipBulkResults, error) {
+func (c *client) bulkReleaseLeadership(args ...params.ReleaseLeadershipParams) (*params.ReleaseLeadershipBulkResults, error) {
 	// Don't make the jump over the network if we don't have to.
-	if len(params) <= 0 {
-		return &leadership.ReleaseLeadershipBulkResults{}, nil
+	if len(args) <= 0 {
+		return &params.ReleaseLeadershipBulkResults{}, nil
 	}
 
-	bulkParams := leadership.ReleaseLeadershipBulkParams{params}
-	var results leadership.ReleaseLeadershipBulkResults
+	// Translate & collect wire-format args.
+	var wireParams []params.ReleaseLeadershipParams
+	for _, arg := range args {
+		wireParams = append(wireParams, params.ReleaseLeadershipParams(arg))
+	}
+
+	bulkParams := params.ReleaseLeadershipBulkParams{wireParams}
+	var results params.ReleaseLeadershipBulkResults
 	if err := c.FacadeCall("ReleaseLeadership", bulkParams, &results); err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "error attempting to release leadership")
 	}
 	return &results, nil
 }

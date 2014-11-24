@@ -18,6 +18,8 @@ type leaseEntity struct {
 	lease.Token
 }
 
+// NewLeasePersistor returns a new LeasePersistor. It should be passed
+// functions it can use to run transactions and get collections.
 func NewLeasePersistor(
 	collectionName string,
 	runTransaction func([]txn.Op) error,
@@ -30,12 +32,16 @@ func NewLeasePersistor(
 	}
 }
 
+// LeasePersistor represents logic which can persist lease tokens to a
+// data store.
 type LeasePersistor struct {
 	collectionName string
 	runTransaction func([]txn.Op) error
 	getCollection  func(string) (_ *mgo.Collection, closer func())
 }
 
+// WriteToken writes the given token to the data store with the given
+// ID.
 func (p *LeasePersistor) WriteToken(id string, tok lease.Token) error {
 
 	entity := leaseEntity{time.Now(), tok}
@@ -65,6 +71,8 @@ func (p *LeasePersistor) WriteToken(id string, tok lease.Token) error {
 	return nil
 }
 
+// RemoveToken removes the lease token with the given ID from the data
+// store.
 func (p *LeasePersistor) RemoveToken(id string) error {
 
 	ops := []txn.Op{{C: p.collectionName, Id: id, Remove: true}}

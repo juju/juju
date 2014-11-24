@@ -4,9 +4,9 @@
 package lease
 
 import (
+	"fmt"
 	"time"
 
-	"fmt"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
@@ -23,7 +23,7 @@ const (
 
 var (
 	singleton           *leaseManager
-	LeaseClaimDeniedErr = errors.New("the lease claim has been denied.")
+	LeaseClaimDeniedErr = errors.New("lease claim denied")
 	NotLeaseOwnerErr    = errors.Unauthorizedf("caller did not own lease for namespace")
 	logger              = loggo.GetLogger("juju.lease")
 )
@@ -50,11 +50,13 @@ func WorkerLoop(persistor leasePersistor) func(<-chan struct{}) error {
 	return singleton.workerLoop
 }
 
+// Token represents a lease claim.
 type Token struct {
 	Namespace, Id string
 	Expiration    time.Time
 }
 
+// Manager returns a manager.
 func Manager() *leaseManager {
 	// Guaranteed to be initialized because the init function runs
 	// first.
@@ -82,11 +84,17 @@ type leaseManager struct {
 	copyOfTokens     chan []Token
 }
 
+// CopyOfLeaseTokens returns a copy of the lease tokens current held
+// by the manager.
 func (m *leaseManager) CopyOfLeaseTokens() []Token {
 	m.copyOfTokens <- nil
 	return <-m.copyOfTokens
 }
 
+// Claimlease claims a lease for the given duration for the given
+// namespace and id. If the lease is already owned, a
+// LeaseClaimDeniedErr will be returned. Either way the current lease
+// owner's ID will be returned.
 func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (leaseOwnerId string, err error) {
 
 	token := Token{namespace, id, time.Now().Add(forDur)}
@@ -101,6 +109,7 @@ func (m *leaseManager) ClaimLease(namespace, id string, forDur time.Duration) (l
 	return leaseOwnerId, err
 }
 
+// ReleaseLease releases the lease held for namespace by id.
 func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 
 	token := Token{Namespace: namespace, Id: id}
@@ -123,6 +132,10 @@ func (m *leaseManager) ReleaseLease(namespace, id string) (err error) {
 	return nil
 }
 
+// LeaseReleasedNotifier returns a channel a caller can block on to be
+// notified of when a lease is released for namespace. This channel is
+// reusable, but will be closed if it does not respond within
+// "notificationTimeout".
 func (m *leaseManager) LeaseReleasedNotifier(namespace string) (notifier <-chan struct{}) {
 	watcher := make(chan struct{})
 	m.leaseReleasedSub <- leaseReleasedMsg{watcher, namespace}
@@ -136,15 +149,14 @@ func (m *leaseManager) workerLoop(stop <-chan struct{}) error {
 	// These data-structures are local to ensure they're only utilized
 	// within this thread-safe context.
 
-	// Pull everything off our data-store.
+	releaseSubs := make(map[string][]chan<- struct{}, 0)
+
+	// Pull everything off our data-store & check for expirations.
 	leaseCache, err := populateTokenCache(m.leasePersistor)
 	if err != nil {
 		return err
 	}
-
-	releaseSubs := make(map[string][]chan<- struct{}, 0)
-	// Initially, we have nothing present, so nothing will expire.
-	nextExpiration := time.Now().Add(maxDuration)
+	nextExpiration := m.expireLeases(leaseCache, releaseSubs)
 
 	for {
 		select {

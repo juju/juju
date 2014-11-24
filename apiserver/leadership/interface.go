@@ -6,40 +6,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-type ClaimLeadershipBulkParams struct {
-	Params []ClaimLeadershipParams
-}
-
-type ClaimLeadershipParams struct {
-	ServiceTag names.ServiceTag
-	UnitTag    names.UnitTag
-}
-
-type ClaimLeadershipBulkResults struct {
-	Results []ClaimLeadershipResults
-}
-
-type ClaimLeadershipResults struct {
-	ServiceTag         names.ServiceTag
-	ClaimDurationInSec float64
-	Error              *params.Error
-}
-
-type ReleaseLeadershipBulkParams struct {
-	Params []ReleaseLeadershipParams
-}
-
-type ReleaseLeadershipParams struct {
-	ServiceTag names.ServiceTag
-	UnitTag    names.UnitTag
-}
-
-type ReleaseLeadershipBulkResults struct {
-	Errors []*params.Error
-}
-
 type LeadershipService interface {
-	ClaimLeadership(params ClaimLeadershipBulkParams) (ClaimLeadershipBulkResults, error)
-	ReleaseLeadership(params ReleaseLeadershipBulkParams) (ReleaseLeadershipBulkResults, error)
+	// ClaimLeadership makes a leadership claim with the given parameters.
+	ClaimLeadership(params params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error)
+	// ReleaseLeadership makes a call to release leadership for all the
+	// parameters passed in.
+	ReleaseLeadership(params params.ReleaseLeadershipBulkParams) (params.ReleaseLeadershipBulkResults, error)
+	// BlockUntilLeadershipReleased blocks the caller until leadership is
+	// released for the given service.
 	BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (err error)
 }

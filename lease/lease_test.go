@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package lease
 
 import (
@@ -164,7 +167,7 @@ func (s *leaseSuite) TestLeaseExpiration(c *gc.C) {
 
 	const (
 		leaseDuration      = 500 * time.Millisecond
-		acceptableOverhead = 5 * time.Millisecond
+		acceptableOverhead = 50 * time.Millisecond
 	)
 
 	if leaseDuration+acceptableOverhead > coretesting.LongWait {
@@ -295,14 +298,10 @@ func (s *leaseSuite) TestManagerDepersistsAllTokensOnStart(c *gc.C) {
 	for _, heldTok := range heldToks {
 		found := false
 		for _, testTok := range testToks {
-			// if testTok.Namespace != heldTok.Namespace {
-			// 	continue
-			// }
 			found, _ = gc.DeepEquals.Check([]interface{}{testTok, heldTok}, []string{})
 			if found {
 				break
 			}
-			// found = true
 		}
 		if !found {
 			c.Log("The manager is not managing the expected token list.\nNOTE: Test is coded so that order does not matter.")
