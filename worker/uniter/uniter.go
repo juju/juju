@@ -235,7 +235,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	u.operationFactory = operation.NewFactory(
-		u.paths,
 		u.deployer,
 		contextFactory,
 		&operationCallbacks{u},

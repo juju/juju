@@ -14,7 +14,6 @@ import (
 type runAction struct {
 	actionId string
 
-	paths          context.Paths
 	callbacks      Callbacks
 	contextFactory context.Factory
 
@@ -38,11 +37,12 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "cannot create context for action %q", ra.actionId)
 	}
-	ra.name, err = ctx.ActionName()
+	actionData, err := ctx.ActionData()
 	if err != nil {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
+	ra.name = actionData.ActionName
 	ra.context = ctx
 	return stateChange{
 		Kind:     RunAction,
@@ -60,7 +60,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := context.NewRunner(ra.context, ra.paths)
+	runner := ra.callbacks.GetRunner(ra.context)
 	err = runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should

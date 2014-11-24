@@ -11,7 +11,6 @@ type runCommands struct {
 	commands     string
 	sendResponse CommandResponseFunc
 
-	paths          context.Paths
 	callbacks      Callbacks
 	contextFactory context.Factory
 
@@ -42,7 +41,7 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := context.NewRunner(rc.context, rc.paths)
+	runner := rc.callbacks.GetRunner(rc.context)
 	response, err := runner.RunCommands(rc.commands)
 	switch err {
 	case context.ErrRequeueAndReboot:

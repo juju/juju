@@ -44,6 +44,10 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 	return func() { opc.u.hookLock.Unlock() }, nil
 }
 
+func (opc *operationCallbacks) GetRunner(ctx context.Context) context.Runner {
+	return context.NewRunner(ctx, opc.u.paths)
+}
+
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	if hi.Kind.IsRelation() {
 		return opc.u.relationers[hi.RelationId].PrepareHook(hi)

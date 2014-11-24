@@ -14,6 +14,42 @@ type DeploySuite struct {
 
 var _ = gc.Suite(&DeploySuite{})
 
-func (s *DeploySuite) TestFatal(c *gc.C) {
+func (s *DeploySuite) TestPrepareAlreadyDone(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestPrepareArchiveInfoError(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestPrepareStageError(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestPrepareSetCharmError(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestPrepareSuccess(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestExecuteError(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestExecuteSuccess(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestCommitQueueUpgradeHook(c *gc.C) {
+	c.Fatalf("XXX")
+}
+
+func (s *DeploySuite) TestCommitInterruptedHook(c *gc.C) {
 	c.Fatalf("XXX")
 }

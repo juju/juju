@@ -43,6 +43,9 @@ type Callbacks interface {
 	// AcquireExecutionLock...
 	AcquireExecutionLock(message string) (unlock func(), err error)
 
+	// GetRunner...
+	GetRunner(ctx context.Context) context.Runner
+
 	// PrepareHook and CommitHook exist so that I can defer worrying about how
 	// to untangle Uniter.relationers from everything else.
 	PrepareHook(info hook.Info) (name string, err error)

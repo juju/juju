@@ -12,6 +12,7 @@ import (
 var ErrRequeueAndReboot = errors.New("reboot now")
 var ErrReboot = errors.New("reboot after hook")
 var ErrNoProcess = errors.New("no process to kill")
+var ErrActionNotAvailable = errors.New("action no longer available")
 
 type missingHookError struct {
 	hookName string
@@ -26,7 +27,9 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
-var ErrActionNotAvailable = errors.New("action no longer available")
+func NewMissingHookError(hookName string) error {
+	return &missingHookError{hookName}
+}
 
 type badActionError struct {
 	actionName string
@@ -40,4 +43,8 @@ func (e *badActionError) Error() string {
 func IsBadActionError(err error) bool {
 	_, ok := err.(*badActionError)
 	return ok
+}
+
+func NewBadActionError(actionName, problem string) error {
+	return &badActionError{actionName, problem}
 }

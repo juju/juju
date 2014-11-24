@@ -14,14 +14,12 @@ import (
 )
 
 func NewFactory(
-	paths context.Paths,
 	deployer charm.Deployer,
 	contextFactory context.Factory,
 	callbacks Callbacks,
 	abort <-chan struct{},
 ) Factory {
 	return &factory{
-		paths:          paths,
 		deployer:       deployer,
 		contextFactory: contextFactory,
 		callbacks:      callbacks,
@@ -30,7 +28,6 @@ func NewFactory(
 }
 
 type factory struct {
-	paths          context.Paths
 	deployer       charm.Deployer
 	contextFactory context.Factory
 	callbacks      Callbacks
@@ -58,7 +55,6 @@ func (f *factory) NewHook(hookInfo hook.Info) (Operation, error) {
 	}
 	return &runHook{
 		info:           hookInfo,
-		paths:          f.paths,
 		callbacks:      f.callbacks,
 		contextFactory: f.contextFactory,
 	}, nil
@@ -70,7 +66,6 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}
 	return &runAction{
 		actionId:       actionId,
-		paths:          f.paths,
 		callbacks:      f.callbacks,
 		contextFactory: f.contextFactory,
 	}, nil
@@ -85,7 +80,6 @@ func (f *factory) NewCommands(commands string, sendResponse CommandResponseFunc)
 	return &runCommands{
 		commands:       commands,
 		sendResponse:   sendResponse,
-		paths:          f.paths,
 		callbacks:      f.callbacks,
 		contextFactory: f.contextFactory,
 	}, nil

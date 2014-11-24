@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/context"
@@ -16,7 +17,6 @@ import (
 type runHook struct {
 	info hook.Info
 
-	paths          context.Paths
 	callbacks      Callbacks
 	contextFactory context.Factory
 
@@ -62,19 +62,20 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := context.NewRunner(rh.context, rh.paths)
+	runner := rh.callbacks.GetRunner(rh.context)
 	ranHook := true
 	step := Done
 
 	err = runner.RunHook(rh.name)
+	cause := errors.Cause(err)
 	switch {
-	case context.IsMissingHookError(err):
+	case context.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
-	case err == context.ErrRequeueAndReboot:
+	case cause == context.ErrRequeueAndReboot:
 		step = Queued
 		fallthrough
-	case err == context.ErrReboot:
+	case cause == context.ErrReboot:
 		err = ErrNeedsReboot
 	case err == nil:
 	default:
