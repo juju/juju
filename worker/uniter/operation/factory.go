@@ -77,7 +77,9 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 }
 
 func (f *factory) NewCommands(commands string, sendResponse CommandResponseFunc) (Operation, error) {
-	if sendResponse == nil {
+	if commands == "" {
+		return nil, errors.New("commands required")
+	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
 	}
 	return &runCommands{

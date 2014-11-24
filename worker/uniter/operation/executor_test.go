@@ -165,6 +165,31 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
 	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
 }
 
+func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
+	initialState := justInstalledState()
+	executor, statePath := newExecutor(c, &initialState)
+	op := &mockOperation{
+		prepare: newStep(&operation.State{
+			Kind: operation.RunHook,
+			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
+		}, operation.ErrSkipExecute),
+		commit: newStep(&operation.State{
+			Kind: operation.RunHook,
+			Step: operation.Queued,
+			Hook: &hook.Info{Kind: hooks.Start},
+		}, nil),
+	}
+
+	err := executor.Run(op)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(op.commit.gotState, gc.DeepEquals, *op.prepare.newState)
+	assertWroteState(c, statePath, *op.commit.newState)
+	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
+}
+
 func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
