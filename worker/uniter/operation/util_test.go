@@ -244,6 +244,13 @@ func NewPrepareHookSuccessFixture() (*PrepareHookCallbacks, *MockHookContextFact
 		}
 }
 
+func NewDeployExecuteSuccessFixture() (*DeployCallbacks, *MockDeployer) {
+	return NewPrepareDeploySuccessCallbacks(), &MockDeployer{
+		MockStage:  &MockStage{},
+		MockDeploy: &MockDeploy{},
+	}
+}
+
 var curl = corecharm.MustParseURL
 var dumbActionId = "foo_a_1"
 var overwriteState = operation.State{
