@@ -53,6 +53,7 @@ const (
 	settingsrefsC      = "settingsrefs"
 	constraintsC       = "constraints"
 	unitsC             = "units"
+	subnetsC           = "subnets"
 
 	// actionsC and related collections store state of Actions that
 	// have been enqueued.
