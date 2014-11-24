@@ -32,9 +32,9 @@ var unitGetTests = []struct {
 	{[]string{"public-address"}, "gimli.minecraft.testing.invalid\n"},
 	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.testing.invalid\n"},
 	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.testing.invalid"` + "\n"},
-	{[]string{"zone"}, "\n"},
-	{[]string{"zone", "--format", "yaml"}, "\n"},
-	{[]string{"zone", "--format", "json"}, `""` + "\n"},
+	{[]string{"zone"}, "us-east-1a\n"},
+	{[]string{"zone", "--format", "yaml"}, "us-east-1a\n"},
+	{[]string{"zone", "--format", "json"}, `"us-east-1a"` + "\n"},
 }
 
 func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {

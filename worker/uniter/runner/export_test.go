@@ -120,6 +120,10 @@ func NewHookContext(
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
+	ctx.zone, err = unit.Zone()
+	if err != nil {
+		return nil, err
+	}
 	ctx.machinePorts, err = state.AllMachinePorts(ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -39,6 +39,9 @@ type Context interface {
 	// PrivateAddress returns the executing unit's private address.
 	PrivateAddress() (string, bool)
 
+	// Zone returns the executing unit's availablilty zone.
+	Zone() (string, bool)
+
 	// OpenPorst marks the supplied port range for opening when the
 	// executing unit's service is exposed.
 	OpenPorts(protocol string, fromPort, toPort int) error

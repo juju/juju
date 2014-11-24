@@ -63,8 +63,7 @@ func (c *UnitGetCommand) Run(ctx *cmd.Context) error {
 	case "public-address":
 		value, ok = c.ctx.PublicAddress()
 	case "zone":
-		value = "<some zone>"
-		ok = true
+		value, ok = c.ctx.Zone()
 	}
 	if !ok {
 		return fmt.Errorf("%s not set", c.Key)
