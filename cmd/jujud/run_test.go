@@ -233,6 +233,15 @@ func (s *RunTestSuite) TestRunningBadRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid relation id")
 }
 
+func (s *RunTestSuite) TestRunningRemoteUnitNoRelation(c *gc.C) {
+	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
+	s.runListenerForAgent(c, "unit-foo-1")
+
+	_, err := testing.RunCommand(c, &RunCommand{}, "--remote-unit", "remote/0", "foo/1", "bar")
+	c.Check(cmd.IsRcPassthroughError(err), jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, "remote unit: remote/0, provided without a relation")
+}
+
 func (s *RunTestSuite) TestSkipCheckAndRemoteUnit(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")

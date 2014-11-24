@@ -869,6 +869,9 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 // a given relationId an error is returned for display to the user.
 func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
 	if args.RelationId == -1 {
+		if len(args.RemoteUnitName) > 0 {
+			return "", errors.Errorf("remote unit: %s, provided without a relation", args.RemoteUnitName)
+		}
 		return "", nil
 	}
 

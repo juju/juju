@@ -460,6 +460,18 @@ func (s *RelationerSuite) TestInferRemoteUnitAmbiguous(c *gc.C) {
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
 
+func (s *RelationerSuite) TestInferRemoteUnitMissingRelation(c *gc.C) {
+	relationers := map[int]*uniter.Relationer{}
+	args := uniter.RunCommandsArgs{
+		Commands:       "some-command",
+		RelationId:     -1,
+		RemoteUnitName: "remote/0",
+	}
+
+	_, err := uniter.InferRemoteUnit(relationers, args)
+	c.Assert(err, gc.ErrorMatches, "remote unit: remote/0, provided without a relation")
+}
+
 func (s *RelationerSuite) TestInferRemoteUnit(c *gc.C) {
 	relationers := map[int]*uniter.Relationer{}
 
