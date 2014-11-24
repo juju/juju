@@ -32,7 +32,7 @@ type Factory interface {
 	NewDeploy(charmURL *corecharm.URL, kind Kind) (Operation, error)
 	NewHook(hookInfo hook.Info) (Operation, error)
 	NewAction(actionId string) (Operation, error)
-	NewCommands(commands string, sendResponse CommandResponseFunc) (Operation, error)
+	NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error)
 }
 
 type CommandResponseFunc func(*utilexec.ExecResponse, error)

@@ -71,14 +71,23 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}, nil
 }
 
-func (f *factory) NewCommands(commands string, sendResponse CommandResponseFunc) (Operation, error) {
+func (f *factory) NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error) {
 	if commands == "" {
 		return nil, errors.New("commands required")
 	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
 	}
+	if remoteUnitName != "" {
+		if relationId == -1 {
+			return nil, errors.New("remote unit not valid without relation")
+		} else if !names.IsValidUnit(remoteUnitName) {
+			return nil, errors.Errorf("invalid remote unit name %q", remoteUnitName)
+		}
+	}
 	return &runCommands{
 		commands:       commands,
+		relationId:     relationId,
+		remoteUnitName: remoteUnitName,
 		sendResponse:   sendResponse,
 		callbacks:      f.callbacks,
 		contextFactory: f.contextFactory,

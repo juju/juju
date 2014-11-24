@@ -8,8 +8,10 @@ import (
 )
 
 type runCommands struct {
-	commands     string
-	sendResponse CommandResponseFunc
+	commands       string
+	relationId     int
+	remoteUnitName string
+	sendResponse   CommandResponseFunc
 
 	callbacks      Callbacks
 	contextFactory context.Factory
@@ -22,7 +24,7 @@ func (rc *runCommands) String() string {
 }
 
 func (rc *runCommands) Prepare(state State) (*State, error) {
-	ctx, err := rc.contextFactory.NewRunContext()
+	ctx, err := rc.contextFactory.NewRunContext(rc.relationId, rc.remoteUnitName)
 	if err != nil {
 		return nil, err
 	}

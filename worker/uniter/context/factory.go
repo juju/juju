@@ -26,7 +26,7 @@ type Factory interface {
 
 	// NewRunContext returns an execution context suitable for running an
 	// arbitrary script.
-	NewRunContext() (Context, error)
+	NewRunContext(relationId int, remoteUnitName string) (Context, error)
 
 	// NewHookContext returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
@@ -108,11 +108,22 @@ type factory struct {
 }
 
 // NewRunContext exists to satisfy the Factory interface.
-func (f *factory) NewRunContext() (Context, error) {
+func (f *factory) NewRunContext(relationId int, remoteUnitName string) (Context, error) {
 	ctx, err := f.coreContext()
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if relationId >= 0 {
+		ctx.relationId = relationId
+		ctx.remoteUnitName = remoteUnitName
+		_, found := ctx.relations[relationId]
+		if !found {
+			return nil, errors.Errorf("unknown relation id: %v", ctx.relationId)
+		}
+	}
+
 	ctx.id = f.newId("run-commands")
 	return ctx, nil
 }
@@ -134,7 +145,7 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (Context, error) {
 		ctx.remoteUnitName = hookInfo.RemoteUnit
 		relation, found := ctx.relations[hookInfo.RelationId]
 		if !found {
-			return nil, fmt.Errorf("unknown relation id: %v", hookInfo.RelationId)
+			return nil, errors.Errorf("unknown relation id: %v", hookInfo.RelationId)
 		}
 		if hookInfo.Kind == hooks.RelationDeparted {
 			relation.cache.RemoveMember(hookInfo.RemoteUnit)

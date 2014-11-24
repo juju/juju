@@ -143,7 +143,7 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
--r  (= %s)
+-r, --relation  (= %s)
     specify a relation by id
 %s`[1:]
 

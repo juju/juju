@@ -63,17 +63,33 @@ func (s *FactorySuite) TestNewCommands(c *gc.C) {
 	sendResponse := func(*utilexec.ExecResponse, error) {
 		panic("don't call this")
 	}
-	op, err := s.factory.NewCommands("", sendResponse)
+	op, err := s.factory.NewCommands("", -1, "", sendResponse)
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "commands required")
 
-	op, err = s.factory.NewCommands("any old thing", nil)
+	op, err = s.factory.NewCommands("any old thing", -1, "", nil)
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "response sender required")
 
-	op, err = s.factory.NewCommands("any old thing", sendResponse)
+	op, err = s.factory.NewCommands("any old thing", -1, "unit/1", sendResponse)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "remote unit not valid without relation")
+
+	op, err = s.factory.NewCommands("any old thing", 0, "lol", sendResponse)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, `invalid remote unit name: "lol"`)
+
+	op, err = s.factory.NewCommands("any old thing", -1, "", sendResponse)
 	c.Check(err, gc.IsNil)
 	c.Check(op.String(), gc.Equals, "run commands")
+
+	op, err = s.factory.NewCommands("any old thing", 1, "", sendResponse)
+	c.Check(err, gc.IsNil)
+	c.Check(op.String(), gc.Equals, "run commands (1)")
+
+	op, err = s.factory.NewCommands("any old thing", 1, "unit/1", sendResponse)
+	c.Check(err, gc.IsNil)
+	c.Check(op.String(), gc.Equals, "run commands (1; unit/1)")
 }
 
 func (s *FactorySuite) TestNewHook(c *gc.C) {

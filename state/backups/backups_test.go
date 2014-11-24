@@ -52,9 +52,8 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	})
 
 	paths := backups.Paths{DataDir: "/var/lib/juju"}
-	connInfo := backups.DBConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
-	dbInfo := backups.DBInfo{connInfo, targets}
+	dbInfo := backups.DBInfo{"a", "b", "c", targets}
 	meta := backupstesting.NewMetadataStarted()
 	meta.Notes = "some notes"
 	err := s.api.Create(meta, &paths, &dbInfo)
@@ -92,9 +91,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 
 	// Run the backup.
 	paths := backups.Paths{DataDir: "/var/lib/juju"}
-	connInfo := backups.DBConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
-	dbInfo := backups.DBInfo{connInfo, targets}
+	dbInfo := backups.DBInfo{"a", "b", "c", targets}
 	meta := backupstesting.NewMetadataStarted()
 	backupstesting.SetOrigin(meta, "<env ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
