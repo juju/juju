@@ -29,10 +29,8 @@ var _ = gc.Suite(&dumpSuite{}) // Register the suite.
 func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	connInfo := backups.DBConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
 	targets := set.NewStrings("juju", "admin")
-
-	s.dbInfo = &backups.DBInfo{connInfo, targets}
+	s.dbInfo = &backups.DBInfo{"a", "b", "c", targets}
 	s.targets = targets
 	s.dumpDir = c.MkDir()
 }

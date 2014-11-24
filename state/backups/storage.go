@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/blobstore"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"gopkg.in/mgo.v2"
@@ -525,6 +526,17 @@ const (
 	storageDBName   = "backups"
 	storageMetaName = "metadata"
 )
+
+// DB represents the set of methods required to perform a backup.
+// It exists to break the strict dependency between state and this package,
+// and those that depend on this package.
+type DB interface {
+	// MongoSession returns the underlying mongodb session.
+	MongoSession() *mgo.Session
+
+	// EnvironTag is the concrete environ tag for this database.
+	EnvironTag() names.EnvironTag
+}
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
