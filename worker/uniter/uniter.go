@@ -919,6 +919,10 @@ func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 		return remoteUnit, nil
 	}
 
+	if !names.IsValidUnit(remoteUnit) {
+		return "", errors.Errorf(`"%s" is not a valid remote unit name`, remoteUnit)
+	}
+
 	unitTag := names.NewUnitTag(remoteUnit)
 	return unitTag.Id(), nil
 }

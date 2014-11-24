@@ -506,8 +506,8 @@ func (s *RelationerSuite) TestInferRemoteValidEmptyForce(c *gc.C) {
 
 	// Invalid remote-unit should still fail even when forcing
 	args.RemoteUnitName = "invalid-remote-unit"
-	f := func() { uniter.InferRemoteUnit(relationers, args) }
-	c.Assert(f, gc.PanicMatches, `"invalid-remote-unit" is not a valid unit name`)
+	_, err = uniter.InferRemoteUnit(relationers, args)
+	c.Assert(err, gc.ErrorMatches, `"invalid-remote-unit" is not a valid remote unit name`)
 }
 
 func (s *RelationerSuite) TestInferRemoteValidDepartedForce(c *gc.C) {
