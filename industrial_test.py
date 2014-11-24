@@ -37,7 +37,8 @@ class MultiIndustrialTest:
     @classmethod
     def from_args(cls, args):
         if args.quick:
-            stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
+            stages = [BootstrapAttempt, DeployManyAttempt,
+                      DestroyEnvironmentAttempt]
         else:
             stages = [BootstrapAttempt, DeployManyAttempt,
                       BackupRestoreAttempt, EnsureAvailabilityAttempt,
@@ -396,7 +397,7 @@ class DeployManyAttempt(SteppedStageAttempt):
     def get_test_info():
         return {'deploy-many': {'title': 'deploy many'}}
 
-    def __init__(self, host_count=10, container_count=10):
+    def __init__(self, host_count=5, container_count=10):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
