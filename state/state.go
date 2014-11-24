@@ -159,13 +159,6 @@ func (st *State) EnvironUUID() string {
 	return st.environTag.Id()
 }
 
-// getCollection fetches a named collection using a new session if the
-// database has previously been logged in to.
-// It returns the collection and a closer function for the session.
-func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
-	return mongo.CollectionFromName(st.db, coll)
-}
-
 // getPresence returns the presence collection.
 func (st *State) getPresence() *mgo.Collection {
 	return st.db.Session.DB("presence").C(presenceC)
@@ -565,7 +558,7 @@ func machineIdLessThan(id1, id2 string) bool {
 
 // Machine returns the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.getRawCollection(machinesC)
 	defer closer()
 
 	var err error
@@ -1154,7 +1147,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	if ch == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
-	if exists, err := isNotDead(st.db, servicesC, name); err != nil {
+	if exists, err := isNotDead(st, servicesC, name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
@@ -1369,7 +1362,6 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 	defer closer()
 
 	docs := []networkDoc{}
-	// TODO(waigani) - ENVUUID - query needs to filter by env: bson.D{{"env-uuid", st.EnvironUUID()}}
 	err = networksCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all networks")
@@ -1607,7 +1599,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
-		if exists, err := isNotDead(st.db, relationsC, docID); err != nil {
+		if exists, err := isNotDead(st, relationsC, docID); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
 			return nil, errors.Errorf("relation already exists")
@@ -1708,7 +1700,6 @@ func (st *State) Relation(id int) (*Relation, error) {
 	defer closer()
 
 	doc := relationDoc{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err := relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
@@ -1725,7 +1716,6 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 	defer closer()
 
 	docs := relationDocSlice{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relations")

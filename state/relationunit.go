@@ -71,7 +71,8 @@ var ErrCannotEnterScopeYet = stderrors.New("cannot enter scope yet: non-alive su
 func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	db, closer := ru.st.newDB()
 	defer closer()
-	relationScopes := db.C(relationScopesC)
+	envUUID := ru.st.EnvironUUID()
+	relationScopes := getCollectionFromDB(db, relationScopesC, envUUID)
 
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
@@ -108,7 +109,8 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   before we create the scope doc, because the existence of a scope doc
 	//   is considered to be a guarantee of the existence of a settings doc.
 	settingsChanged := func() (bool, error) { return false, nil }
-	if count, err := db.C(settingsC).FindId(ru.st.docID(ruKey)).Count(); err != nil {
+	settingsColl := getCollectionFromDB(db, settingsC, envUUID)
+	if count, err := settingsColl.FindId(ru.st.docID(ruKey)).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
@@ -153,17 +155,20 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		return nil
 	}
 
+	units := getCollectionFromDB(db, unitsC, envUUID)
+	relations := getCollectionFromDB(db, relationsC, envUUID)
+
 	// The relation or unit might no longer be Alive. (Note that there is no
 	// need for additional checks if we're trying to create a subordinate
 	// unit: this could fail due to the subordinate service's not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its services are not).)
-	if alive, err := isAliveWithSession(db.C(unitsC), unitDocID); err != nil {
+	if alive, err := isAliveWithSession(units, unitDocID); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if alive, err := isAliveWithSession(db.C(relationsC), relationDocID); err != nil {
+	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
@@ -172,7 +177,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// Maybe a subordinate used to exist, but is no longer alive. If that is
 	// case, we will be unable to enter scope until that unit is gone.
 	if existingSubName != "" {
-		if alive, err := isAliveWithSession(db.C(unitsC), existingSubName); err != nil {
+		if alive, err := isAliveWithSession(units, existingSubName); err != nil {
 			return err
 		} else if !alive {
 			return ErrCannotEnterScopeYet

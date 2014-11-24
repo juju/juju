@@ -503,7 +503,7 @@ func (u *Unit) EnsureDead() (err error) {
 	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
+	if notDead, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !notDead {
 		return nil
@@ -835,8 +835,9 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 	db, closer := u.st.newDB()
 	defer closer()
-	units := db.C(unitsC)
-	charms := db.C(charmsC)
+	envUUID := u.st.EnvironUUID()
+	units := getCollectionFromDB(db, unitsC, envUUID)
+	charms := getCollectionFromDB(db, charmsC, envUUID)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -1621,7 +1622,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	} else if err != txn.ErrAborted {
 		return err
 	}
-	if ok, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
+	if ok, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !ok {
 		return ErrDead

@@ -660,7 +660,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if alive, err := isAlive(s.st.db, servicesC, s.doc.DocID); err != nil {
+		if alive, err := isAlive(s.st, servicesC, s.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -766,7 +766,6 @@ func serviceRelations(st *State, name string) (relations []*Relation, err error)
 	defer closer()
 
 	docs := []relationDoc{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err
