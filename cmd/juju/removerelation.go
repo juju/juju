@@ -7,13 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-
-	"github.com/juju/juju/cmd/envcmd"
 )
 
 // RemoveRelationCommand causes an existing service relation to be shut down.
 type RemoveRelationCommand struct {
-	envcmd.EnvCommandBase
+	BlockableRemoveCommand
 	Endpoints []string
 }
 
@@ -40,5 +38,5 @@ func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return client.DestroyRelation(c.Endpoints...)
+	return c.processBlockedError(client.DestroyRelation(c.Endpoints...))
 }

@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -26,7 +27,7 @@ func runRemoveMachine(c *gc.C, args ...string) error {
 	return err
 }
 
-func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
+func (s *RemoveMachineSuite) setupMachineWithUnit(c *gc.C) {
 	// Create a machine running a unit.
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
@@ -38,10 +39,46 @@ func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
 	mid, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, "0")
+}
 
+func (s *RemoveMachineSuite) TestBlockRemoveMachineWithUnit(c *gc.C) {
+	s.setupMachineWithUnit(c)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	// Try to destroy the machine and fail.
+	err := runRemoveMachine(c, "0")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// unblock operation
+	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
 	// Try to destroy the machine and fail.
 	err = runRemoveMachine(c, "0")
 	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 0 has unit "riak/0" assigned`)
+}
+
+func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
+	s.setupMachineWithUnit(c)
+
+	// Try to destroy the machine and fail.
+	err := runRemoveMachine(c, "0")
+	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 0 has unit "riak/0" assigned`)
+}
+
+func (s *RemoveMachineSuite) TestBlockDestroyMachine(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	// Try to destroy the machine and fail.
+	err = runRemoveMachine(c, "0")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// unblock operation
+	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
+	// Try to destroy the machine and success.
+	err = runRemoveMachine(c, "0")
+	c.Assert(err, jc.IsNil)
 }
 
 func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
@@ -82,7 +119,21 @@ func (s *RemoveMachineSuite) TestDestroyDeadMachine(c *gc.C) {
 	c.Assert(m0.Life(), gc.Equals, state.Alive)
 }
 
-func (s *RemoveMachineSuite) TestForce(c *gc.C) {
+func (s *RemoveMachineSuite) TestBlockForceRemoveMachine(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
+	//should not be affected
+	s.forceRemoveMachine(c)
+}
+
+func (s *RemoveMachineSuite) TestUnblockForceRemoveMachine(c *gc.C) {
+	// unblock operation
+	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
+	//should not be affected
+	s.forceRemoveMachine(c)
+}
+
+func (s *RemoveMachineSuite) forceRemoveMachine(c *gc.C) {
 	// Create a manager machine.
 	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,6 +166,10 @@ func (s *RemoveMachineSuite) TestForce(c *gc.C) {
 	err = m0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Life(), gc.Equals, state.Alive)
+}
+
+func (s *RemoveMachineSuite) TestForce(c *gc.C) {
+	s.forceRemoveMachine(c)
 }
 
 func (s *RemoveMachineSuite) TestBadArgs(c *gc.C) {
