@@ -100,18 +100,18 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 			current.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		atag, ok := tag.(names.ActionTag)
+		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
 			current.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		receiver, err := tagToActionReceiver(a.state, atag.PrefixTag().String())
+		receiver, err := tagToActionReceiver(a.state, actionTag.PrefixTag().String())
 		if err != nil {
 			current.Error = common.ServerError(err)
 			continue
 		}
 
-		action, err := a.state.ActionByTag(atag)
+		action, err := a.state.ActionByTag(actionTag)
 		if err != nil {
 			current.Error = common.ServerError(err)
 			continue
@@ -124,7 +124,7 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 		}
 
 		current.Action = &params.Action{
-			Tag:        atag.String(),
+			Tag:        actionTag.String(),
 			Receiver:   receiver.Tag().String(),
 			Name:       result.Name(),
 			Parameters: result.Parameters(),
@@ -139,32 +139,27 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 
 // ServicesCharmActions returns a slice of charm Actions for a slice of services.
 func (a *ActionAPI) ServicesCharmActions(args params.Entities) (params.ServicesCharmActionsResults, error) {
-	result := params.ServicesCharmActionsResults{}
-	for _, entity := range args.Entities {
-		newResult := params.ServiceCharmActionsResult{}
+	result := params.ServicesCharmActionsResults{Results: make([]params.ServiceCharmActionsResult, len(args.Entities))}
+	for i, entity := range args.Entities {
+		current := &result.Results[i]
 		svcTag, err := names.ParseServiceTag(entity.Tag)
 		if err != nil {
-			newResult.Error = common.ServerError(common.ErrBadId)
-			result.Results = append(result.Results, newResult)
+			current.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
-		newResult.ServiceTag = svcTag.String()
+		current.ServiceTag = svcTag.String()
 		svc, err := a.state.Service(svcTag.Id())
 		if err != nil {
-			newResult.Error = common.ServerError(err)
-			result.Results = append(result.Results, newResult)
+			current.Error = common.ServerError(err)
 			continue
 		}
 		ch, _, err := svc.Charm()
 		if err != nil {
-			newResult.Error = common.ServerError(err)
-			result.Results = append(result.Results, newResult)
+			current.Error = common.ServerError(err)
 			continue
 		}
-		newResult.Actions = ch.Actions()
-		result.Results = append(result.Results, newResult)
+		current.Actions = ch.Actions()
 	}
-
 	return result, nil
 }
 
