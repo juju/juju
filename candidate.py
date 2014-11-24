@@ -21,6 +21,7 @@ PUBLISH_REVISION = 'publish-revision'
 
 
 def find_publish_revision_number(br_number, limit=20):
+    """Return the publish-revsion number paired with build-revision number."""
     description = 'Revision build: %s' % br_number
     print('looking for %s' % description)
     found_number = None
@@ -96,7 +97,7 @@ def parse_args(args=None):
 
 
 def main(argv):
-    """Manage list and get files from jujuci builds."""
+    """Manage successful Juju CI candiates."""
     args = parse_args(argv)
     try:
         if args.command == 'update':
