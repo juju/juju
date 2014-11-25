@@ -17,7 +17,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	provcommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -174,6 +177,90 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// TODO(ericsnow) Factor out the common code amongst the many methods here.
+
+// Zone returns the availability zone for each given unit, if applicable.
+func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error) {
+	var results params.StringResults
+
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	// Get the provider.
+	envcfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	env, err := environs.New(envcfg)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	zenv, ok := env.(provcommon.ZonedEnviron)
+	if !ok {
+		return results, errors.NotSupportedf("zones for provider %v", env)
+	}
+
+	// Prep the results.
+	results = params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+
+	// Collect the instance IDs. We send a single request to the
+	// provider for all the entities at once. So that means gathering a
+	// list of instance IDs, one for each entity. If an entity has any
+	// sort of trouble then we skip it.
+	var instIDs []instance.Id
+	for i, entity := range args.Entities {
+		result := results.Results[i]
+
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(tag)
+			if err == nil {
+				var instID instance.Id
+				instID, err = unit.InstanceId()
+				if err == nil {
+					instIDs = append(instIDs, instID)
+				}
+			}
+		}
+		result.Error = common.ServerError(err)
+	}
+
+	// Collect the zones.
+	zones, err := zenv.InstanceAvailabilityZoneNames(instIDs)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	// Update the results. The number of zone names we get back should
+	// match the number of results without an error.  Their order will
+	// match as well.
+	for _, result := range results.Results {
+		if len(zones) == 0 {
+			break
+		}
+		if result.Error != nil {
+			continue
+		}
+		result.Result = zones[0]
+		zones = zones[1:]
+	}
+	if len(zones) > 0 {
+		return results, errors.Errorf("got %d extra zones back", len(zones))
+	}
+
+	return results, nil
 }
 
 // Resolved returns the current resolved setting for each given unit.

@@ -328,6 +328,26 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return result.Result, nil
 }
 
+// Zone returns the availability zone of the unit.
+func (u *Unit) Zone() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("Zone", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
+}
+
 // OpenPorts sets the policy of the port range with protocol to be
 // opened.
 func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
