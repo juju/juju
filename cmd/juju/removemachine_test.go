@@ -18,6 +18,7 @@ import (
 
 type RemoveMachineSuite struct {
 	jujutesting.RepoSuite
+	machine *state.Machine
 }
 
 var _ = gc.Suite(&RemoveMachineSuite{})
@@ -33,12 +34,20 @@ func (s *RemoveMachineSuite) setupMachineWithUnit(c *gc.C) {
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 
+	s.machine, err = s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
 	// Get the state entities to allow sane testing.
 	u, err := s.State.Unit("riak/0")
 	c.Assert(err, gc.IsNil)
 	mid, err := u.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mid, gc.Equals, "0")
+}
+
+func assertLife(c *gc.C, entity state.Living, life state.Life) {
+	err := entity.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.Life(), gc.Equals, life)
 }
 
 func (s *RemoveMachineSuite) TestBlockRemoveMachineWithUnit(c *gc.C) {
@@ -49,12 +58,7 @@ func (s *RemoveMachineSuite) TestBlockRemoveMachineWithUnit(c *gc.C) {
 	// Try to destroy the machine and fail.
 	err := runRemoveMachine(c, "0")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// unblock operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	// Try to destroy the machine and fail.
-	err = runRemoveMachine(c, "0")
-	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 0 has unit "riak/0" assigned`)
+	assertLife(c, s.machine, state.Alive)
 }
 
 func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
@@ -63,22 +67,18 @@ func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
 	// Try to destroy the machine and fail.
 	err := runRemoveMachine(c, "0")
 	c.Assert(err, gc.ErrorMatches, `no machines were destroyed: machine 0 has unit "riak/0" assigned`)
+	assertLife(c, s.machine, state.Alive)
 }
 
 func (s *RemoveMachineSuite) TestBlockDestroyMachine(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// Block operation
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	// Try to destroy the machine and fail.
 	err = runRemoveMachine(c, "0")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// unblock operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	// Try to destroy the machine and success.
-	err = runRemoveMachine(c, "0")
-	c.Assert(err, jc.IsNil)
+	assertLife(c, m0, state.Alive)
 }
 
 func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
@@ -88,16 +88,12 @@ func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = runRemoveMachine(c, "0", "1")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 does not exist`)
-	err = m0.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Dying)
+	assertLife(c, m0, state.Dying)
 
 	// Destroying a destroyed machine is a no-op.
 	err = runRemoveMachine(c, "0")
 	c.Assert(err, gc.IsNil)
-	err = m0.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Dying)
+	assertLife(c, m0, state.Dying)
 }
 
 func (s *RemoveMachineSuite) TestDestroyDeadMachine(c *gc.C) {
@@ -111,12 +107,7 @@ func (s *RemoveMachineSuite) TestDestroyDeadMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = runRemoveMachine(c, "0", "1")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
-	err = m1.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m1.Life(), gc.Equals, state.Dead)
-	err = m1.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Alive)
+	assertLife(c, m0, state.Alive)
 }
 
 func (s *RemoveMachineSuite) TestBlockForceRemoveMachine(c *gc.C) {
@@ -159,13 +150,8 @@ func (s *RemoveMachineSuite) forceRemoveMachine(c *gc.C) {
 	err = u.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	err = m1.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m1.Life(), gc.Equals, state.Dead)
-
-	err = m0.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(m0.Life(), gc.Equals, state.Alive)
+	assertLife(c, m0, state.Alive)
+	assertLife(c, m1, state.Dead)
 }
 
 func (s *RemoveMachineSuite) TestForce(c *gc.C) {
