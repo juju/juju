@@ -1075,6 +1075,53 @@ func (s *uniterBaseSuite) testCharmArchiveSha256(
 	})
 }
 
+func (s *uniterBaseSuite) testCharmArchiveURLs(
+	c *gc.C,
+	facade interface {
+		CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error)
+	},
+) {
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("1.2.3.4", network.ScopePublic),
+		Port:    1234,
+	}, {
+		Address: network.NewAddress("0.1.2.3", network.ScopeCloudLocal),
+		Port:    1234,
+	}}, {{
+		Address: network.NewAddress("1.2.3.5", network.ScopePublic),
+		Port:    1234,
+	}}}
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
+	args := params.CharmURLs{URLs: []params.CharmURL{
+		{URL: "something-invalid"},
+		{URL: s.wpCharm.String()},
+		{URL: dummyCharm.String()},
+	}}
+	result, err := facade.CharmArchiveURLs(args)
+	c.Assert(err, gc.IsNil)
+
+	wordpressURLs := []string{
+		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
+		"https://1.2.3.5:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
+	}
+	dummyURLs := []string{
+		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=local%3Aquantal%2Fdummy-1",
+		"https://1.2.3.5:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=local%3Aquantal%2Fdummy-1",
+	}
+
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: wordpressURLs},
+			{Result: dummyURLs},
+		},
+	})
+}
+
 func (s *uniterBaseSuite) testCurrentEnvironUUID(
 	c *gc.C,
 	facade interface {

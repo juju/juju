@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"net/url"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -138,7 +136,7 @@ func (s *serviceSuite) TestOwnerTagV1(c *gc.C) {
 
 func (s *serviceSuite) patchNewState(
 	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag, _ *url.URL) *uniter.State,
+	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
 ) {
 	s.uniterSuite.patchNewState(c, patchFunc)
 	var err error

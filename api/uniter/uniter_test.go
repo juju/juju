@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"net/url"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -102,7 +100,7 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 
 func (s *uniterSuite) patchNewState(
 	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag, _ *url.URL) *uniter.State,
+	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
 ) {
 	s.PatchValue(&uniter.NewState, patchFunc)
 	var err error
