@@ -13,6 +13,7 @@ from deploy_stack import (
     )
 from jujuconfig import get_juju_home
 from jujupy import (
+    AgentsNotStarted,
     EnvJujuClient,
     SimpleEnvironment,
     temp_bootstrap_env,
@@ -413,11 +414,25 @@ class DeployManyAttempt(SteppedStageAttempt):
         for machine in range(self.host_count):
             client.juju('add-machine', ())
         yield results
-        new_status = client.wait_for_started()
-        results['result'] = True
+        try:
+            new_status = client.wait_for_started()
+        except AgentsNotStarted as e:
+            new_status = e.status
+            results['result'] = False
+        else:
+            results['result'] = True
         yield results
         results = {'test_id': 'deploy-many'}
         yield results
+        stuck_new_machines = [
+            k for k, v in new_status.iter_new_machines(old_status)
+            if v.get('agent-state') != 'started']
+        for machine in stuck_new_machines:
+            client.juju('destroy-machine', ('--force', machine))
+            client.juju('add-machine', ())
+        yield results
+        if len(stuck_new_machines) > 0:
+            new_status = client.wait_for_started()
         new_machines = dict(new_status.iter_new_machines(old_status))
         if len(new_machines) != self.host_count:
             raise AssertionError('Got {} machines, not {}'.format(
