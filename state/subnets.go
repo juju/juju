@@ -72,3 +72,35 @@ func (s *Subnet) Destroy() (err error) {
 	}}
 	return s.st.runTransaction(ops)
 }
+
+// ProviderId returns the provider-specific id of the subnet.
+func (s *Subnet) ProviderId() network.Id {
+	return network.Id(s.doc.ProviderId)
+}
+
+// CIDR returns the subnet CIDR (e.g. 192.168.50.0/24).
+func (s *Subnet) CIDR() string {
+	return s.doc.CIDR
+}
+
+// VLANTag returns the subnet VLAN tag. It's a number between 1 and
+// 4094 for VLANs and 0 if the network is not a VLAN.
+func (s *Subnet) VLANTag() int {
+	return s.doc.VLANTag
+}
+
+// AllocatableIPLow returns the lowest allocatable IP address in the subnet
+func (s *Subnet) AllocatableIPLow() string {
+	return s.doc.AllocatableIPLow
+}
+
+// AllocatableIPHigh returns the hightest allocatable IP address in the subnet.
+func (s *Subnet) AllocatableIPHigh() string {
+	return s.doc.AllocatableIPHigh
+}
+
+// AvailabilityZone returns the availability zone of the subnet. If the subnet
+// is not associated with an availability zone it will be the empty string.
+func (s *Subnet) AvailabilityZone() string {
+	return s.doc.AvailabilityZone
+}
