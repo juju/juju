@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"strings"
 )
 
 type RemoveUnitSuite struct {
@@ -56,14 +57,9 @@ func (s *RemoveUnitSuite) TestBlockRemoveUnit(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	err := runRemoveUnit(c, "dummy/0", "dummy/1")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	c.Assert(svc.Life(), gc.Equals, state.Alive)
 
-	// unblock operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	err = runRemoveUnit(c, "dummy/0", "dummy/1")
-	c.Assert(err, jc.IsNil)
-	units, err := svc.AllUnits()
-	c.Assert(err, jc.IsNil)
-	for _, u := range units {
-		c.Assert(u.Life(), gc.Equals, state.Dying)
-	}
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }

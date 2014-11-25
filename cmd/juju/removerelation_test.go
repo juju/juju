@@ -12,6 +12,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"strings"
 )
 
 type RemoveRelationSuite struct {
@@ -62,10 +63,7 @@ func (s *RemoveRelationSuite) TestBlockRemoveRelation(c *gc.C) {
 	err := runRemoveRelation(c, "logging", "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 
-	// unblock operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	// Destroy a relation that exists.
-	err = runRemoveRelation(c, "logging", "riak")
-	c.Assert(err, jc.IsNil)
-
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }

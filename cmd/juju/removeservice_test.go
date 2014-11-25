@@ -10,9 +10,11 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"strings"
 )
 
 type RemoveServiceSuite struct {
@@ -49,14 +51,13 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	err := runRemoveService(c, "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// unblock operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	err = runRemoveService(c, "riak")
-	c.Assert(err, jc.IsNil)
 	riak, err := s.State.Service("riak")
 	c.Assert(err, jc.IsNil)
-	c.Assert(riak.Life(), gc.Equals, state.Dying)
+	c.Assert(riak.Life(), gc.Equals, state.Alive)
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }
 
 func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
