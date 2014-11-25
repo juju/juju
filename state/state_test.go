@@ -1278,6 +1278,12 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	c.Assert(subnetFromDB.AvailabilityZone(), gc.Equals, "Timbuktu")
 }
 
+func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
+	subnetInfo := state.SubnetInfo{}
+	_, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet with missing CIDR passed to AddSubnet")
+}
+
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", s.owner.String(), charm, nil)
