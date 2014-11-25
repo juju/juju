@@ -37,7 +37,7 @@ func (s *RemoveMachineSuite) setupMachineWithUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine, err = s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Get the state entities to allow sane testing.
 	u, err := s.State.Unit("riak/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,7 +48,7 @@ func (s *RemoveMachineSuite) setupMachineWithUnit(c *gc.C) {
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	err := entity.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Life(), gc.Equals, life)
 }
 
@@ -78,7 +78,7 @@ func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
 
 func (s *RemoveMachineSuite) TestBlockDestroyMachine(c *gc.C) {
 	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Block operation
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	// Try to destroy the machine and fail.
@@ -102,7 +102,7 @@ func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
 
 	// Destroying a destroyed machine is a no-op.
 	err = runRemoveMachine(c, "0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, m0, state.Dying)
 }
 

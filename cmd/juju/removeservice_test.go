@@ -32,15 +32,15 @@ func (s *RemoveServiceSuite) setupTestService(c *gc.C) {
 	// Destroy a service that exists.
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 	s.setupTestService(c)
 	err := runRemoveService(c, "riak")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Service("riak")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
 }
 
@@ -52,7 +52,7 @@ func (s *RemoveServiceSuite) TestBlockRemoveService(c *gc.C) {
 	err := runRemoveService(c, "riak")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	riak, err := s.State.Service("riak")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Alive)
 
 	// msg is logged

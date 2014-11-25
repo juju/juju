@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
@@ -1538,7 +1537,7 @@ func (s *clientSuite) setupRelationScenario(c *gc.C, endpoints []string) *state.
 	eps, err := s.State.InferEndpoints(endpoints...)
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return relation
 }
 
@@ -1551,7 +1550,7 @@ func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
 
 func (s *clientSuite) assertDestroyRelationSuccess(c *gc.C, relation *state.Relation, endpoints []string) {
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Show that the relation was removed.
 	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
@@ -2620,7 +2619,7 @@ func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
 }
 
 func (s *serverSuite) TestBlockOperationNil(c *gc.C) {
-	c.Assert(client.BlockOperation(false, nil), jc.IsNil)
+	c.Assert(client.BlockOperation(false, nil), jc.ErrorIsNil)
 }
 
 func (s *serverSuite) TestBlockOperationError(c *gc.C) {
@@ -2639,7 +2638,7 @@ func (s *serverSuite) TestIgnoreBlockOperationOnServerError(c *gc.C) {
 // Asserts that no errors were encountered.
 func (s *clientSuite) blockRemoveObject(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-remove-object": true}, nil, nil)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestBlockServiceDestroy(c *gc.C) {
@@ -2668,7 +2667,7 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 	assertLife(c, m2, state.Dying)
 
 	err = u.UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	assertLife(c, m0, state.Alive)
@@ -2699,7 +2698,7 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	assertLife(c, u, state.Alive)
 
 	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
@@ -2715,14 +2714,14 @@ func (s *clientSuite) TestForceBlockDestroyMachines(c *gc.C) {
 func (s *clientSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) {
 	// Destroy 2 of them; check they become Dying.
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[0], state.Dying)
 	assertLife(c, units[1], state.Dying)
 
 	// Try to destroy an Alive one and a Dying one; check
 	// it destroys the Alive one and ignores the Dying one.
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/2", "wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[2], state.Dying)
 
 	// Try to destroy an Alive one along with a nonexistent one; check that
@@ -2733,11 +2732,11 @@ func (s *clientSuite) assertDestroyPrincipalUnits(c *gc.C, units []*state.Unit) 
 
 	// Make one Dead, and destroy an Alive one alongside it; check no errors.
 	wp0, err := s.State.Unit("wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wp0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/4")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[0], state.Dead)
 	assertLife(c, units[4], state.Dying)
 }
@@ -2747,9 +2746,9 @@ func (s *clientSuite) TestBlockDestroyPrincipalUnits(c *gc.C) {
 	units := make([]*state.Unit, 5)
 	for i := range units {
 		unit, err := wordpress.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetStatus(state.StatusStarted, "", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
 	// block remove-objects
@@ -2776,18 +2775,18 @@ func (s *clientSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging
 func (s *clientSuite) TestBlockDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// block remove-objects
 	s.blockRemoveObject(c)
@@ -2860,9 +2859,9 @@ func (s *clientSuite) TestBlockDestroyingAlreadyDestroyedRelation(c *gc.C) {
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	endpoints := []string{"wordpress", "mysql"}
 	err = s.APIState.Client().DestroyRelation(endpoints...)

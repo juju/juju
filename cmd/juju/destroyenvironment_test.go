@@ -75,7 +75,7 @@ func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked, force bool) 
 		c.Check((<-opc), gc.IsNil)
 		// Verify that the environment information has not been removed.
 		_, err := s.ConfigStore.ReadInfo(envName)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 

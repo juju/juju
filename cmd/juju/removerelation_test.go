@@ -30,10 +30,10 @@ func runRemoveRelation(c *gc.C, args ...string) error {
 func (s *RemoveRelationSuite) setupRelationForRemove(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "logging")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	runAddRelation(c, "riak", "logging")
 }
 
@@ -42,7 +42,7 @@ func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
 
 	// Destroy a relation that exists.
 	err := runRemoveRelation(c, "logging", "riak")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a relation that used to exist.
 	err = runRemoveRelation(c, "riak", "logging")

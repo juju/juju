@@ -110,7 +110,7 @@ func (s *BlockableRemoveCommandSuite) processErrorTest(c *gc.C, tstError error, 
 	if tstError != nil {
 		c.Assert(testCmd.processBlockedError(tstError), gc.Equals, expectedError)
 	} else {
-		c.Assert(testCmd.processBlockedError(tstError), jc.IsNil)
+		c.Assert(testCmd.processBlockedError(tstError), jc.ErrorIsNil)
 	}
 	// warning displayed
 	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
