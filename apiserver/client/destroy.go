@@ -15,7 +15,7 @@ import (
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the environment.
 func (c *Client) DestroyEnvironment() error {
-	if err := blockOperation(c.isDestroyEnvironmentBlocked()); err != nil {
+	if err := blockedOperationError(c.isDestroyEnvironmentBlocked()); err != nil {
 		return err
 	}
 	// TODO(axw) 2013-08-30 bug 1218688
