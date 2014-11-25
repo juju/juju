@@ -1234,13 +1234,16 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			return nil, errors.Annotatef(err, "subnet has invalid CIDR")
 		}
 	} else {
-		return nil, errors.Errorf("subnet with missing CIDR passed to AddSubnet")
+		return nil, errors.Errorf("subnet has missing CIDR")
 	}
 	if args.ProviderId == "" {
 		return nil, errors.Errorf("provider id must be not empty")
 	}
 	if args.VLANTag < 0 || args.VLANTag > 4094 {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
+	}
+	if args.AllocatableIPLow == "" || args.AllocatableIPHigh == "" {
+		return nil, errors.Errorf("subnet has AllocatableIPLow or AllocatableIPHight missing")
 	}
 
 	subnetID := st.docID(args.CIDR)

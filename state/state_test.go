@@ -1281,7 +1281,7 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo := state.SubnetInfo{}
 	_, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet with missing CIDR passed to AddSubnet")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has missing CIDR")
 
 	subnetInfo.CIDR = "foobar"
 	_, err = s.State.AddSubnet(subnetInfo)
@@ -1295,6 +1295,20 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo.VLANTag = 4095
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid VLAN tag 4095: must be between 0 and 4094")
+	subnetInfo.VLANTag = 0
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHight missing")
+
+	subnetInfo.AllocatableIPLow = "192.168.1.0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHight missing")
+
+	subnetInfo.AllocatableIPHigh = "192.168.1.0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
 }
 
