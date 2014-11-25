@@ -123,6 +123,8 @@ func (st State) validate() (err error) {
 			return fmt.Errorf("missing hook info")
 		} else if hasCharm {
 			return fmt.Errorf("unexpected charm URL")
+		} else if hasActionId {
+			return fmt.Errorf("unexpected action id")
 		}
 	default:
 		return fmt.Errorf("unknown operation %q", st.Kind)
