@@ -859,7 +859,7 @@ class TestDeployManyAttempt(TestCase):
         client = FakeEnvJujuClient()
         deploy_many = DeployManyAttempt(9, 11)
         deploy_iter = deploy_many.iter_steps(client)
-        self.assertEqual(deploy_iter.next(), {'test_id': 'deploy-many'})
+        self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
@@ -867,7 +867,7 @@ class TestDeployManyAttempt(TestCase):
         with patch('subprocess.check_output', return_value=status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(deploy_iter.next(),
-                                 {'test_id': 'deploy-many'})
+                                 {'test_id': 'add-machine-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
@@ -878,9 +878,14 @@ class TestDeployManyAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=status):
-            with patch('subprocess.check_call') as mock_cc:
-                self.assertEqual(deploy_iter.next(),
-                                 {'test_id': 'deploy-many'})
+                self.assertEqual(
+                    deploy_iter.next(),
+                    {'test_id': 'add-machine-many', 'result': True})
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'deploy-many'})
+        with patch('subprocess.check_call') as mock_cc:
+            self.assertEqual(deploy_iter.next(),
+                             {'test_id': 'deploy-many'})
         for host in range(1, deploy_many.host_count + 1):
             for container in range(deploy_many.container_count):
                 index = ((host-1) * deploy_many.container_count + container)
@@ -897,7 +902,7 @@ class TestDeployManyAttempt(TestCase):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
         deploy_iter = deploy_many.iter_steps(client)
-        self.assertEqual(deploy_iter.next(), {'test_id': 'deploy-many'})
+        self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
             'services': {},
@@ -905,7 +910,7 @@ class TestDeployManyAttempt(TestCase):
         with patch('subprocess.check_output', return_value=status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(deploy_iter.next(),
-                                 {'test_id': 'deploy-many'})
+                                 {'test_id': 'add-machine-many'})
         for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
@@ -916,9 +921,14 @@ class TestDeployManyAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=status):
-            with patch('subprocess.check_call') as mock_cc:
-                self.assertEqual(deploy_iter.next(),
-                                 {'test_id': 'deploy-many'})
+                self.assertEqual(
+                    deploy_iter.next(),
+                    {'test_id': 'add-machine-many', 'result': True})
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'deploy-many'})
+        with patch('subprocess.check_call') as mock_cc:
+            self.assertEqual(deploy_iter.next(),
+                             {'test_id': 'deploy-many'})
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'pending'},
