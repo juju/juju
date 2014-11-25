@@ -176,9 +176,10 @@ class IndustrialTest:
             for result in attempt.iter_test_results(self.old_client,
                                                     self.new_client):
                 yield result
-                if False in result[1:]:
-                    self.destroy_both()
-                    return
+            # If a stage ends with a failure, no further stages should be run.
+            if False in result[1:]:
+                self.destroy_both()
+                return
 
 
 class StageAttempt:

@@ -93,18 +93,22 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.new_agent_url, 'http://example.org')
 
 
-class FakeAttempt:
+class FakeStepAttempt:
 
-    def __init__(self, old_result, new_result, test_id='foo-id'):
-        self.result = old_result, new_result
-        self.test_id = test_id
-
-    def do_stage(self, old_client, new_client):
-        return self.result
+    def __init__(self, result):
+        self.result = result
 
     def iter_test_results(self, old, new):
-        old_result, new_result = self.do_stage(old, new)
-        yield self.test_id, old_result, new_result
+        return iter(self.result)
+
+
+class FakeAttempt(FakeStepAttempt):
+
+    def __init__(self, old_result, new_result, test_id='foo-id'):
+        super(FakeAttempt, self).__init__([(test_id, old_result, new_result)])
+
+    def do_stage(self, old_client, new_client):
+        return self.result[0]
 
 
 class FakeAttemptClass:
@@ -400,6 +404,26 @@ class TestIndustrialTest(TestCase):
                          ('juju', '--show-log', 'destroy-environment',
                           'new', '--force', '-y'), 1)
 
+    def test_run_stages_recover_failure(self):
+        old_client = FakeEnvJujuClient('old')
+        new_client = FakeEnvJujuClient('new')
+        fsa = FakeStepAttempt([('foo', True, False), ('bar', True, True)])
+        industrial = IndustrialTest(old_client, new_client, [fsa,
+            FakeAttempt(True, True)])
+        self.assertEqual(list(industrial.run_stages()), [
+            ('foo', True, False), ('bar', True, True), ('foo-id', True, True)])
+
+    def test_run_stages_failure_in_last_step(self):
+        old_client = FakeEnvJujuClient('old')
+        new_client = FakeEnvJujuClient('new')
+        fsa = FakeStepAttempt([('foo', True, True), ('bar', False, True)])
+        industrial = IndustrialTest(old_client, new_client, [fsa,
+            FakeAttempt(True, True)])
+        with patch.object(old_client, 'destroy_environment') as oc_mock:
+            with patch.object(new_client, 'destroy_environment') as nc_mock:
+                self.assertEqual(list(industrial.run_stages()), [
+                    ('foo', True, True), ('bar', False, True)])
+
     def test_destroy_both_even_with_exception(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
@@ -419,7 +443,12 @@ class TestIndustrialTest(TestCase):
         new_client = FakeEnvJujuClient('new')
         attempt = FakeAttempt(True, True)
         industrial = IndustrialTest(old_client, new_client, [attempt])
-        with patch.object(attempt, 'do_stage', side_effect=Exception('Foo')):
+
+        def iter_test_results():
+            raise Exception
+            yield
+
+        with patch.object(attempt, 'iter_test_results', iter_test_results):
             with patch('logging.exception') as le_mock:
                 with patch.object(industrial, 'destroy_both') as db_mock:
                     with self.assertRaises(SystemExit):
