@@ -25,7 +25,7 @@ var _ = gc.Suite(&RunHookSuite{})
 
 func (s *RunHookSuite) TestPrepareHookError(c *gc.C) {
 	callbacks := &PrepareHookCallbacks{
-		MockPrepareHook: &MockPrepareHook{nil, "", errors.New("pow")},
+		MockPrepareHook: &MockPrepareHook{err: errors.New("pow")},
 	}
 	factory := operation.NewFactory(nil, nil, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
@@ -41,8 +41,8 @@ func (s *RunHookSuite) TestPrepareHookError(c *gc.C) {
 
 func (s *RunHookSuite) TestPrepareContextError(c *gc.C) {
 	callbacks, _ := NewPrepareHookSuccessFixture()
-	contextFactory := &MockHookContextFactory{
-		MockNewHookContext: &MockNewHookContext{nil, nil, errors.New("splat")},
+	contextFactory := &MockContextFactory{
+		MockNewHookContext: &MockNewHookContext{err: errors.New("splat")},
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
@@ -108,27 +108,25 @@ func (s *RunHookSuite) TestExecuteLockError(c *gc.C) {
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
 }
 
-func (s *RunHookSuite) getExecuteRunnerErrorTest(c *gc.C, err error) (operation.Operation, *ExecuteHookCallbacks) {
+func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, err error) (operation.Operation, *ExecuteHookCallbacks) {
 	prepareCallbacks, contextFactory := NewPrepareHookSuccessFixture()
 	callbacks := &ExecuteHookCallbacks{
 		PrepareHookCallbacks:     prepareCallbacks,
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-		MockGetRunner: &MockGetRunner{runner: &MockRunner{MockRunHook: &MockRunHook{
-			err: err,
-		}}},
-		MockNotifyHookCompleted: &MockNotify{},
-		MockNotifyHookFailed:    &MockNotify{},
+		MockGetRunner:            NewHookRunnerGetter(err),
+		MockNotifyHookCompleted:  &MockNotify{},
+		MockNotifyHookFailed:     &MockNotify{},
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
-	_, err = op.Prepare(operation.State{})
 	c.Assert(err, gc.IsNil)
 	return op, callbacks
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
-	op, callbacks := s.getExecuteRunnerErrorTest(c, context.NewMissingHookError("blah-blah"))
+	op, callbacks := s.getExecuteRunnerTest(c, context.NewMissingHookError("blah-blah"))
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.IsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.IsNil)
@@ -139,12 +137,15 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 	})
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+	c.Assert(*callbacks.MockGetRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
 	c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 }
 
 func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
-	op, callbacks := s.getExecuteRunnerErrorTest(c, context.ErrRequeueAndReboot)
+	op, callbacks := s.getExecuteRunnerTest(c, context.ErrRequeueAndReboot)
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.IsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
@@ -155,13 +156,16 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 	})
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+	c.Assert(*callbacks.MockGetRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, *callbacks.MockGetRunner.gotContext)
 	c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 }
 
 func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
-	op, callbacks := s.getExecuteRunnerErrorTest(c, context.ErrReboot)
+	op, callbacks := s.getExecuteRunnerTest(c, context.ErrReboot)
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.IsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
@@ -172,22 +176,61 @@ func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 	})
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+	c.Assert(*callbacks.MockGetRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookCompleted.gotContext, gc.Equals, *callbacks.MockGetRunner.gotContext)
 	c.Assert(callbacks.MockNotifyHookFailed.gotName, gc.IsNil)
 }
 
 func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
-	op, callbacks := s.getExecuteRunnerErrorTest(c, errors.New("graaargh"))
+	op, callbacks := s.getExecuteRunnerTest(c, errors.New("graaargh"))
+	_, err := op.Prepare(operation.State{})
+	c.Assert(err, gc.IsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running hook some-hook-name")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+	c.Assert(*callbacks.MockGetRunner.runner.MockRunHook.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotName, gc.Equals, "some-hook-name")
 	c.Assert(*callbacks.MockNotifyHookFailed.gotContext, gc.Equals, *callbacks.MockGetRunner.gotContext)
 	c.Assert(callbacks.MockNotifyHookCompleted.gotName, gc.IsNil)
+}
+
+func (s *RunHookSuite) TestExecuteSuccess(c *gc.C) {
+	var stateChangeTests = []struct {
+		before operation.State
+		after  operation.State
+	}{{
+		operation.State{},
+		operation.State{
+			Kind: operation.RunHook,
+			Step: operation.Done,
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
+		},
+	}, {
+		overwriteState,
+		operation.State{
+			Started:            true,
+			CollectMetricsTime: 1234567,
+			Kind:               operation.RunHook,
+			Step:               operation.Done,
+			Hook:               &hook.Info{Kind: hooks.ConfigChanged},
+		},
+	}}
+
+	for i, test := range stateChangeTests {
+		c.Logf("test %d", i)
+		op, _ := s.getExecuteRunnerTest(c, nil)
+		midState, err := op.Prepare(test.before)
+		c.Assert(err, gc.IsNil)
+		c.Assert(midState, gc.NotNil)
+		newState, err := op.Execute(*midState)
+		c.Assert(err, gc.IsNil)
+		c.Assert(newState, gc.NotNil)
+		c.Assert(*newState, gc.DeepEquals, test.after)
+	}
 }
 
 func (s *RunHookSuite) TestCommitError(c *gc.C) {

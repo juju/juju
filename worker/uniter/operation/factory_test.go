@@ -77,7 +77,7 @@ func (s *FactorySuite) TestNewCommands(c *gc.C) {
 
 	op, err = s.factory.NewCommands("any old thing", 0, "lol", sendResponse)
 	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, `invalid remote unit name: "lol"`)
+	c.Check(err, gc.ErrorMatches, `invalid remote unit name "lol"`)
 
 	op, err = s.factory.NewCommands("any old thing", -1, "", sendResponse)
 	c.Check(err, gc.IsNil)

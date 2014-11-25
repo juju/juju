@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
@@ -95,24 +96,16 @@ func (d *MockDeployer) Deploy() error {
 	return d.MockDeploy.Call()
 }
 
-type MockPrepareHook struct {
-	gotHook *hook.Info
-	name    string
-	err     error
+type MockFailAction struct {
+	gotActionId *string
+	gotMessage  *string
+	err         error
 }
 
-func (mock *MockPrepareHook) Call(hookInfo hook.Info) (string, error) {
-	mock.gotHook = &hookInfo
-	return mock.name, mock.err
-}
-
-type PrepareHookCallbacks struct {
-	operation.Callbacks
-	*MockPrepareHook
-}
-
-func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
-	return cb.MockPrepareHook.Call(hookInfo)
+func (mock *MockFailAction) Call(actionId, message string) error {
+	mock.gotActionId = &actionId
+	mock.gotMessage = &message
+	return mock.err
 }
 
 type MockAcquireExecutionLock struct {
@@ -137,6 +130,45 @@ type MockGetRunner struct {
 func (mock *MockGetRunner) Call(ctx context.Context) context.Runner {
 	mock.gotContext = &ctx
 	return mock.runner
+}
+
+type RunActionCallbacks struct {
+	operation.Callbacks
+	*MockFailAction
+	*MockAcquireExecutionLock
+	*MockGetRunner
+}
+
+func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
+	return cb.MockFailAction.Call(actionId, message)
+}
+
+func (cb *RunActionCallbacks) AcquireExecutionLock(message string) (func(), error) {
+	return cb.MockAcquireExecutionLock.Call(message)
+}
+
+func (cb *RunActionCallbacks) GetRunner(ctx context.Context) context.Runner {
+	return cb.MockGetRunner.Call(ctx)
+}
+
+type MockPrepareHook struct {
+	gotHook *hook.Info
+	name    string
+	err     error
+}
+
+func (mock *MockPrepareHook) Call(hookInfo hook.Info) (string, error) {
+	mock.gotHook = &hookInfo
+	return mock.name, mock.err
+}
+
+type PrepareHookCallbacks struct {
+	operation.Callbacks
+	*MockPrepareHook
+}
+
+func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
+	return cb.MockPrepareHook.Call(hookInfo)
 }
 
 type MockNotify struct {
@@ -203,17 +235,52 @@ func (mock *MockNewHookContext) Call(hookInfo hook.Info) (context.Context, error
 	return mock.context, mock.err
 }
 
-type MockHookContextFactory struct {
-	context.Factory
-	*MockNewHookContext
+type MockNewActionContext struct {
+	gotActionId *string
+	context     context.Context
+	err         error
 }
 
-func (f *MockHookContextFactory) NewHookContext(hookInfo hook.Info) (context.Context, error) {
+func (mock *MockNewActionContext) Call(actionId string) (context.Context, error) {
+	mock.gotActionId = &actionId
+	return mock.context, mock.err
+}
+
+type MockContextFactory struct {
+	context.Factory
+	*MockNewHookContext
+	*MockNewActionContext
+}
+
+func (f *MockContextFactory) NewActionContext(actionId string) (context.Context, error) {
+	return f.MockNewActionContext.Call(actionId)
+}
+
+func (f *MockContextFactory) NewHookContext(hookInfo hook.Info) (context.Context, error) {
 	return f.MockNewHookContext.Call(hookInfo)
 }
 
 type MockContext struct {
 	context.Context
+	actionData *context.ActionData
+}
+
+func (mock *MockContext) ActionData() (*context.ActionData, error) {
+	if mock.actionData == nil {
+		return nil, errors.New("not an action context")
+	}
+	return mock.actionData, nil
+}
+
+type MockRunAction struct {
+	context.Runner
+	gotName *string
+	err     error
+}
+
+func (mock *MockRunAction) Call(actionName string) error {
+	mock.gotName = &actionName
+	return mock.err
 }
 
 type MockRunHook struct {
@@ -230,16 +297,37 @@ func (mock *MockRunHook) Call(hookName string) error {
 type MockRunner struct {
 	context.Runner
 	*MockRunHook
+	*MockRunAction
+}
+
+func (r *MockRunner) RunAction(actionName string) error {
+	return r.MockRunAction.Call(actionName)
 }
 
 func (r *MockRunner) RunHook(hookName string) error {
 	return r.MockRunHook.Call(hookName)
 }
 
-func NewPrepareHookSuccessFixture() (*PrepareHookCallbacks, *MockHookContextFactory) {
+func NewActionRunnerGetter(err error) *MockGetRunner {
+	return &MockGetRunner{
+		runner: &MockRunner{
+			MockRunAction: &MockRunAction{err: err},
+		},
+	}
+}
+
+func NewHookRunnerGetter(err error) *MockGetRunner {
+	return &MockGetRunner{
+		runner: &MockRunner{
+			MockRunHook: &MockRunHook{err: err},
+		},
+	}
+}
+
+func NewPrepareHookSuccessFixture() (*PrepareHookCallbacks, *MockContextFactory) {
 	return &PrepareHookCallbacks{
 			MockPrepareHook: &MockPrepareHook{nil, "some-hook-name", nil},
-		}, &MockHookContextFactory{
+		}, &MockContextFactory{
 			MockNewHookContext: &MockNewHookContext{nil, &MockContext{}, nil},
 		}
 }
@@ -251,14 +339,25 @@ func NewDeployExecuteSuccessFixture() (*DeployCallbacks, *MockDeployer) {
 	}
 }
 
+func NewRunActionSuccessContextFactory() *MockContextFactory {
+	return &MockContextFactory{
+		MockNewActionContext: &MockNewActionContext{
+			context: &MockContext{
+				actionData: &context.ActionData{ActionName: "some-action-name"},
+			},
+		},
+	}
+}
+
 var curl = corecharm.MustParseURL
-var dumbActionId = "foo_a_1"
+var someActionId = "foo_a_1"
+var randomActionId = "bar_a_22"
 var overwriteState = operation.State{
 	Kind:               operation.Continue,
 	Step:               operation.Pending,
 	Started:            true,
 	CollectMetricsTime: 1234567,
 	CharmURL:           curl("cs:quantal/wordpress-2"),
-	ActionId:           &dumbActionId,
+	ActionId:           &randomActionId,
 	Hook:               &hook.Info{Kind: hooks.Install},
 }

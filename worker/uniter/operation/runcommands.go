@@ -4,6 +4,8 @@
 package operation
 
 import (
+	"fmt"
+
 	"github.com/juju/juju/worker/uniter/context"
 )
 
@@ -20,7 +22,15 @@ type runCommands struct {
 }
 
 func (rc *runCommands) String() string {
-	return "run commands"
+	suffix := ""
+	if rc.relationId != -1 {
+		infix := ""
+		if rc.remoteUnitName != "" {
+			infix = "; " + rc.remoteUnitName
+		}
+		suffix = fmt.Sprintf(" (%d%s)", rc.relationId, infix)
+	}
+	return "run commands" + suffix
 }
 
 func (rc *runCommands) Prepare(state State) (*State, error) {
