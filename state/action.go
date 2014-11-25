@@ -17,6 +17,10 @@ import (
 
 var actionLogger = loggo.GetLogger("juju.state.action")
 
+// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
+// facilitate patching.
+var NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
+
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
 
@@ -185,7 +189,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 				{"status", finalStatus},
 				{"message", message},
 				{"results", results},
-				{"completed", nowToTheSecond()},
+				{"completed", NowToTheSecond()},
 			}}},
 		}, {
 			C:      actionNotificationsC,
@@ -216,7 +220,7 @@ func newAction(st *State, adoc actionDoc) *Action {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	actionId, err := utils.NewUUID()
+	actionId, err := NewUUID()
 	if err != nil {
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
@@ -228,7 +232,7 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
-			Enqueued:   nowToTheSecond(),
+			Enqueued:   NowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
 			DocId:    st.docID(prefix + actionId.String()),

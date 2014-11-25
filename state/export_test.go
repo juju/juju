@@ -241,7 +241,6 @@ var (
 	GetOrCreatePorts = getOrCreatePorts
 	GetPorts         = getPorts
 	PortsGlobalKey   = portsGlobalKey
-	NowToTheSecond   = nowToTheSecond
 )
 
 var CurrentUpgradeId = currentUpgradeId

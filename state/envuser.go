@@ -76,7 +76,7 @@ func (e *EnvironmentUser) LastConnection() *time.Time {
 
 // UpdateLastConnection updates the last connection time of the environment user.
 func (e *EnvironmentUser) UpdateLastConnection() error {
-	timestamp := nowToTheSecond()
+	timestamp := NowToTheSecond()
 	ops := []txn.Op{{
 		C:      envUsersC,
 		Id:     e.ID(),
@@ -152,7 +152,7 @@ func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displa
 		UserName:    username,
 		DisplayName: displayName,
 		CreatedBy:   creatorname,
-		DateCreated: nowToTheSecond(),
+		DateCreated: NowToTheSecond(),
 	}
 	op := txn.Op{
 		C:      envUsersC,

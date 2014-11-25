@@ -54,7 +54,7 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 			PasswordHash: utils.UserPasswordHash(password, salt),
 			PasswordSalt: salt,
 			CreatedBy:    creator,
-			DateCreated:  nowToTheSecond(),
+			DateCreated:  NowToTheSecond(),
 		},
 	}
 	ops := []txn.Op{{
@@ -80,7 +80,7 @@ func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op 
 		PasswordHash: password,
 		// Empty PasswordSalt means utils.CompatSalt
 		CreatedBy:   user.Name(),
-		DateCreated: nowToTheSecond(),
+		DateCreated: NowToTheSecond(),
 	}
 	return txn.Op{
 		C:      usersC,
@@ -207,15 +207,14 @@ func (u *User) LastLogin() *time.Time {
 	return &result
 }
 
-// nowToTheSecond returns the current time in UTC to the nearest second.
-func nowToTheSecond() time.Time {
-	return time.Now().Round(time.Second).UTC()
-}
+// NowToTheSecond returns the current time in UTC to the nearest second.
+// It is exposed as a var to allow monkey patching in tests.
+var NowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC() }
 
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() error {
-	timestamp := nowToTheSecond()
+	timestamp := NowToTheSecond()
 	ops := []txn.Op{{
 		C:      usersC,
 		Id:     u.Name(),
