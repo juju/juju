@@ -1246,7 +1246,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
-		EnvUUID:           env.UUID(),
+		EnvUUID:           st.EnvironUUID(),
 		Life:              Alive,
 		CIDR:              args.CIDR,
 		VLANTag:           args.VLANTag,
@@ -1283,14 +1283,14 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	defer closer()
 
 	doc := &subnetDoc{}
-	err := subnetss.FindId(st.docID(cidr)).One(doc)
+	err := subnets.FindId(st.docID(cidr)).One(doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("subnet %q", name)
+		return nil, errors.NotFoundf("subnet %q", cidr)
 	}
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get subnet %q", name)
+		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
 	}
-	return &Subnet(st, doc), nil
+	return &Subnet{st, *doc}, nil
 }
 
 // AddNetwork creates a new network with the given params. If a
