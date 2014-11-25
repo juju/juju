@@ -781,10 +781,10 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	addr := network.Address{Value: "8.0.0.4"}
 	// Allocate the address first so we can release it
 	err := env.AllocateAddress(instId, "", addr)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.ReleaseAddress(instId, "", addr)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress

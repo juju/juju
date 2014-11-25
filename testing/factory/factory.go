@@ -404,17 +404,17 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Environment()
-		c.Assert(err, jc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
 
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
 	})
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

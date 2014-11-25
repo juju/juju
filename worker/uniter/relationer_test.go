@@ -414,7 +414,7 @@ func (s *RelationerSuite) TestInferRemoteUnitInvalidInput(c *gc.C) {
 	// Good remote unit
 	args.RemoteUnitName = "u/0"
 	remoteUnit, err = uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
 
@@ -456,7 +456,7 @@ func (s *RelationerSuite) TestInferRemoteUnitAmbiguous(c *gc.C) {
 	// Disambiguate
 	args.RemoteUnitName = "u/0"
 	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/0")
 }
 
