@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
@@ -33,7 +34,7 @@ func (s *uploadSuite) TestSSHUpload(c *gc.C) {
 	archive := bytes.NewBuffer(original)
 
 	id, err := backups.SimpleUpload("127.0.0.1", archive, fakeUpload)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(sshFilename, gc.Matches, `juju-backup-.*\.tar\.gz$`)
 	c.Check(sshHost, gc.Equals, "ubuntu@127.0.0.1")

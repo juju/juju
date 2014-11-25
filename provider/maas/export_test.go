@@ -6,6 +6,7 @@ package maas
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
@@ -87,6 +88,6 @@ func UseTestImageMetadata(c *gc.C, stor storage.Storage) {
 	for f, d := range files {
 		rdr := strings.NewReader(d)
 		err := stor.Put(f, rdr, int64(len(d)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }

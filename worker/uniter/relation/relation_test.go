@@ -27,7 +27,7 @@ func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {
 	reldir := filepath.Join(basedir, "123")
 
 	dir, err := relation.ReadStateDir(basedir, 123)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	state := dir.State()
 	c.Assert(state.RelationId, gc.Equals, 123)
 	c.Assert(msi(state.Members), gc.DeepEquals, msi{})
@@ -37,9 +37,9 @@ func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = dir.Ensure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	fi, err := os.Stat(reldir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fi, jc.Satisfies, os.FileInfo.IsDir)
 }
 
@@ -55,7 +55,7 @@ func (s *StateDirSuite) TestReadStateDirValid(c *gc.C) {
 	setUpDir(c, reldir, "ignored", nil)
 
 	dir, err := relation.ReadStateDir(basedir, 123)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	state := dir.State()
 	c.Assert(state.RelationId, gc.Equals, 123)
 	c.Assert(msi(state.Members), gc.DeepEquals, msi{"foo-bar/1": 99, "baz-qux/7": 101})
@@ -218,7 +218,7 @@ func (s *StateDirSuite) TestWrite(c *gc.C) {
 			"foo-2": "change-version: 0\n",
 		})
 		dir, err := relation.ReadStateDir(basedir, 123)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for i, hi := range t.hooks {
 			c.Logf("  hook %d", i)
 			if i == len(t.hooks)-1 && t.err != "" {
@@ -227,12 +227,12 @@ func (s *StateDirSuite) TestWrite(c *gc.C) {
 				c.Assert(err, gc.ErrorMatches, expect)
 			} else {
 				err = dir.State().Validate(hi)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				err = dir.Write(hi)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				// Check that writing the same change again is OK.
 				err = dir.Write(hi)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			}
 		}
 		members := t.members
@@ -246,19 +246,19 @@ func (s *StateDirSuite) TestWrite(c *gc.C) {
 func (s *StateDirSuite) TestRemove(c *gc.C) {
 	basedir := c.MkDir()
 	dir, err := relation.ReadStateDir(basedir, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.Ensure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	setUpDir(c, basedir, "99", map[string]string{
 		"foo-1": "change-version: 0\n",
 	})
 	dir, err = relation.ReadStateDir(basedir, 99)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.Remove()
 	c.Assert(err, gc.ErrorMatches, ".*: directory not empty")
 }
@@ -272,7 +272,7 @@ func (s *ReadAllStateDirsSuite) TestNoDir(c *gc.C) {
 	relsdir := filepath.Join(basedir, "relations")
 
 	dirs, err := relation.ReadAllStateDirs(relsdir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dirs, gc.HasLen, 0)
 
 	_, err = os.Stat(relsdir)
@@ -311,7 +311,7 @@ func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *gc.C) {
 	})
 
 	dirs, err := relation.ReadAllStateDirs(relsdir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for id, dir := range dirs {
 		c.Logf("%d: %#v", id, dir)
 	}
@@ -324,11 +324,11 @@ func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *gc.C) {
 func setUpDir(c *gc.C, basedir, name string, contents map[string]string) string {
 	reldir := filepath.Join(basedir, name)
 	err := os.Mkdir(reldir, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for name, content := range contents {
 		path := filepath.Join(reldir, name)
 		err := ioutil.WriteFile(path, []byte(content), 0777)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return reldir
 }
@@ -345,7 +345,7 @@ func assertState(c *gc.C, dir *relation.StateDir, relsdir string, relationId int
 		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	} else {
 		fresh, err := relation.ReadStateDir(relsdir, relationId)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(fresh.State(), gc.DeepEquals, expect)
 	}
 }

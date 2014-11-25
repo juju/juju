@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
@@ -33,7 +34,7 @@ func (s *ListenerSuite) sockPath(c *gc.C) string {
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 	s.socketPath = s.sockPath(c)
 	listener, err := uniter.NewRunListener(&mockRunner{c}, s.socketPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
 		listener.Close()
@@ -45,7 +46,7 @@ func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c
 	s.NewRunListener(c)
 
 	listener, err := uniter.NewRunListener(&mockRunner{}, s.socketPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	listener.Close()
 }
@@ -54,12 +55,18 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	s.NewRunListener(c)
 
 	client, err := sockets.Dial(s.socketPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
 
 	var result exec.ExecResponse
-	err = client.Call(uniter.JujuRunEndpoint, "some-command", &result)
-	c.Assert(err, gc.IsNil)
+	args := uniter.RunCommandsArgs{
+		Commands:        "some-command",
+		RelationId:      -1,
+		RemoteUnitName:  "",
+		ForceRemoteUnit: false,
+	}
+	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
 	c.Assert(string(result.Stderr), gc.Equals, "some-command stderr")
@@ -72,11 +79,11 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *exec.ExecResponse, err error) {
-	r.c.Log("mock runner: " + commands)
+func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	r.c.Log("mock runner: " + args.Commands)
 	return &exec.ExecResponse{
 		Code:   42,
-		Stdout: []byte(commands + " stdout"),
-		Stderr: []byte(commands + " stderr"),
+		Stdout: []byte(args.Commands + " stdout"),
+		Stderr: []byte(args.Commands + " stderr"),
 	}, nil
 }

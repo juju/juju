@@ -38,7 +38,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		description: "result from wrong service",
 		patchResults: []params.ServiceCharmActionsResult{
 			params.ServiceCharmActionsResult{
-				ServiceTag: names.NewServiceTag("bar"),
+				ServiceTag: names.NewServiceTag("bar").String(),
 			},
 		},
 		expectedErr: `action results received for wrong service "service-bar"`,
@@ -46,7 +46,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		description: "some other error",
 		patchResults: []params.ServiceCharmActionsResult{
 			params.ServiceCharmActionsResult{
-				ServiceTag: names.NewServiceTag("foo"),
+				ServiceTag: names.NewServiceTag("foo").String(),
 				Error: &params.Error{
 					Message: "something bad",
 				},
@@ -72,7 +72,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 		description: "normal result",
 		patchResults: []params.ServiceCharmActionsResult{
 			params.ServiceCharmActionsResult{
-				ServiceTag: names.NewServiceTag("foo"),
+				ServiceTag: names.NewServiceTag("foo").String(),
 				Actions: &charm.Actions{
 					ActionSpecs: map[string]charm.ActionSpec{
 						"action": charm.ActionSpec{
@@ -107,7 +107,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 			if t.expectedErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
 			} else {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 				c.Check(result, jc.DeepEquals, t.expectedResult)
 			}
 		}()
@@ -120,9 +120,9 @@ func patchServiceCharmActions(c *gc.C, apiCli *action.Client, patchResults []par
 	return action.PatchClientFacadeCall(apiCli,
 		func(req string, paramsIn interface{}, resp interface{}) error {
 			c.Assert(req, gc.Equals, "ServicesCharmActions")
-			c.Assert(paramsIn, gc.FitsTypeOf, params.ServiceTags{})
-			p := paramsIn.(params.ServiceTags)
-			c.Check(p.ServiceTags, gc.HasLen, 1)
+			c.Assert(paramsIn, gc.FitsTypeOf, params.Entities{})
+			p := paramsIn.(params.Entities)
+			c.Check(p.Entities, gc.HasLen, 1)
 			result := resp.(*params.ServicesCharmActionsResults)
 			result.Results = patchResults
 			if err != "" {

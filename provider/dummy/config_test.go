@@ -4,6 +4,7 @@
 package dummy_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -28,16 +29,16 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer env.Destroy()
 	expected := map[string]string{
 		"secret": "pork",
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, expected)
 }
 
@@ -88,7 +89,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		defer env.Destroy()
 
 		firewallMode := env.Config().FirewallMode()

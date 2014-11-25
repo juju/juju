@@ -9,7 +9,7 @@ VERSION=$(juju status | grep 'agent-version:' | awk '{print $2}')
 # Use the new backups CLI if newer than 1.21. Earlier versions did not
 # have this plugin so we don't worry about them.
 if [[ ! $VERSION =~ 1.20 && ! $VERSION =~ 1.21 ]]; then
-    juju backups create --download
+    juju backups create
     exit $?
 fi
 

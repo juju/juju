@@ -42,7 +42,7 @@ func (s *baseBackupsSuite) SetUpTest(c *gc.C) {
 
 func (s *baseBackupsSuite) backupURL(c *gc.C) string {
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	uri := s.baseURL(c)
 	uri.Path = fmt.Sprintf("/environment/%s/backups", environ.UUID())
 	return uri.String()
@@ -53,11 +53,11 @@ func (s *baseBackupsSuite) checkErrorResponse(c *gc.C, resp *http.Response, stat
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_JSON)
 
 	body, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var failure params.Error
 	err = json.Unmarshal(body, &failure)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(&failure, gc.ErrorMatches, msg)
 }
 
@@ -69,13 +69,13 @@ var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
 	resp, err := s.sendRequest(c, "", "", "GET", s.backupURL(c), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
 
 func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
 	resp, err := s.authRequest(c, method, url, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
@@ -90,21 +90,21 @@ func (s *backupsSuite) TestRequiresGET(c *gc.C) {
 func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	// Add a machine and try to login.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := s.sendRequest(c, machine.Tag().String(), password, "GET", s.backupURL(c), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 
 	// Now try a user login.
 	resp, err = s.authRequest(c, "POST", s.backupURL(c), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
 }
 
@@ -120,14 +120,14 @@ func (s *backupsDownloadSuite) newBody(c *gc.C, id string) *bytes.Buffer {
 		ID: id,
 	}
 	body, err := json.Marshal(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return bytes.NewBuffer(body)
 }
 
 func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 	meta := backupstesting.NewMetadata()
 	archive, err := backupstesting.NewArchiveBasic(meta)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.fake.Meta = meta
 	s.fake.Archive = ioutil.NopCloser(archive)
 	s.body = archive.Bytes()
@@ -135,7 +135,7 @@ func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 	ctype := apihttp.CTYPE_JSON
 	body := s.newBody(c, meta.ID())
 	resp, err := s.authRequest(c, "GET", s.backupURL(c), ctype, body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return resp
 }
 
@@ -162,7 +162,7 @@ func (s *backupsDownloadSuite) TestBody(c *gc.C) {
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(body, jc.DeepEquals, s.body)
 }
 

@@ -46,7 +46,7 @@ func (s *singularSuite) TestWithIsMasterTrue(c *gc.C) {
 		isMaster: true,
 	}
 	r, err := singular.New(underlyingRunner, conn)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	started := make(chan struct{}, 1)
 	err = r.StartWorker("worker", func() (worker.Worker, error) {
@@ -63,7 +63,7 @@ func (s *singularSuite) TestWithIsMasterTrue(c *gc.C) {
 	}
 
 	err = worker.Stop(r)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var errFatal = fmt.Errorf("fatal error")
@@ -80,13 +80,13 @@ func (s *singularSuite) TestWithIsMasterFalse(c *gc.C) {
 		pinged:   make(chan struct{}, 5),
 	}
 	r, err := singular.New(underlyingRunner, conn)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = r.StartWorker("worker", func() (worker.Worker, error) {
 		c.Errorf("worker unexpectedly started")
 		return nil, fmt.Errorf("no worker")
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	timeout := time.NewTimer(testing.LongWait)
 	for i := 0; i < cap(conn.pinged); i++ {
@@ -142,7 +142,7 @@ func (s *singularSuite) TestPingCalledOnceOnlyForSeveralWorkers(c *gc.C) {
 	}
 
 	r, err := singular.New(underlyingRunner, conn)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 5; i++ {
 		name := fmt.Sprint("worker", i)
@@ -150,7 +150,7 @@ func (s *singularSuite) TestPingCalledOnceOnlyForSeveralWorkers(c *gc.C) {
 			c.Errorf("worker unexpectedly started")
 			return nil, fmt.Errorf("no worker")
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	time.Sleep(testing.ShortWait)
 	n := 0

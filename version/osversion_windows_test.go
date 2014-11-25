@@ -20,6 +20,6 @@ func (s *windowsVersionSuite) TestOSVersion(c *gc.C) {
 		knownSeries.Add(series)
 	}
 	version, err := osVersion()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, jc.Satisfies, knownSeries.Contains)
 }

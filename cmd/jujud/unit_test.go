@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -65,16 +66,16 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	jujutesting.AddStateServerMachine(c, s.State)
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(initialUnitPassword)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to a machine.
 	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	id, err := unit.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
@@ -83,7 +84,7 @@ func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	a := &UnitAgent{}
 	s.initAgent(c, a, "--unit-name", unit.Name())
 	err := a.ReadConfig(unit.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return a
 }
 
@@ -130,9 +131,9 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			c.Fatalf("no activity detected")
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			st, info, data, err := unit.Status()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			switch st {
 			case state.StatusPending, state.StatusInstalled:
 				c.Logf("waiting...")
@@ -170,17 +171,17 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	// creating downloaded-tools.txt in data-dir/tools/<version>.
 	toolsDir := agenttools.SharedToolsDir(s.DataDir(), newVers)
 	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
 	testTools := tools.Tools{Version: newVers, URL: "http://testing.invalid/tools"}
 	data, err := json.Marshal(testTools)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(toolsPath, data, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Set the machine agent version to trigger an upgrade.
 	err = machine.SetAgentVersion(newVers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: unit.Tag().String(),
@@ -196,7 +197,7 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 	newVers := version.Current
 	newVers.Patch++
 	err := machine.SetAgentVersion(newVers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(agent)
 	c.Assert(err, gc.ErrorMatches, "timed out waiting for agent to finish.*")
 }
@@ -204,17 +205,17 @@ func (s *UnitSuite) TestUpgradeFailsWithoutTools(c *gc.C) {
 func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	a := s.newAgent(c, unit)
 	err = runWithTimeout(a)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// try again when the unit has been removed.
 	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	a = s.newAgent(c, unit)
 	err = runWithTimeout(a)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
@@ -243,7 +244,7 @@ func (f *fakeUnitAgent) ChangeConfig(AgentConfigMutator) error {
 func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	_, unit, conf, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
@@ -285,7 +286,7 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 	vers := version.Current
 	vers.Minor = version.Current.Minor + 1
 	err := unit.SetAgentVersion(vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
@@ -298,9 +299,9 @@ func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
 			c.Fatalf("timeout while waiting for agent version to be set")
 		case <-time.After(coretesting.ShortWait):
 			err := unit.Refresh()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			agentTools, err := unit.AgentTools()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if agentTools.Version.Minor != version.Current.Minor {
 				continue
 			}
@@ -321,13 +322,13 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		network.NewAddresses("localhost"), 1234,
 	)}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for config to be updated.
 	s.BackingState.StartSync()
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		addrs, err := a.CurrentConfig().APIAddresses()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if reflect.DeepEqual(addrs, []string{"localhost:1234"}) {
 			return
 		}

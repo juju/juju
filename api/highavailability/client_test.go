@@ -6,6 +6,7 @@ package highavailability_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/highavailability"
@@ -37,18 +38,18 @@ func assertKill(c *gc.C, killer Killer) {
 
 func setAgentPresence(c *gc.C, s *jujutesting.JujuConnSuite, machineId string) *presence.Pinger {
 	m, err := s.BackingState.Machine(machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := m.SetAgentPresence()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return pinger
 }
 
 func assertEnsureAvailability(c *gc.C, s *jujutesting.JujuConnSuite) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
 	pingerA := setAgentPresence(c, s, "0")
@@ -57,14 +58,14 @@ func assertEnsureAvailability(c *gc.C, s *jujutesting.JujuConnSuite) {
 	emptyCons := constraints.Value{}
 	client := highavailability.NewClient(s.APIState)
 	result, err := client.EnsureAvailability(3, emptyCons, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
 	c.Assert(result.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
 	c.Assert(result.Removed, gc.HasLen, 0)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")

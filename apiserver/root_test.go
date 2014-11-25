@@ -55,7 +55,7 @@ func (r *rootSuite) TestPingTimeout(c *gc.C) {
 		c.Fatalf("action never executed")
 	}
 	closeDiff := closed.Sub(broken) / time.Millisecond
-	c.Assert(50 <= closeDiff && closeDiff <= 100, gc.Equals, true)
+	c.Assert(50 <= closeDiff && closeDiff <= 100, jc.IsTrue)
 }
 
 func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {
@@ -93,7 +93,7 @@ func (s *errRootSuite) TestErrorRootViaRPC(c *gc.C) {
 	errRoot := apiserver.NewErrRoot(origErr)
 	val := rpcreflect.ValueOf(reflect.ValueOf(errRoot))
 	caller, err := val.FindMethod("Admin", 0, "Login")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	resp, err := caller.Call("", reflect.Value{})
 	c.Check(err, gc.Equals, origErr)
 	c.Check(resp.IsValid(), jc.IsFalse)
@@ -169,20 +169,20 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	// Now, myGoodFacade returns the right type, so calling it should work
 	// fine
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = caller.Call("", reflect.Value{})
 	c.Check(err, gc.ErrorMatches, "Exposed was bogus")
 	// However, myBadFacade returns the wrong type, so trying to access it
 	// should create an error
 	caller, err = srvRoot.FindMethod("my-testing-facade", 0, "Exposed")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = caller.Call("", reflect.Value{})
 	c.Check(err, gc.ErrorMatches,
 		`internal error, my-testing-facade\(0\) claimed to return \*apiserver_test.testingType but returned \*apiserver_test.badType`)
 	// myErrFacade had the permissions change, so calling it returns an
 	// error, but that shouldn't trigger the type checking code.
 	caller, err = srvRoot.FindMethod("my-testing-facade", 2, "Exposed")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	res, err := caller.Call("", reflect.Value{})
 	c.Check(err, gc.ErrorMatches, `you shall not pass`)
 	c.Check(res.IsValid(), jc.IsFalse)
@@ -207,7 +207,7 @@ func (ct *countingType) AltCount() stringVar {
 
 func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expected string) {
 	v, err := caller.Call(id, reflect.Value{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(v.Interface(), gc.Equals, stringVar{expected})
 }
 
@@ -229,21 +229,21 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	// The first time we call FindMethod, it should lookup a facade, and
 	// request a new object.
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "1")
 	// The second time we ask for a method on the same facade, it should
 	// reuse that object, rather than creating another instance
 	caller, err = srvRoot.FindMethod("my-counting-facade", 0, "AltCount")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-1")
 	// But when we ask for a different version, we should get a new
 	// instance
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "Count")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "2")
 	// But it, too, should be cached
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-2")
 }
 
@@ -264,7 +264,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	// The first time we call FindMethod, it should lookup a facade, and
 	// request a new object.
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "orig-id", "orig-id1")
 	// However, if we place another call for a different Id, it should grab
 	// a new object
@@ -275,7 +275,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	assertCallResult(c, caller, "alt-id", "alt-id2")
 	// We get the same results asking for the other method
 	caller, err = srvRoot.FindMethod("my-counting-facade", 0, "AltCount")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "orig-id", "ALT-orig-id1")
 	assertCallResult(c, caller, "alt-id", "ALT-alt-id2")
 	assertCallResult(c, caller, "third-id", "ALT-third-id3")
@@ -294,7 +294,7 @@ func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
 	reflectType := reflect.TypeOf((*countingType)(nil))
 	common.RegisterFacade("my-counting-facade", 0, newIdCounter, reflectType)
 	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// This is designed to trigger the race detector
 	var wg sync.WaitGroup
 	wg.Add(4)
@@ -353,10 +353,10 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 		return &secondImpl{}, nil
 	})
 	caller, err := srvRoot.FindMethod("my-interface-facade", 0, "OneMethod")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "first")
 	caller2, err := srvRoot.FindMethod("my-interface-facade", 1, "OneMethod")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller2, "", "second")
 	// We should *not* be able to see AMethod or ZMethod
 	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "AMethod")

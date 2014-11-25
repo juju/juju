@@ -23,7 +23,7 @@ func (*auditSuite) SetUpTest(c *gc.C) {
 	loggo.ResetLoggers()
 	loggo.ResetWriters()
 	err := loggo.ConfigureLoggers(`<root>=ERROR; audit=INFO`)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockUser struct {

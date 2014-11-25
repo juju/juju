@@ -6,6 +6,7 @@ package instances
 import (
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -210,13 +211,13 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 			itypesToUse = instanceTypes
 		}
 		itypes, err := MatchingInstanceTypes(itypesToUse, "test", constraints.MustParse(t.cons))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
 			if len(t.arches) > 0 {
 				c.Check(itype.Arches, gc.DeepEquals, filterArches(itype.Arches, t.arches))
 			} else {
-				c.Check(len(itype.Arches) > 0, gc.Equals, true)
+				c.Check(len(itype.Arches) > 0, jc.IsTrue)
 			}
 			names[i] = itype.Name
 		}
@@ -274,12 +275,12 @@ func (s *instanceTypeSuite) TestMatch(c *gc.C) {
 		c.Assert(itype.Name, gc.Not(gc.Equals), "")
 		itype, match := itype.match(cons)
 		if len(t.arches) > 0 {
-			c.Check(match, gc.Equals, true)
+			c.Check(match, jc.IsTrue)
 			expect := itype
 			expect.Arches = t.arches
 			c.Check(itype, gc.DeepEquals, expect)
 		} else {
-			c.Check(match, gc.Equals, false)
+			c.Check(match, jc.IsFalse)
 			c.Check(itype, gc.DeepEquals, InstanceType{})
 		}
 	}

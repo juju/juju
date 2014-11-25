@@ -89,7 +89,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	aggregator := newAggregator(testGetter)
 
 	info, err := aggregator.instanceInfo("foo")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.DeepEquals, instanceInfo{
 		status:    "foobar",
 		addresses: instance1.addresses,
@@ -119,7 +119,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	var wg sync.WaitGroup
 	checkInfo := func(id instance.Id, expectStatus string) {
 		info, err := aggregator.instanceInfo(id)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(info.status, gc.Equals, expectStatus)
 		wg.Done()
 	}
@@ -225,5 +225,5 @@ func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
 	aggregator := newAggregator(testGetter)
 	aggregator.Kill()
 	err := aggregator.Wait()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

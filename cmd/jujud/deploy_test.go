@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -66,11 +67,11 @@ func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 			select {
 			case <-timeout:
 				got, err := ctx.DeployedUnits()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Fatalf("unexpected units: %#v", got)
 			case <-time.After(testing.ShortWait):
 				got, err := ctx.DeployedUnits()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				if reflect.DeepEqual(got, want) {
 					return
 				}

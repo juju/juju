@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -23,14 +24,14 @@ var _ = gc.Suite(&dependenciesTest{})
 
 func projectRoot(c *gc.C) string {
 	p, err := build.Import("github.com/juju/juju", "", build.FindOnly)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return p.Dir
 }
 
 func (*dependenciesTest) TestDependenciesTsvFormat(c *gc.C) {
 	filename := filepath.Join(projectRoot(c), "dependencies.tsv")
 	content, err := ioutil.ReadFile(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, line := range strings.Split(string(content), "\n") {
 		if line == "" {

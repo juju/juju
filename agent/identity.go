@@ -4,23 +4,25 @@
 package agent
 
 import (
-	"fmt"
 	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 )
+
+var ErrNoStateServingInfo = errors.New("StateServingInfo missing")
 
 func WriteSystemIdentityFile(c Config) error {
 	info, ok := c.StateServingInfo()
 	if !ok {
-		return fmt.Errorf("StateServingInfo not available and we need it")
+		return errors.Trace(ErrNoStateServingInfo)
 	}
 	// Write non-empty contents to the file, otherwise delete it
 	if info.SystemIdentity != "" {
 		logger.Infof("writing system identity file")
 		err := utils.AtomicWriteFile(c.SystemIdentityPath(), []byte(info.SystemIdentity), 0600)
 		if err != nil {
-			return fmt.Errorf("cannot write system identity: %v", err)
+			return errors.Annotate(err, "cannot write system identity")
 		}
 	} else {
 		logger.Infof("removing system identity file")

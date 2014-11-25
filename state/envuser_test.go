@@ -26,7 +26,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.envTag.Id()))
 	c.Assert(envUser.EnvironmentTag(), gc.Equals, s.envTag)
@@ -37,7 +37,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 
 	envUser, err = s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.envTag.Id()))
 	c.Assert(envUser.EnvironmentTag(), gc.Equals, s.envTag)
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
@@ -62,10 +62,10 @@ func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
 	_, err := s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.RemoveEnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -82,9 +82,9 @@ func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = envUser.UpdateLastConnection()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// It is possible that the update is done over a second boundary, so we need
 	// to check for after now as well as equal.
 	c.Assert(envUser.LastConnection().After(now) ||

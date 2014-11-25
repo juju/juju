@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -31,7 +32,7 @@ var _ common.AddressAndCertGetter = (*state.State)(nil)
 
 func (s *stateAddresserSuite) TestStateAddresses(c *gc.C) {
 	result, err := s.addresser.StateAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"addresses:1", "addresses:2"})
 }
 
@@ -41,7 +42,7 @@ func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
 	result, err := s.addresser.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
 

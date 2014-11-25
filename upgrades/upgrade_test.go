@@ -524,7 +524,7 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		s.PatchValue(&version.Current, vers)
 		err := upgrades.PerformUpgrade(fromVersion, test.targets, ctx)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
@@ -616,7 +616,7 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 		stateCount = 0
 		apiCount = 0
 		err := upgrades.PerformUpgrade(fromVers, targets(target), ctx)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(stateCount, gc.Equals, expectedStateCallCount)
 		c.Assert(apiCount, gc.Equals, 1)
 	}

@@ -4,6 +4,7 @@
 package authentication_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -22,15 +23,15 @@ var _ = gc.Suite(&userAuthenticatorSuite{})
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", nonce, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machinePassword := password
 
 	// attempt machine login
@@ -43,11 +44,11 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	// add a unit for testing unit agent authentication
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	unitPassword := password
 
 	// Attempt unit login
@@ -66,7 +67,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
 	err := authenticator.Authenticate(user, "password", "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
@@ -88,12 +89,12 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 	// add relation
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempt relation login
 	authenticator := &authentication.UserAuthenticator{}

@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
@@ -22,9 +23,9 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 	var err error
 	s.apiEnviron, err = s.uniter.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.stateEnviron, err = s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {

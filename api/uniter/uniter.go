@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -27,9 +26,6 @@ type State struct {
 	facade base.FacadeCaller
 	// unitTag contains the authenticated unit's tag.
 	unitTag names.UnitTag
-
-	// charmsURL is the root URL used to fetch charm archives.
-	charmsURL *url.URL
 }
 
 // newStateForVersion creates a new client-side Uniter facade for the
@@ -37,7 +33,6 @@ type State struct {
 func newStateForVersion(
 	caller base.APICaller,
 	authTag names.UnitTag,
-	charmsURL *url.URL,
 	version int,
 ) *State {
 	facadeCaller := base.NewFacadeCallerForVersion(
@@ -50,18 +45,17 @@ func newStateForVersion(
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
 		facade:         facadeCaller,
 		unitTag:        authTag,
-		charmsURL:      charmsURL,
 	}
 }
 
 // newStateV0 creates a new client-side Uniter facade, version 0.
-func newStateV0(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) *State {
-	return newStateForVersion(caller, authTag, charmsURL, 0)
+func newStateV0(caller base.APICaller, authTag names.UnitTag) *State {
+	return newStateForVersion(caller, authTag, 0)
 }
 
 // newStateV1 creates a new client-side Uniter facade, version 1.
-func newStateV1(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) *State {
-	return newStateForVersion(caller, authTag, charmsURL, 1)
+func newStateV1(caller base.APICaller, authTag names.UnitTag) *State {
+	return newStateForVersion(caller, authTag, 1)
 }
 
 // NewState creates a new client-side Uniter facade.
@@ -217,7 +211,7 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 	args := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{
 			{
-				ActionTag: tag,
+				ActionTag: tag.String(),
 				Status:    status,
 				Results:   results,
 				Message:   message,

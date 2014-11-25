@@ -54,7 +54,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *g
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// az0 is unavailable, so az1 and az2 come out as equal best;
 	// az1 comes first due to lexicographical ordering on the name.
 	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
@@ -85,7 +85,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, []instance.Id{"nichts", "inst1", "null", "inst2"})
 	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// az2 has fewer instances, so comes first.
 	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
 		ZoneName: "az2",
@@ -116,7 +116,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabil
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(called, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zoneInstances, gc.HasLen, 2)
 }
 
@@ -133,7 +133,7 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) 
 	})
 	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zoneInstances, gc.HasLen, 0)
 }
 
@@ -250,7 +250,7 @@ func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
 		c.Logf("test %d", i)
 		zoneInstances = test.zoneInstances
 		eligible, err := common.DistributeInstances(&s.env, test.candidates, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(eligible, jc.SameContents, test.eligible)
 	}
 }

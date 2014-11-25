@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -40,7 +41,7 @@ var _ = gc.Suite(&ActionGetSuite{})
 func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	hctx := &nonActionContext{}
 	com, err := jujuc.NewCommand(hctx, "action-get")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{})
 	c.Check(code, gc.Equals, 1)
@@ -252,7 +253,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		hctx := &actionGetContext{}
 		hctx.actionParams = t.actionParams
 		com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
@@ -269,7 +270,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	hctx := &actionGetContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)

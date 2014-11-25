@@ -41,13 +41,13 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.ports, err = state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ports, gc.NotNil)
 }
 
 func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 	ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.NotNil)
 	err = ports.OpenPorts(state.PortRange{
 		FromPort: 100,
@@ -55,10 +55,10 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 		UnitName: s.unit1.Name(),
 		Protocol: "TCP",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.NotNil)
 
 	c.Assert(ports.PortsForUnit(s.unit1.Name()), gc.HasLen, 1)
@@ -229,40 +229,40 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 
 		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ports, gc.NotNil)
 
 		// open ports that should exist for the test case
 		for _, portRange := range t.existing {
 			err := ports.OpenPorts(portRange)
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		if t.existing != nil {
 			err = ports.Refresh()
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		if t.open != nil {
 			err = ports.OpenPorts(*t.open)
 			if t.expected == "" {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expected)
 			}
 			err = ports.Refresh()
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 
 		}
 
 		if t.close != nil {
 			err := ports.ClosePorts(*t.close)
 			if t.expected == "" {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expected)
 			}
 		}
 		err = ports.Remove()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -274,7 +274,7 @@ func (s *PortsDocSuite) TestAllPortRanges(c *gc.C) {
 		Protocol: "TCP",
 	}
 	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ranges := s.ports.AllPortRanges()
 	c.Assert(ranges, gc.HasLen, 1)
@@ -301,10 +301,10 @@ func (s *PortsDocSuite) TestCloseInvalidRange(c *gc.C) {
 		Protocol: "TCP",
 	}
 	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.ports.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.ports.ClosePorts(state.PortRange{
 		FromPort: 150,
 		ToPort:   200,
@@ -322,18 +322,18 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 		Protocol: "TCP",
 	}
 	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ports, err := state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.NotNil)
 
 	allPorts, err := s.machine.AllPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, prt := range allPorts {
 		err := prt.Remove()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
@@ -364,19 +364,19 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 	expectChange := fmt.Sprintf("%s:%s", s.machine.Id(), network.DefaultPublic)
 	// Open a port range, detect a change.
 	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the port range, detect a change.
 	err = s.ports.ClosePorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the port range again, no changes.
 	err = s.ports.ClosePorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Open another range, detect a change.
@@ -387,13 +387,13 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 		Protocol: "udp",
 	}
 	err = s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Open the same range again, no changes.
 	err = s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Open another range, detect a change.
@@ -404,25 +404,25 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 		Protocol: "tcp",
 	}
 	err = s.ports.OpenPorts(otherRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the other range, detect a change.
 	err = s.ports.ClosePorts(otherRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Remove the ports document, detect a change.
 	err = s.ports.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// And again - no change.
 	err = s.ports.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 

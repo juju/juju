@@ -41,29 +41,29 @@ const expectedLine = `
 func (s *ensureDotProfileSuite) writeDotProfile(c *gc.C, content string) {
 	dotProfile := path.Join(s.home, ".profile")
 	err := ioutil.WriteFile(dotProfile, []byte(content), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ensureDotProfileSuite) assertProfile(c *gc.C, content string) {
 	dotProfile := path.Join(s.home, ".profile")
 	data, err := ioutil.ReadFile(dotProfile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, content)
 }
 
 func (s *ensureDotProfileSuite) TestSourceAdded(c *gc.C) {
 	s.writeDotProfile(c, "")
 	err := upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertProfile(c, expectedLine)
 }
 
 func (s *ensureDotProfileSuite) TestIdempotent(c *gc.C) {
 	s.writeDotProfile(c, "")
 	err := upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertProfile(c, expectedLine)
 }
 
@@ -71,12 +71,12 @@ func (s *ensureDotProfileSuite) TestProfileUntouchedIfJujuProxyInSource(c *gc.C)
 	content := "source .juju-proxy\n"
 	s.writeDotProfile(c, content)
 	err := upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertProfile(c, content)
 }
 
 func (s *ensureDotProfileSuite) TestSkippedIfDotProfileDoesntExist(c *gc.C) {
 	err := upgrades.EnsureUbuntuDotProfileSourcesProxyFile(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path.Join(s.home, ".profile"), jc.DoesNotExist)
 }

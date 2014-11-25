@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/syslog"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -72,23 +73,23 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", addrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// We should get a ca-cert.pem with the contents introduced into state config.
 	waitForFile(c, filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
 	caCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
 	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)

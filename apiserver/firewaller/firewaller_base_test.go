@@ -43,7 +43,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	for i := 0; i <= 2; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
 	// Create a service and three units for these machines.
@@ -52,9 +52,9 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		unit, err := s.service.AddUnit()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		s.units = append(s.units, unit)
 	}
 
@@ -88,10 +88,10 @@ func (s *firewallerBaseSuite) testLife(
 ) {
 	// Unassign unit 1 from its machine, so we can change its life cycle.
 	err := s.units[1].UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machines[1].EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertLife(c, 0, state.Alive)
 	s.assertLife(c, 1, state.Dead)
 	s.assertLife(c, 2, state.Alive)
@@ -102,7 +102,7 @@ func (s *firewallerBaseSuite) testLife(
 		{Tag: s.machines[2].Tag().String()},
 	}})
 	result, err := facade.Life(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "alive"},
@@ -119,7 +119,7 @@ func (s *firewallerBaseSuite) testLife(
 
 	// Remove a machine and make sure it's detected.
 	err = s.machines[1].Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -129,7 +129,7 @@ func (s *firewallerBaseSuite) testLife(
 		},
 	}
 	result, err = facade.Life(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.NotFoundError("machine 1")},
@@ -145,10 +145,10 @@ func (s *firewallerBaseSuite) testInstanceId(
 ) {
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", &hwChars)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
@@ -158,7 +158,7 @@ func (s *firewallerBaseSuite) testInstanceId(
 		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := facade.InstanceId(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "i-am"},
@@ -185,7 +185,7 @@ func (s *firewallerBaseSuite) testWatchEnvironMachines(
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	got, err := facade.WatchEnvironMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
 		Changes:          []string{"0", "1", "2"},
@@ -224,7 +224,7 @@ func (s *firewallerBaseSuite) testWatch(
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := facade.Watch(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if allowUnits {
 		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
 			Results: []params.NotifyWatchResult{
@@ -295,7 +295,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := facade.WatchUnits(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Changes: []string{"wordpress/0"}, StringsWatcherId: "1"},
@@ -330,13 +330,13 @@ func (s *firewallerBaseSuite) testGetExposed(
 ) {
 	// Set the service to exposed first.
 	err := s.service.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.service.Tag().String()},
 	}})
 	result, err := facade.GetExposed(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: true},
@@ -351,13 +351,13 @@ func (s *firewallerBaseSuite) testGetExposed(
 
 	// Now reset the exposed flag for the service and check again.
 	err = s.service.ClearExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.service.Tag().String()},
 	}}
 	result, err = facade.GetExposed(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: false},
@@ -373,7 +373,7 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 ) {
 	// Unassign a unit first.
 	err := s.units[2].UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.units[0].Tag().String()},
@@ -381,7 +381,7 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := facade.GetAssignedMachine(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: s.machines[0].Tag().String()},
@@ -398,13 +398,13 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 
 	// Now reset assign unit 2 again and check.
 	err = s.units[2].AssignToMachine(s.machines[0])
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.units[2].Tag().String()},
 	}}
 	result, err = facade.GetAssignedMachine(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: s.machines[0].Tag().String()},
@@ -414,7 +414,7 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 
 func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 

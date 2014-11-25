@@ -67,7 +67,7 @@ func (s *createSuite) checkDownload(c *gc.C, ctx *cmd.Context) {
 
 func (s *createSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "create", "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := s.subcommand.Info()
 	expected := "(?sm)usage: juju backups create [options] " + info.Args + "$.*"
@@ -82,7 +82,7 @@ func (s *createSuite) TestHelp(c *gc.C) {
 func (s *createSuite) TestNoArgs(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
 	_, err := testing.RunCommand(c, s.command, "create")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
 }
@@ -91,7 +91,7 @@ func (s *createSuite) TestDefaultDownload(c *gc.C) {
 	s.setDownload()
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkDownload(c, ctx)
 	c.Check(s.filename, gc.Not(gc.Equals), "")
@@ -103,7 +103,7 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 	s.subcommand.Quiet = true
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
 
@@ -117,7 +117,7 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 func (s *createSuite) TestNotes(c *gc.C) {
 	client := s.BaseBackupsSuite.setDownload()
 	_, err := testing.RunCommand(c, s.command, "create", "spam")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "spam", "Create", "Download")
 }
@@ -127,7 +127,7 @@ func (s *createSuite) TestFilename(c *gc.C) {
 	s.subcommand.Filename = "backup.tgz"
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, s.metaresult.ID, "", "Create", "Download")
 	s.checkDownload(c, ctx)
@@ -139,7 +139,7 @@ func (s *createSuite) TestNoDownload(c *gc.C) {
 	s.subcommand.NoDownload = true
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.Check(c, "", "", "Create")
 	out := MetaResultString + s.metaresult.ID + "\n"

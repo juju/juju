@@ -11,6 +11,7 @@ import (
 	"net/rpc"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/juju/sockets"
@@ -18,11 +19,23 @@ import (
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"
 
+// RunCommandsArgs stores the arguments for a RunCommands call.
+type RunCommandsArgs struct {
+	// Commands is the arbitrary commands to execute on the unit
+	Commands string
+	// RelationId is the relation context to execute the commands in.
+	RelationId int
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteUnitName string
+	// ForceRemoteUnit skips relation membership and existence validation.
+	ForceRemoteUnit bool
+}
+
 // A CommandRunner is something that will actually execute the commands and
 // return the results of that execution in the exec.ExecResponse (which
 // contains stdout, stderr, and return code).
 type CommandRunner interface {
-	RunCommands(commands string) (results *exec.ExecResponse, err error)
+	RunCommands(RunCommandsArgs RunCommandsArgs) (results *exec.ExecResponse, err error)
 }
 
 // RunListener is responsible for listening on the network connection and
@@ -44,9 +57,12 @@ type JujuRunServer struct {
 
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
-func (r *JujuRunServer) RunCommands(commands string, result *exec.ExecResponse) error {
-	logger.Debugf("RunCommands: %q", commands)
-	runResult, err := r.runner.RunCommands(commands)
+func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
+	logger.Debugf("RunCommands: %+v", args)
+	runResult, err := r.runner.RunCommands(args)
+	if err != nil {
+		return errors.Annotate(err, "r.runner.RunCommands")
+	}
 	*result = *runResult
 	return err
 }
@@ -58,11 +74,11 @@ func (r *JujuRunServer) RunCommands(commands string, result *exec.ExecResponse) 
 func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, error) {
 	server := rpc.NewServer()
 	if err := server.Register(&JujuRunServer{runner}); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	runListener := &RunListener{
 		listener: listener,

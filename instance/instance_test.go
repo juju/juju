@@ -4,6 +4,7 @@
 package instance_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
@@ -232,13 +233,13 @@ func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hwc, err := instance.ParseHardware(t.args...)
 		if t.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		cons1, err := instance.ParseHardware(hwc.String())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cons1, gc.DeepEquals, hwc)
 	}
 }

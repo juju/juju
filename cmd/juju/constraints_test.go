@@ -46,7 +46,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	// Set constraints.
 	assertSet(c, "mem=4G", "cpu-power=250")
 	cons, err := s.State.EnvironConstraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
 		Mem:      uint64p(4096),
@@ -55,7 +55,7 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	// Clear constraints.
 	assertSet(c)
 	cons, err = s.State.EnvironConstraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
@@ -65,7 +65,7 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
 	// Set constraints.
 	assertSet(c, "-s", "svc", "mem=4G", "cpu-power=250")
 	cons, err := svc.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
 		Mem:      uint64p(4096),
@@ -74,7 +74,7 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
 	// Clear constraints.
 	assertSet(c, "-s", "svc")
 	cons, err = svc.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
@@ -106,7 +106,7 @@ func (s *ConstraintsCommandsSuite) TestGetEnvironEmpty(c *gc.C) {
 func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *gc.C) {
 	cons := constraints.Value{CpuCores: uint64p(64)}
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertGet(c, "cpu-cores=64\n")
 }
 
@@ -118,14 +118,14 @@ func (s *ConstraintsCommandsSuite) TestGetServiceEmpty(c *gc.C) {
 func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *gc.C) {
 	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertGet(c, "cpu-cores=64\n", "svc")
 }
 
 func (s *ConstraintsCommandsSuite) TestGetFormats(c *gc.C) {
 	cons := constraints.Value{CpuCores: uint64p(64), CpuPower: uint64p(0)}
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertGet(c, "cpu-cores=64 cpu-power=\n", "--format", "constraints")
 	assertGet(c, "cpu-cores: 64\ncpu-power: 0\n", "--format", "yaml")
 	assertGet(c, `{"cpu-cores":64,"cpu-power":0}`+"\n", "--format", "json")

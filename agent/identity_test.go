@@ -49,16 +49,16 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 	params := attributeParams
 	params.DataDir = c.MkDir()
 	conf, err := NewStateMachineConfig(params, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = WriteSystemIdentityFile(conf)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	contents, err := ioutil.ReadFile(conf.SystemIdentityPath())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(contents), gc.Equals, servingInfo.SystemIdentity)
 
 	fi, err := os.Stat(conf.SystemIdentityPath())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Windows is not fully POSIX compliant. Chmod() and Chown() have unexpected behavior
 	// compared to linux/unix
@@ -69,9 +69,9 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 	info := servingInfo
 	info.SystemIdentity = ""
 	conf, err = NewStateMachineConfig(params, info)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = WriteSystemIdentityFile(conf)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	fi, err = os.Stat(conf.SystemIdentityPath())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }

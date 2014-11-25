@@ -52,7 +52,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 			}
 		},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.factory = factory
 }
 
@@ -62,7 +62,7 @@ func (s *FactorySuite) setUpCacheMethods(c *gc.C) {
 	// without panicking. (IMO this is less invasive that making updateCache
 	// responsible for creating missing caches etc.)
 	_, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *FactorySuite) updateCache(relId int, unitName string, settings params.RelationSettings) {
@@ -89,7 +89,7 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 	c.Assert(actualOK, gc.Equals, expectOK)
 
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	name, uuid := ctx.EnvInfo()
 	c.Assert(name, gc.Equals, env.Name())
 	c.Assert(uuid, gc.Equals, env.UUID())
@@ -127,16 +127,29 @@ func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx *context.HookContex
 }
 
 func (s *FactorySuite) TestNewRunContext(c *gc.C) {
-	ctx, err := s.factory.NewRunContext()
-	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewRunContext(-1, "")
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
 }
 
+func (s *FactorySuite) TestNewRunContextRelationId(c *gc.C) {
+	ctx, err := s.factory.NewRunContext(0, "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertRelationContext(c, ctx, 0)
+}
+
+func (s *FactorySuite) TestNewRunContextRelationIdDoesNotExist(c *gc.C) {
+	_, err := s.factory.NewRunContext(12, "baz")
+	c.Assert(err, gc.ErrorMatches, `unknown relation id:.*`)
+}
+
 func (s *FactorySuite) TestNewHookContext(c *gc.C) {
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
@@ -153,7 +166,7 @@ func (s *FactorySuite) TestNewHookContextWithRelation(c *gc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 1)
@@ -168,7 +181,7 @@ func (s *FactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 	s.updateCache(0, "rel0/1", params.RelationSettings{"drop": "me"})
 
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	settings0, found := s.getCache(0, "rel0/0")
 	c.Assert(found, jc.IsTrue)
@@ -185,7 +198,7 @@ func (s *FactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 	// Verify that the settings really were cached by trying to look them up.
 	// Nothing's really in scope, so the call would fail if they weren't.
 	settings0, err = relCtx.ReadSettings("rel0/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings0, jc.DeepEquals, params.RelationSettings{"keep": "me"})
 
 	// Verify that the non-member settings were purged by looking them up and
@@ -206,7 +219,7 @@ func (s *FactorySuite) TestNewHookContextRelationJoinedUpdatesRelationContextAnd
 		RelationId: 1,
 		RemoteUnit: "r/0",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1)
@@ -229,7 +242,7 @@ func (s *FactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAn
 		RelationId: 1,
 		RemoteUnit: "r/4",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1)
@@ -255,7 +268,7 @@ func (s *FactorySuite) TestNewHookContextRelationDepartedUpdatesRelationContextA
 		RelationId: 1,
 		RemoteUnit: "r/0",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1)
@@ -284,7 +297,7 @@ func (s *FactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *gc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel := s.AssertRelationContext(c, ctx, 1)
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
@@ -307,7 +320,7 @@ func (s *FactorySuite) TestNewHookContextWithBadRelation(c *gc.C) {
 func (s *FactorySuite) TestNewHookContextMetricsDisabledHook(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "metered")
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.AddMetric("key", "value", time.Now())
 	c.Assert(err, gc.ErrorMatches, "metrics disabled")
 }
@@ -315,7 +328,7 @@ func (s *FactorySuite) TestNewHookContextMetricsDisabledHook(c *gc.C) {
 func (s *FactorySuite) TestNewHookContextMetricsDisabledUndeclared(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "mysql")
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.AddMetric("key", "value", time.Now())
 	c.Assert(err, gc.ErrorMatches, "metrics disabled")
 }
@@ -331,9 +344,9 @@ func (s *FactorySuite) TestNewHookContextMetricsEnabled(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "metered")
 
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.AddMetric("pings", "0.5", time.Now())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *FactorySuite) TestNewActionContextBadCharm(c *gc.C) {
@@ -348,11 +361,11 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
 		"outfile": "/some/file.bz2",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := s.factory.NewActionContext(action.NotificationId())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := ctx.ActionData()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, jc.DeepEquals, &context.ActionData{
 		ActionName: "snapshot",
 		ActionTag:  action.ActionTag(),
@@ -366,7 +379,7 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	action, err := s.unit.AddAction("no-such-action", nil)
-	c.Assert(err, gc.IsNil) // this will fail when state is done right
+	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
 	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
@@ -378,7 +391,7 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
 		"outfile": 123,
 	})
-	c.Assert(err, gc.IsNil) // this will fail when state is done right
+	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
 	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
@@ -388,9 +401,9 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	action, err := s.unit.AddAction("snapshot", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
@@ -400,9 +413,9 @@ func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
 func (s *FactorySuite) TestNewActionContextUnauthAction(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	otherUnit, err := s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	action, err := otherUnit.AddAction("snapshot", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx, err := s.factory.NewActionContext(action.NotificationId())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")

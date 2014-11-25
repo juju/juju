@@ -24,44 +24,44 @@ func (s *StorageSuite) TestStorageGet(c *gc.C) {
 	stor := s.State.Storage()
 
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ms := state.GetManagedStorage(s.State, env.UUID(), s.State.MongoSession())
 	err = ms.PutForEnvironment(env.UUID(), "abc", strings.NewReader("abc"), 3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	r, length, err := stor.Get("abc")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()
 	c.Assert(length, gc.Equals, int64(3))
 
 	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "abc")
 }
 
 func (s *StorageSuite) TestStoragePut(c *gc.C) {
 	err := s.State.Storage().Put("path", strings.NewReader("abcdef"), 3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ms := state.GetManagedStorage(s.State, env.UUID(), s.State.MongoSession())
 	r, length, err := ms.GetForEnvironment(env.UUID(), "path")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()
 
 	c.Assert(length, gc.Equals, int64(3))
 	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "abc")
 }
 
 func (s *StorageSuite) TestStorageRemove(c *gc.C) {
 	err := s.State.Storage().Put("path", strings.NewReader("abcdef"), 3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.Storage().Remove("path")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = s.State.Storage().Get("path")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

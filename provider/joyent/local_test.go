@@ -183,16 +183,16 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances(inst.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1024))
@@ -252,7 +252,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
@@ -264,7 +264,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
 		err := env.StopInstances(inst0.Id(), inst1.Id())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 
 	for i, test := range instanceGathering {
@@ -299,20 +299,20 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// check that StateServerInstances returns the id of the bootstrap machine.
 	instanceIds, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
 	insts, err := env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(instanceIds[0], gc.Equals, insts[0].Id())
 
 	addresses, err := insts[0].Addresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 2)
 }
 
@@ -321,7 +321,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 	env := s.Prepare(c)
 	sources, err := tools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }
 
@@ -335,12 +335,12 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	params.Sources, err = environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image_ids, gc.DeepEquals, []string{"11223344-0a0a-dd77-33cd-abcd1234e5f6"})
 }
 
@@ -352,15 +352,15 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 		name := string(content)
 		err := stor.Put(name, bytes.NewBuffer(content),
 			int64(len(content)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	reader, err := storage.Get(stor, "a")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(allContent), gc.Equals, "a")
 	err = stor.RemoveAll()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.NotNil)
 }
@@ -375,16 +375,16 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 			name := string(content)
 			err := stor.Put(name, bytes.NewBuffer(content),
 				int64(len(content)))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 	reader, err := storage.Get(stor, "ab")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(allContent), gc.Equals, "ab")
 	err = stor.RemoveAll()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = storage.Get(stor, "ab")
 	c.Assert(err, gc.NotNil)
 }
@@ -392,17 +392,17 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
@@ -415,5 +415,5 @@ func (t *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
 	env := t.Prepare(c)
 	result, err := env.SupportAddressAllocation("")
 	c.Assert(result, jc.IsFalse)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

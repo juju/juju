@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -52,7 +53,7 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 // s.UploadArches for each LTS release to the specified directory.
 func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir, toolsDir, stream string) {
 	stor, err := filestorage.NewFileStorageWriter(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.UploadFakeTools(c, stor, toolsDir, stream)
 }
 
@@ -73,16 +74,16 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, toolsDir, 
 		}
 	}
 	_, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	files, err := stor.List("tools/streams")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, file := range files {
 		err = stor.Remove(file)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -115,14 +116,14 @@ func CheckUpgraderReadyError(c *gc.C, obtained error, expected *upgrader.Upgrade
 // makes sure that they're available in the dataDir.
 func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers version.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(dataDir, "tools"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentTools, err := uploadFakeToolsVersion(stor, toolsDir, vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	resp, err := utils.GetValidatingHTTPClient().Get(agentTools.URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }
 
@@ -151,7 +152,7 @@ func InstallFakeDownloadedTools(c *gc.C, dataDir string, vers version.Binary) *c
 		SHA256:  checksum,
 	}
 	err := agenttools.UnpackTools(dataDir, agentTools, bytes.NewReader(tgz))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }
 
@@ -189,9 +190,9 @@ func UploadFakeToolsVersions(stor storage.Storage, toolsDir, stream string, vers
 // AssertUploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, toolsDir, stream string, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, toolsDir, stream, versions...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = envtools.MergeAndWriteMetadata(stor, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return agentTools
 }
 
@@ -249,13 +250,13 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	toolsVersion := version.Current
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := coretesting.FakeDefaultSeries
 	if version.Current.Series != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
 }
@@ -263,11 +264,11 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 // RemoveTools deletes all tools from the supplied storage.
 func RemoveTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	names, err := storage.List(stor, fmt.Sprintf("tools/%s/juju-", toolsDir))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
 		err = stor.Remove(name)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
 }
@@ -502,5 +503,5 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 
 func SetSSLHostnameVerification(c *gc.C, st *state.State, SSLHostnameVerification bool) {
 	err := st.UpdateEnvironConfig(map[string]interface{}{"ssl-hostname-verification": SSLHostnameVerification}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

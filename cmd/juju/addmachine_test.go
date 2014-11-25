@@ -34,14 +34,14 @@ func runAddMachine(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	context, err := runAddMachine(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
 	c.Assert(m.Series(), gc.DeepEquals, config.LatestLtsSeries())
 	mcons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
@@ -50,7 +50,7 @@ func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
 		return "42", nil
 	})
 	context, err := runAddMachine(c, "ssh:10.1.2.3")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 42\n")
 }
 
@@ -65,34 +65,34 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 	context, err := runAddMachine(c, "--series", "series")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Series(), gc.DeepEquals, "series")
 }
 
 func (s *AddMachineSuite) TestAddMachineWithConstraints(c *gc.C) {
 	context, err := runAddMachine(c, "--constraints", "mem=4G")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedCons := constraints.MustParse("mem=4G")
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
 func (s *AddMachineSuite) TestAddTwoMachinesWithConstraints(c *gc.C) {
 	context, err := runAddMachine(c, "--constraints", "mem=4G", "-n", "2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\ncreated machine 1\n")
 	for i := 0; i < 2; i++ {
 		m, err := s.State.Machine(strconv.Itoa(i))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		mcons, err := m.Constraints()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expectedCons := constraints.MustParse("mem=4G")
 		c.Assert(mcons, gc.DeepEquals, expectedCons)
 	}
@@ -100,7 +100,7 @@ func (s *AddMachineSuite) TestAddTwoMachinesWithConstraints(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddTwoMachinesWithContainers(c *gc.C) {
 	context, err := runAddMachine(c, "lxc", "-n", "2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created container 0/lxc/0\ncreated container 1/lxc/0\n")
 	for i := 0; i < 2; i++ {
 		machine := fmt.Sprintf("%d/%s/0", i, instance.LXC)
@@ -115,14 +115,14 @@ func (s *AddMachineSuite) TestAddTwoMachinesWithContainerDirective(c *gc.C) {
 
 func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId string, ctype instance.ContainerType) {
 	m, err := s.State.Machine(parentId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	containers, err := m.Containers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.DeepEquals, []string{containerId})
 	container, err := s.State.Machine(containerId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	containers, err = container.Containers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.DeepEquals, []string(nil))
 	c.Assert(container.ContainerType(), gc.Equals, ctype)
 }
@@ -131,7 +131,7 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 	for i, ctype := range instance.ContainerTypes {
 		c.Logf("test %d: %s", i, ctype)
 		context, err := runAddMachine(c, string(ctype))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		machine := fmt.Sprintf("%d/%s/0", i, ctype)
 		c.Assert(testing.Stderr(context), gc.Equals, "created container "+machine+"\n")
 		s._assertAddContainer(c, strconv.Itoa(i), machine, ctype)
@@ -140,15 +140,15 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	context, err := runAddMachine(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 	for i, container := range instance.ContainerTypes {
 		machineNum := strconv.Itoa(i + 1)
 		context, err = runAddMachine(c)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(testing.Stderr(context), gc.Equals, "created machine "+machineNum+"\n")
 		context, err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		machine := fmt.Sprintf("%s/%s/0", machineNum, container)
 		c.Assert(testing.Stderr(context), gc.Equals, "created container "+machine+"\n")
 		s._assertAddContainer(c, machineNum, machine, container)
@@ -157,10 +157,10 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 	context, err := runAddMachine(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	context, err = runAddMachine(c, "lxc:0")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")

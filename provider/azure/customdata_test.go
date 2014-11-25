@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -92,11 +93,11 @@ func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 	cfg := makeMachineConfig(c)
 
 	encodedData, err := makeCustomData(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	reference, err := environs.ComposeUserData(cfg, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }

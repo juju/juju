@@ -63,7 +63,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 		return arm64
 	})
 	err := bootstrap.ValidateUploadAllowed(env, &arm64)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
@@ -142,7 +142,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	uploadedTools, err := bootstrap.FindAvailableTools(env, nil, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedTools, gc.Not(gc.HasLen), 0)
 	c.Assert(findToolsCalled, gc.Equals, 0)
 	expectedVersion := version.Current.Number
@@ -183,7 +183,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-stream": "proposed"})
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
 	var trustyToolsFound int
@@ -222,7 +222,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(availableTools, gc.HasLen, len(allTools))
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 0)
 }

@@ -4,6 +4,7 @@
 package charmrevisionupdater_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -38,13 +39,13 @@ func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
 
 	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(st, gc.NotNil)
 
@@ -60,10 +61,10 @@ func (s *versionUpdaterSuite) TearDownTest(c *gc.C) {
 func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
 	s.SetupScenario(c)
 	err := s.updater.UpdateLatestRevisions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	curl := charm.MustParseURL("cs:quantal/mysql")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
 }
