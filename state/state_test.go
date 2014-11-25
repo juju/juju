@@ -1250,7 +1250,7 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        network.Id("foo"),
 		CIDR:              "192.168.1.0/24",
-		VLANTag:           0,
+		VLANTag:           79,
 		AllocatableIPLow:  "192.168.1.0",
 		AllocatableIPHigh: "192.168.1.1",
 		AvailabilityZone:  "Timbuktu",
@@ -1258,7 +1258,24 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(subnet, gc.IsNil)
+
+	c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24")
+	c.Assert(subnet.VLANTag(), gc.Equals, 79)
+	c.Assert(subnet.AllocatableIPLow(), gc.Equals, "192.168.1.0")
+	c.Assert(subnet.AllocatableIPHigh(), gc.Equals, "192.168.1.1")
+	c.Assert(subnet.AvailabilityZone(), gc.Equals, "Timbuktu")
+
+	// check it's been stored in state by fetching it back again
+	subnetFromDB, err := s.State.Subnet("192.168.1.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnetFromDB.ProviderId(), gc.Equals, network.Id("foo"))
+	c.Assert(subnetFromDB.CIDR(), gc.Equals, "192.168.1.0/24")
+	c.Assert(subnetFromDB.VLANTag(), gc.Equals, 79)
+	c.Assert(subnetFromDB.AllocatableIPLow(), gc.Equals, "192.168.1.0")
+	c.Assert(subnetFromDB.AllocatableIPHigh(), gc.Equals, "192.168.1.1")
+	c.Assert(subnetFromDB.AvailabilityZone(), gc.Equals, "Timbuktu")
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {
