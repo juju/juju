@@ -4,7 +4,6 @@
 package operation
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -96,43 +95,43 @@ func (st State) validate() (err error) {
 	switch st.Kind {
 	case Install:
 		if hasHook {
-			return fmt.Errorf("unexpected hook info")
+			return errors.New("unexpected hook info")
 		}
 		fallthrough
 	case Upgrade:
 		if !hasCharm {
-			return fmt.Errorf("missing charm URL")
+			return errors.New("missing charm URL")
 		} else if hasActionId {
-			return fmt.Errorf("unexpected action id")
+			return errors.New("unexpected action id")
 		}
 	case RunAction:
 		if !hasHook {
-			return fmt.Errorf("missing hook info")
+			return errors.New("missing hook info")
 		} else if hasCharm {
-			return fmt.Errorf("unexpected charm URL")
+			return errors.New("unexpected charm URL")
 		} else if !hasActionId {
-			return fmt.Errorf("missing action id")
+			return errors.New("missing action id")
 		}
 	case RunHook:
 		if hasActionId {
-			return fmt.Errorf("unexpected action id")
+			return errors.New("unexpected action id")
 		}
 		fallthrough
 	case Continue:
 		if !hasHook {
-			return fmt.Errorf("missing hook info")
+			return errors.New("missing hook info")
 		} else if hasCharm {
-			return fmt.Errorf("unexpected charm URL")
+			return errors.New("unexpected charm URL")
 		} else if hasActionId {
-			return fmt.Errorf("unexpected action id")
+			return errors.New("unexpected action id")
 		}
 	default:
-		return fmt.Errorf("unknown operation %q", st.Kind)
+		return errors.Errorf("unknown operation %q", st.Kind)
 	}
 	switch st.Step {
 	case Queued, Pending, Done:
 	default:
-		return fmt.Errorf("unknown operation step %q", st.Step)
+		return errors.Errorf("unknown operation step %q", st.Step)
 	}
 	if hasHook {
 		return st.Hook.Validate()
@@ -182,7 +181,7 @@ func (f *StateFile) Read() (*State, error) {
 		}
 	}
 	if err := st.validate(); err != nil {
-		return nil, fmt.Errorf("cannot read %q: %v", f.path, err)
+		return nil, errors.Errorf("cannot read %q: %v", f.path, err)
 	}
 	return &st, nil
 }

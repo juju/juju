@@ -63,9 +63,7 @@ func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecRespo
 	if err != nil {
 		return errors.Annotate(err, "r.runner.RunCommands")
 	}
-	if runResult != nil {
-		*result = *runResult
-	}
+	*result = *runResult
 	return err
 }
 

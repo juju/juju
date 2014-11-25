@@ -41,8 +41,6 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 	rc.context = ctx
 	// Commands only make sense at runtime; this is totally ephemeral; no
 	// state change at all.
-	// TODO(fwereade): we *should* handle interrupted actions, and make sure
-	// they;re marked as failed, but that's not for now.
 	return nil, nil
 }
 

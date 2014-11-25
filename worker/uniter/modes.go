@@ -81,7 +81,8 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		}
 		return ModeContinue, nil
 	case operation.RunAction:
-		// TODO(fwereade): mark action failed
+		// TODO(fwereade): we *should* handle interrupted actions, and make sure
+		// they're marked as failed, but that's not for now.
 		logger.Infof("found incomplete action %q; ignoring", opState.ActionId)
 		logger.Infof("recommitting prior %q hook", opState.Hook.Kind)
 		if err := u.skipHook(*opState.Hook); err != nil {

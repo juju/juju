@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
-	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -354,11 +353,11 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	}
 
 	type responseInfo struct {
-		response *utilexec.ExecResponse
+		response *exec.ExecResponse
 		err      error
 	}
 	responseChan := make(chan responseInfo, 1)
-	sendResponse := func(response *utilexec.ExecResponse, err error) {
+	sendResponse := func(response *exec.ExecResponse, err error) {
 		responseChan <- responseInfo{response, err}
 	}
 
