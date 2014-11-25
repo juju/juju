@@ -1228,18 +1228,21 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 // AddSubnet creates a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
-	// Sanity checks.
-	if exists, err := isNotDead(st.db, subnetsC, args.CIDR); err != nil {
-		return nil, errors.Trace(err)
-	} else if exists {
-		return nil, errors.Errorf("subnet already exists")
+	if args.CIDR != "" {
+		_, _, err := net.ParseCIDR(args.CIDR)
+		if err != nil {
+			return nil, errors.Annotatef(err, "subnet has invalid CIDR")
+		}
+	} else {
+		return nil, errors.Errorf("subnet with missing CIDR passed to AddSubnet")
 	}
-	env, err := st.Environment()
-	if err != nil {
-		return nil, errors.Trace(err)
-	} else if env.Life() != Alive {
-		return nil, errors.Errorf("environment is no longer alive")
+	if args.ProviderId == "" {
+		return nil, errors.Errorf("provider id must be not empty")
 	}
+	if args.VLANTag < 0 || args.VLANTag > 4094 {
+		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
+	}
+
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -1254,8 +1257,6 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	}
 	subnet = &Subnet{doc: subDoc, st: st}
 	ops := []txn.Op{
-		env.assertAliveOp(),
-		createConstraintsOp(st, subnet.globalKey(), constraints.Value{}),
 		{
 			C:      subnetsC,
 			Id:     subnetID,
@@ -1263,18 +1264,33 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			Insert: subDoc,
 		}}
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
-		err := env.Refresh()
-		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
-			return nil, errors.Errorf("environment is no longer alive")
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.Subnet(args.CIDR); err == nil {
+			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return nil, errors.Errorf("subnet already exists")
-	} else if err != nil {
-		return nil, errors.Trace(err)
+	case nil:
+		return subnet, nil
 	}
-	return subnet, nil
+	return nil, errors.Trace(err)
+}
+
+func (st *State) Subnet(cidr string) (*Subnet, error) {
+	subnets, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	doc := &subnetDoc{}
+	err := subnetss.FindId(st.docID(cidr)).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("subnet %q", name)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get subnet %q", name)
+	}
+	return &Subnet(st, doc), nil
 }
 
 // AddNetwork creates a new network with the given params. If a
