@@ -47,7 +47,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
 
 	user, err := s.State.AddUser(name, displayName, password, creator)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, name)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
@@ -58,7 +58,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.LastLogin(), gc.IsNil)
 
 	user, err = s.State.User(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, name)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
@@ -72,10 +72,10 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 	user := s.factory.MakeUser(c, nil)
 	exists, err := state.CheckUserExists(s.State, user.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsTrue)
 	exists, err = state.CheckUserExists(s.State, "notAUser")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exists, jc.IsFalse)
 }
 
@@ -88,7 +88,7 @@ func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
 	user := s.factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.LastLogin().After(now) ||
 		user.LastLogin().Equal(now), jc.IsTrue)
 }
@@ -126,12 +126,12 @@ func (s *UserSuite) TestDisable(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 
 	err := user.Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsTrue)
 	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
 
 	err = user.Enable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
@@ -140,16 +140,16 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.factory.MakeUser(c, nil)
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
 	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
 	hash := utils.AgentPasswordHash("foo-12345678901234567890")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = user.SetPasswordHash(hash, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo-12345678901234567890"), jc.IsFalse)
 }
@@ -158,7 +158,7 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	user := s.factory.MakeUser(c, nil)
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
 	salt, hash := state.GetUserPasswordSaltAndHash(user)
@@ -171,7 +171,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 
 	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
 	err := user.SetPasswordHash(compatHash, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(beforeSalt, gc.Equals, "")
 	c.Assert(beforeHash, gc.Equals, compatHash)
@@ -195,7 +195,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 
 func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.owner)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = user.Disable()
 	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
 }
@@ -212,7 +212,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 
 	includeDeactivated := false
 	users, err := s.State.AllUsers(includeDeactivated)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(users, gc.HasLen, 5)
 	c.Check(users[0].Name(), gc.Equals, "adam")
 	c.Check(users[1].Name(), gc.Equals, "barbara")
@@ -222,7 +222,7 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 
 	includeDeactivated = true
 	users, err = s.State.AllUsers(includeDeactivated)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(users, gc.HasLen, 7)
 	c.Check(users[0].Name(), gc.Equals, "adam")
 	c.Check(users[1].Name(), gc.Equals, "barbara")

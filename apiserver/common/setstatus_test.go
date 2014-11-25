@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -79,7 +80,7 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 		},
 	}
 	result, err := s.SetStatus(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
@@ -117,7 +118,7 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 	}
 	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	result, err := s.SetStatus(params.SetStatus{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }
 
@@ -155,7 +156,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 		},
 	}
 	result, err := s.UpdateStatus(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},

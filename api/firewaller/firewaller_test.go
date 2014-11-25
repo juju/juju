@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -40,13 +41,13 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.machines[0], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[0].SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[0].SetProvisioned("i-manager", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machines[0].Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 
@@ -54,7 +55,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	for i := 1; i <= 2; i++ {
 		s.machines[i], err = s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	// Create a service and three units for these machines.
 	s.charm = s.AddTestingCharm(c, "wordpress")
@@ -62,9 +63,9 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		s.units[i], err = s.service.AddUnit()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = s.units[i].AssignToMachine(s.machines[i])
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 
 	// Create the firewaller API facade.

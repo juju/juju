@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
@@ -56,7 +57,7 @@ func (s *NewExecutorSuite) TestNewExecutorNoFile(c *gc.C) {
 		return charmURL, nil
 	}
 	executor, err := operation.NewExecutor(s.path("missing"), getInstallCharm)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, operation.State{
 		Kind:     operation.Install,
 		Step:     operation.Queued,
@@ -77,7 +78,7 @@ opstep: pending
 hook: {kind: config-changed}
 `[1:], 0666}.Create(c, s.basePath)
 	executor, err := operation.NewExecutor(s.path("existing"), failGetInstallCharm)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, operation.State{
 		Kind:    operation.Continue,
 		Step:    operation.Pending,
@@ -94,16 +95,16 @@ var _ = gc.Suite(&ExecutorSuite{})
 
 func assertWroteState(c *gc.C, path string, expect operation.State) {
 	actual, err := operation.NewStateFile(path).Read()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*actual, gc.DeepEquals, expect)
 }
 
 func newExecutor(c *gc.C, st *operation.State) (operation.Executor, string) {
 	path := filepath.Join(c.MkDir(), "state")
 	err := operation.NewStateFile(path).Write(st)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	executor, err := operation.NewExecutor(path, failGetInstallCharm)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return executor, path
 }
 
@@ -125,7 +126,7 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 	}
 
 	err := executor.Run(op)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
 	c.Assert(op.execute.gotState, gc.DeepEquals, initialState)
@@ -156,7 +157,7 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
 	}
 
 	err := executor.Run(op)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
 	c.Assert(op.execute.gotState, gc.DeepEquals, *op.prepare.newState)
@@ -182,7 +183,7 @@ func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
 	}
 
 	err := executor.Run(op)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
 	c.Assert(op.commit.gotState, gc.DeepEquals, *op.prepare.newState)

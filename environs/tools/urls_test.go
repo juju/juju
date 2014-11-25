@@ -1,10 +1,14 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package tools_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -40,23 +44,23 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 		})
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
 
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{"https://streams.canonical.com/juju/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-tools-metadata-url/", "https://streams.canonical.com/juju/tools/"})
 }
@@ -79,7 +83,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-tools-metadata-url/",
 		"betwixt/releases/",
@@ -100,15 +104,33 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 }
 
 func (s *URLsSuite) TestToolsURL(c *gc.C) {
-	for source, expected := range map[string]string{
-		"":           "",
-		"foo":        "file://foo/tools",
-		"/home/foo":  "file:///home/foo/tools",
-		"file://foo": "file://foo",
-		"http://foo": "http://foo",
-	} {
-		URL, err := tools.ToolsURL(source)
-		c.Assert(err, gc.IsNil)
-		c.Assert(URL, gc.Equals, expected)
+	var toolsTests = []struct {
+		in          string
+		expected    string
+		expectedErr error
+	}{{
+		in:          "",
+		expected:    "",
+		expectedErr: nil,
+	}, {
+		in:          "file://foo",
+		expected:    "file://foo",
+		expectedErr: nil,
+	}, {
+		in:          "http://foo",
+		expected:    "http://foo",
+		expectedErr: nil,
+	}, {
+		in:          "foo",
+		expected:    "",
+		expectedErr: fmt.Errorf("foo is not an absolute path"),
+	}}
+	toolsTests = append(toolsTests, toolsTestsPlatformSpecific...)
+	for i, t := range toolsTests {
+		c.Logf("Test %d:", i)
+
+		out, err := tools.ToolsURL(t.in)
+		c.Assert(err, gc.DeepEquals, t.expectedErr)
+		c.Assert(out, gc.Equals, t.expected)
 	}
 }

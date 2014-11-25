@@ -9,6 +9,7 @@ import (
 	"runtime"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"
@@ -54,13 +55,13 @@ func (s *LiveSuite) newManager(c *gc.C, name string) container.Manager {
 			container.ConfigName:   name,
 			container.ConfigLogDir: c.MkDir(),
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
 
 func assertNumberOfContainers(c *gc.C, manager container.Manager, count int) {
 	containers, err := manager.ListContainers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, count)
 }
 
@@ -72,10 +73,10 @@ func (s *LiveSuite) TestNoInitialContainers(c *gc.C) {
 func shutdownMachines(manager container.Manager) func(*gc.C) {
 	return func(c *gc.C) {
 		instances, err := manager.ListContainers()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for _, instance := range instances {
 			err := manager.DestroyContainer(instance.Id())
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 }
@@ -85,7 +86,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	network := container.BridgeNetworkConfig("virbr0")
 
 	machineConfig.Tools = &tools.Tools{
@@ -94,10 +95,10 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	}
 	environConfig := dummyConfig(c)
 	err = environs.FinishMachineConfig(machineConfig, environConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	inst, hardware, err := manager.CreateContainer(machineConfig, "precise", network)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	expected := fmt.Sprintf("arch=%s cpu-cores=1 mem=512M root-disk=8192M", version.Current.Arch)
 	c.Assert(hardware.String(), gc.Equals, expected)
@@ -132,12 +133,12 @@ func (s *LiveSuite) TestManagerIsolation(c *gc.C) {
 
 func dummyConfig(c *gc.C) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":          "dummy",
 		"state-server":  false,
 		"agent-version": version.Current.Number.String(),
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return testConfig
 }

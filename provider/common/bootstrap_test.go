@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -68,7 +69,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"default-series":  version.Current.Series,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
@@ -98,7 +99,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		// The machine config should set its upgrade behavior based on
 		// the environment config.
 		expectedMcfg, err := environs.NewBootstrapMachineConfig(cons, mcfg.Series)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
 
@@ -150,7 +151,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
 }

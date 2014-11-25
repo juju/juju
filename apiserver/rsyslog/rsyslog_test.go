@@ -41,31 +41,31 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	api, err := rsyslog.NewRsyslogAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
 		api, s.State, s.resources, commontesting.NoSecrets)
 }
 
 func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
 	cfg, err := st.GetRsyslogConfig("foo")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.CACert, gc.DeepEquals, expected)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	verifyRsyslogCACert(c, st.Rsyslog(), coretesting.CACert)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Rsyslog().SetRsyslogCert("")
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
@@ -75,7 +75,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
@@ -88,9 +88,9 @@ func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	// create a machine-0 so we have an addresss to log to
 	m, err := s.State.AddMachine("trusty", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	err = unitState.Rsyslog().SetRsyslogCert(coretesting.CACert)
@@ -104,7 +104,7 @@ func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("seven/9")
 	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(anUpgrader, gc.NotNil)
 }
 

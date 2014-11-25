@@ -67,7 +67,7 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	if errPat != "" {
 		c.Assert(err, gc.ErrorMatches, errPat)
 	} else {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -177,7 +177,7 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	for _, t := range deployTests {
 		initExpectations(t.com)
 		com, err := initDeployCommand(t.args...)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(com, gc.DeepEquals, t.com)
 	}
 
@@ -186,15 +186,15 @@ func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
 	expected := []byte("test: data")
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = file.Write(expected)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	file.Close()
 
 	com, err := initDeployCommand("--config", "testconfig.yaml", "charm-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := com.Config.Read(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(expected, gc.DeepEquals, actual)
 
 	// missing args
@@ -304,15 +304,15 @@ func (*CmdSuite) TestSetCommandInit(c *gc.C) {
 	ctx := coretesting.Context(c)
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = file.Write(expected)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	file.Close()
 	com, err := initSetCommand("--config", "testconfig.yaml", "service")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(com.SettingsYAML.Path, gc.Equals, "testconfig.yaml")
 	actual, err := com.SettingsYAML.Read(ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, expected)
 
 	// --config path, but no service

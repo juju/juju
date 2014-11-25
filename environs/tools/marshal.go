@@ -23,7 +23,7 @@ func ToolsContentId(stream string) string {
 
 // ProductMetadataPath returns the tools product metadata path for the given stream.
 func ProductMetadataPath(stream string) string {
-	return fmt.Sprintf("streams/v1/com.ubuntu.juju:%s:tools.json", stream)
+	return fmt.Sprintf("streams/v1/com.ubuntu.juju-%s-tools.json", stream)
 }
 
 // MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.

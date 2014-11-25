@@ -65,7 +65,7 @@ func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {
 		attrs[k] = v
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
@@ -75,7 +75,7 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "old-name"})
 	newCfg := getSimpleTestConfig(c, coretesting.Attrs{"name": "new-name"})
 	env, err := maas.NewEnviron(oldCfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// SetConfig() fails, even though both the old and the new config are
 	// individually valid.
@@ -91,7 +91,7 @@ func (*environSuite) TestSetConfigRefusesChangingAgentName(c *gc.C) {
 	oldCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": "agent-one"})
 	newCfgTwo := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": "agent-two"})
 	env, err := maas.NewEnviron(oldCfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// SetConfig() fails, even though both the old and the new config are
 	// individually valid.
@@ -127,7 +127,7 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 	baseCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})
 	c.Check(baseCfg.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
 	env, err := maas.NewEnviron(baseCfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	provider := env.Provider()
 
 	attrs := coretesting.FakeConfig()
@@ -135,9 +135,9 @@ func (*environSuite) TestSetConfigAllowsEmptyFromNilAgentName(c *gc.C) {
 	// be set by other infrastructure
 	attrs["type"] = "maas"
 	nilCfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	validatedConfig, err := provider.Validate(baseCfg, nilCfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(validatedConfig.UnknownAttrs()["maas-agent-name"], gc.Equals, "")
 	// However, you can't set it to an actual value if you haven't been using a value
 	valueCfg := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": "agent-name"})
@@ -149,10 +149,10 @@ func (*environSuite) TestSetConfigAllowsChangingNilAgentNameToEmptyString(c *gc.
 	oldCfg := getSimpleTestConfig(c, nil)
 	newCfgTwo := getSimpleTestConfig(c, coretesting.Attrs{"maas-agent-name": ""})
 	env, err := maas.NewEnviron(oldCfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.SetConfig(newCfgTwo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(maas.MAASAgentName(env), gc.Equals, "")
 }
 
@@ -164,7 +164,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	}
 	cfg := getSimpleTestConfig(c, origAttrs)
 	env, err := maas.NewEnviron(cfg)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 
 	anotherServer := "http://maas.testing.invalid"
@@ -190,7 +190,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 	env, err := maas.NewEnviron(cfg)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 }
 
@@ -219,9 +219,9 @@ var expectedCloudinitConfigWithoutNetworking = []interface{}{
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }
@@ -232,9 +232,9 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	}
 	cfg := getSimpleTestConfig(c, attrs)
 	env, err := maas.NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", "quantal")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfigWithoutNetworking)
 }

@@ -7,7 +7,7 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/testing"
-	// jc "github.com/juju/testing/checkers"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -51,7 +51,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 	s.mgoInst.EnableAuth = true
 	err = s.mgoInst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	configParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
@@ -64,7 +64,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	s.st, _ = s.OpenAPIAsNewMachine(c)
 
 	s.acfg, err = agent.NewAgentConfig(configParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RebootSuite) TearDownTest(c *gc.C) {

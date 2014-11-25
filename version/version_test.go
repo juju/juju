@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	goyaml "gopkg.in/yaml.v1"
@@ -57,9 +58,9 @@ func (*suite) TestCompare(c *gc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d", i)
 		v1, err := version.Parse(test.v1)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		v2, err := version.Parse(test.v2)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		compare := v1.Compare(v2)
 		c.Check(compare, gc.Equals, test.compare)
 		// Check that reversing the operands has
@@ -144,7 +145,7 @@ func (*suite) TestParse(c *gc.C) {
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(got, gc.Equals, test.expect)
 			c.Check(got.IsDev(), gc.Equals, test.dev)
 			c.Check(got.String(), gc.Equals, test.v)
@@ -204,7 +205,7 @@ func (*suite) TestParseBinary(c *gc.C) {
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(got, gc.Equals, test.expect)
 		}
 	}
@@ -222,7 +223,7 @@ func (*suite) TestParseBinary(c *gc.C) {
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(got, gc.Equals, expect)
 			c.Check(got.IsDev(), gc.Equals, test.dev)
 		}
@@ -258,10 +259,10 @@ func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 		bp := version.MustParseBinary("1.2.3-trusty-amd64")
 		v := doc{&bp}
 		data, err := m.marshal(&v)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		var bv doc
 		err = m.unmarshal(data, &bv)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(bv, gc.DeepEquals, v)
 	}
 }
@@ -277,10 +278,10 @@ func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
 		np := version.MustParse("1.2.3")
 		v := doc{&np}
 		data, err := m.marshal(&v)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		var nv doc
 		err = m.unmarshal(data, &nv)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(nv, gc.DeepEquals, v)
 	}
 }
@@ -313,7 +314,7 @@ func (*suite) TestParseMajorMinor(c *gc.C) {
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(major, gc.Equals, test.expectMajor)
 			c.Check(minor, gc.Equals, test.expectMinor)
 		}
@@ -366,7 +367,7 @@ DISTRIB_DESCRIPTION="Ubuntu Trusty Tahr (development branch)"
 		s.PatchValue(version.LSBReleaseFileVar, filename)
 		if test.releaseContent != "" {
 			err := ioutil.WriteFile(filename, []byte(test.releaseContent+"\n"), 0644)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		value := version.ReleaseVersion()
 		c.Assert(value, gc.Equals, test.expected)

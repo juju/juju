@@ -103,11 +103,11 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 			c.Logf("test %d: %s", i, t.description)
 			cleanup := patchServiceCharmActions(c, s.client, t.patchResults, t.patchErr)
 			defer cleanup()
-			result, err := s.client.ServiceCharmActions(names.NewServiceTag("foo"))
+			result, err := s.client.ServiceCharmActions(params.Entity{Tag: names.NewServiceTag("foo").String()})
 			if t.expectedErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
 			} else {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 				c.Check(result, jc.DeepEquals, t.expectedResult)
 			}
 		}()

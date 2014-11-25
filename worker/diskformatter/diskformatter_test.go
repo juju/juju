@@ -198,7 +198,7 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs."+storage.DefaultFilesystemType)
 	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
 	err := formatter.Handle([]string{"dev0"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -296,7 +296,7 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 	testing.PatchExecutableThrowError(c, s, "mkfs."+storage.DefaultFilesystemType, 1)
 	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
 	err := formatter.Handle([]string{"dev0"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type mockAttachedBlockDeviceWatcher struct {

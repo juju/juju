@@ -166,14 +166,14 @@ func (s *networkerSuite) TestDisabledInterfacesAreBroughtDown(c *gc.C) {
 	s.interfacesWithAddress = set.NewStrings("lo", "eth0", "eth1")
 	s.machineInterfaces[2].Flags |= net.FlagUp
 	ifaces, err := s.stateMachine.NetworkInterfaces()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ifaces[1].Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// We verify that setting the parent physical interface to
 	// disabled leads to setting any VLAN intefaces depending on it to
 	// get disabled as well.
 	err = ifaces[2].Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces[2].IsDisabled(), jc.IsTrue)
 
 	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
@@ -224,11 +224,11 @@ func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	lxcMachine, err := s.State.AddMachineInsideMachine(template, s.stateMachine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = lxcMachine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	lxcInterfaces := []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:02:f0",
 		InterfaceName: "eth0.123",
@@ -242,7 +242,7 @@ func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
 	}
 
 	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.stateNetworks, lxcInterfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Login to the API as the machine agent of lxcMachine.
 	lxcState := s.OpenAPIAsMachine(c, lxcMachine.Tag(), password, "fake_nonce")
@@ -318,11 +318,11 @@ func (s *networkerSuite) setUpNetworks(c *gc.C) {
 func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
 	s.stateMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.stateMachine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.stateInterfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
@@ -350,7 +350,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		IsVirtual:     false,
 	}}
 	err = s.stateMachine.SetInstanceInfo("i-am", "fake_nonce", nil, s.stateNetworks, s.stateInterfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.apiState = s.OpenAPIAsMachine(c, s.stateMachine.Tag(), password, "fake_nonce")
 	c.Assert(s.apiState, gc.NotNil)
 }
@@ -415,7 +415,7 @@ func (s *networkerSuite) newCustomNetworker(
 	configDir := c.MkDir()
 
 	nw, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode, configDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nw, gc.NotNil)
 
 	return nw, configDir
@@ -438,6 +438,6 @@ func (s *networkerSuite) assertHaveConfig(c *gc.C, nw *networker.Networker, inte
 	for _, name := range interfaceNames {
 		fullPath := nw.ConfigFile(name)
 		_, err := os.Stat(fullPath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }

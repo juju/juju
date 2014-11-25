@@ -6,6 +6,7 @@ package operation_test
 import (
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -143,7 +144,7 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
-				ActionId: "wordpress/0_a_1",
+				ActionId: "feedface-dead-4567-beef-123456789012",
 			},
 		},
 	}, {
@@ -228,19 +229,19 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
 		write := func() {
 			err := file.Write(&t.st)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.err != "" {
 			c.Assert(write, gc.PanicMatches, "invalid operation state: "+t.err)
 			err := utils.WriteYaml(path, &t.st)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			_, err = file.Read()
 			c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: `+t.err)
 			continue
 		}
 		write()
 		st, err := file.Read()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*st, gc.DeepEquals, t.st)
 	}
 }

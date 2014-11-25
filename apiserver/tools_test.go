@@ -48,61 +48,61 @@ func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 
 func (s *toolsSuite) TestRequiresAuth(c *gc.C) {
 	resp, err := s.sendRequest(c, "", "", "GET", s.toolsURI(c, ""), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
 
 func (s *toolsSuite) TestRequiresPOST(c *gc.C) {
 	resp, err := s.authRequest(c, "PUT", s.toolsURI(c, ""), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
 }
 
 func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Add a machine and try to login.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := s.sendRequest(c, machine.Tag().String(), password, "POST", s.toolsURI(c, ""), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 
 	// Now try a user login.
 	resp, err = s.authRequest(c, "POST", s.toolsURI(c, ""), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadRequiresVersion(c *gc.C) {
 	resp, err := s.authRequest(c, "POST", s.toolsURI(c, ""), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
 }
 
 func (s *toolsSuite) TestUploadFailsWithNoTools(c *gc.C) {
 	// Create an empty file.
 	tempFile, err := ioutil.TempFile(c.MkDir(), "tools")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), true, tempFile.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "no tools uploaded")
 }
 
 func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 	// Create an empty file.
 	tempFile, err := ioutil.TempFile(c.MkDir(), "tools")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Now try with the default Content-Type.
 	resp, err := s.uploadRequest(c, s.toolsURI(c, "?binaryVersion=1.18.0-quantal-amd64"), false, tempFile.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
@@ -122,7 +122,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	// Now try uploading them.
 	resp, err := s.uploadRequest(
 		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the response.
 	info := s.APIInfo(c)
@@ -132,7 +132,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	// Check the contents.
 	_, uploadedData := s.getToolsFromStorage(c, vers)
 	expectedData, err := ioutil.ReadFile(toolPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 }
 
@@ -143,7 +143,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = "/tools"
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Check the response.
 	info := s.APIInfo(c)
 	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
@@ -153,12 +153,12 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload tools to https://host:port/ENVUUID/tools
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
 	url.Path = fmt.Sprintf("/environment/%s/tools", environ.UUID())
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Check the response.
 	info := s.APIInfo(c)
 	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
@@ -170,7 +170,7 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	url := s.toolsURL(c, "")
 	url.Path = "/environment/dead-beef-123456/tools"
 	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 
@@ -181,7 +181,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// each additional series specified.
 	params := "?binaryVersion=" + vers.String() + "&series=quantal,precise"
 	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
@@ -191,18 +191,18 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 
 	// Check the contents.
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	expectedData, err := ioutil.ReadFile(toolPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, series := range []string{"precise", "quantal"} {
 		vers := vers
 		vers.Series = series
 		_, r, err := storage.Tools(vers)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		uploadedData, err := ioutil.ReadAll(r)
 		r.Close()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(uploadedData, gc.DeepEquals, expectedData)
 	}
 
@@ -214,7 +214,7 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
 		Version: version.Current,
 		Size:    3,
@@ -254,10 +254,10 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	envtesting.RemoveTools(c, stor, "released")
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", version.Current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
@@ -269,20 +269,20 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", version.Current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
 
 func (s *toolsSuite) storeFakeTools(c *gc.C, content string, metadata toolstorage.Metadata) *coretools.Tools {
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	err = storage.AddTools(strings.NewReader(content), metadata)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return &coretools.Tools{
 		Version: metadata.Version,
 		Size:    metadata.Size,
@@ -292,19 +292,19 @@ func (s *toolsSuite) storeFakeTools(c *gc.C, content string, metadata toolstorag
 
 func (s *toolsSuite) getToolsFromStorage(c *gc.C, vers version.Binary) (toolstorage.Metadata, []byte) {
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	metadata, r, err := storage.Tools(vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(r)
 	r.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return metadata, data
 }
 
 func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	_, err = storage.Metadata(vers)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -312,10 +312,10 @@ func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {
 
 func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
 	resp, err := s.downloadRequest(c, tools.Version, uuid)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	data, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(data, gc.HasLen, int(tools.Size))
 
 	hash := sha256.New()
@@ -326,7 +326,7 @@ func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) 
 
 func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 	resp, err := s.downloadRequest(c, version.Current, "dead-beef-123456")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 
@@ -375,6 +375,6 @@ func (s *toolsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode i
 
 func jsonToolsResponse(c *gc.C, body []byte) (jsonResponse params.ToolsResult) {
 	err := json.Unmarshal(body, &jsonResponse)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return
 }

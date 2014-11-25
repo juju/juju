@@ -31,7 +31,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -51,7 +51,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -67,7 +67,7 @@ func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, nil, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -81,11 +81,11 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, nil, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot create context for action "foo_a_1": foop`)
+	c.Assert(err, gc.ErrorMatches, `cannot create context for action ".*": foop`)
 	c.Assert(*contextFactory.MockNewActionContext.gotActionId, gc.Equals, someActionId)
 }
 
@@ -93,10 +93,10 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	contextFactory := NewRunActionSuccessContextFactory()
 	factory := operation.NewFactory(nil, contextFactory, nil, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.NotNil)
 	c.Assert(*newState, gc.DeepEquals, operation.State{
 		Kind:     operation.RunAction,
@@ -110,10 +110,10 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	contextFactory := NewRunActionSuccessContextFactory()
 	factory := operation.NewFactory(nil, contextFactory, nil, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(overwriteState)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.NotNil)
 	c.Assert(*newState, gc.DeepEquals, operation.State{
 		Kind:               operation.RunAction,
@@ -133,10 +133,10 @@ func (s *RunActionSuite) TestExecuteLockError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.NotNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err = op.Execute(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -152,10 +152,10 @@ func (s *RunActionSuite) TestExecuteRunError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewAction(someActionId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.NotNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err = op.Execute(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -200,13 +200,13 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		}
 		factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 		op, err := factory.NewAction(someActionId)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		midState, err := op.Prepare(test.before)
 		c.Assert(midState, gc.NotNil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Execute(*midState)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, gc.NotNil)
 		c.Assert(*newState, gc.DeepEquals, test.after)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
@@ -243,10 +243,10 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		c.Logf("test %d: %s", i, test.description)
 		factory := operation.NewFactory(nil, nil, nil, nil)
 		op, err := factory.NewAction(someActionId)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Commit(test.before)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*newState, gc.DeepEquals, test.after)
 	}
 }

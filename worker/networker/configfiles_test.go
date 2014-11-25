@@ -98,10 +98,10 @@ func (s *configFilesSuite) TestReadData(c *gc.C) {
 	defer os.Remove(testFile)
 
 	err := ioutil.WriteFile(testFile, data, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cf := networker.NewConfigFile("ethX", testFile, network.Info{}, nil)
 	err = cf.ReadData()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(cf.Data()), jc.DeepEquals, string(data))
 	c.Assert(cf.NeedsUpdating(), jc.IsTrue)
 }
@@ -143,19 +143,19 @@ func (s *configFilesSuite) TestApply(c *gc.C) {
 	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
 
 	err := cf.Apply()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
 	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
 
 	readData, err := ioutil.ReadFile(testFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(readData), jc.DeepEquals, string(newData))
 
 	cf.MarkForRemoval()
 	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
 	c.Assert(cf.IsPendingRemoval(), jc.IsTrue)
 	err = cf.Apply()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
 	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
 

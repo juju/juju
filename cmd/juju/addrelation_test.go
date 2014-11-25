@@ -4,6 +4,7 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -132,16 +133,16 @@ var addRelationTests = []struct {
 func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)

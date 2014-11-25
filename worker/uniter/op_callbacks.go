@@ -93,10 +93,10 @@ func (opc *operationCallbacks) NotifyHookFailed(hook string, ctx context.Context
 }
 
 func (opc *operationCallbacks) FailAction(actionId, message string) error {
-	tag, ok := names.ParseActionTagFromId(actionId)
-	if !ok {
+	if !names.IsValidAction(actionId) {
 		return errors.Errorf("invalid action id %q", actionId)
 	}
+	tag := names.NewActionTag(actionId)
 	err := opc.u.st.ActionFinish(tag, params.ActionFailed, nil, message)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		err = nil

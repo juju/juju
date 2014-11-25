@@ -29,7 +29,7 @@ func (s *RunHookSuite) TestPrepareHookError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, nil, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -46,7 +46,7 @@ func (s *RunHookSuite) TestPrepareContextError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -83,7 +83,7 @@ func (s *RunHookSuite) TestPrepareSuccess(c *gc.C) {
 		callbacks, contextFactory := NewPrepareHookSuccessFixture()
 		factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 		op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		newState, err := op.Prepare(test.before)
 		c.Assert(newState, gc.DeepEquals, &test.after)
@@ -98,9 +98,9 @@ func (s *RunHookSuite) TestExecuteLockError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -119,17 +119,17 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, err error) (operation.Opera
 	}
 	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 	op, callbacks := s.getExecuteRunnerTest(c, context.NewMissingHookError("blah-blah"))
 	_, err := op.Prepare(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Execute(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RunHook,
 		Step: operation.Done,
@@ -145,7 +145,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 	op, callbacks := s.getExecuteRunnerTest(c, context.ErrRequeueAndReboot)
 	_, err := op.Prepare(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
@@ -165,7 +165,7 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 	op, callbacks := s.getExecuteRunnerTest(c, context.ErrReboot)
 	_, err := op.Prepare(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
@@ -185,7 +185,7 @@ func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
 func (s *RunHookSuite) TestExecuteOtherError(c *gc.C) {
 	op, callbacks := s.getExecuteRunnerTest(c, errors.New("graaargh"))
 	_, err := op.Prepare(operation.State{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Execute(operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrHookFailed)
@@ -224,10 +224,10 @@ func (s *RunHookSuite) TestExecuteSuccess(c *gc.C) {
 		c.Logf("test %d", i)
 		op, _ := s.getExecuteRunnerTest(c, nil)
 		midState, err := op.Prepare(test.before)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(midState, gc.NotNil)
 		newState, err := op.Execute(*midState)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, gc.NotNil)
 		c.Assert(*newState, gc.DeepEquals, test.after)
 	}
@@ -239,7 +239,7 @@ func (s *RunHookSuite) TestCommitError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, nil, callbacks, nil)
 	op, err := factory.NewHook(hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Commit(operation.State{})
 	c.Assert(newState, gc.IsNil)
@@ -252,10 +252,10 @@ func (s *RunHookSuite) commitHook(c *gc.C, hookInfo hook.Info, beforeState opera
 	}
 	factory := operation.NewFactory(nil, nil, callbacks, nil)
 	op, err := factory.NewHook(hookInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Commit(beforeState)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.NotNil)
 	return *newState
 }

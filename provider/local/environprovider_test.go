@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
@@ -73,9 +74,9 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		"type": provider.Local,
 		"name": "test",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(provider.Local)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
 		message          string
@@ -233,10 +234,10 @@ Acquire::magic::Proxy "none";
 		testConfig := baseConfig
 		if test.extraConfig != nil {
 			testConfig, err = baseConfig.Apply(test.extraConfig)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		env, err := provider.Prepare(envtesting.BootstrapContext(c), testConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		envConfig := env.Config()
 		c.Assert(envConfig.HttpProxy(), gc.Equals, test.expectedProxy.Http)
@@ -263,7 +264,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		"name": "test",
 	})
 	provider, err := environs.Provider("local")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	type test struct {
 		userEnv   string
@@ -292,7 +293,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		})
 		env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			cfg := env.Config()
 			c.Assert(cfg.UnknownAttrs()["namespace"], gc.Equals, test.namespace)
 		} else {
@@ -310,11 +311,11 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 		"name": "test",
 	})
 	provider, err := environs.Provider("local")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// local provider sets proxy-ssh to false
-	c.Assert(env.Config().ProxySSH(), gc.Equals, false)
+	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
 }
 
 func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
@@ -322,9 +323,9 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 		"type": "local",
 		"name": "test",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(provider.Local)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	//URL protocol is irrelelvant as we are only interested in it as string
 	urlConstruct := "http://%v%v"
@@ -341,10 +342,10 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 
 		//Update env config to include new attributes
 		cfg, err := basecfg.Apply(proxyAttrValues)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		//this call should replace all loopback urls with bridge ip
 		env, err := provider.Prepare(envtesting.BootstrapContext(c), cfg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// verify that correct replacement took place
 		envConfig := env.Config().AllAttrs()

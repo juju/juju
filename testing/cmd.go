@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 )
@@ -93,6 +94,6 @@ func TestInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	if errPat != "" {
 		c.Assert(err, gc.ErrorMatches, errPat)
 	} else {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }

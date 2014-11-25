@@ -26,25 +26,25 @@ func (s *NetworkInterfaceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.net1, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.vlan42, err = s.State.AddNetwork(state.NetworkInfo{"vlan42", "vlan42", "0.2.3.4/24", 42})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.ifaceNet1, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
 		MACAddress:    "aa:bb:cc:dd:ee:ff",
 		InterfaceName: "eth0",
 		NetworkName:   "net1",
 		IsVirtual:     false,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.ifaceVLAN42, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
 		MACAddress:    "aa:bb:cc:dd:ee:ff",
 		InterfaceName: "eth0.42",
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
@@ -74,35 +74,35 @@ func (s *NetworkInterfaceSuite) TestEnableDisableAndIsDisabled(c *gc.C) {
 	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsFalse)
 
 	err := s.ifaceNet1.Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ifaceNet1.IsDisabled(), jc.IsTrue)
 	// Test eth0.42 is disabled as well when eth0 is.
 	err = s.ifaceVLAN42.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsTrue)
 
 	err = s.ifaceNet1.Enable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ifaceNet1.IsDisabled(), jc.IsFalse)
 	// eth0.42 is not automatically enabled when eth0 is.
 	err = s.ifaceVLAN42.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsTrue)
 }
 
 func (s *NetworkInterfaceSuite) TestRefresh(c *gc.C) {
 	ifaceCopy := *s.ifaceNet1
 	err := s.ifaceNet1.Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaceCopy.IsDisabled(), jc.IsFalse)
 	err = ifaceCopy.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaceCopy.IsDisabled(), jc.IsTrue)
 }
 
 func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
 	err := s.ifaceNet1.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.ifaceNet1.Refresh()
 	errMatch := `network interface &state\.NetworkInterface\{.*\} not found`
 	c.Check(err, gc.ErrorMatches, errMatch)

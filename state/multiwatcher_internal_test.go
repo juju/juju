@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sync"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -504,8 +505,8 @@ func (s *storeManagerSuite) TestRespondResults(c *gc.C) {
 					}
 					select {
 					case ok := <-req.reply:
-						c.Assert(ok, gc.Equals, true)
-						c.Assert(len(req.changes) > 0, gc.Equals, true)
+						c.Assert(ok, jc.IsTrue)
+						c.Assert(len(req.changes) > 0, jc.IsTrue)
 						wstates[wi].update(req.changes)
 						reqs[wi] = nil
 					default:
@@ -605,7 +606,7 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 	sm := newStoreManager(newTestBacking(nil))
 	w := &Multiwatcher{all: sm}
 	err := sm.Stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	d, err := w.Next()
 	c.Assert(err, gc.ErrorMatches, "shared state watcher was stopped")
 	c.Assert(d, gc.HasLen, 0)
@@ -649,7 +650,7 @@ func (*storeManagerSuite) TestMultiwatcherStop(c *gc.C) {
 		done <- struct{}{}
 	}()
 	err := w.Stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	<-done
 }
 

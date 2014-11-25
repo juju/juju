@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/tools"
@@ -44,14 +45,14 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 		b.filePath,
 		[]byte("doesn't matter, we don't execute it"),
 		0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cwd, err := os.Getwd()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	b.cwd = c.MkDir()
 	err = os.Chdir(b.cwd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	b.restore = func() {
 		os.Setenv("PATH", path)
@@ -85,7 +86,7 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 	}} {
 		result, err := tools.FindExecutable(test.execFile)
 		if test.errorMatch == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(result, gc.Equals, test.expected)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errorMatch)
@@ -100,7 +101,7 @@ func (b *buildSuite) TestEmptyArchive(c *gc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
 	err := tools.Archive(&buf, dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf.String(), gc.Equals, emptyArchive)
 }
 
@@ -108,7 +109,7 @@ func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
 	var buf bytes.Buffer
 	dir := c.MkDir()
 	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(buf.String(), gc.Equals, emptyArchive)
 
 	h := sha256.New()

@@ -28,7 +28,7 @@ type MongoSuite struct {
 func newServer(c *gc.C) *gitjujutesting.MgoInstance {
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", rsName}}
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	session, err := inst.DialDirect()
 	if err != nil {
@@ -66,7 +66,7 @@ func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string)
 
 	mode := session.Mode()
 	err := Initiate(session, addr, rsName, initialTags)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure we haven't messed with the session's mode
 	c.Assert(session.Mode(), gc.Equals, mode)
@@ -79,7 +79,7 @@ func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string)
 	session.SetMode(mgo.Strong, false)
 
 	mems, err := CurrentMembers(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
 	// now add some data so we get a more real-life test
@@ -133,7 +133,7 @@ func loadData(session *mgo.Session, c *gc.C) {
 		}
 
 		err := session.DB("testing").C(fmt.Sprintf("data%d", col)).Insert(foos)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -149,7 +149,7 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 		c.Logf("%s failed: %v", desc, err)
 	}
 	c.Logf("%s: %d attempts in %s", desc, attemptCount, time.Since(start))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
@@ -284,8 +284,8 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	}
 
 	res, err := IsMaster(session)
-	c.Assert(err, gc.IsNil)
-	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(closeEnough(res.LocalTime, time.Now()), jc.IsTrue)
 	res.LocalTime = time.Time{}
 	c.Check(*res, jc.DeepEquals, expected)
 }
@@ -298,14 +298,14 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 	result, err := MasterHostPort(session)
 
 	c.Logf("TestMasterHostPort expected: %v, got: %v", expected, result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expected)
 }
 
 func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
 	session := inst.MustDial()
 	hp, err := MasterHostPort(session)
@@ -334,7 +334,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := &Status{
 		Name: rsName,
@@ -434,17 +434,17 @@ func (s *MongoIPV6Suite) TestAddressFixing(c *gc.C) {
 	defer session.Close()
 
 	status, err := CurrentStatus(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(status.Members), jc.DeepEquals, 1)
 	c.Check(status.Members[0].Address, gc.Equals, ipv6GetAddr(root))
 
 	cfg, err := CurrentConfig(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(cfg.Members), jc.DeepEquals, 1)
 	c.Check(cfg.Members[0].Address, gc.Equals, ipv6GetAddr(root))
 
 	result, err := IsMaster(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Address, gc.Equals, ipv6GetAddr(root))
 	c.Check(result.PrimaryAddress, gc.Equals, ipv6GetAddr(root))
 	c.Check(result.Addresses, jc.DeepEquals, []string{ipv6GetAddr(root)})

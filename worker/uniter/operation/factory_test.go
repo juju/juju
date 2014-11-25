@@ -5,6 +5,7 @@ package operation_test
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
@@ -41,11 +42,11 @@ func (s *FactorySuite) TestNewDeploy(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "unknown deploy kind: run-hook")
 
 	op, err = s.factory.NewDeploy(charmURL, operation.Install)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "install cs:quantal/wordpress-1")
 
 	op, err = s.factory.NewDeploy(charmURL, operation.Upgrade)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "upgrade cs:quantal/wordpress-1")
 }
 
@@ -54,9 +55,9 @@ func (s *FactorySuite) TestNewAction(c *gc.C) {
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `invalid action id "lol-something"`)
 
-	op, err = s.factory.NewAction("foo_a_123")
-	c.Check(err, gc.IsNil)
-	c.Check(op.String(), gc.Equals, "run action foo_a_123")
+	op, err = s.factory.NewAction(someActionId)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op.String(), gc.Equals, "run action "+someActionId)
 }
 
 func (s *FactorySuite) TestNewCommands(c *gc.C) {
@@ -80,15 +81,15 @@ func (s *FactorySuite) TestNewCommands(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `invalid remote unit name "lol"`)
 
 	op, err = s.factory.NewCommands("any old thing", -1, "", sendResponse)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run commands")
 
 	op, err = s.factory.NewCommands("any old thing", 1, "", sendResponse)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run commands (1)")
 
 	op, err = s.factory.NewCommands("any old thing", 1, "unit/1", sendResponse)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run commands (1; unit/1)")
 }
 
@@ -98,14 +99,14 @@ func (s *FactorySuite) TestNewHook(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown hook kind "gibberish"`)
 
 	op, err = s.factory.NewHook(hook.Info{Kind: hooks.Install})
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run install hook")
 
 	op, err = s.factory.NewHook(hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 123,
 	})
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run relation-broken (123) hook")
 
 	op, err = s.factory.NewHook(hook.Info{
@@ -113,6 +114,6 @@ func (s *FactorySuite) TestNewHook(c *gc.C) {
 		RemoteUnit: "foo/22",
 		RelationId: 123,
 	})
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run relation-joined (123; foo/22) hook")
 }

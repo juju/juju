@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/usermanager"
@@ -77,7 +78,7 @@ func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDi
 
 func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserListCommand())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME     DISPLAY NAME    DATE CREATED  LAST CONNECTION\n"+
 		"adam     Adam Zulu       2012-10-08    2014-01-01\n"+
@@ -88,7 +89,7 @@ func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
 
 func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserListCommand(), "--all")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME     DISPLAY NAME    DATE CREATED  LAST CONNECTION\n"+
 		"adam     Adam Zulu       2012-10-08    2014-01-01\n"+
@@ -100,7 +101,7 @@ func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
 
 func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserListCommand(), "--exact-time")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	dateRegex := `\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \+0000 UTC`
 	c.Assert(testing.Stdout(context), gc.Matches, ""+
 		"NAME     DISPLAY NAME    DATE CREATED                   LAST CONNECTION\n"+
@@ -112,7 +113,7 @@ func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 
 func (*UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserListCommand(), "--format", "json")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "["+
 		`{"user-name":"adam","display-name":"Adam Zulu","date-created":"2012-10-08","last-connection":"2014-01-01"},`+
 		`{"user-name":"barbara","display-name":"Barbara Yellow","date-created":"2013-05-02","last-connection":"just now"},`+
@@ -122,7 +123,7 @@ func (*UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 
 func (*UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserListCommand(), "--format", "yaml")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"- user-name: adam\n"+
 		"  display-name: Adam Zulu\n"+

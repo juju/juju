@@ -72,7 +72,7 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		s.PatchValue(mongo.RuntimeGOOS, test.runtimeGOOS)
 		availSpace = test.availSpace
 		size, err := mongo.DefaultOplogSize("")
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(size, gc.Equals, test.expected)
 	}
 }
@@ -83,7 +83,7 @@ func (s *preallocSuite) TestFsAvailSpace(c *gc.C) {
 	testing.PatchExecutable(c, s, "df", "#!/bin/sh\ncat<<EOF\n"+output+"\nEOF")
 
 	mb, err := mongo.FsAvailSpace("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mb, gc.Equals, float64(12345)/1024)
 }
 
@@ -150,13 +150,13 @@ func (s *preallocSuite) TestPreallocFiles(c *gc.C) {
 	dir := c.MkDir()
 	prefix := filepath.Join(dir, "test.")
 	err := mongo.PreallocFiles(prefix, 0, 4096, 8192)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	zeroes := [8192]byte{}
 	for i := 0; i < 3; i++ {
 		filename := fmt.Sprintf("%s%d", prefix, i)
 		data, err := ioutil.ReadFile(filename)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(data, gc.DeepEquals, zeroes[:i*4096])
 	}
 
@@ -173,9 +173,9 @@ func (s *preallocSuite) TestPreallocFilesWriteErrors(c *gc.C) {
 	dir := c.MkDir()
 	prefix := filepath.Join(dir, "test.")
 	err := ioutil.WriteFile(prefix+"0", nil, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(prefix+"1", nil, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var called int
 	s.PatchValue(mongo.PreallocFile, func(filename string, size int) (bool, error) {
@@ -195,7 +195,7 @@ func (s *preallocSuite) TestPreallocFilesWriteErrors(c *gc.C) {
 	// test.0 still exists because we said we didn't
 	// create it (i.e. it already existed)
 	_, err = os.Stat(prefix + "0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// test.1 no longer exists because we said we created
 	// it, but then failed to write to it.

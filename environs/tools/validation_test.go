@@ -6,6 +6,7 @@ package tools
 import (
 	"path"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -33,12 +34,12 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series strin
 	}}
 
 	stor, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	streamMetadata := map[string][]*ToolsMetadata{
 		stream: tm,
 	}
 	err = WriteMetadata(stor, streamMetadata, []string{stream}, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return nil
 }
 
@@ -48,7 +49,7 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ValidateSuite) toolsURL() string {
-	return "file://" + path.Join(s.metadataDir, "tools")
+	return utils.MakeFileURL(path.Join(s.metadataDir, "tools"))
 }
 
 func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
@@ -66,12 +67,12 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index2.json"),
+		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
 		MirrorURL: "",
 	})
 }
@@ -92,12 +93,12 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index2.json"),
+		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
 		MirrorURL: "",
 	})
 }
@@ -118,12 +119,12 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-raring-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index2.json"),
+		IndexURL:  utils.MakeFileURL(path.Join(s.metadataDir, "tools/streams/v1/index2.json")),
 		MirrorURL: "",
 	})
 }

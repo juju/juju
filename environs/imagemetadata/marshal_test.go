@@ -6,6 +6,7 @@ package imagemetadata_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -32,7 +33,7 @@ var expectedIndex = `{
                     "endpoint": "endpoint"
                 }
             ],
-            "path": "streams/v1/com.ubuntu.cloud:released:imagemetadata.json",
+            "path": "streams/v1/com.ubuntu.cloud-released-imagemetadata.json",
             "products": [
                 "com.ubuntu.cloud:server:12.04:amd64",
                 "com.ubuntu.cloud:server:12.04:arm",
@@ -114,20 +115,20 @@ var imageMetadataForTesting = []*imagemetadata.ImageMetadata{
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
 	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, err := imagemetadata.MarshalImageMetadataIndexJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
 }
 
 func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
 	products, err := imagemetadata.MarshalImageMetadataProductsJSON(imageMetadataForTesting, time.Unix(0, 0).UTC())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(products), gc.Equals, expectedProducts)
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
 	cloudSpec := []simplestreams.CloudSpec{{Region: "region", Endpoint: "endpoint"}}
 	index, products, err := imagemetadata.MarshalImageMetadataJSON(imageMetadataForTesting, cloudSpec, time.Unix(0, 0).UTC())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
 	c.Assert(string(products), gc.Equals, expectedProducts)
 }

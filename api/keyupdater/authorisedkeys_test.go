@@ -5,6 +5,7 @@ package keyupdater_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -42,7 +43,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
 
 func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.keyupdater.AuthorisedKeys(m.Tag().(names.MachineTag))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -50,18 +51,18 @@ func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
 func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, "key1\nkey2")
 	keys, err := s.keyupdater.AuthorisedKeys(s.rawMachine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, gc.DeepEquals, []string{"key1", "key2"})
 }
 
 func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
 	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	watcher, err := s.keyupdater.WatchAuthorisedKeys(s.rawMachine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, watcher)
 	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
 	// Initial event

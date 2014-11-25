@@ -7,6 +7,8 @@ package uniter
 
 import (
 	"fmt"
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -678,6 +681,45 @@ func (u *uniterBaseAPI) CharmArchiveSha256(args params.CharmURLs) (params.String
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// CharmArchiveURLs returns the URLS for the charm archive
+// (bundle) data for each charm url in the given parameters.
+func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error) {
+	apiHostPorts, err := u.st.APIHostPorts()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	envUUID := u.st.EnvironUUID()
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.URLs)),
+	}
+	for i, curl := range args.URLs {
+		if _, err := charm.ParseURL(curl.URL); err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		urlPath := "/"
+		if envUUID != "" {
+			urlPath = path.Join(urlPath, "environment", envUUID)
+		}
+		urlPath = path.Join(urlPath, "charms")
+		archiveURLs := make([]string, len(apiHostPorts))
+		for j, server := range apiHostPorts {
+			archiveURL := &url.URL{
+				Scheme: "https",
+				Host:   network.SelectInternalHostPort(server, false),
+				Path:   urlPath,
+			}
+			q := archiveURL.Query()
+			q.Set("url", curl.URL)
+			q.Set("file", "*")
+			archiveURL.RawQuery = q.Encode()
+			archiveURLs[j] = archiveURL.String()
+		}
+		result.Results[i].Result = archiveURLs
 	}
 	return result, nil
 }
@@ -1406,20 +1448,26 @@ func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, e
 	}
 
 	return func(tag string) (*state.Action, error) {
-		atag, err := names.ParseActionTag(tag)
+		actionTag, err := names.ParseActionTag(tag)
 		if err != nil {
-			return nil, common.ErrBadId
+			return nil, err
 		}
-		unitTag := atag.PrefixTag()
-		if unitTag != unit {
+		action, err := u.st.ActionByTag(actionTag)
+		if err != nil {
+			return nil, err
+		}
+		receiverTag, err := names.ActionReceiverTag(action.Receiver())
+		if err != nil {
+			return nil, err
+		}
+		if unit != receiverTag {
 			return nil, common.ErrPerm
 		}
 
-		if !canAccess(unitTag) {
+		if !canAccess(receiverTag) {
 			return nil, common.ErrPerm
 		}
-
-		return u.st.ActionByTag(atag)
+		return action, nil
 	}, nil
 }
 

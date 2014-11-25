@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -94,24 +95,24 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementAddMachineInstanceId(c
 	// Ensure that AddOneMachine with a non-empty InstanceId does not fail.
 	s.capability.supportsUnitPlacementError = fmt.Errorf("no add-machine for you")
 	_, err := s.addOneMachineWithInstanceId(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementUnitAssignment(c *gc.C) {
 	m, err := s.addOneMachine(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "wordpress")
 	service := s.AddTestingService(c, "wordpress", charm)
 	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.capability.supportsUnitPlacementError = fmt.Errorf("no unit placement for you")
 	err = unit.AssignToMachine(m)
 	c.Assert(err, gc.ErrorMatches, ".*no unit placement for you")
 
 	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *EnvironCapabilitySuite) TestEnvironCapabilityUnimplemented(c *gc.C) {
@@ -123,7 +124,7 @@ func (s *EnvironCapabilitySuite) TestEnvironCapabilityUnimplemented(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil EnvironCapability without an error")
 	capabilityErr = errors.NotImplementedf("EnvironCapability")
 	_, err = s.addOneMachine(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementNoPolicy(c *gc.C) {
@@ -133,5 +134,5 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementNoPolicy(c *gc.C) {
 	}
 	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

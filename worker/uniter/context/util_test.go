@@ -98,32 +98,32 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	meteredCharm := s.AddTestingCharm(c, "metered")
 	meteredService := s.AddTestingService(c, "m", meteredCharm)
 	meteredUnit, err := meteredService.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = meteredUnit.SetCharmURL(meteredCharm.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	password, err := utils.RandomPassword()
 	err = s.unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter, err = s.st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = meteredUnit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	meteredState := s.OpenAPIAs(c, meteredUnit.Tag(), password)
 	meteredUniter, err := meteredState.Uniter()
 	s.meteredApiUnit, err = meteredUniter.Unit(meteredUnit.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: The unit must always have a charm URL set, because this
 	// happens as part of the installation process (that happens
 	// before the initial install hook).
 	err = s.unit.SetCharmURL(sch.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
 	s.apiRelunits = map[int]*uniter.RelationUnit{}
@@ -133,33 +133,33 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 
 func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err = s.machine.SetAddresses(privateAddr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.AddTestingService(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(s.unit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.relunits[rel.Id()] = ru
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
@@ -170,7 +170,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		c.Assert(found, jc.IsTrue)
 	}
 	facade, err := s.st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relctxs := map[int]*context.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
@@ -181,7 +181,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
@@ -192,7 +192,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		c.Assert(found, jc.IsTrue)
 	}
 	facade, err := s.st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relctxs := map[int]*context.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
@@ -203,7 +203,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	context, err := context.NewHookContext(s.meteredApiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
 
@@ -238,20 +238,20 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 	if spec.dir != "" {
 		dir = filepath.Join(dir, spec.dir)
 		err := os.Mkdir(dir, 0755)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Logf("openfile perm %v", spec.perm)
 	hook, err := os.OpenFile(
 		filepath.Join(dir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(hook.Close(), gc.IsNil)
 	}()
 
 	printf := func(f string, a ...interface{}) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	printf("#!/bin/bash")
 	printf("echo $$ > pid")

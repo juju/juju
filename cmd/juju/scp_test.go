@@ -112,7 +112,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	dummyCharm, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummyCharm)
 	s.addUnit(srv, m[0], c)
 
@@ -124,7 +124,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	// Simulate machine 3 has a public IPv6 address.
 	ipv6Addr := network.NewAddress("2001:db8::1", network.ScopePublic)
 	err = m[3].SetAddresses(ipv6Addr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
@@ -133,18 +133,18 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd.proxy = t.proxy
 
 		err := envcmd.Wrap(scpcmd).Init(t.args)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = scpcmd.Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			// we suppress stdout from scp
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 			data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			actual := string(data)
 			if t.proxy {
 				actual = strings.Replace(actual, ".dns", ".internal", 2)
@@ -206,7 +206,7 @@ func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 			}
 			return "ubuntu", target, nil
 		})
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(expanded, gc.DeepEquals, args)
 	}
 }
@@ -227,7 +227,7 @@ func (s *expandArgsSuite) TestExpandArgs(c *gc.C) {
 	for i, t := range expandTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(expanded, gc.DeepEquals, t.result)
 	}
 }

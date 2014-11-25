@@ -86,7 +86,7 @@ var _ = gc.Suite(&loginAncientSuite{
 func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return st, func() {
 		st.Close()
 		cleanup()
@@ -95,13 +95,13 @@ func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
 
 func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	info.Tag = machine.Tag()
 	info.Password = password
@@ -147,7 +147,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 		info.Password = ""
 		func() {
 			st, err := api.Open(info, fastDialOpts)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
 
 			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
@@ -171,7 +171,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	info.Tag = nil
 	info.Password = ""
 	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
@@ -223,13 +223,13 @@ func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C, expected []string) {
 	defer cleanup()
 
 	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machineInState.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineInState.Tag(), gc.Equals, names.NewMachineTag("0"))
 
 	var tw loggo.TestWriter
@@ -242,10 +242,10 @@ func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C, expected []string) {
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apiConn.Close()
 	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
 
 	c.Assert(tw.Log(), jc.LogMatches, expected)
@@ -256,15 +256,15 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	defer cleanup()
 
 	err := s.State.SetAPIHostPorts(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initially just the address we connect with is returned,
 	// despite there being no APIHostPorts in state.
 	connectedAddr, hostPorts := s.loginHostPorts(c, info)
 	connectedAddrHost, connectedAddrPortString, err := net.SplitHostPort(connectedAddr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	connectedAddrHostPorts := [][]network.HostPort{
 		[]network.HostPort{{
 			network.NewAddress(connectedAddrHost, network.ScopeUnknown),
@@ -296,7 +296,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 		network.AddressesWithPort(server2Addresses, 456),
 	}
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	connectedAddr, hostPorts = s.loginHostPorts(c, info)
 	// Now that we connected, we add the other stateAPIHostPorts. However,
 	// the one we connected to comes first.
@@ -306,7 +306,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 
 func (s *baseLoginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
 	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	return st.Addr(), st.APIHostPorts()
 }
@@ -363,7 +363,7 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	}
 	select {
 	case err := <-errResults:
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for Login to finish")
 	}
@@ -384,7 +384,7 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	close(errResults)
 	successCount := 0
 	for err := range errResults {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		if err == nil {
 			successCount += 1
 		}
@@ -416,7 +416,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	delayChan <- struct{}{}
 	select {
 	case err := <-errResults:
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out expecting one login to succeed")
 	}
@@ -444,7 +444,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	wg.Wait()
 	close(errResults)
 	for err := range errResults {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -485,13 +485,13 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 	machineCount := 0
 	for err := range machineResults {
 		machineCount += 1
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Check(machineCount, gc.Equals, apiserver.LoginRateLimit)
 	userCount := 0
 	for err := range userResults {
 		userCount += 1
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Check(userCount, gc.Equals, apiserver.LoginRateLimit+1)
 }
@@ -519,7 +519,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	wg.Wait()
 	close(errResults)
 	for err := range errResults {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -548,9 +548,9 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 		Password: "dummy-secret",
 	}
 	err := st.APICall("Admin", 0, "", "Login", creds, &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.EnvironTag, gc.Equals, env.EnvironTag().String())
 }
 
@@ -563,9 +563,9 @@ func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
 		Credentials: "dummy-secret",
 	}
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.EnvironTag, gc.Equals, env.Tag().String())
 }
 
@@ -579,11 +579,11 @@ func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
 		Credentials: "dummy-secret",
 	}
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Assert(result.UserInfo.LastConnection, gc.NotNil)
 	c.Assert(result.UserInfo.Identity, gc.Equals, userTag.String())
-	c.Assert(time.Now().Unix()-result.UserInfo.LastConnection.Unix() < 300, gc.Equals, true)
+	c.Assert(time.Now().Unix()-result.UserInfo.LastConnection.Unix() < 300, jc.IsTrue)
 }
 
 func (s *loginV1Suite) TestLoginRejectV0(c *gc.C) {
@@ -608,7 +608,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
 		err := st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }
@@ -633,7 +633,7 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 
 		var statusResult api.Status
 		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		err = st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
@@ -680,7 +680,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 
 func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
 	listener, err := net.Listen("tcp", ":0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(
 		s.State,
 		listener,
@@ -690,14 +690,14 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 			Validator: validator,
 		},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if s.setAdminApi != nil {
 		s.setAdminApi(srv)
 	} else {
 		panic(nil)
 	}
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info := &api.Info{
 		Tag:        nil,
 		Password:   "",
@@ -707,7 +707,7 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 	}
 	return info, func() {
 		err := srv.Stop()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -715,7 +715,7 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) *api.State
 	info.Tag = nil
 	info.Password = ""
 	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return st
 }
 
@@ -729,7 +729,7 @@ func (s *loginV0Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 		Password: "dummy-secret",
 	}
 	err := st.APICall("Admin", 0, "", "Login", creds, &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0
 	asMap := make(map[string][]int, len(result.Facades))
@@ -765,7 +765,7 @@ func (s *loginV1Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 		Credentials: "dummy-secret",
 	}
 	err := st.APICall("Admin", 1, "", "Login", creds, &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0
 	asMap := make(map[string][]int, len(result.Facades))
@@ -782,8 +782,8 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	defer cleanup()
 	adminUser := s.AdminUserTag(c)
 	err := st.Login(adminUser.String(), "dummy-secret", "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envTag, err := st.EnvironTag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
 }

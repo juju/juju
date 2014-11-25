@@ -231,7 +231,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 				c.Check(votePresent, jc.IsTrue)
 				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 			}
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	})
 }

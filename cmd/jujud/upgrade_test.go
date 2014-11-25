@@ -86,7 +86,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	var fakeOpenStateForUpgrade = func(upgradingMachineAgent, agent.Config) (*state.State, error) {
 		mongoInfo := s.State.MongoConnectionInfo()
 		st, err := state.Open(mongoInfo, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		return st, nil
 	}
 	s.PatchValue(&openStateForUpgrade, fakeOpenStateForUpgrade)
@@ -357,9 +357,9 @@ func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 	mungeInfo := func(info *state.UpgradeInfo) {
 		// Indicate that the master is done
 		err := info.SetStatus(state.UpgradeRunning)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = info.SetStatus(state.UpgradeFinishing)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.checkSuccess(c, "stateServer", mungeInfo)
 }
@@ -371,9 +371,9 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	vPrevious := s.oldVersion.Number
 	vNext := version.Current.Number
 	info, err := s.State.EnsureUpgradeInfo(machineIdB, vPrevious, vNext)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.EnsureUpgradeInfo(machineIdC, vPrevious, vNext)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	mungeInfo(info)
 
@@ -390,7 +390,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	assertUpgradeComplete(c, context)
 
 	err = info.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.StateServersDone(), jc.DeepEquals, []string{"0"})
 	return info
 }
@@ -414,7 +414,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
 	if !errors.IsNotSupported(err) {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		envtesting.AssertUploadFakeToolsVersions(
 			c, stor, "releases", s.Environ.Config().AgentStream(), s.oldVersion)
 	}
@@ -470,12 +470,12 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	var machine1Conf agent.Config
 	_, machine1Conf, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
 
-	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
+	c.Assert(waitForUpgradeToStart(upgradeCh), jc.IsTrue)
 
 	// Only user and local logins are allowed during upgrade. Users get a restricted API.
 	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, false)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
 
 	close(upgradeCh) // Allow upgrade to complete
 
@@ -483,8 +483,8 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 	// All logins are allowed after upgrade
 	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, true)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsTrue)
 }
 
 func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
@@ -544,7 +544,7 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 
 	// One of the other state servers is ready for upgrade (but machine C doesn't).
 	info, err := s.State.EnsureUpgradeInfo(machineIdB, s.oldVersion.Number, version.Current.Number)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	agent := s.newAgentFromMachineId(c, machineIdA)
 	defer agent.Stop()
@@ -612,7 +612,7 @@ func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machine
 	machineIdA = machine0.Id()
 
 	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineIdB = changes.Added[0]
 	s.configureMachine(c, machineIdB, s.oldVersion)
@@ -624,7 +624,7 @@ func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machine
 
 func (s *UpgradeSuite) newAgentFromMachineId(c *gc.C, machineId string) *MachineAgent {
 	machine, err := s.State.Machine(machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return s.newAgent(c, machine)
 }
 
@@ -752,7 +752,7 @@ func (s *UpgradeSuite) assertStateServerUpgrades(c *gc.C) {
 	c.Assert(s.keyFile(), jc.IsNonEmptyFile)
 	// Syslog port should have been updated
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.SyslogPort(), gc.Equals, config.DefaultSyslogPort)
 	// Deprecated attributes should have been deleted - just test a couple.
 	allAttrs := cfg.AllAttrs()
@@ -772,7 +772,7 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	// Syslog port should not have been updated
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.SyslogPort(), gc.Not(gc.Equals), config.DefaultSyslogPort)
 	// Add other checks as needed...
 }
@@ -786,7 +786,7 @@ func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob)
 
 func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, expected)
@@ -806,7 +806,7 @@ func waitForUpgradeToFinish(c *gc.C, conf agent.Config) {
 
 func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
 	conf, err := agent.ReadConfig(agent.ConfigPath(dir, tag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return conf
 }
 
@@ -817,18 +817,18 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectF
 	info.Nonce = ""
 
 	apiState, err := api.Open(info, upgradeTestDialOpts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
 	// this call should always work
 	var result api.Status
 	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// this call should only work if API is not restricted
 	err = apiState.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 	if expectFullApi {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, gc.ErrorMatches, "upgrade in progress .+")
 	}

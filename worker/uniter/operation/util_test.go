@@ -413,8 +413,8 @@ func (mock *MockSendResponse) Call(response *utilexec.ExecResponse, err error) {
 }
 
 var curl = corecharm.MustParseURL
-var someActionId = "foo_a_1"
-var randomActionId = "bar_a_22"
+var someActionId = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+var randomActionId = "9f484882-2f18-4fd2-967d-db9663db7bea"
 var overwriteState = operation.State{
 	Kind:               operation.Continue,
 	Step:               operation.Pending,

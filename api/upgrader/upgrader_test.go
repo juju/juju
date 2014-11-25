@@ -73,10 +73,10 @@ func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
 	err = s.st.SetVersion(s.rawMachine.Tag().String(), cur)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.rawMachine.Refresh()
 	agentTools, err = s.rawMachine.AgentTools()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(agentTools.Version, gc.Equals, cur)
 }
 
@@ -102,7 +102,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
 	stateTools, err := s.st.Tools(s.rawMachine.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.stateAPI.Addr(), cur)
 	c.Assert(stateTools.URL, gc.Equals, url)
@@ -110,23 +110,23 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	// Initial event
 	wc.AssertOneChange()
 	vers := version.MustParse("10.20.34")
 	err = statetesting.SetAgentVersion(s.BackingState, vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// One change noticing the new version
 	wc.AssertOneChange()
 	// Setting the version to the same value doesn't trigger a change
 	err = statetesting.SetAgentVersion(s.BackingState, vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	vers = version.MustParse("10.20.35")
 	err = statetesting.SetAgentVersion(s.BackingState, vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
@@ -140,6 +140,6 @@ func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	// Upgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
 	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVersion, gc.Equals, cur.Number)
 }

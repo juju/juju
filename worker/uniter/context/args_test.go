@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	envtesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/version"
@@ -57,9 +58,9 @@ func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
 	}, charmDir)
 
 	expected, err := context.LookPath(filepath.Join(charmDir, "hooks", "something-happened"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	obtained, err := context.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.Equals, expected)
 }
 
@@ -75,7 +76,7 @@ func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
 	}, charmDir)
 
 	obtained, err := context.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.Equals, filepath.Join(charmDir, "hooks", "something-happened.ps1"))
 }
 

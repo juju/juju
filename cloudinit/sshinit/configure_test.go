@@ -6,6 +6,7 @@ package sshinit_test
 import (
 	"regexp"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudinit"
@@ -41,13 +42,13 @@ func init() {
 
 func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 	testConfig, err := config.New(config.UseDefaults, coretesting.FakeConfig())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testConfig, err = testConfig.Apply(map[string]interface{}{
 		"type":           "sshinit_test",
 		"default-series": vers.Series,
 		"agent-version":  vers.Number.String(),
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return testConfig
 }
 
@@ -56,12 +57,12 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	var err error
 	if stateServer {
 		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
 		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, nil, nil, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
@@ -70,12 +71,12 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	}
 	environConfig := testConfig(c, stateServer, vers)
 	err = environs.FinishMachineConfig(mcfg, environConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudcfg := cloudinit.New()
 	udata, err := envcloudinit.NewUserdataConfig(mcfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return cloudcfg
 }
 
@@ -94,7 +95,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 	for _, series := range allSeries {
 		vers := version.MustParseBinary("1.16.0-" + series + "-amd64")
 		script, err := sshinit.ConfigureScript(s.getCloudConfig(c, true, vers))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Only Precise requires the cloud-tools pocket.
 		//
@@ -134,7 +135,7 @@ func (s *configureSuite) TestAptSources(c *gc.C) {
 
 func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match bool) {
 	script, err := sshinit.ConfigureScript(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	checker := gc.Matches
 	if !match {
 		checker = gc.Not(checker)
@@ -147,7 +148,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
 	cfg := cloudinit.New()
 
-	c.Assert(cfg.AptUpdate(), gc.Equals, false)
+	c.Assert(cfg.AptUpdate(), jc.IsFalse)
 	c.Assert(cfg.AptSources(), gc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
 

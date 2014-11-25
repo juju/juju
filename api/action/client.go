@@ -5,7 +5,6 @@ package action
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/base"
@@ -22,6 +21,22 @@ type Client struct {
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Action")
 	return &Client{ClientFacade: frontend, facade: backend}
+}
+
+// Actions takes a list of ActionTags, and returns the full
+// Action for each ID.
+func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
+	results := params.ActionResults{}
+	err := c.facade.FacadeCall("Actions", arg, &results)
+	return results, err
+}
+
+// FindActionTagsByPrefix takes a list of string prefixes and finds
+// corresponding ActionTags that match that prefix.
+func (c *Client) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
+	results := params.FindTagsResults{}
+	err := c.facade.FacadeCall("FindActionTagsByPrefix", arg, &results)
+	return results, err
 }
 
 // Enqueue takes a list of Actions and queues them up to be executed by
@@ -78,9 +93,9 @@ func (c *Client) servicesCharmActions(arg params.Entities) (params.ServicesCharm
 
 // ServiceCharmActions is a single query which uses ServicesCharmActions to
 // get the charm.Actions for a single Service by tag.
-func (c *Client) ServiceCharmActions(arg names.ServiceTag) (*charm.Actions, error) {
+func (c *Client) ServiceCharmActions(arg params.Entity) (*charm.Actions, error) {
 	none := &charm.Actions{}
-	tags := params.Entities{Entities: []params.Entity{{Tag: arg.String()}}}
+	tags := params.Entities{Entities: []params.Entity{{Tag: arg.Tag}}}
 	results, err := c.servicesCharmActions(tags)
 	if err != nil {
 		return none, err
@@ -92,7 +107,7 @@ func (c *Client) ServiceCharmActions(arg names.ServiceTag) (*charm.Actions, erro
 	if result.Error != nil {
 		return none, result.Error
 	}
-	if result.ServiceTag != arg.String() {
+	if result.ServiceTag != arg.Tag {
 		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
 	}
 	return result.Actions, nil

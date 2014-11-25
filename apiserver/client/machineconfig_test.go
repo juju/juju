@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
@@ -37,15 +38,15 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		Addrs: addrs,
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 
 	machineId := machines[0].Machine
 	machineConfig, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mongoAddrs := s.State.MongoConnectionInfo().Addrs
 	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(envConfig.APIPort()))}
 
@@ -62,7 +63,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 		Nonce:      "foo",
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	_, err = client.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("arch is not set for %q", "machine-"+machines[0].Machine))
@@ -81,7 +82,7 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 		Addrs: addrs,
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.MachineConfig(s.State, machines[0].Machine, apiParams.Nonce, "")
 	c.Assert(err, gc.ErrorMatches, coretools.ErrNoMatches.Error())
 }

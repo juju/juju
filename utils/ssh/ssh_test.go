@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
@@ -40,12 +41,12 @@ func (s *SSHCommandSuite) SetUpTest(c *gc.C) {
 	s.fakessh = filepath.Join(s.testbin, "ssh")
 	s.fakescp = filepath.Join(s.testbin, "scp")
 	err := ioutil.WriteFile(s.fakessh, []byte(echoScript), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(s.fakescp, []byte(echoScript), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchEnvPathPrepend(s.testbin)
 	s.client, err = ssh.NewOpenSSHClient()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(ssh.DefaultIdentities, nil)
 }
 
@@ -59,7 +60,7 @@ func (s *SSHCommandSuite) commandOptions(args []string, opts *ssh.Options) *ssh.
 
 func (s *SSHCommandSuite) assertCommandArgs(c *gc.C, cmd *ssh.Cmd, expected string) {
 	out, err := cmd.Output()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.TrimSpace(string(out)), gc.Equals, expected)
 }
 
@@ -87,7 +88,7 @@ func (s *SSHCommandSuite) TestCommandSSHPass(c *gc.C) {
 	)
 	// Finally, remove sshpass from $PATH.
 	err = os.Remove(fakesshpass)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertCommandArgs(c, s.command(echoCommand, "123"),
 		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 localhost %s 123",
 			s.fakessh, echoCommand),
@@ -153,24 +154,24 @@ func (s *SSHCommandSuite) TestCopy(c *gc.C) {
 	opts.SetIdentities("x", "y")
 	opts.SetPort(2022)
 	err := s.client.Copy([]string{"/tmp/blah", "foo@bar.com:baz"}, &opts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	out, err := ioutil.ReadFile(s.fakescp + ".args")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// EnablePTY has no effect for Copy
 	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -o ServerAliveInterval 30 -i x -i y -P 2022 /tmp/blah foo@bar.com:baz\n")
 
 	// Try passing extra args
 	err = s.client.Copy([]string{"/tmp/blah", "foo@bar.com:baz", "-r", "-v"}, &opts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	out, err = ioutil.ReadFile(s.fakescp + ".args")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -o ServerAliveInterval 30 -i x -i y -P 2022 /tmp/blah foo@bar.com:baz -r -v\n")
 
 	// Try interspersing extra args
 	err = s.client.Copy([]string{"-r", "/tmp/blah", "-v", "foo@bar.com:baz"}, &opts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	out, err = ioutil.ReadFile(s.fakescp + ".args")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -o ServerAliveInterval 30 -i x -i y -P 2022 -r /tmp/blah -v foo@bar.com:baz\n")
 }
 
@@ -179,7 +180,7 @@ func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
 	clientKeysDir := c.MkDir()
 	defer ssh.ClearClientKeys()
 	err := ssh.LoadClientKeys(clientKeysDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ck := filepath.Join(clientKeysDir, "juju_id_rsa")
 	var opts ssh.Options
 	opts.SetIdentities("x", "y")
@@ -192,10 +193,10 @@ func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
 func (s *SSHCommandSuite) TestCommandError(c *gc.C) {
 	var opts ssh.Options
 	err := ioutil.WriteFile(s.fakessh, []byte("#!/bin/sh\nexit 42"), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	command := s.client.Command("ignored", []string{echoCommand, "foo"}, &opts)
 	err = command.Run()
-	c.Assert(cmd.IsRcPassthroughError(err), gc.Equals, true)
+	c.Assert(cmd.IsRcPassthroughError(err), jc.IsTrue)
 }
 
 func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
@@ -212,7 +213,7 @@ func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
 	// If identities are specified, then the defaults are must added.
 	// Only the defaults that exist on disk will be added.
 	err := ioutil.WriteFile(def2, nil, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	opts.SetIdentities("x", "y")
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
 		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -i x -i y -i %s localhost %s 123",
@@ -225,7 +226,7 @@ func (s *SSHCommandSuite) TestCopyReader(c *gc.C) {
 	r := bytes.NewBufferString("<data>")
 
 	err := ssh.TestCopyReader(client, "foo@bar.com:baz", "/tmp/blah", r, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client.checkCalls(c, "foo@bar.com:baz", []string{"cat - > /tmp/blah"}, nil, nil, "Command")
 	client.impl.checkCalls(c, r, nil, nil, "SetStdio", "Start", "Wait")
