@@ -1282,6 +1282,20 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo := state.SubnetInfo{}
 	_, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet with missing CIDR passed to AddSubnet")
+
+	subnetInfo.CIDR = "foobar"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid CIDR address: foobar")
+
+	subnetInfo.CIDR = "192.168.0.1/24"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "provider id must be not empty")
+
+	subnetInfo.ProviderId = "wibble"
+	subnetInfo.VLANTag = 4095
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid VLAN tag 4095: must be between 0 and 4094")
+
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {
