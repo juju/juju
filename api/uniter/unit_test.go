@@ -425,7 +425,7 @@ func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 		"outfile": "foo.txt",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(action.NotificationId())
+	wc.AssertChange(action.Id())
 
 	action, err = s.wordpressUnit.AddAction("backup", map[string]interface{}{
 		"outfile": "foo.bz2",
@@ -435,7 +435,7 @@ func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(action.NotificationId())
+	wc.AssertChange(action.Id())
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

@@ -1544,7 +1544,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	return u.st.addAction(u, name, payload)
+	return u.st.EnqueueAction(u.Tag(), name, payload)
 }
 
 // CancelAction removes a pending Action from the queue for this

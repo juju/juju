@@ -362,7 +362,7 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 		"outfile": "/some/file.bz2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ctx.ActionData()
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,7 +380,7 @@ func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	action, err := s.unit.AddAction("no-such-action", nil)
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
@@ -392,7 +392,7 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 		"outfile": 123,
 	})
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
@@ -404,7 +404,7 @@ func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
@@ -416,7 +416,7 @@ func (s *FactorySuite) TestNewActionContextUnauthAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := otherUnit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
