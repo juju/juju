@@ -4,6 +4,7 @@
 package environment_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -32,7 +33,7 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.machine0.Tag(),
@@ -45,7 +46,7 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
 		s.api, s.State, s.resources, commontesting.NoSecrets)
 }

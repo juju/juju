@@ -53,7 +53,7 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.action, err = action.NewActionAPI(s.State, nil, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	factory := jujuFactory.NewFactory(s.State)
 
@@ -105,12 +105,12 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 func (s *actionSuite) TestEnqueue(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
 
 	// Make sure no Actions already exist on mysql Unit.
 	actions, err = s.mysqlUnit.Actions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
 
 	// Add Actions.
@@ -129,7 +129,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 		},
 	}
 	res, err := s.action.Enqueue(arg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 4)
 
 	expectedError := &params.Error{Message: "id not found", Code: "not found"}
@@ -153,7 +153,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 
 	// Make sure an Action was enqueued for the wordpress Unit.
 	actions, err = s.wordpressUnit.Actions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 1)
 	c.Assert(actions[0].Name(), gc.Equals, expectedName)
 	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
@@ -161,7 +161,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 
 	// Make sure an Action was enqueued for the mysql Unit.
 	actions, err = s.mysqlUnit.Actions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 1)
 	// TODO(jcw4) notice Action Name empty. Shouldn't Action Names be required?
 	c.Assert(actions[0].Name(), gc.Equals, "")
@@ -231,23 +231,23 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			// make sure there are no actions queued up already.
 			actions, err := unit.PendingActions()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(actions, gc.HasLen, 0)
 
 			// make sure there are no completed actions already.
 			results, err := unit.CompletedActions()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(results, gc.HasLen, 0)
 
 			// add each action from the test case.
 			for j, action := range group.Actions {
 				// add action.
 				added, err := unit.AddAction(action.Name, action.Parameters)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 
 				// make expectation
 				exp := &cur.Actions[j]
@@ -264,7 +264,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					message := "success"
 
 					fa, err := added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
-					c.Assert(err, gc.IsNil)
+					c.Assert(err, jc.ErrorIsNil)
 					c.Assert(fa.Status(), gc.Equals, state.ActionCompleted)
 
 					exp.Status = string(status)
@@ -276,7 +276,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 
 		// validate assumptions.
 		actionList, err := s.action.ListAll(arg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertSame(c, actionList, expected)
 	}
 }
@@ -304,23 +304,23 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			// make sure there are no actions queued up already.
 			actions, err := unit.Actions()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(actions, gc.HasLen, 0)
 
 			// make sure there are no actions completed already.
 			results, err := unit.CompletedActions()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(results, gc.HasLen, 0)
 
 			// add each action from the test case.
 			for _, action := range group.Actions {
 				// add action.
 				added, err := unit.AddAction(action.Name, action.Parameters)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 
 				if action.Execute {
 					status := state.ActionCompleted
@@ -328,7 +328,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 					message := "success"
 
 					fa, err := added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
-					c.Assert(err, gc.IsNil)
+					c.Assert(err, jc.ErrorIsNil)
 					c.Assert(fa.Status(), gc.Equals, state.ActionCompleted)
 				} else {
 					// add expectation
@@ -347,7 +347,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 
 		// validate assumptions.
 		actionList, err := s.action.ListPending(arg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertSame(c, actionList, expected)
 	}
 }
@@ -375,23 +375,23 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			// make sure there are no actions pending already.
 			actions, err := unit.PendingActions()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(actions, gc.HasLen, 0)
 
 			// make sure there are no actions completed already.
 			results, err := unit.CompletedActions()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(results, gc.HasLen, 0)
 
 			// add each action from the test case.
 			for _, action := range group.Actions {
 				// add action.
 				added, err := unit.AddAction(action.Name, action.Parameters)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 
 				if action.Execute {
 					status := state.ActionCompleted
@@ -399,7 +399,7 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 					message := "success"
 
 					_, err = added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
-					c.Assert(err, gc.IsNil)
+					c.Assert(err, jc.ErrorIsNil)
 
 					// add expectation
 					exp := params.ActionResult{
@@ -419,7 +419,7 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 
 		// validate assumptions.
 		actionList, err := s.action.ListCompleted(arg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertSame(c, actionList, expected)
 	}
 }
@@ -427,12 +427,12 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 func (s *actionSuite) TestCancel(c *gc.C) {
 	// Make sure no Actions already exist on wordpress Unit.
 	actions, err := s.wordpressUnit.Actions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
 
 	// Make sure no Actions already exist on mysql Unit.
 	actions, err = s.mysqlUnit.Actions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
 
 	// Add Actions.
@@ -453,7 +453,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	}
 
 	results, err := s.action.Enqueue(tests)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 4)
 	for _, res := range results.Results {
 		c.Assert(res.Error, gc.IsNil)
@@ -468,13 +468,13 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 			{Tag: results.Results[2].Action.Tag},
 		}}
 	results, err = s.action.Cancel(arg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 
 	// Assert the Actions are all in the expected state.
 	tags := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}, {Tag: s.mysqlUnit.Tag().String()}}}
 	obtained, err := s.action.ListAll(tags)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.Actions, gc.HasLen, 2)
 
 	wpActions := obtained.Actions[0].Actions
@@ -565,7 +565,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 		}
 
 		results, err := s.action.ServicesCharmActions(svcTags)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
 	}
 }

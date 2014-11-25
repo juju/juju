@@ -4,6 +4,7 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -28,11 +29,11 @@ func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 	// Destroy a service that exists.
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runRemoveService(c, "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	riak, err := s.State.Service("riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
 }
 

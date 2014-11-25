@@ -6,6 +6,7 @@ package testing
 import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -50,7 +51,7 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	dialOpts := NewDialOpts()
 
 	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return st
 }
 

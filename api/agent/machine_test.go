@@ -53,7 +53,7 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	}
 	s.State.SetStateServingInfo(ssi)
 	info, err := st.Agent().StateServingInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
 
@@ -76,7 +76,7 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 	expected := true
 	result, err := st.Agent().IsMaster()
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expected)
 	c.Assert(calledIsMaster, gc.Equals, true)
 }
@@ -108,15 +108,15 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
 	c.Assert(m.Jobs(), gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobHostUnits})
 
 	err = s.machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
@@ -126,17 +126,17 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 
 func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	entity, err := s.st.Agent().Entity(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = entity.SetPassword("foo")
 	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
 	err = entity.SetPassword("foo-12345678901234567890")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = entity.ClearReboot()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.PasswordValid("bar"), gc.Equals, false)
 	c.Assert(s.machine.PasswordValid("foo-12345678901234567890"), gc.Equals, true)
 
@@ -146,7 +146,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	info := s.MongoInfo(c)
 	// TODO(dfc) this entity.Tag should return a Tag
 	tag, err := names.ParseTag(entity.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
 	err = tryOpenState(info)
@@ -155,19 +155,19 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 
 func (s *machineSuite) TestClearReboot(c *gc.C) {
 	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
 	entity, err := s.st.Agent().Entity(s.machine.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = entity.ClearReboot()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	rFlag, err = s.machine.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsFalse)
 }
 

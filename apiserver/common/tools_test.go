@@ -34,7 +34,7 @@ func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddDefaultToolsToState(c)
 }
 
@@ -48,7 +48,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	c.Assert(tg, gc.NotNil)
 
 	err := s.machine0.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -57,7 +57,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 			{Tag: "machine-42"},
 		}}
 	result, err := tg.Tools(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].Tools, gc.NotNil)
@@ -91,7 +91,7 @@ func (s *toolsSuite) TestSetTools(c *gc.C) {
 	c.Assert(ts, gc.NotNil)
 
 	err := s.machine0.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -112,11 +112,11 @@ func (s *toolsSuite) TestSetTools(c *gc.C) {
 		}},
 	}
 	result, err := ts.SetTools(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	agentTools, err := s.machine0.AgentTools()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
 	c.Assert(result.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.NotFoundError("machine 42"))
@@ -171,7 +171,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		Series:       "win81",
 		Arch:         "alpha",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.DeepEquals, coretools.List{
 		&coretools.Tools{
@@ -190,7 +190,7 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 	})
 	toolsFinder := common.NewToolsFinder(s.State, s.State, sprintfURLGetter("%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
@@ -223,7 +223,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 		Series:       version.Current.Series,
 		Arch:         version.Current.Arch,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if inStorage {
 		c.Assert(result.Error, gc.IsNil)
 		c.Assert(called, jc.IsFalse)
@@ -246,7 +246,7 @@ func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 		MajorVersion: 1,
 		MinorVersion: -1,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// ToolsStorage errors always cause FindTools to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.
@@ -276,7 +276,7 @@ func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 		},
 	})
 	url, err := g.ToolsURL(version.Current)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/environment/my-uuid/tools/"+version.Current.String())
 }
 

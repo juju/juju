@@ -4,6 +4,7 @@
 package instance_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
@@ -62,7 +63,7 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.expectScope == "" && t.expectDirective == "" {
 			c.Assert(p, gc.IsNil)

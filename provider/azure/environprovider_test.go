@@ -4,6 +4,7 @@
 package azure
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -20,10 +21,10 @@ func (*environProviderSuite) TestOpen(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "my-shiny-new-env"
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := prov.Open(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.Config().Name(), gc.Equals, attrs["name"])
 }
@@ -34,7 +35,7 @@ func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	// Make the config invalid.
 	attrs["location"] = ""
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := prov.Open(cfg)
 	// When Open() fails (i.e. returns a non-nil error), it returns an

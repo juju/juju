@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -76,7 +77,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := &actionFailContext{}
 		com, err := jujuc.NewCommand(hctx, "action-fail")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.command)
 		c.Check(code, gc.Equals, t.code)
@@ -89,7 +90,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 	hctx := &nonActionFailContext{}
 	com, err := jujuc.NewCommand(hctx, "action-fail")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"oops"})
 	c.Check(code, gc.Equals, 1)
@@ -100,7 +101,7 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 func (s *ActionFailSuite) TestHelp(c *gc.C) {
 	hctx := &Context{}
 	com, err := jujuc.NewCommand(hctx, "action-fail")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)

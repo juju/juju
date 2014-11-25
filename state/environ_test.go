@@ -114,7 +114,7 @@ func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments
 // createTestEnvConfig returns a new environment config and its UUID for testing.
 func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": "testing",
 		"uuid": uuid.String(),

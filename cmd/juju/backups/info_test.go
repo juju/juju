@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
@@ -28,7 +29,7 @@ func (s *infoSuite) SetUpTest(c *gc.C) {
 
 func (s *infoSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "info", "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := s.subcommand.Info()
 	expected := "(?sm)usage: juju backups info [options] " + info.Args + "$.*"

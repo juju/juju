@@ -46,48 +46,48 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
 	s.svc = s.AddTestingService(c, "u", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rels, err := s.svc.Relations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)
 	s.rel = rels[0]
 	_, unit := s.AddRelationUnit(c, "u/0")
 	s.dirPath = c.MkDir()
 	s.dir, err = relation.ReadStateDir(s.dirPath, s.rel.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.hooks = make(chan hook.Info)
 
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter, err = s.st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RelationerSuite) AddRelationUnit(c *gc.C, name string) (*state.RelationUnit, *state.Unit) {
 	u, err := s.svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Name(), gc.Equals, name)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	privateAddr := network.NewAddress(
 		strings.Replace(name, "/", "-", 1)+".testing.invalid", network.ScopeCloudLocal)
 	err = machine.SetAddresses(privateAddr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := s.rel.Unit(u)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return ru, u
 }
 
@@ -99,18 +99,18 @@ func (s *RelationerSuite) TestStateDir(c *gc.C) {
 
 	// Join the relation; check the dir was created.
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ft.Dir{path, 0755}.Check(c, s.dirPath)
 
 	// Prepare to depart the relation; check the dir is still there.
 	hi := hook.Info{Kind: hooks.RelationBroken}
 	_, err = r.PrepareHook(hi)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ft.Dir{path, 0755}.Check(c, s.dirPath)
 
 	// Actually depart it; check the dir is removed.
 	err = r.CommitHook(hi)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ft.Removed{path}.Check(c, s.dirPath)
 }
 
@@ -129,7 +129,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 
 	// u/0 enters scope; u/1 observes it.
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
@@ -144,7 +144,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 
 	// re-Join is no-op.
 	err = r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// TODO(jam): This would be a great to replace with statetesting.NotifyWatcherC
 	s.State.StartSync()
 	select {
@@ -156,10 +156,10 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	// u/0 leaves scope; u/1 observes it.
 	hi := hook.Info{Kind: hooks.RelationBroken}
 	_, err = r.PrepareHook(hi)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = r.CommitHook(hi)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
@@ -177,7 +177,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	c.Assert(r.IsImplicit(), gc.Equals, false)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check no hooks are being sent.
 	s.assertNoHook(c)
@@ -194,7 +194,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 	// Join u/1 to the relation, and check that we receive the expected hooks.
 	settings := map[string]interface{}{"unit": "settings"}
 	err = ru1.EnterScope(settings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertHook(c, hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
@@ -207,21 +207,21 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 
 	// Stop hooks, make more changes, check no events.
 	err = r.StopHooks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru1.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru2.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	node, err := ru2.Settings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	node.Set("private-address", "roehampton")
 	_, err = node.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoHook(c)
 
 	// Stop hooks again to verify safety.
 	err = r.StopHooks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoHook(c)
 
 	// Start them again, and check we get the expected events sent.
@@ -245,14 +245,14 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 
 	// Stop them again, just to be sure.
 	err = r.StopHooks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoHook(c)
 }
 
 func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertMembers := func(expect map[string]int64) {
 		c.Assert(s.dir.State().Members, jc.DeepEquals, expect)
@@ -281,7 +281,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 		RemoteUnit: "u/1",
 	}
 	name, err := r.PrepareHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
 	assertMembers(map[string]int64{})
 
@@ -293,18 +293,18 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	// ...but that committing the previous hook updates the persistent
 	// relation state...
 	err = r.CommitHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertMembers(map[string]int64{"u/1": 0})
 
 	// ...and allows us to prepare the next hook...
 	name, err = r.PrepareHook(changed)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-changed")
 	assertMembers(map[string]int64{"u/1": 0})
 
 	// ...and commit it.
 	err = r.CommitHook(changed)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertMembers(map[string]int64{"u/1": 7})
 
 	// To verify implied behaviour above, prepare a new joined hook with
@@ -313,13 +313,13 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	joined.RemoteUnit = "u/2"
 	joined.ChangeVersion = 3
 	name, err = r.PrepareHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
 	assertMembers(map[string]int64{"u/1": 7})
 
 	// ...until commit, at which point so is relation state.
 	err = r.CommitHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertMembers(map[string]int64{"u/1": 7, "u/2": 3})
 }
 
@@ -327,10 +327,10 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	settings := map[string]interface{}{"unit": "settings"}
 	err := ru1.EnterScope(settings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err = r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	r.StartHooks()
 	defer stopHooks(c, r)
 	s.assertHook(c, hook.Info{
@@ -342,7 +342,7 @@ func (s *RelationerSuite) TestSetDying(c *gc.C) {
 	// pending lifecycle work), changes Life to Dying, and the relationer is
 	// informed.
 	err = r.SetDying()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we cannot rejoin the relation.
 	f := func() { r.Join() }
@@ -389,14 +389,14 @@ func (s *RelationerSuite) TestInferRemoteUnitInvalidInput(c *gc.C) {
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	c.Assert(r.IsImplicit(), gc.Equals, false)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = r.CommitHook(hook.Info{
 		RelationId: 0,
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/0",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := uniter.RunCommandsArgs{
 		Commands:       "some-command",
@@ -424,21 +424,21 @@ func (s *RelationerSuite) TestInferRemoteUnitAmbiguous(c *gc.C) {
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	c.Assert(r.IsImplicit(), gc.Equals, false)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = r.CommitHook(hook.Info{
 		RelationId: 0,
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/0",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = r.CommitHook(hook.Info{
 		RelationId: 0,
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relationers := map[int]*uniter.Relationer{}
 	relationers[0] = r
@@ -477,7 +477,7 @@ func (s *RelationerSuite) TestInferRemoteValidEmptyForce(c *gc.C) {
 
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relationers[0] = r
 
@@ -494,14 +494,14 @@ func (s *RelationerSuite) TestInferRemoteValidEmptyForce(c *gc.C) {
 		RemoteUnit: "u/1",
 	}
 	name, err := r.PrepareHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
 
 	err = r.CommitHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remoteUnit, gc.Equals, "")
 
 	// Invalid remote-unit should still fail even when forcing
@@ -515,7 +515,7 @@ func (s *RelationerSuite) TestInferRemoteValidDepartedForce(c *gc.C) {
 
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relationers[0] = r
 
@@ -532,14 +532,14 @@ func (s *RelationerSuite) TestInferRemoteValidDepartedForce(c *gc.C) {
 		RemoteUnit: "u/1",
 	}
 	name, err := r.PrepareHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
 
 	err = r.CommitHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remoteUnit, gc.Equals, "departed/0")
 }
 
@@ -548,7 +548,7 @@ func (s *RelationerSuite) TestInferRemoteUnit(c *gc.C) {
 
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relationers[0] = r
 
@@ -564,14 +564,14 @@ func (s *RelationerSuite) TestInferRemoteUnit(c *gc.C) {
 		RemoteUnit: "u/1",
 	}
 	name, err := r.PrepareHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
 
 	err = r.CommitHook(joined)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	remoteUnit, err := uniter.InferRemoteUnit(relationers, args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/1")
 
 	// Test with valid departed RemoteUnit
@@ -582,22 +582,22 @@ func (s *RelationerSuite) TestInferRemoteUnit(c *gc.C) {
 		RemoteUnit: "u/1",
 	}
 	name, err = r.PrepareHook(changed)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-changed")
 
 	err = r.CommitHook(changed)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	departed := hook.Info{
 		Kind:       hooks.RelationDeparted,
 		RemoteUnit: "u/1",
 	}
 	name, err = r.PrepareHook(departed)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "ring-relation-departed")
 
 	err = r.CommitHook(departed)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the call with the same args fails, explicitly warning
 	// the user about the lack of a remote unit.
@@ -634,55 +634,55 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Create a relationer for an implicit endpoint (mysql:juju-info).
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAddresses(network.NewAddress("blah", network.ScopeCloudLocal))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	relsDir := c.MkDir()
 	dir, err := relation.ReadStateDir(relsDir, rel.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hooks := make(chan hook.Info)
 
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAs(c, u.Tag(), password)
 	uniterState, err := st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uniterState, gc.NotNil)
 
 	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := uniterState.Relation(rel.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	r := uniter.NewRelationer(apiRelUnit, dir, hooks)
 	c.Assert(r, jc.Satisfies, (*uniter.Relationer).IsImplicit)
 
 	// Join the relation.
 	err = r.Join()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sub, err := s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Join the other side; check no hooks are sent.
 	r.StartHooks()
 	defer func() { c.Assert(r.StopHooks(), gc.IsNil) }()
 	subru, err := rel.Unit(sub)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = subru.EnterScope(map[string]interface{}{"some": "data"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 	select {
 	case <-time.After(coretesting.ShortWait):
@@ -692,16 +692,16 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 
 	// Set it to Dying; check that the dir is removed immediately.
 	err = r.SetDying()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	path := strconv.Itoa(rel.Id())
 	ft.Removed{path}.Check(c, relsDir)
 
 	// Check that it left scope, by leaving scope on the other side and destroying
 	// the relation.
 	err = subru.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

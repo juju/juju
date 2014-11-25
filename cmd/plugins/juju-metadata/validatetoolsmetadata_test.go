@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
 
@@ -77,7 +78,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 		Release: series,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	streamMetadata := map[string][]*tools.ToolsMetadata{
 		stream: tm,
 	}

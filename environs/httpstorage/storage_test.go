@@ -28,13 +28,13 @@ func (s *storageSuite) TestClientTLS(c *gc.C) {
 	listener, _, storageDir := startServerTLS(c)
 	defer listener.Close()
 	stor, err := httpstorage.ClientTLS(listener.Addr().String(), coretesting.CACert, testAuthkey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	data := []byte("hello")
 	err = ioutil.WriteFile(filepath.Join(storageDir, "filename"), data, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	names, err := storage.List(stor, "filename")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(names, gc.DeepEquals, []string{"filename"})
 	checkFileHasContents(c, stor, "filename", data)
 
@@ -50,14 +50,14 @@ func (s *storageSuite) TestClientTLSInvalidAuth(c *gc.C) {
 	defer listener.Close()
 	const invalidAuthkey = testAuthkey + "!"
 	stor, err := httpstorage.ClientTLS(listener.Addr().String(), coretesting.CACert, invalidAuthkey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Get and List should succeed.
 	data := []byte("hello")
 	err = ioutil.WriteFile(filepath.Join(storageDir, "filename"), data, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	names, err := storage.List(stor, "filename")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(names, gc.DeepEquals, []string{"filename"})
 	checkFileHasContents(c, stor, "filename", data)
 
@@ -74,7 +74,7 @@ func (s *storageSuite) TestList(c *gc.C) {
 	defer listener.Close()
 	stor := httpstorage.Client(listener.Addr().String())
 	names, err := storage.List(stor, "a/b/c")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(names, gc.HasLen, 0)
 }
 
@@ -119,7 +119,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 
 	for _, name := range names[1:] {
 		err := storage2.Remove(name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// check they've all gone
@@ -131,7 +131,7 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 
 func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
 	lnames, err := storage.List(stor, prefix)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(lnames, gc.DeepEquals, names)
 }
 
@@ -158,7 +158,7 @@ func putFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) 
 
 func checkPutFile(c *gc.C, stor storage.StorageWriter, name string, contents []byte) {
 	err := putFile(c, stor, name, contents)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string) {
@@ -169,7 +169,7 @@ func checkFileDoesNotExist(c *gc.C, stor storage.StorageReader, name string) {
 
 func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, contents []byte) {
 	r, err := storage.Get(stor, name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(r, gc.NotNil)
 	defer r.Close()
 	data, err := ioutil.ReadAll(r)
@@ -177,11 +177,11 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 	c.Check(data, gc.DeepEquals, contents)
 
 	url, err := stor.URL(name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	resp, err := http.Get(url)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err = ioutil.ReadAll(resp.Body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK, gc.Commentf("error response: %s", data))
 	c.Check(data, gc.DeepEquals, contents)
@@ -191,15 +191,15 @@ func checkRemoveAll(c *gc.C, stor storage.Storage) {
 	contents := []byte("File contents.")
 	aFile := "a-file.txt"
 	err := stor.Put(aFile, bytes.NewBuffer(contents), int64(len(contents)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = stor.Put("empty-file", bytes.NewBuffer(nil), 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = stor.RemoveAll()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	files, err := storage.List(stor, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(files, gc.HasLen, 0)
 
 	_, err = storage.Get(stor, aFile)

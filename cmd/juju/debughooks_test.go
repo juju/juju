@@ -6,6 +6,7 @@ package main
 import (
 	"regexp"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -90,7 +91,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 		if t.error != "" {
 			c.Assert(err, gc.ErrorMatches, t.error)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }

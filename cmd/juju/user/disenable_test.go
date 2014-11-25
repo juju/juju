@@ -5,6 +5,7 @@ package user_test
 
 import (
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -59,7 +60,7 @@ func (s *DisableUserSuite) testInit(c *gc.C, command user.DisenableCommand) {
 		c.Logf("test %d, args %v", i, test.args)
 		err := testing.InitCommand(command, test.args)
 		if test.errMatch == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(command.Username(), gc.Equals, test.user)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
@@ -75,14 +76,14 @@ func (s *DisableUserSuite) TestInit(c *gc.C) {
 func (s *DisableUserSuite) TestDisable(c *gc.C) {
 	username := "testing"
 	_, err := testing.RunCommand(c, s.disableUserCommand(), username)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.disable, gc.Equals, username)
 }
 
 func (s *DisableUserSuite) TestEnable(c *gc.C) {
 	username := "testing"
 	_, err := testing.RunCommand(c, s.enableUserCommand(), username)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mock.enable, gc.Equals, username)
 }
 

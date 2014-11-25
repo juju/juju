@@ -50,14 +50,14 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobManageEnviron},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetStatus(state.StatusError, "broken", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)

@@ -30,7 +30,7 @@ func (s *ConverterSuite) SetUpTest(c *gc.C) {
 
 func (s *ConverterSuite) TestNewDeployerCreatesManifestDeployer(c *gc.C) {
 	deployer, err := charm.NewDeployer(s.targetPath, s.dataPath, s.bundles)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer, jc.Satisfies, charm.IsManifestDeployer)
 }
 
@@ -38,10 +38,10 @@ func (s *ConverterSuite) TestNewDeployerCreatesGitDeployerOnceStaged(c *gc.C) {
 	gitDeployer := charm.NewGitDeployer(s.targetPath, s.dataPath, s.bundles)
 	info := s.bundles.AddBundle(c, charmURL(1), mockBundle{})
 	err := gitDeployer.Stage(info, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deployer, err := charm.NewDeployer(s.targetPath, s.dataPath, s.bundles)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer, jc.Satisfies, charm.IsGitDeployer)
 }
 
@@ -49,19 +49,19 @@ func (s *ConverterSuite) TestConvertGitDeployerBeforeDeploy(c *gc.C) {
 	gitDeployer := charm.NewGitDeployer(s.targetPath, s.dataPath, s.bundles)
 	info := s.bundles.AddBundle(c, charmURL(1), mockBundle{})
 	err := gitDeployer.Stage(info, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deployer, err := charm.NewDeployer(s.targetPath, s.dataPath, s.bundles)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = charm.FixDeployer(&deployer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer, jc.Satisfies, charm.IsManifestDeployer)
 	ft.Removed{"current"}.Check(c, s.dataPath)
 
 	err = deployer.Stage(info, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = deployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ft.Removed{".git"}.Check(c, s.targetPath)
 }
 
@@ -69,23 +69,23 @@ func (s *ConverterSuite) TestConvertGitDeployerAfterDeploy(c *gc.C) {
 	gitDeployer := charm.NewGitDeployer(s.targetPath, s.dataPath, s.bundles)
 	info1 := s.bundles.AddBundle(c, charmURL(1), mockBundle{})
 	err := gitDeployer.Stage(info1, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = gitDeployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deployer, err := charm.NewDeployer(s.targetPath, s.dataPath, s.bundles)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = charm.FixDeployer(&deployer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer, jc.Satisfies, charm.IsManifestDeployer)
 	ft.Removed{"current"}.Check(c, s.dataPath)
 	ft.Dir{"manifests", 0755}.Check(c, s.dataPath)
 
 	info2 := s.bundles.AddBundle(c, charmURL(2), mockBundle{})
 	err = deployer.Stage(info2, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = deployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ft.Removed{".git"}.Check(c, s.targetPath)
 }
 
@@ -105,23 +105,23 @@ func (s *ConverterSuite) TestPathological(c *gc.C) {
 
 	gitDeployer := charm.NewGitDeployer(s.targetPath, s.dataPath, s.bundles)
 	err := gitDeployer.Stage(initial, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = gitDeployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	preserveUser := ft.File{"user", "preserve", 0644}.Create(c, s.targetPath)
 	err = gitDeployer.Stage(staged, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deployer, err := charm.NewDeployer(s.targetPath, s.dataPath, s.bundles)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = charm.FixDeployer(&deployer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = deployer.Stage(final, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = deployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ft.Removed{".git"}.Check(c, s.targetPath)
 	ft.Removed{"initial"}.Check(c, s.targetPath)
 	ft.Removed{"staged"}.Check(c, s.targetPath)

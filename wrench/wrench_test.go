@@ -55,7 +55,7 @@ func (s *wrenchSuite) createWrenchDir(c *gc.C) {
 func (s *wrenchSuite) createWrenchFile(c *gc.C, name, content string) string {
 	filename := filepath.Join(s.wrenchDir, name)
 	err := ioutil.WriteFile(filename, []byte(content), 0700)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }
 
@@ -133,7 +133,7 @@ func (s *wrenchSuite) TestFilePermsTooLoose(c *gc.C) {
 	s.createWrenchDir(c)
 	filename := s.createWrenchFile(c, "foo", "bar")
 	err := os.Chmod(filename, 0666)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(wrench.IsActive("foo", "bar"), jc.IsFalse)
 

@@ -89,7 +89,7 @@ func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	aggregator := newAggregator(testGetter)
 
 	info, err := aggregator.instanceInfo("foo")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.DeepEquals, instanceInfo{
 		status:    "foobar",
 		addresses: instance1.addresses,
@@ -225,5 +225,5 @@ func (s *aggregateSuite) TestKillAndWait(c *gc.C) {
 	aggregator := newAggregator(testGetter)
 	aggregator.Kill()
 	err := aggregator.Wait()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -182,15 +182,15 @@ func waitForHandledNotify(c *gc.C, handled chan struct{}) {
 func (s *notifyWorkerSuite) TestKill(c *gc.C) {
 	s.worker.Kill()
 	err := waitShort(c, s.worker)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *notifyWorkerSuite) TestStop(c *gc.C) {
 	err := worker.Stop(s.worker)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// After stop, Wait should return right away
 	err = waitShort(c, s.worker)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *notifyWorkerSuite) TestWait(c *gc.C) {
@@ -206,7 +206,7 @@ func (s *notifyWorkerSuite) TestWait(c *gc.C) {
 	}
 	s.worker.Kill()
 	err := waitForTimeout(c, done, coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {

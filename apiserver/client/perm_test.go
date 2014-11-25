@@ -233,7 +233,7 @@ func resetBlogTitle(c *gc.C, st *api.State) func() {
 		err := st.Client().ServiceSet("wordpress", map[string]string{
 			"blog-title": "",
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -270,7 +270,7 @@ func opClientServiceExpose(c *gc.C, st *api.State, mst *state.State) (func(), er
 	}
 	return func() {
 		svc, err := mst.Service("wordpress")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		svc.ClearExposed()
 	}, nil
 }

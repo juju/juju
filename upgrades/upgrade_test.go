@@ -616,7 +616,7 @@ func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
 		stateCount = 0
 		apiCount = 0
 		err := upgrades.PerformUpgrade(fromVers, targets(target), ctx)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(stateCount, gc.Equals, expectedStateCallCount)
 		c.Assert(apiCount, gc.Equals, 1)
 	}

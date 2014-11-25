@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -36,7 +37,7 @@ func (s *syslogConfigSuite) assertRsyslogConfigPath(c *gc.C, slConfig *syslog.Sy
 func (s *syslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslog.SyslogConfig,
 	expectedConf string) {
 	data, err := slConfig.Render()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, expectedConf)
 }
 
@@ -55,9 +56,9 @@ func (s *syslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
 	err := syslogConfigRenderer.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		string(syslogConfData),
 		gc.Equals,
@@ -105,9 +106,9 @@ func (s *syslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
 	err := syslogConfigRenderer.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		string(syslogConfData),
 		gc.Equals,

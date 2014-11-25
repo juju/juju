@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	backupsTesting "github.com/juju/juju/state/backups/testing"
@@ -60,7 +61,7 @@ func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) 
 				c.Check(err, gc.IsNil)
 			}
 			file, err := os.Create(filename)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			file.WriteString(body)
 			file.Close()
 		}
@@ -86,9 +87,9 @@ func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
 			// end of tar archive
 			break
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		buf, err := ioutil.ReadAll(tr)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		contents[hdr.Name] = string(buf)
 	}
 
@@ -148,7 +149,7 @@ func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum string) {
 
 func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size int64) {
 	stat, err := file.Stat()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stat.Size(), gc.Equals, size)
 }
 
@@ -161,7 +162,7 @@ func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) 
 	}
 
 	tarFile, err := gzip.NewReader(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkTarContents(c, tarFile, expected)
 	resetFile(c, file)
@@ -171,5 +172,5 @@ func resetFile(c *gc.C, reader io.Reader) {
 	file, ok := reader.(*os.File)
 	c.Assert(ok, gc.Equals, true)
 	_, err := file.Seek(0, os.SEEK_SET)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

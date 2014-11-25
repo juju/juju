@@ -44,7 +44,7 @@ func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("TEST_RESULT", "")
 	for _, name := range fakecommands {
 		err := ioutil.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.ctx = NewHooksContext("foo/8")
 	s.ctx.FlockDir = s.tmpdir
@@ -68,20 +68,20 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 
 	// Hooks file is present, empty.
 	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	session, err = s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// If session.hooks is empty, it'll match anything.
 	c.Assert(session.MatchHook(""), jc.IsTrue)
 	c.Assert(session.MatchHook("something"), jc.IsTrue)
 
 	// Hooks file is present, non-empty
 	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	session, err = s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// session should only match "foo", "bar" or "baz".
 	c.Assert(session.MatchHook(""), jc.IsFalse)
 	c.Assert(session.MatchHook("something"), jc.IsFalse)
@@ -93,10 +93,10 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 
 func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	session, err := s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	flockAcquired := make(chan struct{}, 1)
 	waitForFlock := func() {
@@ -137,10 +137,10 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	session, err := s.ctx.FindSession()
 	c.Assert(session, gc.NotNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	const hookName = "myhook"
 
@@ -195,18 +195,18 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 
 	hookpid := filepath.Join(s.tmpdir, debugdir.Name(), "hook.pid")
 	err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// RunHook should complete without waiting to be
 	// killed, and despite the exit lock being held.
 	err = <-ch
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cmd.Process.Kill() // kill flock
 }
 
 func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {
 	data, err := ioutil.ReadFile(envshPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	contents := string(data)
 	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_UNIT_NAME=%q", s.ctx.Unit))
 	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_HOOK_NAME=%q", hookName))

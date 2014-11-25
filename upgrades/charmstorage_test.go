@@ -44,13 +44,13 @@ func (s *migrateCharmStorageSuite) SetUpTest(c *gc.C) {
 func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
 	err := stor.Put("somewhere", strings.NewReader("abc"), 3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 	dummyCharmURL, err := stor.URL("somewhere")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	url, err := url.Parse(dummyCharmURL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.bundleURLs[dummyCharm.URL().String()] = url
 
 	s.testMigrateCharmStorage(c, dummyCharm.URL(), &mockAgentConfig{})
@@ -59,11 +59,11 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
 func (s *migrateCharmStorageSuite) TestMigrateCharmStorageLocalstorage(c *gc.C) {
 	storageDir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(storageDir, "somewhere"), []byte("abc"), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 	url := &url.URL{Scheme: "https", Host: "localhost:8040", Path: "/somewhere"}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.bundleURLs[dummyCharm.URL().String()] = url
 
 	s.testMigrateCharmStorage(c, dummyCharm.URL(), &mockAgentConfig{
@@ -77,11 +77,11 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorageLocalstorage(c *gc.C) 
 func (s *migrateCharmStorageSuite) testMigrateCharmStorage(c *gc.C, curl *charm.URL, agentConfig agent.Config) {
 	curlPlaceholder := charm.MustParseURL("cs:quantal/dummy-1")
 	err := s.State.AddStoreCharmPlaceholder(curlPlaceholder)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	curlPending := charm.MustParseURL("cs:quantal/missing-123")
 	_, err = s.State.PrepareStoreCharmUpload(curlPending)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var storagePath string
 	var called bool
@@ -95,17 +95,17 @@ func (s *migrateCharmStorageSuite) testMigrateCharmStorage(c *gc.C, curl *charm.
 		return nil
 	})
 	err = upgrades.MigrateCharmStorage(s.State, agentConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 
 	storage := s.State.Storage()
 	r, length, err := storage.Get(storagePath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.NotNil)
 	defer r.Close()
 	c.Assert(length, gc.Equals, int64(3))
 	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "abc")
 }
 
@@ -126,6 +126,6 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorageIdempotency(c *gc.C) {
 		return nil
 	})
 	err := upgrades.MigrateCharmStorage(s.State, &mockAgentConfig{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

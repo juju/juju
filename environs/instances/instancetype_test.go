@@ -6,6 +6,7 @@ package instances
 import (
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -210,7 +211,7 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 			itypesToUse = instanceTypes
 		}
 		itypes, err := MatchingInstanceTypes(itypesToUse, "test", constraints.MustParse(t.cons))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
 			if len(t.arches) > 0 {

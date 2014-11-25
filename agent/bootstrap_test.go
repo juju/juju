@@ -38,7 +38,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	// we have a fresh mongo for each test case.
 	s.mgoInst.EnableAuth = true
 	err := s.mgoInst.Start(testing.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	}
 
 	cfg, err := agent.NewStateMachineConfig(configParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, true)
@@ -86,19 +86,19 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, m, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
 	err = cfg.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the environment has been set up.
 	env, err := st.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	uuid, ok := envCfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(env.UUID(), gc.Equals, uuid)
@@ -106,12 +106,12 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
 	user, err := st.User(env.Owner())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check that environment configuration has been added.
 	newEnvCfg, err := st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newEnvCfg.AllAttrs(), gc.DeepEquals, envCfg.AllAttrs())
 
 	// Check that the bootstrap machine looks correct.
@@ -121,18 +121,18 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
 	gotConstraints, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotConstraints, gc.DeepEquals, expectConstraints)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gotHW, err := m.HardwareCharacteristics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
 	gotAddrs := m.Addresses()
 	c.Assert(gotAddrs, gc.DeepEquals, mcfg.Addresses)
 
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
 		network.AddressesWithPort(
 			network.NewAddresses("zeroonetwothree", "0.1.2.3"),
@@ -141,7 +141,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
@@ -155,14 +155,14 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// and that we can use it to connect to the state.
 	machine0 := names.NewMachineTag("0")
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, machine0)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st1, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 }
 
@@ -176,7 +176,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		Password:          "fake",
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
@@ -200,7 +200,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		Password:          pwHash,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
@@ -222,11 +222,11 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		"state-id":      "1", // needed so policy can Open config
 	})
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, _, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
 	st, _, err = agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
@@ -277,8 +277,8 @@ func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Password: password,
 	}
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	_, err = st.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

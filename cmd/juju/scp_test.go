@@ -112,7 +112,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	dummyCharm, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummyCharm)
 	s.addUnit(srv, m[0], c)
 
@@ -124,7 +124,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	// Simulate machine 3 has a public IPv6 address.
 	ipv6Addr := network.NewAddress("2001:db8::1", network.ScopePublic)
 	err = m[3].SetAddresses(ipv6Addr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)

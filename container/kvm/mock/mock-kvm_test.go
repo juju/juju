@@ -21,7 +21,7 @@ var _ = gc.Suite(&MockSuite{})
 func (*MockSuite) TestListInitiallyEmpty(c *gc.C) {
 	factory := mock.MockFactory()
 	containers, err := factory.List()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 0)
 }
 
@@ -31,7 +31,7 @@ func (*MockSuite) TestNewContainersInList(c *gc.C) {
 	added = append(added, factory.New("first"))
 	added = append(added, factory.New("second"))
 	containers, err := factory.List()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, jc.SameContents, added)
 }
 
@@ -53,7 +53,7 @@ func (*MockSuite) TestContainerStartStarts(c *gc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Start(kvm.StartParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(container.IsRunning(), jc.IsTrue)
 }
 
@@ -61,7 +61,7 @@ func (*MockSuite) TestContainerStartingRunningErrors(c *gc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Start(kvm.StartParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = container.Start(kvm.StartParams{})
 	c.Assert(err, gc.ErrorMatches, "container is already running")
 }
@@ -70,9 +70,9 @@ func (*MockSuite) TestContainerStoppingRunningStops(c *gc.C) {
 	factory := mock.MockFactory()
 	container := factory.New("first")
 	err := container.Start(kvm.StartParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = container.Stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(container.IsRunning(), jc.IsFalse)
 }
 

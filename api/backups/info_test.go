@@ -4,6 +4,7 @@
 package backups_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
@@ -36,7 +37,7 @@ func (s *infoSuite) TestInfo(c *gc.C) {
 	defer cleanup()
 
 	result, err := s.client.Info("spam")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkMetadataResult(c, result, s.Meta)
 }

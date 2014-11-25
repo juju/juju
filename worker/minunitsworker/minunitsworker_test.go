@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/testing"
@@ -38,19 +39,19 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	unit, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up minimum units for services.
 	err = wordpress.SetMinUnits(3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.SetMinUnits(2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove a unit for a service.
 	err = unit.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	timeout := time.After(coretesting.LongWait)
 	for {
@@ -58,9 +59,9 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 		select {
 		case <-time.After(coretesting.ShortWait):
 			wordpressUnits, err := wordpress.AllUnits()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			mysqlUnits, err := mysql.AllUnits()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			wordpressCount := len(wordpressUnits)
 			mysqlCount := len(mysqlUnits)
 			if wordpressCount == 3 && mysqlCount == 2 {

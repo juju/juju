@@ -4,6 +4,7 @@
 package state
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 )
@@ -34,6 +35,6 @@ func (s *RelationSuite) TestRelatedEndpoints(c *gc.C) {
 	}}
 	r := &Relation{nil, relationDoc{Endpoints: eps}}
 	relatedEps, err := r.RelatedEndpoints("mike")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relatedEps, gc.DeepEquals, eps)
 }

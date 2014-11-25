@@ -4,6 +4,7 @@
 package backups_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -15,7 +16,7 @@ func (s *backupsSuite) TestRemoveOkay(c *gc.C) {
 		ID: "some-id",
 	}
 	err := s.api.Remove(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestRemoveError(c *gc.C) {

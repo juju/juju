@@ -65,36 +65,36 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		EnvironManager: true,
 	}
 	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
 	m, err := s.State.Machine(machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pinger, err := m.SetAgentPresence()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return pinger
 }
 
 func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
 	pingerA := s.setAgentPresence(c, "0")
 	defer assertKill(c, pingerA)
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 
 	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
 	results, err := s.client.EnsureAvailability(arg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -104,7 +104,7 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
 
 	machines, err = s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
@@ -119,7 +119,7 @@ func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 		}}}
 
 	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `could not share environment: user "foobar" does not exist locally: user "foobar" not found`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -129,7 +129,7 @@ func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 	user := s.Factory.MakeEnvUser(c, nil)
 	_, err := s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{
@@ -138,7 +138,7 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 		}}}
 
 	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -156,13 +156,13 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 		}}}
 
 	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
@@ -177,13 +177,13 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 		}}}
 
 	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
@@ -252,7 +252,7 @@ func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
 
 		_, err := s.client.ShareEnvironment(args)
 		result, err := s.client.ShareEnvironment(args)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 		c.Assert(result.Results, gc.HasLen, 1)
 		c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -264,7 +264,7 @@ func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
 
 	_, err := s.client.ShareEnvironment(args)
 	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `could not share environment: "" is not a valid tag`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -281,7 +281,7 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 
 	_, err := s.client.ShareEnvironment(args)
 	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -293,10 +293,10 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 		Version: version.MustParse("9.8.7"),
 	}
 	err := s.client.SetEnvironAgentVersion(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, found := envConfig.AllAttrs()["agent-version"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(agentVersion, gc.Equals, "9.8.7")
@@ -305,9 +305,9 @@ func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Create a provisioned state server.
 	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Start an upgrade.
 	_, err = s.State.EnsureUpgradeInfo(
@@ -315,17 +315,17 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 		version.MustParse("1.2.3"),
 		version.MustParse("9.8.7"),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	isUpgrading, err := s.State.IsUpgrading()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isUpgrading, jc.IsTrue)
 
 	// Abort it.
 	err = s.client.AbortCurrentUpgrade()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	isUpgrading, err = s.State.IsUpgrading()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isUpgrading, jc.IsFalse)
 }
 
@@ -334,7 +334,7 @@ var _ = gc.Suite(&clientSuite{})
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, scenarioStatus)
 }
 
@@ -342,9 +342,9 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	// Test the exported settings parsing in a compatible way.
 	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	service, err := s.State.Service("dummy")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "local:quantal/dummy-1")
 
 	// Empty string will be returned as nil.
@@ -353,7 +353,7 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 		"username": "",
 	}
 	settings, err := client.ParseSettingsCompatible(ch, options)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
 		"username": nil,
@@ -380,9 +380,9 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 		"title":    "foobar",
 		"username": validSetTestValue,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
 		"username": validSetTestValue,
@@ -396,9 +396,9 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 		"title":    "foobar",
 		"username": invalidSetTestValue,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
 		"username": correctedSetTestValue,
@@ -408,9 +408,9 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 		"title":    "barfoo",
 		"username": "",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "barfoo",
 		"username": "",
@@ -424,18 +424,18 @@ func (s *clientSuite) TestClientServerUnset(c *gc.C) {
 		"title":    "foobar",
 		"username": "user name",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
 		"username": "user name",
 	})
 
 	err = s.APIState.Client().ServiceUnset("dummy", []string{"username"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title": "foobar",
 	})
@@ -445,18 +445,18 @@ func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err := dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
 		"username": "user name",
 	})
 
 	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: barfoo\n  username: \n")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err = dummy.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title": "barfoo",
 	})
@@ -510,14 +510,14 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.DeepEquals, t.expected)
 	}
 	// Test that we actually assigned the unit to machine 0
 	forcedUnit, err := s.BackingState.Unit("dummy/3")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assignedMachine, err := forcedUnit.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
@@ -596,7 +596,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := &api.CharmInfo{
 			Revision: charm.Revision(),
 			URL:      charm.URL().String(),
@@ -612,9 +612,9 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	conf, _ := s.State.EnvironConfig()
 	info, err := s.APIState.Client().EnvironmentInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.DefaultSeries, gc.Equals, config.PreferredSeries(conf))
 	c.Assert(info.ProviderType, gc.Equals, conf.Type())
 	c.Assert(info.Name, gc.Equals, conf.Name())
@@ -655,11 +655,11 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	// Set up entities.
 	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	environment, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	type taggedAnnotator interface {
 		state.Annotator
 		state.Entity
@@ -671,7 +671,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
 			err := entity.SetAnnotations(t.initial)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			// Add annotations using the API call.
 			err = s.APIState.Client().SetAnnotations(id, t.input)
 			if t.err != "" {
@@ -680,11 +680,11 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 			}
 			// Check annotations are correctly set.
 			dbann, err := entity.Annotations()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(dbann, gc.DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			// Check annotations are correctly returned.
 			c.Assert(ann, gc.DeepEquals, dbann)
 			// Clean up annotations on the current entity.
@@ -693,7 +693,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 				cleanup[key] = ""
 			}
 			err = entity.SetAnnotations(cleanup)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }
@@ -742,7 +742,7 @@ func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
 		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
 	}
 	err = svcs[1].SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svcs[1].IsExposed(), gc.Equals, true)
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -750,9 +750,9 @@ func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			service, err := s.State.Service(t.service)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(service.IsExposed(), gc.Equals, t.exposed)
 		}
 	}
@@ -795,14 +795,14 @@ func (s *clientSuite) TestClientServiceUnexpose(c *gc.C) {
 		c.Assert(svc.IsExposed(), gc.Equals, t.initial)
 		err := s.APIState.Client().ServiceUnexpose(t.service)
 		if t.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			svc.Refresh()
 			c.Assert(svc.IsExposed(), gc.Equals, t.expected)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 		err = svc.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -835,7 +835,7 @@ func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 
@@ -845,17 +845,17 @@ func (s *clientSuite) TestClientServiceDestroy(c *gc.C) {
 	s.setUpScenario(c)
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().ServiceDestroy(serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = service.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(service.Life(), gc.Not(gc.Equals), state.Alive)
 }
 
 func assertLife(c *gc.C, entity state.Living, life state.Life) {
 	err := entity.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Life(), gc.Equals, life)
 }
 
@@ -870,18 +870,18 @@ func assertKill(c *gc.C, killer Killer) {
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
 	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	sch := s.AddTestingCharm(c, "wordpress")
 	wordpress := s.AddTestingService(c, "wordpress", sch)
 	u, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return m0, m1, m2, u
 }
@@ -896,7 +896,7 @@ func (s *clientSuite) TestDestroyMachines(c *gc.C) {
 	assertLife(c, m2, state.Dying)
 
 	err = u.UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment`)
 	assertLife(c, m0, state.Alive)
@@ -915,7 +915,7 @@ func (s *clientSuite) TestForceDestroyMachines(c *gc.C) {
 	assertLife(c, u, state.Alive)
 
 	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
@@ -927,22 +927,22 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	units := make([]*state.Unit, 5)
 	for i := range units {
 		unit, err := wordpress.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetStatus(state.StatusStarted, "", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
 
 	// Destroy 2 of them; check they become Dying.
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[0], state.Dying)
 	assertLife(c, units[1], state.Dying)
 
 	// Try to destroy an Alive one and a Dying one; check
 	// it destroys the Alive one and ignores the Dying one.
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/2", "wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[2], state.Dying)
 
 	// Try to destroy an Alive one along with a nonexistent one; check that
@@ -953,11 +953,11 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 
 	// Make one Dead, and destroy an Alive one alongside it; check no errors.
 	wp0, err := s.State.Unit("wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wp0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/4")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, units[0], state.Dead)
 	assertLife(c, units[4], state.Dying)
 }
@@ -965,18 +965,18 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 func (s *clientSuite) TestDestroySubordinateUnits(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpress0, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
@@ -996,15 +996,15 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	// Setup:
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetStatus(state.StatusError, "gaaah", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// And now the actual test assertions: we set the unit as resolved via
 	// the API so it should have a resolved mode set.
 	mode := u.Resolved()
@@ -1053,39 +1053,39 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
 
 	networks, err := service.Networks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
 	serviceCons, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
 	service, err := s.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, forced)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
 
 	serviceCons, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		mid, err := unit.AssignedMachineId()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		machine, err := s.State.Machine(mid)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		machineCons, err := machine.Constraints()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(machineCons, gc.DeepEquals, cons)
 	}
 	return service
@@ -1100,7 +1100,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", mem4g, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
 }
 
@@ -1111,16 +1111,16 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 		curl.String(), "service-name", 0, "", constraints.Value{}, "",
 	)
 	service, err := s.State.Service("service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, false)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
 
 	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
 }
 
@@ -1132,11 +1132,11 @@ func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	service, err := s.State.Service("service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err := service.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"username": "fred"})
 }
 
@@ -1158,26 +1158,26 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	curl, bundle := addCharm(c, "dummy")
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, machine.Id(),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := s.State.Service("service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(force, gc.Equals, false)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
 
 	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	mid, err := units[0].AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
@@ -1201,10 +1201,10 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag().String())
 }
 
@@ -1213,7 +1213,7 @@ func (s *clientSuite) deployServiceForTests(c *gc.C) {
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
 		"service", 1, "", constraints.Value{}, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
@@ -1228,13 +1228,13 @@ func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bo
 		ForceCharmUrl: forceCharmUrl,
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the charm has been updated and and the force flag correctly set.
 	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "cs:precise/wordpress-3")
 	c.Assert(force, gc.Equals, forceCharmUrl)
 }
@@ -1276,7 +1276,7 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *gc.C) {
 		MinUnits:    &minUnits,
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the minimum number of units has been set.
 	c.Assert(service.Refresh(), gc.IsNil)
@@ -1310,12 +1310,12 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsStrings(c *gc.C) {
 		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "s-title", "username": "s-user"}
 	obtained, err := service.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
@@ -1328,12 +1328,12 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsYAML(c *gc.C) {
 		SettingsYAML: "dummy:\n  title: y-title\n  username: y-user",
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the settings have been correctly updated.
 	expected := charm.Settings{"title": "y-title", "username": "y-user"}
 	obtained, err := service.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
@@ -1342,17 +1342,17 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
 
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.ServiceUpdate{
 		ServiceName: "dummy",
 		Constraints: &cons,
 	}
 	err = s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
 	obtained, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
@@ -1364,7 +1364,7 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 	// Update all the service attributes.
 	minUnits := 3
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.ServiceUpdate{
 		ServiceName:     "service",
 		CharmUrl:        "cs:precise/wordpress-3",
@@ -1375,15 +1375,15 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 		Constraints:     &cons,
 	}
 	err = s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the service has been correctly updated.
 	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the charm.
 	ch, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "cs:precise/wordpress-3")
 	c.Assert(force, gc.Equals, true)
 
@@ -1394,12 +1394,12 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 	// over strings ones.
 	expectedSettings := charm.Settings{"blog-title": "yaml-title"}
 	obtainedSettings, err := service.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedSettings, gc.DeepEquals, expectedSettings)
 
 	// Check the constraints.
 	obtainedConstraints, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedConstraints, gc.DeepEquals, cons)
 }
 
@@ -1409,7 +1409,7 @@ func (s *clientSuite) TestClientServiceUpdateNoParams(c *gc.C) {
 	// Calling ServiceUpdate with no parameters set is a no-op.
 	args := params.ServiceUpdate{ServiceName: "wordpress"}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientServiceUpdateNoService(c *gc.C) {
@@ -1429,18 +1429,18 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addCharm(c, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", false,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that the charm is not marked as forced.
 	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
 	c.Assert(force, gc.Equals, false)
 }
@@ -1451,18 +1451,18 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addCharm(c, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
 		"service", "cs:precise/wordpress-3", true,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that the charm is marked as forced.
 	service, err := s.State.Service("service")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
 	c.Assert(force, gc.Equals, true)
 }
@@ -1510,7 +1510,7 @@ func addSeriesCharm(c *gc.C, series, name string) (*charm.URL, charm.Charm) {
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := client.CharmStore.(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return curl, bundle
 }
 
@@ -1536,17 +1536,17 @@ func (s *clientSuite) checkEndpoints(c *gc.C, endpoints map[string]charm.Relatio
 func (s *clientSuite) assertAddRelation(c *gc.C, endpoints []string) {
 	s.setUpScenario(c)
 	res, err := s.APIState.Client().AddRelation(endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.checkEndpoints(c, res.Endpoints)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rels, err := wpSvc.Relations()
 	// There are 2 relations - the logging-wordpress one set up in the
 	// scenario and the one created in this test.
 	c.Assert(len(rels), gc.Equals, 2)
 	mySvc, err := s.State.Service("mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rels, err = mySvc.Relations()
 	c.Assert(len(rels), gc.Equals, 1)
 }
@@ -1583,9 +1583,9 @@ func (s *clientSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	// Add a relation between wordpress and mysql.
 	endpoints := []string{"wordpress", "mysql"}
 	eps, err := s.State.InferEndpoints(endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// And try to add it again.
 	_, err = s.APIState.Client().AddRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
@@ -1595,12 +1595,12 @@ func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
 	s.setUpScenario(c)
 	// Add a relation between the endpoints.
 	eps, err := s.State.InferEndpoints(endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Show that the relation was removed.
 	c.Assert(relation.Refresh(), jc.Satisfies, errors.IsNotFound)
 }
@@ -1654,9 +1654,9 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	endpoints := []string{"wordpress", "mysql"}
 	err = s.APIState.Client().DestroyRelation(endpoints...)
@@ -1672,17 +1672,17 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	watcher, err := s.APIState.Client().WatchAll()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 	deltas, err := watcher.Next()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
@@ -1707,13 +1707,13 @@ func (s *clientSuite) TestClientSetServiceConstraints(c *gc.C) {
 
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetServiceConstraints("dummy", cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
 	obtained, err := service.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
@@ -1722,39 +1722,39 @@ func (s *clientSuite) TestClientGetServiceConstraints(c *gc.C) {
 
 	// Set constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = service.SetConstraints(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can get the constraints.
 	obtained, err := s.APIState.Client().GetServiceConstraints("dummy")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) TestClientSetEnvironmentConstraints(c *gc.C) {
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetEnvironmentConstraints(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
 	obtained, err := s.State.EnvironConstraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) TestClientGetEnvironmentConstraints(c *gc.C) {
 	// Set constraints for the environment.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.SetEnvironConstraints(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can get the constraints.
 	obtained, err := s.APIState.Client().GetEnvironmentConstraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, cons)
 }
 
@@ -1764,7 +1764,7 @@ func (s *clientSuite) TestClientServiceCharmRelations(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "blah" not found`)
 
 	relations, err := s.APIState.Client().ServiceCharmRelations("wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relations, gc.DeepEquals, []string{
 		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
 	})
@@ -1786,17 +1786,17 @@ func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	// Internally, network.SelectPublicAddress is used; the "most public"
 	// address is returned.
 	m1, err := s.State.Machine("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
 	publicAddress := network.NewAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(cloudLocalAddress)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PublicAddress("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
 
@@ -1806,9 +1806,9 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	m1, err := s.State.Machine("1")
 	publicAddress := network.NewAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(publicAddress)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 }
 
@@ -1828,17 +1828,17 @@ func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	// Internally, network.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
 	publicAddress := network.NewAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(publicAddress)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "public")
 	err = m1.SetAddresses(cloudLocalAddress, publicAddress)
 	addr, err = s.APIState.Client().PrivateAddress("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "cloudlocal")
 }
 
@@ -1848,17 +1848,17 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	m1, err := s.State.Machine("1")
 	privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 	err = m1.SetAddresses(privateAddress)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, "private")
 }
 
 func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	attrs, err := s.APIState.Client().EnvironmentGet()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := envConfig.AllAttrs()
 	// We cannot simply use DeepEquals, because after the
 	// map[string]interface{} result of EnvironmentGet is
@@ -1877,16 +1877,16 @@ func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
 
 func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsFalse)
 
 	args := map[string]interface{}{"some-key": "value"}
 	err = s.APIState.Client().EnvironmentSet(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	value, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, "value")
@@ -1894,16 +1894,16 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 
 func (s *clientSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	url := envConfig.AllAttrs()["agent-metadata-url"]
 	c.Assert(url, gc.Equals, "")
 
 	args := map[string]interface{}{"tools-metadata-url": "value"}
 	err = s.APIState.Client().EnvironmentSet(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	value, found := envConfig.AllAttrs()["agent-metadata-url"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, "value")
@@ -1918,24 +1918,24 @@ func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
 	// It's okay to pass env back with the same agent-version.
 	cfg, err := s.APIState.Client().EnvironmentGet()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["agent-version"], gc.NotNil)
 	err = s.APIState.Client().EnvironmentSet(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()["abc"]
 	c.Assert(found, jc.IsTrue)
 
 	err = s.APIState.Client().EnvironmentUnset("abc")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, found = envConfig.AllAttrs()["abc"]
 	c.Assert(found, jc.IsFalse)
 }
@@ -1943,14 +1943,14 @@ func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
 func (s *clientSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
 	// It's okay to unset a non-existent attribute.
 	err := s.APIState.Client().EnvironmentUnset("not_there")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()["abc"]
 	c.Assert(found, jc.IsTrue)
 
@@ -1960,18 +1960,18 @@ func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 	err = s.APIState.Client().EnvironmentUnset("abc", "type")
 	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
 	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, found = envConfig.AllAttrs()["abc"]
 	c.Assert(found, jc.IsTrue)
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.12.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
@@ -1982,11 +1982,11 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
 	// Ensure the machine was actually created.
 	machine, err := s.BackingState.Machine(id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Series(), gc.Equals, series)
 	c.Assert(machine.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
 	machineConstraints, err := machine.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineConstraints.String(), gc.Equals, cons)
 }
 
@@ -1998,7 +1998,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
@@ -2015,7 +2015,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
@@ -2025,7 +2025,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
 		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
@@ -2033,7 +2033,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 		ParentId:      "0",
 		Series:        "quantal",
 	}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
 }
@@ -2048,7 +2048,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	// The last machine has some constraints.
 	apiParams[2].Constraints = constraints.MustParse("mem=4G")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		c.Assert(machineResult.Machine, gc.DeepEquals, strconv.Itoa(i))
@@ -2069,7 +2069,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[2].Placement = instance.MustParsePlacement("dummyenv:invalid")
 	apiParams[3].Placement = instance.MustParsePlacement("dummyenv:valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 4)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
 	c.Assert(machines[1].Error, gc.ErrorMatches, "container type and placement are mutually exclusive")
@@ -2077,7 +2077,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(machines[3].Machine, gc.Equals, "1")
 
 	m, err := s.BackingState.Machine(machines[3].Machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
@@ -2091,7 +2091,7 @@ func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams[1].ContainerType = instance.LXC
 	apiParams[1].ParentId = "0"
 	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 2)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
 	c.Assert(machines[1].Machine, gc.Equals, "0/lxc/0")
@@ -2103,7 +2103,7 @@ func (s *clientSuite) TestClientAddMachines1dot18SomeErrors(c *gc.C) {
 		ParentId: "123",
 	}}
 	machines, err := s.APIState.Client().AddMachines1dot18(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	c.Check(machines[0].Error, gc.ErrorMatches, "parent machine specified without container type")
 }
@@ -2118,10 +2118,10 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 	// Create a machine to host the requested containers.
 	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// The host only supports lxc containers.
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Set up params for adding 3 containers.
 	apiParams := make([]params.AddMachineParams, 3)
@@ -2134,7 +2134,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	apiParams[2].ContainerType = instance.KVM
 	apiParams[2].ParentId = host.Id()
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 
 	// Check the results - machines 2 and 3 will have errors.
@@ -2161,7 +2161,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	// This will cause the last machine add to fail.
 	apiParams[2].Nonce = ""
 	machines, err := s.APIState.Client().AddMachines(apiParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	for i, machineResult := range machines {
 		if i == 2 {
@@ -2180,13 +2180,13 @@ func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
 	hc instance.HardwareCharacteristics, addr []network.Address) {
 
 	machine, err := s.BackingState.Machine(id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineInstanceId, err := machine.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
 	c.Assert(machineInstanceId, gc.Equals, instance.Id(instanceId))
 	machineHardware, err := machine.HardwareCharacteristics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineHardware.String(), gc.Equals, hc.String())
 	c.Assert(machine.Addresses(), gc.DeepEquals, addr)
 }
@@ -2203,7 +2203,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 		}},
 	}
 	err := s.APIState.APICall("Client", 0, "", "AddMachines", args, &results)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
 
@@ -2219,7 +2219,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
 	// Call ProvisioningScript. Normally ProvisioningScript and
@@ -2229,11 +2229,11 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 		MachineId: machineId,
 		Nonce:     apiParams.Nonce,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sshinitScript, err := manual.ProvisioningScript(mcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// ProvisioningScript internally calls MachineConfig,
 	// which allocates a new, random password. Everything
 	// about the scripts should be the same other than
@@ -2257,7 +2257,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
 	}
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
 
@@ -2281,7 +2281,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	provParams.DisablePackageCommands = false
 	setUpdateBehavior(true, true)
 	script, err := s.APIState.Client().ProvisioningScript(provParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, jc.Contains, "apt-get update")
 	c.Check(script, jc.Contains, "apt-get upgrade")
 
@@ -2289,7 +2289,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	provParams.DisablePackageCommands = true
 	setUpdateBehavior(false, false)
 	script, err = s.APIState.Client().ProvisioningScript(provParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 
@@ -2298,7 +2298,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	provParams.DisablePackageCommands = true
 	setUpdateBehavior(true, true)
 	script, err = s.APIState.Client().ProvisioningScript(provParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 
@@ -2308,7 +2308,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	setUpdateBehavior(false, false)
 	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
 	script, err = s.APIState.Client().ProvisioningScript(provParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
 	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 }
@@ -2319,13 +2319,13 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	attrs := map[string]interface{}{"charm-store-auth": "token=value",
 		"test-mode": true}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	curl, _ := addCharm(c, "dummy")
 	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
@@ -2372,23 +2372,23 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = addCharm(c, "wordpress")
 	err = client.AddCharm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
 	storage := s.State.Storage()
 	sch, err = s.State.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
@@ -2538,7 +2538,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	// Verify there is only a single uploaded charm remains and it
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	storagePath := sch.StoragePath()
 	c.Assert(blobs.m[storagePath], jc.IsTrue)
 	for path, exists := range blobs.m {
@@ -2559,18 +2559,18 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 	// Add a placeholder with the same charm URL.
 	err := s.State.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Charm(curl)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Now try to add the charm, which will convert the placeholder to
 	// a pending charm.
 	err = client.AddCharm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the document's flags were reset as expected.
 	sch, err := s.State.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), jc.DeepEquals, curl)
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
@@ -2578,23 +2578,23 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 
 func (s *clientSuite) assertUploaded(c *gc.C, storage state.Storage, storagePath, expectedSHA256 string) {
 	reader, _, err := storage.Get(storagePath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }
 
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetStatus(state.StatusError, "error", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err := machine.Status()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "error")
 	c.Assert(data["transient"], gc.Equals, true)
@@ -2623,9 +2623,9 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	}
 
 	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiHostPorts, err := s.APIState.Client().APIHostPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
 
@@ -2633,7 +2633,7 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	current := version.MustParse("1.2.0")
 	s.PatchValue(&version.Current.Number, current)
 	result, err := s.APIState.Client().AgentVersion()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, current)
 }
 

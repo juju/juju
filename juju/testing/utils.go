@@ -4,6 +4,7 @@
 package testing
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -19,16 +20,16 @@ import (
 // the be the addresses used by the state servers.
 func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts := [][]network.HostPort{{{
 		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 	err = st.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return machine
 }

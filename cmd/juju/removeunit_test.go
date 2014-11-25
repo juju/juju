@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -30,14 +31,14 @@ func runRemoveUnit(c *gc.C, args ...string) error {
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "2", "local:dummy", "dummy")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", testing.FakeDefaultSeries))
 	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)
 
 	err = runRemoveUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "dummy/2" does not exist; unit "sillybilly/17" does not exist`)
 	units, err := svc.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range units {
 		c.Assert(u.Life(), gc.Equals, state.Dying)
 	}

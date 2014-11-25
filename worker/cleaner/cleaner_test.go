@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/testing"
@@ -32,18 +33,18 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 	defer func() { c.Assert(worker.Stop(cr), gc.IsNil) }()
 
 	needed, err := s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needed, gc.Equals, false)
 
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	relM, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needed, gc.Equals, false)
 
 	// Observe destroying of the relation with a watcher.
@@ -51,7 +52,7 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 	defer func() { c.Assert(cw.Stop(), gc.IsNil) }()
 
 	err = relM.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	timeout := time.After(coretesting.LongWait)
 	for {
@@ -63,7 +64,7 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 			c.Fatalf("timed out waiting for cleanup")
 		case <-cw.Changes():
 			needed, err = s.State.NeedsCleanup()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if needed {
 				continue
 			}

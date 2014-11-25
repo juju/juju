@@ -34,27 +34,27 @@ type sshServer struct {
 
 func newServer(c *gc.C) *sshServer {
 	private, _, err := ssh.GenerateKey("test-server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	key, err := cryptossh.ParsePrivateKey([]byte(private))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	server := &sshServer{
 		cfg: &cryptossh.ServerConfig{},
 	}
 	server.cfg.AddHostKey(key)
 	server.listener, err = net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return server
 }
 
 func (s *sshServer) run(c *gc.C) {
 	netconn, err := s.listener.Accept()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err = netconn.Close()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 	conn, chans, reqs, err := cryptossh.NewServerConn(netconn, s.cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.client = cryptossh.NewClient(conn, chans, reqs)
 	var wg sync.WaitGroup
 	defer wg.Wait()
@@ -63,7 +63,7 @@ func (s *sshServer) run(c *gc.C) {
 	for newChannel := range sessionChannels {
 		c.Assert(newChannel.ChannelType(), gc.Equals, "session")
 		channel, reqs, err := newChannel.Accept()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -78,7 +78,7 @@ func (s *sshServer) run(c *gc.C) {
 					req.Reply(true, nil)
 					channel.Write([]byte("abc value\n"))
 					_, err := channel.SendRequest("exit-status", false, cryptossh.Marshal(&struct{ n uint32 }{0}))
-					c.Assert(err, gc.IsNil)
+					c.Assert(err, jc.ErrorIsNil)
 					return
 				default:
 					c.Fatalf("Unexpected request type: %v", req.Type)
@@ -100,30 +100,30 @@ func (s *SSHGoCryptoCommandSuite) SetUpTest(c *gc.C) {
 	generateKeyRestorer := overrideGenerateKey(c)
 	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })
 	client, err := ssh.NewGoCryptoClient()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.client = client
 }
 
 func (s *SSHGoCryptoCommandSuite) TestNewGoCryptoClient(c *gc.C) {
 	_, err := ssh.NewGoCryptoClient()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	private, _, err := ssh.GenerateKey("test-client")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	key, err := cryptossh.ParsePrivateKey([]byte(private))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = ssh.NewGoCryptoClient(key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SSHGoCryptoCommandSuite) TestClientNoKeys(c *gc.C) {
 	client, err := ssh.NewGoCryptoClient()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cmd := client.Command("0.1.2.3", []string{"echo", "123"}, nil)
 	_, err = cmd.Output()
 	c.Assert(err, gc.ErrorMatches, "no private keys available")
 	defer ssh.ClearClientKeys()
 	err = ssh.LoadClientKeys(c.MkDir())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(ssh.SSHDial, func(network, address string, cfg *cryptossh.ClientConfig) (*cryptossh.Client, error) {
 		return nil, errors.New("ssh.Dial failed")
@@ -136,10 +136,10 @@ func (s *SSHGoCryptoCommandSuite) TestClientNoKeys(c *gc.C) {
 
 func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
 	private, _, err := ssh.GenerateKey("test-server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	key, err := cryptossh.ParsePrivateKey([]byte(private))
 	client, err := ssh.NewGoCryptoClient(key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	server := newServer(c)
 	var opts ssh.Options
 	opts.SetPort(server.listener.Addr().(*net.TCPAddr).Port)
@@ -152,14 +152,14 @@ func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
 	}
 	go server.run(c)
 	out, err := cmd.Output()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "abc value\n")
 	c.Assert(checkedKey, jc.IsTrue)
 }
 
 func (s *SSHGoCryptoCommandSuite) TestCopy(c *gc.C) {
 	client, err := ssh.NewGoCryptoClient()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = client.Copy([]string{"0.1.2.3:b", c.MkDir()}, nil)
 	c.Assert(err, gc.ErrorMatches, `scp command is not implemented \(OpenSSH scp not available in PATH\)`)
 }
@@ -172,13 +172,13 @@ func (s *SSHGoCryptoCommandSuite) TestProxyCommand(c *gc.C) {
 	}
 	netcat := filepath.Join(c.MkDir(), "nc")
 	err = ioutil.WriteFile(netcat, []byte("#!/bin/sh\necho $0 \"$@\" > $0.args && exec "+realNetcat+" \"$@\""), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	private, _, err := ssh.GenerateKey("test-server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	key, err := cryptossh.ParsePrivateKey([]byte(private))
 	client, err := ssh.NewGoCryptoClient(key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	server := newServer(c)
 	var opts ssh.Options
 	port := server.listener.Addr().(*net.TCPAddr).Port
@@ -190,10 +190,10 @@ func (s *SSHGoCryptoCommandSuite) TestProxyCommand(c *gc.C) {
 	}
 	go server.run(c)
 	out, err := cmd.Output()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, "abc value\n")
 	// Ensure the proxy command was executed with the appropriate arguments.
 	data, err := ioutil.ReadFile(netcat + ".args")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, fmt.Sprintf("%s -q0 127.0.0.1 %v\n", netcat, port))
 }

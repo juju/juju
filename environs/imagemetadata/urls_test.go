@@ -7,6 +7,7 @@ package imagemetadata_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -54,13 +55,13 @@ func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
 func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *gc.C) {
 	// Released streams.
 	URL, err := imagemetadata.ImageMetadataURL(imagemetadata.UbuntuCloudImagesURL, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(URL, gc.Equals, "http://cloud-images.ubuntu.com/releases")
 	URL, err = imagemetadata.ImageMetadataURL(imagemetadata.UbuntuCloudImagesURL, imagemetadata.ReleasedStream)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(URL, gc.Equals, "http://cloud-images.ubuntu.com/releases")
 	// Non-released streams.
 	URL, err = imagemetadata.ImageMetadataURL(imagemetadata.UbuntuCloudImagesURL, "daily")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(URL, gc.Equals, "http://cloud-images.ubuntu.com/daily")
 }

@@ -128,7 +128,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(err, gc.IsNil)
 	c.Check(storedMeta, gc.DeepEquals, meta)
 	data, err := ioutil.ReadAll(storedFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, "<compressed tarball>")
 }
 
@@ -180,7 +180,7 @@ func (s *backupsSuite) TestStoreArchive(c *gc.C) {
 	c.Assert(meta.Stored(), gc.IsNil)
 	archive := &bytes.Buffer{}
 	err := backups.StoreArchive(s.Storage, meta, archive)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.Storage.CheckCalled(c, "spam", meta, archive, "Add", "Metadata")
 	c.Assert(meta.ID(), gc.Equals, "spam")

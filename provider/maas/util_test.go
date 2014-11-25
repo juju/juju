@@ -6,6 +6,7 @@ package maas
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -40,9 +41,9 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	info := machineInfo{hostname}
 	filename := "/var/lib/juju/MAASmachine.txt"
 	script, err := info.cloudinitRunCmd("quantal")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	yaml, err := goyaml.Marshal(info)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := fmt.Sprintf("mkdir -p '%s'\ninstall -m 755 /dev/null '%s'\nprintf '%%s\\n' ''\"'\"'%s'\"'\"'' > '%s'", environs.DataDir, filename, yaml, filename)
 	c.Check(script, gc.Equals, expected)
 }
@@ -58,6 +59,6 @@ func (*utilSuite) TestMachineInfoLoad(c *gc.C) {
 
 	err := info.load()
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(info.Hostname, gc.Equals, hostname)
 }

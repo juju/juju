@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	backupsAPI "github.com/juju/juju/apiserver/backups"
@@ -38,7 +39,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
 	s.api, err = backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }
 

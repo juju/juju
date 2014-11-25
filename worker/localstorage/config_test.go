@@ -6,6 +6,7 @@ package localstorage_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -60,7 +61,7 @@ func (c *localTLSStorageConfig) StorageAuthKey() string {
 func (*configSuite) TestStoreConfig(c *gc.C) {
 	var config localStorageConfig
 	m, err := localstorage.StoreConfig(&config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
 		localstorage.StorageDir:  "",
 		localstorage.StorageAddr: "",
@@ -69,7 +70,7 @@ func (*configSuite) TestStoreConfig(c *gc.C) {
 	config.storageDir = "a"
 	config.storageAddr = "b"
 	m, err = localstorage.StoreConfig(&config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
 		localstorage.StorageDir:  config.storageDir,
 		localstorage.StorageAddr: config.storageAddr,
@@ -79,7 +80,7 @@ func (*configSuite) TestStoreConfig(c *gc.C) {
 func (*configSuite) TestStoreConfigTLS(c *gc.C) {
 	var config localTLSStorageConfig
 	m, err := localstorage.StoreConfig(&config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
 		localstorage.StorageDir:  "",
 		localstorage.StorageAddr: "",
@@ -92,7 +93,7 @@ func (*configSuite) TestStoreConfigTLS(c *gc.C) {
 	config.hostnames = []string{"easy", "as", "1.2.3"}
 	config.authkey = "password"
 	m, err = localstorage.StoreConfig(&config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, map[string]string{
 		localstorage.StorageDir:       config.storageDir,
 		localstorage.StorageAddr:      config.storageAddr,
@@ -105,6 +106,6 @@ func (*configSuite) TestStoreConfigTLS(c *gc.C) {
 
 func mustMarshalYAML(c *gc.C, v interface{}) string {
 	data, err := goyaml.Marshal(v)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return string(data)
 }

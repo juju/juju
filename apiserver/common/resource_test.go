@@ -3,6 +3,7 @@ package common_test
 import (
 	"sync"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -41,7 +42,7 @@ func (resourceSuite) TestRegisterNamedGetCount(c *gc.C) {
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("fake1", r1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(rs.Count(), gc.Equals, 1)
 	c.Check(rs.Get("fake1"), gc.Equals, r1)
 }
@@ -52,7 +53,7 @@ func (resourceSuite) TestRegisterNamedRepeatedName(c *gc.C) {
 	r1 := &fakeResource{}
 	r2 := &fakeResource{}
 	err := rs.RegisterNamed("fake1", r1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(rs.Count(), gc.Equals, 1)
 	err = rs.RegisterNamed("fake1", r2)
 	c.Check(err, gc.ErrorMatches, `resource "fake1" already registered`)
@@ -75,7 +76,7 @@ func (resourceSuite) TestRegisterNamedIntegerStart(c *gc.C) {
 	defer rs.StopAll()
 	r1 := &fakeResource{}
 	err := rs.RegisterNamed("1fake", r1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(rs.Count(), gc.Equals, 1)
 	c.Check(rs.Get("1fake"), gc.Equals, r1)
 }

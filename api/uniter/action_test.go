@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
@@ -49,13 +50,13 @@ func (s *actionSuite) TestAction(c *gc.C) {
 		a, err := s.uniterSuite.wordpressUnit.AddAction(
 			actionTest.action.Name,
 			actionTest.action.Parameters)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		actionTag := names.JoinActionTag(s.uniterSuite.wordpressUnit.Name(), a.Id())
 		c.Assert(a.Tag(), gc.Equals, actionTag)
 
 		retrievedAction, err := s.uniter.Action(actionTag)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(retrievedAction.Name(), gc.DeepEquals, actionTest.action.Name)
 		c.Assert(retrievedAction.Params(), gc.DeepEquals, actionTest.action.Parameters)
@@ -70,7 +71,7 @@ func (s *actionSuite) TestActionNotFound(c *gc.C) {
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
 	testAction, err := uniter.NewAction("snapshot", basicParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testName := testAction.Name()
 	testParams := testAction.Params()
 	c.Assert(testName, gc.Equals, "snapshot")
@@ -79,18 +80,18 @@ func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
 
 func (s *actionSuite) TestActionComplete(c *gc.C) {
 	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.uniterSuite.wordpressUnit.AddAction("gabloxi", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	actionResult := map[string]interface{}{"output": "it worked!"}
 	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(completed), gc.Equals, 1)
 	c.Assert(completed[0].Status(), gc.Equals, state.ActionCompleted)
 	res, errstr := completed[0].Results()
@@ -101,18 +102,18 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 
 func (s *actionSuite) TestActionFail(c *gc.C) {
 	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, gc.DeepEquals, ([]*state.Action)(nil))
 
 	action, err := s.uniterSuite.wordpressUnit.AddAction("beebz", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	errmsg := "it failed!"
 	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionFailed, nil, errmsg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(completed), gc.Equals, 1)
 	c.Assert(completed[0].Status(), gc.Equals, state.ActionFailed)
 	res, errstr := completed[0].Results()

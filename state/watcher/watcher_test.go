@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
@@ -369,7 +370,7 @@ func (s *FastPeriodSuite) TestScale(c *gc.C) {
 			ops = append(ops, txn.Op{C: "test", Id: i*T + j, Insert: M{"n": 1}})
 		}
 		err := s.runner.Run(ops, "", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	c.Logf("Watching all documents...")
@@ -381,7 +382,7 @@ func (s *FastPeriodSuite) TestScale(c *gc.C) {
 	s.w.StartSync()
 
 	count, err := s.Session.DB("juju").C("test").Count()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Got %d documents in the collection...", count)
 	c.Assert(count, gc.Equals, N)
 

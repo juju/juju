@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -66,7 +67,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"}, {"unit-x-6"},
 	}}
 	result, err := r.Remove(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 EnsureDead fails"}},
@@ -84,7 +85,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	r = common.NewRemover(st, false, getCanModify)
 	entities = params.Entities{[]params.Entity{{"unit-x-0"}, {"unit-x-1"}}}
 	result, err = r.Remove(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
@@ -108,6 +109,6 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 	}
 	r := common.NewRemover(&fakeState{}, true, getCanModify)
 	result, err := r.Remove(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

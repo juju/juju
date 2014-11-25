@@ -164,15 +164,15 @@ func waitForHandledStrings(c *gc.C, handled chan []string, expect []string) {
 func (s *stringsWorkerSuite) TestKill(c *gc.C) {
 	s.worker.Kill()
 	err := waitShort(c, s.worker)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stringsWorkerSuite) TestStop(c *gc.C) {
 	err := worker.Stop(s.worker)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// After stop, Wait should return right away
 	err = waitShort(c, s.worker)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stringsWorkerSuite) TestWait(c *gc.C) {
@@ -188,7 +188,7 @@ func (s *stringsWorkerSuite) TestWait(c *gc.C) {
 	}
 	s.worker.Kill()
 	err := waitForTimeout(c, done, coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stringsWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {

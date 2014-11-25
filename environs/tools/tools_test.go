@@ -74,10 +74,10 @@ func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 	for _, dir := range []string{s.customToolsDir, s.publicToolsDir} {
 		files, err := ioutil.ReadDir(dir)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for _, f := range files {
 			err := os.RemoveAll(filepath.Join(dir, f.Name()))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }
@@ -94,9 +94,9 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	s.removeTools(c)
 }
@@ -196,7 +196,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 2*len(sources); i++ {
 		messages = append(messages,
 			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},

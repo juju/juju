@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"launchpad.net/tomb"
@@ -81,7 +82,7 @@ func assertNoChange(c *gc.C, watch <-chan presence.Change) {
 
 func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 	alive, err := w.Alive("a")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, gc.Equals, alive)
 }
 
@@ -474,7 +475,7 @@ func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
 	}()
 	assertChange(c, ch, presence.Change{"a", true})
 	results, err := presence.FindAllBeings(w)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	select {
 	case <-done:

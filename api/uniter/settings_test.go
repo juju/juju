@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
@@ -96,23 +97,23 @@ func (s *settingsSuite) TestDelete(c *gc.C) {
 
 func (s *settingsSuite) TestWrite(c *gc.C) {
 	wpRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rawSettings := map[string]interface{}{
 		"some":  "stuff",
 		"other": "things",
 	}
 	err = wpRelUnit.EnterScope(rawSettings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 
 	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRelation.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err := apiRelUnit.Settings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"some":  "stuff",
 		"other": "things",
@@ -124,9 +125,9 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	settings.Set("foo", "qaz")
 	settings.Set("other", "days")
 	err = settings.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings, err = apiRelUnit.Settings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings.Map(), gc.DeepEquals, params.RelationSettings{
 		"foo":   "qaz",
 		"other": "days",

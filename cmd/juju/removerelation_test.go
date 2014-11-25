@@ -4,6 +4,7 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -26,15 +27,15 @@ func runRemoveRelation(c *gc.C, args ...string) error {
 func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "logging")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	runAddRelation(c, "riak", "logging")
 
 	// Destroy a relation that exists.
 	err = runRemoveRelation(c, "logging", "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a relation that used to exist.
 	err = runRemoveRelation(c, "riak", "logging")

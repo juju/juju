@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -24,7 +25,7 @@ func (s *metadataSuite) TestCannedRoundTripper(c *gc.C) {
 	c.Assert(vrt, gc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp, gc.NotNil)
 	content, err := ioutil.ReadAll(resp.Body)
 	c.Assert(string(content), gc.Equals, aContent)
@@ -38,7 +39,7 @@ func (s *metadataSuite) TestCannedRoundTripperMissing(c *gc.C) {
 	c.Assert(vrt, gc.NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp, gc.NotNil)
 	content, err := ioutil.ReadAll(resp.Body)
 	c.Assert(string(content), gc.Equals, "")
