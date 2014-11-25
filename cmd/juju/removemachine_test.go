@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	"strings"
 )
 
 type RemoveMachineSuite struct {
@@ -59,6 +60,10 @@ func (s *RemoveMachineSuite) TestBlockRemoveMachineWithUnit(c *gc.C) {
 	err := runRemoveMachine(c, "0")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	assertLife(c, s.machine, state.Alive)
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }
 
 func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
@@ -79,6 +84,10 @@ func (s *RemoveMachineSuite) TestBlockDestroyMachine(c *gc.C) {
 	err = runRemoveMachine(c, "0")
 	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
 	assertLife(c, m0, state.Alive)
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock removal.*")
 }
 
 func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
@@ -113,13 +122,6 @@ func (s *RemoveMachineSuite) TestDestroyDeadMachine(c *gc.C) {
 func (s *RemoveMachineSuite) TestBlockForceRemoveMachine(c *gc.C) {
 	// Block operation
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
-	//should not be affected
-	s.forceRemoveMachine(c)
-}
-
-func (s *RemoveMachineSuite) TestUnblockForceRemoveMachine(c *gc.C) {
-	// unblock operation
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
 	//should not be affected
 	s.forceRemoveMachine(c)
 }

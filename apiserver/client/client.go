@@ -130,7 +130,7 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
-// blockOperation determines what error to throw up.
+// blockedOperationError determines what error to throw up.
 // If err is not nil, it is returned wrapped in Server Error.
 // If block is true, a "blocked operation" error is thrown up.
 // Otherwise, proceed as before
