@@ -243,13 +243,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
-	a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
-		inner := func(stopch <-chan struct{}) error {
-			agentConfig := a.CurrentConfig()
-			return agent.WriteSystemIdentityFile(agentConfig)
-		}
-		return worker.NewSimpleWorker(inner), nil
-	})
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
@@ -563,6 +556,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			logger.Infof("starting metric workers")
 			a.startWorkerAfterUpgrade(runner, "metricmanagerworker", func() (worker.Worker, error) {
 				return metricworker.NewMetricsManager(getMetricAPI(st))
+			})
+			a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
+				inner := func(<-chan struct{}) error {
+					agentConfig := a.CurrentConfig()
+					return agent.WriteSystemIdentityFile(agentConfig)
+				}
+				return worker.NewSimpleWorker(inner), nil
 			})
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
