@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -166,7 +167,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 				Constraints: constraints.MustParse(test.cons),
 				Storage:     stor,
 			})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(spec.InstanceType.Name, gc.Equals, test.itype)
 		c.Check(spec.Image.Id, gc.Equals, test.image)
 	}

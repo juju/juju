@@ -59,9 +59,9 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 
 func (s *simplestreamsSuite) TestGetProductsPath(c *gc.C) {
 	indexRef, err := s.GetIndexRef(sstesting.Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, "streams/v1/image_metadata.json")
 }
 
@@ -349,7 +349,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	}
 
 	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(items, gc.HasLen, 0)
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
@@ -464,18 +464,18 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 		indexRef, err := simplestreams.GetIndexWithFormat(
 			s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		mirrorURL, err := indexRef.Source.URL("")
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		c.Check(mirrorURL, gc.Equals, t.mirrorURL)
@@ -549,7 +549,7 @@ type signingSuite struct{}
 func (s *signingSuite) TestDecodeCheckValidSignature(c *gc.C) {
 	r := bytes.NewReader([]byte(validClearsignInput + testSig))
 	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(txt, gc.DeepEquals, []byte("Hello world\nline 2\n"))
 }
 

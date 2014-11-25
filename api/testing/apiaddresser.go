@@ -4,6 +4,7 @@
 package testing
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/watcher"
@@ -38,10 +39,10 @@ func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 	}}}
 
 	err := s.state.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	addresses, err := s.facade.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
 
@@ -63,16 +64,16 @@ func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
 	}}}
 
 	err := s.state.SetAPIHostPorts(expectServerAddrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	serverAddrs, err := s.facade.APIHostPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverAddrs, gc.DeepEquals, expectServerAddrs)
 }
 
 func (s *APIAddresserTests) TestCACert(c *gc.C) {
 	caCert, err := s.facade.CACert()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caCert, gc.DeepEquals, s.state.CACert())
 }
 
@@ -82,10 +83,10 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 		Port:    1234,
 	}}}
 	err := s.state.SetAPIHostPorts(expectServerAddrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.facade.WatchAPIHostPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.state, w)
@@ -97,7 +98,7 @@ func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
 	expectServerAddrs[0][0].Value = "0.1.99.99"
 
 	err = s.state.SetAPIHostPorts(expectServerAddrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
 

@@ -107,7 +107,7 @@ func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 			if t.expectedErr != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
 			} else {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 				c.Check(result, jc.DeepEquals, t.expectedResult)
 			}
 		}()

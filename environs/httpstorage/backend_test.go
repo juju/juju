@@ -43,9 +43,9 @@ var _ = gc.Suite(&backendSuite{})
 func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
 	embedded, err := filestorage.NewFileStorageWriter(dataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	listener, err = httpstorage.Serve("localhost:0", embedded)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }
 
@@ -55,7 +55,7 @@ func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
 	embedded, err := filestorage.NewFileStorageWriter(dataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hostnames := []string{"127.0.0.1"}
 	listener, err = httpstorage.ServeTLS(
 		"127.0.0.1:0",
@@ -65,7 +65,7 @@ func startServerTLS(c *gc.C) (listener net.Listener, url, dataDir string) {
 		hostnames,
 		testAuthkey,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return listener, fmt.Sprintf("http://localhost:%d/", listener.Addr().(*net.TCPAddr).Port), dataDir
 }
 
@@ -144,7 +144,7 @@ func (s *backendSuite) TestHeadNonAuth(c *gc.C) {
 	listener, url, _ := startServer(c)
 	defer listener.Close()
 	resp, err := http.Head(url)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
 }
 
@@ -154,10 +154,10 @@ func (s *backendSuite) TestHeadAuth(c *gc.C) {
 	createTestData(c, datadir)
 
 	resp, err := client.Head(url)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	location, err := resp.Location()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(location.String(), gc.Matches, "https://localhost:[0-9]{5}/")
 	testGet(c, client, location.String())
 }
@@ -167,13 +167,13 @@ func (s *backendSuite) TestHeadCustomHost(c *gc.C) {
 	// with a Location with the specified Host header.
 	client, url, _ := s.tlsServerAndClient(c)
 	req, err := http.NewRequest("HEAD", url+"arbitrary", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	req.Host = "notarealhost"
 	resp, err := client.Do(req)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	location, err := resp.Location()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(location.String(), gc.Matches, "https://notarealhost:[0-9]{5}/arbitrary")
 }
 
@@ -188,7 +188,7 @@ func (s *backendSuite) TestGet(c *gc.C) {
 func testGet(c *gc.C, client *http.Client, url string) {
 	check := func(tc testCase) {
 		resp, err := client.Get(url + tc.name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
@@ -198,7 +198,7 @@ func testGet(c *gc.C, client *http.Client, url string) {
 		defer resp.Body.Close()
 		var buf bytes.Buffer
 		_, err = buf.ReadFrom(resp.Body)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(buf.String(), gc.Equals, tc.content)
 	}
 	for _, tc := range getTests {
@@ -262,7 +262,7 @@ func (s *backendSuite) TestList(c *gc.C) {
 func testList(c *gc.C, client *http.Client, url string) {
 	check := func(tc testCase) {
 		resp, err := client.Get(url + tc.name + "*")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
@@ -270,7 +270,7 @@ func testList(c *gc.C, client *http.Client, url string) {
 		defer resp.Body.Close()
 		var buf bytes.Buffer
 		_, err = buf.ReadFrom(resp.Body)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		names := strings.Split(buf.String(), "\n")
 		c.Assert(names, gc.DeepEquals, tc.found)
 	}
@@ -311,10 +311,10 @@ func (s *backendSuite) TestPut(c *gc.C) {
 func testPut(c *gc.C, client *http.Client, url, dataDir string, authorized bool) {
 	check := func(tc testCase) {
 		req, err := http.NewRequest("PUT", url+tc.name, bytes.NewBufferString(tc.content))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
 		resp, err := client.Do(req)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
@@ -326,7 +326,7 @@ func testPut(c *gc.C, client *http.Client, url, dataDir string, authorized bool)
 
 		fp := filepath.Join(dataDir, tc.name)
 		b, err := ioutil.ReadFile(fp)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(b), gc.Equals, tc.content)
 	}
 	for _, tc := range putTests {
@@ -371,14 +371,14 @@ func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorized bo
 		fp := filepath.Join(dataDir, tc.name)
 		dir, _ := filepath.Split(fp)
 		err := os.MkdirAll(dir, 0777)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = ioutil.WriteFile(fp, []byte(tc.content), 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		req, err := http.NewRequest("DELETE", url+tc.name, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		resp, err := client.Do(req)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
@@ -389,7 +389,7 @@ func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorized bo
 		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 		_, err = os.Stat(fp)
-		c.Assert(os.IsNotExist(err), gc.Equals, true)
+		c.Assert(os.IsNotExist(err), jc.IsTrue)
 	}
 	for i, tc := range removeTests {
 		c.Logf("test %d", i)
@@ -402,7 +402,7 @@ func createTestData(c *gc.C, dataDir string) {
 		fn := filepath.Join(dir, name)
 		c.Logf("writing data to %q", fn)
 		err := ioutil.WriteFile(fn, []byte(data), 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	writeData(dataDir, "foo", "this is file 'foo'")
@@ -412,7 +412,7 @@ func createTestData(c *gc.C, dataDir string) {
 
 	innerDir := filepath.Join(dataDir, "inner")
 	err := os.MkdirAll(innerDir, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	writeData(innerDir, "fooin", "this is inner file 'fooin'")
 	writeData(innerDir, "barin", "this is inner file 'barin'")

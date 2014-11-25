@@ -55,14 +55,14 @@ func (s *relationUnitSuite) TearDownTest(c *gc.C) {
 
 func (s *relationUnitSuite) getRelationUnits(c *gc.C) (*state.RelationUnit, *uniter.RelationUnit) {
 	wpRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// TODO(dfc)
 	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRelation.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return wpRelUnit, apiRelUnit
 }
 
@@ -99,9 +99,9 @@ func (s *relationUnitSuite) TestPrivateAddress(c *gc.C) {
 
 	// Set an address and try again.
 	err = s.wordpressMachine.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	address, err = apiRelUnit.PrivateAddress()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
@@ -113,7 +113,7 @@ func (s *relationUnitSuite) TestEnterScopeSuccessfully(c *gc.C) {
 	s.assertInScope(c, wpRelUnit, false)
 
 	err := apiRelUnit.EnterScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 }
 
@@ -121,17 +121,17 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScope(c *gc.C) {
 	// Test the ErrCannotEnterScope gets forwarded correctly.
 	// We need to enter the scope wit the other unit first.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
 	// Now we destroy mysqlService, so the relation is be set to
 	// dying.
 	err = s.mysqlService.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.stateRelation.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.stateRelation.Life(), gc.Equals, state.Dying)
 
 	// Enter the scope with wordpressUnit.
@@ -147,27 +147,27 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	// Test the ErrCannotEnterScopeYet gets forwarded correctly.
 	// First we need to destroy the stateRelation.
 	err := s.stateRelation.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Now we create a subordinate of wordpressUnit and enter scope.
 	subRel, _, loggingSub := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	wpRelUnit, err := subRel.Unit(s.wordpressUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 
 	// Leave scope, destroy the subordinate and try entering again.
 	err = wpRelUnit.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, false)
 	err = loggingSub.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRel, err := s.uniter.Relation(subRel.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = apiRelUnit.EnterScope()
 	c.Assert(err, gc.NotNil)
 	c.Check(err, jc.Satisfies, params.IsCodeCannotEnterScopeYet)
@@ -179,11 +179,11 @@ func (s *relationUnitSuite) TestLeaveScope(c *gc.C) {
 	s.assertInScope(c, wpRelUnit, false)
 
 	err := wpRelUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 
 	err = apiRelUnit.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, false)
 }
 
@@ -194,11 +194,11 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 		"other": "things",
 	}
 	err := wpRelUnit.EnterScope(settings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, wpRelUnit, true)
 
 	gotSettings, err := apiRelUnit.Settings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings.Map(), gc.DeepEquals, params.RelationSettings{
 		"some":  "settings",
 		"other": "things",
@@ -208,16 +208,16 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
 	// Try reading - should be ok.
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	s.assertInScope(c, wpRelUnit, false)
 	gotSettings, err := apiRelUnit.ReadSettings("mysql/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings, gc.HasLen, 0)
 
 	// Now leave and re-enter scope with some settings.
@@ -226,13 +226,13 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 		"other": "things",
 	}
 	err = myRelUnit.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, false)
 	err = myRelUnit.EnterScope(settings)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 	gotSettings, err = apiRelUnit.ReadSettings("mysql/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings, gc.DeepEquals, params.RelationSettings{
 		"some":  "settings",
 		"other": "things",
@@ -242,9 +242,9 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
 	// Try reading - should be ok.
@@ -257,17 +257,17 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	// Enter scope with mysqlUnit.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
 	apiRel, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := apiRelUnit.Watch()
 	defer statetesting.AssertStop(c, w)
@@ -278,13 +278,13 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 
 	// Leave scope with mysqlUnit, check it's detected.
 	err = myRelUnit.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, false)
 	wc.AssertChange(nil, []string{"mysql/0"})
 
 	// Non-change is not reported.
 	err = myRelUnit.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// NOTE: This test is not as exhaustive as the one in state,

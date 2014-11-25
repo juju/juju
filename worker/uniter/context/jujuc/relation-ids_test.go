@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -107,7 +108,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Assert(code, gc.Equals, t.code)
@@ -147,7 +148,7 @@ options:
 		c.Logf("relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -47,7 +48,7 @@ func (*mongoSuite) SetUpSuite(c *gc.C) {
 
 func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	insts, err := startReplicaSet(3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, inst := range insts {
 		defer inst.Destroy()
 	}
@@ -403,11 +404,11 @@ func changeVotes(c *gc.C, insts []*gitjujutesting.MgoInstance, voteId int) {
 	dialInfo := gitjujutesting.MgoDialInfo(coretesting.Certs, addrs...)
 
 	session, err := mgo.DialWithInfo(dialInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
 	members, err := replicaset.CurrentMembers(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(members, gc.HasLen, len(insts))
 	for i := range members {
 		member := &members[i]
@@ -419,7 +420,7 @@ func changeVotes(c *gc.C, insts []*gitjujutesting.MgoInstance, voteId int) {
 	}
 	c.Logf("new member set: %#v", members)
 	err = replicaset.Set(session, members)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("successfully changed replica set members")
 }

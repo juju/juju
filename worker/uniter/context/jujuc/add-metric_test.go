@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -23,7 +24,7 @@ var _ = gc.Suite(&AddMetricSuite{})
 func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "add-metric")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
@@ -106,7 +107,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.canAddMetrics = t.canAddMetrics
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])
 		c.Check(ret, gc.Equals, t.result)

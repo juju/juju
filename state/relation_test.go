@@ -21,13 +21,13 @@ var _ = gc.Suite(&RelationSuite{})
 func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	riak := s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 	riakEP, err := riak.Endpoint("ring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can't add a relation with services that don't exist.
 	yoursqlEP := mysqlEP
@@ -69,9 +69,9 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 
 	// Check that a relation can't be added to a Dying service.
 	_, err = wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": service "wordpress" is not alive`)
 	assertNoRelations(c, wordpress)
@@ -81,15 +81,15 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expect, err := s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.EndpointsRelation(wordpressEP, mysqlEP)
 	check := func() {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(rel.Id(), gc.Equals, expect.Id())
 		c.Assert(rel.String(), gc.Equals, expect.String())
 	}
@@ -132,12 +132,12 @@ func (s *RelationSuite) TestAddRelation(c *gc.C) {
 	// Add a relation.
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 
@@ -153,12 +153,12 @@ func (s *RelationSuite) TestAddRelation(c *gc.C) {
 func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 }
@@ -167,12 +167,12 @@ func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 	// Add a relation.
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	loggingEP, err := logging.Endpoint("info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the endpoints both have container scope.
 	wordpressEP.Scope = charm.ScopeContainer
@@ -191,10 +191,10 @@ func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	logging := s.AddTestingService(c, "logging", s.AddSeriesCharm(c, "logging", "otherseries"))
 	loggingEP, err := logging.Endpoint("info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate services' series must match`)
 }
@@ -202,11 +202,11 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressSubEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wordpressSubEP.Scope = charm.ScopeContainer
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddRelation(mysqlEP, wordpressSubEP)
 	c.Assert(err, gc.ErrorMatches,
@@ -219,10 +219,10 @@ func (s *RelationSuite) TestAddContainerRelationWithTwoSubordinates(c *gc.C) {
 	loggingCharm := s.AddTestingCharm(c, "logging")
 	logging1 := s.AddTestingService(c, "logging1", loggingCharm)
 	logging1EP, err := logging1.Endpoint("juju-info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	logging2 := s.AddTestingService(c, "logging2", loggingCharm)
 	logging2EP, err := logging2.Endpoint("info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddRelation(logging1EP, logging2EP)
 	c.Assert(err, gc.ErrorMatches,
@@ -235,13 +235,13 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Test that the relation can be destroyed.
 	err = rel.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	assertNoRelations(c, wordpress)
@@ -249,12 +249,12 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 
 	// Check that a second destroy is a no-op.
 	err = rel.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new relation and check that refreshing the old does not find
 	// the new.
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -264,7 +264,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	riakch := s.AddTestingCharm(c, "riak")
 	riak := s.AddTestingService(c, "riak", riakch)
 	riakEP, err := riak.Endpoint("ring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel := assertOneRelation(c, riak, 0, riakEP)
 	err = rel.Destroy()
 	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
@@ -272,7 +272,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 
 	// Check that it is destroyed when the service is destroyed.
 	err = riak.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -287,13 +287,13 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 
 func assertNoRelations(c *gc.C, srv *state.Service) {
 	rels, err := srv.Relations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 0)
 }
 
 func assertOneRelation(c *gc.C, srv *state.Service, relId int, endpoints ...state.Endpoint) *state.Relation {
 	rels, err := srv.Relations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rels, gc.HasLen, 1)
 
 	rel := rels[0]
@@ -304,13 +304,13 @@ func assertOneRelation(c *gc.C, srv *state.Service, relId int, endpoints ...stat
 	name := srv.Name()
 	expectEp := endpoints[0]
 	ep, err := rel.Endpoint(name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ep, gc.DeepEquals, expectEp)
 	if len(endpoints) == 2 {
 		expectEp = endpoints[1]
 	}
 	eps, err := rel.RelatedEndpoints(name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{expectEp})
 	return rel
 }

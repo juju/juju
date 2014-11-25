@@ -6,6 +6,7 @@ package upgrades_test
 import (
 	"bytes"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -32,7 +33,7 @@ func (s *migrateCustomImageMetadataStorageSuite) TestMigrateCustomImageMetadata(
 	stor := s.Environ.(environs.EnvironStorage).Storage()
 	for path, content := range customImageMetadata {
 		err := stor.Put(path, bytes.NewReader(content), int64(len(content)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.testMigrateCustomImageMetadata(c, &mockAgentConfig{})
 }
@@ -40,10 +41,10 @@ func (s *migrateCustomImageMetadataStorageSuite) TestMigrateCustomImageMetadata(
 func (s *migrateCustomImageMetadataStorageSuite) TestMigrateCustomImageMetadataLocalstorage(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for path, content := range customImageMetadata {
 		err := stor.Put(path, bytes.NewReader(content), int64(len(content)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.testMigrateCustomImageMetadata(c, &mockAgentConfig{
 		values: map[string]string{
@@ -59,6 +60,6 @@ func (s *migrateCustomImageMetadataStorageSuite) testMigrateCustomImageMetadata(
 		return &stor
 	})
 	err := upgrades.MigrateCustomImageMetadata(s.State, agentConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stor.Map, gc.DeepEquals, customImageMetadata)
 }

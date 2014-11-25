@@ -29,7 +29,7 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *machineSuite) TearDownTest(c *gc.C) {
@@ -43,7 +43,7 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 	c.Assert(apiMachine42, gc.IsNil)
 
 	apiMachine0, err := s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiMachine0, gc.NotNil)
 }
 
@@ -55,21 +55,21 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	// Add another, not provisioned machine to test
 	// CodeNotProvisioned.
 	newMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = apiNewMachine.InstanceId()
 	c.Assert(err, gc.ErrorMatches, "machine 3 is not provisioned")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 
 	instanceId, err := s.apiMachine.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 }
 
 func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	w, err := s.apiMachine.WatchUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
@@ -84,12 +84,12 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	err = s.machines[0].SetPassword("foo-12345678901234567890")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Unassign unit 0 from the machine and check it's detected.
 	err = s.units[0].UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("wordpress/0")
 	wc.AssertNoChange()
 
@@ -100,25 +100,25 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 func (s *machineSuite) TestActiveNetworks(c *gc.C) {
 	// No ports opened at first, no networks.
 	nets, err := s.apiMachine.ActiveNetworks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nets, gc.HasLen, 0)
 
 	// Open a port and check again.
 	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nets, err = s.apiMachine.ActiveNetworks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nets, jc.DeepEquals, []names.NetworkTag{
 		names.NewNetworkTag(network.DefaultPublic),
 	})
 
 	// Remove all ports, no networks.
 	ports, err := s.machines[0].OpenedPorts(network.DefaultPublic)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ports.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nets, err = s.apiMachine.ActiveNetworks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nets, gc.HasLen, 0)
 }
 
@@ -128,14 +128,14 @@ func (s *machineSuite) TestOpenedPorts(c *gc.C) {
 
 	// No ports opened at first.
 	ports, err := s.apiMachine.OpenedPorts(networkTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Open a port and check again.
 	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ports, err = s.apiMachine.OpenedPorts(networkTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
 		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
 	})

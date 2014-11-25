@@ -4,6 +4,7 @@
 package peergrouper_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
@@ -22,9 +23,9 @@ var _ = gc.Suite(&workerJujuConnSuite{})
 
 func (s *workerJujuConnSuite) TestStartStop(c *gc.C) {
 	w, err := peergrouper.New(s.State)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = worker.Stop(w)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
@@ -53,7 +54,7 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 
 		cwatch.AssertOneChange()
 		hps, err := s.State.APIHostPorts()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		peergrouper.AssertAPIHostPorts(c, hps, peergrouper.ExpectedAPIHostPorts(3, ipVersion))
 	})
 }

@@ -165,10 +165,10 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
 		content, err := ioutil.ReadFile(logpath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 

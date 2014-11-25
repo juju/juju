@@ -11,6 +11,7 @@ import (
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -90,16 +91,16 @@ func (s *suite) TestStopDownload(c *gc.C) {
 	case <-time.After(testing.ShortWait):
 	}
 	infos, err := ioutil.ReadDir(tmp)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(infos, gc.HasLen, 0)
 }
 
 func assertFileContents(c *gc.C, f *os.File, expect string) {
 	got, err := ioutil.ReadAll(f)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if !c.Check(string(got), gc.Equals, expect) {
 		info, err := f.Stat()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("info %#v", info)
 	}
 }

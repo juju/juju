@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
@@ -64,13 +65,13 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 		Series: "quantal",
 		Jobs:   []state.MachineJob{job},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, machineId)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 }
 
@@ -80,7 +81,7 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
 	dummy, err := s.jcSuite.State.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.charms[name] = dummy
 	return dummy
 }
@@ -88,33 +89,33 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 // AddService adds a service for the specified charm to state.
 func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string, networks []string) {
 	ch, ok := s.charms[charmName]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	owner := s.jcSuite.AdminUserTag(c)
 	_, err := s.jcSuite.State.AddService(serviceName, owner.String(), ch, networks)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // AddUnit adds a new unit for service to the specified machine.
 func (s *CharmSuite) AddUnit(c *gc.C, serviceName, machineId string) {
 	svc, err := s.jcSuite.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.jcSuite.State.Machine(machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // SetUnitRevision sets the unit's charm to the specified revision.
 func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 	u, err := s.jcSuite.State.Unit(unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	svc, err := u.Service()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", svc.Name(), rev))
 	err = u.SetCharmURL(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // SetupScenario adds some machines and services to state.

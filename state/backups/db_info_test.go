@@ -31,7 +31,7 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 	session := fakeSession{}
 
 	tag, err := names.ParseTag("machine-0")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mgoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs: []string{"localhost:8080"},
@@ -40,7 +40,7 @@ func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 		Password: "eggs",
 	}
 	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
 	c.Check(dbInfo.Username, gc.Equals, "machine-0")
@@ -57,7 +57,7 @@ func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
 		Password: "eggs",
 	}
 	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(dbInfo.Username, gc.Equals, "")
 	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")

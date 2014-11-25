@@ -6,6 +6,7 @@ package state_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -30,7 +31,7 @@ func (*BenchmarkSuite) BenchmarkAddUnit(c *gc.C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		_, err := svc.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -45,9 +46,9 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		unit, err := svc.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.AssignUnit(unit, state.AssignClean)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -80,15 +81,15 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc := s.AddTestingService(c, "wordpress", charm)
 	unit, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	serviceCharmURL, _ := svc.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for n := 0; n < batches; n++ {
 			_, err := unit.AddMetrics(now, metrics)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }
@@ -106,19 +107,19 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc := s.AddTestingService(c, "wordpress", charm)
 	unit, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	serviceCharmURL, _ := svc.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for i := 0; i < numberOfMetrics; i++ {
 			m, err := unit.AddMetrics(oldTime, []state.Metric{{}})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetSent()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		err := s.State.CleanupOldMetrics()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }

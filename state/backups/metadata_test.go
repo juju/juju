@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
@@ -32,13 +33,13 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
 	err := meta.MarkComplete(10, "123af2cef")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	finished := meta.Started.Add(time.Minute)
 	meta.Finished = &finished
 
 	buf, err := meta.AsJSONBuffer()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(buf.(*bytes.Buffer).String(), gc.Equals, `{`+
 		`"ID":"20140909-115934.asdf-zxcv-qwe",`+
@@ -72,7 +73,7 @@ func (s *metadataSuite) TestNewMetadataJSONReader(c *gc.C) {
 		`"Version":"1.21-alpha3"` +
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(meta.ID(), gc.Equals, "20140909-115934.asdf-zxcv-qwe")
 	c.Check(meta.Checksum(), gc.Equals, "123af2cef")

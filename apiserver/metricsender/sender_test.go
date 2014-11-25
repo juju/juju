@@ -33,11 +33,11 @@ var _ = gc.Suite(&SenderSuite{})
 
 func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
 	certCaPem, keyCaPem, err := cert.NewCA("sender-test", time.Now().Add(time.Minute))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	certPem, keyPem, err := cert.NewServer(certCaPem, keyCaPem, time.Now().Add(time.Minute), []string{serverName})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cert, err := tls.X509KeyPair([]byte(certPem), []byte(keyPem))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM([]byte(certCaPem))
 	return certPool, cert
@@ -85,7 +85,7 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	}
 	var sender metricsender.DefaultSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(receiverChan, gc.HasLen, metricCount)
 	close(receiverChan)
@@ -95,7 +95,7 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 
 	for _, metric := range metrics {
 		m, err := s.State.MetricBatch(metric.UUID())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Sent(), jc.IsTrue)
 	}
 }
@@ -116,7 +116,7 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 		enc := json.NewEncoder(w)
 		var incoming []wireformat.MetricBatch
 		err := dec.Decode(&incoming)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		var resp = make(wireformat.EnvironmentResponses)
 		for _, batch := range incoming {
@@ -135,12 +135,12 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 			}
 		}
 		uuid, err := utils.NewUUID()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = enc.Encode(wireformat.Response{
 			UUID:         uuid.String(),
 			EnvResponses: resp,
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 	}
 }
@@ -170,7 +170,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, batch := range batches {
 			m, err := s.State.MetricBatch(batch.UUID())
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(m.Sent(), jc.IsFalse)
 		}
 		killServer()
@@ -191,16 +191,16 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
 
 	status, info, err := s.unit.GetMeterStatus()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "NOT SET")
 	c.Assert(info, gc.Equals, "")
 
 	var sender metricsender.DefaultSender
 	err = metricsender.SendMetrics(s.State, &sender, 10)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, err = s.unit.GetMeterStatus()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "GREEN")
 	c.Assert(info, gc.Equals, "")
 }
@@ -237,27 +237,27 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 
 	for _, unit := range []*state.Unit{unit1, unit2, unit3} {
 		status, info, err := unit.GetMeterStatus()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status, gc.Equals, "NOT SET")
 		c.Assert(info, gc.Equals, "")
 	}
 
 	var sender metricsender.DefaultSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, err := unit1.GetMeterStatus()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "GREEN")
 	c.Assert(info, gc.Equals, "")
 
 	status, info, err = unit2.GetMeterStatus()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "NOT SET")
 	c.Assert(info, gc.Equals, "")
 
 	status, info, err = unit3.GetMeterStatus()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "NOT SET")
 	c.Assert(info, gc.Equals, "")
 

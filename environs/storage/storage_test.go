@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -35,10 +36,10 @@ func (s *datasourceSuite) SetUpTest(c *gc.C) {
 
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.stor = stor
 	s.baseURL, err = s.stor.URL("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {
@@ -46,7 +47,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	s.stor.Put("foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "")
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, gc.Equals, s.baseURL+"/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
@@ -58,7 +59,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	s.stor.Put("base/foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base")
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, gc.Equals, s.baseURL+"/base/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
@@ -91,7 +92,7 @@ func (s *datasourceSuite) TestURL(c *gc.C) {
 	s.stor.Put("bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "")
 	url, err := ds.URL("bar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedURL, _ := s.stor.URL("bar")
 	c.Assert(url, gc.Equals, expectedURL)
 }
@@ -101,7 +102,7 @@ func (s *datasourceSuite) TestURLWithBasePath(c *gc.C) {
 	s.stor.Put("base/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base")
 	url, err := ds.URL("bar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedURL, _ := s.stor.URL("base/bar")
 	c.Assert(url, gc.Equals, expectedURL)
 }

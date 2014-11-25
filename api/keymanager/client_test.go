@@ -6,6 +6,7 @@ package keymanager_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/keymanager"
@@ -35,7 +36,7 @@ func (s *keymanagerSuite) SetUpTest(c *gc.C) {
 
 func (s *keymanagerSuite) setAuthorisedKeys(c *gc.C, keys string) {
 	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *keymanagerSuite) TestListKeys(c *gc.C) {
@@ -44,7 +45,7 @@ func (s *keymanagerSuite) TestListKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join([]string{key1, key2}, "\n"))
 
 	keyResults, err := s.keymanager.ListKeys(ssh.Fingerprints, s.AdminUserTag(c).Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(keyResults), gc.Equals, 1)
 	result := keyResults[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -55,7 +56,7 @@ func (s *keymanagerSuite) TestListKeys(c *gc.C) {
 func (s *keymanagerSuite) TestListKeysErrors(c *gc.C) {
 	c.Skip("the user name isn't checked for existence yet")
 	keyResults, err := s.keymanager.ListKeys(ssh.Fingerprints, "invalid")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(keyResults), gc.Equals, 1)
 	result := keyResults[0]
 	c.Assert(result.Error, gc.ErrorMatches, `permission denied`)
@@ -70,7 +71,7 @@ func clientError(message string) *params.Error {
 
 func (s *keymanagerSuite) assertEnvironKeys(c *gc.C, expected []string) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	keys := envConfig.AuthorizedKeys()
 	c.Assert(keys, gc.Equals, strings.Join(expected, "\n"))
 }
@@ -81,7 +82,7 @@ func (s *keymanagerSuite) TestAddKeys(c *gc.C) {
 
 	newKeys := []string{sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key, "invalid"}
 	errResults, err := s.keymanager.AddKeys(s.AdminUserTag(c).Name(), newKeys...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
@@ -99,7 +100,7 @@ func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
 	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
 	errResults, err := keyManager.AddKeys("juju-system-key", newKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 	})
@@ -127,7 +128,7 @@ func (s *keymanagerSuite) TestDeleteKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	errResults, err := s.keymanager.DeleteKeys(s.AdminUserTag(c).Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: nil},
@@ -144,7 +145,7 @@ func (s *keymanagerSuite) TestImportKeys(c *gc.C) {
 
 	keyIds := []string{"lp:validuser", "invalid-key"}
 	errResults, err := s.keymanager.ImportKeys(s.AdminUserTag(c).Name(), keyIds...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResults, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
 		{Error: clientError("invalid ssh key id: invalid-key")},

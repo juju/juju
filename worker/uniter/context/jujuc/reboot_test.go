@@ -6,6 +6,7 @@ package jujuc_test
 
 import (
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
@@ -84,7 +85,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		c.Logf("Test %d: %s", i, t.summary)
 
 		com, err := jujuc.NewCommand(t.hctx, cmdString("juju-reboot"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
@@ -95,7 +96,7 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
 	jujucCtx := &actionGetContext{}
 	com, err := jujuc.NewCommand(jujucCtx, cmdString("juju-reboot"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cmdCtx := testing.Context(c)
 	code := cmd.Main(com, cmdCtx, nil)
 	c.Check(code, gc.Equals, 1)

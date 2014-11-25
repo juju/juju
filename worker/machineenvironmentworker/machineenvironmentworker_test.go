@@ -97,7 +97,7 @@ func (s *MachineEnvironmentWatcherSuite) waitForFile(c *gc.C, filename, expected
 			if os.IsNotExist(err) {
 				continue
 			}
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if string(fileContent) != expected {
 				c.Logf("file content not matching, still waiting")
 				continue
@@ -144,7 +144,7 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (proxy.Settings, 
 	}
 
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return proxySettings, aptProxySettings
 }

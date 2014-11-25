@@ -23,7 +23,7 @@ func (s *MetricManagerSuite) TestRunner(c *gc.C) {
 	defer cleanup()
 	client := &mockClient{}
 	_, err := metricworker.NewMetricsManager(client)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedCalls := map[string]bool{}
 	for i := 0; i < 2; i++ {
 		select {

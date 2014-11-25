@@ -6,6 +6,7 @@ package api_test
 import (
 	"net/http"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -35,7 +36,7 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 
 func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
 	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.CheckRequest(c, req, "GET", "somefacade")
 }
@@ -54,14 +55,14 @@ func (s *httpSuite) TestNewHTTPClientValidatesCert(c *gc.C) {
 	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
 	httpClient := s.APIState.NewHTTPClient()
 	resp, err := httpClient.Do(req)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusNotFound)
 }
 
 func (s *httpSuite) TestSendHTTPRequestSuccess(c *gc.C) {
 	req, resp, err := s.APIState.SendHTTPRequest("GET", "somefacade", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.Fake.CheckCalled(c, req, resp)
 }

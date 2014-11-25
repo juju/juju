@@ -133,7 +133,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	results, err := pc.SetPasswords(params.EntityPasswords{
 		Changes: changes,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
@@ -179,6 +179,6 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
 	}
 	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
 	result, err := pc.SetPasswords(params.EntityPasswords{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

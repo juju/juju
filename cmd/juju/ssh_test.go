@@ -49,11 +49,11 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvPathPrepend(s.bin)
 	for _, name := range []string{"ssh", "scp"} {
 		f, err := os.OpenFile(filepath.Join(s.bin, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		_, err = f.Write([]byte(fakecommand))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = f.Close()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -110,7 +110,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	dummy, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
 
@@ -135,7 +135,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	s.makeMachines(1, c, true)
 	// Setting proxy-ssh=false in the environment overrides --proxy.
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 	jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
@@ -225,14 +225,14 @@ func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
 	addrPub := network.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), network.ScopePublic)
 	addrPriv := network.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), network.ScopeCloudLocal)
 	err := m.SetAddresses(addrPub, addrPriv)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if setAddresses {
 			s.setAddresses(m, c)
 		}
@@ -247,7 +247,7 @@ func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*stat
 
 func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *gc.C) {
 	u, err := srv.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

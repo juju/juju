@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/testing"
@@ -52,12 +53,12 @@ func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 	// specified due to the load during the test.
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
-	c.Assert(len(tr.timestamps) > 0, gc.Equals, true)
+	c.Assert(len(tr.timestamps) > 0, jc.IsTrue)
 	for i := 1; i < len(tr.timestamps); i++ {
 		diff := tr.timestamps[i].Sub(tr.timestamps[i-1])
 
-		c.Assert(diff >= testInterval, gc.Equals, true)
-		c.Assert(diff <= 4*testInterval, gc.Equals, true)
+		c.Assert(diff >= testInterval, jc.IsTrue)
+		c.Assert(diff <= 4*testInterval, jc.IsTrue)
 	}
 }
 

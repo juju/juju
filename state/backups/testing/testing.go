@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -16,6 +17,6 @@ import (
 func SHA1SumFile(c *gc.C, file *os.File) string {
 	shahash := sha1.New()
 	_, err := io.Copy(shahash, file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 }

@@ -6,6 +6,7 @@ package backups_test
 import (
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
@@ -30,13 +31,13 @@ func (d *TestDBDumper) Dump(dumpDir string) error {
 func (s *createSuite) TestLegacy(c *gc.C) {
 	meta := backupstesting.NewMetadataStarted()
 	metadataFile, err := meta.AsJSONBuffer()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
 	args := backups.NewTestCreateArgs(testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
 	archiveFile, size, checksum := backups.ExposeCreateResult(result)
@@ -44,7 +45,7 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 
 	// Check the result.
 	file, ok := archiveFile.(*os.File)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	s.checkSize(c, file, size)
 	s.checkChecksum(c, file, checksum)

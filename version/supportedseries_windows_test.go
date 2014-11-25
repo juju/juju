@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/version"
@@ -24,9 +25,9 @@ func (s *supportedSeriesWindowsSuite) TestSeriesVersion(c *gc.C) {
 	if err != nil {
 		c.Assert(err, gc.Not(gc.ErrorMatches), `invalid series "win8"`, gc.Commentf(`unable to lookup series "win8"`))
 	} else {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, gc.Equals, "win8")
 }
 

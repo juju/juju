@@ -48,14 +48,14 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 
 	v2 := version.MustParseBinary("7.8.9-quantal-amd64")
 	err = obj.SetAgentVersion(v2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	t3, err := obj.AgentTools()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t3.Version, gc.DeepEquals, v2)
 	err = obj.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	t3, err = obj.AgentTools()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t3.Version, gc.DeepEquals, v2)
 
 	testWhenDying(c, obj, noErr, deadErr, func() error {
@@ -72,29 +72,29 @@ type ToolsSuite struct {
 func (s *ToolsSuite) TestStorage(c *gc.C) {
 	session := s.State.MongoSession()
 	collectionNames, err := session.DB("juju").CollectionNames()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nameSet := set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsFalse)
 
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := storage.Close()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 
 	err = storage.AddTools(strings.NewReader(""), toolstorage.Metadata{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	collectionNames, err = session.DB("juju").CollectionNames()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nameSet = set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsTrue)
 }
 
 func (s *ToolsSuite) TestStorageParams(c *gc.C) {
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var called bool
 	s.PatchValue(state.ToolstorageNewStorage, func(
@@ -112,7 +112,7 @@ func (s *ToolsSuite) TestStorageParams(c *gc.C) {
 	})
 
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	storage.Close()
 	c.Assert(called, jc.IsTrue)
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
@@ -130,7 +131,7 @@ func (s *MainSuite) TestProvidersAreRegistered(c *gc.C) {
 	// check that all the expected providers are registered
 	for _, name := range expectedProviders {
 		_, err := environs.Provider(name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -188,7 +189,7 @@ func run(c *gc.C, sockPath string, contextId string, exit int, cmd ...string) st
 	}
 	output, err := ps.CombinedOutput()
 	if exit == 0 {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
 	}
@@ -214,7 +215,7 @@ func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
 	}
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
 	srv, err := jujuc.NewServer(factory, s.sockPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.server = srv
 	go func() {
 		if err := s.server.Run(); err != nil {

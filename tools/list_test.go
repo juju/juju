@@ -4,6 +4,7 @@
 package tools_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/tools"
@@ -287,7 +288,7 @@ func (s *ListSuite) TestMatch(c *gc.C) {
 		actual, err := test.src.Match(test.filter)
 		c.Check(actual, gc.DeepEquals, test.expect)
 		if len(test.expect) > 0 {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.Equals, tools.ErrNoMatches)
 		}

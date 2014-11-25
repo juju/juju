@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -46,7 +47,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
 	var results params.NotifyWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.APICall("Machiner", s.stateAPI.BestFacadeVersion("Machiner"), "", "Watch", args, &results)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -69,7 +70,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	var results params.NotifyWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.APICall("Machiner", s.stateAPI.BestFacadeVersion("Machiner"), "", "Watch", args, &results)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -86,7 +87,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	var results params.NotifyWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.APICall("Machiner", s.stateAPI.BestFacadeVersion("Machiner"), "", "Watch", args, &results)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -106,25 +107,25 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	principal, err := mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = principal.AssignToMachine(s.rawMachine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	relUnit, err := rel.Unit(principal)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	subordinate, err := s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Call the Deployer facade's WatchUnits for machine-0.
 	var results params.StringsWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err = s.stateAPI.APICall("Deployer", s.stateAPI.BestFacadeVersion("Deployer"), "", "WatchUnits", args, &results)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -139,12 +140,12 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// units, inducing an update server-side after each two changes to
 	// ensure they're reported as separate events over the API.
 	err = subordinate.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	err = subordinate.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = principal.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 
 	// Expect these changes as 2 separate events, so that
@@ -162,7 +163,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	var results params.StringsWatchResults
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.APICall("Deployer", s.stateAPI.BestFacadeVersion("Deployer"), "", "WatchUnits", args, &results)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
@@ -174,9 +175,9 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	// Create a service, deploy a unit of it on the machine.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	principal, err := mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = principal.AssignToMachine(s.rawMachine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the initial event is delivered. Then test the watcher
 	// can be stopped cleanly without reading the pending change.

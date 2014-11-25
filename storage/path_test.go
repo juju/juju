@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"github.com/juju/juju/storage"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -40,6 +41,6 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathError(c *gc.C) {
 
 func testBlockDevicePath(c *gc.C, dev storage.BlockDevice, expect string) {
 	path, err := storage.BlockDevicePath(dev)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, expect)
 }

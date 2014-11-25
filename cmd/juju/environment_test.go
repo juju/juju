@@ -52,7 +52,7 @@ func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			output := strings.TrimSpace(testing.Stdout(context))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(output, gc.Equals, t.output)
 		}
 	}
@@ -160,37 +160,37 @@ func (s *SetEnvironmentSuite) TestSetUnknownKey(c *gc.C) {
 func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	// default-series not set
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	series, ok := stateConfig.DefaultSeries()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
 
 	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stateConfig, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	series, ok = stateConfig.DefaultSeries()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(series, gc.Equals, "raring")
 	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
 }
 
 func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "ssl-hostname-verification=false")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(stateConfig.SSLHostnameVerification(), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateConfig.SSLHostnameVerification(), jc.IsFalse)
 }
 
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=spartan", "broken=nope", "secret=sekrit")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	attrs := stateConfig.AllAttrs()
 	c.Assert(attrs["default-series"].(string), gc.Equals, "spartan")
 	c.Assert(attrs["broken"].(string), gc.Equals, "nope")
@@ -199,10 +199,10 @@ func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 
 func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), "default-series")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(testing.Stdout(context))
 
 	c.Assert(output, gc.Equals, "raring")
@@ -287,7 +287,7 @@ func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
 		"xyz": 123,
 	}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
@@ -298,11 +298,11 @@ func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if len(t.expected)+len(t.unexpected) != 0 {
 			stateConfig, err := s.State.EnvironConfig()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			for k, v := range t.expected {
 				vstate, ok := stateConfig.AllAttrs()[k]
 				c.Assert(ok, jc.IsTrue)

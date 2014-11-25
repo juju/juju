@@ -109,7 +109,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		runCommand := &RunCommand{}
 		err := testing.InitCommand(runCommand, test.args)
 		if test.errMatch == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(runCommand.unit, gc.Equals, test.unit)
 			c.Assert(runCommand.commands, gc.Equals, test.commands)
 			c.Assert(runCommand.noContext, gc.Equals, test.avoidContext)
@@ -170,7 +170,7 @@ func (s *RunTestSuite) TestNoContext(c *gc.C) {
 func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 	channel := startRunAsync(c, []string{"--no-context", "echo done"})
 	ctx, err := waitForResult(channel, testing.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }
 
@@ -178,7 +178,7 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	s.PatchValue(&fslock.LockWaitDelay, 10*time.Millisecond)
 
 	lock, err := hookExecutionLock(DataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	lock.Lock("juju-run test")
 	defer lock.Unlock() // in case of failure
 
@@ -189,14 +189,14 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	lock.Unlock()
 
 	ctx, err = waitForResult(channel, testing.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	agentDir := filepath.Join(DataDir, "agents", "unit-foo-1")
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = testing.RunCommand(c, &RunCommand{}, "foo/1", "bar")
 	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket: no such file or directory`)
@@ -294,7 +294,7 @@ func (s *RunTestSuite) TestCheckRelationIdValid(c *gc.C) {
 func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 	agentDir := filepath.Join(DataDir, "agents", agent)
 	err := os.MkdirAll(agentDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var socketPath string
 	switch version.Current.OS {
 	case version.Windows:
@@ -303,7 +303,7 @@ func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
 		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
 	}
 	listener, err := uniter.NewRunListener(&mockRunner{c}, socketPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listener, gc.NotNil)
 	s.AddCleanup(func(*gc.C) {
 		listener.Close()

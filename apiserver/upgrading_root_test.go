@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -21,7 +22,7 @@ func (r *upgradingRootSuite) TestFindAllowedMethod(c *gc.C) {
 
 	caller, err := root.FindMethod("Client", 0, "FullStatus")
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(caller, gc.NotNil)
 }
 

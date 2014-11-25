@@ -7,6 +7,7 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -103,7 +104,7 @@ func (s *commonSuite) TestAuthEither(c *gc.C) {
 		authEither := common.AuthEither(test.a, test.b)
 		either, err := authEither()
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			ok := either(test.tag)
 			c.Assert(ok, gc.Equals, test.expect)
 		} else {

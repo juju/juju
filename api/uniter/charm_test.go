@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
@@ -25,7 +26,7 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.apiCharm, err = s.uniter.Charm(s.wordpressCharm.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiCharm, gc.NotNil)
 }
 
@@ -54,15 +55,15 @@ func (s *charmSuite) TestArchiveURLs(c *gc.C) {
 		url.QueryEscape("*"),
 		url.QueryEscape(s.apiCharm.URL().String()),
 	))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	archiveURLs, err := s.apiCharm.ArchiveURLs()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(archiveURLs, gc.HasLen, 1)
 	c.Assert(archiveURLs[0], gc.DeepEquals, url)
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 	archiveSha256, err := s.apiCharm.ArchiveSha256()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(archiveSha256, gc.Equals, s.wordpressCharm.BundleSha256())
 }

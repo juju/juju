@@ -3,6 +3,7 @@ package machine_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -29,10 +30,10 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.

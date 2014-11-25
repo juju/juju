@@ -43,15 +43,15 @@ func (s *archiveDataSuite) SetUpTest(c *gc.C) {
 		`"Hostname":"myhost",` +
 		`"Version":"1.21-alpha3"` +
 		`}` + "\n"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	archiveFile := s.newArchiveFile(c, meta)
 	compressed, err := ioutil.ReadAll(archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(gzr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.archiveFile = bytes.NewBuffer(compressed)
 	s.data = data
@@ -84,7 +84,7 @@ func (s *archiveDataSuite) newArchiveFile(c *gc.C, meta *backups.Metadata) io.Re
 		},
 	}
 	archiveFile, err := bt.NewArchive(meta, files, dump)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return archiveFile
 }
 
@@ -98,7 +98,7 @@ func (s *archiveDataSuite) TestNewArchiveData(c *gc.C) {
 
 func (s *archiveDataSuite) TestNewArchiveDataReader(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data := ad.NewBuffer().Bytes()
 
 	c.Check(ad.ContentDir, gc.Equals, "juju-backup")
@@ -107,7 +107,7 @@ func (s *archiveDataSuite) TestNewArchiveDataReader(c *gc.C) {
 
 func (s *archiveDataSuite) TestNewBuffer(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	buf := ad.NewBuffer()
 
 	c.Check(buf.Bytes(), jc.DeepEquals, s.data)
@@ -115,7 +115,7 @@ func (s *archiveDataSuite) TestNewBuffer(c *gc.C) {
 
 func (s *archiveDataSuite) TestNewBufferMultiple(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	buf1 := ad.NewBuffer()
 	buf2 := ad.NewBuffer()
@@ -126,20 +126,20 @@ func (s *archiveDataSuite) TestNewBufferMultiple(c *gc.C) {
 
 func (s *archiveDataSuite) TestMetadata(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	meta, err := ad.Metadata()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(meta, jc.DeepEquals, s.meta)
 }
 
 func (s *archiveDataSuite) TestVersionFound(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	version, err := ad.Version()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(version, jc.DeepEquals, &s.meta.Origin.Version)
 }
@@ -147,10 +147,10 @@ func (s *archiveDataSuite) TestVersionFound(c *gc.C) {
 func (s *archiveDataSuite) TestVersionNotFound(c *gc.C) {
 	archiveFile := s.newArchiveFile(c, nil)
 	ad, err := backups.NewArchiveDataReader(archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	version, err := ad.Version()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(version.String(), jc.DeepEquals, "1.20.0")
 }

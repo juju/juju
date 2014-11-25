@@ -125,7 +125,7 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 		cons := constraints.MustParse(t.cons)
 		unsupported, err := validator.Validate(cons)
 		if t.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(unsupported, jc.SameContents, t.unsupported)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
@@ -324,7 +324,7 @@ func (s *validationSuite) TestMerge(c *gc.C) {
 		consFallback := constraints.MustParse(t.consFallback)
 		cons := constraints.MustParse(t.cons)
 		merged, err := validator.Merge(consFallback, cons)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := constraints.MustParse(t.expected)
 		c.Check(merged, gc.DeepEquals, expected)
 	}

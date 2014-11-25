@@ -40,35 +40,35 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 	// Add machine
 	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Add first container
 	s.c1, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Add second container
 	s.c2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.c1.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add container on the same level as the first container.
 	s.c3, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, s.machine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.w, err = s.machine.WatchForRebootEvent()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc = statetesting.NewNotifyWatcherC(c, s.State, s.w)
 	s.wc.AssertOneChange()
 
 	s.wC1, err = s.c1.WatchForRebootEvent()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial event on container 1.
 	s.wcC1 = statetesting.NewNotifyWatcherC(c, s.State, s.wC1)
@@ -76,7 +76,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 	// Get reboot watcher on container 2
 	s.wC2, err = s.c2.WatchForRebootEvent()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial event on container 2.
 	s.wcC2 = statetesting.NewNotifyWatcherC(c, s.State, s.wC2)
@@ -84,7 +84,7 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 
 	// Get reboot watcher on container 3
 	s.wC3, err = s.c3.WatchForRebootEvent()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial event on container 3.
 	s.wcC3 = statetesting.NewNotifyWatcherC(c, s.State, s.wC3)
@@ -108,29 +108,29 @@ func (s *RebootSuite) TearDownSuit(c *gc.C) {
 
 func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 
 	inState, err := s.machine.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inState, jc.IsTrue)
 
 	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 
 	inState, err = s.machine.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inState, jc.IsFalse)
 
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 
@@ -148,7 +148,7 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
 	// Reboot request happens on machine: everyone see it (including container3)
 	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertOneChange()
 	s.wcC1.AssertOneChange()
@@ -169,7 +169,7 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
 	// Reboot request happens on container1: only container1 andcontainer2
 	// react
 	err := s.c1.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertNoChange()
 	s.wcC1.AssertOneChange()
@@ -190,7 +190,7 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
 func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
 	// Reboot request happens on container2: only container2 sees it
 	err := s.c2.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertNoChange()
 	s.wcC1.AssertNoChange()
@@ -211,7 +211,7 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
 func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *gc.C) {
 	// Reboot request happens on container2: only container2 sees it
 	err := s.c3.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.wc.AssertNoChange()
 	s.wcC1.AssertNoChange()

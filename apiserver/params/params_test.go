@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -129,16 +130,16 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 	for _, t := range marshalTestCases {
 		c.Log(t.about)
 		output, err := t.value.MarshalJSON()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		// We check unmarshalled output both to reduce the fragility of the
 		// tests (because ordering in the maps can change) and to verify that
 		// the output is well-formed.
 		var unmarshalledOutput interface{}
 		err = json.Unmarshal(output, &unmarshalledOutput)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(unmarshalledOutput, gc.DeepEquals, expected)
 	}
 }
@@ -148,7 +149,7 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled multiwatcher.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(unmarshalled, gc.DeepEquals, t.value)
 	}
 }
@@ -200,7 +201,7 @@ func (s *ErrorResultsSuite) TestOneError(c *gc.C) {
 		c.Logf("test %d", i)
 		err := test.results.OneError()
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -248,7 +249,7 @@ func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
 		c.Logf("test %d: %s", i, test.msg)
 		err := test.results.Combine()
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}

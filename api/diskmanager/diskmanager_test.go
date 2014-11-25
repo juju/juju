@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/testing"
@@ -56,7 +57,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(devices)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 }
 
@@ -79,7 +80,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesNil(c *gc.C) {
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
 	err := st.SetMachineBlockDevices(nil)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 }
 

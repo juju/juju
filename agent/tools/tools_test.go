@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -125,7 +126,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	}
 
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	t.assertToolsContents(c, testTools, files)
 
@@ -143,7 +144,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	t.assertToolsContents(c, testTools, files)
 }
@@ -156,10 +157,10 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 
 	dir := agenttools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, agenttools.DirPerm)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = ioutil.WriteFile(filepath.Join(dir, toolsFile), []byte(" \t\n"), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
@@ -179,10 +180,10 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		SHA256:  checksum,
 	}
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	gotTools, err := agenttools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "testagent"})
@@ -201,10 +202,10 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	gotTools, err = agenttools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "1.2.4-quantal-amd64", "testagent"})
@@ -227,13 +228,13 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, fil
 	dir := agenttools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
 	expectedURLFileContents, err := json.Marshal(testTools)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertFileContents(c, dir, toolsFile, string(expectedURLFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
 	gotTools, err := agenttools.ReadTools(t.dataDir, testTools.Version)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 }
 
@@ -242,10 +243,10 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, fil
 func assertFileContents(c *gc.C, dir, file, contents string, mode os.FileMode) {
 	file = filepath.Join(dir, file)
 	info, err := os.Stat(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode()&(os.ModeType|mode), gc.Equals, mode)
 	data, err := ioutil.ReadFile(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, contents)
 }
 
@@ -253,10 +254,10 @@ func assertFileContents(c *gc.C, dir, file, contents string, mode os.FileMode) {
 // holds the given file or directory names.
 func assertDirNames(c *gc.C, dir string, names []string) {
 	f, err := os.Open(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	dnames, err := f.Readdirnames(0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(dnames)
 	sort.Strings(names)
 	c.Assert(dnames, gc.DeepEquals, names)

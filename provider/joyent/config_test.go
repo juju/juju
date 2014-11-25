@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -23,7 +24,7 @@ import (
 func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 	attrs = coretesting.FakeConfig().Merge(attrs)
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
@@ -72,7 +73,7 @@ func generatePrivateKey(c *gc.C) string {
 	}()
 	ssh.KeyBits = 32
 	private, _, err := ssh.GenerateKey("test-client")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return private
 }
 
@@ -243,7 +244,7 @@ func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			if err != nil {
 				continue
 			}
@@ -308,7 +309,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			if err != nil {
 				continue
 			}
@@ -328,13 +329,13 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		environ, err := environs.New(baseConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		err = environ.SetConfig(testConfig)
 		newAttrs := environ.Config().AllAttrs()
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			for field, value := range test.expect {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
@@ -378,7 +379,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
@@ -395,13 +396,13 @@ func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
 	// By default "private-key-path isn't set until after validateConfig has been called.
 	attrs := validAttrs().Delete("private-key-path", "private-key")
 	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer os.Remove(keyFilePath)
 	testConfig := newConfig(c, attrs)
 	preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	attrs = preparedConfig.Config().AllAttrs()
 	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)
 	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)

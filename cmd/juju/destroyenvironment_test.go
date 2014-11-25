@@ -30,7 +30,7 @@ var _ = gc.Suite(&destroyEnvSuite{})
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	// Prepare the environment so we can destroy it.
 	_, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// check environment is mandatory
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand))
@@ -49,13 +49,13 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 // startEnvironment prepare the environment so we can destroy it.
 func (s *destroyEnvSuite) startEnvironment(c *gc.C, desiredEnvName string) {
 	_, err := environs.PrepareFromName(desiredEnvName, envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 //updateConfigParameter updates environment parameter
 func (s *destroyEnvSuite) updateConfigParameter(c *gc.C, key string, value interface{}) {
 	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked bool) {
@@ -64,14 +64,14 @@ func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked bool) {
 	s.startEnvironment(c, envName)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": blocked}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
 	if blocked {
 		c.Check(<-errc, gc.Not(gc.IsNil))
 		c.Check((<-opc), gc.IsNil)
 		// Verify that the environment information has not been removed.
 		_, err := s.ConfigStore.ReadInfo(envName)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Check(<-errc, gc.IsNil)
 		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
@@ -115,7 +115,7 @@ func (s *destroyEnvSuite) TestForceDestroyUnlockedEnvironment(c *gc.C) {
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	// Prepare the environment so we can destroy it.
 	_, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// check that either environment or the flag is mandatory
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand))
@@ -141,22 +141,22 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
 	info := s.ConfigStore.CreateInfo("emptyenv")
 	err := info.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "-e", "emptyenv")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(coretesting.Stderr(context), gc.Equals, "removing empty environment file\n")
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	oldinfo, err := s.ConfigStore.ReadInfo("dummyenv")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bootstrapConfig := oldinfo.BootstrapConfig()
 	apiEndpoint := oldinfo.APIEndpoint()
 	apiCredentials := oldinfo.APICredentials()
 	err = oldinfo.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newinfo := s.ConfigStore.CreateInfo("dummyenv")
 
 	bootstrapConfig["broken"] = "Destroy"
@@ -164,11 +164,11 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	newinfo.SetAPIEndpoint(apiEndpoint)
 	newinfo.SetAPICredentials(apiCredentials)
 	err = newinfo.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare the environment so we can destroy it.
 	_, err = environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// destroy with broken environment
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), "dummyenv", "--yes")
@@ -182,27 +182,27 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
 	com := new(DestroyEnvironmentCommand)
 	c.Check(coretesting.InitCommand(com, []string{"dummyenv"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, false)
+	c.Check(com.assumeYes, jc.IsFalse)
 
 	com = new(DestroyEnvironmentCommand)
 	c.Check(coretesting.InitCommand(com, []string{"dummyenv", "-y"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
+	c.Check(com.assumeYes, jc.IsTrue)
 
 	com = new(DestroyEnvironmentCommand)
 	c.Check(coretesting.InitCommand(com, []string{"dummyenv", "--yes"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
+	c.Check(com.assumeYes, jc.IsTrue)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	var stdin, stdout bytes.Buffer
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdout = &stdout
 	ctx.Stdin = &stdin
 
 	// Prepare the environment so we can destroy it.
 	env, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertEnvironNotDestroyed(c, env, s.ConfigStore)
 
@@ -236,7 +236,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 		// Prepare the environment so we can destroy it.
 		s.Reset(c)
 		env, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		stdin.Reset()
 		stdout.Reset()
@@ -259,9 +259,9 @@ func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Sto
 
 func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
 	info, err := store.ReadInfo(env.Config().Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 
 	_, err = environs.NewFromName(env.Config().Name(), store)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

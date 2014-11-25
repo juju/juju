@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -72,13 +73,13 @@ func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
 		config: configGetter(c),
 	}
 	err := common.Destroy(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DestroySuite) TestSuccess(c *gc.C) {
 	stor := newStorage(s, c)
 	err := stor.Put("somewhere", strings.NewReader("stuff"), 5)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := &mockEnviron{
 		storage: stor,
@@ -95,18 +96,18 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 		config: configGetter(c),
 	}
 	err = common.Destroy(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// common.Destroy doesn't touch storage anymore.
 	r, err := stor.Get("somewhere")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	r.Close()
 }
 
 func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 	stor := newStorage(s, c)
 	err := stor.Put("elsewhere", strings.NewReader("stuff"), 5)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := &mockEnviron{
 		storage: stor,
@@ -116,5 +117,5 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 		config: configGetter(c),
 	}
 	err = common.Destroy(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

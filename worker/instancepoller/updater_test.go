@@ -111,7 +111,7 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	waitRefresh <- struct{}{}
 	select {
 	case err := <-done:
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}
@@ -162,7 +162,7 @@ func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	close(context.dyingc)
 	select {
 	case err := <-done:
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
 	}

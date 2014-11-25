@@ -19,7 +19,7 @@ github.com/juju/names	git	d68794726573f3042eda8e8d77925b6ae5b4d77f
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
 github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	
-github.com/juju/testing	git	bb82a35ea789fce462fcb81a071c2eb57aa22a6b	
+github.com/juju/testing	git	ab97778c479bdecf8e9d2c90ae7584f2b9276039	
 github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	
 github.com/juju/utils	git	1942c197c7bc4ce805171c564df741777299e939	
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	

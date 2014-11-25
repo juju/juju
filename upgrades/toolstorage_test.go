@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -48,7 +49,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageNoTools(c *gc.C) {
 	envtesting.RemoveFakeTools(c, stor, "releases")
 	envtesting.RemoveFakeToolsMetadata(c, stor)
 	err := upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeToolsStorage.stored, gc.HasLen, 0)
 }
 
@@ -62,7 +63,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorage(c *gc.C) {
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
 	for _, providerType := range []string{"local", "manual"} {
 		s.testMigrateToolsStorage(c, &mockAgentConfig{
@@ -83,7 +84,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
 		strings.NewReader("junk"),
 		4,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, gc.ErrorMatches, "failed to fetch 1.2.3-precise-amd64 tools: hash mismatch")
 }
@@ -96,7 +97,7 @@ func (s *migrateToolsStorageSuite) testMigrateToolsStorage(c *gc.C, agentConfig 
 		return fakeToolsStorage, nil
 	})
 	err := upgrades.MigrateToolsStorage(s.State, agentConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeToolsStorage.stored, gc.DeepEquals, map[version.Binary]toolstorage.Metadata{
 		migrateToolsVersions[0]: toolstorage.Metadata{
 			Version: migrateToolsVersions[0],

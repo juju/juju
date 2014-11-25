@@ -32,7 +32,7 @@ func (s *systemSSHKeySuiteBase) assertKeyCreation(c *gc.C) string {
 
 	// Check the private key from the system identify file.
 	contents, err := ioutil.ReadFile(s.keyFile())
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	privateKey := string(contents)
 	c.Check(privateKey, jc.HasPrefix, "-----BEGIN RSA PRIVATE KEY-----\n")
 	c.Check(privateKey, jc.HasSuffix, "-----END RSA PRIVATE KEY-----\n")
@@ -41,10 +41,10 @@ func (s *systemSSHKeySuiteBase) assertKeyCreation(c *gc.C) string {
 
 func (s *systemSSHKeySuiteBase) assertHasPublicKeyInAuth(c *gc.C, privateKey string) {
 	publicKey, err := ssh.PublicKey([]byte(privateKey), config.JujuSystemKey)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Check the public key from the auth keys config.
 	cfg, err := s.JujuConnSuite.State.EnvironConfig()
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
 	// The dummy env is created with 1 fake key. We check that another has been added.
 	c.Assert(authKeys, gc.HasLen, 2)
@@ -70,29 +70,29 @@ func (s *systemSSHKeySuite) SetUpTest(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
 		"authorized-keys": testing.FakeAuthKeys,
 	}, nil, nil)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *systemSSHKeySuite) TestSystemKeyCreated(c *gc.C) {
 	err := upgrades.EnsureSystemSSHKey(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pk := s.assertKeyCreation(c)
 	s.assertHasPublicKeyInAuth(c, pk)
 }
 
 func (s *systemSSHKeySuite) TestIdempotent(c *gc.C) {
 	err := upgrades.EnsureSystemSSHKey(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	privateKey, err := ioutil.ReadFile(s.keyFile())
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.EnsureSystemSSHKey(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure we haven't generated the key again a second time.
 	privateKey2, err := ioutil.ReadFile(s.keyFile())
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(privateKey, gc.DeepEquals, privateKey2)
 }
 
@@ -114,23 +114,23 @@ func (s *systemSSHKeyReduxSuite) SetUpTest(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
 		"authorized-keys": testing.FakeAuthKeys,
 	}, nil, nil)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *systemSSHKeyReduxSuite) TestReduxSystemKeyCreated(c *gc.C) {
 	err := upgrades.EnsureSystemSSHKeyRedux(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertKeyCreation(c)
 
 	// Config authorized keys should be unaltered.
 	cfg, err := s.JujuConnSuite.State.EnvironConfig()
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, testing.FakeAuthKeys)
 }
 
 func (s *systemSSHKeyReduxSuite) TestReduxUpdatesAgentConfig(c *gc.C) {
 	err := upgrades.EnsureSystemSSHKeyRedux(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info, _ := s.ctx.AgentConfig().StateServingInfo()
 	c.Assert(info.SystemIdentity, gc.Not(gc.Equals), "")
@@ -138,41 +138,41 @@ func (s *systemSSHKeyReduxSuite) TestReduxUpdatesAgentConfig(c *gc.C) {
 
 func (s *systemSSHKeyReduxSuite) TestReduxIdempotent(c *gc.C) {
 	err := upgrades.EnsureSystemSSHKeyRedux(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	privateKey, err := ioutil.ReadFile(s.keyFile())
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.EnsureSystemSSHKeyRedux(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure we haven't generated the key again a second time.
 	privateKey2, err := ioutil.ReadFile(s.keyFile())
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(privateKey, gc.DeepEquals, privateKey2)
 }
 
 func (s *systemSSHKeyReduxSuite) TestReduxExistsInStateServingInfo(c *gc.C) {
 	err := state.SetSystemIdentity(s.State, "ssh-private-key")
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.EnsureSystemSSHKeyRedux(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := s.State.StateServingInfo()
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.SystemIdentity, gc.Equals, "ssh-private-key")
 }
 
 func (s *systemSSHKeyReduxSuite) TestReduxExistsOnDisk(c *gc.C) {
 	err := ioutil.WriteFile(s.keyFile(), []byte("ssh-private-key"), 0600)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.EnsureSystemSSHKeyRedux(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info, err := s.State.StateServingInfo()
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.SystemIdentity, gc.Equals, "ssh-private-key")
 }
 
@@ -192,7 +192,7 @@ func (s *updateAuthKeysSuite) SetUpTest(c *gc.C) {
 		agentConfig: mockAgent,
 		state:       s.State,
 	})
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.systemIdentity = s.assertKeyCreation(c)
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
@@ -204,22 +204,22 @@ func (s *updateAuthKeysSuite) SetUpTest(c *gc.C) {
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{
 		"authorized-keys": testing.FakeAuthKeys,
 	}, nil, nil)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *updateAuthKeysSuite) TestUpgradeStep(c *gc.C) {
 	err := upgrades.UpdateAuthorizedKeysForSystemIdentity(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertHasPublicKeyInAuth(c, s.systemIdentity)
 }
 
 func (s *updateAuthKeysSuite) TestIdempotent(c *gc.C) {
 	err := upgrades.UpdateAuthorizedKeysForSystemIdentity(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.UpdateAuthorizedKeysForSystemIdentity(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertHasPublicKeyInAuth(c, s.systemIdentity)
 }
@@ -227,15 +227,15 @@ func (s *updateAuthKeysSuite) TestIdempotent(c *gc.C) {
 func (s *updateAuthKeysSuite) TestReplacesWrongKey(c *gc.C) {
 	// Put a wrong key in there.
 	_, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	keys := testing.FakeAuthKeys + "\n" + publicKey
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{
 		"authorized-keys": keys,
 	}, nil, nil)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.UpdateAuthorizedKeysForSystemIdentity(s.ctx)
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertHasPublicKeyInAuth(c, s.systemIdentity)
 }

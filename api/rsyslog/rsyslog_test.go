@@ -4,6 +4,7 @@
 package rsyslog_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -30,7 +31,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create the rsyslog API facade
 	s.rsyslog = s.st.Rsyslog()
@@ -39,10 +40,10 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 
 func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.rsyslog.GetRsyslogConfig(s.machine.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 
 	c.Assert(cfg.CACert, gc.Equals, coretesting.CACert)
@@ -56,7 +57,7 @@ func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 
 func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
 	w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
@@ -66,7 +67,7 @@ func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
 	// change the API HostPorts
 	newHostPorts := network.AddressesWithPort(network.NewAddresses("127.0.0.1"), 6541)
 	err = s.State.SetAPIHostPorts([][]network.HostPort{newHostPorts})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// assert we get notified
 	wc.AssertOneChange()
