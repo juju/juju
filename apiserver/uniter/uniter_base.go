@@ -181,6 +181,15 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 
 // TODO(ericsnow) Factor out the common code amongst the many methods here.
 
+var getEnvironment = func(st *state.State) (environs.Environ, error) {
+	envcfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env, err := environs.New(envcfg)
+	return env, errors.Trace(err)
+}
+
 // Zone returns the availability zone for each given unit, if applicable.
 func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
@@ -191,11 +200,7 @@ func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error)
 	}
 
 	// Get the provider.
-	envcfg, err := u.st.EnvironConfig()
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	env, err := environs.New(envcfg)
+	env, err := getEnvironment(u.st)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -215,11 +220,9 @@ func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error)
 	// sort of trouble then we skip it.
 	var instIDs []instance.Id
 	for i, entity := range args.Entities {
-		result := results.Results[i]
-
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Error = common.ServerError(common.ErrPerm)
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		err = common.ErrPerm
@@ -234,7 +237,7 @@ func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error)
 				}
 			}
 		}
-		result.Error = common.ServerError(err)
+		results.Results[i].Error = common.ServerError(err)
 	}
 
 	// Collect the zones.
@@ -246,14 +249,14 @@ func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error)
 	// Update the results. The number of zone names we get back should
 	// match the number of results without an error.  Their order will
 	// match as well.
-	for _, result := range results.Results {
+	for i, result := range results.Results {
 		if len(zones) == 0 {
 			break
 		}
 		if result.Error != nil {
 			continue
 		}
-		result.Result = zones[0]
+		results.Results[i].Result = zones[0]
 		zones = zones[1:]
 	}
 	if len(zones) > 0 {

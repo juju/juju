@@ -37,6 +37,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -258,6 +259,9 @@ type environ struct {
 	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
+
+	zones     set.Strings
+	instZones map[instance.Id]string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -1138,6 +1142,52 @@ func (e *environ) Ports() (ports []network.PortRange, err error) {
 
 func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
+}
+
+func (e *environ) AddZone(zoneName string) {
+	if e.zones == nil {
+		e.zones = set.NewStrings()
+	}
+	e.zones.Add(zoneName)
+}
+
+type dummyZone struct {
+	name      string
+	available bool
+}
+
+func (dz *dummyZone) Name() string {
+	return dz.name
+}
+
+func (dz *dummyZone) Available() bool {
+	return dz.available
+}
+
+func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	var zones []common.AvailabilityZone
+	for _, name := range e.zones.SortedValues() {
+		zones = append(zones, &dummyZone{name, true})
+	}
+	return zones, nil
+}
+
+func (e *environ) SetZone(instID instance.Id, zoneName string) {
+	if e.instZones == nil {
+		e.instZones = make(map[instance.Id]string)
+	}
+	e.AddZone(zoneName)
+	e.instZones[instID] = zoneName
+}
+
+func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	names := make([]string, len(ids))
+	for i, id := range ids {
+		if zoneName, ok := e.instZones[id]; ok {
+			names[i] = zoneName
+		}
+	}
+	return names, nil
 }
 
 type dummyInstance struct {

@@ -16,6 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/uniter"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -409,6 +412,34 @@ func (s *uniterBaseSuite) testPrivateAddress(
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: "1.2.3.4"},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+type zoneSetter interface {
+	SetZone(instID instance.Id, zoneName string)
+}
+
+func (s *uniterBaseSuite) testZone(
+	c *gc.C,
+	facade interface {
+		Zone(args params.Entities) (params.StringResults, error)
+	},
+) {
+	s.PatchValue(uniter.GetEnvironment, func(st *state.State) (environs.Environ, error) {
+		return s.Environ, nil
+	})
+	s.Environ.(zoneSetter).SetZone(instance.Id("id-1"), "a-zone")
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+	result, err := facade.Zone(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: "a-zone"},
 		},
 	})
 }
