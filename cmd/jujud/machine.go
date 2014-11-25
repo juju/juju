@@ -246,7 +246,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
 		inner := func(stopch <-chan struct{}) error {
 			agentConfig := a.CurrentConfig()
-			return agent.WriteSystemIdentityFile(agentConfig)
+			err := agent.WriteSystemIdentityFile(agentConfig)
+			if errors.Cause(err) == agent.ErrNoStateServingInfo {
+				// If the state serving info isn't available, we are not
+				// a state server, and that's ok.
+				return nil
+			}
+			return err
 		}
 		return worker.NewSimpleWorker(inner), nil
 	})
