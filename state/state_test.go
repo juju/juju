@@ -1246,6 +1246,21 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAddSubnet(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		ProviderId:        network.Id("foo"),
+		CIDR:              "192.168.1.0/24",
+		VLANTag:           0,
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.1",
+		AvailabilityZone:  "Timbuktu",
+	}
+
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet, gc.IsNil)
+}
+
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", s.owner.String(), charm, nil)
