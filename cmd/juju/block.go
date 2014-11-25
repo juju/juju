@@ -130,7 +130,7 @@ func (c *BlockableRemoveCommand) processBlockedError(err error) error {
 }
 
 var blockedRemoveObjectMsg = `
-All operations that remove (or delete or terminate) juju artifacts have been blocked for environment %q.
+All operations that remove (or delete or terminate) machines, services, units or relations have been blocked for environment %q.
 To unblock removal, run
 
     juju unblock remove-object
