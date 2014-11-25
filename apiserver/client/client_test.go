@@ -2634,59 +2634,34 @@ func (s *serverSuite) TestIgnoreBlockOperationOnServerError(c *gc.C) {
 	c.Assert(client.BlockOperation(true, err), gc.DeepEquals, expectedErr)
 }
 
-//AssertConfigParameterUpdated updates environment parameter and
-// asserts that no errors were encountered
-func (s *clientSuite) AssertConfigParameterUpdated(c *gc.C, key string, value interface{}) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
+// assertRemoveObjectBlocked updates environment parameter
+// to block remove object operations -
+// setting block-remove-object to true.
+// Asserts that no errors were encountered.
+func (s *clientSuite) assertRemoveObjectBlocked(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-remove-object": true}, nil, nil)
 	c.Assert(err, jc.IsNil)
 }
 
-func (s *clientSuite) TestClientBlockServiceDestroy(c *gc.C) {
+func (s *clientSuite) TestBlockServiceDestroy(c *gc.C) {
 	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
+	s.assertRemoveObjectBlocked(c)
 
 	for i, t := range serviceDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
 		err := s.APIState.Client().ServiceDestroy(t.service)
 		c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+		service, err := s.State.Service(t.service)
+		// Some tests have invalid service names.
+		// For valid service names, check that service is alive :-)
+		if err == nil {
+			assertLife(c, service, state.Alive)
+		}
 	}
-
-	// Now do ServiceDestroy on a service with units. Destroy will
-	// cause the service to be not-Alive, but will not remove its
-	// document.
-	s.setUpScenario(c)
-	serviceName := "wordpress"
-	_, err := s.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().ServiceDestroy(serviceName)
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-}
-
-func (s *clientSuite) TestClientUnblockServiceDestroy(c *gc.C) {
-	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
-	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-
-	for i, t := range serviceDestroyTests {
-		c.Logf("test %d. %s", i, t.about)
-		err := s.APIState.Client().ServiceDestroy(t.service)
-		c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-	}
-
-	// Now do ServiceDestroy on a service with units. Destroy will
-	// cause the service to be not-Alive, but will not remove its
-	// document.
-	s.setUpScenario(c)
-	serviceName := "wordpress"
-	_, err := s.State.Service(serviceName)
-	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().ServiceDestroy(serviceName)
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
 }
 
 func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1, m2 *state.Machine) {
-
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 0 is required by the environment; machine 1 has unit "wordpress/0" assigned`)
 	assertLife(c, m0, state.Alive)
@@ -2700,24 +2675,18 @@ func (s *clientSuite) assertDestroyMachineSuccess(c *gc.C, u *state.Unit, m0, m1
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Dying)
 	assertLife(c, m2, state.Dying)
-
 }
 
 func (s *clientSuite) TestBlockDestroyMachines(c *gc.C) {
 	m0, m1, m2, u := s.setupDestroyMachinesTest(c)
-
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
+	s.assertRemoveObjectBlocked(c)
 	err := s.APIState.Client().DestroyMachines("0", "1", "2")
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, m0, state.Alive)
 	assertLife(c, m1, state.Alive)
 	assertLife(c, u, state.Alive)
 	assertLife(c, m2, state.Alive)
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	s.assertDestroyMachineSuccess(c, u, m0, m1, m2)
 }
 
 func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
@@ -2740,12 +2709,7 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 
 func (s *clientSuite) TestForceBlockDestroyMachines(c *gc.C) {
 	// block remove-objects will have no effect here
-	s.AssertConfigParameterUpdated("block-remove-object", true)
-	s.assertForceDestroyMachines(c)
-}
-
-func (s *clientSuite) TestForceUnblockDestroyMachines(c *gc.C) {
-	s.AssertConfigParameterUpdated("block-remove-object", false)
+	s.assertRemoveObjectBlocked(c)
 	s.assertForceDestroyMachines(c)
 }
 
@@ -2790,7 +2754,7 @@ func (s *clientSuite) TestBlockDestroyPrincipalUnits(c *gc.C) {
 		units[i] = unit
 	}
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
+	s.assertRemoveObjectBlocked(c)
 	err := s.APIState.Client().DestroyServiceUnits("wordpress/0", "wordpress/1")
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, units[0], state.Alive)
@@ -2798,10 +2762,6 @@ func (s *clientSuite) TestBlockDestroyPrincipalUnits(c *gc.C) {
 	assertLife(c, units[2], state.Alive)
 	assertLife(c, units[3], state.Alive)
 	assertLife(c, units[4], state.Alive)
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	s.assertDestroyPrincipalUnits(c, units)
 }
 
 func (s *clientSuite) assertDestroySubordinateUnits(c *gc.C, wordpress0, logging0 *state.Unit) {
@@ -2831,44 +2791,29 @@ func (s *clientSuite) TestBlockDestroySubordinateUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
+	s.assertRemoveObjectBlocked(c)
 	// Try to destroy the subordinate alone; check it fails.
-	err := s.APIState.Client().DestroyServiceUnits("logging/0")
-	c.Assert(err, gc.ErrorMatches, `no units were destroyed: unit "logging/0" is a subordinate`)
+	err = s.APIState.Client().DestroyServiceUnits("logging/0")
+	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	assertLife(c, rel, state.Alive)
+	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
-
-	// ublock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	s.assertDestroySubordinateUnits(c, wordpress0, logging0)
+	assertLife(c, rel, state.Alive)
 }
 
 func (s *clientSuite) TestBlockDestroyRelation(c *gc.C) {
-	s.blockDestroyRelation(c, []string{"wordpress", "mysql"})
-}
-
-func (s *clientSuite) blockDestroyRelation(c *gc.C, endpoints []string) {
+	endpoints := []string{"wordpress", "mysql"}
 	relation := s.setupRelationScenario(c, endpoints)
-
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
+	s.assertRemoveObjectBlocked(c)
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	s.assertDestroyRelationSuccess(c, relation, endpoints)
-}
-
-func (s *clientSuite) TestBlockDestroyRelationSwapped(c *gc.C) {
-	// Show that the order of the services listed in the DestroyRelation call
-	// does not matter.  This is a repeat of the previous test with the service
-	// names swapped.
-	s.blockDestroyRelation(c, []string{"mysql", "wordpress"})
+	assertLife(c, relation, state.Alive)
 }
 
 func (s *clientSuite) TestBlockDestroyNoRelation(c *gc.C) {
@@ -2876,14 +2821,9 @@ func (s *clientSuite) TestBlockDestroyNoRelation(c *gc.C) {
 	endpoints := []string{"wordpress", "mysql"}
 
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
+	s.assertRemoveObjectBlocked(c)
 	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
 func (s *clientSuite) TestBlockDestroyingNonExistentRelation(c *gc.C) {
@@ -2891,28 +2831,18 @@ func (s *clientSuite) TestBlockDestroyingNonExistentRelation(c *gc.C) {
 	s.AddTestingService(c, "riak", s.AddTestingCharm(c, "riak"))
 	endpoints := []string{"riak", "wordpress"}
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
+	s.assertRemoveObjectBlocked(c)
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *clientSuite) TestBlockDestroyingWithOnlyOneEndpoint(c *gc.C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress"}
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
+	s.assertRemoveObjectBlocked(c)
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
 func (s *clientSuite) TestBlockDestroyingPeerRelation(c *gc.C) {
@@ -2921,14 +2851,9 @@ func (s *clientSuite) TestBlockDestroyingPeerRelation(c *gc.C) {
 	endpoints := []string{"riak:ring"}
 
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
+	s.assertRemoveObjectBlocked(c)
+	err := s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	err = s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
 }
 
 func (s *clientSuite) TestBlockDestroyingAlreadyDestroyedRelation(c *gc.C) {
@@ -2946,14 +2871,8 @@ func (s *clientSuite) TestBlockDestroyingAlreadyDestroyedRelation(c *gc.C) {
 	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
 	// block remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", true)
+	s.assertRemoveObjectBlocked(c)
 	// And try to destroy it again.
 	err = s.APIState.Client().DestroyRelation(endpoints...)
 	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
-
-	// unblock remove-objects
-	s.AssertConfigParameterUpdated("block-remove-object", false)
-	// And try to destroy it again.
-	err = s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
