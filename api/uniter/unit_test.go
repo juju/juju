@@ -246,6 +246,25 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
+func (s *unitSuite) TestZone(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "Zone",
+		func(result interface{}) error {
+			if results, ok := result.(*params.StringResults); ok {
+				results.Results = make([]params.StringResult, 1)
+				results.Results[0] = params.StringResult{
+					Result: "a-zone",
+				}
+			}
+			return nil
+		},
+	)
+
+	zone, err := s.apiUnit.Zone()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(zone, gc.Equals, "a-zone")
+}
+
 func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
 	ports, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
