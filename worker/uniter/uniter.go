@@ -341,6 +341,11 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	// goroutine-safe, but that's not what I'm fixing at the moment. We'll deal
 	// with that when we get a sane ops queue and are no longer depending on the
 	// uniter mode funcs for all the rest of our scheduling.
+	// In particular, we should probably defer InferRemoteUnit until much later;
+	// it's currently quite plausible that the relation state could change a fair
+	// amount between entering this method and actually acquiring the execution
+	// lock (and it could change more after that, too, but at least that window
+	// is reasonably bounded in a way that this one is not).
 	logger.Tracef("run commands: %s", args.Commands)
 
 	remoteUnitName, err := InferRemoteUnit(u.relationers, args)

@@ -162,6 +162,7 @@ func (s *RunActionSuite) TestExecuteRunError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `running action "some-action-name": snargle`)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+	c.Assert(*callbacks.MockGetRunner.gotContext, gc.Equals, contextFactory.MockNewActionContext.context)
 	c.Assert(*callbacks.MockGetRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
 }
 
@@ -210,6 +211,7 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		c.Assert(*newState, gc.DeepEquals, test.after)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "running action some-action-name")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
+		c.Assert(*callbacks.MockGetRunner.gotContext, gc.Equals, contextFactory.MockNewActionContext.context)
 		c.Assert(*callbacks.MockGetRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
 	}
 }

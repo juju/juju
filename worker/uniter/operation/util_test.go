@@ -5,6 +5,7 @@ package operation_test
 
 import (
 	"github.com/juju/errors"
+	utilexec "github.com/juju/utils/exec"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
@@ -151,6 +152,20 @@ func (cb *RunActionCallbacks) GetRunner(ctx context.Context) context.Runner {
 	return cb.MockGetRunner.Call(ctx)
 }
 
+type RunCommandsCallbacks struct {
+	operation.Callbacks
+	*MockAcquireExecutionLock
+	*MockGetRunner
+}
+
+func (cb *RunCommandsCallbacks) AcquireExecutionLock(message string) (func(), error) {
+	return cb.MockAcquireExecutionLock.Call(message)
+}
+
+func (cb *RunCommandsCallbacks) GetRunner(ctx context.Context) context.Runner {
+	return cb.MockGetRunner.Call(ctx)
+}
+
 type MockPrepareHook struct {
 	gotHook *hook.Info
 	name    string
@@ -224,17 +239,6 @@ func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 	return cb.MockCommitHook.Call(hookInfo)
 }
 
-type MockNewHookContext struct {
-	gotHook *hook.Info
-	context context.Context
-	err     error
-}
-
-func (mock *MockNewHookContext) Call(hookInfo hook.Info) (context.Context, error) {
-	mock.gotHook = &hookInfo
-	return mock.context, mock.err
-}
-
 type MockNewActionContext struct {
 	gotActionId *string
 	context     context.Context
@@ -246,10 +250,34 @@ func (mock *MockNewActionContext) Call(actionId string) (context.Context, error)
 	return mock.context, mock.err
 }
 
+type MockNewHookContext struct {
+	gotHook *hook.Info
+	context context.Context
+	err     error
+}
+
+func (mock *MockNewHookContext) Call(hookInfo hook.Info) (context.Context, error) {
+	mock.gotHook = &hookInfo
+	return mock.context, mock.err
+}
+
+type MockNewRunContext struct {
+	gotRelationId     *int
+	gotRemoteUnitName *string
+	context           context.Context
+	err               error
+}
+
+func (mock *MockNewRunContext) Call(relationId int, remoteUnitName string) (context.Context, error) {
+	mock.gotRelationId = &relationId
+	mock.gotRemoteUnitName = &remoteUnitName
+	return mock.context, mock.err
+}
+
 type MockContextFactory struct {
-	context.Factory
-	*MockNewHookContext
 	*MockNewActionContext
+	*MockNewHookContext
+	*MockNewRunContext
 }
 
 func (f *MockContextFactory) NewActionContext(actionId string) (context.Context, error) {
@@ -258,6 +286,10 @@ func (f *MockContextFactory) NewActionContext(actionId string) (context.Context,
 
 func (f *MockContextFactory) NewHookContext(hookInfo hook.Info) (context.Context, error) {
 	return f.MockNewHookContext.Call(hookInfo)
+}
+
+func (f *MockContextFactory) NewRunContext(relationId int, remoteUnitName string) (context.Context, error) {
+	return f.MockNewRunContext.Call(relationId, remoteUnitName)
 }
 
 type MockContext struct {
@@ -273,7 +305,6 @@ func (mock *MockContext) ActionData() (*context.ActionData, error) {
 }
 
 type MockRunAction struct {
-	context.Runner
 	gotName *string
 	err     error
 }
@@ -283,8 +314,18 @@ func (mock *MockRunAction) Call(actionName string) error {
 	return mock.err
 }
 
+type MockRunCommands struct {
+	gotCommands *string
+	response    *utilexec.ExecResponse
+	err         error
+}
+
+func (mock *MockRunCommands) Call(commands string) (*utilexec.ExecResponse, error) {
+	mock.gotCommands = &commands
+	return mock.response, mock.err
+}
+
 type MockRunHook struct {
-	context.Runner
 	gotName *string
 	err     error
 }
@@ -295,13 +336,17 @@ func (mock *MockRunHook) Call(hookName string) error {
 }
 
 type MockRunner struct {
-	context.Runner
-	*MockRunHook
 	*MockRunAction
+	*MockRunCommands
+	*MockRunHook
 }
 
 func (r *MockRunner) RunAction(actionName string) error {
 	return r.MockRunAction.Call(actionName)
+}
+
+func (r *MockRunner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
+	return r.MockRunCommands.Call(commands)
 }
 
 func (r *MockRunner) RunHook(hookName string) error {
@@ -312,6 +357,14 @@ func NewActionRunnerGetter(err error) *MockGetRunner {
 	return &MockGetRunner{
 		runner: &MockRunner{
 			MockRunAction: &MockRunAction{err: err},
+		},
+	}
+}
+
+func NewCommandsRunnerGetter(response *utilexec.ExecResponse, err error) *MockGetRunner {
+	return &MockGetRunner{
+		runner: &MockRunner{
+			MockRunCommands: &MockRunCommands{response: response, err: err},
 		},
 	}
 }
@@ -347,6 +400,16 @@ func NewRunActionSuccessContextFactory() *MockContextFactory {
 			},
 		},
 	}
+}
+
+type MockSendResponse struct {
+	gotResponse **utilexec.ExecResponse
+	gotErr      *error
+}
+
+func (mock *MockSendResponse) Call(response *utilexec.ExecResponse, err error) {
+	mock.gotResponse = &response
+	mock.gotErr = &err
 }
 
 var curl = corecharm.MustParseURL
