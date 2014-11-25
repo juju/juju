@@ -4,6 +4,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,7 +16,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
-	"strings"
 )
 
 type RemoveMachineSuite struct {
