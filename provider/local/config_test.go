@@ -6,6 +6,7 @@ package local_test
 import (
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -36,9 +37,9 @@ func minimalConfigValues() map[string]interface{} {
 func minimalConfig(c *gc.C) *config.Config {
 	minimal := minimalConfigValues()
 	testConfig, err := config.New(config.NoDefaults, minimal)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	valid, err := local.Provider.Validate(testConfig, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return valid
 }
 
@@ -48,9 +49,9 @@ func localConfig(c *gc.C, extra map[string]interface{}) *config.Config {
 		values[key] = value
 	}
 	testConfig, err := config.New(config.NoDefaults, values)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	valid, err := local.Provider.Validate(testConfig, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return valid
 }
 
@@ -58,7 +59,20 @@ func (s *configSuite) TestDefaultNetworkBridge(c *gc.C) {
 	config := minimalConfig(c)
 	unknownAttrs := config.UnknownAttrs()
 	c.Assert(unknownAttrs["container"], gc.Equals, "lxc")
-	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "")
+	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "lxcbr0")
+}
+
+func (s *configSuite) TestDefaultNetworkBridgeForKVMContainersWithOldDefault(c *gc.C) {
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"container":      "kvm",
+		"network-bridge": "lxcbr0",
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.KVM))
+	//should have corrected default for kvm container
+	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
 }
 
 func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
@@ -66,7 +80,7 @@ func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
 		"container": "kvm",
 	})
 	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
 	c.Check(containerType, gc.Equals, string(instance.KVM))
 	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
@@ -77,7 +91,7 @@ func (s *configSuite) TestDefaultNetworkBridgeForLXCContainers(c *gc.C) {
 		"container": "lxc",
 	})
 	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
 	c.Check(containerType, gc.Equals, string(instance.LXC))
 	c.Check(bridgeName, gc.Equals, lxc.DefaultLxcBridge)
@@ -137,7 +151,7 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 	env, err := local.Provider.Prepare(envtesting.BootstrapContext(c), minimalConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }
@@ -145,19 +159,19 @@ func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 	// Default config files set these to true.
 	testConfig := minimalConfig(c)
-	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 
 	// If using lxc-clone, we set updates to false
 	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"lxc-clone": true,
 	})
 	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	validConfig, err := local.Provider.Validate(testConfig, nil)
-	c.Assert(err, gc.IsNil)
-	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(validConfig.EnableOSUpgrade(), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(validConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(validConfig.EnableOSUpgrade(), jc.IsFalse)
 }
 
 // If settings are provided, don't overwrite with defaults.
@@ -168,7 +182,7 @@ func (s *configSuite) TestLocalRespectsUpgradeSettings(c *gc.C) {
 		"enable-os-updates":  true,
 	})
 	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, gc.IsNil)
-	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 }

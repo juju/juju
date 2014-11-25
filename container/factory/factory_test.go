@@ -4,6 +4,7 @@
 package factory_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"
@@ -38,7 +39,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		conf := container.ManagerConfig{container.ConfigName: "test"}
 		manager, err := factory.NewContainerManager(test.containerType, conf)
 		if test.valid {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(manager, gc.NotNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, `unknown container type: ".*"`)

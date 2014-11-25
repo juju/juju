@@ -56,7 +56,7 @@ func (s *storageSuite) metadata(c *gc.C) *backups.Metadata {
 	meta.Origin.Machine = "0"
 	meta.Origin.Hostname = "localhost"
 	err := meta.MarkComplete(int64(42), "some hash")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return meta
 }
 
@@ -93,10 +93,10 @@ func (s *storageSuite) TestNewStorageID(c *gc.C) {
 func (s *storageSuite) TestGetBackupMetadataFound(c *gc.C) {
 	original := s.metadata(c)
 	id, err := backups.AddBackupMetadata(s.State, original)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	meta, err := backups.GetBackupMetadata(s.State, id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkMeta(c, meta, original, id)
 }
@@ -110,10 +110,10 @@ func (s *storageSuite) TestGetBackupMetadataNotFound(c *gc.C) {
 func (s *storageSuite) TestAddBackupMetadataSuccess(c *gc.C) {
 	original := s.metadata(c)
 	id, err := backups.AddBackupMetadata(s.State, original)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	meta, err := backups.GetBackupMetadata(s.State, id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkMeta(c, meta, original, id)
 }
@@ -122,7 +122,7 @@ func (s *storageSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 	original := s.metadata(c)
 	original.SetID("spam")
 	id, err := backups.AddBackupMetadata(s.State, original)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(id, gc.Not(gc.Equals), "spam")
 }
@@ -137,7 +137,7 @@ func (s *storageSuite) TestAddBackupMetadataEmpty(c *gc.C) {
 func (s *storageSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 	original := s.metadata(c)
 	id, err := backups.AddBackupMetadata(s.State, original)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = backups.AddBackupMetadataID(s.State, original, id)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
@@ -147,16 +147,16 @@ func (s *storageSuite) TestSetBackupStoredTimeSuccess(c *gc.C) {
 	stored := time.Now()
 	original := s.metadata(c)
 	id, err := backups.AddBackupMetadata(s.State, original)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	meta, err := backups.GetBackupMetadata(s.State, id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meta.Stored(), gc.IsNil)
 
 	err = backups.SetBackupStoredTime(s.State, id, stored)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	meta, err = backups.GetBackupMetadata(s.State, id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(meta.Stored().Unix(), gc.Equals, stored.UTC().Unix())
 }
 

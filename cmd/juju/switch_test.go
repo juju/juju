@@ -7,6 +7,7 @@ import (
 	"os"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -23,7 +24,7 @@ var _ = gc.Suite(&SwitchSimpleSuite{})
 func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = testing.RunCommand(c, &SwitchCommand{})
 	c.Assert(err, gc.ErrorMatches, "couldn't read the environment")
 }
@@ -37,7 +38,7 @@ func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
 func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	context, err := testing.RunCommand(c, &SwitchCommand{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
 }
 
@@ -45,7 +46,7 @@ func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
 	context, err := testing.RunCommand(c, &SwitchCommand{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
 }
 
@@ -53,7 +54,7 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
 }
 
@@ -62,14 +63,14 @@ func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "using-env\n")
 }
 
 func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "erewhemos-2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> erewhemos-2\n")
 	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "erewhemos-2")
 }
@@ -94,7 +95,7 @@ erewhemos-2
 func (*SwitchSimpleSuite) TestListEnvironments(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
 }
 
@@ -102,7 +103,7 @@ func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
 }
 

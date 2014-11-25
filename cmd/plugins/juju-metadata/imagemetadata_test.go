@@ -58,10 +58,10 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	// Create a fake certificate so azure test environment can be opened.
 	certfile, err := ioutil.TempFile(s.dir, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	filename := certfile.Name()
 	err = ioutil.WriteFile(filename, []byte(testCert), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig := strings.Replace(metadataTestEnvConfig, "/home/me/azure.pem", filename, -1)
 	testing.WriteEnvironments(c, envConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
@@ -92,11 +92,11 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 	c.Check(strippedOut, gc.Matches, `image metadata files have been written to.*`)
 	indexpath := filepath.Join(s.dir, "images", "streams", "v1", indexFileName)
 	data, err := ioutil.ReadFile(indexpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	content := string(data)
 	var indices interface{}
 	err = json.Unmarshal(data, &indices)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indices.(map[string]interface{})["format"], gc.Equals, "index:1.0")
 	prodId := fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", seriesVersions[expected.series], expected.arch)
 	c.Assert(content, jc.Contains, prodId)
@@ -106,11 +106,11 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 
 	imagepath := filepath.Join(s.dir, "images", "streams", "v1", imageFileName)
 	data, err = ioutil.ReadFile(imagepath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	content = string(data)
 	var images interface{}
 	err = json.Unmarshal(data, &images)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(images.(map[string]interface{})["format"], gc.Equals, "products:1.0")
 	c.Assert(content, jc.Contains, prodId)
 	c.Assert(content, jc.Contains, `"id": "1234"`)
@@ -118,7 +118,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 
 const (
 	defaultIndexFileName = "index.json"
-	defaultImageFileName = "com.ubuntu.cloud:released:imagemetadata.json"
+	defaultImageFileName = "com.ubuntu.cloud-released-imagemetadata.json"
 )
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {

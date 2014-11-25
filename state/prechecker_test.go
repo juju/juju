@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -53,12 +54,12 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	envCons := constraints.MustParse("mem=4G")
 	placement := "abc123"
 	template, err := s.addOneMachine(c, envCons, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
 	c.Assert(s.prechecker.precheckInstancePlacement, gc.Equals, placement)
 	validator := constraints.NewValidator()
 	cons, err := validator.Merge(envCons, template.Constraints)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceConstraints, gc.DeepEquals, cons)
 }
 
@@ -85,7 +86,7 @@ func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
 	precheckerErr = errors.NotImplementedf("Prechecker")
 	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
@@ -95,12 +96,12 @@ func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
 	}
 	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, placement string) (state.MachineTemplate, error) {
 	err := s.State.SetEnvironConstraints(envCons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
 	template := state.MachineTemplate{
@@ -122,7 +123,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		Placement:  "anyoldthing",
 	}
 	_, err := s.State.AddOneMachine(template)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, "")
@@ -138,7 +139,7 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 		Placement: "intertubes",
 	}
 	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceSeries, gc.Equals, template.Series)
 	c.Assert(s.prechecker.precheckInstancePlacement, gc.Equals, template.Placement)
 }

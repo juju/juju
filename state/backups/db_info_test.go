@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
@@ -12,39 +13,53 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&connInfoSuite{})
+var _ = gc.Suite(&dbInfoSuite{})
 
-type connInfoSuite struct {
+type dbInfoSuite struct {
 	testing.BaseSuite
 }
 
-func (s *connInfoSuite) TestNewMongoConnInfoOkay(c *gc.C) {
+type fakeSession struct {
+	dbNames []string
+}
+
+func (f *fakeSession) DatabaseNames() ([]string, error) {
+	return f.dbNames, nil
+}
+
+func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
+	session := fakeSession{}
+
 	tag, err := names.ParseTag("machine-0")
-	c.Assert(err, gc.IsNil)
-	mgoInfo := mongo.MongoInfo{
+	c.Assert(err, jc.ErrorIsNil)
+	mgoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs: []string{"localhost:8080"},
 		},
 		Tag:      tag,
 		Password: "eggs",
 	}
-	connInfo := backups.NewMongoConnInfo(&mgoInfo)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(connInfo.Address, gc.Equals, "localhost:8080")
-	c.Check(connInfo.Username, gc.Equals, "machine-0")
-	c.Check(connInfo.Password, gc.Equals, "eggs")
+	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
+	c.Check(dbInfo.Username, gc.Equals, "machine-0")
+	c.Check(dbInfo.Password, gc.Equals, "eggs")
 }
 
-func (s *connInfoSuite) TestNewMongoConnInfoMissingTag(c *gc.C) {
-	mgoInfo := mongo.MongoInfo{
+func (s *dbInfoSuite) TestNewDBInfoMissingTag(c *gc.C) {
+	session := fakeSession{}
+
+	mgoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs: []string{"localhost:8080"},
 		},
 		Password: "eggs",
 	}
-	connInfo := backups.NewMongoConnInfo(&mgoInfo)
+	dbInfo, err := backups.NewDBInfo(mgoInfo, &session)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(connInfo.Username, gc.Equals, "")
-	c.Check(connInfo.Address, gc.Equals, "localhost:8080")
-	c.Check(connInfo.Password, gc.Equals, "eggs")
+	c.Check(dbInfo.Username, gc.Equals, "")
+	c.Check(dbInfo.Address, gc.Equals, "localhost:8080")
+	c.Check(dbInfo.Password, gc.Equals, "eggs")
 }

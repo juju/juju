@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -30,7 +30,7 @@ var _ = gc.Suite(&formatSuite{})
 var agentParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
-	Jobs:              []juju.MachineJob{juju.JobHostUnits},
+	Jobs:              []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	StateAddresses:    []string{"localhost:1234"},
@@ -44,14 +44,14 @@ func newTestConfig(c *gc.C) *configInternal {
 	params.DataDir = c.MkDir()
 	params.LogDir = c.MkDir()
 	config, err := NewAgentConfig(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return config.(*configInternal)
 }
 
 func (*formatSuite) TestWriteCommands(c *gc.C) {
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands("quantal")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.HasLen, 3)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
 	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/machine-1/agent.conf'`)
@@ -61,7 +61,7 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
 	config := newTestConfig(c)
 	commands, err := config.WriteCommands("win8")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(commands, gc.HasLen, 2)
 	c.Assert(commands[0], gc.Matches, `mkdir \S+\\agents\\machine-1`)
 	c.Assert(commands[1], gc.Matches, `Set-Content '\S+/agents/machine-1/agent.conf' @"
@@ -72,7 +72,7 @@ func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
 func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	config := newTestConfig(c)
 	err := config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	configPath := ConfigPath(config.DataDir(), config.Tag())
 	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
@@ -96,7 +96,7 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 	params.DataDir = c.MkDir()
 	params.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(params, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	config, ok := configInterface.(*configInternal)
 	c.Assert(ok, jc.IsTrue)
 
@@ -105,16 +105,16 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 
 func assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	configPath := ConfigPath(config.DataDir(), config.Tag())
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readConfig, jc.DeepEquals, config)
 }
 
 func assertFileExists(c *gc.C, path string) {
 	fileInfo, err := os.Stat(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
 
 	// Windows is not fully POSIX compliant. Chmod() and Chown() have unexpected behavior

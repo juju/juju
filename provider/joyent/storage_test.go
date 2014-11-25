@@ -53,12 +53,12 @@ func (s *storageSuite) makeStorage(name string, c *gc.C) *jp.JoyentStorage {
 
 func (s *storageSuite) assertContainer(storage *jp.JoyentStorage, c *gc.C) {
 	err := jp.CreateContainer(storage)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) assertFile(storage *jp.JoyentStorage, c *gc.C) {
 	err := storage.Put(fileName, strings.NewReader(fileBlobContent), int64(len(fileBlobContent)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // makeRandomBytes returns an array of arbitrary byte values.
@@ -84,7 +84,7 @@ func (s *storageSuite) TestList(c *gc.C) {
 	s.assertFile(mantaStorage, c)
 
 	names, err := mantaStorage.List("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, gc.DeepEquals, []string{fileName})
 }
 
@@ -93,10 +93,10 @@ func (s *storageSuite) TestListWithPrefix(c *gc.C) {
 	s.assertContainer(mantaStorage, c)
 	s.assertFile(mantaStorage, c)
 	err := mantaStorage.Put("pr/fileName", strings.NewReader(fileBlobContent), int64(len(fileBlobContent)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	names, err := mantaStorage.List("p")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(names, gc.DeepEquals, []string{"pr/fileName"})
 }
 
@@ -105,12 +105,12 @@ func (s *storageSuite) TestGet(c *gc.C) {
 	s.assertFile(mantaStorage, c)
 
 	reader, err := mantaStorage.Get(fileName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(reader, gc.NotNil)
 	defer reader.Close()
 
 	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, fileBlobContent)
 }
 
@@ -133,30 +133,30 @@ func (s *storageSuite) TestRemove(c *gc.C) {
 	s.assertFile(mantaStorage, c)
 
 	err := mantaStorage.Remove(fileName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestRemoveFileNotExists(c *gc.C) {
 	mantaStorage := s.makeStorage(storageName, c)
 
 	err := mantaStorage.Remove("nofile")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestRemoveAll(c *gc.C) {
 	mantaStorage := s.makeStorage(storageName, c)
 
 	err := mantaStorage.RemoveAll()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestURL(c *gc.C) {
 	mantaStorage := s.makeStorage(storageName, c)
 
 	URL, err := mantaStorage.URL(fileName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	parsedURL, err := url.Parse(URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(parsedURL.Host, gc.Matches, mantaStorage.GetMantaUrl()[strings.LastIndex(mantaStorage.GetMantaUrl(), "/")+1:])
 	c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/stor/%s/%s", mantaStorage.GetMantaUser(), mantaStorage.GetContainerName(), fileName))
 }
@@ -179,7 +179,7 @@ func (s *storageSuite) TestDeleteContainer(c *gc.C) {
 	s.assertContainer(mantaStorage, c)
 
 	err := mantaStorage.DeleteContainer(mantaStorage.GetContainerName())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storageSuite) TestDeleteContainerNotEmpty(c *gc.C) {

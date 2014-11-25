@@ -44,19 +44,19 @@ func NewEnvironWatcherTest(
 // more than just the default test.
 func (s *EnvironWatcherTest) AssertEnvironConfig(c *gc.C, envWatcher EnvironmentWatcher, hasSecrets bool) {
 	envConfig, err := s.st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := envWatcher.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	configAttributes := envConfig.AllAttrs()
 	// If the implementor doesn't provide secrets, we need to replace the config
 	// values in our environment to compare against with the secrets replaced.
 	if !hasSecrets {
 		env, err := environs.New(envConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for key := range secretAttrs {
 			configAttributes[key] = "not available"
 		}
@@ -73,7 +73,7 @@ func (s *EnvironWatcherTest) TestWatchForEnvironConfigChanges(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	result, err := s.envWatcher.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",
 	})

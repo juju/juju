@@ -61,7 +61,7 @@ func (suite *PluginSuite) TestRunPluginExising(c *gc.C) {
 	suite.makePlugin("foo", 0755)
 	ctx := testing.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "foo some params\n")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 }

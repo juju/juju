@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -27,7 +28,7 @@ var _ = gc.Suite(&InitSuite{})
 func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, nil)
 	c.Check(code, gc.Equals, 0)
@@ -36,7 +37,7 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 	c.Check(strippedOut, gc.Matches, ".*A boilerplate environment configuration file has been written.*")
 	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)
 	c.Assert(strippedData, gc.Matches, ".*# This is the Juju config file, which you can use.*")
 }
@@ -46,7 +47,7 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 func (*InitSuite) TestBoilerPlatePrinted(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, []string{"--show"})
 	c.Check(code, gc.Equals, 0)
@@ -79,7 +80,7 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *gc.C) {
 	c.Check(strippedOut, gc.Matches, ".*A juju environment configuration already exists.*")
 	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, existingEnv)
 }
 
@@ -96,7 +97,7 @@ func (*InitSuite) TestExistingEnvironmentOverwritten(c *gc.C) {
 	c.Check(strippedOut, gc.Matches, ".*A boilerplate environment configuration file has been written.*")
 	environpath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)
 	c.Assert(strippedData, gc.Matches, ".*# This is the Juju config file, which you can use.*")
 }

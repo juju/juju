@@ -15,7 +15,6 @@ import (
 	"gopkg.in/juju/charm.v4"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -89,7 +89,7 @@ type context struct {
 func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -103,13 +103,13 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 
 func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pinger {
 	pinger, err := p.SetAgentPresence()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.st.StartSync()
 	err = p.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentPresence, err := p.AgentPresence()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentPresence, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentPresence, jc.IsTrue)
 	return pinger
 }
 
@@ -1657,7 +1657,7 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
 
@@ -1675,7 +1675,7 @@ func (an addNetwork) step(c *gc.C, ctx *context) {
 		CIDR:       an.cidr,
 		VLANTag:    an.vlanTag,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n.Name(), gc.Equals, an.name)
 }
 
@@ -1691,7 +1691,7 @@ func (ac addContainer) step(c *gc.C, ctx *context) {
 		Jobs:   []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
 
@@ -1701,12 +1701,12 @@ type startMachine struct {
 
 func (sm startMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startMissingMachine struct {
@@ -1715,14 +1715,14 @@ type startMissingMachine struct {
 
 func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetInstanceStatus("missing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startAliveMachine struct {
@@ -1731,13 +1731,13 @@ type startAliveMachine struct {
 
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
 }
 
@@ -1748,9 +1748,9 @@ type setAddresses struct {
 
 func (sa setAddresses) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sa.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAddresses(sa.addresses...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setTools struct {
@@ -1760,9 +1760,9 @@ type setTools struct {
 
 func (st setTools) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(st.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAgentVersion(st.version)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addCharm struct {
@@ -1774,7 +1774,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
 	dummy, err := ctx.st.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.charms[ac.name] = dummy
 }
 
@@ -1802,12 +1802,12 @@ type addService struct {
 
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -1818,12 +1818,12 @@ type setServiceExposed struct {
 
 func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sse.name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.ClearExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if sse.exposed {
 		err = s.SetExposed()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -1834,11 +1834,11 @@ type setServiceCharm struct {
 
 func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Service(ssc.name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.SetCharm(ch, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addCharmPlaceholder struct {
@@ -1851,7 +1851,7 @@ func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
 	err := ctx.st.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addUnit struct {
@@ -1861,13 +1861,13 @@ type addUnit struct {
 
 func (au addUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(au.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err := ctx.st.Machine(au.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addAliveUnit struct {
@@ -1877,14 +1877,14 @@ type addAliveUnit struct {
 
 func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(aau.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pinger := ctx.setAgentPresence(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[u.Name()] = pinger
 }
 
@@ -1894,9 +1894,9 @@ type setUnitsAlive struct {
 
 func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sua.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	us, err := s.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range us {
 		ctx.pingers[u.Name()] = ctx.setAgentPresence(c, u)
 	}
@@ -1911,9 +1911,9 @@ type setUnitStatus struct {
 
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setUnitCharmURL struct {
@@ -1923,12 +1923,12 @@ type setUnitCharmURL struct {
 
 func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(uc.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(uc.charm)
 	err = u.SetCharmURL(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type openUnitPort struct {
@@ -1939,9 +1939,9 @@ type openUnitPort struct {
 
 func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.OpenPort(oup.protocol, oup.number)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type ensureDyingUnit struct {
@@ -1950,9 +1950,9 @@ type ensureDyingUnit struct {
 
 func (e ensureDyingUnit) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(e.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Life(), gc.Equals, state.Dying)
 }
 
@@ -1962,11 +1962,11 @@ type ensureDyingService struct {
 
 func (e ensureDyingService) step(c *gc.C, ctx *context) {
 	svc, err := ctx.st.Service(e.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Life(), gc.Equals, state.Dying)
 }
 
@@ -1976,9 +1976,9 @@ type ensureDeadMachine struct {
 
 func (e ensureDeadMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(e.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
@@ -1990,9 +1990,9 @@ type setMachineStatus struct {
 
 func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetStatus(sms.status, sms.statusInfo, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type relateServices struct {
@@ -2001,9 +2001,9 @@ type relateServices struct {
 
 func (rs relateServices) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = ctx.st.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addSubordinate struct {
@@ -2013,15 +2013,15 @@ type addSubordinate struct {
 
 func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	eps, err := ctx.st.InferEndpoints(u.ServiceName(), as.subService)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(u)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type scopedExpect struct {
@@ -2052,15 +2052,15 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := make(M)
 		err = format.unmarshal(buf, &expected)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
@@ -2119,7 +2119,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []juju.MachineJob{juju.JobManageEnviron},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 				HasVote:        false,
 				WantsVote:      true,
 			},
@@ -2131,7 +2131,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "hello",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []juju.MachineJob{juju.JobHostUnits},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				HasVote:        false,
 				WantsVote:      false,
 			},

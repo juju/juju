@@ -269,7 +269,7 @@ func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
 }
 
 func (st *State) addAction(ar ActionReceiver, actionName string, payload map[string]interface{}) (*Action, error) {
-	receiverCollectionName, receiverId, err := st.parseTag(ar.Tag())
+	receiverCollectionName, receiverId, err := st.tagToCollectionAndId(ar.Tag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

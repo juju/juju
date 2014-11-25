@@ -4,6 +4,7 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -55,7 +56,7 @@ func runAddUnit(c *gc.C, args ...string) error {
 func (s *AddUnitSuite) setupService(c *gc.C) *charm.URL {
 	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 	return curl
@@ -65,11 +66,11 @@ func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 	curl := s.setupService(c)
 
 	err := runAddUnit(c, "some-service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertService(c, "some-service-name", curl, 2, 0)
 
 	err = runAddUnit(c, "--num-units", "2", "some-service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertService(c, "some-service-name", curl, 4, 0)
 }
 
@@ -77,24 +78,24 @@ func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 // is as expected.
 func (s *AddUnitSuite) assertForceMachine(c *gc.C, svc *state.Service, expectedNumMachines, unitNum int, machineId string) {
 	units, err := svc.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, expectedNumMachines)
 	mid, err := units[unitNum].AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mid, gc.Equals, machineId)
 }
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 	curl := s.setupService(c)
 	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine2, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", machine2.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runAddUnit(c, "some-service-name", "--to", machine.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	s.assertForceMachine(c, svc, 3, 1, machine2.Id())
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
@@ -103,18 +104,18 @@ func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 	curl := s.setupService(c)
 	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Series: testing.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", container.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runAddUnit(c, "some-service-name", "--to", machine.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	s.assertForceMachine(c, svc, 3, 1, container.Id())
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
@@ -123,12 +124,12 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	curl := s.setupService(c)
 	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", "lxc:"+machine.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runAddUnit(c, "some-service-name", "--to", machine.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	s.assertForceMachine(c, svc, 3, 1, machine.Id()+"/lxc/0")
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())

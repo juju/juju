@@ -29,7 +29,7 @@ var _ = gc.Suite(&runSuite{})
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
@@ -63,13 +63,13 @@ func (s *runSuite) TestRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
 
 func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToNewMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mId, err := unit.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine.SetAddresses(network.NewAddress("10.3.2.1", network.ScopeUnknown))
 	return unit
 }
@@ -82,27 +82,27 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	s.addUnit(c, magic)
 
 	notAssigned, err := s.State.AddService("not-assigned", owner.String(), charm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = notAssigned.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddService("no-units", owner.String(), charm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress, err := s.State.AddService("wordpress", owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wordpress0 := s.addUnit(c, wordpress)
 	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(wordpress0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
 		message  string
@@ -148,7 +148,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		c.Logf("%v: %s", i, test.message)
 		result, err := client.GetAllUnitNames(s.State, test.units, test.services)
 		if test.error == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			var units []string
 			for _, unit := range result {
 				units = append(units, unit.Name())
@@ -165,7 +165,7 @@ func (s *runSuite) mockSSH(c *gc.C, cmd string) {
 	fakessh := filepath.Join(testbin, "ssh")
 	s.PatchEnvPathPrepend(testbin)
 	err := ioutil.WriteFile(fakessh, []byte(cmd), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
@@ -242,7 +242,7 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	// other client tests are written.
 	client := s.APIState.Client()
 	results, err := client.RunOnAllMachines("hostname", testing.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
 	var expectedResults []params.RunResult
 	for i := 0; i < 3; i++ {
@@ -264,7 +264,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.Factory.MakeUser(c, nil).Tag()
 	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
@@ -281,7 +281,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
 	expectedResults := []params.RunResult{
 		params.RunResult{

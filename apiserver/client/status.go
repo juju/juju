@@ -11,12 +11,12 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -440,8 +440,8 @@ func isSubordinate(ep *state.Endpoint, service *state.Service) bool {
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []juju.MachineJob {
-	paramsJobs := make([]juju.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
+	paramsJobs := make([]multiwatcher.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		paramsJobs[i] = machineJob.ToParams()
 	}

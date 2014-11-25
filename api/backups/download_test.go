@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
@@ -51,7 +52,7 @@ func (s *downloadSuite) setFailure(c *gc.C, msg string, status int) {
 		Message: msg,
 	}
 	data, err := json.Marshal(&failure)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.setResponse(c, status, data, "application/json")
 }
@@ -69,10 +70,10 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 	s.setSuccess(c, "<compressed archive data>")
 
 	resultArchive, err := s.client.Download("spam")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	resultData, err := ioutil.ReadAll(resultArchive)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(resultData), gc.Equals, "<compressed archive data>")
 }
 

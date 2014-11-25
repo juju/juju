@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -175,19 +176,19 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
 		write := func() {
 			err := file.Write(t.st.Started, t.st.Kind, t.st.Step, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.err != "" {
 			c.Assert(write, gc.PanicMatches, "invalid uniter state: "+t.err)
 			err := utils.WriteYaml(path, &t.st)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			_, err = file.Read()
 			c.Assert(err, gc.ErrorMatches, "cannot read charm state at .*: invalid uniter state: "+t.err)
 			continue
 		}
 		write()
 		st, err := file.Read()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*st, gc.DeepEquals, t.st)
 	}
 }

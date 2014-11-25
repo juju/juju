@@ -32,27 +32,27 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "wordpress")
 	var err error
 	s.service = s.AddTestingService(c, "wordpress", s.charm)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.unit, err = s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
 	s.unit2, err = s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 }
 
 func (s *ActionSuite) TestActionTag(c *gc.C) {
 	action, err := s.unit.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	tag := action.Tag()
 	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+action.Id())
 
 	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err := s.unit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 1)
 
 	actionResult := actions[0]
@@ -70,11 +70,11 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 	// verify can add an Action
 	a, err := s.unit.AddAction(name, params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// verify we can get it back out by Id
 	action, err := s.State.Action(a.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action, gc.NotNil)
 	c.Assert(action.Id(), gc.Equals, a.Id())
 
@@ -96,51 +96,51 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 
 	// verify can add two actions with same name
 	a1, err := s.unit.AddAction(name, params1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	a2, err := s.unit.AddAction(name, params2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(a1.Id(), gc.Not(gc.Equals), a2.Id())
 
 	// verify both actually got added
 	actions, err := s.unit.PendingActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// verify we can Fail one, retrieve the other, and they're not mixed up
 	action1, err := s.State.Action(a1.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = action1.Finish(state.ActionResults{Status: state.ActionFailed})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	action2, err := s.State.Action(a2.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action2.Parameters(), jc.DeepEquals, params2)
 
 	// verify only one left, and it's the expected one
 	actions, err = s.unit.PendingActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 1)
 	c.Assert(actions[0].Id(), gc.Equals, a2.Id())
 }
 
 func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	unit, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
 	// make unit state Dying
 	err = unit.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// can add action to a dying unit
 	_, err = unit.AddAction("fakeaction1", map[string]interface{}{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure unit is dead
 	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
@@ -149,7 +149,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 
 func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	unit, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
 	killUnit := txn.TestHook{
@@ -167,28 +167,28 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 func (s *ActionSuite) TestFail(c *gc.C) {
 	// get unit, add an action, retrieve that action
 	unit, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
 	a, err := unit.AddAction("action1", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.State.Action(a.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure no action results for this action
 	results, err := unit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
 	// fail the action, and verify that it succeeds
 	reason := "test fail reason"
 	result, err := action.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure we now have a result for this action
 	results, err = unit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.DeepEquals, result)
 
@@ -207,35 +207,35 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 
 	// validate that a pending action is no longer returned by UnitActions.
 	actions, err := unit.PendingActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
 func (s *ActionSuite) TestComplete(c *gc.C) {
 	// get unit, add an action, retrieve that action
 	unit, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
 	a, err := unit.AddAction("action1", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.State.Action(a.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure no action results for this action
 	results, err := unit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
 	// complete the action, and verify that it succeeds
 	output := map[string]interface{}{"output": "action ran successfully"}
 	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted, Results: output})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ensure we now have a result for this action
 	results, err = unit.CompletedActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0], gc.DeepEquals, result)
 
@@ -247,7 +247,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 
 	// validate that a pending action is no longer returned by UnitActions.
 	actions, err := unit.PendingActions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
@@ -264,14 +264,14 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 
 	// preamble
 	unit1, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit1)
 
 	// queue up actions
 	a1, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	a2, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// start watcher but don't consume Changes() yet
 	w := unit1.WatchActionNotifications()
@@ -281,9 +281,9 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	// remove actions
 	reason := "removed"
 	_, err = a1.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = a2.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// per contract, there should be at minimum an initial empty Change() result
 	wc.AssertChange()
@@ -293,18 +293,18 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	// get units
 	unit1, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit1)
 
 	unit2, err := s.State.Unit(s.unit2.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit2)
 
 	// queue some actions before starting the watcher
 	fa1, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	fa2, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// set up watcher on first unit
 	w := unit1.WatchActionNotifications()
@@ -325,7 +325,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
 	fa3, err := unit2.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	expect2 := expectActionNotificationIds(fa3)
 	wc2.AssertChange(expect2...)
@@ -333,9 +333,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 
 	// add a couple actions on unit1 and make sure watcher sees events
 	fa4, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	fa5, err := unit1.AddAction("fakeaction", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expect = expectActionNotificationIds(fa4, fa5)
 	wc.AssertChange(expect...)
@@ -371,7 +371,7 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
 		err := state.WatcherMergeIds(s.State, &changes, updates)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(changes, jc.SameContents, expected)
 	}
 }
@@ -397,7 +397,7 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 		err := state.WatcherMergeIds(s.State, &changes, updates)
 
 		if test.ok {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, "id is not of type string, got "+test.name)
 		}
@@ -469,7 +469,7 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	u, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w := u.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w)
@@ -479,17 +479,17 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 
 	// add 3 actions
 	fa1, err := u.AddAction("fakeaction1", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	fa2, err := u.AddAction("fakeaction2", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	fa3, err := u.AddAction("fakeaction3", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// fail the middle one
 	action, err := s.State.Action(fa2.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// expect the first and last one in the watcher
 	expect := expectActionNotificationIds(fa1, fa3)
@@ -538,13 +538,13 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	all := []*state.Action{}
 	for _, tcase := range testCase {
 		a, err := tcase.receiver.AddAction(tcase.name, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		action, err := s.State.Action(a.Id())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		_, err = action.Finish(state.ActionResults{Status: tcase.status})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		if tcase.receiver == s.unit {
 			expect[tcase.status] = append(expect[tcase.status], action)

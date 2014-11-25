@@ -28,7 +28,7 @@ var _ = gc.Suite(&RunCommandSuite{})
 
 func (s *RunCommandSuite) getHookContext(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
 }
 
@@ -43,7 +43,7 @@ echo this is standard err >&2
 exit 42
 `
 	result, err := runner.RunCommands(commands)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.Code, gc.Equals, 42)
 	c.Assert(string(result.Stdout), gc.Equals, paths.charm+"\n")
@@ -112,7 +112,7 @@ var runHookTests = []struct {
 
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
 		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, noProxies)
@@ -130,7 +130,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		t0 := time.Now()
 		err := runner.RunHook("something-happened")
 		if t.err == "" && hookExists {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else if !hookExists {
 			c.Assert(context.IsMissingHookError(err), jc.IsTrue)
 		} else {
@@ -191,7 +191,7 @@ func (s *RunMockContextSuite) SetUpTest(c *gc.C) {
 func (s *RunMockContextSuite) assertRecordedPid(c *gc.C, expectPid int) {
 	path := filepath.Join(s.paths.charm, "pid")
 	content, err := ioutil.ReadFile(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectContent := fmt.Sprintf("%d\n", expectPid)
 	c.Assert(string(content), gc.Equals, expectContent)
 }

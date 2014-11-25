@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -42,13 +42,13 @@ var _ = gc.Suite(&cloudinitSuite{})
 
 var envConstraints = constraints.MustParse("mem=2G")
 
-var allMachineJobs = []juju.MachineJob{
-	juju.JobManageEnviron,
-	juju.JobHostUnits,
-	juju.JobManageNetworking,
+var allMachineJobs = []multiwatcher.MachineJob{
+	multiwatcher.JobManageEnviron,
+	multiwatcher.JobHostUnits,
+	multiwatcher.JobManageNetworking,
 }
-var normalMachineJobs = []juju.MachineJob{
-	juju.JobHostUnits,
+var normalMachineJobs = []multiwatcher.MachineJob{
+	multiwatcher.JobHostUnits,
 }
 
 type cloudinitTest struct {
@@ -105,7 +105,7 @@ func minimalMachineConfig(tweakers ...func(cloudinit.MachineConfig)) cloudinit.M
 
 func minimalConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 	return cfg
 }
@@ -485,7 +485,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 		inexactMatch: true,
 		expectScripts: `
 printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/index\.json'
-printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud:released:imagemetadata\.json'
+printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud-released-imagemetadata\.json'
 `,
 	},
 }
@@ -516,7 +516,7 @@ func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
 		cfg = m[1]
 		found = true
 	}
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	return cfg
 }
 
@@ -531,13 +531,13 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 		}
 		found = true
 		buf, err := base64.StdEncoding.DecodeString(m[1])
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		var actual map[string]interface{}
 		err = goyaml.Unmarshal(buf, &actual)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.AllAttrs(), jc.DeepEquals, actual)
 	}
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 }
 
 // TestCloudInit checks that the output from the various tests
@@ -551,21 +551,21 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		}
 		ci := coreCloudinit.New()
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(ci, gc.NotNil)
 		// render the cloudinit config to bytes, and then
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
 		// package.
 		data, err := udata.Render()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		configKeyValues := make(map[interface{}]interface{})
 		err = goyaml.Unmarshal(data, &configKeyValues)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(configKeyValues["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
 			"command": "eatmydata",
@@ -573,13 +573,13 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		})
 
 		if test.cfg.EnableOSRefreshUpdate {
-			c.Check(configKeyValues["apt_update"], gc.Equals, true)
+			c.Check(configKeyValues["apt_update"], jc.IsTrue)
 		} else {
 			c.Check(configKeyValues["apt_update"], gc.IsNil)
 		}
 
 		if test.cfg.EnableOSUpgrade {
-			c.Check(configKeyValues["apt_upgrade"], gc.Equals, true)
+			c.Check(configKeyValues["apt_upgrade"], jc.IsTrue)
 		} else {
 			c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
 		}
@@ -607,9 +607,9 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 		c.Logf("test %d (Configure)", i)
 		cloudcfg := coreCloudinit.New()
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, cloudcfg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -620,15 +620,15 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
 	udata, err := cloudinit.NewUserdataConfig(&cloudinitTests[0].cfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := udata.Render()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ciContent := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &ciContent)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// The 'runcmd' statement is at the beginning of the list
 	// of 'runcmd' statements.
 	runCmd := ciContent["runcmd"].([]interface{})
@@ -692,7 +692,7 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 			c.Fatalf("could not find match for %q", pats[0].line)
 		default:
 			ok, err := regexp.MatchString(pats[0].line, scripts[0].line)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if ok {
 				pats = pats[1:]
 				scripts = scripts[1:]
@@ -949,9 +949,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		// check that the base configuration does not give an error
 		// and that a previous test hasn't mutated it accidentially.
 		udata, err := cloudinit.NewUserdataConfig(cfg, ci)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		c.Logf("test %d. %s", i, test.err)
 
@@ -959,7 +959,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		test.mutate(&cfg1)
 
 		udata, err = cloudinit.NewUserdataConfig(&cfg1, ci)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 
@@ -972,13 +972,13 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
 	err = environs.FinishMachineConfig(machineConfig, environConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return machineConfig
 }
 
@@ -987,9 +987,9 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
 	c.Assert(cmds, jc.DeepEquals, []interface{}{})
@@ -1000,13 +1000,13 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"apt-http-proxy": "http://user@10.0.0.1",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.BootCmds()
 	expected := "[ -f /etc/apt/apt.conf.d/42-juju-proxy-settings ] || (printf '%s\\n' 'Acquire::http::Proxy \"http://user@10.0.0.1\";' > /etc/apt/apt.conf.d/42-juju-proxy-settings)"
@@ -1019,13 +1019,13 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		"http-proxy": "http://user@10.0.0.1",
 		"no-proxy":   "localhost,10.0.3.1",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmds := cloudcfg.RunCmds()
 	first := `([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`
@@ -1055,7 +1055,7 @@ func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
 	environConfig, err := environConfig.Apply(map[string]interface{}{
 		"apt-mirror": "http://my.archive.ubuntu.com/ubuntu",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testAptMirror(c, environConfig, "http://my.archive.ubuntu.com/ubuntu")
 }
 
@@ -1068,9 +1068,9 @@ func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect strin
 	machineCfg := s.createMachineConfig(c, cfg)
 	cloudcfg := coreCloudinit.New()
 	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = udata.Configure()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mirror, ok := cloudcfg.AptMirror()
 	c.Assert(mirror, gc.Equals, expect)
 	c.Assert(ok, gc.Equals, expect != "")
@@ -1139,9 +1139,9 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 	for i, test := range windowsCloudinitTests {
 		c.Logf("test %d", i)
 		dataDir, err := paths.DataDir(test.cfg.Series)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		logDir, err := paths.LogDir(test.cfg.Series)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		test.cfg.DataDir = dataDir
 		test.cfg.LogDir = path.Join(logDir, "juju")
@@ -1149,13 +1149,13 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		ci := coreCloudinit.New()
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
 
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = udata.Configure()
 
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(ci, gc.NotNil)
 		data, err := udata.Render()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		stringData := strings.Replace(string(data), "\r\n", "\n", -1)
 		stringData = strings.Replace(stringData, "\t", " ", -1)

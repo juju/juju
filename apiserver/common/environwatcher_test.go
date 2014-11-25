@@ -63,7 +63,7 @@ func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 		nil,
 	)
 	result, err := e.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
@@ -80,7 +80,7 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 		authorizer,
 	)
 	result, err := e.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], gc.Equals, "pork")
 	c.Check(map[string]interface{}(result.Config), jc.DeepEquals, testingEnvConfig.AllAttrs())
@@ -114,7 +114,7 @@ func (*environWatcherSuite) TestEnvironConfigMaskedSecrets(c *gc.C) {
 		authorizer,
 	)
 	result, err := e.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure the secret attribute is masked.
 	c.Check(result.Config["secret"], gc.Equals, "not available")
 	// And only that is masked.
@@ -124,8 +124,8 @@ func (*environWatcherSuite) TestEnvironConfigMaskedSecrets(c *gc.C) {
 
 func testingEnvConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envcmd.BootstrapContext(testing.Context(c)), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return env.Config()
 }

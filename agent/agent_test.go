@@ -13,12 +13,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -218,7 +218,7 @@ func (*suite) TestNewAgentConfig(c *gc.C) {
 		c.Logf("%v: %s", i, test.about)
 		config, err := agent.NewAgentConfig(test.params)
 		if test.checkErr == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if test.inspectConfig != nil {
 				test.inspectConfig(c, config)
 			}
@@ -236,9 +236,9 @@ func (*suite) TestMigrate(c *gc.C) {
 		Nonce:             "nonce",
 		Password:          "secret",
 		UpgradedToVersion: version.MustParse("1.16.5"),
-		Jobs: []juju.MachineJob{
-			juju.JobManageEnviron,
-			juju.JobHostUnits,
+		Jobs: []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
 		},
 		CACert:         "ca cert",
 		StateAddresses: []string{"localhost:1234"},
@@ -274,7 +274,7 @@ func (*suite) TestMigrate(c *gc.C) {
 	}, {
 		fields: []string{"Jobs"},
 		newParams: agent.MigrateParams{
-			Jobs: []juju.MachineJob{juju.JobHostUnits},
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		},
 	}, {
 		comment:   "invalid/immutable field specified",
@@ -306,25 +306,25 @@ func (*suite) TestMigrate(c *gc.C) {
 		c.Logf("test %d: %s %v", i, summary, test.fields)
 
 		initialConfig, err := agent.NewAgentConfig(initialParams)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		newConfig, err := agent.NewAgentConfig(initialParams)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(initialConfig.Write(), gc.IsNil)
 		c.Assert(agent.ConfigFileExists(initialConfig), jc.IsTrue)
 
 		err = newConfig.Migrate(test.newParams)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = newConfig.Write()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(agent.ConfigFileExists(newConfig), jc.IsTrue)
 
 		// Make sure we can read it back successfully and it
 		// matches what we wrote.
 		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
 		readConfig, err := agent.ReadConfig(configPath)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(newConfig, jc.DeepEquals, readConfig)
 
 		// Make sure only the specified fields were changed and
@@ -333,15 +333,15 @@ func (*suite) TestMigrate(c *gc.C) {
 			switch field {
 			case "Values":
 				err = agent.PatchConfig(initialConfig, field, test.expectValues)
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			case "DeleteValues":
 				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			default:
 				value := reflect.ValueOf(test.newParams).FieldByName(field)
 				if value.IsValid() && test.expectErr == "" {
 					err = agent.PatchConfig(initialConfig, field, value.Interface())
-					c.Check(err, gc.IsNil)
+					c.Check(err, jc.ErrorIsNil)
 				} else {
 					err = agent.PatchConfig(initialConfig, field, value)
 					c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -403,7 +403,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		c.Logf("%v: %s", i, test.about)
 		cfg, err := agent.NewStateMachineConfig(test.params, test.servingInfo)
 		if test.checkErr == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if test.inspectConfig != nil {
 				test.inspectConfig(c, cfg)
 			}
@@ -426,7 +426,7 @@ var attributeParams = agent.AgentConfigParams{
 
 func (*suite) TestAttributes(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
 	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
 	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
@@ -447,7 +447,7 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gotInfo, ok := conf.StateServingInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
@@ -467,22 +467,22 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 
 func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, available := conf.StateServingInfo()
-	c.Assert(available, gc.Equals, false)
+	c.Assert(available, jc.IsFalse)
 }
 
 func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	value, err := conf.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value, jc.DeepEquals, []string{"localhost:1235"})
 	value[0] = "invalidAdr"
 	//Check out change hasn't gone back into the internals
 	newValue, err := conf.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newValue, jc.DeepEquals, []string{"localhost:1235"})
 }
 
@@ -491,11 +491,11 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams.DataDir = c.MkDir()
 	testParams.LogDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
 	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
@@ -510,7 +510,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiinfo := conf.APIInfo()
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
@@ -535,7 +535,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *g
 		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiinfo := conf.APIInfo()
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
@@ -561,14 +561,14 @@ func (*suite) TestMongoInfoHonorsPreferIPv6(c *gc.C) {
 		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"[::1]:69"})
 
 	attrParams.PreferIPv6 = false
 	conf, err = agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok = conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"127.0.0.1:69"})
@@ -578,7 +578,7 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6Off(c *gc.
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = false
 	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiinfo := conf.APIInfo()
 	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
 }
@@ -587,7 +587,7 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
 	conf, err := agent.NewAgentConfig(attrParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiinfo := conf.APIInfo()
 	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
 }
@@ -603,7 +603,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 		SystemIdentity: "identity",
 	}
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
 		Addrs:    attrParams.APIAddresses,
@@ -639,7 +639,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 
 func (*suite) TestSetOldPassword(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(conf.OldPassword(), gc.Equals, attributeParams.Password)
 	conf.SetOldPassword("newoldpassword")
@@ -648,7 +648,7 @@ func (*suite) TestSetOldPassword(c *gc.C) {
 
 func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(conf.UpgradedToVersion(), gc.Equals, version.Current.Number)
 
@@ -659,10 +659,10 @@ func (*suite) TestSetUpgradedToVersion(c *gc.C) {
 
 func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := conf.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, attributeParams.APIAddresses)
 
 	// The first cloud-local address for each server is used,
@@ -686,6 +686,6 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 		network.AddressesWithPort(server3, 125),
 	})
 	addrs, err = conf.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, []string{"0.1.2.3:123", "0.1.2.5:125"})
 }

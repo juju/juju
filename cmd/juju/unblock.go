@@ -3,12 +3,7 @@
 
 package main
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/juju/cmd"
-)
+import "github.com/juju/cmd"
 
 // UnblockCommand removes the block from desired operation.
 type UnblockCommand struct {
@@ -38,7 +33,7 @@ See Also:
 func (c *UnblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
-		Args:    fmt.Sprintf(strings.Join(blockArgs, " | ")),
+		Args:    blockArgsFmt,
 		Purpose: "unblock an operation that would alter a running environment",
 		Doc:     unblockDoc,
 	}

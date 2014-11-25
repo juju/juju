@@ -37,7 +37,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 		return nil
 	})
 	err := s.manager.CleanupOldMetrics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -51,7 +51,7 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 		return nil
 	})
 	err := s.manager.SendMetrics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 

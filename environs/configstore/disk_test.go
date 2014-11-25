@@ -30,7 +30,7 @@ func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		return store
 	}
 }
@@ -51,7 +51,7 @@ func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 	s.NewStore = nil
 	// Check that no stray temp files have been left behind
 	entries, err := ioutil.ReadDir(storePath(s.dir, ""))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, entry := range entries {
 		if !strings.HasSuffix(entry.Name(), ".jenv") {
 			c.Errorf("found possible stray temp file %q", entry.Name())
@@ -73,7 +73,7 @@ func (*diskStoreSuite) TestNewDisk(c *gc.C) {
 	c.Assert(store, gc.IsNil)
 
 	store, err = configstore.NewDisk(filepath.Join(dir))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(store, gc.NotNil)
 }
 
@@ -94,13 +94,13 @@ var sampleInfo = `
 func (*diskStoreSuite) TestRead(c *gc.C) {
 	dir := c.MkDir()
 	err := os.Mkdir(storePath(dir, ""), 0700)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(storePath(dir, "someenv"), []byte(sampleInfo), 0666)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info, err := store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{
 		User:     "rog",
@@ -120,7 +120,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info, err := store.ReadInfo("someenv")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(info, gc.IsNil)
@@ -129,31 +129,31 @@ func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
 func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := store.CreateInfo("someenv")
 
 	// Make the directory non-writable
 	err = os.Chmod(storePath(dir, ""), 0555)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = info.Write()
 	c.Assert(err, gc.ErrorMatches, ".* permission denied")
 
 	// Make the directory writable again so that gocheck can clean it up.
 	err = os.Chmod(storePath(dir, ""), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Replace the file by an directory which can't be renamed over.
 	path := storePath(dir, "someenv")
 	err = os.Mkdir(path, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := store.CreateInfo("someenv")
 	err = info.Write()
@@ -163,17 +163,17 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := store.CreateInfo("someenv")
 	err = info.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(storePath(dir, "someenv"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = info.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(storePath(dir, "someenv"))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -185,7 +185,7 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info := store.CreateInfo("someenv")
 	endpoint := configstore.APIEndpoint{
 		Addresses:   []string{"this", "is", "never", "validated", "here"},
@@ -193,18 +193,18 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	}
 	info.SetAPIEndpoint(endpoint)
 	err = info.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	newInfo, err := store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Now change the number of addresses to be shorter.
 	endpoint.Addresses = []string{"just one"}
 	newInfo.SetAPIEndpoint(endpoint)
 	err = newInfo.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We should be able to read in in fine.
 	yaInfo, err := store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
 }

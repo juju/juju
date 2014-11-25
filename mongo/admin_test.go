@@ -48,7 +48,7 @@ func (s *adminSuite) SetUpTest(c *gc.C) {
 func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer inst.DestroyWithLog()
 	dialInfo := inst.DialInfo()
 
@@ -63,7 +63,7 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 
 	// First call succeeds, as there are no users yet.
 	added, err := s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(added, jc.IsTrue)
 
 	// EnsureAdminUser should have stopped the mongo service,
@@ -72,7 +72,7 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	c.Assert(s.serviceStarts, gc.Equals, 1)
 	c.Assert(s.serviceStops, gc.Equals, 1)
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gitjujutesting.AssertEchoArgs(c, "mongod",
 		"--noauth",
 		"--dbpath", "db",
@@ -89,7 +89,7 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 
 	// Second call succeeds, as the admin user is already there.
 	added, err = s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(added, jc.IsFalse)
 
 	// There should have been no additional start/stop.
@@ -101,13 +101,13 @@ func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
 	inst.EnableAuth = true
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
 	dialInfo := inst.DialInfo()
 
 	// First call succeeds, as there are no users yet (mimics --noauth).
 	added, err := s.ensureAdminUser(c, dialInfo, "whomever", "whatever")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(added, jc.IsTrue)
 
 	// Second call fails, as there is another user and the database doesn't
@@ -118,9 +118,9 @@ func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 
 func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	port, err := strconv.Atoi(portString)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return mongo.EnsureAdminUser(mongo.EnsureAdminUserParams{
 		DialInfo: dialInfo,
 		Port:     port,
@@ -132,7 +132,7 @@ func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, pass
 func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
 	inst := &gitjujutesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })
 	dialInfo := inst.DialInfo()
 	dialInfo.Direct = true
@@ -144,7 +144,7 @@ func checkRoles(c *gc.C, session *mgo.Session, db, user string, expected []inter
 
 	var info map[string]interface{}
 	err := admin.C("system.users").Find(bson.D{{"user", user}}).One(&info)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var roles []interface{}
 	for _, role := range info["roles"].([]interface{}) {
@@ -165,21 +165,21 @@ func checkRoles(c *gc.C, session *mgo.Session, db, user string, expected []inter
 func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 	dialInfo := s.setUpMongo(c)
 	session, err := mgo.DialWithInfo(dialInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
 
 	// Check that we can SetAdminMongoPassword to nothing when there's
 	// no password currently set.
 	err = mongo.SetAdminMongoPassword(session, "auser", "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	admin := session.DB("admin")
 	err = mongo.SetAdminMongoPassword(session, "auser", "foo")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = admin.Login("auser", "")
 	c.Assert(err, gc.ErrorMatches, "auth fail(s|ed)")
 	err = admin.Login("auser", "foo")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	checkRoles(c, session, "admin", "auser",
 		[]interface{}{

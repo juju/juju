@@ -6,8 +6,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"launchpad.net/gnuflag"
@@ -20,10 +23,13 @@ import (
 
 type RunCommand struct {
 	cmd.CommandBase
-	unit      names.UnitTag
-	commands  string
-	showHelp  bool
-	noContext bool
+	unit            names.UnitTag
+	commands        string
+	showHelp        bool
+	noContext       bool
+	forceRemoteUnit bool
+	relationId      string
+	remoteUnitName  string
 }
 
 const runCommandDoc = `
@@ -54,6 +60,10 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showHelp, "h", false, "show help on juju-run")
 	f.BoolVar(&c.showHelp, "help", false, "")
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
+	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
+	f.StringVar(&c.relationId, "relation", "", "")
+	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
+	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
 }
 
 func (c *RunCommand) Init(args []string) error {
@@ -76,7 +86,7 @@ func (c *RunCommand) Init(args []string) error {
 			var err error
 			c.unit, err = names.ParseUnitTag(unitName)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -100,7 +110,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		result, err = c.executeInUnitContext()
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ctx.Stdout.Write(result.Stdout)
@@ -119,19 +129,35 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("unit %q not found on this machine", c.unit.Id())
+		return nil, errors.Errorf("unit %q not found on this machine", c.unit.Id())
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
+	relationId, err := checkRelationId(c.relationId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if len(c.remoteUnitName) > 0 && relationId == -1 {
+		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
+	}
+
 	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer client.Close()
 
 	var result exec.ExecResponse
-	err = client.Call(uniter.JujuRunEndpoint, c.commands, &result)
-	return &result, err
+	args := uniter.RunCommandsArgs{
+		Commands:        c.commands,
+		RelationId:      relationId,
+		RemoteUnitName:  c.remoteUnitName,
+		ForceRemoteUnit: c.forceRemoteUnit,
+	}
+	err = client.Call(uniter.JujuRunEndpoint, args, &result)
+	return &result, errors.Trace(err)
 }
 
 // appendProxyToCommands activates proxy settings on platforms
@@ -154,11 +180,11 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// stomp on each other.
 	lock, err := hookExecutionLock(DataDir)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	err = lock.Lock("juju-run")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer lock.Unlock()
 
@@ -168,4 +194,25 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 		exec.RunParams{
 			Commands: runCmd,
 		})
+}
+
+// checkRelationId verifies that the relationId
+// given by the user is of a valid syntax, it does
+// not check that the relationId is a valid one. This
+// is done by the NewRunContext method that is part of
+// the worker/uniter/context/factory package.
+func checkRelationId(value string) (int, error) {
+	if len(value) == 0 {
+		return -1, nil
+	}
+
+	trim := value
+	if idx := strings.LastIndex(trim, ":"); idx != -1 {
+		trim = trim[idx+1:]
+	}
+	id, err := strconv.Atoi(trim)
+	if err != nil {
+		return -1, errors.Errorf("invalid relation id")
+	}
+	return id, nil
 }

@@ -55,16 +55,16 @@ func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 	stor := suite.newStorage(c)
 
 	url, err := common.CreateStateFile(stor)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	reader, err := storage.Get(stor, common.StateFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, "")
 	c.Assert(url, gc.NotNil)
 	expectedURL, err := stor.URL(common.StateFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, expectedURL)
 }
 
@@ -73,15 +73,15 @@ func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
 	defer closer.Close()
 
 	err := common.DeleteStateFile(stor)
-	c.Assert(err, gc.IsNil) // doesn't exist, juju don't care
+	c.Assert(err, jc.ErrorIsNil) // doesn't exist, juju don't care
 
 	_, err = common.CreateStateFile(stor)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(filepath.Join(dataDir, common.StateFile))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.DeleteStateFile(stor)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(filepath.Join(dataDir, common.StateFile))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
@@ -92,15 +92,15 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	marshaledState, err := goyaml.Marshal(state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.SaveState(stor, &state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	loadedState, err := storage.Get(stor, common.StateFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	content, err := ioutil.ReadAll(loadedState)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
 
@@ -109,9 +109,9 @@ func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.Bootstr
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	content, err := goyaml.Marshal(state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(dataDir, common.StateFile), []byte(content), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return state
 }
 
@@ -119,7 +119,7 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 	storage, dataDir := suite.newStorageWithDataDir(c)
 	state := suite.setUpSavedState(c, dataDir)
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
@@ -135,9 +135,9 @@ func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	err := common.SaveState(storage, &state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(*storedState, gc.DeepEquals, state)
 }
@@ -147,11 +147,11 @@ func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
 	for _, str := range []string{"a", "b", "c"} {
 		id := instance.Id(str)
 		err := common.AddStateInstance(storage, instance.Id(id))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	storedState, err := common.LoadState(storage)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(storedState, gc.DeepEquals, &common.BootstrapState{
 		StateInstances: []instance.Id{
 			instance.Id("a"),
@@ -171,7 +171,7 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 		},
 	}
 	err := common.SaveState(storage, &state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.RemoveStateInstances(
 		storage,
@@ -179,7 +179,7 @@ func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
 		instance.Id("not-there"),
 		state.StateInstances[2],
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
 	c.Assert(storedState, gc.DeepEquals, &common.BootstrapState{
@@ -195,13 +195,13 @@ func (suite *StateSuite) TestRemoveStateInstancesNone(c *gc.C) {
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	err := common.SaveState(storage, &state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = common.RemoveStateInstances(
 		storage,
 		instance.Id("not-there"),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	storedState, err := common.LoadState(storage)
 	c.Assert(storedState, gc.DeepEquals, &state)
@@ -213,5 +213,5 @@ func (suite *StateSuite) TestRemoveStateInstancesNoProviderState(c *gc.C) {
 	// No error if the id is missing, so no error if the entire
 	// provider-state file is missing. This is the case if
 	// bootstrap failed.
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

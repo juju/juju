@@ -15,8 +15,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -31,9 +31,9 @@ var configData1_18WithoutUpgradedToVersion = "# format 1.18\n" + configDataWitho
 
 func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	logDir, err := paths.LogDir(version.Current.Series)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	realDataDir, err := paths.DataDir(version.Current.Series)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	realDataDir = filepath.FromSlash(realDataDir)
 	logPath := filepath.Join(logDir, "juju")
@@ -42,9 +42,9 @@ func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err = utils.AtomicWriteFile(configPath, []byte(configData1_18WithoutUpgradedToVersion), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 	configLogDir := filepath.FromSlash(readConfig.LogDir())
 	configDataDir := filepath.FromSlash(readConfig.DataDir())
@@ -57,23 +57,23 @@ func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18NotStateMachine), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, available := readConfig.StateServingInfo()
-	c.Assert(available, gc.Equals, false)
+	c.Assert(available, jc.IsFalse)
 }
 
 func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C) {
 	dataDir := c.MkDir()
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err := utils.AtomicWriteFile(configPath, []byte(agentConfig1_18Contents), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
-	c.Assert(config.Jobs(), jc.DeepEquals, []juju.MachineJob{juju.JobManageEnviron})
+	c.Assert(config.Jobs(), jc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
 	c.Assert(config.PreferIPv6(), jc.IsTrue)
 }
 

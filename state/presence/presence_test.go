@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 	"launchpad.net/tomb"
@@ -81,7 +82,7 @@ func assertNoChange(c *gc.C, watch <-chan presence.Change) {
 
 func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 	alive, err := w.Alive("a")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alive, gc.Equals, alive)
 }
 
@@ -110,7 +111,7 @@ func (s *PresenceSuite) TestAliveError(c *gc.C) {
 
 	alive, err := w.Alive("a")
 	c.Assert(err, gc.ErrorMatches, ".*: watcher is dying")
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 }
 
 func (s *PresenceSuite) TestWorkflow(c *gc.C) {
@@ -301,7 +302,7 @@ func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	for i := 0; i < 100; i += 2 {
 		key := strconv.Itoa(i)
 		c.Logf("Checking %q...", key)
-		c.Assert(alive[key], gc.Equals, false)
+		c.Assert(alive[key], jc.IsFalse)
 	}
 }
 
@@ -333,7 +334,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
 			w.Sync()
 			alive, err := w.Alive("a")
 			c.Check(w.Stop(), gc.IsNil)
-			if !c.Check(err, gc.IsNil) || !c.Check(alive, gc.Equals, true) {
+			if !c.Check(err, jc.ErrorIsNil) || !c.Check(alive, jc.IsTrue) {
 				break
 			}
 			select {
@@ -474,7 +475,7 @@ func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
 	}()
 	assertChange(c, ch, presence.Change{"a", true})
 	results, err := presence.FindAllBeings(w)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	select {
 	case <-done:

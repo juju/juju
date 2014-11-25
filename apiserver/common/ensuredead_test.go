@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -59,7 +60,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
 	result, err := d.EnsureDead(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
@@ -87,6 +88,6 @@ func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	}
 	d := common.NewDeadEnsurer(&fakeState{}, getCanModify)
 	result, err := d.EnsureDead(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

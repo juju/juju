@@ -4,8 +4,6 @@
 package uniter_test
 
 import (
-	"net/url"
-
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,7 +27,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
@@ -42,7 +40,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 
 	w, err := s.apiService.Watch()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 
@@ -51,12 +49,12 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 	// Change something and check it's detected.
 	err = s.wordpressService.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Destroy the service and check it's detected.
 	err = s.wordpressService.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)
@@ -65,7 +63,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 
 func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	w, err := s.apiService.WatchRelations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
@@ -76,7 +74,7 @@ func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
 	err = s.wordpressService.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Add another service and relate it to wordpress,
@@ -87,7 +85,7 @@ func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 
 	// Destroy the relation and check it's detected.
 	err = rel.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.String())
 	wc.AssertNoChange()
 
@@ -99,11 +97,11 @@ func (s *serviceSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 
 	err := s.wordpressService.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 
 	err = s.apiService.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiService.Life(), gc.Equals, params.Dying)
 }
 
@@ -115,7 +113,7 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 
 	// Now check the same through the API.
 	curl, force, err := s.apiService.CharmURL()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.DeepEquals, s.wordpressCharm.URL())
 	c.Assert(force, jc.IsFalse)
 }
@@ -124,7 +122,7 @@ func (s *serviceSuite) TestOwnerTagV0(c *gc.C) {
 	s.patchNewState(c, uniter.NewStateV0)
 
 	tag, err := s.apiService.OwnerTag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, s.AdminUserTag(c))
 }
 
@@ -132,16 +130,16 @@ func (s *serviceSuite) TestOwnerTagV1(c *gc.C) {
 	s.patchNewState(c, uniter.NewStateV1)
 
 	tag, err := s.apiService.OwnerTag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, s.AdminUserTag(c))
 }
 
 func (s *serviceSuite) patchNewState(
 	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag, _ *url.URL) *uniter.State,
+	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
 ) {
 	s.uniterSuite.patchNewState(c, patchFunc)
 	var err error
 	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -42,13 +42,13 @@ func (s *debugLogSuite) TestWithHTTP(c *gc.C) {
 func (s *debugLogSuite) TestWithHTTPS(c *gc.C) {
 	uri := s.logURL(c, "https", nil).String()
 	response, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
 }
 
 func (s *debugLogSuite) TestNoAuth(c *gc.C) {
 	conn, err := s.dialWebsocketInternal(c, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
@@ -93,7 +93,7 @@ func (s *debugLogSuite) TestReadFromTopLevelPath(c *gc.C) {
 func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
 	// Check that we can read the log at https://host:port/ENVUUID/log
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.ensureLogFile(c)
 	reader := s.openWebsocketCustomPath(c, fmt.Sprintf("/environment/%s/log", environ.UUID()))
 	s.assertLogReader(c, reader)
@@ -282,11 +282,11 @@ func (s *debugLogSuite) TestFilter(c *gc.C) {
 		path := filepath.Join(s.LogDir, "all-machines.log")
 		var err error
 		s.logFile, err = os.Create(path)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// opens web socket
 		conn, err := s.dialWebsocket(c, test.filter)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		reader := bufio.NewReader(conn)
 
 		s.assertLogFollowing(c, reader)
@@ -314,7 +314,7 @@ func (s *debugLogSuite) TestFilter(c *gc.C) {
 func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (linesRead []string) {
 	for len(linesRead) < count {
 		line, err := reader.ReadString('\n')
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		// Trim off the trailing \n
 		linesRead = append(linesRead, line[:len(line)-1])
 	}
@@ -323,7 +323,7 @@ func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (
 
 func (s *debugLogSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader {
 	conn, err := s.dialWebsocket(c, values)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }
@@ -333,7 +333,7 @@ func (s *debugLogSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Rea
 	server.Path = path
 	header := utils.BasicAuthHeader(s.userTag, s.password)
 	conn, err := s.dialWebsocketFromURL(c, server.String(), header)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(_ *gc.C) { conn.Close() })
 	return bufio.NewReader(conn)
 }
@@ -345,7 +345,7 @@ func (s *debugLogSuite) ensureLogFile(c *gc.C) {
 	path := filepath.Join(s.LogDir, "all-machines.log")
 	var err error
 	s.logFile, err = os.Create(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		s.logFile.Close()
 		s.logFile = nil
@@ -369,7 +369,7 @@ func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, h
 func (s *debugLogSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, error) {
 	c.Logf("dialing %v", server)
 	config, err := websocket.NewConfig(server, "http://localhost/")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	config.Header = header
 	caCerts := x509.NewCertPool()
 	c.Assert(caCerts.AppendCertsFromPEM([]byte(testing.CACert)), jc.IsTrue)
@@ -412,10 +412,10 @@ func (s *debugLogSuite) assertErrorResponse(c *gc.C, reader *bufio.Reader, expec
 
 func (s *debugLogSuite) getErrorResult(c *gc.C, reader *bufio.Reader) params.ErrorResult {
 	line, err := reader.ReadSlice('\n')
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return errResult
 }
 

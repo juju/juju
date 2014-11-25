@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +37,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint,
 		Endpoint: endpoint,
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
 	if err != nil {
 		return err
@@ -59,15 +60,15 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("test", "file://"+metadataPath, utils.VerifySSLHostnames)},
+			simplestreams.NewURLDataSource("test", utils.MakeFileURL(metadataPath), utils.VerifySSLHostnames)},
 	}
 	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(metadataPath, "streams/v1/index.json"),
+		IndexURL:  utils.MakeFileURL(path.Join(metadataPath, "streams/v1/index.json")),
 		MirrorURL: "",
 	})
 }

@@ -38,7 +38,7 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 		EnvironManager: true,
 	}
 	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
 	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
@@ -64,7 +64,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C)
 		anAuthoriser.Tag = test.tag
 		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
 		if test.expectedError == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.expectedError)
@@ -83,13 +83,13 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 		{s.State.EnvironTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	_, err = s.State.MetricBatch(oldMetric.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.MetricBatch(newMetric.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
@@ -98,7 +98,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedError := common.ServerError(common.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }
@@ -110,7 +110,7 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedError := common.ServerError(common.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
@@ -127,12 +127,12 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 		{s.State.EnvironTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	c.Assert(sender.Data, gc.HasLen, 1)
 	m, err := s.State.MetricBatch(unsent.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Sent(), jc.IsTrue)
 }
 
@@ -142,7 +142,7 @@ func (s *metricsManagerSuite) TestSendOldMetricsInvalidArg(c *gc.C) {
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedError := common.ServerError(common.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }
@@ -154,7 +154,7 @@ func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedError := common.ServerError(common.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})

@@ -6,6 +6,7 @@ package azure
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
@@ -96,7 +97,7 @@ func (s *instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 
 	env := s.setupEnvWithDummyMetadata(c)
 	choice, err := selectMachineType(env, constraints.Value{CpuCores: &desiredCores})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Out of these options, selectMachineType picks not the first; not
 	// the cheapest; not the biggest; not the last; but the cheapest type
@@ -132,7 +133,7 @@ func (s *instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.
 func (s *instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	images, err := findMatchingImages(env, "West US", "precise", []string{"amd64"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(images, gc.HasLen, 1)
 	c.Check(images[0].Id, gc.Equals, "image-id")
 }
@@ -155,7 +156,7 @@ func (s *instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 	}
 	s.makeTestMetadata(c, "precise", "West US", images)
 	images, err := findMatchingImages(env, "West US", "precise", []string{"amd64"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(images, gc.HasLen, 1)
 	c.Assert(images[0].Id, gc.Equals, "image-id")
 }
@@ -185,7 +186,7 @@ func (s *instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
 		VirtType: &vtype,
 	}
 	instType, err := newInstanceType(roleSize, expectedRegion)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instType, gc.DeepEquals, expectation)
 }
 
@@ -196,14 +197,14 @@ func (s *instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
 			continue
 		}
 		instanceType, err := newInstanceType(roleSize, "West US")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		instanceType.Arches = []string{"amd64"}
 		expectation = append(expectation, instanceType)
 	}
 
 	env := s.setupEnvWithDummyMetadata(c)
 	types, err := listInstanceTypes(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(types, gc.DeepEquals, expectation)
 }
 
@@ -249,7 +250,7 @@ func (s *instanceTypeSuite) TestFindInstanceSpec(c *gc.C) {
 
 		// Find a matching instance type and image.
 		spec, err := findInstanceSpec(env, constraints)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// We got the instance type we described in our constraints, and
 		// the image returned by (the fake) simplestreams.
@@ -280,7 +281,7 @@ func (s *instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 
 	// Find a matching instance type and image.
 	spec, err := findInstanceSpec(env, constraints)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We got the instance type we described in our constraints, and
 	// the image returned by (the fake) simplestreams.
@@ -301,7 +302,7 @@ func (s *instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
 	}
 
 	spec, err := findInstanceSpec(env, anyInstanceType)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(spec.InstanceType.Name, gc.Equals, "Small")
 }
@@ -311,7 +312,7 @@ func (s *instanceTypeSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=Large")
 	placement := ""
 	err := env.PrecheckInstance("precise", cons, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *instanceTypeSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {

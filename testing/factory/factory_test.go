@@ -59,7 +59,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	owner := names.NewLocalUserTag("factory-admin")
 	st, err := state.Initialize(owner, info, cfg, opts, &policy)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(s.State)
 }
@@ -77,7 +77,7 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 
 	saved, err := s.State.User(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
 	c.Assert(saved.DisplayName(), gc.Equals, user.DisplayName())
@@ -105,7 +105,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(user.PasswordValid(password), jc.IsTrue)
 
 	saved, err := s.State.User(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
 	c.Assert(saved.DisplayName(), gc.Equals, user.DisplayName())
@@ -115,7 +115,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
 
 	_, err = s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *factorySuite) TestMakeUserInvalidCreator(c *gc.C) {
@@ -148,7 +148,7 @@ func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
 	})
 
 	_, err := s.State.User(user.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -156,7 +156,7 @@ func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
 func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
 	envUser := s.Factory.MakeEnvUser(c, nil)
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
 	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
@@ -169,7 +169,7 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 		User: "foobar123"})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
 	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
@@ -189,7 +189,7 @@ func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
 	c.Assert(saved.CreatedBy(), gc.Equals, "createdby@local")
@@ -217,7 +217,7 @@ func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
 	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Username())
@@ -228,7 +228,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Series(), gc.Equals, machine.Series())
 	c.Assert(saved.Id(), gc.Equals, machine.Id())
@@ -237,9 +237,9 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	c.Assert(saved.Life(), gc.Equals, machine.Life())
 	c.Assert(saved.Jobs(), gc.DeepEquals, machine.Jobs())
 	savedInstanceId, err := saved.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineInstanceId, err := machine.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedInstanceId, gc.Equals, machineInstanceId)
 	c.Assert(saved.Clean(), gc.Equals, machine.Clean())
 }
@@ -248,7 +248,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	series := "quantal"
 	jobs := []state.MachineJob{state.JobManageEnviron}
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
@@ -264,13 +264,13 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(machine.Series(), gc.Equals, series)
 	c.Assert(machine.Jobs(), gc.DeepEquals, jobs)
 	machineInstanceId, err := machine.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineInstanceId, gc.Equals, id)
-	c.Assert(machine.CheckProvisioned(nonce), gc.Equals, true)
-	c.Assert(machine.PasswordValid(password), gc.Equals, true)
+	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
+	c.Assert(machine.PasswordValid(password), jc.IsTrue)
 
 	saved, err := s.State.Machine(machine.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Id(), gc.Equals, machine.Id())
 	c.Assert(saved.Series(), gc.Equals, machine.Series())
@@ -278,7 +278,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(saved.Life(), gc.Equals, machine.Life())
 	c.Assert(saved.Jobs(), gc.DeepEquals, machine.Jobs())
 	savedInstanceId, err := saved.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedInstanceId, gc.Equals, machineInstanceId)
 	c.Assert(saved.Clean(), gc.Equals, machine.Clean())
 }
@@ -288,7 +288,7 @@ func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
 	c.Assert(charm, gc.NotNil)
 
 	saved, err := s.State.Charm(charm.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.URL(), gc.DeepEquals, charm.URL())
 	c.Assert(saved.Meta(), gc.DeepEquals, charm.Meta())
@@ -310,7 +310,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, charm.MustParseURL(url))
 
 	saved, err := s.State.Charm(ch.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.URL(), gc.DeepEquals, ch.URL())
 	c.Assert(saved.Meta(), gc.DeepEquals, ch.Meta())
@@ -324,7 +324,7 @@ func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
 	c.Assert(service, gc.NotNil)
 
 	saved, err := s.State.Service(service.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Name(), gc.Equals, service.Name())
 	c.Assert(saved.Tag(), gc.Equals, service.Tag())
@@ -346,7 +346,7 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 	c.Assert(curl, gc.DeepEquals, charm.URL())
 
 	saved, err := s.State.Service(service.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Name(), gc.Equals, service.Name())
 	c.Assert(saved.Tag(), gc.Equals, service.Tag())
@@ -372,7 +372,7 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 	c.Assert(unit, gc.NotNil)
 
 	saved, err := s.State.Unit(unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Name(), gc.Equals, unit.Name())
 	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
@@ -391,7 +391,7 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	c.Assert(unit.ServiceName(), gc.Equals, service.Name())
 
 	saved, err := s.State.Unit(unit.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Name(), gc.Equals, unit.Name())
 	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
@@ -408,7 +408,7 @@ func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
 	c.Assert(relation, gc.NotNil)
 
 	saved, err := s.State.Relation(relation.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Id(), gc.Equals, relation.Id())
 	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
@@ -424,7 +424,7 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 		}),
 	})
 	e1, err := s1.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s2 := s.Factory.MakeService(c, &factory.ServiceParams{
 		Name: "service2",
@@ -433,7 +433,7 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 		}),
 	})
 	e2, err := s2.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
@@ -441,7 +441,7 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	c.Assert(relation, gc.NotNil)
 
 	saved, err := s.State.Relation(relation.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.Id(), gc.Equals, relation.Id())
 	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
@@ -454,7 +454,7 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 	c.Assert(metric, gc.NotNil)
 
 	saved, err := s.State.MetricBatch(metric.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
 	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
@@ -482,7 +482,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(metric, gc.NotNil)
 
 	saved, err := s.State.MetricBatch(metric.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
 	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
@@ -494,4 +494,34 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.Metrics()[0].Value, gc.Equals, "1")
 	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
 	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("somecreds"))
+}
+
+func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
+	st := s.Factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Name(), gc.Equals, "testenv-1")
+	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	origEnv, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
+}
+
+func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
+	owner := names.NewUserTag("owner@local")
+	params := &factory.EnvParams{
+		Name:  "foo",
+		Owner: owner,
+	}
+
+	st := s.Factory.MakeEnvironment(c, params)
+	defer st.Close()
+
+	env, err := st.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env.Name(), gc.Equals, "foo")
+	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
+	c.Assert(env.Owner(), gc.Equals, owner)
 }

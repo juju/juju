@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -28,9 +29,9 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Current)
 	err := os.MkdirAll(s.toolsDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = symlink.New(s.toolsDir, tools.ToolsDir(s.dataDir, "unit-u-123"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ToolsSuite) TestEnsureSymlinks(c *gc.C) {
@@ -40,27 +41,27 @@ func (s *ToolsSuite) TestEnsureSymlinks(c *gc.C) {
 func (s *ToolsSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
 	toolsDirSymlink := filepath.Join(c.MkDir(), "unit-ubuntu-0")
 	err := symlink.New(s.toolsDir, toolsDirSymlink)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testEnsureSymlinks(c, toolsDirSymlink)
 }
 
 func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
 	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
 	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertLink := func(path string) time.Time {
 		target, err := symlink.Read(path)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(target, gc.Equals, jujudPath)
 		fi, err := os.Lstat(path)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		return fi.ModTime()
 	}
 
 	// Check that EnsureSymlinks writes appropriate symlinks.
 	err = jujuc.EnsureSymlinks(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mtimes := map[string]time.Time{}
 	for _, name := range jujuc.CommandNames() {
 		tool := filepath.Join(s.toolsDir, name)
@@ -69,7 +70,7 @@ func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
 
 	// Check that EnsureSymlinks doesn't overwrite things that don't need to be.
 	err = jujuc.EnsureSymlinks(s.toolsDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for tool, mtime := range mtimes {
 		c.Assert(assertLink(tool), gc.Equals, mtime)
 	}

@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -30,7 +31,7 @@ func (s *stateSuite) TearDownTest(c *gc.C) {
 
 func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 	w, err := s.firewaller.WatchEnvironMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
@@ -39,12 +40,12 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 
 	// Add another machine make sure they are detected.
 	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(otherMachine.Id())
 
 	// Change the life cycle of last machine.
 	err = otherMachine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(otherMachine.Id())
 
 	// Add a container and make sure it's not detected.
@@ -53,7 +54,7 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)
@@ -63,12 +64,12 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	// Open some ports.
 	err := s.units[0].OpenPorts("tcp", 1234, 1400)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.units[2].OpenPort("udp", 4321)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.firewaller.WatchOpenedPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
@@ -81,24 +82,24 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 
 	// Close a port, make sure it's detected.
 	err = s.units[2].ClosePort("udp", 4321)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(expectChanges[1])
 	wc.AssertNoChange()
 
 	// Close it again, no changes.
 	err = s.units[2].ClosePort("udp", 4321)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Close non-existing port, no changes.
 	err = s.units[0].ClosePort("udp", 1234)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Open another port range, ensure it's detected.
 	err = s.units[1].OpenPorts("tcp", 8080, 8088)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("1:juju-public")
 	wc.AssertNoChange()
 

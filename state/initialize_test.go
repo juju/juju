@@ -40,7 +40,7 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 
 func (s *InitializeSuite) openState(c *gc.C) {
 	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
 
@@ -60,51 +60,51 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
 	st, err := state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	envTag := st.EnvironTag()
 	c.Assert(envTag.Id(), gc.Equals, uuid)
 	err = st.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.openState(c)
 
 	cfg, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
 	// Check that the environment has been created.
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Tag(), gc.Equals, envTag)
 	// Check that the owner has been created.
 	c.Assert(env.Owner(), gc.Equals, owner)
 	// Check that the owner can be retrieved by the tag.
 	entity, err := s.State.FindEntity(env.Owner())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Tag(), gc.Equals, owner)
 	// Check that the owner has an EnvUser created for the bootstrapped environment.
 	envUser, err := s.State.EnvironmentUser(env.Owner())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserTag(), gc.Equals, owner)
 	c.Assert(envUser.EnvironmentTag(), gc.Equals, env.Tag())
 
 	// Check that the environment can be found through the tag.
 	entity, err = s.State.FindEntity(envTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	annotator := entity.(state.Annotator)
 	annotations, err := annotator.Annotations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(annotations, gc.HasLen, 0)
 	cons, err := s.State.EnvironConstraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	addrs, err := s.State.APIHostPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
 	info, err := s.State.StateServerInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{EnvironmentTag: envTag})
 }
 
@@ -119,15 +119,15 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	// TODO(fwereade) I think this is crazy, but it's what we were testing
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st, err = state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	st.Close()
 
 	s.openState(c)
 	cfg, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
 }
 
@@ -151,7 +151,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 
 	// EnvironConfig remains inviolate.
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, good.AllAttrs())
 }
 
@@ -161,7 +161,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	attrs := good.AllAttrs()
 	delete(attrs, "agent-version")
 	bad, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	owner := names.NewLocalUserTag("initialize-admin")
 
 	_, err = state.Initialize(owner, state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
@@ -177,6 +177,6 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 
 	// EnvironConfig remains inviolate.
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, good.AllAttrs())
 }

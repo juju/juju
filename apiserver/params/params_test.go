@@ -5,22 +5,23 @@ package params_test
 
 import (
 	"encoding/json"
-	"testing"
+	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -45,7 +46,7 @@ var marshalTestCases = []struct {
 			Life:                    multiwatcher.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXC},
-			Jobs:                    []juju.MachineJob{state.JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
@@ -129,16 +130,16 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 	for _, t := range marshalTestCases {
 		c.Log(t.about)
 		output, err := t.value.MarshalJSON()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		// We check unmarshalled output both to reduce the fragility of the
 		// tests (because ordering in the maps can change) and to verify that
 		// the output is well-formed.
 		var unmarshalledOutput interface{}
 		err = json.Unmarshal(output, &unmarshalledOutput)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(unmarshalledOutput, gc.DeepEquals, expected)
 	}
 }
@@ -148,7 +149,7 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled multiwatcher.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(unmarshalled, gc.DeepEquals, t.value)
 	}
 }
@@ -200,7 +201,7 @@ func (s *ErrorResultsSuite) TestOneError(c *gc.C) {
 		c.Logf("test %d", i)
 		err := test.results.OneError()
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -248,9 +249,20 @@ func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
 		c.Logf("test %d: %s", i, test.msg)
 		err := test.results.Combine()
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
 		}
+	}
+}
+
+type importSuite struct{}
+
+var _ = gc.Suite(&importSuite{})
+
+func (*importSuite) TestParamsDoesNotDependOnState(c *gc.C) {
+	imports := testing.FindJujuCoreImports(c, "github.com/juju/juju/apiserver/params")
+	for _, i := range imports {
+		c.Assert(i, gc.Not(gc.Equals), "state")
 	}
 }

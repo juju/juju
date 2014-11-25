@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
 
@@ -31,7 +32,7 @@ func (s *MinUnitsSuite) assertRevno(c *gc.C, expectedRevno int, expectedErr erro
 func (s *MinUnitsSuite) addUnits(c *gc.C, count int) {
 	for i := 0; i < count; i++ {
 		_, err := s.service.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -85,12 +86,12 @@ func (s *MinUnitsSuite) TestSetMinUnits(c *gc.C) {
 		// Set up initial minimum units if required.
 		if t.initial > 0 {
 			err := service.SetMinUnits(t.initial)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		// Insert/update minimum units.
 		for _, input := range t.changes {
 			err := service.SetMinUnits(input)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(service.MinUnits(), gc.Equals, input)
 			c.Assert(service.Refresh(), gc.IsNil)
 			c.Assert(service.MinUnits(), gc.Equals, input)
@@ -99,7 +100,7 @@ func (s *MinUnitsSuite) TestSetMinUnits(c *gc.C) {
 		s.assertRevno(c, t.revno, t.err)
 		// Clean up, if required, the minUnits document.
 		err := service.SetMinUnits(0)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -111,47 +112,47 @@ func (s *MinUnitsSuite) TestInvalidMinUnits(c *gc.C) {
 func (s *MinUnitsSuite) TestMinUnitsInsertRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
 		err := s.service.SetMinUnits(41)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		s.assertRevno(c, 0, nil)
 	}, func() {
 		s.assertRevno(c, 1, nil)
 	}).Check()
 	err := s.service.SetMinUnits(42)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.service.MinUnits(), gc.Equals, 42)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsUpdateRetry(c *gc.C) {
 	err := s.service.SetMinUnits(41)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetRetryHooks(c, s.State, func() {
 		err := s.service.SetMinUnits(0)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		s.assertRevno(c, 0, mgo.ErrNotFound)
 	}, func() {
 		s.assertRevno(c, 0, nil)
 	}).Check()
 	err = s.service.SetMinUnits(42)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.service.MinUnits(), gc.Equals, 42)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsRemoveBefore(c *gc.C) {
 	err := s.service.SetMinUnits(41)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.service.SetMinUnits(0)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		s.assertRevno(c, 0, mgo.ErrNotFound)
 	}).Check()
 	err = s.service.SetMinUnits(0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.service.MinUnits(), gc.Equals, 0)
 }
 
 func (s *MinUnitsSuite) testDestroyOrRemoveServiceBefore(c *gc.C, initial, input int, preventRemoval bool) {
 	err := s.service.SetMinUnits(initial)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `cannot set minimum units for service "dummy-service": service "dummy-service" not found`
 	if preventRemoval {
 		expectedErr = `cannot set minimum units for service "dummy-service": service is no longer alive`
@@ -159,7 +160,7 @@ func (s *MinUnitsSuite) testDestroyOrRemoveServiceBefore(c *gc.C, initial, input
 	}
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.service.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	err = s.service.SetMinUnits(input)
 	c.Assert(err, gc.ErrorMatches, expectedErr)
@@ -192,59 +193,59 @@ func (s *MinUnitsSuite) TestMinUnitsRemoveRemoveServiceBefore(c *gc.C) {
 
 func (s *MinUnitsSuite) TestMinUnitsSetDestroyEntities(c *gc.C) {
 	err := s.service.SetMinUnits(1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, nil)
 
 	// Add two units to the service for later use.
 	unit1, err := s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a unit and ensure the revno has been increased.
 	preventUnitDestroyRemove(c, unit1)
 	err = unit1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 1, nil)
 
 	// Remove a unit and ensure the revno has been increased..
 	err = unit2.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 2, nil)
 
 	// Destroy the service and ensure the minUnits document has been removed.
 	err = s.service.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
 
 func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *gc.C) {
 	// Add two units to the service for later use.
 	unit1, err := s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	unit2, err := s.service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a unit and ensure the minUnits document has not been created.
 	preventUnitDestroyRemove(c, unit1)
 	err = unit1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 
 	// Remove a unit and ensure the minUnits document has not been created.
 	err = unit2.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 
 	// Destroy the service and ensure the minUnits document is still missing.
 	err = s.service.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
 
 func assertAllUnits(c *gc.C, service *state.Service, expected int) {
 	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, expected)
 }
 
@@ -293,36 +294,36 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *gc.C) {
 
 		// Set up minimum units if required.
 		err := service.SetMinUnits(t.minimum)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Destroy units if required.
 		allUnits, err := service.AllUnits()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for i := 0; i < t.destroy; i++ {
 			preventUnitDestroyRemove(c, allUnits[i])
 			err = allUnits[i].Destroy()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 
 		// Ensure the minimum number of units is correctly restored.
 		c.Assert(service.Refresh(), gc.IsNil)
 		err = service.EnsureMinUnits()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertAllUnits(c, service, t.expected)
 
 		// Clean up the minUnits document and the units.
 		err = service.SetMinUnits(0)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		removeAllUnits(c, service)
 	}
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *gc.C) {
 	err := s.service.SetMinUnits(2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.addUnits(c, 1)
 	err = s.service.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `cannot ensure minimum units for service "dummy-service": service is not alive`
 
 	// An error is returned if the service is not alive.
@@ -330,51 +331,51 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *gc.C) {
 
 	// An error is returned if the service was removed.
 	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *gc.C) {
 	s.addUnits(c, 1)
 	err := s.service.SetMinUnits(4)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetRetryHooks(c, s.State, func() {
 		err := s.service.SetMinUnits(2)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertAllUnits(c, s.service, 2)
 	}).Check()
 	err = s.service.EnsureMinUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsRetry(c *gc.C) {
 	err := s.service.SetMinUnits(3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetRetryHooks(c, s.State, func() {
 		s.addUnits(c, 2)
 	}, func() {
 		assertAllUnits(c, s.service, 3)
 	}).Check()
 	err = s.service.EnsureMinUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MinUnitsSuite) testEnsureMinUnitsBefore(c *gc.C, f func(), minUnits, expectedUnits int) {
 	service := s.service
 	err := service.SetMinUnits(minUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, f).Check()
 	err = service.EnsureMinUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertAllUnits(c, service, expectedUnits)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsBefore(c *gc.C) {
 	f := func() {
 		err := s.service.SetMinUnits(3)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.testEnsureMinUnitsBefore(c, f, 42, 3)
 }
@@ -382,7 +383,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsBefore(c *gc.C) {
 func (s *MinUnitsSuite) TestEnsureMinUnitsRemoveMinUnitsBefore(c *gc.C) {
 	f := func() {
 		err := s.service.SetMinUnits(0)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.testEnsureMinUnitsBefore(c, f, 2, 0)
 }
@@ -397,10 +398,10 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsBefore(c *gc.C) {
 func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyServiceBefore(c *gc.C) {
 	s.addUnits(c, 1)
 	err := s.service.SetMinUnits(42)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.service.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	c.Assert(s.service.EnsureMinUnits(), gc.ErrorMatches,
 		`cannot ensure minimum units for service "dummy-service": service is not alive`)
@@ -410,13 +411,13 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *gc.C) {
 	s.addUnits(c, 2)
 	service := s.service
 	err := service.SetMinUnits(5)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer state.SetAfterHooks(c, s.State, func() {
 		err := service.SetMinUnits(3)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	c.Assert(service.Refresh(), gc.IsNil)
 	err = service.EnsureMinUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertAllUnits(c, service, 3)
 }

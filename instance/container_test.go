@@ -6,6 +6,7 @@ package instance_test
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
@@ -21,11 +22,11 @@ var _ = gc.Suite(&InstanceSuite{})
 
 func (s *InstanceSuite) TestParseContainerType(c *gc.C) {
 	ctype, err := instance.ParseContainerType("lxc")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
 
 	ctype, err = instance.ParseContainerType("kvm")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.KVM)
 
 	ctype, err = instance.ParseContainerType("none")
@@ -37,15 +38,15 @@ func (s *InstanceSuite) TestParseContainerType(c *gc.C) {
 
 func (s *InstanceSuite) TestParseContainerTypeOrNone(c *gc.C) {
 	ctype, err := instance.ParseContainerTypeOrNone("lxc")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.LXC)
 
 	ctype, err = instance.ParseContainerTypeOrNone("kvm")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.KVM)
 
 	ctype, err = instance.ParseContainerTypeOrNone("none")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctype, gc.Equals, instance.NONE)
 
 	ctype, err = instance.ParseContainerTypeOrNone("omg")

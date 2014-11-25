@@ -43,16 +43,16 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now})
 	err := metricsender.SendMetrics(s.State, &sender, 10)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
 
 	sent1, err := s.State.MetricBatch(unsent1.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent1.Sent(), jc.IsTrue)
 
 	sent2, err := s.State.MetricBatch(unsent2.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent2.Sent(), jc.IsTrue)
 }
 
@@ -67,7 +67,7 @@ func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
 	}
 	err := metricsender.SendMetrics(s.State, &sender, 10)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 10)
 	for i := 0; i < 10; i++ {
@@ -83,8 +83,8 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
 	err := metricsender.SendMetrics(s.State, metricsender.NopSender{}, 10)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sent, err := s.State.CountofSentMetrics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 3)
 }

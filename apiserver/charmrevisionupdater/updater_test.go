@@ -48,7 +48,7 @@ func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *charmVersionSuite) TearDownTest(c *gc.C) {
@@ -58,7 +58,7 @@ func (s *charmVersionSuite) TearDownTest(c *gc.C) {
 
 func (s *charmVersionSuite) TestNewCharmRevisionUpdaterAPIAcceptsStateManager(c *gc.C) {
 	endPoint, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
@@ -83,12 +83,12 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
 	curl = charm.MustParseURL("cs:quantal/mysql")
 	pending, err := s.State.LatestPlaceholderCharm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pending.String(), gc.Equals, "cs:quantal/mysql-23")
 
 	// Latest wordpress is already deployed, so no pending charm.
@@ -103,13 +103,13 @@ func (s *charmVersionSuite) TestUpdateRevisions(c *gc.C) {
 
 	// Update mysql version and run update again.
 	svc, err := s.State.Service("mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ch := s.AddCharmWithRevision(c, "mysql", 23)
 	err = svc.SetCharm(ch, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err = s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
 	// Latest mysql is now deployed, so no pending charm.
@@ -122,10 +122,10 @@ func (s *charmVersionSuite) TestEnvironmentUUIDUsed(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageEnviron)
 	s.SetupScenario(c)
 	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.Server.Metadata, gc.DeepEquals, []string{"environment_uuid=" + env.UUID()})
 }

@@ -74,7 +74,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 
 	s.mongodPath = filepath.Join(c.MkDir(), "mongod")
 	err := ioutil.WriteFile(s.mongodPath, []byte("#!/bin/bash\n\nprintf %s 'db version v2.4.9'\n"), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
 
 	// Patch "df" such that it always reports there's 1MB free.
@@ -112,7 +112,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	obtained, err := mongo.Path()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
@@ -121,14 +121,14 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	obtained, err := mongo.Path()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 	dir := c.MkDir()
 	err := mongo.MakeJournalDirs(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	testJournalDirs(dir, c)
 }
@@ -138,16 +138,16 @@ func testJournalDirs(dir string, c *gc.C) {
 
 	c.Assert(journalDir, jc.IsDirectory)
 	info, err := os.Stat(filepath.Join(journalDir, "prealloc.0"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	size := int64(1024 * 1024)
 
 	c.Assert(info.Size(), gc.Equals, size)
 	info, err = os.Stat(filepath.Join(journalDir, "prealloc.1"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Size(), gc.Equals, size)
 	info, err = os.Stat(filepath.Join(journalDir, "prealloc.2"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Size(), gc.Equals, size)
 }
 
@@ -155,15 +155,15 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	dataDir := s.testEnsureServerNumaCtl(c, false)
 
 	contents, err := ioutil.ReadFile(s.mongodConfigPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(contents, jc.DeepEquals, []byte("ENABLE_MONGODB=no"))
 
 	contents, err = ioutil.ReadFile(mongo.SSLKeyPath(dataDir))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
 
 	contents, err = ioutil.ReadFile(mongo.SharedSecretPath(dataDir))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
 
 	// make sure that we log the version of mongodb as we get ready to
@@ -192,7 +192,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	})
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.installed, gc.HasLen, 0)
 }
 
@@ -215,7 +215,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	})
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.installed, gc.HasLen, 0)
 	c.Assert(started, jc.IsTrue)
 }
@@ -255,7 +255,7 @@ func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string
 	testParams := makeEnsureServerParams(dataDir, namespace)
 	testParams.SetNumaControlPolicy = setNumaPolicy
 	err := mongo.EnsureServer(testParams)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	testJournalDirs(dbDir, c)
 
@@ -303,7 +303,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 		s.PatchValue(&version.Current.Series, test.series)
 
 		err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		cmds := getMockShellCalls(c, output)
 
@@ -336,7 +336,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	})
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.installed, gc.HasLen, 0)
 
 	// We still attempt to install mongodb, despite the service existing.
@@ -348,7 +348,7 @@ func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.Contains(svc.Conf.Cmd, "--replSet"), jc.IsTrue)
 }
 
@@ -356,7 +356,7 @@ func (s *MongoSuite) TestUpstartServiceWithNumCtl(c *gc.C) {
 	dataDir := c.MkDir()
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
@@ -364,7 +364,7 @@ func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(strings.Contains(svc.Conf.Cmd, "--ipv6"), jc.IsTrue)
 }
 
@@ -372,7 +372,7 @@ func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
 	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	journalPresent := strings.Contains(svc.Conf.Cmd, " --journal ") || strings.HasSuffix(svc.Conf.Cmd, " --journal")
 	c.Assert(journalPresent, jc.IsTrue)
 }
@@ -381,7 +381,7 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
 	cmd, err := mongo.NoauthCommand(dataDir, 1234)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var isJournalPresent bool
 	for _, value := range cmd.Args {
 		if value == "--journal" {
@@ -393,7 +393,7 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := mongo.RemoveService("namespace")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.removed, jc.DeepEquals, []upstart.Service{{
 		Name: "juju-db-namespace",
 		Conf: common.Conf{InitDir: upstart.InitDir},
@@ -415,7 +415,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	s.PatchValue(&version.Current.Series, "trusty")
 	failCmd(filepath.Join(dir, "mongod"))
 	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
@@ -424,10 +424,10 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MongoSuite) TestServiceName(c *gc.C) {
@@ -476,10 +476,10 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
 	secret, err := mongo.GenerateSharedSecret()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(secret, gc.HasLen, 1024)
 	_, err = base64.StdEncoding.DecodeString(secret)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
@@ -490,7 +490,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 
 	dataDir := c.MkDir()
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{
 		"-y",
@@ -527,7 +527,7 @@ func mockShellCommand(c *gc.C, s *testing.CleanupSuite, name string) string {
 } >> ` + utils.ShQuote(outputFile) + `
 `
 	err := ioutil.WriteFile(filepath.Join(dir, name), []byte(contents), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return outputFile
 }
 
@@ -540,7 +540,7 @@ func getMockShellCalls(c *gc.C, file string) [][]string {
 	if os.IsNotExist(err) {
 		return nil
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s := string(data)
 	parts := strings.Split(s, "\n-\n")
 	c.Assert(parts[len(parts)-1], gc.Equals, "")

@@ -257,12 +257,12 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	})
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
 }
@@ -286,10 +286,10 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	})
 
 	jsonFormatted, err := cmd.FormatJson(unformatted)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := testing.RunCommand(c, &RunCommand{}, "--format=json", "--all", "hostname")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
 }
@@ -307,9 +307,9 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 	unformatted := ConvertRunResults([]params.RunResult{
 		makeRunResult(mockResponse)})
 	yamlFormatted, err := cmd.FormatYaml(unformatted)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	jsonFormatted, err := cmd.FormatJson(unformatted)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
 		message    string
@@ -341,7 +341,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		c.Check(testing.Stdout(context), gc.Equals, test.stdout)
 		c.Check(testing.Stderr(context), gc.Equals, test.stderr)

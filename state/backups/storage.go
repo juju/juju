@@ -4,59 +4,26 @@
 package backups
 
 import (
-	"fmt"
 	"io"
 	"path"
 	"time"
 
 	"github.com/juju/blobstore"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
-/*
-Backups are not a part of juju state nor of normal state operations.
-However, they certainly are tightly coupled with state (the very
-subject of backups).  This puts backups in an odd position,
-particularly with regard to the storage of backup metadata and
-archives.  As a result, here are a couple concerns worth mentioning.
-
-First, as noted above backup is about state but not a part of state.
-So exposing backup-related methods on State would imply the wrong
-thing.  Thus the backup functionality here in the state package (not
-state/backups) is exposed as functions to which you pass a state
-object.
-
-Second, backup creates an archive file containing a dump of state's
-mongo DB.  Storing backup metadata/archives in mongo is thus a
-somewhat circular proposition that has the potential to cause
-problems.  That may need further attention.
-
-Note that state (and juju as a whole) currently does not have a
-persistence layer abstraction to facilitate separating different
-persistence needs and implementations.  As a consequence, state's
-data, whether about how an environment should look or about existing
-resources within an environment, is dumped essentially straight into
-State's mongo connection.  The code in the state package does not
-make any distinction between the two (nor does the package clearly
-distinguish between state-related abstractions and state-related
-data).
-
-Backup adds yet another category, merely taking advantage of
-State's DB.  In the interest of making the distinction clear, the
-code that directly interacts with State and its DB) lives in this
-file.  As mentioned previously, the functionality here is exposed
-through functions that take State, rather than as methods on State.
-Furthermore, the bulk of the backup-related code, which does not need
-direct interaction with State, lives in the state/backups package.
-*/
+// backupIDTimstamp is used to format the timestamp from a backup
+// metadata into a string. The result is used as the first half of the
+// corresponding backup ID.
+const backupIDTimestamp = "20060102-150405"
 
 //---------------------------
 // Backup metadata document
@@ -86,7 +53,7 @@ type storageMetaDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
-func (doc *storageMetaDoc) fileSet() bool {
+func (doc *storageMetaDoc) isFileInfoComplete() bool {
 	if doc.Finished == 0 {
 		return false
 	}
@@ -123,7 +90,7 @@ func (doc *storageMetaDoc) validate() error {
 	}
 
 	// Check the file-related fields.
-	if !doc.fileSet() {
+	if !doc.isFileInfoComplete() {
 		if doc.Stored != 0 {
 			return errors.New(`"Stored" flag is unexpectedly true`)
 		}
@@ -146,10 +113,18 @@ func (doc *storageMetaDoc) validate() error {
 	return nil
 }
 
-// asMetadata returns a new backups.Metadata based on the storageMetaDoc.
-func (doc *storageMetaDoc) asMetadata() *Metadata {
+func metadocUnixToTime(t int64) time.Time {
+	return time.Unix(t, 0).UTC()
+}
+
+func metadocTimeToUnix(t time.Time) int64 {
+	return t.UTC().Unix()
+}
+
+// docAsMetadata returns a new backups.Metadata based on the storageMetaDoc.
+func docAsMetadata(doc *storageMetaDoc) *Metadata {
 	meta := NewMetadata()
-	meta.Started = time.Unix(doc.Started, 0).UTC()
+	meta.Started = metadocUnixToTime(doc.Started)
 	meta.Notes = doc.Notes
 
 	meta.Origin.Environment = doc.Environment
@@ -159,10 +134,10 @@ func (doc *storageMetaDoc) asMetadata() *Metadata {
 
 	meta.SetID(doc.ID)
 
-	if doc.fileSet() {
+	if doc.isFileInfoComplete() {
 		// Set the file-related fields.
 
-		finished := time.Unix(doc.Finished, 0).UTC()
+		finished := metadocUnixToTime(doc.Finished)
 		meta.Finished = &finished
 
 		// The doc should have already been validated when stored.
@@ -171,7 +146,7 @@ func (doc *storageMetaDoc) asMetadata() *Metadata {
 		meta.FileMetadata.Raw.ChecksumFormat = doc.ChecksumFormat
 
 		if doc.Stored != 0 {
-			stored := time.Unix(doc.Stored, 0).UTC()
+			stored := metadocUnixToTime(doc.Stored)
 			meta.SetStored(&stored)
 		}
 	}
@@ -179,21 +154,24 @@ func (doc *storageMetaDoc) asMetadata() *Metadata {
 	return meta
 }
 
-// UpdateFromMetadata copies the corresponding data from the backup
-// Metadata into the storageMetaDoc.
-func (doc *storageMetaDoc) UpdateFromMetadata(meta *Metadata) {
-	// Ignore metadata.ID.
+// newStorageMetaDoc creates a storageMetaDoc using the corresponding
+// values from the backup Metadata.
+func newStorageMetaDoc(meta *Metadata) storageMetaDoc {
+	var doc storageMetaDoc
+
+	// Ignore metadata.ID. It will be set by storage later.
 
 	doc.Checksum = meta.Checksum()
 	doc.ChecksumFormat = meta.ChecksumFormat()
 	doc.Size = meta.Size()
 	if meta.Stored() != nil {
-		doc.Stored = meta.Stored().Unix()
+		stored := meta.Stored()
+		doc.Stored = metadocTimeToUnix(*stored)
 	}
 
-	doc.Started = meta.Started.Unix()
+	doc.Started = metadocTimeToUnix(meta.Started)
 	if meta.Finished != nil {
-		doc.Finished = meta.Finished.Unix()
+		doc.Finished = metadocTimeToUnix(*meta.Finished)
 	}
 	doc.Notes = meta.Notes
 
@@ -201,6 +179,8 @@ func (doc *storageMetaDoc) UpdateFromMetadata(meta *Metadata) {
 	doc.Machine = meta.Origin.Machine
 	doc.Hostname = meta.Origin.Hostname
 	doc.Version = meta.Origin.Version
+
+	return doc
 }
 
 //---------------------------
@@ -209,8 +189,7 @@ func (doc *storageMetaDoc) UpdateFromMetadata(meta *Metadata) {
 // TODO(ericsnow) Merge storageDBWrapper with the storage implementation in
 // state/storage.go (also see state/toolstorage).
 
-// storageDBWrapper performs all state database operations needed for
-// backups.
+// storageDBWrapper performs all state database operations needed for backups.
 type storageDBWrapper struct {
 	session   *mgo.Session
 	db        *mgo.Database
@@ -251,19 +230,38 @@ func (b *storageDBWrapper) allMetadata(docs interface{}) error {
 	return errors.Trace(err)
 }
 
-// removeMetadata removes the identified metadata from storage.
-func (b *storageDBWrapper) removeMetadata(id string) error {
+// removeMetadataID removes the identified metadata from storage.
+func (b *storageDBWrapper) removeMetadataID(id string) error {
 	err := b.metaColl.RemoveId(id)
 	return errors.Trace(err)
 }
 
 // txnOp returns a single transaction operation populated with the id
-// and the metadata collection name.
-func (b *storageDBWrapper) txnOp(id string) txn.Op {
+// and the metadata collection name. The caller should set other op
+// values as needed.
+func (b *storageDBWrapper) txnOpBase(id string) txn.Op {
 	op := txn.Op{
 		C:  b.metaColl.Name,
 		Id: id,
 	}
+	return op
+}
+
+// txnOpInsert returns a single transaction operation that will insert
+// the document into storage.
+func (b *storageDBWrapper) txnOpInsert(id string, doc interface{}) txn.Op {
+	op := b.txnOpBase(id)
+	op.Assert = txn.DocMissing
+	op.Insert = doc
+	return op
+}
+
+// txnOpInsert returns a single transaction operation that will update
+// the already stored document.
+func (b *storageDBWrapper) txnOpUpdate(id string, updates ...bson.DocElem) txn.Op {
+	op := b.txnOpBase(id)
+	op.Assert = txn.DocExists
+	op.Update = bson.D{{"$set", bson.D(updates)}}
 	return op
 }
 
@@ -273,8 +271,7 @@ func (b *storageDBWrapper) runTransaction(ops []txn.Op) error {
 	return errors.Trace(err)
 }
 
-// blobStorage returns a ManagedStorage matching the env storage and
-// the blobDB.
+// blobStorage returns a ManagedStorage matching the env storage and the blobDB.
 func (b *storageDBWrapper) blobStorage(blobDB string) blobstore.ManagedStorage {
 	dataStore := blobstore.NewGridFS(blobDB, b.envUUID, b.session)
 	return blobstore.NewManagedStorage(b.db, dataStore)
@@ -308,7 +305,6 @@ func (b *storageDBWrapper) Close() error {
 // juju/errors.IsNotFound() is returned.
 func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, error) {
 	var doc storageMetaDoc
-	// There can only be one!
 	err := dbWrap.metadata(id, &doc)
 	if errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -328,44 +324,36 @@ func getStorageMetadata(dbWrap *storageDBWrapper, id string) (*storageMetaDoc, e
 // consumable (in contrast to a plain UUID string).  Ideally we would
 // use some form of environment name rather than the UUID, but for now
 // the raw env ID is sufficient.
-func newStorageID(doc *storageMetaDoc) string {
-	rawts := time.Unix(doc.Started, 0).UTC()
-	Y, M, D := rawts.Date()
-	h, m, s := rawts.Clock()
-	timestamp := fmt.Sprintf("%04d%02d%02d-%02d%02d%02d", Y, M, D, h, m, s)
-
+var newStorageID = func(doc *storageMetaDoc) string {
+	started := metadocUnixToTime(doc.Started)
+	timestamp := started.Format(backupIDTimestamp)
 	return timestamp + "." + doc.Environment
 }
 
 // addStorageMetadata stores metadata for a backup where it can be
-// accessed later.  It returns a new ID that is associated with the
-// backup.  If the provided metadata already has an ID set, it is
-// ignored.
+// accessed later. It returns a new ID that is associated with the
+// backup. If the provided metadata already has an ID set, it is
+// ignored. The new ID is set on the doc, even when there is an error.
 func addStorageMetadata(dbWrap *storageDBWrapper, doc *storageMetaDoc) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
 	id := newStorageID(doc)
-	return id, addStorageMetadataID(dbWrap, doc, id)
-}
 
-func addStorageMetadataID(dbWrap *storageDBWrapper, doc *storageMetaDoc, id string) error {
 	doc.ID = id
 	if err := doc.validate(); err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	op := dbWrap.txnOp(id)
-	op.Assert = txn.DocMissing
-	op.Insert = doc
+	op := dbWrap.txnOpInsert(id, doc)
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
-			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
+			return "", errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
-		return errors.Annotate(err, "while running transaction")
+		return "", errors.Annotate(err, "while running transaction")
 	}
 
-	return nil
+	return id, nil
 }
 
 // setStorageStoredTime updates the backup metadata associated with "id"
@@ -373,11 +361,7 @@ func addStorageMetadataID(dbWrap *storageDBWrapper, doc *storageMetaDoc, id stri
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
 func setStorageStoredTime(dbWrap *storageDBWrapper, id string, stored time.Time) error {
-	op := dbWrap.txnOp(id)
-	op.Assert = txn.DocExists
-	op.Update = bson.D{{"$set", bson.D{
-		{"stored", stored.UTC().Unix()},
-	}}}
+	op := dbWrap.txnOpUpdate(id, bson.DocElem{"stored", metadocTimeToUnix(stored)})
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
@@ -419,13 +403,12 @@ func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	if !ok {
 		return "", errors.Errorf("doc must be of type *backups.Metadata")
 	}
-	var storageMetaDoc storageMetaDoc
-	storageMetaDoc.UpdateFromMetadata(metadata)
+	metaDoc := newStorageMetaDoc(metadata)
 
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
 
-	id, err := addStorageMetadata(dbWrap, &storageMetaDoc)
+	id, err := addStorageMetadata(dbWrap, &metaDoc)
 	return id, errors.Trace(err)
 }
 
@@ -439,7 +422,7 @@ func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 		return nil, errors.Trace(err)
 	}
 
-	metadata := doc.asMetadata()
+	metadata := docAsMetadata(doc)
 	return metadata, nil
 }
 
@@ -455,7 +438,7 @@ func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 
 	list := make([]filestorage.Document, len(docs))
 	for i, doc := range docs {
-		meta := doc.asMetadata()
+		meta := docAsMetadata(&doc)
 		list[i] = meta
 	}
 	return list, nil
@@ -466,7 +449,7 @@ func (s *backupsDocStorage) RemoveDoc(id string) error {
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
 
-	return errors.Trace(dbWrap.removeMetadata(id))
+	return errors.Trace(dbWrap.removeMetadataID(id))
 }
 
 // Close releases the DB resources.
@@ -518,7 +501,7 @@ func (s *backupBlobStorage) path(id string) string {
 // File returns the identified file from storage.
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
 	file, _, err := s.storeImpl.GetForEnvironment(s.envUUID, s.path(id))
-	return file, err
+	return file, errors.Trace(err)
 }
 
 // AddFile adds the file to storage.
@@ -544,9 +527,20 @@ const (
 	storageMetaName = "metadata"
 )
 
+// DB represents the set of methods required to perform a backup.
+// It exists to break the strict dependency between state and this package,
+// and those that depend on this package.
+type DB interface {
+	// MongoSession returns the underlying mongodb session.
+	MongoSession() *mgo.Session
+
+	// EnvironTag is the concrete environ tag for this database.
+	EnvironTag() names.EnvironTag
+}
+
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewStorage(st *state.State) filestorage.FileStorage {
+func NewStorage(st DB) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
 	db := st.MongoSession().DB(storageDBName)
 	dbWrap := newStorageDBWrapper(db, storageMetaName, envUUID)

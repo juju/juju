@@ -98,13 +98,16 @@ func newArchiveWorkspace() (*ArchiveWorkspace, error) {
 }
 
 // NewArchiveWorkspaceReader returns a new archive workspace with a new
-// workspace dir populated from the archive file.
-func NewArchiveWorkspaceReader(archiveFile io.Reader) (*ArchiveWorkspace, error) {
+// workspace dir populated from the archive. Note that this involves
+// unpacking the entire archive into a directory under the host's
+// "temporary" directory. For relatively large archives this could have
+// adverse effects on hosts with little disk space.
+func NewArchiveWorkspaceReader(archive io.Reader) (*ArchiveWorkspace, error) {
 	ws, err := newArchiveWorkspace()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = unpackCompressedReader(ws.RootDir, archiveFile)
+	err = unpackCompressedReader(ws.RootDir, archive)
 	return ws, errors.Trace(err)
 }
 
@@ -168,7 +171,11 @@ func (ws *ArchiveWorkspace) Metadata() (*Metadata, error) {
 }
 
 // ArchiveData is a wrapper around a the uncompressed data in a backup
-// archive file. It provides access to the content of the archive.
+// archive file. It provides access to the content of the archive. While
+// ArchiveData provides useful functionality, it may not be appropriate
+// for large archives. The contents of the archive are kept in-memory,
+// so large archives could be too taxing on the host. In that case
+// consider using ArchiveWorkspace instead.
 type ArchiveData struct {
 	ArchivePaths
 	data []byte
@@ -183,8 +190,10 @@ func NewArchiveData(data []byte) *ArchiveData {
 	}
 }
 
-// NewArchiveReader returns a new archive data wrapper for the data in the
-// provided reader.
+// NewArchiveReader returns a new archive data wrapper for the data in
+// the provided reader. Note that the entire archive will be read into
+// memory and kept there. So for relatively large archives it will often
+// be more appropriate to use ArchiveWorkspace instead.
 func NewArchiveDataReader(r io.Reader) (*ArchiveData, error) {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {

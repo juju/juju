@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"
@@ -477,7 +478,7 @@ func (root *Root) testCall(c *gc.C, p testCallParams) {
 		c.Check(r, gc.Equals, stringVal{p.request().Action + " ret"})
 	}
 	if !p.testErr {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 
 	// Check that the call was actually made, the right
@@ -728,7 +729,7 @@ func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call(rpc.Request{"DelayedMethods", 0, id, "Delay"}, nil, &r)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(r.Val, gc.Equals, "return "+id)
 		done <- struct{}{}
 	}
@@ -811,7 +812,7 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 
 	root.errorInst.err = nil
 	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	root.errorInst = nil
 	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
@@ -873,7 +874,7 @@ func (*rpcSuite) TestCompatibility(c *gc.C) {
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
 		err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", method}, arg, ret)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(root.calls, gc.HasLen, 1)
 		info := root.calls[0]
 		c.Assert(info.rcvr, gc.Equals, a0)
@@ -1035,28 +1036,28 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 		X: []string{"one"},
 	}
 	err = client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg1, &ret)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ret.Val, gc.Equals, "SliceArg ret")
 }
 
 func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
 	client, srvDone, _, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = client.Call(rpc.Request{"Foo", 0, "", "Bar"}, nil, nil)
 	c.Assert(err, gc.Equals, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
 	client, _, _, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = client.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = client.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type KillerRoot struct {
@@ -1072,10 +1073,10 @@ func (*rpcSuite) TestRootIsKilled(c *gc.C) {
 	root := &KillerRoot{}
 	client, srvDone, _, _ := newRPCClientServer(c, root, nil, false)
 	err := client.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, gc.IsNil)
-	c.Assert(root.killed, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(root.killed, jc.IsTrue)
 }
 
 func (*rpcSuite) TestBidirectional(c *gc.C) {
@@ -1086,7 +1087,7 @@ func (*rpcSuite) TestBidirectional(c *gc.C) {
 	client.Serve(clientRoot, nil)
 	var r int64val
 	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.I, gc.Equals, int64(479001600))
 }
 
@@ -1107,11 +1108,11 @@ func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	err := client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
 	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "NewlyAvailable" \(not implemented\)`)
 	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "ChangeAPIMethods" \(not implemented\)`)
 	err = client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s, gc.Equals, stringVal{"new method result"})
 }
 
@@ -1121,7 +1122,7 @@ func (*rpcSuite) TestChangeAPIToNil(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 
 	err := client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "RemoveAPI"}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "RemoveAPI"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "request error: no service")
@@ -1148,7 +1149,7 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 	chanRead(c, ready, "method ready")
 
 	err := client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure that not only does the request in progress complete,
 	// but that the original transformErrors function is called.
@@ -1177,7 +1178,7 @@ func chanReadError(c *gc.C, ch <-chan error, what string) error {
 // If bidir is true, requests can flow in both directions.
 func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidir bool) (client *rpc.Conn, srvDone chan error, clientNotifier, serverNotifier *notifier) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	srvDone = make(chan error, 1)
 	clientNotifier = new(notifier)
@@ -1208,7 +1209,7 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 		srvDone <- rpcConn.Close()
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	role := roleClient
 	if bidir {
 		role = roleBoth
@@ -1220,9 +1221,9 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 
 func closeClient(c *gc.C, client *rpc.Conn, srvDone <-chan error) {
 	err := client.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type encoder interface {

@@ -10,6 +10,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -39,7 +40,7 @@ func (s *machineRebootSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	s.reboot, err = s.st.Reboot()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.reboot, gc.NotNil)
 }
 
@@ -48,7 +49,7 @@ func (s *machineRebootSuite) TestWatchForRebootEvent(c *gc.C) {
 		return nil
 	})
 	_, err := s.reboot.WatchForRebootEvent()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *machineRebootSuite) TestWatchForRebootEventError(c *gc.C) {
@@ -83,7 +84,7 @@ func (s *machineRebootSuite) TestRequestReboot(c *gc.C) {
 		return nil
 	})
 	err := s.reboot.RequestReboot()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *machineRebootSuite) TestRequestRebootError(c *gc.C) {
@@ -122,7 +123,7 @@ func (s *machineRebootSuite) TestGetRebootAction(c *gc.C) {
 		return nil
 	})
 	rAction, err := s.reboot.GetRebootAction()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rAction, gc.Equals, params.ShouldDoNothing)
 }
 
@@ -158,7 +159,7 @@ func (s *machineRebootSuite) TestClearReboot(c *gc.C) {
 		return nil
 	})
 	err := s.reboot.ClearReboot()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *machineRebootSuite) TestClearRebootError(c *gc.C) {

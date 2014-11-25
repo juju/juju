@@ -33,17 +33,17 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
 	err := s.env.SetConfig(MinimalConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	testConfig := MinimalConfig(c)
 	testConfig, err = testConfig.Apply(map[string]interface{}{"bootstrap-host": ""})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.env.SetConfig(testConfig)
 	c.Assert(err, gc.ErrorMatches, "bootstrap-host must be specified")
 }
@@ -57,13 +57,13 @@ func (s *environSuite) TestInstances(c *gc.C) {
 
 	ids = append(ids, BootstrapInstanceId)
 	instances, err = s.env.Instances(ids)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0], gc.NotNil)
 
 	ids = append(ids, BootstrapInstanceId)
 	instances, err = s.env.Instances(ids)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 2)
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], gc.NotNil)
@@ -116,7 +116,7 @@ exit 0
 		resultStderr, resultErr = t.stderr, t.err
 		err := s.env.Destroy()
 		if t.match == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.match)
 		}
@@ -133,7 +133,7 @@ func (s *environSuite) TestLocalStorageConfig(c *gc.C) {
 
 func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	arches, err := s.env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
 }
 
@@ -144,15 +144,15 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	result, err := s.env.SupportAddressAllocation("")
 	c.Assert(result, jc.IsFalse)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags"})
 }
 
@@ -173,10 +173,10 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"use-sshstorage": true,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := manualProvider{}.Open(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
 
@@ -191,14 +191,14 @@ func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
 
 	// use-sshstorage is initially true.
 	cfg := s.env.Config()
-	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, true)
+	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], jc.IsTrue)
 
 	_, _, _, err := s.env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Bootstrap must set use-sshstorage to false within the environment.
 	cfg = s.env.Config()
-	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, false)
+	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], jc.IsFalse)
 }
 
 type stateServerInstancesSuite struct {
@@ -217,10 +217,10 @@ func (s *stateServerInstancesSuite) SetUpTest(c *gc.C) {
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"use-sshstorage": true,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := manualProvider{}.Open(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
 }
 
@@ -256,7 +256,7 @@ func (s *stateServerInstancesSuite) TestStateServerInstances(c *gc.C) {
 		errResult = test.err
 		instances, err := s.env.StateServerInstances()
 		if test.expectedErr == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.expectedErr)
@@ -269,7 +269,7 @@ func (s *stateServerInstancesSuite) TestStateServerInstancesStderr(c *gc.C) {
 	// Stderr should not affect the behaviour of StateServerInstances.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
 	_, err := s.env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateServerInstancesSuite) TestStateServerInstancesError(c *gc.C) {
@@ -283,10 +283,10 @@ func (s *stateServerInstancesSuite) TestStateServerInstancesInternal(c *gc.C) {
 	// If use-sshstorage=false, then we're on the bootstrap host;
 	// verification is elided.
 	env, err := manualProvider{}.Open(MinimalConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
 	instances, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{BootstrapInstanceId})
 }

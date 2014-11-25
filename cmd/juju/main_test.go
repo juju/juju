@@ -140,12 +140,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check block command registered properly",
 		args:    []string{"block"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment] to block\n",
+		out:     "error: must specify one of [destroy-environment | remove-object] to block\n",
 	}, {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment] to unblock\n",
+		out:     "error: must specify one of [destroy-environment | remove-object] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -165,10 +165,10 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
 		content, err := ioutil.ReadFile(logpath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 

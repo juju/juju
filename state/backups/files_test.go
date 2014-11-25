@@ -37,7 +37,7 @@ func (s *filesSuite) SetUpTest(c *gc.C) {
 	touch := func(dirname, name string) {
 		path := filepath.Join(dirname, name)
 		file, err := os.Create(path)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		file.Close()
 	}
 
@@ -101,7 +101,7 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 		LogsDir: "/var/log/juju",
 	}
 	files, err := backups.GetFilesToBackUp(s.root, &paths)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
 		filepath.Join(s.root, "/etc/init/juju-db.conf"),

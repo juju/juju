@@ -84,11 +84,11 @@ func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
 	for i, t := range setConstraintsTests {
 		c.Logf("test %d: fallback: %q, cons: %q", i, t.consFallback, t.cons)
 		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		m, err := s.addOneMachine(c, constraints.MustParse(t.cons))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		cons, err := m.Constraints()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(cons, jc.DeepEquals, constraints.MustParse(t.expected))
 	}
 }
@@ -99,13 +99,13 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 	for i, t := range setConstraintsTests {
 		c.Logf("test %d: fallback: %q, cons: %q", i, t.consFallback, t.cons)
 		err := s.State.SetEnvironConstraints(constraints.MustParse(t.consFallback))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = service.SetConstraints(constraints.MustParse(t.cons))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		u, err := service.AddUnit()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		ucons, err := u.Constraints()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(*ucons, jc.DeepEquals, constraints.MustParse(t.expected))
 	}
 }

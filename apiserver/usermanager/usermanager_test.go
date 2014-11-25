@@ -36,7 +36,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
@@ -57,14 +57,14 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is succesful
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	foobarTag := names.NewLocalUserTag("foobar")
 	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
 		Tag: foobarTag.String()})
 	// Check that the call results in a new user being created
 	user, err := s.State.User(foobarTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
@@ -74,7 +74,7 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.AddUsers{
 		Users: []params.AddUser{{
@@ -103,7 +103,7 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 			{"not-a-tag"},
 		}}
 	result, err := s.usermanager.DisableUser(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -121,11 +121,11 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 			}},
 		}})
 	err = alex.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alex.IsDisabled(), jc.IsTrue)
 
 	err = barb.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
@@ -142,7 +142,7 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 			{"not-a-tag"},
 		}}
 	result, err := s.usermanager.EnableUser(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -160,11 +160,11 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 			}},
 		}})
 	err = alex.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(alex.IsDisabled(), jc.IsFalse)
 
 	err = barb.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(barb.IsDisabled(), jc.IsFalse)
 }
 
@@ -172,7 +172,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
 
@@ -183,7 +183,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(barb.IsDisabled(), jc.IsFalse)
 }
 
@@ -191,7 +191,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
@@ -202,7 +202,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
@@ -226,7 +226,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 		}}
 
 	results, err := s.usermanager.UserInfo(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.UserInfoResults{
 		Results: []params.UserInfoResult{
 			{
@@ -268,13 +268,13 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 
 func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	admin, err := s.State.User(s.AdminUserTag(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
 	results, err := s.usermanager.UserInfo(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := params.UserInfoResults{
 		Results: []params.UserInfoResult{
 			{
@@ -307,7 +307,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 
 	results, err = s.usermanager.UserInfo(params.UserInfoRequest{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Same results as before, but without the deactivated barfoo user
 	expected.Results = expected.Results[1:]
 	c.Assert(results, jc.DeepEquals, expected)
@@ -322,12 +322,12 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 			Password: "new-password",
 		}}}
 	results, err := s.usermanager.SetPassword(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
 	err = alex.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(alex.PasswordValid("new-password"), jc.IsTrue)
 }
@@ -336,7 +336,7 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -344,12 +344,12 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 			Password: "new-password",
 		}}}
 	results, err := usermanager.SetPassword(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
 	err = alex.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(alex.PasswordValid("new-password"), jc.IsTrue)
 }
@@ -359,7 +359,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -367,7 +367,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 			Password: "new-password",
 		}}}
 	results, err := usermanager.SetPassword(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
@@ -376,7 +376,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 		}})
 
 	err = barb.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(barb.PasswordValid("new-password"), jc.IsFalse)
 }
