@@ -32,7 +32,7 @@ usage() {
     options="[-t TEST_DEBS_DIR]"
     echo "usage: $0 $options PURPOSE RELEASE STREAMS_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
-    echo "  PURPOSE: testing, devel, proposed, released"
+    echo "  PURPOSE: testing, weekly, devel, proposed, released"
     echo "  RELEASE: The pattern (version) to match packages in the archives."
     echo "           Use IGNORE when you want to regenerate metadata without"
     echo "           downloading debs and extracting new tools."
@@ -99,8 +99,8 @@ sync_released_tools() {
 
 retract_tools() {
     echo "Phase 3: Reseting streams as needed."
-    if [[ $PURPOSE == "testing" ]]; then
-        echo "Removing all testing agents to reset for testing."
+    if [[ $PURPOSE =~ ^(testing|weekly)$ ]]; then
+        echo "Removing all testing agents to reset for $PURPOSE."
         local RETRACT_GLOB="juju-*.tgz"
     elif [[ -n "$REMOVE_RELEASE" ]]; then
         local RETRACT_GLOB="juju-$REMOVE_RELEASE*.tgz"
@@ -139,6 +139,10 @@ init_tools_maybe() {
         echo "Seeding devel with $INIT_VERSION released agents"
         cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
+    elif [[ $PURPOSE == "weekly" ]]; then
+        echo "Seeding weekly with $INIT_VERSION released agents"
+        cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
+            $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
         if [[ $IS_DEVEL_VERSION == "true" ]]; then
             echo "Seeding testing with all devel agents"
@@ -156,7 +160,7 @@ retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
     echo "Phase 5: Retrieving juju-core packages from archives"
-    if [[ $IS_TESTING == "true" ]]; then
+    if [[ $IS_LOCAL == "true" ]]; then
         linked_files=$(
             find $TEST_DEBS_DIR -name 'juju-core_*.deb' -or -name 'juju-*.tgz')
         for linked_file in $linked_files; do
@@ -317,7 +321,7 @@ archive_tools() {
         # Exit early when debs were searched, but no new tools were found.
         echo "No tools were added from the built debs."
         cleanup
-        if [[ $IS_TESTING == "true" ]]; then
+        if [[ $IS_LOCAL == "true" ]]; then
             echo "The branch version may be out of date; $RELEASE is published?"
             exit 5
         else
@@ -427,7 +431,7 @@ generate_streams() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         rm -r $JUJU_PATH
         return
     fi
@@ -500,7 +504,7 @@ generate_mirrors() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     ${SCRIPT_DIR}/generate_mirrors.py $JUJU_DIST/tools/
@@ -535,7 +539,7 @@ sign_metadata() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     meta_files=$(ls ${JUJU_DIST}/tools/streams/v1/*.json)
@@ -564,7 +568,7 @@ cleanup() {
 # Parse options and args.
 REMOVE_RELEASE=""
 SIGNING_KEY=""
-IS_TESTING="false"
+IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
 INIT_VERSION="1.20"
 while getopts "r:s:t:i:n" o; do
@@ -580,7 +584,7 @@ while getopts "r:s:t:i:n" o; do
         t)
             TEST_DEBS_DIR=${OPTARG}
             [[ -d $TEST_DEBS_DIR ]] || usage
-            IS_TESTING="true"
+            IS_LOCAL="true"
             echo "Assembling testing tools from $TEST_DEBS_DIR"
             ;;
         i)
@@ -601,7 +605,7 @@ shift $((OPTIND - 1))
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ ! $PURPOSE =~ ^(released|proposed|devel|testing)$ ]]; then
+if [[ ! $PURPOSE =~ ^(released|proposed|devel|weekly|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi

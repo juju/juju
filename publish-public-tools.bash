@@ -18,10 +18,11 @@ JOYENT_SITE="https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"
 
 usage() {
     echo "usage: $0 PURPOSE DIST_DIRECTORY DESTINATIONS"
-    echo "  PURPOSE: 'released', 'proposed', 'devel', or  'testing'"
+    echo "  PURPOSE: released, proposed, devel, weekly, or testing"
     echo "    released installs tools/ at the top of juju-dist/tools."
     echo "    proposed installs tools/ at the top of juju-dist/proposed/tools."
     echo "    devel installs tools/ at the top of juju-dist/devel/tools."
+    echo "    weekly installs tools/ at juju-dist/weekly/tools."
     echo "    testing installs tools/ at juju-dist/testing/tools."
     echo "  DIST_DIRECTORY: The directory to the assembled tools."
     echo "    This is the juju-dist dir created by assemble-public-tools.bash."
@@ -93,7 +94,7 @@ publish_to_aws() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 1.1: Publishing $PURPOSE to AWS one-tree."
@@ -121,7 +122,7 @@ publish_to_canonistack() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 2.1: Publishing $PURPOSE to canonistack one-tree."
@@ -150,7 +151,7 @@ publish_to_hp() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 3.1: Publishing $PURPOSE to HP Cloud one-tree."
@@ -171,7 +172,7 @@ publish_to_azure() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish released $JUJU_DIST
@@ -197,7 +198,7 @@ publish_to_joyent() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 5.1: Publishing $PURPOSE to Joyent one-tree."
@@ -236,7 +237,7 @@ fi
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ ! $PURPOSE =~ ^(released|proposed|devel|testing)$ ]]; then
+if [[ ! $PURPOSE =~ ^(released|proposed|devel|weekly|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
