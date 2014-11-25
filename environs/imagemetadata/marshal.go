@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	ProductMetadataPath = "streams/v1/com.ubuntu.cloud:released:imagemetadata.json"
+	ProductMetadataPath = "streams/v1/com.ubuntu.cloud-released-imagemetadata.json"
 	ImageContentId      = "com.ubuntu.cloud:custom"
 )
 

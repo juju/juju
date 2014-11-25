@@ -118,7 +118,7 @@ func (s *ImageMetadataSuite) assertCommandOutput(c *gc.C, expected expectedMetad
 
 const (
 	defaultIndexFileName = "index.json"
-	defaultImageFileName = "com.ubuntu.cloud:released:imagemetadata.json"
+	defaultImageFileName = "com.ubuntu.cloud-released-imagemetadata.json"
 )
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {

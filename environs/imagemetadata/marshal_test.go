@@ -32,7 +32,7 @@ var expectedIndex = `{
                     "endpoint": "endpoint"
                 }
             ],
-            "path": "streams/v1/com.ubuntu.cloud:released:imagemetadata.json",
+            "path": "streams/v1/com.ubuntu.cloud-released-imagemetadata.json",
             "products": [
                 "com.ubuntu.cloud:server:12.04:amd64",
                 "com.ubuntu.cloud:server:12.04:arm",

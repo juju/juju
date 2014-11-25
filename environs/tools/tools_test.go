@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -45,7 +46,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
-	s.ToolsFixture.DefaultBaseURL = "file://" + s.publicToolsDir
+	s.ToolsFixture.DefaultBaseURL = utils.MakeFileURL(s.publicToolsDir)
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origCurrentVersion = version.Current
@@ -61,7 +62,7 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 	final := map[string]interface{}{
-		"agent-metadata-url": "file://" + s.customToolsDir,
+		"agent-metadata-url": utils.MakeFileURL(s.customToolsDir),
 		"agent-stream":       "proposed",
 	}
 	for k, v := range attrs {

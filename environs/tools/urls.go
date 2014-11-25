@@ -4,9 +4,6 @@
 package tools
 
 import (
-	"fmt"
-	"net/url"
-	"strings"
 	"sync"
 
 	"github.com/juju/errors"
@@ -16,6 +13,7 @@ import (
 	conf "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	envutils "github.com/juju/juju/environs/utils"
 )
 
 type toolsDatasourceFuncId struct {
@@ -126,18 +124,6 @@ func ToolsURL(source string) (string, error) {
 	if source == "" {
 		return "", nil
 	}
-	// If source is a raw directory, we need to append the file:// prefix
-	// so it can be used as a URL.
-	defaultURL := source
-	u, err := url.Parse(source)
-	if err != nil {
-		return "", fmt.Errorf("invalid default tools URL %s: %v", defaultURL, err)
-	}
-	if u.Scheme == "" {
-		defaultURL = "file://" + defaultURL
-		if !strings.HasSuffix(defaultURL, "/"+storage.BaseToolsPath) {
-			defaultURL = fmt.Sprintf("%s/%s", defaultURL, storage.BaseToolsPath)
-		}
-	}
-	return defaultURL, nil
+
+	return envutils.GetURL(source, storage.BaseToolsPath)
 }

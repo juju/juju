@@ -1,9 +1,12 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package tools_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -100,15 +103,33 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 }
 
 func (s *URLsSuite) TestToolsURL(c *gc.C) {
-	for source, expected := range map[string]string{
-		"":           "",
-		"foo":        "file://foo/tools",
-		"/home/foo":  "file:///home/foo/tools",
-		"file://foo": "file://foo",
-		"http://foo": "http://foo",
-	} {
-		URL, err := tools.ToolsURL(source)
-		c.Assert(err, gc.IsNil)
-		c.Assert(URL, gc.Equals, expected)
+	var toolsTests = []struct {
+		in          string
+		expected    string
+		expectedErr error
+	}{{
+		in:          "",
+		expected:    "",
+		expectedErr: nil,
+	}, {
+		in:          "file://foo",
+		expected:    "file://foo",
+		expectedErr: nil,
+	}, {
+		in:          "http://foo",
+		expected:    "http://foo",
+		expectedErr: nil,
+	}, {
+		in:          "foo",
+		expected:    "",
+		expectedErr: fmt.Errorf("foo is not an absolute path"),
+	}}
+	toolsTests = append(toolsTests, toolsTestsPlatformSpecific...)
+	for i, t := range toolsTests {
+		c.Logf("Test %d:", i)
+
+		out, err := tools.ToolsURL(t.in)
+		c.Assert(err, gc.DeepEquals, t.expectedErr)
+		c.Assert(out, gc.Equals, t.expected)
 	}
 }

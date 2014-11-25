@@ -116,7 +116,7 @@ func (s *filestorageSuite) TestURL(c *gc.C) {
 	_, file := filepath.Split(expectedpath)
 	url, err := s.reader.URL(file)
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "file://"+expectedpath)
+	c.Assert(url, gc.Equals, utils.MakeFileURL(expectedpath))
 }
 
 func (s *filestorageSuite) TestGet(c *gc.C) {
@@ -215,11 +215,11 @@ func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer os.RemoveAll(tempDir)
 	dirName := strings.Replace(tempDir, homeDir, "", -1)
-	reader, err := filestorage.NewFileStorageReader(filepath.Join("~", dirName))
+	reader, err := filestorage.NewFileStorageReader(filepath.Join(utils.Home(), dirName))
 	c.Assert(err, gc.IsNil)
 	url, err := reader.URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "file://"+filepath.Join(homeDir, dirName))
+	c.Assert(url, gc.Equals, utils.MakeFileURL(filepath.Join(homeDir, dirName)))
 }
 
 func (s *filestorageSuite) TestRelativePath(c *gc.C) {
@@ -235,5 +235,5 @@ func (s *filestorageSuite) TestRelativePath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	url, err := reader.URL("")
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, "file://"+dir+"/a")
+	c.Assert(url, gc.Equals, utils.MakeFileURL(dir)+"/a")
 }

@@ -59,7 +59,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("test", "file://"+metadataPath, utils.VerifySSLHostnames)},
+			simplestreams.NewURLDataSource("test", utils.MakeFileURL(metadataPath), utils.VerifySSLHostnames)},
 	}
 	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
@@ -67,7 +67,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(metadataPath, "streams/v1/index.json"),
+		IndexURL:  utils.MakeFileURL(path.Join(metadataPath, "streams/v1/index.json")),
 		MirrorURL: "",
 	})
 }
