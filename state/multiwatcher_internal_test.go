@@ -505,8 +505,8 @@ func (s *storeManagerSuite) TestRespondResults(c *gc.C) {
 					}
 					select {
 					case ok := <-req.reply:
-						c.Assert(ok, gc.Equals, true)
-						c.Assert(len(req.changes) > 0, gc.Equals, true)
+						c.Assert(ok, jc.IsTrue)
+						c.Assert(len(req.changes) > 0, jc.IsTrue)
 						wstates[wi].update(req.changes)
 						reqs[wi] = nil
 					default:

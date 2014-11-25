@@ -66,7 +66,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 	if s.filename != "" {
 		err := os.Remove(s.filename)
 		if !os.IsNotExist(err) {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 

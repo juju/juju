@@ -43,7 +43,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	for i := 0; i <= 2; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
 	// Create a service and three units for these machines.
@@ -52,9 +52,9 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		unit, err := s.service.AddUnit()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = unit.AssignToMachine(s.machines[i])
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		s.units = append(s.units, unit)
 	}
 

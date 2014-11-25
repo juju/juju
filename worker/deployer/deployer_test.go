@@ -184,7 +184,7 @@ func (s *deployerSuite) TestDeployRecallRemoveSubordinates(c *gc.C) {
 	err = sub1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
-	c.Assert(isRemoved(s.State, sub1.Name())(c), gc.Equals, false)
+	c.Assert(isRemoved(s.State, sub1.Name())(c), jc.IsFalse)
 	s.waitFor(c, isDeployed(ctx, u.Name(), sub0.Name(), sub1.Name()))
 
 	// Set the other to Dead; check it's recalled and removed.

@@ -83,7 +83,7 @@ func (*reflectSuite) TestObjTypeOf(c *gc.C) {
 	c.Assert(objType.MethodNames(), gc.HasLen, len(expect))
 	for name, expectMethod := range expect {
 		m, err := objType.Method(name)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Assert(m, gc.NotNil)
 		c.Check(m.Call, gc.NotNil)
 		c.Check(m.Params, gc.Equals, expectMethod.Params)

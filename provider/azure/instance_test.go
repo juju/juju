@@ -161,7 +161,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	}
 
 	addrs, err := s.instance.Addresses()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(addrs, jc.SameContents, expected)
 }
 

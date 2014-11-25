@@ -309,7 +309,7 @@ func (s *KVMSuite) TestIsKVMSupportedKvmOkNotFound(c *gc.C) {
 	s.PatchValue(kvm.KVMPath, "")
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, false)
+	c.Check(supported, jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "kvm-ok executable not found")
 }
 
@@ -325,7 +325,7 @@ func (s *KVMSuite) TestIsKVMSupportedBinaryErrorsOut(c *gc.C) {
 	s.PatchValue(kvm.KVMPath, tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, false)
+	c.Check(supported, jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "exit status 127")
 }
 
@@ -341,7 +341,7 @@ func (s *KVMSuite) TestIsKVMSupportedNoPath(c *gc.C) {
 	s.PatchValue(kvm.KVMPath, tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, true)
+	c.Check(supported, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -354,7 +354,7 @@ func (s *KVMSuite) TestIsKVMSupportedOnlyPath(c *gc.C) {
 	s.PatchEnvironment("PATH", tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, true)
+	c.Check(supported, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

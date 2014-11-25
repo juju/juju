@@ -78,7 +78,7 @@ func (s *servingInfoSuite) TestIsMaster(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expected)
-	c.Assert(calledIsMaster, gc.Equals, true)
+	c.Assert(calledIsMaster, jc.IsTrue)
 }
 
 func (s *servingInfoSuite) TestIsMasterPermission(c *gc.C) {
@@ -137,8 +137,8 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.PasswordValid("bar"), gc.Equals, false)
-	c.Assert(s.machine.PasswordValid("foo-12345678901234567890"), gc.Equals, true)
+	c.Assert(s.machine.PasswordValid("bar"), jc.IsFalse)
+	c.Assert(s.machine.PasswordValid("foo-12345678901234567890"), jc.IsTrue)
 
 	// Check that we cannot log in to mongo with the correct password.
 	// This is because there's no mongo password set for s.machine,

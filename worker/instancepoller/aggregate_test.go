@@ -119,7 +119,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	var wg sync.WaitGroup
 	checkInfo := func(id instance.Id, expectStatus string) {
 		info, err := aggregator.instanceInfo(id)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(info.status, gc.Equals, expectStatus)
 		wg.Done()
 	}

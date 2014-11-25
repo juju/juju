@@ -389,7 +389,7 @@ func testRemove(c *gc.C, client *http.Client, url, dataDir string, authorized bo
 		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 		_, err = os.Stat(fp)
-		c.Assert(os.IsNotExist(err), gc.Equals, true)
+		c.Assert(os.IsNotExist(err), jc.IsTrue)
 	}
 	for i, tc := range removeTests {
 		c.Logf("test %d", i)

@@ -133,18 +133,18 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd.proxy = t.proxy
 
 		err := envcmd.Wrap(scpcmd).Init(t.args)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = scpcmd.Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			// we suppress stdout from scp
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 			data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			actual := string(data)
 			if t.proxy {
 				actual = strings.Replace(actual, ".dns", ".internal", 2)
@@ -206,7 +206,7 @@ func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 			}
 			return "ubuntu", target, nil
 		})
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(expanded, gc.DeepEquals, args)
 	}
 }
@@ -227,7 +227,7 @@ func (s *expandArgsSuite) TestExpandArgs(c *gc.C) {
 	for i, t := range expandTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(expanded, gc.DeepEquals, t.result)
 	}
 }

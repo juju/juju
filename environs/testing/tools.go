@@ -83,7 +83,7 @@ func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	c.Assert(err, jc.ErrorIsNil)
 	for _, file := range files {
 		err = stor.Remove(file)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -250,13 +250,13 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	toolsVersion := version.Current
 	name := envtools.StorageName(toolsVersion, toolsDir)
 	err := stor.Remove(name)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	defaultSeries := coretesting.FakeDefaultSeries
 	if version.Current.Series != defaultSeries {
 		toolsVersion.Series = defaultSeries
 		name := envtools.StorageName(toolsVersion, toolsDir)
 		err := stor.Remove(name)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
 }
@@ -268,7 +268,7 @@ func RemoveTools(c *gc.C, stor storage.Storage, toolsDir string) {
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
 		err = stor.Remove(name)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
 }

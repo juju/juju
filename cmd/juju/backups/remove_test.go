@@ -46,7 +46,7 @@ func (s *removeSuite) TestOkay(c *gc.C) {
 	s.subcommand.ID = "spam"
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	out := "successfully removed: spam\n"
 	s.checkStd(c, ctx, out, "")

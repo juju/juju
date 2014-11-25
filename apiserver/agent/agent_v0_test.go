@@ -141,7 +141,7 @@ func (s *baseSuite) testSetPasswordsV0(c *gc.C, api setPasswordsV0) {
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	changed := s.machine1.PasswordValid("yyy-12345678901234567890")
-	c.Assert(changed, gc.Equals, true)
+	c.Assert(changed, jc.IsTrue)
 }
 
 func (s *baseSuite) testSetPasswordsShortV0(c *gc.C, api setPasswordsV0) {

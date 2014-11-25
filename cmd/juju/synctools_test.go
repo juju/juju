@@ -130,8 +130,8 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	called := false
 	dir := c.MkDir()
 	syncTools = func(sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, gc.Equals, false)
-		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.AllVersions, jc.IsFalse)
+		c.Assert(sctx.DryRun, jc.IsFalse)
 		c.Assert(sctx.Stream, gc.Equals, "proposed")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
@@ -169,8 +169,8 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	called := false
 	dir := c.MkDir()
 	syncTools = func(sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, gc.Equals, false)
-		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.AllVersions, jc.IsFalse)
+		c.Assert(sctx.DryRun, jc.IsFalse)
 		c.Assert(sctx.Stream, gc.Equals, "released")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})

@@ -104,7 +104,7 @@ func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("seven/9")
 	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(anUpgrader, gc.NotNil)
 }
 

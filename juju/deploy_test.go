@@ -216,7 +216,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) assertCharm(c *gc.C, service *state.Service, expect *charm.URL) {
 	curl, force := service.CharmURL()
 	c.Assert(curl, gc.DeepEquals, expect)
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 }
 
 func (s *DeployLocalSuite) assertSettings(c *gc.C, service *state.Service, expect charm.Settings) {

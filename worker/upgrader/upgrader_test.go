@@ -278,7 +278,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	err = u.Stop()
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	_, err = agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	// TODO: ReadTools *should* be returning some form of errors.NotFound,
 	// however, it just passes back a fmt.Errorf so we live with it
@@ -361,7 +361,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 type allowedTest struct {

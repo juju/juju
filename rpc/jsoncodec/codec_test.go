@@ -208,7 +208,7 @@ func (*suite) TestErrorAfterClose(c *gc.C) {
 
 	err = codec.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conn.closed, gc.Equals, true)
+	c.Assert(conn.closed, jc.IsTrue)
 
 	err = codec.ReadHeader(&hdr)
 	c.Assert(err, gc.Equals, io.EOF)

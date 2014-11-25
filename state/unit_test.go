@@ -197,11 +197,11 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 func (s *UnitSuite) TestPublicAddressSubordinate(c *gc.C) {
 	subUnit := s.addSubordinateUnit(c)
 	_, ok := subUnit.PublicAddress()
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 
 	s.setAssignedMachineAddresses(c, s.unit)
 	address, ok := subUnit.PublicAddress()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(address, gc.Equals, "public.address.example.com")
 }
 
@@ -213,7 +213,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 
 	address, ok := s.unit.PublicAddress()
 	c.Check(address, gc.Equals, "")
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 
 	public := network.NewAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -223,7 +223,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 
 	address, ok = s.unit.PublicAddress()
 	c.Check(address, gc.Equals, "8.8.8.8")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
@@ -242,23 +242,23 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok := s.unit.PublicAddress()
 	c.Check(address, gc.Equals, "127.0.0.1")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	err = machine.SetAddresses(publicProvider, privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
 	address, ok = s.unit.PublicAddress()
 	c.Check(address, gc.Equals, "8.8.8.8")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 	subUnit := s.addSubordinateUnit(c)
 	_, ok := subUnit.PrivateAddress()
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 
 	s.setAssignedMachineAddresses(c, s.unit)
 	address, ok := subUnit.PrivateAddress()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(address, gc.Equals, "private.address.example.com")
 }
 
@@ -270,7 +270,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 
 	address, ok := s.unit.PrivateAddress()
 	c.Check(address, gc.Equals, "")
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 
 	public := network.NewAddress("8.8.8.8", network.ScopePublic)
 	private := network.NewAddress("127.0.0.1", network.ScopeCloudLocal)
@@ -280,7 +280,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 
 	address, ok = s.unit.PrivateAddress()
 	c.Check(address, gc.Equals, "127.0.0.1")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
 
 type destroyMachineTestCase struct {
@@ -671,21 +671,21 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	curl, ok := s.unit.CharmURL()
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 	c.Assert(curl, gc.IsNil)
 
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl, ok = s.unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, s.charm.URL())
 }
 
 func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	curl, ok := s.unit.CharmURL()
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 	c.Assert(curl, gc.IsNil)
 
 	err := s.unit.SetCharmURL(nil)
@@ -719,7 +719,7 @@ func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl, ok := s.unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, s.charm.URL())
 }
 
@@ -959,7 +959,7 @@ func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
 func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	alive, err := s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 
 	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -969,13 +969,13 @@ func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	s.State.StartSync()
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, true)
+	c.Assert(alive, jc.IsTrue)
 }
 
 func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
 	alive, err := s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 
 	err = s.unit.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
@@ -989,7 +989,7 @@ func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
 
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, true)
+	c.Assert(alive, jc.IsTrue)
 
 	err = pinger.Kill()
 	c.Assert(err, jc.ErrorIsNil)
@@ -998,7 +998,7 @@ func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
 
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 }
 
 func (s *UnitSuite) TestResolve(c *gc.C) {
@@ -1382,12 +1382,12 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	su, err := s.State.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 	principal, valid := su.PrincipalName()
-	c.Assert(valid, gc.Equals, true)
+	c.Assert(valid, jc.IsTrue)
 	c.Assert(principal, gc.Equals, s.unit.Name())
 
 	// Calling PrincipalName on a principal unit yields "", false.
 	principal, valid = s.unit.PrincipalName()
-	c.Assert(valid, gc.Equals, false)
+	c.Assert(valid, jc.IsFalse)
 	c.Assert(principal, gc.Equals, "")
 }
 

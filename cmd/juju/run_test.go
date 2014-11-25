@@ -341,7 +341,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		c.Check(testing.Stdout(context), gc.Equals, test.stdout)
 		c.Check(testing.Stderr(context), gc.Equals, test.stderr)

@@ -29,7 +29,7 @@ func (s *ExposeSuite) assertExposed(c *gc.C, service string) {
 	svc, err := s.State.Service(service)
 	c.Assert(err, jc.ErrorIsNil)
 	exposed := svc.IsExposed()
-	c.Assert(exposed, gc.Equals, true)
+	c.Assert(exposed, jc.IsTrue)
 }
 
 func (s *ExposeSuite) TestExpose(c *gc.C) {

@@ -524,7 +524,7 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 		s.PatchValue(&version.Current, vers)
 		err := upgrades.PerformUpgrade(fromVersion, test.targets, ctx)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}

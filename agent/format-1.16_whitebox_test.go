@@ -70,7 +70,7 @@ func (*format_1_16Suite) TestStatePortParsed(c *gc.C) {
 	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	info, available := readConfig.StateServingInfo()
-	c.Assert(available, gc.Equals, true)
+	c.Assert(available, jc.IsTrue)
 	c.Assert(info.StatePort, gc.Equals, 37017)
 }
 

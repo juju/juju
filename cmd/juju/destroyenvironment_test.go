@@ -182,15 +182,15 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 func (*destroyEnvSuite) TestDestroyEnvironmentCommandConfirmationFlag(c *gc.C) {
 	com := new(DestroyEnvironmentCommand)
 	c.Check(coretesting.InitCommand(com, []string{"dummyenv"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, false)
+	c.Check(com.assumeYes, jc.IsFalse)
 
 	com = new(DestroyEnvironmentCommand)
 	c.Check(coretesting.InitCommand(com, []string{"dummyenv", "-y"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
+	c.Check(com.assumeYes, jc.IsTrue)
 
 	com = new(DestroyEnvironmentCommand)
 	c.Check(coretesting.InitCommand(com, []string{"dummyenv", "--yes"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
+	c.Check(com.assumeYes, jc.IsTrue)
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {

@@ -109,7 +109,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
@@ -132,7 +132,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
@@ -179,7 +179,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag().String(),
@@ -236,7 +236,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}

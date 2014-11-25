@@ -73,7 +73,7 @@ func (s *providerSuite) TestPrepareSetsUseSSHStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := env.Config()
 	value := cfg.AllAttrs()["use-sshstorage"]
-	c.Assert(value, gc.Equals, true)
+	c.Assert(value, jc.IsTrue)
 }
 
 func (s *providerSuite) TestOpenDoesntSetUseSSHStorage(c *gc.C) {
@@ -107,16 +107,16 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
 	attrs := manual.MinimalConfigValues()
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 
 	validCfg, err := p.Validate(testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unless specified, update should default to true,
 	// upgrade to false.
-	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, false)
+	c.Check(validCfg.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(validCfg.EnableOSUpgrade(), jc.IsFalse)
 }
 
 func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
@@ -133,6 +133,6 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Our preferences should not have been overwritten.
-	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, true)
+	c.Check(validCfg.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(validCfg.EnableOSUpgrade(), jc.IsTrue)
 }

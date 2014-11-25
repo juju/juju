@@ -154,9 +154,9 @@ func (test bootstrapTest) run(c *gc.C) {
 	env, err = environs.NewFromName("peckham", store)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasCert := env.Config().CACert()
-	c.Check(hasCert, gc.Equals, true)
+	c.Check(hasCert, jc.IsTrue)
 	_, hasKey := env.Config().CAPrivateKey()
-	c.Check(hasKey, gc.Equals, true)
+	c.Check(hasKey, jc.IsTrue)
 	info, err := store.ReadInfo("peckham")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, gc.NotNil)
@@ -340,7 +340,7 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 	ctx := coretesting.Context(c)
 	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Check(<-errc, gc.Not(gc.IsNil))
-	c.Check(cleanupRan, gc.Equals, true)
+	c.Check(cleanupRan, jc.IsTrue)
 }
 
 // When attempting to bootstrap, check that when prepare errors out,
@@ -404,8 +404,8 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	ctx := coretesting.Context(c)
 	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
-	c.Check(destroyedEnvRan, gc.Equals, false)
-	c.Check(destroyedInfoRan, gc.Equals, true)
+	c.Check(destroyedEnvRan, jc.IsFalse)
+	c.Check(destroyedInfoRan, jc.IsTrue)
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
@@ -654,7 +654,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
 		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
 	c.Check(urls, gc.HasLen, len(expected))

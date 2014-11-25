@@ -636,7 +636,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indexRef.Format, gc.Equals, Index_v1)
 	c.Assert(indexRef.Source, gc.Equals, s.Source)
-	c.Assert(len(indexRef.Indexes) > 0, gc.Equals, true)
+	c.Assert(len(indexRef.Indexes) > 0, jc.IsTrue)
 }
 
 func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
@@ -692,7 +692,7 @@ func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *gc.C) *simplestreams.
 	metadata, err := indexRef.GetCloudMetadataWithFormat(s.ValidConstraint, Product_v1, s.RequireSigned)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata.Format, gc.Equals, Product_v1)
-	c.Assert(len(metadata.Products) > 0, gc.Equals, true)
+	c.Assert(len(metadata.Products) > 0, jc.IsTrue)
 	return metadata
 }
 

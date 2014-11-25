@@ -83,7 +83,7 @@ func (*suite) TestInvalidEnv(c *gc.C) {
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		cfg, err := es.Config(t.name)
 		c.Check(err, gc.ErrorMatches, t.err)
 		c.Check(cfg, gc.IsNil)
@@ -113,7 +113,7 @@ environments:
 	defer loggo.RemoveWriter("invalid-env-tester")
 
 	envs, err := environs.ReadEnvironsBytes([]byte(content))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	names := envs.Names()
 	sort.Strings(names)
 	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
@@ -121,12 +121,12 @@ environments:
 	c.Check(tw.Log(), gc.HasLen, 0)
 	// Now we actually grab the 'valid' entry
 	_, err = envs.Config("valid")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	// And still we have no warnings
 	c.Check(tw.Log(), gc.HasLen, 0)
 	// Only once we grab the deprecated one do we see any warnings
 	_, err = envs.Config("deprecated")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(tw.Log(), gc.HasLen, 2)
 }
 
@@ -141,7 +141,7 @@ environments:
         type: ec2
 `
 	_, err := environs.ReadEnvironsBytes([]byte(content))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*suite) TestNoEnv(c *gc.C) {

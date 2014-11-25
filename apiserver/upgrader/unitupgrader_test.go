@@ -112,7 +112,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
@@ -135,7 +135,7 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
@@ -180,7 +180,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawUnit.Tag().String(),
@@ -237,7 +237,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}

@@ -240,7 +240,7 @@ who has used the python testtools.  Assertions are made on the gocheck.C
 methods.
 
 ```go
-c.Check(err, gc.IsNil)
+c.Check(err, jc.ErrorIsNil)
 c.Assert(something, gc.Equals, somethingElse)
 ```
 

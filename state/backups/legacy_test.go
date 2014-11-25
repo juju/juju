@@ -54,11 +54,11 @@ func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) 
 
 		if body == "" {
 			err := os.MkdirAll(filename, os.FileMode(0755))
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			if !top {
 				err := os.MkdirAll(filepath.Dir(filename), os.FileMode(0755))
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			}
 			file, err := os.Create(filename)
 			c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +170,7 @@ func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) 
 
 func resetFile(c *gc.C, reader io.Reader) {
 	file, ok := reader.(*os.File)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	_, err := file.Seek(0, os.SEEK_SET)
 	c.Assert(err, jc.ErrorIsNil)
 }

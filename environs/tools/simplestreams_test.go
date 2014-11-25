@@ -261,7 +261,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
 		tools, resolveInfo, err := tools.Fetch(
 			[]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint, s.RequireSigned)
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		for _, tm := range t.tools {

@@ -196,7 +196,7 @@ func (s *SSHCommandSuite) TestCommandError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	command := s.client.Command("ignored", []string{echoCommand, "foo"}, &opts)
 	err = command.Run()
-	c.Assert(cmd.IsRcPassthroughError(err), gc.Equals, true)
+	c.Assert(cmd.IsRcPassthroughError(err), jc.IsTrue)
 }
 
 func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {

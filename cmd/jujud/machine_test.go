@@ -136,7 +136,7 @@ func (s *commonMachineSuite) primeAgent(
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		err := pinger.Stop()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	})
 
 	return s.configureMachine(c, m.Id(), vers)
@@ -1199,12 +1199,12 @@ func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	c.Check(a.IsRestorePreparing(), gc.Equals, false)
-	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	c.Check(a.IsRestorePreparing(), jc.IsFalse)
+	c.Check(a.IsRestoreRunning(), jc.IsFalse)
 	err := a.PrepareRestore()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.IsRestorePreparing(), gc.Equals, true)
-	c.Assert(a.IsRestoreRunning(), gc.Equals, false)
+	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
+	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 	err = a.PrepareRestore()
 	c.Assert(err, gc.ErrorMatches, "already in restore mode")
 }
@@ -1215,14 +1215,14 @@ func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	c.Check(a.IsRestorePreparing(), gc.Equals, false)
-	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	c.Check(a.IsRestorePreparing(), jc.IsFalse)
+	c.Check(a.IsRestoreRunning(), jc.IsFalse)
 	err := a.PrepareRestore()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.IsRestorePreparing(), gc.Equals, true)
+	c.Assert(a.IsRestorePreparing(), jc.IsTrue)
 	err = a.BeginRestore()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(a.IsRestoreRunning(), gc.Equals, true)
+	c.Assert(a.IsRestoreRunning(), jc.IsTrue)
 	err = a.BeginRestore()
 	c.Assert(err, gc.ErrorMatches, "already restoring")
 }
@@ -1233,11 +1233,11 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	a := s.newAgent(c, m)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	c.Check(a.IsRestorePreparing(), gc.Equals, false)
-	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	c.Check(a.IsRestorePreparing(), jc.IsFalse)
+	c.Check(a.IsRestoreRunning(), jc.IsFalse)
 	err := a.BeginRestore()
 	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
-	c.Assert(a.IsRestoreRunning(), gc.Equals, false)
+	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
@@ -1293,7 +1293,7 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 			break
 		}
 	}
-	c.Assert(success, gc.Equals, true)
+	c.Assert(success, jc.IsTrue)
 }
 
 type mongoSuite struct {

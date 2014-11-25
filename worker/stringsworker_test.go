@@ -106,7 +106,7 @@ func (s *stringsWorkerSuite) stopWorker(c *gc.C) {
 		done <- worker.Stop(s.worker)
 	}()
 	err := waitForTimeout(c, done, coretesting.LongWait)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	s.actor = nil
 	s.worker = nil
 }
@@ -197,7 +197,7 @@ func (s *stringsWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
 	// If we kill the worker, it should notice, and call teardown
 	s.worker.Kill()
 	err := waitShort(c, s.worker)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
 	c.Check(s.actor.watcher.stopped, jc.IsTrue)
 }
@@ -297,7 +297,7 @@ func (s *stringsWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 	// ErrStillAlive is trapped by the Stop logic and gets turned into a
 	// 'nil' when stopping. However TestDefaultClosedHandler can assert
 	// that it would have triggered an error.
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
 	// Worker is stopped, don't fail TearDownTest
 	s.worker = nil
@@ -314,6 +314,6 @@ func (s *stringsWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)
 	c.Check(foundErr, gc.IsNil)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
 }

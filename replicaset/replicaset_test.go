@@ -285,7 +285,7 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 
 	res, err := IsMaster(session)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
+	c.Check(closeEnough(res.LocalTime, time.Now()), jc.IsTrue)
 	res.LocalTime = time.Time{}
 	c.Check(*res, jc.DeepEquals, expected)
 }

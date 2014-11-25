@@ -478,7 +478,7 @@ func (root *Root) testCall(c *gc.C, p testCallParams) {
 		c.Check(r, gc.Equals, stringVal{p.request().Action + " ret"})
 	}
 	if !p.testErr {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 
 	// Check that the call was actually made, the right
@@ -729,7 +729,7 @@ func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call(rpc.Request{"DelayedMethods", 0, id, "Delay"}, nil, &r)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(r.Val, gc.Equals, "return "+id)
 		done <- struct{}{}
 	}
@@ -1076,7 +1076,7 @@ func (*rpcSuite) TestRootIsKilled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(root.killed, gc.Equals, true)
+	c.Assert(root.killed, jc.IsTrue)
 }
 
 func (*rpcSuite) TestBidirectional(c *gc.C) {

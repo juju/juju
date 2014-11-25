@@ -58,7 +58,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Context {
 	if relid != -1 {
 		_, found := s.rels[relid]
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 	return &Context{
 		relid:  relid,

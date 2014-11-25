@@ -480,7 +480,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	for _, st := range s.apiStates {
 		err := st.Close()
 		if serverAlive {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 	s.apiStates = nil

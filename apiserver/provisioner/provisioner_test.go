@@ -62,7 +62,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	}
 	for i := 0; i < 5; i++ {
 		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
 
@@ -195,7 +195,7 @@ func (s *withoutStateServerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
 		container, err := s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		containers = append(containers, container)
 	}
 	// Make one container dead.
@@ -698,7 +698,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "machine-1"},
@@ -1134,7 +1134,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.KVM}
 	results, err := s.provisioner.ContainerManagerConfig(args)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.ManagerConfig, gc.DeepEquals, map[string]string{
 		container.ConfigName: "juju",
 	})
@@ -1151,7 +1151,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	}
 
 	results, err := s.provisioner.ContainerConfig()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())

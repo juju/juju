@@ -63,7 +63,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		err := pinger.Stop()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	})
 	s.serverIdA = stateServer.Id()
 	s.provision(c, s.serverIdA)
@@ -660,7 +660,7 @@ func (s *UpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 
 	// It should now be possible to start another upgrade.
 	_, err = s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("1.3.0"))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeSuite) TestClearUpgradeInfo(c *gc.C) {

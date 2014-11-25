@@ -415,7 +415,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// password
 	u, err := st.User(names.NewLocalUserTag("admin"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(u.PasswordValid(testPassword), gc.Equals, true)
+	c.Assert(u.PasswordValid(testPassword), jc.IsTrue)
 
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
@@ -513,7 +513,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
 	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
-		c.Assert(dialOpts.Direct, gc.Equals, true)
+		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
 		return nil, nil, errors.New("failed to initialize state")
@@ -530,7 +530,7 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
 	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
-		c.Assert(dialOpts.Direct, gc.Equals, true)
+		c.Assert(dialOpts.Direct, jc.IsTrue)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
 		return nil, nil, errors.New("failed to initialize state")
 	}

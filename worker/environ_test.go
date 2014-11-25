@@ -47,7 +47,7 @@ func (s *environSuite) TestStop(c *gc.C) {
 
 func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 	err := w.Stop()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestInvalidConfig(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	done := make(chan environs.Environ)
 	go func() {
 		env, err := worker.WaitForEnviron(w, st2, nil)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		done <- env
 	}()
 	<-worker.LoadedInvalid

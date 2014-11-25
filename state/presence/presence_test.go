@@ -111,7 +111,7 @@ func (s *PresenceSuite) TestAliveError(c *gc.C) {
 
 	alive, err := w.Alive("a")
 	c.Assert(err, gc.ErrorMatches, ".*: watcher is dying")
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 }
 
 func (s *PresenceSuite) TestWorkflow(c *gc.C) {
@@ -302,7 +302,7 @@ func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	for i := 0; i < 100; i += 2 {
 		key := strconv.Itoa(i)
 		c.Logf("Checking %q...", key)
-		c.Assert(alive[key], gc.Equals, false)
+		c.Assert(alive[key], jc.IsFalse)
 	}
 }
 
@@ -334,7 +334,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
 			w.Sync()
 			alive, err := w.Alive("a")
 			c.Check(w.Stop(), gc.IsNil)
-			if !c.Check(err, gc.IsNil) || !c.Check(alive, gc.Equals, true) {
+			if !c.Check(err, jc.ErrorIsNil) || !c.Check(alive, jc.IsTrue) {
 				break
 			}
 			select {

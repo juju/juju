@@ -425,7 +425,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
-	c.Check(ok, gc.Equals, true)
+	c.Check(ok, jc.IsTrue)
 	c.Check(agentVersion, gc.Equals, version.Current.Number)
 
 	// Check that the constraints have been set in the environment.
@@ -737,7 +737,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	})
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*missing machine nonce")

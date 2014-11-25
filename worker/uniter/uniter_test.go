@@ -2538,7 +2538,7 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	url, ok := ctx.unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 
@@ -2916,7 +2916,7 @@ type acquireHookSyncLock struct {
 
 func (s acquireHookSyncLock) step(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), gc.Equals, false)
+	c.Assert(lock.IsLocked(), jc.IsFalse)
 	err := lock.Lock(s.message)
 	c.Assert(err, jc.ErrorIsNil)
 }

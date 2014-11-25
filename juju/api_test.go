@@ -602,7 +602,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(st, gc.Equals, infoOpenedState)
 		close(done)
 	}()
@@ -678,7 +678,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 		return mockedAPIState(noFlags), nil
 	}
 	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	st.Close()
 }
 
@@ -708,7 +708,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 		return mockedAPIState(noFlags), nil
 	}
 	st, err := juju.NewAPIFromStore(envName2, store, apiOpen)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	st.Close()
 
 	// Sanity check that connecting to the envName2

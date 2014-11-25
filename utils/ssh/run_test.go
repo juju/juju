@@ -105,7 +105,7 @@ func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 		Timeout:      longWait,
 	})
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(response.Code, gc.Equals, 42)
 	c.Assert(string(response.Stdout), gc.Equals, "stdout\n")
 	c.Assert(string(response.Stderr), gc.Equals, "")

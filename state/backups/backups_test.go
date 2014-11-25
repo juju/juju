@@ -125,7 +125,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.Storage.Meta = meta
 	s.Storage.File = archiveFile
 	storedMeta, storedFile, err := s.Storage.Get(meta.ID())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(storedMeta, gc.DeepEquals, meta)
 	data, err := ioutil.ReadAll(storedFile)
 	c.Assert(err, jc.ErrorIsNil)

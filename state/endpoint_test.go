@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -49,12 +50,12 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 			},
 		}
 		if t.success {
-			c.Assert(ep1.CanRelateTo(ep2), gc.Equals, true)
-			c.Assert(ep2.CanRelateTo(ep1), gc.Equals, true)
+			c.Assert(ep1.CanRelateTo(ep2), jc.IsTrue)
+			c.Assert(ep2.CanRelateTo(ep1), jc.IsTrue)
 			ep1.Interface = "different"
 		}
-		c.Assert(ep1.CanRelateTo(ep2), gc.Equals, false)
-		c.Assert(ep2.CanRelateTo(ep1), gc.Equals, false)
+		c.Assert(ep1.CanRelateTo(ep2), jc.IsFalse)
+		c.Assert(ep2.CanRelateTo(ep1), jc.IsFalse)
 	}
 	ep1 := state.Endpoint{
 		ServiceName: "same-service",
@@ -74,6 +75,6 @@ func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	c.Assert(ep1.CanRelateTo(ep2), gc.Equals, false)
-	c.Assert(ep2.CanRelateTo(ep1), gc.Equals, false)
+	c.Assert(ep1.CanRelateTo(ep2), jc.IsFalse)
+	c.Assert(ep2.CanRelateTo(ep1), jc.IsFalse)
 }

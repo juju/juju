@@ -114,7 +114,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, gc.Equals, true)
+		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
 

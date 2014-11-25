@@ -165,7 +165,7 @@ func (s *MachineSuite) TestContainerDefaults(c *gc.C) {
 func (s *MachineSuite) TestParentId(c *gc.C) {
 	parentId, ok := s.machine.ParentId()
 	c.Assert(parentId, gc.Equals, "")
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -173,7 +173,7 @@ func (s *MachineSuite) TestParentId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	parentId, ok = container.ParentId()
 	c.Assert(parentId, gc.Equals, s.machine.Id())
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *MachineSuite) TestMachineIsManager(c *gc.C) {
@@ -423,7 +423,7 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 	alive, err := s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 
 	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
@@ -433,7 +433,7 @@ func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 	s.State.StartSync()
 	alive, err = s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, true)
+	c.Assert(alive, jc.IsTrue)
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
@@ -511,7 +511,7 @@ func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
 func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	alive, err := s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 
 	s.State.StartSync()
 	err = s.machine.WaitAgentPresence(coretesting.ShortWait)
@@ -526,7 +526,7 @@ func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 
 	alive, err = s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, true)
+	c.Assert(alive, jc.IsTrue)
 
 	err = pinger.Kill()
 	c.Assert(err, jc.ErrorIsNil)
@@ -534,7 +534,7 @@ func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
 	s.State.StartSync()
 	alive, err = s.machine.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(alive, gc.Equals, false)
+	c.Assert(alive, jc.IsFalse)
 }
 
 func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
@@ -805,7 +805,7 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 
 func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	// Check before provisioning.
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 
 	// Either one should not be empty.
 	err := s.machine.SetProvisioned("umbrella/0", "", nil)
@@ -823,34 +823,34 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	id, err := m.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(id), gc.Equals, "umbrella/0")
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 	id, err = s.machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(id), gc.Equals, "umbrella/0")
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 
 	// Try it twice, it should fail.
 	err = s.machine.SetProvisioned("doesn't-matter", "phony", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set instance data for machine "1": already set`)
 
 	// Check it with invalid nonce.
-	c.Assert(s.machine.CheckProvisioned("not-really"), gc.Equals, false)
+	c.Assert(s.machine.CheckProvisioned("not-really"), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	invalidNetworks := []state.NetworkInfo{{Name: ""}}
 	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
 		{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0},
 	}
@@ -859,7 +859,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 	network, err := s.State.Network(networks[0].Name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(network.Name(), gc.Equals, networks[0].Name)
@@ -1020,14 +1020,14 @@ func sortedUnitNames(units []*state.Unit) []string {
 func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *gc.C) (*state.Machine, *state.Service, *state.Unit) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Clean(), gc.Equals, true)
+	c.Assert(m.Clean(), jc.IsTrue)
 
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Clean(), gc.Equals, false)
+	c.Assert(m.Clean(), jc.IsFalse)
 	return m, svc, unit
 }
 
@@ -1039,7 +1039,7 @@ func (s *MachineSuite) TestMachineDirtyAfterUnassigningUnit(c *gc.C) {
 	m, _, unit := s.assertMachineDirtyAfterAddingUnit(c)
 	err := unit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Clean(), gc.Equals, false)
+	c.Assert(m.Clean(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *gc.C) {
@@ -1050,7 +1050,7 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Clean(), gc.Equals, false)
+	c.Assert(m.Clean(), jc.IsFalse)
 }
 
 func (s *MachineSuite) TestWatchMachine(c *gc.C) {

@@ -68,9 +68,9 @@ func (certSuite) TestNewCA(c *gc.C) {
 	c.Check(caCert.NotBefore.Before(now), jc.IsTrue)
 	c.Check(caCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
 	c.Check(caCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
-	c.Check(caCert.NotAfter.Equal(expiry), gc.Equals, true)
-	c.Check(caCert.BasicConstraintsValid, gc.Equals, true)
-	c.Check(caCert.IsCA, gc.Equals, true)
+	c.Check(caCert.NotAfter.Equal(expiry), jc.IsTrue)
+	c.Check(caCert.BasicConstraintsValid, jc.IsTrue)
+	c.Check(caCert.IsCA, jc.IsTrue)
 	//c.Assert(caCert.MaxPathLen, Equals, 0)	TODO it ends up as -1 - check that this is ok.
 }
 
@@ -94,9 +94,9 @@ func (certSuite) TestNewServer(c *gc.C) {
 	c.Check(srvCert.NotBefore.Before(now), jc.IsTrue)
 	c.Check(srvCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
 	c.Check(srvCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
-	c.Assert(srvCert.NotAfter.Equal(expiry), gc.Equals, true)
-	c.Assert(srvCert.BasicConstraintsValid, gc.Equals, false)
-	c.Assert(srvCert.IsCA, gc.Equals, false)
+	c.Assert(srvCert.NotAfter.Equal(expiry), jc.IsTrue)
+	c.Assert(srvCert.BasicConstraintsValid, jc.IsFalse)
+	c.Assert(srvCert.IsCA, jc.IsFalse)
 	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
@@ -143,13 +143,13 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
 	xcert, err := cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
+	c.Assert(xcert.NotAfter.Equal(expiry), jc.IsTrue)
 
 	var noHostnames []string
 	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry, noHostnames)
 	xcert, err = cert.ParseCert(certPEM)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
+	c.Assert(xcert.NotAfter.Equal(expiry), jc.IsTrue)
 }
 
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
@@ -247,7 +247,7 @@ func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.
 
 	for i := 0; i < 2; i++ {
 		err := <-done
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 
 	outData := string(outBytes.Bytes())

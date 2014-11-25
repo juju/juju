@@ -91,7 +91,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 		command := &DebugLogCommand{}
 		err := testing.InitCommand(envcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.params, jc.DeepEquals, test.expected)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)

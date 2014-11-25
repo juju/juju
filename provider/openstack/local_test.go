@@ -484,7 +484,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
 }
 
@@ -500,7 +500,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-global", name)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	assertSecurityGroups(c, env, []string{"default"})
 }
 
@@ -1104,7 +1104,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	if s.env != nil {
 		err := s.env.Destroy()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		s.env = nil
 	}
 	s.srv.stop()

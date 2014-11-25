@@ -297,7 +297,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			}
 			continue
 		}
@@ -324,15 +324,15 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 			continue
-		} else if !c.Check(err, gc.IsNil) {
+		} else if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 
 		// Check expected changes to environ/state.
 		cfg, err := s.State.EnvironConfig()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
-		c.Check(ok, gc.Equals, true)
+		c.Check(ok, jc.IsTrue)
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
 
 		for _, uploaded := range test.expectUploaded {
@@ -349,12 +349,12 @@ func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	_, r, err := storage.Tools(vers)
-	if !c.Check(err, gc.IsNil) {
+	if !c.Check(err, jc.ErrorIsNil) {
 		return
 	}
 	data, err := ioutil.ReadAll(r)
 	r.Close()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	expectContent := version.Current
 	expectContent.Number = agentVersion
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
@@ -362,7 +362,7 @@ func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 
 func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 	zr, err := gzip.NewReader(bytes.NewReader(data))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	defer zr.Close()
 	tr := tar.NewReader(zr)
 	found := false
@@ -371,7 +371,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 		if err == io.EOF {
 			break
 		}
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		if strings.ContainsAny(hdr.Name, "/\\") {
 			c.Fail()
 		}
@@ -379,7 +379,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 			c.Fail()
 		}
 		content, err := ioutil.ReadAll(tr)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(string(content), gc.Equals, uploaded)
 		found = true
 	}
@@ -506,7 +506,7 @@ upgrade to this version by running
 		cfg, err := s.State.EnvironConfig()
 		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(agentVer, gc.Equals, version.MustParse(test.agentVersion))
 		output := coretesting.Stderr(ctx)
 		c.Assert(output, gc.Equals, test.expectedCmdOutput)

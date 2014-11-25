@@ -516,7 +516,7 @@ func getAgentConfig(c *gc.C, tag string, scripts []string) (cfg string) {
 		cfg = m[1]
 		found = true
 	}
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	return cfg
 }
 
@@ -537,7 +537,7 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.AllAttrs(), jc.DeepEquals, actual)
 	}
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 }
 
 // TestCloudInit checks that the output from the various tests
@@ -573,13 +573,13 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		})
 
 		if test.cfg.EnableOSRefreshUpdate {
-			c.Check(configKeyValues["apt_update"], gc.Equals, true)
+			c.Check(configKeyValues["apt_update"], jc.IsTrue)
 		} else {
 			c.Check(configKeyValues["apt_update"], gc.IsNil)
 		}
 
 		if test.cfg.EnableOSUpgrade {
-			c.Check(configKeyValues["apt_upgrade"], gc.Equals, true)
+			c.Check(configKeyValues["apt_upgrade"], jc.IsTrue)
 		} else {
 			c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
 		}

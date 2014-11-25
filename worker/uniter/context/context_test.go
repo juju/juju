@@ -188,7 +188,7 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
 }
 

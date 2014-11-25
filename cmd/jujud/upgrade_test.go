@@ -470,12 +470,12 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	var machine1Conf agent.Config
 	_, machine1Conf, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
 
-	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
+	c.Assert(waitForUpgradeToStart(upgradeCh), jc.IsTrue)
 
 	// Only user and local logins are allowed during upgrade. Users get a restricted API.
 	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, false)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsFalse)
 
 	close(upgradeCh) // Allow upgrade to complete
 
@@ -483,8 +483,8 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 
 	// All logins are allowed after upgrade
 	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
-	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
-	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, true)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), jc.IsTrue)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), jc.IsTrue)
 }
 
 func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {

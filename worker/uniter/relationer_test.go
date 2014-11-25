@@ -123,7 +123,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	defer stop(c, w)
 	s.State.StartSync()
 	ch, ok := <-w.Changes()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(ch.Changed, gc.HasLen, 0)
 	c.Assert(ch.Departed, gc.HasLen, 0)
 
@@ -133,10 +133,10 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(ch.Changed, gc.HasLen, 1)
 		_, found := ch.Changed["u/0"]
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 		c.Assert(ch.Departed, gc.HasLen, 0)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for presence detection")
@@ -163,7 +163,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(ch.Changed, gc.HasLen, 0)
 		c.Assert(ch.Departed, gc.DeepEquals, []string{"u/0"})
 	case <-time.After(worstCase):
@@ -175,7 +175,7 @@ func (s *RelationerSuite) TestStartStopHooks(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	ru2, _ := s.AddRelationUnit(c, "u/2")
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
-	c.Assert(r.IsImplicit(), gc.Equals, false)
+	c.Assert(r.IsImplicit(), jc.IsFalse)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -375,7 +375,7 @@ func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
 	c.Assert(s.dir.Ensure(), gc.IsNil)
 	select {
 	case hi, ok := <-s.hooks:
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		expect.ChangeVersion = hi.ChangeVersion
 		c.Assert(hi, gc.DeepEquals, expect)
 		c.Assert(s.dir.Write(hi), gc.Equals, nil)
@@ -387,7 +387,7 @@ func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
 func (s *RelationerSuite) TestInferRemoteUnitInvalidInput(c *gc.C) {
 	s.AddRelationUnit(c, "u/1")
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
-	c.Assert(r.IsImplicit(), gc.Equals, false)
+	c.Assert(r.IsImplicit(), jc.IsFalse)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -422,7 +422,7 @@ func (s *RelationerSuite) TestInferRemoteUnitAmbiguous(c *gc.C) {
 	s.AddRelationUnit(c, "u/1")
 	s.AddRelationUnit(c, "u/2")
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
-	c.Assert(r.IsImplicit(), gc.Equals, false)
+	c.Assert(r.IsImplicit(), jc.IsFalse)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -315,7 +315,7 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// local provider sets proxy-ssh to false
-	c.Assert(env.Config().ProxySSH(), gc.Equals, false)
+	c.Assert(env.Config().ProxySSH(), jc.IsFalse)
 }
 
 func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {

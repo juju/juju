@@ -175,7 +175,7 @@ func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 		s.HookCommandOutput(&lxc.FsCommandOutput, []byte(test.output), nil)
 		value, err := lxc.ContainerDirFilesystem()
 		if test.errorMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(value, gc.Equals, test.expected)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)

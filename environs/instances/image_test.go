@@ -379,7 +379,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		} else {
-			if !c.Check(err, gc.IsNil) {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 			c.Check(spec.Image.Id, gc.Equals, t.imageId)

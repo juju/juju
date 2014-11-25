@@ -204,13 +204,13 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 		envCfgAttrs := minCfg.AllAttrs()
 		if val, ok := envCfgAttrs["enable-os-refresh-update"]; !ok {
-			c.Check(cloudcfg.AptUpdate(), gc.Equals, false)
+			c.Check(cloudcfg.AptUpdate(), jc.IsFalse)
 		} else {
 			c.Check(cloudcfg.AptUpdate(), gc.Equals, val)
 		}
 
 		if val, ok := envCfgAttrs["enable-os-upgrade"]; !ok {
-			c.Check(cloudcfg.AptUpgrade(), gc.Equals, false)
+			c.Check(cloudcfg.AptUpgrade(), jc.IsFalse)
 		} else {
 			c.Check(cloudcfg.AptUpgrade(), gc.Equals, val)
 		}

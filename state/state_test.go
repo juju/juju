@@ -976,7 +976,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	c.Assert(*characteristics, gc.DeepEquals, template.HardwareCharacteristics)
 
 	// Make sure the bootstrap nonce value is set.
-	c.Assert(m.CheckProvisioned(template.Nonce), gc.Equals, true)
+	c.Assert(m.CheckProvisioned(template.Nonce), jc.IsTrue)
 }
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
@@ -1076,16 +1076,16 @@ func (s *StateSuite) TestMachineNotFound(c *gc.C) {
 }
 
 func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
-	c.Assert(state.MachineIdLessThan("0", "0"), gc.Equals, false)
-	c.Assert(state.MachineIdLessThan("0", "1"), gc.Equals, true)
-	c.Assert(state.MachineIdLessThan("1", "0"), gc.Equals, false)
-	c.Assert(state.MachineIdLessThan("10", "2"), gc.Equals, false)
-	c.Assert(state.MachineIdLessThan("0", "0/lxc/0"), gc.Equals, true)
-	c.Assert(state.MachineIdLessThan("0/lxc/0", "0"), gc.Equals, false)
-	c.Assert(state.MachineIdLessThan("1", "0/lxc/0"), gc.Equals, false)
-	c.Assert(state.MachineIdLessThan("0/lxc/0", "1"), gc.Equals, true)
-	c.Assert(state.MachineIdLessThan("0/lxc/0/lxc/1", "0/lxc/0"), gc.Equals, false)
-	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxc/0"), gc.Equals, true)
+	c.Assert(state.MachineIdLessThan("0", "0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("0", "1"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("1", "0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("10", "2"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("0", "0/lxc/0"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("0/lxc/0", "0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("1", "0/lxc/0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("0/lxc/0", "1"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("0/lxc/0/lxc/1", "0/lxc/0"), jc.IsFalse)
+	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxc/0"), jc.IsTrue)
 }
 
 func (s *StateSuite) TestAllMachines(c *gc.C) {
@@ -1108,7 +1108,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(instId), gc.Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-quantal-amd64"))
 		c.Assert(m.Life(), gc.Equals, state.Dying)
 	}
@@ -1188,7 +1188,7 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 			fmt.Sprintf("aa:%02x:cc:dd:ee:f0", i), fmt.Sprintf("eth%d", i))
 
 		net, err := s.State.Network(netName)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(net, gc.DeepEquals, stateNet)
 		c.Check(net.Name(), gc.Equals, netName)
 		c.Check(string(net.ProviderId()), gc.Equals, "provider-"+netName)
@@ -2067,7 +2067,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 		s.State.StartSync()
 		select {
 		case got, ok := <-w.Changes():
-			c.Assert(ok, gc.Equals, true)
+			c.Assert(ok, jc.IsTrue)
 			c.Assert(got.AllAttrs(), gc.DeepEquals, cfg.AllAttrs())
 		case <-time.After(testing.LongWait):
 			c.Fatalf("did not get change: %#v", change)
@@ -2271,25 +2271,25 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 	e, err := getEntity()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(e.PasswordValid(goodPassword), gc.Equals, false)
+	c.Assert(e.PasswordValid(goodPassword), jc.IsFalse)
 	err = e.SetPassword(goodPassword)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(e.PasswordValid(goodPassword), gc.Equals, true)
+	c.Assert(e.PasswordValid(goodPassword), jc.IsTrue)
 
 	// Check a newly-fetched entity has the same password.
 	e2, err := getEntity()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(e2.PasswordValid(goodPassword), gc.Equals, true)
+	c.Assert(e2.PasswordValid(goodPassword), jc.IsTrue)
 
 	err = e.SetPassword(alternatePassword)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(e.PasswordValid(goodPassword), gc.Equals, false)
-	c.Assert(e.PasswordValid(alternatePassword), gc.Equals, true)
+	c.Assert(e.PasswordValid(goodPassword), jc.IsFalse)
+	c.Assert(e.PasswordValid(alternatePassword), jc.IsTrue)
 
 	// Check that refreshing fetches the new password
 	err = e2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(e2.PasswordValid(alternatePassword), gc.Equals, true)
+	c.Assert(e2.PasswordValid(alternatePassword), jc.IsTrue)
 
 	if le, ok := e.(lifer); ok {
 		testWhenDying(c, le, noErr, deadErr, func() error {

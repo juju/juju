@@ -167,11 +167,11 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.principal0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	changed := s.principal0.PasswordValid("xxx-12345678901234567890")
-	c.Assert(changed, gc.Equals, true)
+	c.Assert(changed, jc.IsTrue)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	changed = s.subordinate0.PasswordValid("zzz-12345678901234567890")
-	c.Assert(changed, gc.Equals, true)
+	c.Assert(changed, jc.IsTrue)
 
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()

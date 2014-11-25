@@ -162,7 +162,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	stateConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	series, ok := stateConfig.DefaultSeries()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
 
 	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
@@ -171,7 +171,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	stateConfig, err = s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	series, ok = stateConfig.DefaultSeries()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(series, gc.Equals, "raring")
 	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
 }
@@ -182,7 +182,7 @@ func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
 
 	stateConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateConfig.SSLHostnameVerification(), gc.Equals, false)
+	c.Assert(stateConfig.SSLHostnameVerification(), jc.IsFalse)
 }
 
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {

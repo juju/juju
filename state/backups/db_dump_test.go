@@ -68,7 +68,7 @@ func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) backups.DBDumper {
 func (s *dumpSuite) checkDBs(c *gc.C, dbNames ...string) {
 	for _, dbName := range dbNames {
 		_, err := os.Stat(filepath.Join(s.dumpDir, dbName))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -85,7 +85,7 @@ func (s *dumpSuite) TestDumpRanCommand(c *gc.C) {
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.ranCommand, gc.Equals, true)
+	c.Check(s.ranCommand, jc.IsTrue)
 }
 
 func (s *dumpSuite) TestDumpStripped(c *gc.C) {

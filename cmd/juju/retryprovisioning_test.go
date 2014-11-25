@@ -66,14 +66,14 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		output := testing.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, gc.Equals, t.stdErr)
 		if t.args[0] == "0" {
 			status, info, data, err := m.Status()
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(status, gc.Equals, state.StatusError)
 			c.Check(info, gc.Equals, "broken")
 			c.Check(data["transient"], jc.IsTrue)

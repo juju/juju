@@ -70,7 +70,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, available := cfg.StateServingInfo()
-	c.Assert(available, gc.Equals, true)
+	c.Assert(available, jc.IsTrue)
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
@@ -179,7 +179,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, available := cfg.StateServingInfo()
-	c.Assert(available, gc.Equals, false)
+	c.Assert(available, jc.IsFalse)
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	_, _, err = agent.InitializeState(adminUser, cfg, nil, agent.BootstrapMachineConfig{}, mongo.DialOpts{}, environs.NewStatePolicy())

@@ -164,7 +164,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	srvCertPEM := mcfg.StateServingInfo.Cert
 	srvKeyPEM := mcfg.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,7 +280,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
-		c.Check(config["apt_upgrade"], gc.Equals, true)
+		c.Check(config["apt_upgrade"], jc.IsTrue)
 		c.Check(len(runCmd) > 2, jc.IsTrue)
 	}
 }

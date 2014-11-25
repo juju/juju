@@ -464,18 +464,18 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 		indexRef, err := simplestreams.GetIndexWithFormat(
 			s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		mirrorURL, err := indexRef.Source.URL("")
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		c.Check(mirrorURL, gc.Equals, t.mirrorURL)

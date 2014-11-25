@@ -790,11 +790,11 @@ func (s *upgradesSuite) TestAddEnvUUIDToRelationScopes(c *gc.C) {
 	var newDoc relationScopeDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
 	c.Assert(newDoc.Key, gc.Equals, "r#0#peer#foo/0")
-	c.Assert(newDoc.Departing, gc.Equals, false)
+	c.Assert(newDoc.Departing, jc.IsFalse)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
 	c.Assert(newDoc.Key, gc.Equals, "r#1#provider#bar/0")
-	c.Assert(newDoc.Departing, gc.Equals, true)
+	c.Assert(newDoc.Departing, jc.IsTrue)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {

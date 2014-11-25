@@ -56,9 +56,9 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 
 	err := instance.Refresh()
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	testField, err := (*instance.maasObject).GetField("test2")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(testField, gc.Equals, "test2")
 }
 

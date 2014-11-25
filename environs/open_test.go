@@ -211,8 +211,8 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	// Check that the CA cert was generated.
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
-	c.Assert(cfgCertOK, gc.Equals, true)
-	c.Assert(cfgKeyOK, gc.Equals, true)
+	c.Assert(cfgCertOK, jc.IsTrue)
+	c.Assert(cfgKeyOK, jc.IsTrue)
 
 	// Check the common name of the generated cert
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
@@ -221,7 +221,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 
 	// Check that a uuid was chosen.
 	uuid, exists := env.Config().UUID()
-	c.Assert(exists, gc.Equals, true)
+	c.Assert(exists, jc.IsTrue)
 	c.Assert(uuid, gc.Matches, `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 
 	// Check we can call Prepare again.
@@ -289,8 +289,8 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
-	c.Assert(cfgCertOK, gc.Equals, true)
-	c.Assert(cfgKeyOK, gc.Equals, true)
+	c.Assert(cfgCertOK, jc.IsTrue)
+	c.Assert(cfgKeyOK, jc.IsTrue)
 	c.Assert(string(cfgCertPEM), gc.DeepEquals, testing.CACert)
 	c.Assert(string(cfgKeyPEM), gc.DeepEquals, testing.CAKey)
 }

@@ -284,7 +284,7 @@ func (*environSuite) TestStorage(c *gc.C) {
 	env := makeEnviron(c)
 	baseStorage := env.Storage()
 	storage, ok := baseStorage.(*azureStorage)
-	c.Check(ok, gc.Equals, true)
+	c.Check(ok, jc.IsTrue)
 	c.Assert(storage, gc.NotNil)
 	c.Check(storage.storageContext.getContainer(), gc.Equals, env.getContainerName())
 	context, err := storage.getStorageContext()
@@ -640,7 +640,7 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := attemptCreateService(azure, "service", "affinity-group", "")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(service, gc.IsNil)
 }
 
@@ -708,7 +708,7 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := newHostedService(azure, "service", "affinity-group", "")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 5)
 	// How many names have been attempted, and how often?
@@ -822,7 +822,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	err = env.StopInstances(inst1.Id(), inst2.Id(), inst3.Id())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// One GET and DELETE per service
 	// (GetHostedServiceProperties and DeleteHostedService).
@@ -845,7 +845,7 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	err = env.StopInstances(inst1.Id())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// One GET for the service, and one DELETE for the role.
 	// The service isn't deleted because it has two roles,
@@ -884,7 +884,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	env := makeEnviron(c)
 	err := env.StopInstances()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 // getVnetCleanupResponse returns the response
@@ -933,7 +933,7 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -965,17 +965,17 @@ func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 4)
 	// One request to get the network configuration.
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
-	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 	// One request to upload the new version of the network configuration.
 	putRequest := (*requests)[2]
 	c.Check(putRequest.Method, gc.Equals, "PUT")
-	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), jc.IsTrue)
 	// One request to delete the Affinity Group.
 	agRequest := (*requests)[3]
 	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
@@ -996,12 +996,12 @@ func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err := env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(*requests, gc.HasLen, 3)
 
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
-	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 
 	deleteRequest := (*requests)[2]
 	c.Check(deleteRequest.Method, gc.Equals, "DELETE")
@@ -1033,15 +1033,15 @@ func (s *environSuite) TestDestroyDoesNotFailIfAffinityGroupDeletionFails(c *gc.
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(*requests, gc.HasLen, 4)
 
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
-	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 	putRequest := (*requests)[2]
 	c.Check(putRequest.Method, gc.Equals, "PUT")
-	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), jc.IsTrue)
 }
 
 var emptyListResponse = `
@@ -1082,7 +1082,7 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err := env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// One request to get the list of all the environment's instances.
 	// One delete request per destroyed service, and two additional
@@ -1170,7 +1170,7 @@ func (*environSuite) TestNewOSVirtualDisk(c *gc.C) {
 	vhd := env.newOSDisk(sourceImageName)
 
 	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	storageAccount := env.ecfg.storageAccountName()
 	c.Check(mediaLinkUrl.Host, gc.Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
 	c.Check(vhd.SourceImageName, gc.Equals, sourceImageName)
@@ -1184,7 +1184,7 @@ func mapInputEndpointsByPort(c *gc.C, endpoints []gwacl.InputEndpoint) map[int]g
 	mapping := make(map[int]gwacl.InputEndpoint)
 	for _, endpoint := range endpoints {
 		_, have := mapping[endpoint.Port]
-		c.Assert(have, gc.Equals, false)
+		c.Assert(have, jc.IsFalse)
 		mapping[endpoint.Port] = endpoint
 	}
 	return mapping
@@ -1221,14 +1221,14 @@ func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
 
 	// The network config contains an endpoint for ssh communication.
 	sshEndpoint, ok := endpoints[22]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Check(sshEndpoint.LocalPort, gc.Equals, 22)
 	c.Check(sshEndpoint.Protocol, gc.Equals, "tcp")
 
 	if stateServer {
 		// There should be an endpoint for the API port.
 		apiEndpoint, ok := endpoints[env.Config().APIPort()]
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
 		c.Check(apiEndpoint.Protocol, gc.Equals, "tcp")
 	}
@@ -1238,7 +1238,7 @@ func (*environSuite) TestProviderReturnsAzureEnvironProvider(c *gc.C) {
 	prov := makeEnviron(c).Provider()
 	c.Assert(prov, gc.NotNil)
 	azprov, ok := prov.(azureEnvironProvider)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Check(azprov, gc.NotNil)
 }
 

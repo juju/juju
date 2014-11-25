@@ -248,7 +248,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 		public := s.uploadPublic(c, test.public...)
 		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Series, test.seek.Arch)
 		if test.err == nil {
-			if !c.Check(err, gc.IsNil) {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 			c.Check(actual.Version, gc.Equals, test.seek)
@@ -292,7 +292,7 @@ func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	for _, series := range names {
 		list := fakeToolsList(series)
 		err := envtools.CheckToolsSeries(list, series)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -300,7 +300,7 @@ func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.
 	series := "quantal"
 	list := fakeToolsList(series, series, series)
 	err := envtools.CheckToolsSeries(list, series)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {

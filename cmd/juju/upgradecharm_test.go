@@ -114,7 +114,7 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	ch, forced, err := s.riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(forced, gc.Equals, false)
+	c.Assert(forced, jc.IsFalse)
 }
 
 func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *gc.C, revision int, forced bool) *charm.URL {

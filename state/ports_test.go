@@ -235,34 +235,34 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 		// open ports that should exist for the test case
 		for _, portRange := range t.existing {
 			err := ports.OpenPorts(portRange)
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		if t.existing != nil {
 			err = ports.Refresh()
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 		if t.open != nil {
 			err = ports.OpenPorts(*t.open)
 			if t.expected == "" {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expected)
 			}
 			err = ports.Refresh()
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 
 		}
 
 		if t.close != nil {
 			err := ports.ClosePorts(*t.close)
 			if t.expected == "" {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, t.expected)
 			}
 		}
 		err = ports.Remove()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 

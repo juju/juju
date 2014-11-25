@@ -40,8 +40,8 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
-	c.Assert(utf8.ValidString(validSetTestValue), gc.Equals, true)
-	c.Assert(utf8.ValidString(invalidSetTestValue), gc.Equals, false)
+	c.Assert(utf8.ValidString(validSetTestValue), jc.IsTrue)
+	c.Assert(utf8.ValidString(invalidSetTestValue), jc.IsFalse)
 	setupValueFile(c, s.dir, "valid.txt", validSetTestValue)
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)

@@ -89,7 +89,7 @@ func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *s
 // AddService adds a service for the specified charm to state.
 func (s *CharmSuite) AddService(c *gc.C, charmName, serviceName string, networks []string) {
 	ch, ok := s.charms[charmName]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	owner := s.jcSuite.AdminUserTag(c)
 	_, err := s.jcSuite.State.AddService(serviceName, owner.String(), ch, networks)
 	c.Assert(err, jc.ErrorIsNil)

@@ -318,7 +318,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 		s.BackingState.StartSync()
 		select {
 		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, gc.Equals, true)
+			c.Assert(ok, jc.IsTrue)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
@@ -398,7 +398,7 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	s.BackingState.StartSync()
 	select {
 	case _, ok := <-f.ConfigEvents():
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out")
 	}
@@ -428,7 +428,7 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	assertChange := func() {
 		select {
 		case _, ok := <-f.ConfigEvents():
-			c.Assert(ok, gc.Equals, true)
+			c.Assert(ok, jc.IsTrue)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
@@ -493,7 +493,7 @@ func getAssertActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func(ids []
 			expected[id] += 1
 			select {
 			case event, ok := <-f.ActionEvents():
-				c.Assert(ok, gc.Equals, true)
+				c.Assert(ok, jc.IsTrue)
 				seen[event.ActionId] += 1
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out")
@@ -687,7 +687,7 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 		s.BackingState.StartSync()
 		select {
 		case _, ok := <-f.MeterStatusEvents():
-			c.Assert(ok, gc.Equals, true)
+			c.Assert(ok, jc.IsTrue)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}

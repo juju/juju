@@ -63,7 +63,7 @@ func (s *downloadSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
 	s.checkStd(c, ctx, s.filename+"\n", "")
@@ -75,7 +75,7 @@ func (s *downloadSuite) TestFilename(c *gc.C) {
 	s.subcommand.Filename = "backup.tar.gz"
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	s.filename = "backup.tar.gz"
 	s.checkStd(c, ctx, s.filename+"\n", "")

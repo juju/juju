@@ -739,11 +739,11 @@ func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
 	var err error
 	for i, name := range serviceNames {
 		svcs[i] = s.AddTestingService(c, name, charm)
-		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
+		c.Assert(svcs[i].IsExposed(), jc.IsFalse)
 	}
 	err = svcs[1].SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(svcs[1].IsExposed(), gc.Equals, true)
+	c.Assert(svcs[1].IsExposed(), jc.IsTrue)
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
 		err = s.APIState.Client().ServiceExpose(t.service)
@@ -1114,7 +1114,7 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
@@ -1168,7 +1168,7 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	charm, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 	c.Assert(charm.URL(), gc.DeepEquals, curl)
 	c.Assert(charm.Meta(), gc.DeepEquals, bundle.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, bundle.Config())
@@ -1385,7 +1385,7 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
 	ch, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL().String(), gc.Equals, "cs:precise/wordpress-3")
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 
 	// Check the minimum number of units.
 	c.Assert(service.MinUnits(), gc.Equals, minUnits)
@@ -1442,7 +1442,7 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 	charm, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 }
 
 func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
@@ -1464,7 +1464,7 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 	charm, force, err := service.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charm.URL().String(), gc.Equals, "cs:precise/wordpress-3")
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 }
 
 func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
@@ -2329,7 +2329,7 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 
 	// check that the store's auth attributes were set
 	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
-	c.Assert(store.TestMode(), gc.Equals, true)
+	c.Assert(store.TestMode(), jc.IsTrue)
 
 	store.SetAuthAttrs("")
 
@@ -2418,7 +2418,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 		client := s.APIState.Client()
 		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
 		if test.parseErr == "" {
-			if !c.Check(err, gc.IsNil) {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 		} else {
@@ -2597,7 +2597,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "error")
-	c.Assert(data["transient"], gc.Equals, true)
+	c.Assert(data["transient"], jc.IsTrue)
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {

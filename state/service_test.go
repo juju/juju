@@ -47,10 +47,10 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	ch, force, err := s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, s.charm.URL())
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 	url, force := s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, s.charm.URL())
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 
 	// Add a compatible charm and force it.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
@@ -59,10 +59,10 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	ch, force, err = s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 	url, force = s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 }
 
 func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
@@ -681,7 +681,7 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	curl, ok := u.CharmURL()
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
@@ -690,7 +690,7 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	err = u.SetCharmURL(oldCh.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	curl, ok = u.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, svcName, oldCh, 2)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
@@ -954,14 +954,14 @@ func (s *ServiceSuite) TestServiceRefresh(c *gc.C) {
 
 	testch, force, err := s1.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 	c.Assert(testch.URL(), gc.DeepEquals, s.charm.URL())
 
 	err = s1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	testch, force, err = s1.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 	c.Assert(testch.URL(), gc.DeepEquals, s.charm.URL())
 
 	err = s.mysql.Destroy()
@@ -972,15 +972,15 @@ func (s *ServiceSuite) TestServiceRefresh(c *gc.C) {
 
 func (s *ServiceSuite) TestServiceExposed(c *gc.C) {
 	// Check that querying for the exposed flag works correctly.
-	c.Assert(s.mysql.IsExposed(), gc.Equals, false)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag works correctly.
 	err := s.mysql.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.IsExposed(), gc.Equals, true)
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.IsExposed(), gc.Equals, false)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
 	err = s.mysql.SetExposed()
@@ -993,7 +993,7 @@ func (s *ServiceSuite) TestServiceExposed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.IsExposed(), gc.Equals, true)
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
 	// Make the service Dying and check that ClearExposed and SetExposed fail.
 	// TODO(fwereade): maybe service destruction should always unexpose?
@@ -1022,14 +1022,14 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	unitZero, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
-	c.Assert(unitZero.IsPrincipal(), gc.Equals, true)
+	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitEnvUUID(unitZero), gc.Equals, s.State.EnvironUUID())
 
 	unitOne, err := s.mysql.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitOne.Name(), gc.Equals, "mysql/1")
-	c.Assert(unitOne.IsPrincipal(), gc.Equals, true)
+	c.Assert(unitOne.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
@@ -1307,7 +1307,7 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Check state is clean.
 	dirty, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, jc.IsFalse)
 
 	// Destroy mysql, and check units are not touched.
 	err = s.mysql.Destroy()
@@ -1319,7 +1319,7 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Check a cleanup doc was added.
 	dirty, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, jc.IsTrue)
 
 	// Run the cleanup and check the units.
 	err = s.State.Cleanup()
@@ -1335,14 +1335,14 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	// Check for queued unit cleanups, and run them.
 	dirty, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, jc.IsTrue)
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, jc.IsFalse)
 }
 
 func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {

@@ -314,7 +314,7 @@ func (*suite) TestParseMajorMinor(c *gc.C) {
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(major, gc.Equals, test.expectMajor)
 			c.Check(minor, gc.Equals, test.expectMinor)
 		}

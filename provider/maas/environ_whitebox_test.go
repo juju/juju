@@ -77,7 +77,7 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
 	instances, err := suite.makeEnviron().Instances([]instance.Id{id})
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0].Id(), gc.Equals, id)
 }
@@ -108,7 +108,7 @@ func (suite *environSuite) TestAllInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
 	instances, err := suite.makeEnviron().AllInstances()
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0].Id(), gc.Equals, id)
 }
@@ -116,7 +116,7 @@ func (suite *environSuite) TestAllInstances(c *gc.C) {
 func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
 	instances, err := suite.makeEnviron().AllInstances()
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(instances, gc.HasLen, 0)
 }
 
@@ -204,7 +204,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
-	c.Check(found, gc.Equals, true)
+	c.Check(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
@@ -233,7 +233,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// The value of the "user data" parameter used when starting the node
@@ -241,7 +241,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// the node's filesystem.
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node1"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(len(nodeRequestValues), gc.Equals, 2)
 	userData := nodeRequestValues[1].Get("user_data")
 	decodedUserData, err := decodeUserData(userData)
@@ -304,10 +304,10 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 
 	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire"})
 
 	// no "name" parameter should have been passed through
@@ -322,10 +322,10 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 
 	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire"})
 
 	// no "name" parameter should have been passed through
@@ -341,10 +341,10 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 
 	_, err := env.acquireNode("", "", constraints, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(nodeRequestValues[0].Get("arch"), gc.Equals, "arm")
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
 }
@@ -409,10 +409,10 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 
 	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
@@ -426,7 +426,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 		nil, nil,
 	)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
@@ -520,7 +520,7 @@ func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
 	err := suite.makeEnviron().StopInstances()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
 }
@@ -535,7 +535,7 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	suite.testMAASObject.TestServer.OwnedNodes()["test2"] = true
 
 	err := suite.makeEnviron().StopInstances("test1", "test2", "test3")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"release"})
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
@@ -623,7 +623,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	stor := env.Storage()
 
 	err := env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// Instances have been stopped.
 	operations := suite.testMAASObject.TestServer.NodesOperations()

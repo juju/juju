@@ -439,7 +439,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	// Check that the initial password is no longer valid.
 	err = ent.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ent.PasswordValid(initialPassword), gc.Equals, false)
+	c.Assert(ent.PasswordValid(initialPassword), jc.IsFalse)
 
 	// Read the configuration and check that we can connect with it.
 	conf = refreshConfig(c, conf)

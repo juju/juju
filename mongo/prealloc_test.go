@@ -72,7 +72,7 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		s.PatchValue(mongo.RuntimeGOOS, test.runtimeGOOS)
 		availSpace = test.availSpace
 		size, err := mongo.DefaultOplogSize("")
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(size, gc.Equals, test.expected)
 	}
 }
@@ -156,7 +156,7 @@ func (s *preallocSuite) TestPreallocFiles(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		filename := fmt.Sprintf("%s%d", prefix, i)
 		data, err := ioutil.ReadFile(filename)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(data, gc.DeepEquals, zeroes[:i*4096])
 	}
 

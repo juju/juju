@@ -45,7 +45,7 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 
 	// Check the result.
 	file, ok := archiveFile.(*os.File)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	s.checkSize(c, file, size)
 	s.checkChecksum(c, file, checksum)

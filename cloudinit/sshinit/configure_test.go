@@ -148,7 +148,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
 	cfg := cloudinit.New()
 
-	c.Assert(cfg.AptUpdate(), gc.Equals, false)
+	c.Assert(cfg.AptUpdate(), jc.IsFalse)
 	c.Assert(cfg.AptSources(), gc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
 

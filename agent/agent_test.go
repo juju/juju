@@ -324,7 +324,7 @@ func (*suite) TestMigrate(c *gc.C) {
 		// matches what we wrote.
 		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
 		readConfig, err := agent.ReadConfig(configPath)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(newConfig, jc.DeepEquals, readConfig)
 
 		// Make sure only the specified fields were changed and
@@ -333,15 +333,15 @@ func (*suite) TestMigrate(c *gc.C) {
 			switch field {
 			case "Values":
 				err = agent.PatchConfig(initialConfig, field, test.expectValues)
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			case "DeleteValues":
 				err = agent.PatchConfig(initialConfig, field, test.newParams.DeleteValues)
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			default:
 				value := reflect.ValueOf(test.newParams).FieldByName(field)
 				if value.IsValid() && test.expectErr == "" {
 					err = agent.PatchConfig(initialConfig, field, value.Interface())
-					c.Check(err, gc.IsNil)
+					c.Check(err, jc.ErrorIsNil)
 				} else {
 					err = agent.PatchConfig(initialConfig, field, value)
 					c.Check(err, gc.ErrorMatches, test.expectErr)
@@ -470,7 +470,7 @@ func (*suite) TestStateServingInfoNotAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, available := conf.StateServingInfo()
-	c.Assert(available, gc.Equals, false)
+	c.Assert(available, jc.IsFalse)
 }
 
 func (s *suite) TestAPIAddressesCannotWriteBack(c *gc.C) {

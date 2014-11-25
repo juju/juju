@@ -217,7 +217,7 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 			if len(t.arches) > 0 {
 				c.Check(itype.Arches, gc.DeepEquals, filterArches(itype.Arches, t.arches))
 			} else {
-				c.Check(len(itype.Arches) > 0, gc.Equals, true)
+				c.Check(len(itype.Arches) > 0, jc.IsTrue)
 			}
 			names[i] = itype.Name
 		}
@@ -275,12 +275,12 @@ func (s *instanceTypeSuite) TestMatch(c *gc.C) {
 		c.Assert(itype.Name, gc.Not(gc.Equals), "")
 		itype, match := itype.match(cons)
 		if len(t.arches) > 0 {
-			c.Check(match, gc.Equals, true)
+			c.Check(match, jc.IsTrue)
 			expect := itype
 			expect.Arches = t.arches
 			c.Check(itype, gc.DeepEquals, expect)
 		} else {
-			c.Check(match, gc.Equals, false)
+			c.Check(match, jc.IsFalse)
 			c.Check(itype, gc.DeepEquals, InstanceType{})
 		}
 	}

@@ -204,7 +204,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(err, jc.ErrorIsNil)
 
 		deployer, ok := wu.DeployerTag()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
@@ -217,9 +217,9 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(lu.IsPrincipal(), gc.Equals, false)
+		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		deployer, ok = lu.DeployerTag()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&multiwatcher.UnitInfo{
 			Name:        fmt.Sprintf("logging/%d", i),

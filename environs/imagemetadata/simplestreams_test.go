@@ -273,7 +273,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
 		images, resolveInfo, err := imagemetadata.Fetch(
 			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint, s.RequireSigned)
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		for _, testImage := range t.images {

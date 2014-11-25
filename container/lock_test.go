@@ -76,19 +76,19 @@ func (s *flockSuite) TestLockBlocks(c *gc.C) {
 	dir := c.MkDir()
 	lock1, err := container.NewLock(dir, "testing")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock1), gc.Equals, false)
+	c.Assert(container.IsLocked(lock1), jc.IsFalse)
 	lock2, err := container.NewLock(dir, "testing")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock2), gc.Equals, false)
+	c.Assert(container.IsLocked(lock2), jc.IsFalse)
 
 	acquired := make(chan struct{})
 	err = lock1.Lock("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock1), gc.Equals, true)
+	c.Assert(container.IsLocked(lock1), jc.IsTrue)
 
 	go func() {
 		lock2.Lock("")
-		c.Assert(container.IsLocked(lock2), gc.Equals, true)
+		c.Assert(container.IsLocked(lock2), jc.IsTrue)
 		acquired <- struct{}{}
 		close(acquired)
 	}()
@@ -103,7 +103,7 @@ func (s *flockSuite) TestLockBlocks(c *gc.C) {
 
 	err = lock1.Unlock()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock1), gc.Equals, false)
+	c.Assert(container.IsLocked(lock1), jc.IsFalse)
 
 	select {
 	case <-acquired:
@@ -119,11 +119,11 @@ func (s *flockSuite) TestUnlock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = lock.Lock("test")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock), gc.Equals, true)
+	c.Assert(container.IsLocked(lock), jc.IsTrue)
 
 	err = lock.Unlock()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(container.IsLocked(lock), gc.Equals, false)
+	c.Assert(container.IsLocked(lock), jc.IsFalse)
 }
 
 func (s *flockSuite) TestStress(c *gc.C) {

@@ -164,7 +164,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	}
 	cfg := getSimpleTestConfig(c, origAttrs)
 	env, err := maas.NewEnviron(cfg)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 
 	anotherServer := "http://maas.testing.invalid"
@@ -190,7 +190,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 	env, err := maas.NewEnviron(cfg)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(env.Config().Name(), gc.Equals, "testenv")
 }
 

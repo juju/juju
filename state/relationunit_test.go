@@ -721,7 +721,7 @@ func (s *RelationUnitSuite) assertScopeChange(c *gc.C, w *state.RelationScopeWat
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		sort.Strings(entered)
 		sort.Strings(ch.Entered)
 		c.Assert(ch.Entered, gc.DeepEquals, entered)

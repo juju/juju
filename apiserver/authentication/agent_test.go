@@ -102,7 +102,7 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
 		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 

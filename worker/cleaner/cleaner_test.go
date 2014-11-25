@@ -34,7 +34,7 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 
 	needed, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needed, gc.Equals, false)
+	c.Assert(needed, jc.IsFalse)
 
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -45,7 +45,7 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 
 	needed, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needed, gc.Equals, false)
+	c.Assert(needed, jc.IsFalse)
 
 	// Observe destroying of the relation with a watcher.
 	cw := s.State.WatchCleanups()

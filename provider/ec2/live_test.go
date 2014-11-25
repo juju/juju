@@ -288,7 +288,7 @@ func (t *LiveTests) TestDestroy(c *gc.C) {
 	// we have checked correctly that it's been destroyed.
 	names, err := storage.List(s, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(names) >= 2, gc.Equals, true)
+	c.Assert(len(names) >= 2, jc.IsTrue)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
@@ -351,7 +351,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
 
 	err := t.Env.StopInstances(inst0.Id(), inst1.Id(), inst2.Id())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	var insts []instance.Instance
 

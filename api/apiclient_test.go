@@ -58,9 +58,9 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	// listenAddress contains the actual IP address, but APIHostPorts
 	// is going to report localhost, so just find the port
 	_, port, err := net.SplitHostPort(listenerAddress)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	portNum, err := strconv.Atoi(port)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
 	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
 	st, err := api.Open(info, api.DialOpts{})

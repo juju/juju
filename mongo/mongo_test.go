@@ -112,7 +112,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 	obtained, err := mongo.Path()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
@@ -121,7 +121,7 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	obtained, err := mongo.Path()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
@@ -424,7 +424,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
 	c.Assert(err, jc.ErrorIsNil)

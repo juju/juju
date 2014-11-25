@@ -141,8 +141,8 @@ func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 	stateServer1Config := ":syslogtag, startswith, \"juju-\" @@192.168.1:6541;LongTagForwardFormat"
 	stateServer2Config := ":syslogtag, startswith, \"juju-\" @@127.0.0.1:6541;LongTagForwardFormat"
 
-	c.Assert(strings.Contains(string(rendered), stateServer1Config), gc.Equals, true)
-	c.Assert(strings.Contains(string(rendered), stateServer2Config), gc.Equals, true)
+	c.Assert(strings.Contains(string(rendered), stateServer1Config), jc.IsTrue)
+	c.Assert(strings.Contains(string(rendered), stateServer2Config), jc.IsTrue)
 }
 
 func (s *RsyslogSuite) TestNamespace(c *gc.C) {

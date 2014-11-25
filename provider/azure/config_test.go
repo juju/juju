@@ -197,7 +197,7 @@ func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 func (*configSuite) TestBoilerplateConfigReturnsAzureConfig(c *gc.C) {
 	provider := azureEnvironProvider{}
 	boilerPlateConfig := provider.BoilerplateConfig()
-	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), gc.Equals, true)
+	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), jc.IsTrue)
 }
 
 func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {

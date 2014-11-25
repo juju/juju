@@ -61,7 +61,7 @@ func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
 	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	_, available := readConfig.StateServingInfo()
-	c.Assert(available, gc.Equals, false)
+	c.Assert(available, jc.IsFalse)
 }
 
 func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C) {

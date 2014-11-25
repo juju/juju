@@ -196,11 +196,11 @@ func (t *Tests) TestPersistence(c *gc.C) {
 
 	// remove the first file and check that the others remain.
 	err := storage2.Remove(names[0])
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// check that it's ok to remove a file twice.
 	err = storage2.Remove(names[0])
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// ... and check it's been removed in the other environment
 	checkFileDoesNotExist(c, stor, names[0], noRetry)
@@ -253,7 +253,7 @@ func checkFileHasContents(c *gc.C, stor storage.StorageReader, name string, cont
 	defer r.Close()
 
 	data, err := ioutil.ReadAll(r)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(data, gc.DeepEquals, contents)
 
 	url, err := stor.URL(name)

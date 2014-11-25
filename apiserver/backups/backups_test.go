@@ -63,12 +63,12 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *
 
 func (s *backupsSuite) TestRegistered(c *gc.C) {
 	_, err := common.Facades.GetType("Backups", 0)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
 	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {

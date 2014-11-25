@@ -105,11 +105,11 @@ func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
 
 func (s *UpstartSuite) TestRunning(c *gc.C) {
 	s.MakeTool(c, "status", "exit 1")
-	c.Assert(s.service.Running(), gc.Equals, false)
+	c.Assert(s.service.Running(), jc.IsFalse)
 	s.MakeTool(c, "status", `echo "GIBBERISH NONSENSE"`)
-	c.Assert(s.service.Running(), gc.Equals, false)
+	c.Assert(s.service.Running(), jc.IsFalse)
 	s.RunningStatus(c)
-	c.Assert(s.service.Running(), gc.Equals, true)
+	c.Assert(s.service.Running(), jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestStart(c *gc.C) {

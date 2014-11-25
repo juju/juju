@@ -216,7 +216,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.principal.PasswordValid("foobar-12345678901234567890"), gc.Equals, true)
+	c.Assert(s.principal.PasswordValid("foobar-12345678901234567890"), jc.IsTrue)
 
 	// Then the subordinate.
 	unit, err = s.st.Unit(s.subordinate.Tag().(names.UnitTag))
@@ -225,7 +225,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), gc.Equals, true)
+	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), jc.IsTrue)
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {

@@ -265,7 +265,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 
 	changed, err := settingsChanged()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changed, gc.Equals, true)
+	c.Assert(changed, jc.IsTrue)
 
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
@@ -304,13 +304,13 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	value, ok := nodeOne.Get("alpha")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "beta")
 	value, ok = nodeOne.Get("foo")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "bar")
 	value, ok = nodeOne.Get("baz")
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 
 	// A read resets the data to the empty state.
 	err = nodeOne.Read()
@@ -326,10 +326,10 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 
 	// A write retains the newly set values.
 	value, ok = nodeOne.Get("alpha")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "beta")
 	value, ok = nodeOne.Get("foo")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "bar")
 
 	// Now get another state instance and change underlying state.
@@ -346,10 +346,10 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	err = nodeOne.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	value, ok = nodeOne.Get("alpha")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "beta")
 	value, ok = nodeOne.Get("foo")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "different")
 }
 
@@ -399,7 +399,7 @@ func (s *SettingsSuite) TestReadResync(c *gc.C) {
 	err = nodeOne.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	value, ok := nodeOne.Get("a")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "bar")
 }
 

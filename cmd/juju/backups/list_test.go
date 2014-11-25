@@ -45,7 +45,7 @@ func (s *listSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	out := MetaResultString
 	s.checkStd(c, ctx, out, "")
@@ -56,7 +56,7 @@ func (s *listSuite) TestBrief(c *gc.C) {
 	s.subcommand.Brief = true
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	out := s.metaresult.ID + "\n"
 	s.checkStd(c, ctx, out, "")

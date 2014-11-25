@@ -244,7 +244,7 @@ func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			if err != nil {
 				continue
 			}
@@ -309,7 +309,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			if err != nil {
 				continue
 			}
@@ -335,7 +335,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		err = environ.SetConfig(testConfig)
 		newAttrs := environ.Config().AllAttrs()
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			for field, value := range test.expect {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
@@ -379,7 +379,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)

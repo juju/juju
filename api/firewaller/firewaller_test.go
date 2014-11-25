@@ -55,7 +55,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// to be numerically consecutive from zero.
 	for i := 1; i <= 2; i++ {
 		s.machines[i], err = s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	// Create a service and three units for these machines.
 	s.charm = s.AddTestingCharm(c, "wordpress")
@@ -63,9 +63,9 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		s.units[i], err = s.service.AddUnit()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = s.units[i].AssignToMachine(s.machines[i])
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 
 	// Create the firewaller API facade.

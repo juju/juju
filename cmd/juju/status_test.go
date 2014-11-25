@@ -89,7 +89,7 @@ type context struct {
 func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -109,7 +109,7 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pi
 	c.Assert(err, jc.ErrorIsNil)
 	agentPresence, err := p.AgentPresence()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(agentPresence, gc.Equals, true)
+	c.Assert(agentPresence, jc.IsTrue)
 	return pinger
 }
 
@@ -1802,7 +1802,7 @@ type addService struct {
 
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks)
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {

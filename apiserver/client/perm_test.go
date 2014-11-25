@@ -178,7 +178,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 			st := s.openAs(c, e)
 			reset, err := t.op(c, st, s.State)
 			if allow[e] {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, "permission denied")
 				c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)

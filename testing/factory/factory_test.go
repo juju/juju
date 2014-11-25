@@ -266,8 +266,8 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	machineInstanceId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineInstanceId, gc.Equals, id)
-	c.Assert(machine.CheckProvisioned(nonce), gc.Equals, true)
-	c.Assert(machine.PasswordValid(password), gc.Equals, true)
+	c.Assert(machine.CheckProvisioned(nonce), jc.IsTrue)
+	c.Assert(machine.PasswordValid(password), jc.IsTrue)
 
 	saved, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)

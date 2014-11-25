@@ -363,7 +363,7 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	}
 	select {
 	case err := <-errResults:
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out while waiting for Login to finish")
 	}
@@ -384,7 +384,7 @@ func (s *loginSuite) TestDelayLogins(c *gc.C) {
 	close(errResults)
 	successCount := 0
 	for err := range errResults {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		if err == nil {
 			successCount += 1
 		}
@@ -416,7 +416,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	delayChan <- struct{}{}
 	select {
 	case err := <-errResults:
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out expecting one login to succeed")
 	}
@@ -444,7 +444,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	wg.Wait()
 	close(errResults)
 	for err := range errResults {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -485,13 +485,13 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 	machineCount := 0
 	for err := range machineResults {
 		machineCount += 1
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Check(machineCount, gc.Equals, apiserver.LoginRateLimit)
 	userCount := 0
 	for err := range userResults {
 		userCount += 1
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Check(userCount, gc.Equals, apiserver.LoginRateLimit+1)
 }
@@ -519,7 +519,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	wg.Wait()
 	close(errResults)
 	for err := range errResults {
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -583,7 +583,7 @@ func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Assert(result.UserInfo.LastConnection, gc.NotNil)
 	c.Assert(result.UserInfo.Identity, gc.Equals, userTag.String())
-	c.Assert(time.Now().Unix()-result.UserInfo.LastConnection.Unix() < 300, gc.Equals, true)
+	c.Assert(time.Now().Unix()-result.UserInfo.LastConnection.Unix() < 300, jc.IsTrue)
 }
 
 func (s *loginV1Suite) TestLoginRejectV0(c *gc.C) {

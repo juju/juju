@@ -42,7 +42,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
-	c.Assert(metricBatch.Sent(), gc.Equals, false)
+	c.Assert(metricBatch.Sent(), jc.IsFalse)
 	c.Assert(metricBatch.Created(), gc.Equals, now)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
 
@@ -56,7 +56,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(saved.Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "cs:quantal/metered")
-	c.Assert(saved.Sent(), gc.Equals, false)
+	c.Assert(saved.Sent(), jc.IsFalse)
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
 	metric = saved.Metrics()[0]
 	c.Assert(metric.Key, gc.Equals, "pings")
@@ -150,7 +150,7 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 1)
 	c.Assert(metricBatches[0].Unit(), gc.Equals, "metered/0")
 	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "cs:quantal/metered")
-	c.Assert(metricBatches[0].Sent(), gc.Equals, false)
+	c.Assert(metricBatches[0].Sent(), jc.IsFalse)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
 

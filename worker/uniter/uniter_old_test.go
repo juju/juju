@@ -167,7 +167,7 @@ func (s verifyGitCharm) step(c *gc.C, ctx *context) {
 		err = ctx.unit.Refresh()
 		c.Assert(err, jc.ErrorIsNil)
 		url, ok := ctx.unit.CharmURL()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(url, gc.DeepEquals, curl(s.revision))
 	}
 

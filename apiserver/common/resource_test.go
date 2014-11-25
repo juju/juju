@@ -126,9 +126,9 @@ func (resourceSuite) TestStop(c *gc.C) {
 	r2 := &fakeResource{}
 	rs.Register(r2)
 	rs.Stop("1")
-	c.Assert(r1.stopped, gc.Equals, true)
+	c.Assert(r1.stopped, jc.IsTrue)
 	c.Assert(rs.Get("1"), gc.IsNil)
-	c.Assert(r2.stopped, gc.Equals, false)
+	c.Assert(r2.stopped, jc.IsFalse)
 	c.Assert(rs.Get("2"), gc.Equals, r2)
 	c.Assert(rs.Count(), gc.Equals, 1)
 }
@@ -141,9 +141,9 @@ func (resourceSuite) TestStopAll(c *gc.C) {
 	rs.Register(r2)
 	rs.StopAll()
 
-	c.Assert(r1.stopped, gc.Equals, true)
+	c.Assert(r1.stopped, jc.IsTrue)
 	c.Assert(rs.Get("1"), gc.IsNil)
-	c.Assert(r2.stopped, gc.Equals, true)
+	c.Assert(r2.stopped, jc.IsTrue)
 	c.Assert(rs.Get("2"), gc.IsNil)
 
 	c.Assert(rs.Count(), gc.Equals, 0)

@@ -55,7 +55,7 @@ func (r *rootSuite) TestPingTimeout(c *gc.C) {
 		c.Fatalf("action never executed")
 	}
 	closeDiff := closed.Sub(broken) / time.Millisecond
-	c.Assert(50 <= closeDiff && closeDiff <= 100, gc.Equals, true)
+	c.Assert(50 <= closeDiff && closeDiff <= 100, jc.IsTrue)
 }
 
 func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {

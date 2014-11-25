@@ -159,8 +159,8 @@ func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 	// Default config files set these to true.
 	testConfig := minimalConfig(c)
-	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 
 	// If using lxc-clone, we set updates to false
 	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
@@ -170,8 +170,8 @@ func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	validConfig, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(validConfig.EnableOSUpgrade(), gc.Equals, false)
+	c.Check(validConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(validConfig.EnableOSUpgrade(), jc.IsFalse)
 }
 
 // If settings are provided, don't overwrite with defaults.
@@ -183,6 +183,6 @@ func (s *configSuite) TestLocalRespectsUpgradeSettings(c *gc.C) {
 	})
 	testConfig, err := config.New(config.NoDefaults, minAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
-	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
+	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 }

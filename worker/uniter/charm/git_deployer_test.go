@@ -144,7 +144,7 @@ func (s *GitDeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	target := charm.NewGitDir(s.targetPath)
 	conflicted, err := target.Conflicted()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conflicted, gc.Equals, true)
+	c.Assert(conflicted, jc.IsTrue)
 
 	// Revert and check initial content.
 	err = s.deployer.NotifyRevert()
@@ -154,14 +154,14 @@ func (s *GitDeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "mu!")
 	conflicted, err = target.Conflicted()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conflicted, gc.Equals, false)
+	c.Assert(conflicted, jc.IsFalse)
 
 	// Try to upgrade again.
 	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conflicted, gc.Equals, true)
+	c.Assert(conflicted, jc.IsTrue)
 	checkCleanup(c, s.deployer)
 
 	// And again.
@@ -169,7 +169,7 @@ func (s *GitDeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conflicted, gc.Equals, true)
+	c.Assert(conflicted, jc.IsTrue)
 	checkCleanup(c, s.deployer)
 
 	// Manually resolve, and commit.
@@ -179,7 +179,7 @@ func (s *GitDeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conflicted, gc.Equals, false)
+	c.Assert(conflicted, jc.IsFalse)
 
 	// Try a final upgrade to the same charm and check it doesn't write anything
 	// except the upgrade log line.
@@ -192,7 +192,7 @@ func (s *GitDeployerSuite) TestConflictRevertResolve(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "nu!")
 	conflicted, err = target.Conflicted()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(conflicted, gc.Equals, false)
+	c.Assert(conflicted, jc.IsFalse)
 	lines, err := target.Log()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(lines[0], gc.Matches, `[0-9a-f]{7} Upgraded charm to "cs:s/c-2".`)

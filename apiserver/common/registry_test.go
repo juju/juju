@@ -331,7 +331,7 @@ func (*facadeRegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	_, err := r.GetFactory("name", 0)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	_, err = r.GetFactory("name", 1)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{1}},
 	})

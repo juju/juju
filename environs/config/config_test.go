@@ -1238,14 +1238,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 			c.Assert(useLxcClone, gc.Equals, oldUseClone)
 		} else {
 			c.Assert(useLxcClonePresent, jc.IsFalse)
-			c.Assert(useLxcClone, gc.Equals, false)
+			c.Assert(useLxcClone, jc.IsFalse)
 		}
 	}
 	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
 	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
 		c.Assert(useLxcCloneAufs, gc.Equals, v)
 	} else {
-		c.Assert(useLxcCloneAufs, gc.Equals, false)
+		c.Assert(useLxcCloneAufs, jc.IsFalse)
 	}
 }
 
@@ -1431,7 +1431,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		oldConfig := newTestConfig(c, test.old)
 		err := config.Validate(newConfig, oldConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
@@ -1682,7 +1682,7 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 
 			_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 
 			err = cert.Verify(certPEM, testing.CACert, time.Now())
 			c.Assert(err, jc.ErrorIsNil)
