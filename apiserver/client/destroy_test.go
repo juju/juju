@@ -111,7 +111,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	instances, err = s.Environ.Instances([]instance.Id{managerId, nonManagerId})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances[0], gc.NotNil)
-	c.Assert(instances[1], gc.IsNil)
+	c.Assert(instances[1], jc.ErrorIsNil)
 	//   - all services in state are Dying or Dead (or removed altogether),
 	//     after running the state Cleanups.
 	needsCleanup, err := s.State.NeedsCleanup()
