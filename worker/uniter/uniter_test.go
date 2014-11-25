@@ -1751,7 +1751,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		charms:  make(map[string][]byte),
 	}
 
-	testing.AddStateServerMachine(c, ctx.st)
+	addStateServerMachine(c, ctx.st)
 
 	// Create the subordinate service.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
@@ -1957,11 +1957,22 @@ type ensureStateWorker struct{}
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
-		testing.AddStateServerMachine(c, ctx.st)
+		addStateServerMachine(c, ctx.st)
 	}
 	addresses, err = ctx.st.APIAddressesFromMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.HasLen, 1)
+}
+
+func addStateServerMachine(c *gc.C, st *state.State) {
+	// The AddStateServerMachine call will update the API host ports
+	// to made-up addresses. We need valid addresses so that the uniter
+	// can download charms from the API server.
+	apiHostPorts, err := st.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	testing.AddStateServerMachine(c, st)
+	err = st.SetAPIHostPorts(apiHostPorts)
+	c.Assert(err, gc.IsNil)
 }
 
 type createCharm struct {

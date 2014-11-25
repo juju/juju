@@ -182,6 +182,10 @@ func (s *uniterV1Suite) TestCharmArchiveSha256(c *gc.C) {
 	s.testCharmArchiveSha256(c, s.uniter)
 }
 
+func (s *uniterV1Suite) TestCharmArchiveURLs(c *gc.C) {
+	s.testCharmArchiveURLs(c, s.uniter)
+}
+
 func (s *uniterV1Suite) TestCurrentEnvironUUID(c *gc.C) {
 	s.testCurrentEnvironUUID(c, s.uniter)
 }

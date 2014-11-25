@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -88,19 +89,24 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm, []b
 	apiCharm, err := s.uniter.Charm(sch.URL())
 	c.Assert(err, gc.IsNil)
 
-	surl, err := url.Parse(s.URL("/some/charm.bundle"))
+	surlBad, err := url.Parse(s.URL("/some/charm.bundle?bad"))
 	c.Assert(err, gc.IsNil)
-	mock := &mockArchiveURLCharm{apiCharm, surl}
+	surlGood, err := url.Parse(s.URL("/some/charm.bundle?good"))
+	c.Assert(err, gc.IsNil)
+	mock := &mockArchiveURLCharm{
+		apiCharm,
+		[]*url.URL{surlBad, surlGood},
+	}
 	return mock, sch, bundata
 }
 
 type mockArchiveURLCharm struct {
 	charm.BundleInfo
-	archiveURL *url.URL
+	archiveURLs []*url.URL
 }
 
-func (i *mockArchiveURLCharm) ArchiveURL() *url.URL {
-	return i.archiveURL
+func (i *mockArchiveURLCharm) ArchiveURLs() ([]*url.URL, error) {
+	return i.archiveURLs, nil
 }
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
@@ -117,17 +123,19 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Try to get the charm when the content doesn't match.
 	gitjujutesting.Server.Response(200, nil, []byte("roflcopter"))
+	archiveURLs, err := apiCharm.ArchiveURLs()
+	c.Assert(err, gc.IsNil)
 	_, err = d.Read(apiCharm, nil)
-	archiveURL := apiCharm.ArchiveURL()
-	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, archiveURL)
+	prefix := regexp.QuoteMeta(fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, archiveURLs))
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.
-	gitjujutesting.Server.Response(404, nil, nil)
+	gitjujutesting.Server.Responses(2, 404, nil, nil)
 	_, err = d.Read(apiCharm, nil)
 	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
 
 	// Get a charm whose bundle exists and whose content matches.
+	gitjujutesting.Server.Response(404, nil, nil)
 	gitjujutesting.Server.Response(200, nil, bundata)
 	ch, err := d.Read(apiCharm, nil)
 	c.Assert(err, gc.IsNil)

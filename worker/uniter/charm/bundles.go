@@ -45,53 +45,68 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error) {
-	archiveURL := info.ArchiveURL()
-	defer errors.DeferredAnnotatef(&err, "failed to download charm %q from %q", info.URL(), archiveURL)
+	archiveURLs, err := info.ArchiveURLs()
+	if err != nil {
+		return errors.Annotatef(err, "failed to get download URLs for charm %q", info.URL())
+	}
+	defer errors.DeferredAnnotatef(&err, "failed to download charm %q from %q", info.URL(), archiveURLs)
 	dir := d.downloadsPath()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	aurl := archiveURL.String()
-	logger.Infof("downloading %s from %s", info.URL(), aurl)
+	var st downloader.Status
+	for _, archiveURL := range archiveURLs {
+		aurl := archiveURL.String()
+		logger.Infof("downloading %s from %s", info.URL(), aurl)
+		st, err = tryDownload(aurl, dir, abort)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return err
+	}
+	logger.Infof("download complete")
+	defer st.File.Close()
+	actualSha256, _, err := utils.ReadSHA256(st.File)
+	if err != nil {
+		return err
+	}
+	archiveSha256, err := info.ArchiveSha256()
+	if err != nil {
+		return err
+	}
+	if actualSha256 != archiveSha256 {
+		return fmt.Errorf(
+			"expected sha256 %q, got %q", archiveSha256, actualSha256,
+		)
+	}
+	logger.Infof("download verified")
+	if err := os.MkdirAll(d.path, 0755); err != nil {
+		return err
+	}
+	// Renaming an open file is not possible on Windows
+	st.File.Close()
+	return os.Rename(st.File.Name(), d.bundlePath(info))
+}
+
+func tryDownload(url, dir string, abort <-chan struct{}) (downloader.Status, error) {
 	// Downloads always go through the API server, which at
 	// present cannot be verified due to the certificates
 	// being inadequate. We always verify the SHA-256 hash,
 	// and the data transferred is not sensitive, so this
 	// does not pose a problem.
-	dl := downloader.New(aurl, dir, utils.NoVerifySSLHostnames)
+	dl := downloader.New(url, dir, utils.NoVerifySSLHostnames)
 	defer dl.Stop()
-	for {
-		select {
-		case <-abort:
-			logger.Infof("download aborted")
-			return fmt.Errorf("aborted")
-		case st := <-dl.Done():
-			if st.Err != nil {
-				return st.Err
-			}
-			logger.Infof("download complete")
-			defer st.File.Close()
-			actualSha256, _, err := utils.ReadSHA256(st.File)
-			if err != nil {
-				return err
-			}
-			archiveSha256, err := info.ArchiveSha256()
-			if err != nil {
-				return err
-			}
-			if actualSha256 != archiveSha256 {
-				return fmt.Errorf(
-					"expected sha256 %q, got %q", archiveSha256, actualSha256,
-				)
-			}
-			logger.Infof("download verified")
-			if err := os.MkdirAll(d.path, 0755); err != nil {
-				return err
-			}
-			// Renaming an open file is not possible on Windows
-			st.File.Close()
-			return os.Rename(st.File.Name(), d.bundlePath(info))
+	select {
+	case <-abort:
+		logger.Infof("download aborted")
+		return downloader.Status{}, errors.New("aborted")
+	case st := <-dl.Done():
+		if st.Err != nil {
+			return downloader.Status{}, st.Err
 		}
+		return st, nil
 	}
 }
 

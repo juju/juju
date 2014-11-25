@@ -5,7 +5,6 @@ package uniter_test
 
 import (
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/juju/errors"
@@ -676,7 +675,7 @@ func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
 
 func (s *unitSuite) patchNewState(
 	c *gc.C,
-	patchFunc func(_ base.APICaller, _ names.UnitTag, _ *url.URL) *uniter.State,
+	patchFunc func(_ base.APICaller, _ names.UnitTag) *uniter.State,
 ) {
 	s.uniterSuite.patchNewState(c, patchFunc)
 	var err error
