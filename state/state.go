@@ -672,7 +672,7 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
-		id = tag.Suffix()
+		id = tag.Id()
 	default:
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}

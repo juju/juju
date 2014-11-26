@@ -2440,8 +2440,8 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewNetworkTag("net1"),
 }, {
-	tag: names.NewActionTag("ser-vice2_a_0"),
-	err: `action "0" not found`,
+	tag: names.NewActionTag("fedcba98-7654-4321-ba98-76543210beef"),
+	err: `action "fedcba98-7654-4321-ba98-76543210beef" not found`,
 }, {
 	tag: names.NewUserTag("eric"),
 }, {
@@ -2563,7 +2563,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	f, err := u.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.State.Action(f.Id())
-	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), action.Id()))
+	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, action.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "actions")

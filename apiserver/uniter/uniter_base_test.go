@@ -925,7 +925,7 @@ func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActi
 
 	addedAction, err := s.wordpressUnit.AddAction("snapshot", nil)
 
-	wc.AssertChange(addedAction.NotificationId())
+	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
 }
 
@@ -948,7 +948,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	results, err := facade.WatchActionNotifications(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkUnorderedActionIdsEqual(c, []string{action1.NotificationId(), action2.NotificationId()}, results)
+	checkUnorderedActionIdsEqual(c, []string{action1.Id(), action2.Id()}, results)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -962,7 +962,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 
 	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange(addedAction.NotificationId())
+	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
 }
 
@@ -985,12 +985,14 @@ func (s *uniterBaseSuite) testWatchActionNotificationsMalformedUnitName(c *gc.C,
 }
 
 func (s *uniterBaseSuite) testWatchActionNotificationsNotUnit(c *gc.C, facade watchActions) {
+	action, err := s.mysqlUnit.AddAction("mysql-action", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: "action-mysql/0_a_0"},
+		{Tag: action.Tag().String()},
 	}}
-	_, err := facade.WatchActionNotifications(args)
+	_, err = facade.WatchActionNotifications(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `"action-mysql/0_a_0" is not a valid unit tag`)
+	c.Assert(err.Error(), gc.Equals, `"action-`+action.Id()+`" is not a valid unit tag`)
 }
 
 func (s *uniterBaseSuite) testWatchActionNotificationsPermissionDenied(c *gc.C, facade watchActions) {
@@ -1094,7 +1096,7 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 		Port:    1234,
 	}}}
 	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
 		{URL: "something-invalid"},
@@ -1102,7 +1104,7 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 		{URL: dummyCharm.String()},
 	}}
 	result, err := facade.CharmArchiveURLs(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressURLs := []string{
 		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
@@ -1193,7 +1195,8 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 			actionTest.action.Action.Name,
 			actionTest.action.Action.Parameters)
 		c.Assert(err, jc.ErrorIsNil)
-		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), a.Id())
+		c.Assert(names.IsValidAction(a.Id()), gc.Equals, true)
+		actionTag := names.NewActionTag(a.Id())
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
@@ -1217,7 +1220,7 @@ func (s *uniterBaseSuite) testActionsNotPresent(c *gc.C, facade actions) {
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", uuid.String()).String(),
+			Tag: names.NewActionTag(uuid.String()).String(),
 		}},
 	}
 	results, err := facade.Actions(args)
@@ -1240,9 +1243,11 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 	mysqlUnitFacade, err := factory(s.State, s.resources, mysqlUnitAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
+	action, err := s.wordpressUnit.AddAction("wordpress-action", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("wordpress/0", "0").String(),
+			Tag: action.Tag().String(),
 		}},
 	}
 	actions, err := mysqlUnitFacade.Actions(args)
@@ -1252,10 +1257,11 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 }
 
 func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
-	// Same unit, but not one that has access.
+	action, err := s.mysqlUnit.AddAction("mysql-action-2", nil)
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.JoinActionTag("mysql/0", "0").String(),
+			Tag: action.Tag().String(),
 		}},
 	}
 	actions, err := facade.Actions(args)

@@ -11,7 +11,7 @@ import (
 
 // RemoveRelationCommand causes an existing service relation to be shut down.
 type RemoveRelationCommand struct {
-	BlockableRemoveCommand
+	BlockableCommand
 	Endpoints []string
 }
 
@@ -38,5 +38,5 @@ func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return c.processBlockedError(client.DestroyRelation(c.Endpoints...))
+	return c.processBlockedError(client.DestroyRelation(c.Endpoints...), BlockRemove)
 }
