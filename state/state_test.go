@@ -1256,7 +1256,7 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 		AvailabilityZone:  "Timbuktu",
 	}
 
-	assertSubnet := func(subnet *Subnet) {
+	assertSubnet := func(subnet *state.Subnet) {
 		c.Assert(subnet.ProviderId(), gc.Equals, "foo")
 		c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24")
 		c.Assert(subnet.VLANTag(), gc.Equals, 79)
@@ -1342,7 +1342,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 
 func (s *StateSuite) TestSubnetEnsureDead(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
-		ProviderId:        network.Id("foo"),
+		ProviderId:        "foo",
 		CIDR:              "192.168.1.0/24",
 		AllocatableIPLow:  "192.168.1.0",
 		AllocatableIPHigh: "192.168.1.1",
