@@ -16,15 +16,20 @@ Juju allows to safeguard deployed environments from unintentional damage by prev
 execution of operations that could alter environment.
 
 This is done by blocking certain operations from successful execution. Blocked operations
-must be manually unblocked to proceed.
+must be manually unblocked to proceed. Although, few operations that offer --force option can use it to by-pass a block.
 
 Operations that can be unblocked are
 
 destroy environment
+termination commands
 
 
 Examples:
-   juju unblock destroy-environment      (unblocks destroy environment)
+   juju unblock destroy-environment
+   (unblocks destroy environment)
+
+   juju unblock remove-object
+   (unblocks all remove commands: remove-machine, remove-service, remove-unit, remove-relation)
 
 See Also:
    juju help block

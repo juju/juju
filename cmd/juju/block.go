@@ -88,16 +88,24 @@ execution of operations that could alter environment.
 This is done by blocking certain operations from successful execution. Blocked operations
 must be manually unblocked to proceed.
 
+Operations that offer --force option can use it to by-pass a block.
+
 Operations that can be blocked are
 
 destroy environment
+termination commands
 
 
 Examples:
-   juju block destroy-environment      (blocks destroy environment)
+   juju block destroy-environment
+   (blocks destroy environment)
+
+   juju block remove-object
+   (blocks all remove commands: remove-machine, remove-service, remove-unit, remove-relation)
 
 See Also:
    juju help unblock
+
 `
 
 func (c *BlockCommand) Info() *cmd.Info {
