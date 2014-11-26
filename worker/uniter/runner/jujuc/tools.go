@@ -17,6 +17,7 @@ import (
 // hook command. If the commands already exist, this operation does nothing.
 // If dir is a symbolic link, it will be dereferenced first.
 func EnsureSymlinks(dir string) (err error) {
+	logger.Infof("ensure jujuc symlinks in %s", dir)
 	defer func() {
 		if err != nil {
 			err = errors.Annotatef(err, "cannot initialize hook commands in %q", dir)
@@ -26,18 +27,26 @@ func EnsureSymlinks(dir string) (err error) {
 	if err != nil {
 		return err
 	}
+	// NOTE: need to work out how to do this on windows.
 	if st.Mode()&os.ModeSymlink != 0 {
-		dir, err = os.Readlink(dir)
+		link, err := symlink.Read(dir)
 		if err != nil {
 			return err
 		}
+		if !filepath.IsAbs(link) {
+			logger.Infof("%s is relative", link)
+			link = filepath.Join(filepath.Dir(dir), link)
+		}
+		dir = link
+		logger.Infof("was a symlink, now looking at %s", dir)
 	}
 
+	jujudPath := filepath.Join(dir, names.Jujud)
+	logger.Debugf("jujud path %s", jujudPath)
 	for _, name := range CommandNames() {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
 		// exist.
-		jujudPath := filepath.Join(dir, names.Jujud)
 		err := symlink.New(jujudPath, filepath.Join(dir, name))
 		if err != nil && !os.IsExist(err) {
 			return err
