@@ -79,18 +79,22 @@ def parse_args(args=None):
     parser.add_argument(
         '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
-    parser.add_argument(
+    subparsers = parser.add_subparsers(help='sub-command help', dest="command")
+    # ./candidate update -b 1234 master ~/candidate
+    parser_update = subparsers.add_parser(
+        'update', help='Update candidate')
+    parser_update.add_argument(
         '-b', '--br-number', default='lastSuccessfulBuild',
         help="The specific build-revision number.")
-    parser.add_argument(
+    parser_update.add_argument(
         '-p', '--pr-number',
         help="The specific publish-revision-revision number.")
-    parser.add_argument(
-        'command', choices=['update'], help='The action to perform.')
-    parser.add_argument(
+    parser_update.add_argument(
         'branch', help='The successfully test branch location.')
-    parser.add_argument(
+    parser_update.add_argument(
         'path', help='The path to save the candiate data to.')
+    # ./candidate publsh ~/candidate
+    # ./candidate extract -b 1234 master ~/candidate
     return parser.parse_args(args)
 
 
