@@ -5,7 +5,7 @@ package gce
 
 import (
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/network"
 )
 
 type environInstance struct {
@@ -29,22 +29,28 @@ func (inst *environInstance) Refresh() error {
 	return errNotImplemented
 }
 
-func (inst *environInstance) Addresses() ([]instance.Address, error) {
+func (inst *environInstance) Addresses() ([]network.Address, error) {
 	_ = inst.env.getSnapshot()
 	return nil, errNotImplemented
 }
 
-func (inst *environInstance) DNSName() (string, error) {
-	// This method is likely to be replaced entirely by Addresses() at some point,
-	// but remains necessary for now. It's probably smart to implement it in
-	// terms of Addresses above, to minimise churn when it's removed.
-	_ = inst.env.getSnapshot()
-	return "", errNotImplemented
+// firewall stuff
+
+// OpenPorts opens the given ports on the instance, which
+// should have been started with the given machine id.
+func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+	return errNotImplemented
 }
 
-func (inst *environInstance) WaitDNSName() (string, error) {
-	// This method is likely to be replaced entirely by Addresses() at some point,
-	// but remains necessary for now. Until it's finally removed, you can probably
-	// ignore this method; the common implementation should work.
-	return common.WaitDNSName(inst)
+// ClosePorts closes the given ports on the instance, which
+// should have been started with the given machine id.
+func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+	return errNotImplemented
+}
+
+// Ports returns the set of ports open on the instance, which
+// should have been started with the given machine id.
+// The ports are returned as sorted by SortPorts.
+func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error) {
+	return nil, errNotImplemented
 }

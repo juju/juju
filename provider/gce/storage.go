@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 type environStorage struct {

@@ -41,13 +41,6 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// You should probably not change this method; if you need to change how
-	// configs are prepared, you should edit prepareConfig directly, lest the
-	// code in this file drift gradually out of sync with that in config.go
-	cfg, err := prepareConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
 	return providerInstance.Open(cfg)
 }
 
@@ -78,21 +71,7 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 		return nil, err
 	}
 	secretAttrs := map[string]string{}
-	for _, field := range configSecretFields {
-		if value, ok := ecfg.attrs[field]; ok {
-			if stringValue, ok := value.(string); ok {
-				secretAttrs[field] = stringValue
-			} else {
-				// All your secret attributes must be strings at the moment. Sorry.
-				// It's an expedient and hopefully temporary measure that helps us
-				// plug a security hole in the API.
-				return nil, fmt.Errorf(
-					"secret %q field must have a string value; got %v",
-					field, value,
-				)
-			}
-		}
-	}
+	secretAttrs[cfgPrivateKey] = ecfg.PrivateKey
 	return secretAttrs, nil
 }
 

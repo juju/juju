@@ -10,10 +10,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 )
 
 // This file contains the core of the gce Environ implementation. You will
@@ -25,24 +25,10 @@ import (
 // ignored until you've got an environment bootstrapping successfully).
 
 type environ struct {
-	// This is used to check sanity of provisioning requests ahead of time. The
-	// default implementation doesn't check anything; an ideal environ will use
-	// its own PrecheckInstance method to prevent impossible provisioning
-	// requests before they're made.
-	common.NopPrecheckerPolicy
-
-	// The SupportsUnitPlacementPolicy makes unit placement available on the
-	// provider. The only reason to replace it would be if you were implementing
-	// a provider like azure, in which we had to sacrifice unit placement in
-	// favour of making it possible to keep services highly available.
 	common.SupportsUnitPlacementPolicy
 
 	name string
-	// All mutating operations should lock the mutex. Non-mutating operations
-	// should read all fields (other than name, which is immutable) from a
-	// shallow copy taken with getSnapshot().
-	// This advice is predicated on the goroutine-safety of the values of the
-	// affected fields.
+
 	lock    sync.Mutex
 	ecfg    *environConfig
 	storage storage.Storage
@@ -90,14 +76,9 @@ func (env *environ) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// You can probably ignore this method; the common implementation should work.
-	return common.Bootstrap(ctx, env, cons)
-}
-
-func (env *environ) StateInfo() (*state.Info, *api.Info, error) {
-	// You can probably ignore this method; the common implementation should work.
-	return common.StateInfo(env)
+	return common.Bootstrap(ctx, env, params)
 }
 
 func (env *environ) Destroy() error {
@@ -105,15 +86,106 @@ func (env *environ) Destroy() error {
 	return common.Destroy(env)
 }
 
-// SupportedArchitectures is specified on the EnvironCapability interface.
+// AllocateAddress requests a specific address to be allocated for the
+// given instance on the given network.
+func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	return nil
+}
+
+func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
+	return nil, nil
+}
+
+func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) {
+	return nil, nil
+}
+
+func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	return nil
+}
+
+// firewall stuff
+
+// OpenPorts opens the given port ranges for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (env *environ) OpenPorts(ports []network.PortRange) error {
+	return nil
+}
+
+// ClosePorts closes the given port ranges for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (env *environ) ClosePorts(ports []network.PortRange) error {
+	return nil
+}
+
+// Ports returns the port ranges opened for the whole environment.
+// Must only be used if the environment was setup with the
+// FwGlobal firewall mode.
+func (env *environ) Ports() ([]network.PortRange, error) {
+	return nil, nil
+}
+
+// instance stuff
+
+func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	// Please note that in order to fulfil the demands made of Instances and
+	// AllInstances, it is imperative that some environment feature be used to
+	// keep track of which instances were actually started by juju.
+	_ = env.getSnapshot()
+	return nil, errNotImplemented
+}
+
+func (env *environ) AllInstances() ([]instance.Instance, error) {
+	// Please note that this must *not* return instances that have not been
+	// allocated as part of this environment -- if it does, juju will see they
+	// are not tracked in state, assume they're stale/rogue, and shut them down.
+	_ = env.getSnapshot()
+	return nil, errNotImplemented
+}
+
+func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	// Please note that this must *not* return instances that have not been
+	// allocated as part of this environment -- if it does, juju will see they
+	// are not tracked in state, assume they're stale/rogue, and shut them down.
+	// This advice applies even if an instance id passed in corresponds to a
+	// real instance that's not part of the environment -- the Environ should
+	// treat that no differently to a request for one that does not exist.
+	_ = env.getSnapshot()
+	return nil, errNotImplemented
+}
+
+func (env *environ) StopInstances(instances ...instance.Id) error {
+	_ = env.getSnapshot()
+	return errNotImplemented
+}
+
+func (env *environ) StateServerInstances() ([]instance.Id, error) {
+	return nil, nil
+}
+
 func (env *environ) SupportedArchitectures() ([]string, error) {
-	// An ideal implementation will inspect the tools, images, and instance types
-	// available in the environment to return correct values here.
 	return arch.AllSupportedArches, nil
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
+// SupportNetworks returns whether the environment has support to
+// specify networks for services and machines.
 func (env *environ) SupportNetworks() bool {
-	// An ideal implementation will support networking.
 	return false
+}
+
+// SupportsUnitAssignment returns an error which, if non-nil, indicates
+// that the environment does not support unit placement. If the environment
+// does not support unit placement, then machines may not be created
+// without units, and units cannot be placed explcitly.
+func (env *environ) SupportsUnitPlacement() error {
+	return nil
+}
+
+// SupportAddressAllocation takes a network.Id and returns a bool
+// and an error. The bool indicates whether that network supports
+// static ip address allocation.
+func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
