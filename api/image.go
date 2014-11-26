@@ -46,6 +46,9 @@ func serverRoot(apiInfo *Info) (string, error) {
 // image blob with the specified parameters.
 func ImageDownloadURL(kind instance.ContainerType, series, arch string) (string, error) {
 	// TODO - we currently only need to support LXC images - kind is ignored.
+	if kind != instance.LXC {
+		return "", errors.Errorf("unsupported container type: %v", kind)
+	}
 
 	// Use the ubuntu-cloudimg-query command to get the url from which to fetch the image.
 	// This will be somewhere on http://cloud-images.ubuntu.com.

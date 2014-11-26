@@ -15,39 +15,66 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/mongo"
 )
 
 var logger = loggo.GetLogger("juju.state.imagestorage")
+
+const (
+	// imagemetadataC is the collection used to store image metadata.
+	imagemetadataC = "imagemetadata"
+
+	// ImagesDB is the database used to store image blobs.
+	ImagesDB = "osimages"
+)
 
 type imageStorage struct {
 	envUUID            string
 	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
-	txnRunner          jujutxn.Runner
 }
 
 var _ Storage = (*imageStorage)(nil)
 
 // NewStorage constructs a new Storage that stores image blobs
-// in the provided ManagedStorage, and image metadata in the provided
-// collection using the provided transaction runner.
+// in an "osimages" database. Image metadata is also stored in this
+// database in the "imagemetadata" collection.
 func NewStorage(
+	session *mgo.Session,
 	envUUID string,
-	managedStorage blobstore.ManagedStorage,
-	metadataCollection *mgo.Collection,
-	runner jujutxn.Runner,
 ) Storage {
+	db := session.DB(ImagesDB)
+	managedStorage := getManagedStorage(ImagesDB, db, session)
+	metadataCollection := db.C(imagemetadataC)
 	return &imageStorage{
-		envUUID:            envUUID,
-		managedStorage:     managedStorage,
-		metadataCollection: metadataCollection,
-		txnRunner:          runner,
+		envUUID,
+		managedStorage,
+		metadataCollection,
 	}
+}
+
+func getManagedStorage(dbName string, db *mgo.Database, session *mgo.Session) blobstore.ManagedStorage {
+	rs := blobstore.NewGridFS(ImagesDB, dbName, session)
+	metadataDb := db.With(session)
+	return blobstore.NewManagedStorage(metadataDb, rs)
+}
+
+func (s *imageStorage) txnRunnerWithSession() (jujutxn.Runner, *mgo.Session) {
+	db := s.metadataCollection.Database
+	session := db.Session.Copy()
+	runnerDb := db.With(session)
+	return txnRunner(runnerDb), session
+}
+
+// Override for testing.
+var txnRunner = func(db *mgo.Database) jujutxn.Runner {
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 }
 
 // AddImage is defined on the Storage interface.
 func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr error) {
-	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.Checksum)
+	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
 	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store image")
 	}
@@ -67,17 +94,17 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 		Series:  metadata.Series,
 		Arch:    metadata.Arch,
 		Size:    metadata.Size,
-		SHA256:  metadata.Checksum,
+		SHA256:  metadata.SHA256,
 		Path:    path,
 		Created: time.Now().Format(time.RFC3339),
 	}
 
 	// Add or replace metadata. If replacing, record the
-	// existing path so we can remove it later.
+	// existing path so we can remove the blob later.
 	var oldPath string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
-			C:  s.metadataCollection.Name,
+			C:  imagemetadataC,
 			Id: newDoc.Id,
 		}
 
@@ -89,7 +116,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 			op.Assert = txn.DocMissing
 			op.Insert = &newDoc
 		} else {
-			oldDoc, err := s.imageMetadataDoc(metadata.Kind, metadata.Series, metadata.Arch)
+			oldDoc, err := s.imageMetadataDoc(metadata.EnvUUID, metadata.Kind, metadata.Series, metadata.Arch)
 			if err != nil {
 				return nil, err
 			}
@@ -99,7 +126,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 				op.Update = bson.D{{
 					"$set", bson.D{
 						{"size", metadata.Size},
-						{"sha256", metadata.Checksum},
+						{"sha256", metadata.SHA256},
 						{"path", path},
 					},
 				}}
@@ -107,7 +134,9 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 		}
 		return []txn.Op{op}, nil
 	}
-	err := s.txnRunner.Run(buildTxn)
+	txnRunner, session := s.txnRunnerWithSession()
+	defer session.Close()
+	err := txnRunner.Run(buildTxn)
 	if err != nil {
 		return errors.Annotate(err, "cannot store image metadata")
 	}
@@ -126,26 +155,32 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 // DeleteImage is defined on the Storage interface.
 func (s *imageStorage) DeleteImage(metadata *Metadata) (resultErr error) {
-	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.Checksum)
+	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
 	if err := s.managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
 		return errors.Annotate(err, "cannot remove image blob")
 	}
 	// Remove the metadata.
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		op := txn.Op{
-			C:      s.metadataCollection.Name,
+			C:      imagemetadataC,
 			Id:     docId(metadata),
 			Remove: true,
 		}
 		return []txn.Op{op}, nil
 	}
-	err := s.txnRunner.Run(buildTxn)
+	txnRunner, session := s.txnRunnerWithSession()
+	defer session.Close()
+	err := txnRunner.Run(buildTxn)
+	// Metadata already removed, we don't care.
+	if err == mgo.ErrNotFound {
+		return nil
+	}
 	return errors.Annotate(err, "cannot remove image metadata")
 }
 
 // Image is defined on the Storage interface.
 func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadCloser, error) {
-	metadataDoc, err := s.imageMetadataDoc(kind, series, arch)
+	metadataDoc, err := s.imageMetadataDoc(s.envUUID, kind, series, arch)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,12 +193,13 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 		return nil, nil, err
 	}
 	metadata := &Metadata{
-		Kind:     metadataDoc.Kind,
-		Series:   metadataDoc.Series,
-		Arch:     metadataDoc.Arch,
-		Size:     metadataDoc.Size,
-		Checksum: metadataDoc.SHA256,
-		Created:  created,
+		EnvUUID: s.envUUID,
+		Kind:    metadataDoc.Kind,
+		Series:  metadataDoc.Series,
+		Arch:    metadataDoc.Arch,
+		Size:    metadataDoc.Size,
+		SHA256:  metadataDoc.SHA256,
+		Created: created,
 	}
 	return metadata, image, nil
 }
@@ -179,10 +215,12 @@ type imageMetadataDoc struct {
 	Created string `bson:"created"`
 }
 
-func (s *imageStorage) imageMetadataDoc(kind, series, arch string) (imageMetadataDoc, error) {
+func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (imageMetadataDoc, error) {
 	var doc imageMetadataDoc
-	id := fmt.Sprintf("%s-%s-%s", kind, series, arch)
-	err := s.metadataCollection.FindId(id).One(&doc)
+	id := fmt.Sprintf("%s-%s-%s-%s", envUUID, kind, series, arch)
+	coll, closer := mongo.CollectionFromName(s.metadataCollection.Database, imagemetadataC)
+	defer closer()
+	err := coll.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return doc, errors.NotFoundf("%v image metadata", id)
 	} else if err != nil {
@@ -203,5 +241,5 @@ func imagePath(kind, series, arch, checksum string) string {
 
 // docId returns an id for the mongo image metadata document.
 func docId(metadata *Metadata) string {
-	return fmt.Sprintf("%s-%s-%s", metadata.Kind, metadata.Series, metadata.Arch)
+	return fmt.Sprintf("%s-%s-%s-%s", metadata.EnvUUID, metadata.Kind, metadata.Series, metadata.Arch)
 }

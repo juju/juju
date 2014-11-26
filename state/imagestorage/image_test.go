@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
@@ -49,18 +50,22 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, gc.IsNil)
-	rs := blobstore.NewGridFS("blobstore", "my-uuid", s.session)
-	catalogue := s.session.DB("catalogue")
-	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
-	s.metadataCollection = catalogue.C("imagemetadata")
-	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
-	s.storage = imagestorage.NewStorage("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
+	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
+	s.managedStorage = imagestorage.ManagedStorage(s.storage)
+	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
+	s.patchTransactionRunner()
 }
 
 func (s *ImageSuite) TearDownTest(c *gc.C) {
 	s.session.Close()
 	s.mongo.DestroyWithLog()
 	s.BaseSuite.TearDownTest(c)
+}
+func (s *ImageSuite) patchTransactionRunner() {
+	s.PatchValue(imagestorage.TxnRunner, func(db *mgo.Database) txn.Runner {
+		return s.txnRunner
+	})
 }
 
 func (s *ImageSuite) TestAddImage(c *gc.C) {
@@ -82,11 +87,12 @@ func checkMetadata(c *gc.C, metadata, fromDb *imagestorage.Metadata) {
 func (s *ImageSuite) testAddImage(c *gc.C, content string) {
 	var r io.Reader = bytes.NewReader([]byte(content))
 	addedMetadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Size:     int64(len(content)),
-		Checksum: "hash(" + content + ")",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		Size:    int64(len(content)),
+		SHA256:  "hash(" + content + ")",
 	}
 	err := s.storage.AddImage(r, addedMetadata)
 	c.Assert(err, gc.IsNil)
@@ -119,11 +125,12 @@ func (s *ImageSuite) TestImage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
 	checkMetadata(c, &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Size:     3,
-		Checksum: "hash(abc)",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		Size:    3,
+		SHA256:  "hash(abc)",
 	}, metadata)
 
 	data, err := ioutil.ReadAll(r)
@@ -139,11 +146,12 @@ func (s *ImageSuite) TestAddImageRemovesExisting(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	addedMetadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Size:     6,
-		Checksum: "hash(xyzzzz)",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		Size:    6,
+		SHA256:  "hash(xyzzzz)",
 	}
 	err = s.storage.AddImage(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.IsNil)
@@ -164,18 +172,15 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
-	storage := imagestorage.NewStorage(
-		"my-uuid",
-		removeFailsManagedStorage{s.managedStorage},
-		s.metadataCollection,
-		s.txnRunner,
-	)
+	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	imagestorage.SetRemoveFailsManagedStorage(storage)
 	addedMetadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Size:     6,
-		Checksum: "hash(xyzzzz)",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		Size:    6,
+		SHA256:  "hash(xyzzzz)",
 	}
 	err = storage.AddImage(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.IsNil)
@@ -188,56 +193,61 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	s.assertImage(c, addedMetadata, "xyzzzz")
 }
 
+type errorTransactionRunner struct {
+	txn.Runner
+}
+
+func (errorTransactionRunner) Run(transactions txn.TransactionSource) error {
+	return errors.New("Run fails")
+}
+
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
-	storage := imagestorage.NewStorage(
-		"my-uuid",
-		s.managedStorage,
-		s.metadataCollection,
-		errorTransactionRunner{s.txnRunner},
-	)
+	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Size:     6,
-		Checksum: "hash",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		Size:    6,
+		SHA256:  "hash",
 	}
 	err := storage.AddImage(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.ErrorMatches, "cannot store image metadata: Run fails")
 
 	path := fmt.Sprintf(
-		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.Checksum)
+		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.SHA256)
 	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
-	storage := imagestorage.NewStorage(
-		"my-uuid",
-		removeFailsManagedStorage{s.managedStorage},
-		s.metadataCollection,
-		errorTransactionRunner{s.txnRunner},
-	)
+	storage := imagestorage.NewStorage(s.session, "my-uuid")
+	imagestorage.SetRemoveFailsManagedStorage(storage)
+	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Size:     6,
-		Checksum: "hash",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		Size:    6,
+		SHA256:  "hash",
 	}
 	err := storage.AddImage(strings.NewReader("xyzzzz"), addedMetadata)
 	c.Assert(err, gc.ErrorMatches, "cannot store image metadata: Run fails")
 
 	// blob should still be there, because the removal failed.
 	path := fmt.Sprintf(
-		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.Checksum)
+		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.SHA256)
 	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", path)
 	c.Assert(err, gc.IsNil)
 	r.Close()
 }
 
 func (s *ImageSuite) TestAddImageSame(c *gc.C) {
-	metadata := &imagestorage.Metadata{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "0"}
+	metadata := &imagestorage.Metadata{
+		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0",
+	}
 	for i := 0; i < 2; i++ {
 		err := s.storage.AddImage(strings.NewReader("0"), metadata)
 		c.Assert(err, gc.IsNil)
@@ -246,8 +256,12 @@ func (s *ImageSuite) TestAddImageSame(c *gc.C) {
 }
 
 func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
-	metadata0 := &imagestorage.Metadata{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "0"}
-	metadata1 := &imagestorage.Metadata{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "1"}
+	metadata0 := &imagestorage.Metadata{
+		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0",
+	}
+	metadata1 := &imagestorage.Metadata{
+		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "1",
+	}
 
 	addMetadata := func() {
 		err := s.storage.AddImage(strings.NewReader("0"), metadata0)
@@ -270,26 +284,26 @@ func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 
 func (s *ImageSuite) TestAddImageExcessiveContention(c *gc.C) {
 	metadata := []*imagestorage.Metadata{
-		{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "0"},
-		{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "1"},
-		{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "2"},
-		{Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, Checksum: "3"},
+		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0"},
+		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "1"},
+		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "2"},
+		{EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "3"},
 	}
 
 	i := 1
 	addMetadata := func() {
-		err := s.storage.AddImage(strings.NewReader(metadata[i].Checksum), metadata[i])
+		err := s.storage.AddImage(strings.NewReader(metadata[i].SHA256), metadata[i])
 		c.Assert(err, gc.IsNil)
 		i++
 	}
 	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata, addMetadata, addMetadata).Check()
 
-	err := s.storage.AddImage(strings.NewReader(metadata[0].Checksum), metadata[0])
+	err := s.storage.AddImage(strings.NewReader(metadata[0].SHA256), metadata[0])
 	c.Assert(err, gc.ErrorMatches, "cannot store image metadata: state changing too quickly; try again soon")
 
 	// There should be no blobs apart from the last one added by the before-hook.
 	for _, metadata := range metadata[:3] {
-		path := fmt.Sprintf("images/%s-%s-%s:%s", metadata.Kind, metadata.Series, metadata.Arch, metadata.Checksum)
+		path := fmt.Sprintf("images/%s-%s-%s:%s", metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
 		_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
@@ -308,10 +322,11 @@ func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 	rc.Close()
 
 	metadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Checksum: "sha256",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		SHA256:  "sha256",
 	}
 	err = s.storage.DeleteImage(metadata)
 	c.Assert(err, gc.IsNil)
@@ -325,10 +340,11 @@ func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 
 func (s *ImageSuite) TestDeleteNotExistentImage(c *gc.C) {
 	metadata := &imagestorage.Metadata{
-		Kind:     "lxc",
-		Series:   "trusty",
-		Arch:     "amd64",
-		Checksum: "sha256",
+		EnvUUID: "my-uuid",
+		Kind:    "lxc",
+		Series:  "trusty",
+		Arch:    "amd64",
+		SHA256:  "sha256",
 	}
 	err := s.storage.DeleteImage(metadata)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -345,7 +361,7 @@ func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int
 		Path    string `bson:"path"`
 		Created string `bson:"created"`
 	}{
-		Id:      fmt.Sprintf("%s-%s-%s", kind, series, arch),
+		Id:      fmt.Sprintf("my-uuid-%s-%s-%s", kind, series, arch),
 		Kind:    kind,
 		Series:  series,
 		Arch:    arch,
@@ -367,20 +383,4 @@ func (s *ImageSuite) assertImage(c *gc.C, expected *imagestorage.Metadata, conte
 	data, err := ioutil.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, content)
-}
-
-type removeFailsManagedStorage struct {
-	blobstore.ManagedStorage
-}
-
-func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
-	return errors.Errorf("cannot remove %s:%s", uuid, path)
-}
-
-type errorTransactionRunner struct {
-	jujutxn.Runner
-}
-
-func (errorTransactionRunner) Run(transactions jujutxn.TransactionSource) error {
-	return errors.New("Run fails")
 }

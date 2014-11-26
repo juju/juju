@@ -238,6 +238,9 @@ func (srv *Server) run(lis net.Listener) {
 		&backupHandler{httpHandler{state: srv.state}},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
+		&imagesDownloadHandler{httpHandler{state: srv.state}},
+	)
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{
@@ -258,12 +261,6 @@ func (srv *Server) run(lis net.Listener) {
 		&toolsDownloadHandler{toolsHandler{
 			httpHandler{state: srv.state},
 		}},
-	)
-	handleAll(mux, "/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{httpHandler{state: srv.state}},
-	)
-	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{httpHandler{state: srv.state}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 	// The error from http.Serve is not interesting.

@@ -8,14 +8,15 @@ import (
 	"time"
 )
 
-// Metadata describes a image blob.
+// Metadata describes an image blob.
 type Metadata struct {
-	Series   string
-	Arch     string
-	Kind     string
-	Size     int64
-	Checksum string
-	Created  time.Time
+	EnvUUID string
+	Series  string
+	Arch    string
+	Kind    string
+	Size    int64
+	SHA256  string
+	Created time.Time
 }
 
 // Storage provides methods for storing and retrieving images by kind, series, and arch.
@@ -31,10 +32,4 @@ type Storage interface {
 	// for the specified kind, series, arch if it exists, else an error
 	// satisfying errors.IsNotFound.
 	Image(kind, series, arch string) (*Metadata, io.ReadCloser, error)
-}
-
-// StorageCloser extends the Storage interface with a Close method.
-type StorageCloser interface {
-	Storage
-	Close() error
 }

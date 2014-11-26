@@ -39,16 +39,11 @@ func (s *imageSuite) SetUpSuite(c *gc.C) {
 
 }
 
-func (s *imageSuite) TestDownloadEnvUUIDPath(c *gc.C) {
+func (s *imageSuite) TestDownload(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	s.storeFakeImage(c, "lxc", "trusty", "amd64")
+	s.storeFakeImage(c, environ.UUID(), "lxc", "trusty", "amd64")
 	s.testDownload(c, "lxc", "trusty", "amd64", environ.UUID())
-}
-
-func (s *imageSuite) TestDownloadEnvTopLevelPath(c *gc.C) {
-	s.storeFakeImage(c, "lxc", "trusty", "amd64")
-	s.testDownload(c, "lxc", "trusty", "amd64", "")
 }
 
 func (s *imageSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
@@ -86,11 +81,13 @@ func (s *imageSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// The image is not in imagestorage, so the download request causes
 	// the API server to search for the image on cloud-images, fetches it,
 	// and then cache it in imagestorage.
-	data := s.testDownload(c, "lxc", "trusty", "amd64", "")
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	data := s.testDownload(c, "lxc", "trusty", "amd64", environ.UUID())
 
 	metadata, cachedData := s.getImageFromStorage(c, "lxc", "trusty", "amd64")
 	c.Assert(metadata.Size, gc.Equals, int64(len(s.imageData)))
-	c.Assert(metadata.Checksum, gc.Equals, s.imageChecksum)
+	c.Assert(metadata.SHA256, gc.Equals, s.imageChecksum)
 	c.Assert(string(data), gc.Equals, string(s.imageData))
 	c.Assert(string(data), gc.Equals, string(cachedData))
 }
@@ -112,7 +109,7 @@ func (s *imageSuite) TestDownloadFetchChecksumMismatch(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusInternalServerError, ".* download checksum mismatch .*")
 }
 
-func (s *imageSuite) TestDownloadFetchNoChecksumFile(c *gc.C) {
+func (s *imageSuite) TestDownloadFetchNoSHA256File(c *gc.C) {
 	// Set up some image data for a fake server.
 	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", lxcURLScript)
 	useTestImageData(map[string]string{
@@ -150,33 +147,26 @@ func (s *imageSuite) testDownload(c *gc.C, kind, series, arch, uuid string) []by
 
 func (s *imageSuite) downloadRequest(c *gc.C, uuid, kind, series, arch string) (*http.Response, error) {
 	url := s.imageURL(c, "")
-	if uuid == "" {
-		url.Path = fmt.Sprintf("/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", kind, series, arch)
-	} else {
-		url.Path = fmt.Sprintf("/environment/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", uuid, kind, series, arch)
-	}
+	url.Path = fmt.Sprintf("/environment/%s/images/%s/%s/%s/trusty-released-amd64-root.tar.gz", uuid, kind, series, arch)
 	return s.sendRequest(c, "", "", "GET", url.String(), "", nil)
 }
 
-func (s *imageSuite) storeFakeImage(c *gc.C, kind, series, arch string) {
-	storage, err := s.State.ImageStorage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+func (s *imageSuite) storeFakeImage(c *gc.C, uuid, kind, series, arch string) {
+	storage := s.State.ImageStorage()
 	metadata := &imagestorage.Metadata{
-		Kind:     kind,
-		Series:   series,
-		Arch:     arch,
-		Size:     int64(len(s.imageData)),
-		Checksum: s.imageChecksum,
+		EnvUUID: uuid,
+		Kind:    kind,
+		Series:  series,
+		Arch:    arch,
+		Size:    int64(len(s.imageData)),
+		SHA256:  s.imageChecksum,
 	}
-	err = storage.AddImage(strings.NewReader(s.imageData), metadata)
+	err := storage.AddImage(strings.NewReader(s.imageData), metadata)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *imageSuite) getImageFromStorage(c *gc.C, kind, series, arch string) (*imagestorage.Metadata, []byte) {
-	storage, err := s.State.ImageStorage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.ImageStorage()
 	metadata, r, err := storage.Image(kind, series, arch)
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadAll(r)

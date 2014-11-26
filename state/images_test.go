@@ -6,9 +6,7 @@ package state_test
 import (
 	"strings"
 
-	"github.com/juju/blobstore"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
@@ -25,22 +23,16 @@ type ImageSuite struct {
 
 func (s *ImageSuite) TestStorage(c *gc.C) {
 	session := s.State.MongoSession()
-	collectionNames, err := session.DB("juju").CollectionNames()
+	collectionNames, err := session.DB("osimages").CollectionNames()
 	c.Assert(err, gc.IsNil)
 	nameSet := set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains("imagemetadata"), jc.IsFalse)
 
-	storage, err := s.State.ImageStorage()
-	c.Assert(err, gc.IsNil)
-	defer func() {
-		err := storage.Close()
-		c.Assert(err, gc.IsNil)
-	}()
-
+	storage := s.State.ImageStorage()
 	err = storage.AddImage(strings.NewReader(""), &imagestorage.Metadata{})
 	c.Assert(err, gc.IsNil)
 
-	collectionNames, err = session.DB("juju").CollectionNames()
+	collectionNames, err = session.DB("osimages").CollectionNames()
 	c.Assert(err, gc.IsNil)
 	nameSet = set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains("imagemetadata"), jc.IsTrue)
@@ -52,21 +44,15 @@ func (s *ImageSuite) TestStorageParams(c *gc.C) {
 
 	var called bool
 	s.PatchValue(state.ImageStorageNewStorage, func(
+		session *mgo.Session,
 		envUUID string,
-		managedStorage blobstore.ManagedStorage,
-		metadataCollection *mgo.Collection,
-		runner jujutxn.Runner,
 	) imagestorage.Storage {
 		called = true
 		c.Assert(envUUID, gc.Equals, env.UUID())
-		c.Assert(managedStorage, gc.NotNil)
-		c.Assert(metadataCollection.Name, gc.Equals, "imagemetadata")
-		c.Assert(runner, gc.NotNil)
+		c.Assert(session, gc.NotNil)
 		return nil
 	})
 
-	storage, err := s.State.ImageStorage()
-	c.Assert(err, gc.IsNil)
-	storage.Close()
+	s.State.ImageStorage()
 	c.Assert(called, jc.IsTrue)
 }

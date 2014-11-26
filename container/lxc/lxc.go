@@ -362,7 +362,7 @@ func wgetEnvironment() (execEnv []string, closer func(), _ error) {
 /usr/bin/wget --no-check-certificate $*
 
 `
-	// Create a wget bash script in /tmp.
+	// Create a wget bash script in a temporary directory.
 	tmpDir, err := ioutil.TempDir("", "wget")
 	if err != nil {
 		return nil, nil, err

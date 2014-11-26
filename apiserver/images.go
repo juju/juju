@@ -73,17 +73,14 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	kind := r.URL.Query().Get(":kind")
 	series := r.URL.Query().Get(":series")
 	arch := r.URL.Query().Get(":arch")
+	envuuid := r.URL.Query().Get(":envuuid")
 
 	// Get the image details from storage.
-	storage, err := h.state.ImageStorage()
-	if err != nil {
-		return errors.Annotate(err, "error getting image storage")
-	}
-	defer storage.Close()
+	storage := h.state.ImageStorage()
 	metadata, imageReader, err := storage.Image(kind, series, arch)
 	// Not in storage, so go fetch it.
 	if errors.IsNotFound(err) {
-		metadata, imageReader, err = h.fetchAndCacheLxcImage(storage, series, arch)
+		metadata, imageReader, err = h.fetchAndCacheLxcImage(storage, envuuid, series, arch)
 		if err != nil {
 			return errors.Annotate(err, "error fetching and caching image")
 		}
@@ -93,9 +90,9 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	}
 
 	// Stream the image to the caller.
-	logger.Debugf("streaming image from state bobstore: %+v", metadata)
+	logger.Debugf("streaming image from state blobstore: %+v", metadata)
 	resp.Header().Set("Content-Type", "application/x-tar-gz")
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", apihttp.DIGEST_SHA, metadata.Checksum))
+	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", apihttp.DIGEST_SHA, metadata.SHA256))
 	resp.Header().Set("Content-Length", fmt.Sprint(metadata.Size))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, imageReader); err != nil {
@@ -104,9 +101,9 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	return nil
 }
 
-// fetchAndCacheLxcImage fetches am lxc image tarball from http://cloud-images.ubuntu.com
+// fetchAndCacheLxcImage fetches an lxc image tarball from http://cloud-images.ubuntu.com
 // and caches it in the state blobstore.
-func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, series, arch string) (
+func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) (
 	*imagestorage.Metadata, io.ReadCloser, error,
 ) {
 	imageURL, err := api.ImageDownloadURL(instance.LXC, series, arch)
@@ -158,11 +155,12 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	rdr := io.TeeReader(resp.Body, hash)
 
 	metadata := &imagestorage.Metadata{
-		Kind:     string(instance.LXC),
-		Series:   series,
-		Arch:     arch,
-		Size:     resp.ContentLength,
-		Checksum: checksum,
+		EnvUUID: envuuid,
+		Kind:    string(instance.LXC),
+		Series:  series,
+		Arch:    arch,
+		Size:    resp.ContentLength,
+		SHA256:  checksum,
 	}
 
 	// Stream the image to storage.
@@ -179,5 +177,5 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 		return nil, nil, errors.Errorf("download checksum mismatch %s != %s", downloadChecksum, checksum)
 	}
 
-	return storage.Image("lxc", series, arch)
+	return storage.Image(string(instance.LXC), series, arch)
 }

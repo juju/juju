@@ -41,3 +41,8 @@ func (s *imageSuite) TestImageDownloadURL(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageDownloadURL, gc.Equals, "https://cloud-images/trusty-released-amd64-root.tar.gz")
 }
+
+func (s *imageSuite) TestImageDownloadURLUnsupportedContainer(c *gc.C) {
+	_, err := api.ImageDownloadURL(instance.KVM, "trusty", "amd64")
+	c.Assert(err, gc.ErrorMatches, "unsupported container .*")
+}
