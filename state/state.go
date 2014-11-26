@@ -1228,13 +1228,14 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 // AddSubnet creates a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
+
 	if args.CIDR != "" {
-		_, _, err := net.ParseCIDR(args.CIDR)
+		_, _, err = net.ParseCIDR(args.CIDR)
 		if err != nil {
-			return nil, errors.Annotatef(err, "subnet has invalid CIDR")
+			return nil, errors.Annotatef(err, "invalid CIDR")
 		}
 	} else {
-		return nil, errors.Errorf("subnet has missing CIDR")
+		return nil, errors.Errorf("missing CIDR")
 	}
 	if args.ProviderId == "" {
 		return nil, errors.Errorf("provider id must be not empty")
