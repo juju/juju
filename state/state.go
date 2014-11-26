@@ -1243,7 +1243,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
 	if args.AllocatableIPLow == "" || args.AllocatableIPHigh == "" {
-		return nil, errors.Errorf("subnet has AllocatableIPLow or AllocatableIPHight missing")
+		return nil, errors.Errorf("subnet has AllocatableIPLow or AllocatableIPHigh missing")
 	}
 
 	subnetID := st.docID(args.CIDR)
