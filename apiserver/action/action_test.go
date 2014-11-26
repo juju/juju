@@ -4,11 +4,15 @@
 package action_test
 
 import (
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -41,6 +45,8 @@ type actionSuite struct {
 	mysql         *state.Service
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
+
+	uuidMock uuidMockHelper
 }
 
 var _ = gc.Suite(&actionSuite{})
@@ -143,24 +149,36 @@ func (s *actionSuite) TestActions(c *gc.C) {
 
 func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	// arrange
-	// TODO(jcw4) inject the UUID and test multiple similiar ids
-	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}}}}
+	prefix := "feedbeef"
+	s.uuidMock.SetPrefixMask(prefix)
+	s.PatchValue(&state.NewUUID, s.uuidMock.NewUUID)
+
+	receiver := s.wordpressUnit.Tag().String()
+	arg := params.Actions{
+		Actions: []params.Action{
+			{Receiver: receiver, Name: "action-1", Parameters: map[string]interface{}{}},
+			{Receiver: receiver, Name: "fake", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
+			{Receiver: receiver, Name: "action-9", Parameters: map[string]interface{}{"district": 9}},
+			{Receiver: receiver, Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
+		}}
 	r, err := s.action.Enqueue(arg)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
 
 	// act
-	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
-	c.Assert(err, gc.Equals, nil)
-	prefix := actionTag.Id()[:7]
 	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
 	c.Assert(err, gc.Equals, nil)
 
 	// assert
 	entities, ok := tags.Matches[prefix]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(len(entities), gc.Equals, 1)
-	c.Assert(entities[0].Tag, gc.Equals, actionTag.String())
+	c.Assert(len(entities), gc.Equals, len(arg.Actions))
+	for i, entity := range entities {
+		tag, err := names.ParseActionTag(entity.Tag)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("check %q against %d:%q", prefix, i, tag)
+		c.Check(tag.Id()[:len(prefix)], gc.Equals, prefix)
+	}
 }
 
 func (s *actionSuite) TestEnqueue(c *gc.C) {
@@ -648,4 +666,56 @@ func stringify(r params.ActionResult) string {
 		a = &params.Action{}
 	}
 	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
+}
+
+// TestMock verifies the mock UUID generator works as expected.
+func (s *actionSuite) TestMock(c *gc.C) {
+	prefix := "abbadead"
+	s.uuidMock.SetPrefixMask(prefix)
+	s.PatchValue(&state.NewUUID, s.uuidMock.NewUUID)
+	for i := 0; i < 10; i++ {
+		uuid, err := state.NewUUID()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(uuid.String()[:len(prefix)], gc.Equals, prefix)
+	}
+}
+
+type uuidGenFn func() (utils.UUID, error)
+type uuidMockHelper struct {
+	original   uuidGenFn
+	prefixMask []byte
+}
+
+func (h *uuidMockHelper) SetPrefixMask(prefix string) error {
+	prefix = strings.Replace(prefix, "-", "", 4)
+	mask, err := hex.DecodeString(prefix)
+	if err != nil {
+		return err
+	}
+	if len(mask) > 16 {
+		return errors.Errorf("prefix mask longer than uuid %q", prefix)
+	}
+	h.prefixMask = mask
+	return nil
+}
+
+func (h *uuidMockHelper) NewUUID() (utils.UUID, error) {
+	uuidGenFn := h.original
+	if uuidGenFn == nil {
+		uuidGenFn = utils.NewUUID
+	}
+	uuid, err := uuidGenFn()
+	if err != nil {
+		return uuid, errors.Trace(err)
+	}
+	return h.mask(uuid), nil
+}
+
+func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
+	if len(h.prefixMask) > 0 {
+		for i, b := range h.prefixMask {
+			uuid[i] = b
+		}
+	}
+	return uuid
 }
