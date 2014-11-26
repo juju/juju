@@ -165,6 +165,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			err = tomb.ErrDying
 		default:
 			mode, err = mode(u)
+			switch cause := errors.Cause(err); cause {
+			case operation.ErrHookFailed:
+				mode, err = ModeHookError, nil
+			case operation.ErrNeedsReboot:
+				err = worker.ErrRebootMachine
+			case tomb.ErrDying, worker.ErrTerminateAgent:
+				err = cause
+			}
 		}
 	}
 	logger.Infof("unit %q shutting down: %s", u.unit, err)

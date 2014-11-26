@@ -74,9 +74,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			logger.Infof("committing %q hook", opState.Hook.Kind)
 			err = u.skipHook(*opState.Hook)
 		}
-		if errors.Cause(err) == operation.ErrHookFailed {
-			return ModeHookError, nil
-		} else if err != nil {
+		if err != nil {
 			return nil, err
 		}
 		return ModeContinue, nil
@@ -110,7 +108,8 @@ func ModeUpgrading(curl *charm.URL) Mode {
 	name := fmt.Sprintf("ModeUpgrading %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
-		if err = u.deploy(curl, operation.Upgrade); errors.Cause(err) == ucharm.ErrConflict {
+		err = u.deploy(curl, operation.Upgrade)
+		if errors.Cause(err) == ucharm.ErrConflict {
 			return ModeConflicted(curl), nil
 		} else if err != nil {
 			return nil, err
@@ -128,9 +127,8 @@ func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 		}
 	}
 	u.f.DiscardConfigEvent()
-	if err := u.runHook(hook.Info{Kind: hooks.ConfigChanged}); errors.Cause(err) == operation.ErrHookFailed {
-		return ModeHookError, nil
-	} else if err != nil {
+	err = u.runHook(hook.Info{Kind: hooks.ConfigChanged})
+	if err != nil {
 		return nil, err
 	}
 	return ModeContinue, nil
@@ -139,9 +137,8 @@ func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 // ModeStarting runs the "start" hook.
 func ModeStarting(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeStarting", &err)()
-	if err := u.runHook(hook.Info{Kind: hooks.Start}); errors.Cause(err) == operation.ErrHookFailed {
-		return ModeHookError, nil
-	} else if err != nil {
+	err = u.runHook(hook.Info{Kind: hooks.Start})
+	if err != nil {
 		return nil, err
 	}
 	return ModeContinue, nil
@@ -150,9 +147,8 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 // ModeStopping runs the "stop" hook.
 func ModeStopping(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeStopping", &err)()
-	if err := u.runHook(hook.Info{Kind: hooks.Stop}); errors.Cause(err) == operation.ErrHookFailed {
-		return ModeHookError, nil
-	} else if err != nil {
+	err = u.runHook(hook.Info{Kind: hooks.Stop})
+	if err != nil {
 		return nil, err
 	}
 	return ModeContinue, nil
@@ -195,9 +191,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			}
 			return nil, worker.ErrTerminateAgent
 		}
-		if err := u.runHook(hi); errors.Cause(err) == operation.ErrHookFailed {
-			return ModeHookError, nil
-		} else if err != nil {
+		if err := u.runHook(hi); err != nil {
 			return nil, err
 		}
 	}
@@ -274,9 +268,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case curl := <-u.f.UpgradeEvents():
 			return ModeUpgrading(curl), nil
 		}
-		if err := u.runHook(hi); errors.Cause(err) == operation.ErrHookFailed {
-			return ModeHookError, nil
-		} else if err != nil {
+		if err := u.runHook(hi); err != nil {
 			return nil, err
 		}
 	}
@@ -312,9 +304,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
 		}
-		if err = u.runHook(hi); errors.Cause(err) == operation.ErrHookFailed {
-			return ModeHookError, nil
-		} else if err != nil {
+		if err := u.runHook(hi); err != nil {
 			return nil, err
 		}
 	}
@@ -426,13 +416,6 @@ func modeContext(name string, err *error) func() {
 	logger.Infof("%s starting", name)
 	return func() {
 		logger.Debugf("%s exiting", name)
-		switch cause := errors.Cause(*err); cause {
-		case nil, tomb.ErrDying, worker.ErrTerminateAgent:
-			*err = cause
-		case operation.ErrNeedsReboot:
-			*err = worker.ErrRebootMachine
-		default:
-			*err = errors.Annotatef(*err, name)
-		}
+		*err = errors.Annotatef(*err, name)
 	}
 }
