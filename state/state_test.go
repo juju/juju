@@ -1248,7 +1248,7 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
-		ProviderId:        network.Id("foo"),
+		ProviderId:        "foo",
 		CIDR:              "192.168.1.0/24",
 		VLANTag:           79,
 		AllocatableIPLow:  "192.168.1.0",
@@ -1257,7 +1257,7 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	}
 
 	assertSubnet := func(subnet *Subnet) {
-		c.Assert(subnet.ProviderId(), gc.Equals, network.Id("foo"))
+		c.Assert(subnet.ProviderId(), gc.Equals, "foo")
 		c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24")
 		c.Assert(subnet.VLANTag(), gc.Equals, 79)
 		c.Assert(subnet.AllocatableIPLow(), gc.Equals, "192.168.1.0")

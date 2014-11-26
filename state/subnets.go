@@ -7,14 +7,12 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/network"
 )
 
-// SubnetInfo describes a single network.
+// SubnetInfo describes a single subnet.
 type SubnetInfo struct {
-	// ProviderId is a provider-specific network id.
-	ProviderId network.Id
+	// ProviderId is a provider-specific network id. This may be empty.
+	ProviderId string
 
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
@@ -92,8 +90,8 @@ func (s *Subnet) Remove() (err error) {
 }
 
 // ProviderId returns the provider-specific id of the subnet.
-func (s *Subnet) ProviderId() network.Id {
-	return network.Id(s.doc.ProviderId)
+func (s *Subnet) ProviderId() string {
+	return s.doc.ProviderId
 }
 
 // CIDR returns the subnet CIDR (e.g. 192.168.50.0/24).
