@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -23,6 +24,8 @@ type SubnetInfo struct {
 
 	// AllocatableIPHigh and Low describe the allocatable portion of the
 	// subnet. The remainder, if any, is reserved by the provider.
+	// Either both of these must be set or neither, if they're empty it
+	// means that none of the subnet is allocatable.
 	AllocatableIPHigh string
 	AllocatableIPLow  string
 
@@ -42,8 +45,9 @@ type subnetDoc struct {
 	CIDR              string
 	AllocatableIPHigh string
 	AllocatableIPLow  string
-	VLANTag           int    `bson:",omitempty"`
-	AvailabilityZone  string `bson:",omitempty"`
+
+	VLANTag          int    `bson:",omitempty"`
+	AvailabilityZone string `bson:",omitempty"`
 }
 
 // Life returns whether the subnet is Alive, Dying or Dead.
@@ -51,19 +55,33 @@ func (s *Subnet) Life() Life {
 	return s.doc.Life
 }
 
-func (s *Subnet) Destroy() (err error) {
+func (s *Subnet) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
-	if s.doc.Life == Dying {
+	if s.doc.Life == Dead {
 		return nil
 	}
 
 	defer func() {
 		if err == nil {
-			// This is a white lie; the document might actually be removed.
-			s.doc.Life = Dying
+			s.doc.Life = Dead
 		}
 	}()
 
+	ops := []txn.Op{{
+		C:  subnetsC,
+		Id: s.doc.DocID,
+		Update: bson.D{{"$set", bson.D{
+			{"Life", Dead},
+		}}},
+	}}
+	return s.st.runTransaction(ops)
+}
+
+func (s *Subnet) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
+	if s.doc.Life != Dead {
+		return errors.New("subnet is not dead")
+	}
 	ops := []txn.Op{{
 		C:      subnetsC,
 		Id:     s.doc.DocID,
