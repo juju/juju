@@ -21,10 +21,15 @@ type runAction struct {
 	context context.Context
 }
 
+// String is part of the Operation interface.
 func (ra *runAction) String() string {
 	return fmt.Sprintf("run action %s", ra.actionId)
 }
 
+// Prepare ensures that the action is valid and can be executed. If not, it
+// will return ErrSkipExecute. It preserves any hook recorded in the supplied
+// state.
+// Prepare is part of the Operation interface.
 func (ra *runAction) Prepare(state State) (*State, error) {
 	ctx, err := ra.contextFactory.NewActionContext(ra.actionId)
 	if cause := errors.Cause(err); context.IsBadActionError(cause) {
@@ -52,6 +57,8 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	}.apply(state), nil
 }
 
+// Execute runs the action, and preserves any hook recorded in the supplied state.
+// Execute is part of the Operation interface.
 func (ra *runAction) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
 	unlock, err := ra.callbacks.AcquireExecutionLock(message)
@@ -75,6 +82,8 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	}.apply(state), nil
 }
 
+// Commit preserves the recorded hook, and returns a neutral state.
+// Commit is part of the Operation interface.
 func (ra *runAction) Commit(state State) (*State, error) {
 	return stateChange{
 		Kind: Continue,

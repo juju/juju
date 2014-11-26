@@ -88,7 +88,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		}
 		return ModeContinue, nil
 	}
-	return nil, fmt.Errorf("unhandled uniter operation %q", opState.Kind)
+	return nil, errors.Errorf("unhandled uniter operation %q", opState.Kind)
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
@@ -206,7 +206,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
 	opState := u.operationState()
 	if opState.Kind != operation.Continue {
-		return nil, fmt.Errorf("insane uniter state: %#v", opState)
+		return nil, errors.Errorf("insane uniter state: %#v", opState)
 	}
 	if err := u.fixDeployer(); err != nil {
 		return nil, err
@@ -317,7 +317,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
 	opState := u.operationState()
 	if opState.Kind != operation.RunHook || opState.Step != operation.Pending {
-		return nil, fmt.Errorf("insane uniter state: %#v", u.operationState())
+		return nil, errors.Errorf("insane uniter state: %#v", u.operationState())
 	}
 	// Create error information for status.
 	hookInfo := *opState.Hook
@@ -350,7 +350,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			case params.ResolvedNoHooks:
 				err = u.skipHook(hookInfo)
 			default:
-				return nil, fmt.Errorf("unknown resolved mode %q", rm)
+				return nil, errors.Errorf("unknown resolved mode %q", rm)
 			}
 			if e := u.f.ClearResolved(); e != nil {
 				return nil, e

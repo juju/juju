@@ -30,6 +30,10 @@ type executor struct {
 	state *State
 }
 
+// NewExecutor returns an Executor which takes its starting state from the
+// supplied path, and records state changes there. If no state file exists,
+// the executor's starting state will include a queued Install hook, for
+// the charm identified by the supplied func.
 func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, error)) (Executor, error) {
 	file := NewStateFile(stateFilePath)
 	state, err := file.Read()
@@ -52,10 +56,12 @@ func NewExecutor(stateFilePath string, getInstallCharm func() (*corecharm.URL, e
 	}, nil
 }
 
+// State is part of the Executor interface.
 func (x *executor) State() State {
 	return *x.state
 }
 
+// Run is part of the Executor interface.
 func (x *executor) Run(op Operation) error {
 	logger.Infof("running operation %v", op)
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {
@@ -70,6 +76,7 @@ func (x *executor) Run(op Operation) error {
 	return x.do(op, stepCommit)
 }
 
+// Skip is part of the Executor interface.
 func (x *executor) Skip(op Operation) error {
 	logger.Infof("skipping operation %v", op)
 	return x.do(op, stepCommit)

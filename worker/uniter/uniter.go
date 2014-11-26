@@ -71,12 +71,23 @@ func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
 	return nil
 }
 
-// deployerProxy exists because we're not yet sure if we can legitimately
+// deployerProxy exists because we're not yet comfortable that we can safely
 // drop support for charm.gitDeployer. If we can, then the uniter doesn't
 // need a deployer reference at all: and we can drop fixDeployer, and even
 // the Notify* methods on the Deployer interface, and simply hand the
 // deployer we create over to the operationFactory at creation and forget
 // about it.
+//
+// We will never be *completely* certain that gitDeployer can be dropped,
+// because it's not done as an upgrade step (because we can't replace the
+// deployer while conflicted, and upgrades are not gated on no-conflicts);
+// and so long as there's a reasonable possibility that someone *might* have
+// been running a pre-1.19.1 environment, and have either upgraded directly
+// in a conflict state *or* have upgraded stepwise without fixing a conflict
+// state, we should keep this complexity.
+//
+// In practice, that possibility is growing ever more remote, but we're not
+// ready to pull the trigger yet.
 type deployerProxy struct {
 	charm.Deployer
 }

@@ -24,6 +24,7 @@ type operationCallbacks struct {
 	u *Uniter
 }
 
+// AcquireExecutionLock is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), error) {
 	// We want to make sure we don't block forever when locking, but take the
 	// Uniter's tomb into account.
@@ -43,10 +44,12 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 	return func() { opc.u.hookLock.Unlock() }, nil
 }
 
+// AcquireExecutionLock is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) GetRunner(ctx context.Context) context.Runner {
 	return context.NewRunner(ctx, opc.u.paths)
 }
 
+// PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	if hi.Kind.IsRelation() {
 		return opc.u.relationers[hi.RelationId].PrepareHook(hi)
@@ -54,6 +57,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	return string(hi.Kind), nil
 }
 
+// CommitHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	if hi.Kind.IsRelation() {
 		if err := opc.u.relationers[hi.RelationId].CommitHook(hi); err != nil {
@@ -80,18 +84,21 @@ func notifyHook(hook string, ctx context.Context, method func(string)) {
 	method(hook)
 }
 
+// NotifyHookCompleted is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) NotifyHookCompleted(hook string, ctx context.Context) {
 	if opc.u.observer != nil {
 		notifyHook(hook, ctx, opc.u.observer.HookCompleted)
 	}
 }
 
+// NotifyHookFailed is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) NotifyHookFailed(hook string, ctx context.Context) {
 	if opc.u.observer != nil {
 		notifyHook(hook, ctx, opc.u.observer.HookFailed)
 	}
 }
 
+// FailAction is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) FailAction(actionId, message string) error {
 	if !names.IsValidAction(actionId) {
 		return errors.Errorf("invalid action id %q", actionId)
@@ -104,6 +111,7 @@ func (opc *operationCallbacks) FailAction(actionId, message string) error {
 	return err
 }
 
+// GetArchiveInfo is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
 	ch, err := opc.u.st.Charm(charmURL)
 	if err != nil {
@@ -112,6 +120,7 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 	return ch, nil
 }
 
+// SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return opc.u.f.SetCharm(charmURL)
 }

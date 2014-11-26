@@ -24,6 +24,7 @@ type runHook struct {
 	context context.Context
 }
 
+// String is part of the Operation interface.
 func (rh *runHook) String() string {
 	suffix := ""
 	if rh.info.Kind.IsRelation() {
@@ -36,6 +37,8 @@ func (rh *runHook) String() string {
 	return fmt.Sprintf("run %s%s hook", rh.info.Kind, suffix)
 }
 
+// Prepare ensures the hook can be executed.
+// Prepare is part of the Operation interface.
 func (rh *runHook) Prepare(state State) (*State, error) {
 	name, err := rh.callbacks.PrepareHook(rh.info)
 	if err != nil {
@@ -54,6 +57,8 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	}.apply(state), nil
 }
 
+// Execute runs the hook.
+// Execute is part of the Operation interface.
 func (rh *runHook) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running hook %s", rh.name)
 	unlock, err := rh.callbacks.AcquireExecutionLock(message)
@@ -97,6 +102,9 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	}.apply(state), err
 }
 
+// Commit updates relation state to include the fact of the hook's execution,
+// and records the impact of start and collect-metrics hooks.
+// Commit is part of the Operation interface.
 func (rh *runHook) Commit(state State) (*State, error) {
 	if err := rh.callbacks.CommitHook(rh.info); err != nil {
 		return nil, err

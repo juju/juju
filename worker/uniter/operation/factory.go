@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
+// NewFactory returns a Factory that creates Operations backed by the supplied
+// parameters.
 func NewFactory(
 	deployer charm.Deployer,
 	contextFactory context.Factory,
@@ -34,6 +36,7 @@ type factory struct {
 	abort          <-chan struct{}
 }
 
+// NewDeploy is part of the Factory interface.
 func (f *factory) NewDeploy(charmURL *corecharm.URL, kind Kind) (Operation, error) {
 	if charmURL == nil {
 		return nil, errors.New("charm url required")
@@ -49,6 +52,7 @@ func (f *factory) NewDeploy(charmURL *corecharm.URL, kind Kind) (Operation, erro
 	}, nil
 }
 
+// NewHook is part of the Factory interface.
 func (f *factory) NewHook(hookInfo hook.Info) (Operation, error) {
 	if err := hookInfo.Validate(); err != nil {
 		return nil, err
@@ -60,6 +64,7 @@ func (f *factory) NewHook(hookInfo hook.Info) (Operation, error) {
 	}, nil
 }
 
+// NewAction is part of the Factory interface.
 func (f *factory) NewAction(actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
@@ -71,6 +76,7 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	}, nil
 }
 
+// NewCommands is part of the Factory interface.
 func (f *factory) NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error) {
 	if commands == "" {
 		return nil, errors.New("commands required")

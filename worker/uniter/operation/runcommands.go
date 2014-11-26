@@ -21,6 +21,7 @@ type runCommands struct {
 	context context.Context
 }
 
+// String is part of the Operation interface.
 func (rc *runCommands) String() string {
 	suffix := ""
 	if rc.relationId != -1 {
@@ -33,17 +34,20 @@ func (rc *runCommands) String() string {
 	return "run commands" + suffix
 }
 
+// Prepare ensures the commands can be run. It never returns a state change.
+// Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(state State) (*State, error) {
 	ctx, err := rc.contextFactory.NewRunContext(rc.relationId, rc.remoteUnitName)
 	if err != nil {
 		return nil, err
 	}
 	rc.context = ctx
-	// Commands only make sense at runtime; this is totally ephemeral; no
-	// state change at all.
 	return nil, nil
 }
 
+// Execute runs the commands and dispatches their results. It never returns a
+// state change.
+// Execute is part of the Operation interface.
 func (rc *runCommands) Execute(state State) (*State, error) {
 	unlock, err := rc.callbacks.AcquireExecutionLock("run commands")
 	if err != nil {
@@ -61,13 +65,11 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 		err = ErrNeedsReboot
 	}
 	rc.sendResponse(response, err)
-	// Commands only make sense at runtime; this is totally ephemeral; no
-	// state change at all.
 	return nil, nil
 }
 
+// Commit does nothing.
+// Commit is part of the Operation interface.
 func (rc *runCommands) Commit(state State) (*State, error) {
-	// Commands only make sense at runtime; this is totally ephemeral; no
-	// state change at all.
 	return nil, nil
 }

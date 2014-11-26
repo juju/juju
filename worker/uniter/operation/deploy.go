@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
+// deploy implements charm install and charm upgrade operations.
 type deploy struct {
 	kind     Kind
 	charmURL *corecharm.URL
@@ -22,10 +23,15 @@ type deploy struct {
 	abort     <-chan struct{}
 }
 
+// String is part of the Operation interface.
 func (d *deploy) String() string {
 	return fmt.Sprintf("%s %s", d.kind, d.charmURL)
 }
 
+// Prepare downloads and verifies the charm, and informs the state server
+// that the unit will be using it. If the supplied state indicates that a
+// hook was pending, that hook is recorded in the returned state.
+// Prepare is part of the Operation interface.
 func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, err
@@ -50,6 +56,9 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	return d.getState(state, Pending), nil
 }
 
+// Execute installs or upgrades the prepared charm, and preserves any hook
+// recorded in the supplied state.
+// Execute is part of the Operation interface.
 func (d *deploy) Execute(state State) (*State, error) {
 	if err := d.deployer.Deploy(); err != nil {
 		return nil, err
@@ -57,6 +66,8 @@ func (d *deploy) Execute(state State) (*State, error) {
 	return d.getState(state, Done), nil
 }
 
+// Commit restores state for any interrupted hook, or queues an install or
+// upgrade-charm hook if no hook was interrupted.
 func (d *deploy) Commit(state State) (*State, error) {
 	change := &stateChange{
 		Kind: RunHook,
