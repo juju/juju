@@ -85,19 +85,33 @@ var blockDoc = `
 Juju allows to safeguard deployed environments from unintentional damage by preventing
 execution of operations that could alter environment.
 
-This is done by blocking certain operations from successful execution. Blocked operations
+This is done by blocking certain commands from successful execution. Blocked commands
 must be manually unblocked to proceed.
 
-Operations that can be blocked are
+Some comands offer a --force option that can be used to bypass a block.
 
-destroy environment
+Commands that can be blocked are grouped based on logical operations as follows:
+
+destroy-environment includes command:
+    destroy-environment
+
+remove-object includes termination commands:
+    remove-machine
+    remove-service
+    remove-unit
+    remove-relation
 
 
 Examples:
-   juju block destroy-environment      (blocks destroy environment)
+   To prevent the environment from being destroyed:
+   juju block destroy-environment
+
+   To prevent the machines, services, units and relations from being removed:
+   juju block remove-object
 
 See Also:
    juju help unblock
+
 `
 
 func (c *BlockCommand) Info() *cmd.Info {
@@ -117,22 +131,41 @@ func (c *BlockCommand) Run(_ *cmd.Context) error {
 	return c.setBlockEnvironmentVariable(true)
 }
 
-type BlockableRemoveCommand struct {
+type Block int8
+
+const (
+	BlockDestroy Block = iota
+	BlockRemove
+)
+
+var blockedMessages = map[Block]string{
+	BlockDestroy: destroyMsg,
+	BlockRemove:  removeMsg,
+}
+
+type BlockableCommand struct {
 	envcmd.EnvCommandBase
 }
 
-func (c *BlockableRemoveCommand) processBlockedError(err error) error {
+func (c *BlockableCommand) processBlockedError(err error, block Block) error {
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf(blockedRemoveObjectMsg, c.ConnectionName())
+		logger.Errorf(blockedMessages[block], c.ConnectionName())
 		return cmd.ErrSilent
 	}
 	return err
 }
 
-var blockedRemoveObjectMsg = `
+var removeMsg = `
 All operations that remove (or delete or terminate) machines, services, units or relations have been blocked for environment %q.
 To unblock removal, run
 
     juju unblock remove-object
+
+`
+var destroyMsg = `
+destroy-environment operation has been blocked for environment %q.
+To remove the block run
+
+    juju unblock destroy-environment
 
 `

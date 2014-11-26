@@ -18,13 +18,27 @@ execution of operations that could alter environment.
 This is done by blocking certain operations from successful execution. Blocked operations
 must be manually unblocked to proceed.
 
-Operations that can be unblocked are
+Some comands offer a --force option that can be used to bypass a block.
 
-destroy environment
+Commands that can be unblocked are grouped based on logical operations as follows:
+
+destroy-environment includes command:
+    destroy-environment
+
+remove-object includes termination commands:
+    remove-machine
+    remove-service
+    remove-unit
+    remove-relation
 
 
 Examples:
-   juju unblock destroy-environment      (unblocks destroy environment)
+   To allow the environment to be destroyed:
+   juju unblock destroy-environment
+
+   To allow the machines, services, units and relations to be removed:
+   juju unblock remove-object
+
 
 See Also:
    juju help block

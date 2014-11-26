@@ -12,7 +12,7 @@ import (
 
 // RemoveServiceCommand causes an existing service to be destroyed.
 type RemoveServiceCommand struct {
-	BlockableRemoveCommand
+	BlockableCommand
 	ServiceName string
 }
 
@@ -43,5 +43,5 @@ func (c *RemoveServiceCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return c.processBlockedError(client.ServiceDestroy(c.ServiceName))
+	return c.processBlockedError(client.ServiceDestroy(c.ServiceName), BlockRemove)
 }

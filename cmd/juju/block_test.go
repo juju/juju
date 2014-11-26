@@ -105,12 +105,12 @@ type BlockableRemoveCommandSuite struct {
 
 var _ = gc.Suite(&BlockableRemoveCommandSuite{})
 
-func (s *BlockableRemoveCommandSuite) processErrorTest(c *gc.C, tstError error, expectedError error, expectedWarning string) {
-	testCmd := BlockableRemoveCommand{}
+func (s *BlockableRemoveCommandSuite) processErrorTest(c *gc.C, tstError error, block Block, expectedError error, expectedWarning string) {
+	testCmd := BlockableCommand{}
 	if tstError != nil {
-		c.Assert(testCmd.processBlockedError(tstError), gc.Equals, expectedError)
+		c.Assert(testCmd.processBlockedError(tstError, block), gc.Equals, expectedError)
 	} else {
-		c.Assert(testCmd.processBlockedError(tstError), jc.ErrorIsNil)
+		c.Assert(testCmd.processBlockedError(tstError, block), jc.ErrorIsNil)
 	}
 	// warning displayed
 	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
@@ -118,14 +118,15 @@ func (s *BlockableRemoveCommandSuite) processErrorTest(c *gc.C, tstError error, 
 }
 
 func (s *BlockableRemoveCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
-	s.processErrorTest(c, common.ErrOperationBlocked, cmd.ErrSilent, ".*operations that remove.*")
+	s.processErrorTest(c, common.ErrOperationBlocked, BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
+	s.processErrorTest(c, common.ErrOperationBlocked, BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
 }
 
 func (s *BlockableRemoveCommandSuite) TestProcessErrNil(c *gc.C) {
-	s.processErrorTest(c, nil, nil, "")
+	s.processErrorTest(c, nil, BlockDestroy, nil, "")
 }
 
 func (s *BlockableRemoveCommandSuite) TestProcessErrAny(c *gc.C) {
 	err := errors.New("Test error Processing")
-	s.processErrorTest(c, err, err, "")
+	s.processErrorTest(c, err, BlockDestroy, err, "")
 }
