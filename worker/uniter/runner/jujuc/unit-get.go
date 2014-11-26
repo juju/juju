@@ -11,22 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-const unitGetDoc = `
-"unit-get" is used in charm hooks to get information which is otherwise
-unavailable about the unit for the currently executing hook. To get the
-information specify the corresponding key when running "unit-get".
-
-Accepted keys:
- public-address - the unit's public IP address as exposed by juju
- private-address - the unit's juju-internal IP address, accessible to
-    other units
- availability-zone - the availability zone (if any) in which the machine
-    containing the unit was provisioned
-
-Note that for availability zones, not all providers support them. In the
-case that a provider does not, an empty string ("") will be returned.
-`
-
 var unitgetKeys = []string{
 	"private-address",
 	"public-address",
@@ -50,7 +34,6 @@ func (c *UnitGetCommand) Info() *cmd.Info {
 		Name:    "unit-get",
 		Args:    "<setting>",
 		Purpose: `print availability-zone, public-address, or private-address`,
-		Doc:     unitGetDoc,
 	}
 }
 
