@@ -89,16 +89,19 @@ type HookContextSuite struct {
 }
 
 func (s *HookContextSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	var err error
+	s.JujuConnSuite.SetUpTest(c)
+
+	// reset
+	s.machine = nil
+
 	sch := s.AddTestingCharm(c, "wordpress")
 	s.service = s.AddTestingService(c, "u", sch)
 	s.unit = s.AddUnit(c, s.service)
 
 	meteredCharm := s.AddTestingCharm(c, "metered")
 	meteredService := s.AddTestingService(c, "m", meteredCharm)
-	meteredUnit, err := meteredService.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
+	meteredUnit := s.addUnit(c, meteredService)
 	err = meteredUnit.SetCharmURL(meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -131,16 +134,25 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.AddContextRelation(c, "db1")
 }
 
-func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
+func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	if s.machine == nil {
+		s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, jc.ErrorIsNil)
+		err = s.machine.SetProvisioned("i-exist", "fake_nonce", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
+	return unit
+}
+
+func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
+	unit := s.addUnit(c, svc)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
 	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
-	err = s.machine.SetAddresses(privateAddr)
+	err := s.machine.SetAddresses(privateAddr)
 	c.Assert(err, jc.ErrorIsNil)
 	return unit
 }
