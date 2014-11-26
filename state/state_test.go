@@ -1296,10 +1296,14 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid VLAN tag 4095: must be between 0 and 4094")
 	subnetInfo.VLANTag = 0
+	subnetInfo.AllocatableIPHigh = "192.168.1.0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
 
 	subnetInfo.AllocatableIPLow = "192.168.1.0"
+	subnetInfo.AllocatableIPHigh = ""
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
 
@@ -1310,6 +1314,10 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 
+	// ProviderId should be unique as well as CIDR
+	subnetInfo.CIDR = "192.0.0.0/0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
 
 func (s *StateSuite) TestSubnetDestroy(c *gc.C) {
