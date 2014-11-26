@@ -165,6 +165,7 @@ var indexes = []struct {
 	{networkInterfacesC, []string{"networkname"}, false},
 	{networkInterfacesC, []string{"machineid"}, false},
 	{blockDevicesC, []string{"machineid"}, false},
+	{subnetsC, []string{"providerid"}, true},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
