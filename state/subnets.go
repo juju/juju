@@ -24,10 +24,13 @@ type SubnetInfo struct {
 	// AllocatableIPHigh and Low describe the allocatable portion of the
 	// subnet. The remainder, if any, is reserved by the provider.
 	// Either both of these must be set or neither, if they're empty it
-	// means that none of the subnet is allocatable.
+	// means that none of the subnet is allocatable. If present they must
+	// be valid IP addresses within the subnet CIDR.
 	AllocatableIPHigh string
 	AllocatableIPLow  string
 
+	// AvailabilityZone describes which availability zone this subnet is in. It can
+	// be empty if the provider does not support availability zones.
 	AvailabilityZone string
 }
 
@@ -40,10 +43,10 @@ type subnetDoc struct {
 	DocID             string `bson:"_id"`
 	EnvUUID           string `bson:"env-uuid"`
 	Life              Life
-	ProviderId        string
+	ProviderId        string `bson:",omitempty"`
 	CIDR              string
-	AllocatableIPHigh string
-	AllocatableIPLow  string
+	AllocatableIPHigh string `bson:",omitempty"`
+	AllocatableIPLow  string `bson:",omitempty"`
 
 	VLANTag          int    `bson:",omitempty"`
 	AvailabilityZone string `bson:",omitempty"`
