@@ -68,7 +68,8 @@ func (ru *RelationUnit) PrivateAddress() (string, error) {
 //
 // NOTE: Unlike state.RelatioUnit.EnterScope(), this method does not take
 // settings, because uniter only uses this to supply the unit's private
-// address, but this is not done at the server-side by the API.
+// address and availability zone, but this is not done at the server-side
+// by the API.
 func (ru *RelationUnit) EnterScope() error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
