@@ -250,10 +250,9 @@ func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 	uniter.PatchUnitResponse(s, s.apiUnit, "AvailabilityZone",
 		func(result interface{}) error {
 			if results, ok := result.(*params.StringResults); ok {
-				results.Results = make([]params.StringResult, 1)
-				results.Results[0] = params.StringResult{
+				results.Results = []params.StringResult{{
 					Result: "a-zone",
-				}
+				}}
 			}
 			return nil
 		},
