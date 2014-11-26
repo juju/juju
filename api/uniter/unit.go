@@ -334,8 +334,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("AvailabilityZone", args, &results)
-	if err != nil {
+	if err := u.st.facade.FacadeCall("AvailabilityZone", args, &results); err != nil {
 		return "", err
 	}
 	if len(results.Results) != 1 {
