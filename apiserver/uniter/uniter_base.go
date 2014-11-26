@@ -240,25 +240,34 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		results.Results[i].Error = common.ServerError(err)
 	}
 
-	// Collect the zones.
+	// Collect the zones. We expect that we will get back the same
+	// number as we passed in and in the same order.
 	zones, err := zenv.InstanceAvailabilityZoneNames(instIDs)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
+	if len(zones) != len(instIDs) {
+		return results, errors.Errorf("received invalid zones: expected %d, got %d", len(instIDs), len(zones))
+	}
 
 	// Update the results. The number of zone names we get back should
-	// match the number of results without an error.  Their order will
+	// match the number of results without an error. Their order will
 	// match as well.
 	for i, result := range results.Results {
-		if len(zones) == 0 {
-			break
-		}
 		if result.Error != nil {
 			continue
+		}
+		// Do another sanity check on the zones we got back. The non-
+		// error results should match up exactly with the zones we got
+		// back.
+		if len(zones) == 0 {
+			return results, errors.Errorf("got back too few zones")
 		}
 		results.Results[i].Result = zones[0]
 		zones = zones[1:]
 	}
+	// Do one last sanity check on matching up the zones we got back
+	// with the non-error results.
 	if len(zones) > 0 {
 		return results, errors.Errorf("got %d extra zones back", len(zones))
 	}
