@@ -263,6 +263,11 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		if len(zones) == 0 {
 			return results, errors.Errorf("got back too few zones")
 		}
+		// We do not worry about checking the zone names. About the only
+		// one worth checking for would be "", which could have some
+		// significance like "zone name not known". However, that case
+		// can be addressed by the API caller and does not need to be
+		// addressed on the server side.
 		results.Results[i].Result = zones[0]
 		zones = zones[1:]
 	}
