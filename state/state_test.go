@@ -1278,7 +1278,7 @@ func (s *StateSuite) TestAddSubnet(c *gc.C) {
 func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo := state.SubnetInfo{}
 	_, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has missing CIDR")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "missing CIDR")
 
 	subnetInfo.CIDR = "foobar"
 	_, err = s.State.AddSubnet(subnetInfo)

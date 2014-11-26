@@ -150,6 +150,9 @@ func (s *Subnet) CheckValid() error {
 		return errors.Errorf("either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
 	}
 
+	// TODO (mfoord 26-11-2014) we could also validate that the IPs are the
+	// same type (IPv4 or IPv6) and that IPLow is lower than or equal to
+	// IPHigh.
 	if s.doc.AllocatableIPHigh != "" {
 		highIP := net.ParseIP(s.doc.AllocatableIPHigh)
 		if highIP == nil || !mask.Contains(highIP) {
