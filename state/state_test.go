@@ -1312,6 +1312,28 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 
 }
 
+func (s *StateSuite) TestSubnetDestroy(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		ProviderId:        network.Id("foo"),
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.1",
+	}
+
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnet.Life(), gc.Equals, state.Dying)
+
+	_, err = s.State.Subnet("192.168.1.0/24")
+	c.Assert(err, gc.ErrorMatches, "subnet \"192.168.1.0/24\" not found")
+
+	err = subnet.Destroy()
+	c.Assert(err, gc.ErrorMatches, "cannot destroy subnet.*")
+}
+
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", s.owner.String(), charm, nil)
