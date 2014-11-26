@@ -143,8 +143,8 @@ func (s *Subnet) CheckValid() error {
 	present := func(str string) bool {
 		return str != ""
 	}
-	either := present(s.doc.AllocatableIPLow) && present(s.doc.AllocatableIPHigh)
-	both := present(s.doc.AllocatableIPLow) || present(s.doc.AllocatableIPHigh)
+	either := present(s.doc.AllocatableIPLow) || present(s.doc.AllocatableIPHigh)
+	both := present(s.doc.AllocatableIPLow) && present(s.doc.AllocatableIPHigh)
 
 	if either && !both {
 		return errors.Errorf("either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
