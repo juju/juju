@@ -4,6 +4,8 @@
 package state
 
 import (
+	"net"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -122,4 +124,41 @@ func (s *Subnet) AllocatableIPHigh() string {
 // is not associated with an availability zone it will be the empty string.
 func (s *Subnet) AvailabilityZone() string {
 	return s.doc.AvailabilityZone
+}
+
+func (s *Subnet) CheckValid() error {
+	var mask *net.IPNet
+	var err error
+	if s.doc.CIDR != "" {
+		_, mask, err = net.ParseCIDR(s.doc.CIDR)
+		if err != nil {
+			return errors.Annotatef(err, "invalid CIDR")
+		}
+	} else {
+		return errors.Errorf("missing CIDR")
+	}
+	if s.doc.VLANTag < 0 || s.doc.VLANTag > 4094 {
+		return errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", s.doc.VLANTag)
+	}
+	present := func(str string) bool {
+		return str != ""
+	}
+	either := present(s.doc.AllocatableIPLow) && present(s.doc.AllocatableIPHigh)
+	both := present(s.doc.AllocatableIPLow) || present(s.doc.AllocatableIPHigh)
+
+	if either && !both {
+		return errors.Errorf("either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
+	}
+
+	if s.doc.AllocatableIPHigh != "" {
+		highIP := net.ParseIP(s.doc.AllocatableIPHigh)
+		if highIP == nil || !mask.Contains(highIP) {
+			return errors.Errorf("invalid AllocatableIPHigh %q", s.doc.AllocatableIPHigh)
+		}
+		lowIP := net.ParseIP(s.doc.AllocatableIPLow)
+		if lowIP == nil || !mask.Contains(lowIP) {
+			return errors.Errorf("invalid AllocatableIPLow %q", s.doc.AllocatableIPLow)
+		}
+	}
+	return nil
 }

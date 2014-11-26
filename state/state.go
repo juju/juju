@@ -1229,39 +1229,6 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
 
-	var mask *net.IPNet
-	if args.CIDR != "" {
-		_, mask, err = net.ParseCIDR(args.CIDR)
-		if err != nil {
-			return nil, errors.Annotatef(err, "invalid CIDR")
-		}
-	} else {
-		return nil, errors.Errorf("missing CIDR")
-	}
-	if args.VLANTag < 0 || args.VLANTag > 4094 {
-		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
-	}
-	present := func(str string) bool {
-		return str != ""
-	}
-	either := present(args.AllocatableIPLow) && present(args.AllocatableIPHigh)
-	both := present(args.AllocatableIPLow) || present(args.AllocatableIPHigh)
-
-	if either && !both {
-		return nil, errors.Errorf("either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
-	}
-
-	if args.AllocatableIPHigh != "" {
-		highIP := net.ParseIP(args.AllocatableIPHigh)
-		if highIP == nil || !mask.Contains(highIP) {
-			return nil, errors.Errorf("invalid AllocatableIPHigh %q", args.AllocatableIPHigh)
-		}
-		lowIP := net.ParseIP(args.AllocatableIPLow)
-		if lowIP == nil || !mask.Contains(lowIP) {
-			return nil, errors.Errorf("invalid AllocatableIPLow %q", args.AllocatableIPLow)
-		}
-	}
-
 	subnetID := st.docID(args.CIDR)
 	subDoc := subnetDoc{
 		DocID:             subnetID,
@@ -1275,6 +1242,10 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		AvailabilityZone:  args.AvailabilityZone,
 	}
 	subnet = &Subnet{doc: subDoc, st: st}
+	err = subnet.CheckValid()
+	if err != nil {
+		return nil, err
+	}
 	ops := []txn.Op{{
 		C:      subnetsC,
 		Id:     subnetID,

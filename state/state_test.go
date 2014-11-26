@@ -1304,7 +1304,30 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
 
+	// invalid IP address
+	subnetInfo.AllocatableIPHigh = "foobar"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
+
+	// invalid IP address
+	subnetInfo.AllocatableIPLow = "foobar"
 	subnetInfo.AllocatableIPHigh = "192.168.1.0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
+
+	// IP address out of range
+	subnetInfo.AllocatableIPHigh = "172.168.1.0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
+
+	// IP address out of range
+	subnetInfo.AllocatableIPHigh = "192.168.1.0"
+	subnetInfo.AllocatableIPLow = "172.168.1.0"
+	_, err = s.State.AddSubnet(subnetInfo)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "subnet has AllocatableIPLow or AllocatableIPHigh missing")
+
+	// valid case
+	subnetInfo.AllocatableIPLow = "192.168.1.0"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1317,7 +1340,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
 }
 
-func (s *StateSuite) TestSubnetDestroy(c *gc.C) {
+func (s *StateSuite) TestSubnetEnsureDead(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        network.Id("foo"),
 		CIDR:              "192.168.1.0/24",
@@ -1328,7 +1351,7 @@ func (s *StateSuite) TestSubnetDestroy(c *gc.C) {
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = subnet.Destroy()
+	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.Life(), gc.Equals, state.Dying)
 
@@ -1336,7 +1359,7 @@ func (s *StateSuite) TestSubnetDestroy(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "subnet \"192.168.1.0/24\" not found")
 
 	// destroying a second time should be a no-op
-	err = subnet.Destroy()
+	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
