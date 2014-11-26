@@ -90,29 +90,24 @@ must be manually unblocked to proceed.
 
 Some comands offer a --force option that can be used to bypass a block.
 
-Commands that can be blocked are grouped based on logic operations as follows:
+Commands that can be blocked are grouped based on logical operations as follows:
 
 destroy-environment includes command:
     destroy-environment
 
 remove-object includes termination commands:
     remove-machine
-    destroy-machine
-    terminate-machine
     remove-service
-    destroy-service
     remove-unit
-    destroy-unit
     remove-relation
-    destroy-relation
 
 
 Examples:
+   To prevent the environment from being destroyed:
    juju block destroy-environment
-   #cannot destroy environment anymore
 
+   To prevent the machines, services, units and relations from being removed:
    juju block remove-object
-   #cannot remove machine, service, unit or relation anymore
 
 See Also:
    juju help unblock
