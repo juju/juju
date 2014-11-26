@@ -1237,18 +1237,17 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	} else {
 		return nil, errors.Errorf("missing CIDR")
 	}
-	if args.ProviderId == "" {
-		return nil, errors.Errorf("provider id must be not empty")
-	}
 	if args.VLANTag < 0 || args.VLANTag > 4094 {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
 	present := func(str string) bool {
 		return str != ""
 	}
+	either := present(args.AllocatableIPLow) && present(args.AllocatableIPHigh)
+	both := present(args.AllocatableIPLow) || present(args.AllocatableIPHigh)
 
-	if present(args.AllocatableIPLow) || present(args.AllocatableIPHigh) && !(present(args.AllocatableIPLow) && present(args.AllocatableIPHigh)) {
-		return nil, errors.Errorf("one but not both of AllocatableIPLow and AllocatableIPHigh set")
+	if either && !both {
+		return nil, errors.Errorf("either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
 	}
 
 	subnetID := st.docID(args.CIDR)
