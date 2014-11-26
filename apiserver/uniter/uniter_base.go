@@ -17,10 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	provcommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -181,15 +178,6 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 
 // TODO(ericsnow) Factor out the common code amongst the many methods here.
 
-var getEnvironment = func(st *state.State) (environs.Environ, error) {
-	envcfg, err := st.EnvironConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env, err := environs.New(envcfg)
-	return env, errors.Trace(err)
-}
-
 // AvailabilityZone returns the availability zone for each given unit, if applicable.
 func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
@@ -199,26 +187,13 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		return results, errors.Trace(err)
 	}
 
-	// Get the provider.
-	env, err := getEnvironment(u.st)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	zenv, ok := env.(provcommon.ZonedEnviron)
-	if !ok {
-		return results, errors.NotSupportedf("zones for provider %v", env)
-	}
-
 	// Prep the results.
 	results = params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 
-	// Collect the instance IDs. We send a single request to the
-	// provider for all the entities at once. So that means gathering a
-	// list of instance IDs, one for each entity. If an entity has any
-	// sort of trouble then we skip it.
-	var instIDs []instance.Id
+	// Collect the tags.
+	var tags []names.Tag
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -227,54 +202,26 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				var instID instance.Id
-				instID, err = unit.InstanceId()
-				if err == nil {
-					instIDs = append(instIDs, instID)
-				}
-			}
+			tags = append(tags, tag)
+			err = nil
 		}
 		results.Results[i].Error = common.ServerError(err)
 	}
 
-	// Collect the zones. We expect that we will get back the same
-	// number as we passed in and in the same order.
-	zones, err := zenv.InstanceAvailabilityZoneNames(instIDs)
+	// Collect the zones.
+	azResults, err := availabilityZones(u.st, tags...)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	if len(zones) != len(instIDs) {
-		return results, errors.Errorf("received invalid zones: expected %d, got %d", len(instIDs), len(zones))
-	}
 
-	// Update the results. The number of zone names we get back should
-	// match the number of results without an error. Their order will
-	// match as well.
+	// Update the results.
 	for i, result := range results.Results {
 		if result.Error != nil {
 			continue
 		}
-		// Do another sanity check on the zones we got back. The non-
-		// error results should match up exactly with the zones we got
-		// back.
-		if len(zones) == 0 {
-			return results, errors.Errorf("got back too few zones")
-		}
-		// We do not worry about checking the zone names. About the only
-		// one worth checking for would be "", which could have some
-		// significance like "zone name not known". However, that case
-		// can be addressed by the API caller and does not need to be
-		// addressed on the server side.
-		results.Results[i].Result = zones[0]
-		zones = zones[1:]
-	}
-	// Do one last sanity check on matching up the zones we got back
-	// with the non-error results.
-	if len(zones) > 0 {
-		return results, errors.Errorf("got %d extra zones back", len(zones))
+		results.Results[i].Result = azResults[0].zone
+		results.Results[i].Error = common.ServerError(azResults[0].err)
+		azResults = azResults[1:]
 	}
 
 	return results, nil
