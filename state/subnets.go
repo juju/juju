@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -126,6 +127,8 @@ func (s *Subnet) AvailabilityZone() string {
 	return s.doc.AvailabilityZone
 }
 
+// CheckValid validates the subnet, checking the CIDR, VLANTag and
+// AllocatableIPHigh and Low, if present.
 func (s *Subnet) CheckValid() error {
 	var mask *net.IPNet
 	var err error
@@ -162,6 +165,23 @@ func (s *Subnet) CheckValid() error {
 		if lowIP == nil || !mask.Contains(lowIP) {
 			return errors.Errorf("invalid AllocatableIPLow %q", s.doc.AllocatableIPLow)
 		}
+	}
+	return nil
+}
+
+// Refresh refreshes the contents of the Subnet from the underlying
+// state. It an error that satisfies errors.IsNotFound if the Subnet has
+// been removed.
+func (s *Subnet) Refresh() error {
+	subnets, closer := s.st.getCollection(subnetsC)
+	defer closer()
+
+	err := subnets.FindId(s.doc.DocID).One(&s.doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("subnet %v", s)
+	}
+	if err != nil {
+		return errors.Errorf("cannot refresh subnet %v: %v", s, err)
 	}
 	return nil
 }
