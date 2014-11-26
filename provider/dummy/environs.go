@@ -1144,6 +1144,11 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
+// AddZone adds an availability zone with the given name to the set of
+// zones the dummy provider knows about.
+//
+// This method is strictly an aid to testing and is not part of any
+// provider-related interfaces.
 func (e *environ) AddZone(zoneName string) {
 	if e.zones == nil {
 		e.zones = set.NewStrings()
@@ -1156,14 +1161,19 @@ type dummyZone struct {
 	available bool
 }
 
+// Name returns the availability zone's name.
 func (dz *dummyZone) Name() string {
 	return dz.name
 }
 
+// Available returns whether or not the zone is available.
 func (dz *dummyZone) Available() bool {
 	return dz.available
 }
 
+// AvailabilityZones returns the list of availability zones in the
+// provider. In the case of the dummy provider, this is set to whatever
+// you like (via AddZone).
 func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	var zones []common.AvailabilityZone
 	for _, name := range e.zones.SortedValues() {
@@ -1172,6 +1182,13 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return zones, nil
 }
 
+// SetZone associates the given instance ID with the zone name. This
+// information is later used by the InstanceAvailabilityZoneNames
+// method. The zone name is automatically added to the set of zones the
+// dummy provider knows about.
+//
+// This method is strictly an aid to testing and is not part of any
+// provider-related interfaces.
 func (e *environ) SetZone(instID instance.Id, zoneName string) {
 	if e.instZones == nil {
 		e.instZones = make(map[instance.Id]string)
@@ -1180,6 +1197,9 @@ func (e *environ) SetZone(instID instance.Id, zoneName string) {
 	e.instZones[instID] = zoneName
 }
 
+// InstanceAvailabilityZoneNames returns the list of zone names
+// corresponding to the list of instance IDs.  The returned list will
+// map exactly onto the instance IDs (in the same order).
 func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	names := make([]string, len(ids))
 	for i, id := range ids {
