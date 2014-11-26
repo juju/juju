@@ -73,10 +73,10 @@ func (s *FactorySuite) getCache(relId int, unitName string) (params.RelationSett
 	return context.CachedSettings(s.factory, relId, unitName)
 }
 
-func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
+func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx context.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
-	c.Assert(ctx.AssignedMachineTag(), jc.DeepEquals, names.NewMachineTag("0"))
+	c.Assert(ctx.(*context.HookContext).AssignedMachineTag(), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectOK := s.unit.PrivateAddress()
 	actual, actualOK := ctx.PrivateAddress()
@@ -90,7 +90,7 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	name, uuid := ctx.EnvInfo()
+	name, uuid := ctx.(*context.HookContext).EnvInfo()
 	c.Assert(name, gc.Equals, env.Name())
 	c.Assert(uuid, gc.Equals, env.UUID())
 
@@ -107,20 +107,20 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
 }
 
-func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
+func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx context.Context) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
-func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int) *context.ContextRelation {
+func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx context.Context, relId int) *context.ContextRelation {
 	rel, found := ctx.HookRelation()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(rel.Id(), gc.Equals, relId)
 	return rel.(*context.ContextRelation)
 }
 
-func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx *context.HookContext) {
+func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx context.Context) {
 	rel, found := ctx.HookRelation()
 	c.Assert(rel, gc.IsNil)
 	c.Assert(found, jc.IsFalse)
