@@ -307,7 +307,10 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 	ctx.proxySettings = environConfig.ProxySettings()
 
 	availabilityzone, err := f.unit.AvailabilityZone()
-	if err != nil {
+	if errors.IsNotSupported(err) {
+		// The provider does not support availability zones.
+		availabilityzone = ""
+	} else if err != nil {
 		return err
 	}
 	ctx.availabilityzone = availabilityzone
