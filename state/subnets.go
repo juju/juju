@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
-	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -55,7 +54,7 @@ func (s *Subnet) Life() Life {
 func (s *Subnet) Destroy() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
 	if s.doc.Life == Dying {
-		return jujutxn.ErrNoOperations
+		return nil
 	}
 
 	defer func() {

@@ -1330,8 +1330,9 @@ func (s *StateSuite) TestSubnetDestroy(c *gc.C) {
 	_, err = s.State.Subnet("192.168.1.0/24")
 	c.Assert(err, gc.ErrorMatches, "subnet \"192.168.1.0/24\" not found")
 
+	// destroying a second time should be a no-op
 	err = subnet.Destroy()
-	c.Assert(err, gc.ErrorMatches, "cannot destroy subnet.*")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {
