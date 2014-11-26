@@ -4,8 +4,10 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import json
 import os
 import shutil
+import subprocess
 import sys
 import traceback
 
@@ -39,6 +41,19 @@ def find_publish_revision_number(br_number, limit=20):
     return found_number
 
 
+def prepare_dir(dir_path, dry_run=False, verbose=False):
+    if os.path.isdir(dir_path):
+        if verbose:
+            print('Cleaning %s' % dir_path)
+        if not dry_run:
+            shutil.rmtree(dir_path)
+    else:
+        if verbose:
+            print('Creating %s' % dir_path)
+    if not dry_run:
+        os.makedirs(dir_path)
+
+
 def update_candate(branch, path, br_number,
                    pr_number=None, dry_run=False, verbose=False):
     """Download the files from the build-revision and publish-revision jobs.
@@ -50,16 +65,7 @@ def update_candate(branch, path, br_number,
     branch_name = branch.split(':')[1]
     artifact_dir_name = '%s-artifacts' % branch_name
     candidate_dir = os.path.join(path, artifact_dir_name)
-    if os.path.isdir(candidate_dir):
-        if verbose:
-            print('Cleaning %s' % candidate_dir)
-        if not dry_run:
-            shutil.rmtree(candidate_dir)
-    else:
-        if verbose:
-            print('Creating %s' % candidate_dir)
-    if not dry_run:
-        os.makedirs(candidate_dir)
+    prepare_dir(candidate_dir, dry_run, verbose)
     get_artifacts(
         BUILD_REVISION, br_number, 'buildvars.json', candidate_dir,
         dry_run=dry_run, verbose=verbose)
@@ -68,6 +74,49 @@ def update_candate(branch, path, br_number,
     get_artifacts(
         PUBLISH_REVISION, pr_number, 'juju-core*', candidate_dir,
         dry_run=dry_run, verbose=verbose)
+
+
+def get_artifact_dirs(path):
+    dirs = []
+    for name in os.listdir(path):
+        artifacts_path = os.path.join(path, name)
+        if name.endswith('-artifacts') and os.path.isdir(artifacts_path):
+            dirs.append(name)
+    return dirs
+
+
+def get_package(artifacts_path, version):
+    release = subprocess.check_output(['lsb_release', '-sr']).strip()
+    arch = subprocess.check_output(['dpkg', '--print-architecture']).strip()
+    package_name = 'juju-core_{}-0ubuntu1~{}.1~juju1_{}.deb'.format(
+        version, release, arch)
+    package_path = os.path.join(artifacts_path, package_name)
+    return package_path
+
+
+def extract_candidates(path, dry_run=False, verbose=False):
+    for dir_name in get_artifact_dirs(path):
+        artifacts_path = os.path.join(path, dir_name)
+        buildvars_path = os.path.join(artifacts_path, 'buildvars.json')
+        with open(buildvars_path) as bf:
+            buildvars = json.load(bf)
+        version = buildvars['version']
+        package_path = get_package(artifacts_path, version)
+        branch_name = dir_name.split('-')[0]
+        candidate_path = os.path.join(path, branch_name)
+        if verbose:
+            print('extracting %s to %s' % (package_path, candidate_path))
+        prepare_dir(candidate_path, dry_run, verbose)
+        command = ['dpkg', '-x', package_path, candidate_path]
+        if not dry_run:
+            subprocess.check_call(command)
+        bin_path = os.path.join(
+            candidate_path, 'usr', 'lib', 'juju-%s' % version,
+            'bin', 'buildvars.json')
+        if verbose:
+            print('Copying %s to %s' % (buildvars_path, bin_path))
+        if not dry_run:
+            shutil.copyfile(buildvars_path, bin_path)
 
 
 def parse_args(args=None):
@@ -81,8 +130,7 @@ def parse_args(args=None):
         help='Increase verbosity.')
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     # ./candidate update -b 1234 master ~/candidate
-    parser_update = subparsers.add_parser(
-        'update', help='Update candidate')
+    parser_update = subparsers.add_parser('update', help='Update candidate')
     parser_update.add_argument(
         '-b', '--br-number', default='lastSuccessfulBuild',
         help="The specific build-revision number.")
@@ -93,8 +141,11 @@ def parse_args(args=None):
         'branch', help='The successfully test branch location.')
     parser_update.add_argument(
         'path', help='The path to save the candiate data to.')
+    # ./candidate extract master ~/candidate
+    parser_extract = subparsers.add_parser('extract', help='Update candidate')
+    parser_extract.add_argument(
+        'path', help='The path to save the candiate data to.')
     # ./candidate publsh ~/candidate
-    # ./candidate extract -b 1234 master ~/candidate
     return parser.parse_args(args)
 
 
@@ -106,6 +157,9 @@ def main(argv):
             update_candate(
                 args.branch, args.path, args.br_number, args.pr_number,
                 dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'extract':
+            extract_candidates(
+                args.path, dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:
