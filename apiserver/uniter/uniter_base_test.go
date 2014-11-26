@@ -420,10 +420,10 @@ type zoneSetter interface {
 	SetZone(instID instance.Id, zoneName string)
 }
 
-func (s *uniterBaseSuite) testZone(
+func (s *uniterBaseSuite) testAvailabilityZone(
 	c *gc.C,
 	facade interface {
-		Zone(args params.Entities) (params.StringResults, error)
+		AvailabilityZone(args params.Entities) (params.StringResults, error)
 	},
 ) {
 	s.PatchValue(uniter.GetEnvironment, func(st *state.State) (environs.Environ, error) {
@@ -434,7 +434,7 @@ func (s *uniterBaseSuite) testZone(
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
 	}}
-	result, err := facade.Zone(args)
+	result, err := facade.AvailabilityZone(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, gc.DeepEquals, params.StringResults{

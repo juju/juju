@@ -120,7 +120,7 @@ func NewHookContext(
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.zone, err = unit.Zone()
+	ctx.availabilityzone, err = unit.AvailabilityZone()
 	if err != nil {
 		return nil, err
 	}

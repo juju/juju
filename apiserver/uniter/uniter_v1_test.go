@@ -83,8 +83,8 @@ func (s *uniterV1Suite) TestPublicAddress(c *gc.C) {
 	s.testPublicAddress(c, s.uniter)
 }
 
-func (s *uniterV1Suite) TestZone(c *gc.C) {
-	s.testZone(c, s.uniter)
+func (s *uniterV1Suite) TestAvailabilityZone(c *gc.C) {
+	s.testAvailabilityZone(c, s.uniter)
 }
 
 func (s *uniterV1Suite) TestPrivateAddress(c *gc.C) {

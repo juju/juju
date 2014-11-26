@@ -246,8 +246,8 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
-func (s *unitSuite) TestZone(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "Zone",
+func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "AvailabilityZone",
 		func(result interface{}) error {
 			if results, ok := result.(*params.StringResults); ok {
 				results.Results = make([]params.StringResult, 1)
@@ -259,7 +259,7 @@ func (s *unitSuite) TestZone(c *gc.C) {
 		},
 	)
 
-	zone, err := s.apiUnit.Zone()
+	zone, err := s.apiUnit.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(zone, gc.Equals, "a-zone")

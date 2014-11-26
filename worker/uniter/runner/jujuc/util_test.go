@@ -109,7 +109,7 @@ func (c *Context) PrivateAddress() (string, bool) {
 	return "192.168.0.99", true
 }
 
-func (c *Context) Zone() (string, bool) {
+func (c *Context) AvailabilityZone() (string, bool) {
 	return "us-east-1a", true
 }
 

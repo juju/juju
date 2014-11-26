@@ -190,8 +190,8 @@ var getEnvironment = func(st *state.State) (environs.Environ, error) {
 	return env, errors.Trace(err)
 }
 
-// Zone returns the availability zone for each given unit, if applicable.
-func (u *uniterBaseAPI) Zone(args params.Entities) (params.StringResults, error) {
+// AvailabilityZone returns the availability zone for each given unit, if applicable.
+func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
 
 	canAccess, err := u.accessUnit()

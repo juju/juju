@@ -328,13 +328,13 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return result.Result, nil
 }
 
-// Zone returns the availability zone of the unit.
-func (u *Unit) Zone() (string, error) {
+// AvailabilityZone returns the availability zone of the unit.
+func (u *Unit) AvailabilityZone() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("Zone", args, &results)
+	err := u.st.facade.FacadeCall("AvailabilityZone", args, &results)
 	if err != nil {
 		return "", err
 	}
