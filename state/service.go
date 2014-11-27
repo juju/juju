@@ -595,7 +595,8 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status: StatusPending,
+		Status:  StatusPending,
+		EnvUUID: s.st.EnvironUUID(),
 	}
 	msdoc := meterStatusDoc{
 		Code: MeterNotSet,
