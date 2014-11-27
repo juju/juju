@@ -21,10 +21,10 @@ type RunCommandsSuite struct {
 var _ = gc.Suite(&RunCommandsSuite{})
 
 func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
-	contextFactory := &MockContextFactory{
-		MockNewRunContext: &MockNewRunContext{err: errors.New("blooey")},
+	runnerFactory := &MockRunnerFactory{
+		MockNewRunner: &MockNewRunner{err: errors.New("blooey")},
 	}
-	factory := operation.NewFactory(nil, contextFactory, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
 	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -32,15 +32,15 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, gc.ErrorMatches, "blooey")
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*contextFactory.MockNewRunContext.gotRelationId, gc.Equals, 123)
-	c.Assert(*contextFactory.MockNewRunContext.gotRemoteUnitName, gc.Equals, "foo/456")
+	c.Assert(*runnerFactory.MockNewRunner.gotRelationId, gc.Equals, 123)
+	c.Assert(*runnerFactory.MockNewRunner.gotRemoteUnitName, gc.Equals, "foo/456")
 }
 
 func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
-	contextFactory := &MockContextFactory{
-		MockNewRunContext: &MockNewRunContext{},
+	runnerFactory := &MockRunnerFactory{
+		MockNewRunner: &MockNewRunner{},
 	}
-	factory := operation.NewFactory(nil, contextFactory, nil, nil)
+	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
 	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,18 +48,18 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*contextFactory.MockNewRunContext.gotRelationId, gc.Equals, 123)
-	c.Assert(*contextFactory.MockNewRunContext.gotRemoteUnitName, gc.Equals, "foo/456")
+	c.Assert(*runnerFactory.MockNewRunner.gotRelationId, gc.Equals, 123)
+	c.Assert(*runnerFactory.MockNewRunner.gotRemoteUnitName, gc.Equals, "foo/456")
 }
 
 func (s *RunCommandsSuite) TestExecuteLockError(c *gc.C) {
-	contextFactory := &MockContextFactory{
-		MockNewRunContext: &MockNewRunContext{},
+	runnerFactory := &MockRunnerFactory{
+		MockNewRunner: &MockNewRunner{},
 	}
 	callbacks := &RunCommandsCallbacks{
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{err: errors.New("sneh")},
 	}
-	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
 	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,16 +74,13 @@ func (s *RunCommandsSuite) TestExecuteLockError(c *gc.C) {
 
 func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 	for _, sendErr := range []error{context.ErrRequeueAndReboot, context.ErrReboot} {
-		contextFactory := &MockContextFactory{
-			MockNewRunContext: &MockNewRunContext{context: &MockContext{}},
-		}
+		runnerFactory := NewRunCommandsRunnerFactory(
+			&utilexec.ExecResponse{Code: 101}, sendErr,
+		)
 		callbacks := &RunCommandsCallbacks{
 			MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-			MockGetRunner: NewCommandsRunnerGetter(
-				&utilexec.ExecResponse{Code: 101}, sendErr,
-			),
 		}
-		factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
+		factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 		sendResponse := &MockSendResponse{}
 		op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse.Call)
 		c.Assert(err, jc.ErrorIsNil)
@@ -95,23 +92,20 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-		c.Assert(*callbacks.MockGetRunner.gotContext, gc.Equals, contextFactory.MockNewRunContext.context)
+		c.Assert(*runnerFactory.MockNewRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 		c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 101})
 		c.Assert(*sendResponse.gotErr, gc.Equals, operation.ErrNeedsReboot)
 	}
 }
 
 func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
-	contextFactory := &MockContextFactory{
-		MockNewRunContext: &MockNewRunContext{context: &MockContext{}},
-	}
+	runnerFactory := NewRunCommandsRunnerFactory(
+		nil, errors.New("sneh"),
+	)
 	callbacks := &RunCommandsCallbacks{
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-		MockGetRunner: NewCommandsRunnerGetter(
-			nil, errors.New("sneh"),
-		),
 	}
-	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,22 +117,19 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-	c.Assert(*callbacks.MockGetRunner.gotContext, gc.Equals, contextFactory.MockNewRunContext.context)
+	c.Assert(*runnerFactory.MockNewRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.IsNil)
 	c.Assert(*sendResponse.gotErr, gc.ErrorMatches, "sneh")
 }
 
 func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
-	contextFactory := &MockContextFactory{
-		MockNewRunContext: &MockNewRunContext{context: &MockContext{}},
-	}
+	runnerFactory := NewRunCommandsRunnerFactory(
+		&utilexec.ExecResponse{Code: 222}, nil,
+	)
 	callbacks := &RunCommandsCallbacks{
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{},
-		MockGetRunner: NewCommandsRunnerGetter(
-			&utilexec.ExecResponse{Code: 222}, nil,
-		),
 	}
-	factory := operation.NewFactory(nil, contextFactory, callbacks, nil)
+	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,7 +141,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-	c.Assert(*callbacks.MockGetRunner.gotContext, gc.Equals, contextFactory.MockNewRunContext.context)
+	c.Assert(*runnerFactory.MockNewRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 222})
 	c.Assert(*sendResponse.gotErr, jc.ErrorIsNil)
 }
