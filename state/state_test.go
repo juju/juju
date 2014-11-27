@@ -1322,7 +1322,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 
 	// valid case
 	subnetInfo.AllocatableIPLow = "192.168.0.1"
-	subnetInfo.ProviderId = "testing uniquenesss"
+	subnetInfo.ProviderId = "testing uniqueness"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
