@@ -1242,7 +1242,7 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 		AvailabilityZone:  args.AvailabilityZone,
 	}
 	subnet = &Subnet{doc: subDoc, st: st}
-	err = subnet.CheckValid()
+	err = subnet.Validate()
 	if err != nil {
 		return nil, err
 	}

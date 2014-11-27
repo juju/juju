@@ -128,9 +128,9 @@ func (s *Subnet) AvailabilityZone() string {
 	return s.doc.AvailabilityZone
 }
 
-// CheckValid validates the subnet, checking the CIDR, VLANTag and
+// Validate validates the subnet, checking the CIDR, VLANTag and
 // AllocatableIPHigh and Low, if present.
-func (s *Subnet) CheckValid() error {
+func (s *Subnet) Validate() error {
 	var mask *net.IPNet
 	var err error
 	if s.doc.CIDR != "" {
