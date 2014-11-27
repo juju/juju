@@ -15,10 +15,10 @@ type runCommands struct {
 	remoteUnitName string
 	sendResponse   CommandResponseFunc
 
-	callbacks      Callbacks
-	contextFactory context.Factory
+	callbacks     Callbacks
+	runnerFactory context.Factory
 
-	context context.Context
+	runner context.Runner
 }
 
 // String is part of the Operation interface.
@@ -37,11 +37,11 @@ func (rc *runCommands) String() string {
 // Prepare ensures the commands can be run. It never returns a state change.
 // Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(state State) (*State, error) {
-	ctx, err := rc.contextFactory.NewRunContext(rc.relationId, rc.remoteUnitName)
+	rnr, err := rc.runnerFactory.NewRunner(rc.relationId, rc.remoteUnitName)
 	if err != nil {
 		return nil, err
 	}
-	rc.context = ctx
+	rc.runner = rnr
 	return nil, nil
 }
 
@@ -55,8 +55,7 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := rc.callbacks.GetRunner(rc.context)
-	response, err := runner.RunCommands(rc.commands)
+	response, err := rc.runner.RunCommands(rc.commands)
 	switch err {
 	case context.ErrRequeueAndReboot:
 		logger.Warningf("cannot requeue external commands")

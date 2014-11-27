@@ -14,11 +14,11 @@ import (
 type runAction struct {
 	actionId string
 
-	callbacks      Callbacks
-	contextFactory context.Factory
+	callbacks     Callbacks
+	runnerFactory context.Factory
 
-	name    string
-	context context.Context
+	name   string
+	runner context.Runner
 }
 
 // String is part of the Operation interface.
@@ -31,7 +31,7 @@ func (ra *runAction) String() string {
 // state.
 // Prepare is part of the Operation interface.
 func (ra *runAction) Prepare(state State) (*State, error) {
-	ctx, err := ra.contextFactory.NewActionContext(ra.actionId)
+	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId)
 	if cause := errors.Cause(err); context.IsBadActionError(cause) {
 		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
 			return nil, err
@@ -42,13 +42,13 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "cannot create context for action %q", ra.actionId)
 	}
-	actionData, err := ctx.ActionData()
+	actionData, err := rnr.Context().ActionData()
 	if err != nil {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
 	ra.name = actionData.ActionName
-	ra.context = ctx
+	ra.runner = rnr
 	return stateChange{
 		Kind:     RunAction,
 		Step:     Pending,
@@ -67,8 +67,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := ra.callbacks.GetRunner(ra.context)
-	err = runner.RunAction(ra.name)
+	err = ra.runner.RunAction(ra.name)
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
 		// be handled inside the Runner, and returned as nil.

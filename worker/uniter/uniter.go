@@ -246,15 +246,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := context.NewFactory(
-		u.st, unitTag, u.getRelationInfos, u.getCharm,
+	runnerFactory, err := context.NewFactory(
+		u.st, unitTag, u.getRelationInfos, u.paths,
 	)
 	if err != nil {
 		return err
 	}
 	u.operationFactory = operation.NewFactory(
 		u.deployer,
-		contextFactory,
+		runnerFactory,
 		&operationCallbacks{u},
 		u.tomb.Dying(),
 	)
@@ -304,14 +304,6 @@ func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
 	return relationInfos
 }
 
-func (u *Uniter) getCharm() (corecharm.Charm, error) {
-	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
-	if err != nil {
-		return nil, err
-	}
-	return ch, nil
-}
-
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
 	charmURL, _, err := u.service.CharmURL()
 	return charmURL, err
@@ -343,7 +335,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // initializeMetricsCollector enables the periodic collect-metrics hook
 // for charms that declare metrics.
 func (u *Uniter) initializeMetricsCollector() error {
-	charm, err := u.getCharm()
+	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}

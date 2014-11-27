@@ -89,12 +89,6 @@ type Callbacks interface {
 	// operations that execute external code.
 	AcquireExecutionLock(message string) (unlock func(), err error)
 
-	// GetRunner returns a runner for the supplied context; it primarily exists
-	// to allow operations to be tested without shelling out to run actual
-	// external code. It's used by all the operations that execute external
-	// code.
-	GetRunner(ctx context.Context) context.Runner
-
 	// PrepareHook and CommitHook exist so that we can defer worrying about how
 	// to untangle Uniter.relationers from everything else. They're only used by
 	// RunHook operations.

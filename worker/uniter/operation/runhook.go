@@ -17,11 +17,11 @@ import (
 type runHook struct {
 	info hook.Info
 
-	callbacks      Callbacks
-	contextFactory context.Factory
+	callbacks     Callbacks
+	runnerFactory context.Factory
 
-	name    string
-	context context.Context
+	name   string
+	runner context.Runner
 }
 
 // String is part of the Operation interface.
@@ -44,12 +44,12 @@ func (rh *runHook) Prepare(state State) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx, err := rh.contextFactory.NewHookContext(rh.info)
+	rnr, err := rh.runnerFactory.NewHookRunner(rh.info)
 	if err != nil {
 		return nil, err
 	}
 	rh.name = name
-	rh.context = ctx
+	rh.runner = rnr
 	return stateChange{
 		Kind: RunHook,
 		Step: Pending,
@@ -67,11 +67,10 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := rh.callbacks.GetRunner(rh.context)
 	ranHook := true
 	step := Done
 
-	err = runner.RunHook(rh.name)
+	err = rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
 	case context.IsMissingHookError(cause):
@@ -85,13 +84,13 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	case err == nil:
 	default:
 		logger.Errorf("hook %q failed: %v", rh.name, err)
-		rh.callbacks.NotifyHookFailed(rh.name, rh.context)
+		rh.callbacks.NotifyHookFailed(rh.name, rh.runner.Context())
 		return nil, ErrHookFailed
 	}
 
 	if ranHook {
 		logger.Infof("ran %q hook", rh.name)
-		rh.callbacks.NotifyHookCompleted(rh.name, rh.context)
+		rh.callbacks.NotifyHookCompleted(rh.name, rh.runner.Context())
 	} else {
 		logger.Infof("skipped %q hook (missing)", rh.name)
 	}

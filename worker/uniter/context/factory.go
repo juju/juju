@@ -24,21 +24,18 @@ import (
 // division of responsibilities across worker/uniter and its subpackages.
 type Factory interface {
 
-	// NewRunContext returns an execution context suitable for running an
+	// NewRunner returns an execution context suitable for running an
 	// arbitrary script.
-	NewRunContext(relationId int, remoteUnitName string) (Context, error)
+	NewRunner(relationId int, remoteUnitName string) (Runner, error)
 
-	// NewHookContext returns an execution context suitable for running the
+	// NewHookRunner returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
-	NewHookContext(hookInfo hook.Info) (Context, error)
+	NewHookRunner(hookInfo hook.Info) (Runner, error)
 
-	// NewActionContext returns an execution context suitable for running the
+	// NewActionRunner returns an execution context suitable for running the
 	// action identified by the supplied id.
-	NewActionContext(actionId string) (Context, error)
+	NewActionRunner(actionId string) (Runner, error)
 }
-
-// CharmFunc is used to get a snapshot of the charm at context creation time.
-type CharmFunc func() (charm.Charm, error)
 
 // RelationsFunc is used to get snapshots of relation membership at context
 // creation time.
@@ -47,7 +44,10 @@ type RelationsFunc func() map[int]*RelationInfo
 // NewFactory returns a Factory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
 func NewFactory(
-	state *uniter.State, unitTag names.UnitTag, getRelationInfos RelationsFunc, getCharm CharmFunc,
+	state *uniter.State,
+	unitTag names.UnitTag,
+	getRelationInfos RelationsFunc,
+	paths Paths,
 ) (
 	Factory, error,
 ) {
@@ -74,12 +74,12 @@ func NewFactory(
 	return &factory{
 		unit:             unit,
 		state:            state,
+		paths:            paths,
 		envUUID:          environment.UUID(),
 		envName:          environment.Name(),
 		machineTag:       machineTag,
 		ownerTag:         ownerTag,
 		getRelationInfos: getRelationInfos,
-		getCharm:         getCharm,
 		relationCaches:   map[int]*RelationCache{},
 		rand:             rand.New(rand.NewSource(time.Now().Unix())),
 	}, nil
@@ -91,6 +91,7 @@ type factory struct {
 	state *uniter.State
 
 	// Fields that shouldn't change in a factory's lifetime.
+	paths      Paths
 	envUUID    string
 	envName    string
 	machineTag names.MachineTag
@@ -100,15 +101,12 @@ type factory struct {
 	getRelationInfos RelationsFunc
 	relationCaches   map[int]*RelationCache
 
-	// Callback to get charm snapshot.
-	getCharm CharmFunc
-
 	// For generating "unique" context ids.
 	rand *rand.Rand
 }
 
-// NewRunContext exists to satisfy the Factory interface.
-func (f *factory) NewRunContext(relationId int, remoteUnitName string) (Context, error) {
+// NewRunner exists to satisfy the Factory interface.
+func (f *factory) NewRunner(relationId int, remoteUnitName string) (Runner, error) {
 	ctx, err := f.coreContext()
 
 	if err != nil {
@@ -125,11 +123,12 @@ func (f *factory) NewRunContext(relationId int, remoteUnitName string) (Context,
 	}
 
 	ctx.id = f.newId("run-commands")
-	return ctx, nil
+	runner := NewRunner(ctx, f.paths)
+	return runner, nil
 }
 
-// NewHookContext exists to satisfy the Factory interface.
-func (f *factory) NewHookContext(hookInfo hook.Info) (Context, error) {
+// NewHookRunner exists to satisfy the Factory interface.
+func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 	if err := hookInfo.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -165,11 +164,12 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (Context, error) {
 		ctx.definedMetrics = ch.Metrics()
 	}
 	ctx.id = f.newId(hookName)
-	return ctx, nil
+	runner := NewRunner(ctx, f.paths)
+	return runner, nil
 }
 
-// NewActionContext exists to satisfy the Factory interface.
-func (f *factory) NewActionContext(actionId string) (Context, error) {
+// NewActionRunner exists to satisfy the Factory interface.
+func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 	ch, err := f.getCharm()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -204,7 +204,8 @@ func (f *factory) NewActionContext(actionId string) (Context, error) {
 	}
 	ctx.actionData = newActionData(name, &tag, params)
 	ctx.id = f.newId(name)
-	return ctx, nil
+	runner := NewRunner(ctx, f.paths)
+	return runner, nil
 }
 
 // newId returns a probably-unique identifier for a new context, containing the
@@ -233,6 +234,14 @@ func (f *factory) coreContext() (*HookContext, error) {
 		return nil, err
 	}
 	return ctx, nil
+}
+
+func (f *factory) getCharm() (charm.Charm, error) {
+	ch, err := charm.ReadCharm(f.paths.GetCharmDir())
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }
 
 // getContextRelations updates the factory's relation caches, and uses them

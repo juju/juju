@@ -44,11 +44,6 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 	return func() { opc.u.hookLock.Unlock() }, nil
 }
 
-// AcquireExecutionLock is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) GetRunner(ctx context.Context) context.Runner {
-	return context.NewRunner(ctx, opc.u.paths)
-}
-
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	if hi.Kind.IsRelation() {

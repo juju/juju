@@ -22,6 +22,9 @@ import (
 // Runner is reponsible for invoking commands in a context.
 type Runner interface {
 
+	// Context returns the context against which the runner executes.
+	Context() Context
+
 	// RunHook executes the hook with the supplied name.
 	RunHook(name string) error
 
@@ -68,6 +71,10 @@ func NewRunner(context Context, paths Paths) Runner {
 type runner struct {
 	context Context
 	paths   Paths
+}
+
+func (runner *runner) Context() Context {
+	return runner.context
 }
 
 // RunCommands exists to satisfy the Runner interface.

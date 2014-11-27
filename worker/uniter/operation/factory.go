@@ -17,23 +17,23 @@ import (
 // parameters.
 func NewFactory(
 	deployer charm.Deployer,
-	contextFactory context.Factory,
+	runnerFactory context.Factory,
 	callbacks Callbacks,
 	abort <-chan struct{},
 ) Factory {
 	return &factory{
-		deployer:       deployer,
-		contextFactory: contextFactory,
-		callbacks:      callbacks,
-		abort:          abort,
+		deployer:      deployer,
+		runnerFactory: runnerFactory,
+		callbacks:     callbacks,
+		abort:         abort,
 	}
 }
 
 type factory struct {
-	deployer       charm.Deployer
-	contextFactory context.Factory
-	callbacks      Callbacks
-	abort          <-chan struct{}
+	deployer      charm.Deployer
+	runnerFactory context.Factory
+	callbacks     Callbacks
+	abort         <-chan struct{}
 }
 
 // NewDeploy is part of the Factory interface.
@@ -58,9 +58,9 @@ func (f *factory) NewHook(hookInfo hook.Info) (Operation, error) {
 		return nil, err
 	}
 	return &runHook{
-		info:           hookInfo,
-		callbacks:      f.callbacks,
-		contextFactory: f.contextFactory,
+		info:          hookInfo,
+		callbacks:     f.callbacks,
+		runnerFactory: f.runnerFactory,
 	}, nil
 }
 
@@ -70,9 +70,9 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
 	return &runAction{
-		actionId:       actionId,
-		callbacks:      f.callbacks,
-		contextFactory: f.contextFactory,
+		actionId:      actionId,
+		callbacks:     f.callbacks,
+		runnerFactory: f.runnerFactory,
 	}, nil
 }
 
@@ -96,6 +96,6 @@ func (f *factory) NewCommands(commands string, relationId int, remoteUnitName st
 		remoteUnitName: remoteUnitName,
 		sendResponse:   sendResponse,
 		callbacks:      f.callbacks,
-		contextFactory: f.contextFactory,
+		runnerFactory:  f.runnerFactory,
 	}, nil
 }
