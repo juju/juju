@@ -210,7 +210,7 @@ func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
 
 	_, err = s.State.AddRelation(mysqlEP, wordpressSubEP)
 	c.Assert(err, gc.ErrorMatches,
-		`cannot add relation "wordpress:db mysql:server": container scoped relation requires one subordinate service`)
+		`cannot add relation "wordpress:db mysql:server": container scoped relation requires at least one subordinate service`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 }
@@ -225,10 +225,11 @@ func (s *RelationSuite) TestAddContainerRelationWithTwoSubordinates(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddRelation(logging1EP, logging2EP)
-	c.Assert(err, gc.ErrorMatches,
-		`cannot add relation "logging2:info logging1:juju-info": container scoped relation requires one subordinate service`)
-	assertNoRelations(c, logging1)
-	assertNoRelations(c, logging2)
+	c.Assert(err, gc.IsNil)
+	// AddRelation changes the scope on the endpoint if relation is container scoped.
+	logging1EP.Scope = charm.ScopeContainer
+	assertOneRelation(c, logging1, 0, logging1EP, logging2EP)
+	assertOneRelation(c, logging2, 0, logging2EP, logging1EP)
 }
 
 func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
