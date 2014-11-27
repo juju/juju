@@ -277,3 +277,5 @@ func StrictLocalID(st *State, id string) (string, error) {
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
 }
+
+var NowToTheSecond = nowToTheSecond

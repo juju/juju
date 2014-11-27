@@ -189,7 +189,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 				{"status", finalStatus},
 				{"message", message},
 				{"results", results},
-				{"completed", NowToTheSecond()},
+				{"completed", nowToTheSecond()},
 			}}},
 		}, {
 			C:      actionNotificationsC,
@@ -232,7 +232,7 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 			Receiver:   receiverTag.Id(),
 			Name:       actionName,
 			Parameters: parameters,
-			Enqueued:   NowToTheSecond(),
+			Enqueued:   nowToTheSecond(),
 			Status:     ActionPending,
 		}, actionNotificationDoc{
 			DocId:    st.docID(prefix + actionId.String()),
