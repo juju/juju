@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 )
 
 type BlockDevicesSuite struct {
@@ -25,79 +24,104 @@ func (s *BlockDevicesSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *BlockDevicesSuite) TestSetMachineBlockDevices(c *gc.C) {
-	inDevices := []storage.BlockDevice{{
-		DeviceName: "sda",
-	}}
-	err := s.machine.SetMachineBlockDevices(inDevices)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *BlockDevicesSuite) assertBlockDevices(c *gc.C, expected map[string]state.BlockDeviceInfo) {
+	devices, err := s.machine.BlockDevices()
+	c.Assert(err, gc.IsNil)
+	info := make(map[string]state.BlockDeviceInfo)
+	for _, dev := range devices {
+		info[dev.Name()] = dev.Info()
+	}
+	c.Assert(info, gc.DeepEquals, expected)
+}
 
-	outDevices, err := s.machine.BlockDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outDevices, jc.SameContents, inDevices)
+func (s *BlockDevicesSuite) TestSetMachineBlockDevices(c *gc.C) {
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	err := s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{"0": sda})
 }
 
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesReplaces(c *gc.C) {
-	inDevices1 := []storage.BlockDevice{{DeviceName: "sda"}}
-	err := s.machine.SetMachineBlockDevices(inDevices1)
-	c.Assert(err, jc.ErrorIsNil)
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	err := s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, gc.IsNil)
 
-	inDevices2 := []storage.BlockDevice{{DeviceName: "sdb"}}
-	err = s.machine.SetMachineBlockDevices(inDevices2)
-	c.Assert(err, jc.ErrorIsNil)
+	sdb := state.BlockDeviceInfo{DeviceName: "sdb"}
+	err = s.machine.SetMachineBlockDevices(sdb)
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{"1": sdb})
+}
 
-	outDevices, err := s.machine.BlockDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outDevices, jc.SameContents, inDevices2)
+func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUpdates(c *gc.C) {
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	sdb := state.BlockDeviceInfo{DeviceName: "sdb"}
+	err := s.machine.SetMachineBlockDevices(sda, sdb)
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{"0": sda, "1": sdb})
+
+	sdb.Label = "root"
+	err = s.machine.SetMachineBlockDevices(sdb)
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{"1": sdb})
+
+	// If a device is attached, unattached, then attached again,
+	// then it gets a new name.
+	sdb.Label = "" // Label should be reset.
+	err = s.machine.SetMachineBlockDevices(sda, sdb)
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{
+		"2": sda,
+		"1": sdb,
+	})
 }
 
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesConcurrently(c *gc.C) {
-	inDevices := []storage.BlockDevice{{
-		DeviceName: "sda",
-	}}
-	err := s.machine.SetMachineBlockDevices(inDevices)
-	c.Assert(err, jc.ErrorIsNil)
-
+	sdaInner := state.BlockDeviceInfo{DeviceName: "sda"}
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.machine.SetMachineBlockDevices(nil)
-		c.Assert(err, jc.ErrorIsNil)
+		err := s.machine.SetMachineBlockDevices(sdaInner)
+		c.Assert(err, gc.IsNil)
 	}).Check()
 
-	inDevices[0].Label = "root"
-	err = s.machine.SetMachineBlockDevices(inDevices)
-	c.Assert(err, jc.ErrorIsNil)
+	sdaOuter := state.BlockDeviceInfo{
+		DeviceName: "sda",
+		Label:      "root",
+	}
+	err := s.machine.SetMachineBlockDevices(sdaOuter)
+	c.Assert(err, gc.IsNil)
 
-	outDevices, err := s.machine.BlockDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outDevices, jc.SameContents, inDevices)
+	// SetMachineBlockDevices will not remove concurrently added
+	// block devices. This is fine in practice, because there is
+	// a single worker responsible for populating machine block
+	// devices.
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{
+		"1": sdaInner,
+		// The outer call gets 0 because it's called first;
+		// the before-hook call is called second but completes
+		// first.
+		"0": sdaOuter,
+	})
 }
 
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesEmpty(c *gc.C) {
-	for _, input := range [][]storage.BlockDevice{
-		nil,
-		[]storage.BlockDevice{},
-	} {
-		err := s.machine.SetMachineBlockDevices(input)
-		c.Assert(err, jc.ErrorIsNil)
-		outDevices, err := s.machine.BlockDevices()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(outDevices, gc.NotNil)
-		c.Assert(outDevices, gc.HasLen, 0)
-	}
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	err := s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{"0": sda})
+
+	err = s.machine.SetMachineBlockDevices()
+	c.Assert(err, gc.IsNil)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{})
 }
 
 func (s *BlockDevicesSuite) TestBlockDevicesMachineRemove(c *gc.C) {
-	err := s.machine.SetMachineBlockDevices([]storage.BlockDevice{{
-		DeviceName: "sda",
-	}})
-	c.Assert(err, jc.ErrorIsNil)
+	sda := state.BlockDeviceInfo{DeviceName: "sda"}
+	err := s.machine.SetMachineBlockDevices(sda)
+	c.Assert(err, gc.IsNil)
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	outDevices, err := s.machine.BlockDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(outDevices, gc.HasLen, 0)
+	s.assertBlockDevices(c, map[string]state.BlockDeviceInfo{})
 }

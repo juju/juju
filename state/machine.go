@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -649,7 +648,6 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
-		removeBlockDevicesOp(m.st, m.Id()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
@@ -662,8 +660,13 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	blockDeviceOps, err := removeMachineBlockDevicesOps(m.st, m.Id())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
+	ops = append(ops, blockDeviceOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -1375,16 +1378,20 @@ func (m *Machine) markInvalidContainers() error {
 }
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
-func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
-	return setMachineBlockDevices(m.st, m.Id(), devices)
+func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
+	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
 // BlockDevices gets the aggregated list of block devices attached to the
 // machine.
-func (m *Machine) BlockDevices() ([]storage.BlockDevice, error) {
-	subdocs, err := getBlockDevices(m.st, m.Id())
+func (m *Machine) BlockDevices() ([]BlockDevice, error) {
+	devices, err := getMachineBlockDevices(m.st, m.Id())
 	if err != nil {
 		return nil, err
 	}
-	return toBlockDevices(subdocs), nil
+	result := make([]BlockDevice, len(devices))
+	for i, dev := range devices {
+		result[i] = dev
+	}
+	return result, nil
 }
