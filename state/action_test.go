@@ -263,7 +263,6 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	// arrange
 	prefix := "feedbeef"
 	uuidMock := uuidMockHelper{}
 	uuidMock.SetPrefixMask(prefix)
@@ -284,10 +283,8 @@ func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 		c.Assert(err, gc.Equals, nil)
 	}
 
-	// act
 	tags := s.State.FindActionTagsByPrefix(prefix)
 
-	// assert
 	c.Assert(len(tags), gc.Equals, len(actions))
 	for i, tag := range tags {
 		c.Logf("check %q against %d:%q", prefix, i, tag)

@@ -103,7 +103,6 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *actionSuite) TestActions(c *gc.C) {
-	// arrange
 	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}},
@@ -121,11 +120,9 @@ func (s *actionSuite) TestActions(c *gc.C) {
 		entities[i] = params.Entity{Tag: result.Action.Tag}
 	}
 
-	// act
 	actions, err := s.action.Actions(params.Entities{Entities: entities})
 	c.Assert(err, gc.Equals, nil)
 
-	// assert
 	c.Assert(len(actions.Results), gc.Equals, len(entities))
 	for i, got := range actions.Results {
 		c.Logf("check index %d (%s: %s)", i, entities[i].Tag, arg.Actions[i].Name)
@@ -142,21 +139,18 @@ func (s *actionSuite) TestActions(c *gc.C) {
 }
 
 func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	// arrange
 	// NOTE: full testing with multiple matches has been moved to state package.
 	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}}}}
 	r, err := s.action.Enqueue(arg)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
 
-	// act
 	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
 	c.Assert(err, gc.Equals, nil)
 	prefix := actionTag.Id()[:7]
 	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
 	c.Assert(err, gc.Equals, nil)
 
-	// assert
 	entities, ok := tags.Matches[prefix]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(len(entities), gc.Equals, 1)
