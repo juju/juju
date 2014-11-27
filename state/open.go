@@ -148,24 +148,25 @@ var indexes = []struct {
 	collection string
 	key        []string
 	unique     bool
+	sparse     bool
 }{
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{relationsC, []string{"endpoints.relationname"}, false},
-	{relationsC, []string{"endpoints.servicename"}, false},
-	{unitsC, []string{"service"}, false},
-	{unitsC, []string{"principal"}, false},
-	{unitsC, []string{"machineid"}, false},
+	{relationsC, []string{"endpoints.relationname"}, false, false},
+	{relationsC, []string{"endpoints.servicename"}, false, false},
+	{unitsC, []string{"service"}, false, false},
+	{unitsC, []string{"principal"}, false, false},
+	{unitsC, []string{"machineid"}, false, false},
 	// TODO(thumper): schema change to remove this index.
-	{usersC, []string{"name"}, false},
-	{networksC, []string{"providerid"}, true},
-	{networkInterfacesC, []string{"interfacename", "machineid"}, true},
-	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
-	{networkInterfacesC, []string{"networkname"}, false},
-	{networkInterfacesC, []string{"machineid"}, false},
-	{blockDevicesC, []string{"machineid"}, false},
-	{subnetsC, []string{"providerid"}, true},
+	{usersC, []string{"name"}, false, false},
+	{networksC, []string{"providerid"}, true, false},
+	{networkInterfacesC, []string{"interfacename", "machineid"}, true, false},
+	{networkInterfacesC, []string{"macaddress", "networkname"}, true, false},
+	{networkInterfacesC, []string{"networkname"}, false, false},
+	{networkInterfacesC, []string{"machineid"}, false, false},
+	{blockDevicesC, []string{"machineid"}, false, false},
+	{subnetsC, []string{"providerid"}, true, true},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -255,7 +256,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}()
 
 	for _, item := range indexes {
-		index := mgo.Index{Key: item.key, Unique: item.unique}
+		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
 			return nil, errors.Annotate(err, "cannot create database index")
 		}

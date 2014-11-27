@@ -1262,7 +1262,13 @@ func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 			return nil, errors.Trace(err)
 		}
 	case nil:
-		return subnet, nil
+		// if the ProviderId was not unique adding the subnet can fail
+		// without an error. Refreshing catches this
+		err = subnet.Refresh()
+		if err == nil {
+			return subnet, nil
+		}
+		return nil, errors.Annotatef(err, "ProviderId not unique %q", args.ProviderId)
 	}
 	return nil, errors.Trace(err)
 }
