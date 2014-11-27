@@ -1345,7 +1345,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *StateSuite) TestSubnetEnsureDead(c *gc.C) {
+func (s *StateSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        "foo",
 		CIDR:              "192.168.1.0/24",
@@ -1356,15 +1356,27 @@ func (s *StateSuite) TestSubnetEnsureDead(c *gc.C) {
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// This should fail - not dead yet!
+	err = subnet.Remove()
+	c.Assert(err, gc.ErrorMatches, ".*subnet is not dead.*")
+
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.Life(), gc.Equals, state.Dead)
 
-	_, err = s.State.Subnet("192.168.1.0/24")
-	c.Assert(err, gc.ErrorMatches, "subnet \"192.168.1.0/24\" not found")
-
-	// destroying a second time should be a no-op
+	// EnsureDead a second time should also not be an error
 	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove should now work
+	err = subnet.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.Subnet("192.168.1.0/24")
+	c.Assert(err, gc.ErrorMatches, `.*subnet "192.168.1.0/24" not found.*`)
+
+	// removing a second time should be a no-op
+	err = subnet.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
