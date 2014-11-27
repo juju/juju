@@ -1442,7 +1442,7 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 			subordinateCount++
 		}
 	}
-	return subordinateCount == 1
+	return subordinateCount >= 1
 }
 
 // endpoints returns all endpoints that could be intended by the
