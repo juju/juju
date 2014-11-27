@@ -255,6 +255,24 @@ func (s *ImageSuite) TestAddImageSame(c *gc.C) {
 	}
 }
 
+func (s *ImageSuite) TestAddImageAndJustMetadataExists(c *gc.C) {
+	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "images/lxc-trusty-amd64:hash(abc)")
+	n, err := s.metadataCollection.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+	s.testAddImage(c, "abc")
+	n, err = s.metadataCollection.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
+}
+
+func (s *ImageSuite) TestJustMetadataFails(c *gc.C) {
+	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "images/lxc-trusty-amd64:hash(abc)")
+	_, rc, err := s.storage.Image("lxc", "trusty", "amd64")
+	c.Assert(rc, gc.IsNil)
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 	metadata0 := &imagestorage.Metadata{
 		EnvUUID: "my-uuid", Kind: "lxc", Series: "trusty", Arch: "amd64", Size: 1, SHA256: "0",

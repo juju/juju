@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
@@ -696,13 +697,12 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
+	imageURLGetter := container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: containers,
-		EnvUUID:             envUUID.Id(),
-		ApiServerAddr:       st.Addr(),
-		CACert:              []byte(agentConfig.CACert()),
+		ImageURLGetter:      imageURLGetter,
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              agentConfig,

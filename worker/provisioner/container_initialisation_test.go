@@ -92,9 +92,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 		Runner:              runner,
 		WorkerName:          watcherName,
 		SupportedContainers: instance.ContainerTypes,
-		EnvUUID:             "12345",
-		ApiServerAddr:       "host:80",
-		CACert:              []byte("cert"),
+		ImageURLGetter:      &containertesting.MockURLGetter{},
 		Machine:             machine,
 		Provisioner:         pr,
 		Config:              cfg,
@@ -187,10 +185,7 @@ func (s *ContainerSetupSuite) TestLxcContainerUesImageURL(c *gc.C) {
 		imageURLGetter container.ImageURLGetter) (environs.InstanceBroker, error) {
 		imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(
-			imageURL,
-			gc.Equals,
-			"https://host:80/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
+		c.Assert(imageURL, gc.Equals, "imageURL")
 		c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
 		brokerCalled = true
 		return nil, fmt.Errorf("lxc broker error")

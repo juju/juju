@@ -29,9 +29,7 @@ import (
 type ContainerSetup struct {
 	runner              worker.Runner
 	supportedContainers []instance.ContainerType
-	envUUID             string
-	apiServerAddr       string
-	caCert              []byte
+	imageURLGetter      container.ImageURLGetter
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
@@ -52,9 +50,7 @@ type ContainerSetupParams struct {
 	Runner              worker.Runner
 	WorkerName          string
 	SupportedContainers []instance.ContainerType
-	CACert              []byte
-	EnvUUID             string
-	ApiServerAddr       string
+	ImageURLGetter      container.ImageURLGetter
 	Machine             *apiprovisioner.Machine
 	Provisioner         *apiprovisioner.State
 	Config              agent.Config
@@ -66,9 +62,7 @@ type ContainerSetupParams struct {
 func NewContainerSetupHandler(params ContainerSetupParams) worker.StringsWatchHandler {
 	return &ContainerSetup{
 		runner:              params.Runner,
-		envUUID:             params.EnvUUID,
-		apiServerAddr:       params.ApiServerAddr,
-		caCert:              params.CACert,
+		imageURLGetter:      params.ImageURLGetter,
 		machine:             params.Machine,
 		supportedContainers: params.SupportedContainers,
 		provisioner:         params.Provisioner,
@@ -185,9 +179,7 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(
-			cs.provisioner, cs.config, managerConfig, container.NewImageURLGetter(cs.apiServerAddr, cs.envUUID, cs.caCert),
-		)
+		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig, cs.imageURLGetter)
 		if err != nil {
 			return nil, nil, err
 		}
