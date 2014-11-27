@@ -23,6 +23,10 @@ var (
 	TryClosePorts     = tryClosePorts
 )
 
+func RunnerPaths(rnr Runner) Paths {
+	return rnr.(*runner).paths
+}
+
 func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.RelationSettings) {
 	f := f0.(*factory)
 	members := f.relationCaches[relId].members
@@ -52,12 +56,14 @@ func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	}
 }
 
-func (c *HookContext) EnvInfo() (name, uuid string) {
-	return c.envName, c.uuid
+func ContextEnvInfo(ctx Context) (name, uuid string) {
+	hctx := ctx.(*HookContext)
+	return hctx.envName, hctx.uuid
 }
 
-func (c *HookContext) AssignedMachineTag() names.MachineTag {
-	return c.assignedMachineTag
+func ContextMachineTag(ctx Context) names.MachineTag {
+	hctx := ctx.(*HookContext)
+	return hctx.assignedMachineTag
 }
 
 func GetStubActionContext(in map[string]interface{}) *HookContext {
