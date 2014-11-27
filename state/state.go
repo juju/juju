@@ -1556,7 +1556,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
-		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
 			return nil, errors.Errorf("container scoped relation requires one subordinate service")
 		}
 
