@@ -274,7 +274,11 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		// For lxc containers, we cache image tarballs in the environment storage, so here
 		// we construct a URL getter.
 		if uuid, ok := ecfg.UUID(); ok {
-			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid)
+			var caCert []byte = nil
+			if cert, ok := cfg.CACert(); ok {
+				caCert = []byte(cert)
+			}
+			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid, caCert)
 		}
 	}
 	env.containerManager, err = factory.NewContainerManager(

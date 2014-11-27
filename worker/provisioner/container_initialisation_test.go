@@ -88,9 +88,19 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	cfg := s.AgentConfigForTag(c, tag)
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	handler := provisioner.NewContainerSetupHandler(
-		runner, watcherName, instance.ContainerTypes, "12345", "http://host:80", machine, pr, cfg, s.initLock,
-	)
+	params := provisioner.ContainerSetupParams{
+		Runner:              runner,
+		WorkerName:          watcherName,
+		SupportedContainers: instance.ContainerTypes,
+		EnvUUID:             "12345",
+		ApiServerAddr:       "host:80",
+		CACert:              []byte("cert"),
+		Machine:             machine,
+		Provisioner:         pr,
+		Config:              cfg,
+		InitLock:            s.initLock,
+	}
+	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
@@ -180,7 +190,8 @@ func (s *ContainerSetupSuite) TestLxcContainerUesImageURL(c *gc.C) {
 		c.Assert(
 			imageURL,
 			gc.Equals,
-			"http://host:80/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
+			"https://host:80/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")
+		c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
 		brokerCalled = true
 		return nil, fmt.Errorf("lxc broker error")
 	}

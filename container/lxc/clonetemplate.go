@@ -156,6 +156,7 @@ func EnsureCloneTemplate(
 		"--hostid", name, // Use the container name as the hostid
 		"-r", series,
 	}
+	var caCert []byte
 	if imageURLGetter != nil {
 		arch := arch.HostArch()
 		imageURL, err := imageURLGetter.ImageURL(instance.LXC, series, arch)
@@ -163,6 +164,7 @@ func EnsureCloneTemplate(
 			return nil, errors.Annotatef(err, "cannot determine cached image URL")
 		}
 		templateParams = append(templateParams, "-T", imageURL)
+		caCert = imageURLGetter.CACert()
 	}
 	var extraCreateArgs []string
 	if backingFilesystem == Btrfs {
@@ -171,7 +173,7 @@ func EnsureCloneTemplate(
 
 	// Create the container.
 	logger.Tracef("create the template container")
-	if err := createContainer(lxcContainer, network, containerDirectory, extraCreateArgs, templateParams); err != nil {
+	if err := createContainer(lxcContainer, network, containerDirectory, extraCreateArgs, templateParams, caCert); err != nil {
 		logger.Errorf("lxc template container creation failed: %v", err)
 		return nil, err
 	}

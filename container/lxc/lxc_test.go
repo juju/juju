@@ -147,7 +147,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		}, nil)
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -194,7 +194,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(params, nil)
+	manager, err := lxc.NewContainerManager(params, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
@@ -203,7 +203,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	}, nil)
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
@@ -338,12 +338,6 @@ func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 	s.AssertEvent(c, <-s.events, mock.Started, id)
 }
 
-type mockURLGetter struct{}
-
-func (ug *mockURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
-	return "imageURL", nil
-}
-
 func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	name := "juju-quantal-lxc-template"
 	ch := s.ensureTemplateStopped(name)
@@ -361,7 +355,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		aptMirror,
 		true,
 		true,
-		&mockURLGetter{},
+		&containertesting.MockURLGetter{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)

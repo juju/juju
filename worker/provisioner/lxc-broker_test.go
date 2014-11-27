@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
+	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
@@ -236,17 +237,11 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-type mockURLGetter struct{}
-
-func (ug *mockURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
-	return "imageURL", nil
-}
-
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &mockURLGetter{})
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }

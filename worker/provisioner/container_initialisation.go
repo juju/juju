@@ -31,6 +31,7 @@ type ContainerSetup struct {
 	supportedContainers []instance.ContainerType
 	envUUID             string
 	apiServerAddr       string
+	caCert              []byte
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
@@ -46,22 +47,34 @@ type ContainerSetup struct {
 	numberProvisioners int32
 }
 
+// ContainerSetupParams are used to initialise a container setup handler.
+type ContainerSetupParams struct {
+	Runner              worker.Runner
+	WorkerName          string
+	SupportedContainers []instance.ContainerType
+	CACert              []byte
+	EnvUUID             string
+	ApiServerAddr       string
+	Machine             *apiprovisioner.Machine
+	Provisioner         *apiprovisioner.State
+	Config              agent.Config
+	InitLock            *fslock.Lock
+}
+
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
 // containers are created on the given machine.
-func NewContainerSetupHandler(runner worker.Runner, workerName string, supportedContainers []instance.ContainerType,
-	envUUID, apiServerAddr string, machine *apiprovisioner.Machine, provisioner *apiprovisioner.State,
-	config agent.Config, initLock *fslock.Lock) worker.StringsWatchHandler {
-
+func NewContainerSetupHandler(params ContainerSetupParams) worker.StringsWatchHandler {
 	return &ContainerSetup{
-		runner:              runner,
-		envUUID:             envUUID,
-		apiServerAddr:       apiServerAddr,
-		machine:             machine,
-		supportedContainers: supportedContainers,
-		provisioner:         provisioner,
-		config:              config,
-		workerName:          workerName,
-		initLock:            initLock,
+		runner:              params.Runner,
+		envUUID:             params.EnvUUID,
+		apiServerAddr:       params.ApiServerAddr,
+		caCert:              params.CACert,
+		machine:             params.Machine,
+		supportedContainers: params.SupportedContainers,
+		provisioner:         params.Provisioner,
+		config:              params.Config,
+		workerName:          params.WorkerName,
+		initLock:            params.InitLock,
 	}
 }
 
@@ -173,7 +186,7 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 
 		initialiser = lxc.NewContainerInitialiser(series)
 		broker, err = NewLxcBroker(
-			cs.provisioner, cs.config, managerConfig, container.NewImageURLGetter(cs.apiServerAddr, cs.envUUID),
+			cs.provisioner, cs.config, managerConfig, container.NewImageURLGetter(cs.apiServerAddr, cs.envUUID, cs.caCert),
 		)
 		if err != nil {
 			return nil, nil, err

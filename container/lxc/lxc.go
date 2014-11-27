@@ -270,6 +270,7 @@ func (manager *containerManager) CreateContainer(
 			"--hostid", name, // Use the container name as the hostid
 			"-r", series,
 		}
+		var caCert []byte
 		if manager.imageURLGetter != nil {
 			arch := arch.HostArch()
 			imageURL, err := manager.imageURLGetter.ImageURL(instance.LXC, series, arch)
@@ -277,8 +278,9 @@ func (manager *containerManager) CreateContainer(
 				return nil, nil, errors.Annotatef(err, "cannot determine cached image URL")
 			}
 			templateParams = append(templateParams, "-T", imageURL)
+			caCert = manager.imageURLGetter.CACert()
 		}
-		if err = createContainer(lxcContainer, network, directory, nil, templateParams); err != nil {
+		if err = createContainer(lxcContainer, network, directory, nil, templateParams, caCert); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -326,7 +328,7 @@ func (manager *containerManager) CreateContainer(
 }
 
 func createContainer(lxcContainer golxc.Container, network *container.NetworkConfig, containerDirectory string,
-	extraCreateArgs, templateParams []string,
+	extraCreateArgs, templateParams []string, caCert []byte,
 ) error {
 	logger.Tracef("write the lxc.conf file")
 	configFile, err := writeLxcConfig(network, containerDirectory)
@@ -334,11 +336,15 @@ func createContainer(lxcContainer golxc.Container, network *container.NetworkCon
 		return errors.Annotatef(err, "failed to write config file")
 	}
 
-	execEnv, closer, err := wgetEnvironment()
-	if err != nil {
-		return errors.Annotatef(err, "failed to get environment for wget execution")
+	var execEnv []string = nil
+	var closer func()
+	if caCert != nil {
+		execEnv, closer, err = wgetEnvironment(caCert)
+		if err != nil {
+			return errors.Annotatef(err, "failed to get environment for wget execution")
+		}
+		defer closer()
 	}
-	defer closer()
 
 	// Create the container.
 	logger.Debugf("create the lxc container")
@@ -353,16 +359,12 @@ func createContainer(lxcContainer golxc.Container, network *container.NetworkCon
 // --no-check-certificate argument, patching the PATH to ensure
 // the script is invoked by the lxc template bash script.
 // It returns a slice of env variables to pass to the lxc create command.
-func wgetEnvironment() (execEnv []string, closer func(), _ error) {
+func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	env := os.Environ()
 	kv, err := keyvalues.Parse(env, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	wget := `#!/bin/bash
-/usr/bin/wget --no-check-certificate $*
-
-`
 	// Create a wget bash script in a temporary directory.
 	tmpDir, err := ioutil.TempDir("", "wget")
 	if err != nil {
@@ -371,9 +373,23 @@ func wgetEnvironment() (execEnv []string, closer func(), _ error) {
 	closer = func() {
 		os.RemoveAll(tmpDir)
 	}
+	// Write the ca cert.
+	caCertPath := filepath.Join(tmpDir, "ca-cert.pem")
+	err = ioutil.WriteFile(caCertPath, caCert, 0755)
+	if err != nil {
+		defer closer()
+		return nil, nil, err
+	}
+
+	// Write the wget script.
+	wgetTmpl := `#!/bin/bash
+/usr/bin/wget --ca-certificate=%s $*
+`
+	wget := fmt.Sprintf(wgetTmpl, caCertPath)
 	err = ioutil.WriteFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
 	if err != nil {
-		return nil, closer, err
+		defer closer()
+		return nil, nil, err
 	}
 
 	// Update the path to point to the script.

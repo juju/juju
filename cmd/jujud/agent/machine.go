@@ -696,17 +696,19 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	handler := provisioner.NewContainerSetupHandler(
-		runner,
-		watcherName,
-		containers,
-		envUUID.Id(),
-		st.Addr(),
-		machine,
-		pr,
-		agentConfig,
-		initLock,
-	)
+	params := provisioner.ContainerSetupParams{
+		Runner:              runner,
+		WorkerName:          watcherName,
+		SupportedContainers: containers,
+		EnvUUID:             envUUID.Id(),
+		ApiServerAddr:       st.Addr(),
+		CACert:              []byte(agentConfig.CACert()),
+		Machine:             machine,
+		Provisioner:         pr,
+		Config:              agentConfig,
+		InitLock:            initLock,
+	}
+	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})

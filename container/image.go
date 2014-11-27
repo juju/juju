@@ -20,19 +20,25 @@ type ImageURLGetter interface {
 	// ImageURL returns a URL which can be used to fetch an image of the
 	// specified kind, series, and arch.
 	ImageURL(kind instance.ContainerType, series, arch string) (string, error)
+
+	// CACert returns the ca certificate used to validate the state server
+	// certificate when using wget.
+	CACert() []byte
 }
 
 type imageURLGetter struct {
 	serverRoot string
 	envuuid    string
+	caCert     []byte
 }
 
 // NewImageURLGetter returns an ImageURLGetter for the specified state
 // server address and environment UUID.
-func NewImageURLGetter(serverRoot, envuuid string) ImageURLGetter {
+func NewImageURLGetter(serverRoot, envuuid string, caCert []byte) ImageURLGetter {
 	return &imageURLGetter{
 		serverRoot,
 		envuuid,
+		caCert,
 	}
 }
 
@@ -45,9 +51,14 @@ func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch str
 	imageFilename := path.Base(imageURL)
 
 	imageUrl := fmt.Sprintf(
-		"%s/environment/%s/images/%v/%s/%s/%s", ug.serverRoot, ug.envuuid, kind, series, arch, imageFilename,
+		"https://%s/environment/%s/images/%v/%s/%s/%s", ug.serverRoot, ug.envuuid, kind, series, arch, imageFilename,
 	)
 	return imageUrl, nil
+}
+
+// CACert is specified on the NewImageURLGetter interface.
+func (ug *imageURLGetter) CACert() []byte {
+	return ug.caCert
 }
 
 // ImageDownloadURL determines the public URL which can be used to obtain an
