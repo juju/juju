@@ -1301,27 +1301,28 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	// invalid IP address
 	subnetInfo.AllocatableIPHigh = "foobar"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid AllocatableIPHigh \"foobar\"")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid AllocatableIPHigh \"foobar\"`)
 
 	// invalid IP address
 	subnetInfo.AllocatableIPLow = "foobar"
 	subnetInfo.AllocatableIPHigh = "192.168.0.1"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid AllocatableIPLow \"foobar\"")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid AllocatableIPLow "foobar"`)
 
 	// IP address out of range
 	subnetInfo.AllocatableIPHigh = "172.168.1.0"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid AllocatableIPHigh \"172.168.1.0\"")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid AllocatableIPHigh "172.168.1.0"`)
 
 	// IP address out of range
 	subnetInfo.AllocatableIPHigh = "192.168.0.1"
 	subnetInfo.AllocatableIPLow = "172.168.1.0"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid AllocatableIPLow \"172.168.1.0\"")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid AllocatableIPLow "172.168.1.0"`)
 
 	// valid case
 	subnetInfo.AllocatableIPLow = "192.168.0.1"
+	subnetInfo.ProviderId = "testing uniquenesss"
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1331,7 +1332,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	// ProviderId should be unique as well as CIDR
 	subnetInfo.CIDR = "192.0.0.0/0"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, `ProviderId not unique ""`)
+	c.Assert(err, gc.ErrorMatches, `ProviderId not unique "testing uniqueness".*`)
 }
 
 func (s *StateSuite) TestSubnetEnsureDead(c *gc.C) {
