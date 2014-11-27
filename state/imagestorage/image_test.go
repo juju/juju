@@ -173,7 +173,7 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	storage := imagestorage.NewStorage(s.session, "my-uuid")
-	imagestorage.SetRemoveFailsManagedStorage(storage)
+	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	addedMetadata := &imagestorage.Metadata{
 		EnvUUID: "my-uuid",
 		Kind:    "lxc",
@@ -223,7 +223,7 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
 
 func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
 	storage := imagestorage.NewStorage(s.session, "my-uuid")
-	imagestorage.SetRemoveFailsManagedStorage(storage)
+	s.PatchValue(imagestorage.GetManagedStorage, imagestorage.RemoveFailsManagedStorage)
 	s.txnRunner = errorTransactionRunner{s.txnRunner}
 	addedMetadata := &imagestorage.Metadata{
 		EnvUUID: "my-uuid",

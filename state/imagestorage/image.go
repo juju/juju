@@ -31,8 +31,8 @@ const (
 
 type imageStorage struct {
 	envUUID            string
-	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
+	blobDb             *mgo.Database
 }
 
 var _ Storage = (*imageStorage)(nil)
@@ -44,20 +44,25 @@ func NewStorage(
 	session *mgo.Session,
 	envUUID string,
 ) Storage {
-	db := session.DB(ImagesDB)
-	managedStorage := getManagedStorage(ImagesDB, db, session)
-	metadataCollection := db.C(imagemetadataC)
+	blobDb := session.DB(ImagesDB)
+	metadataCollection := blobDb.C(imagemetadataC)
 	return &imageStorage{
 		envUUID,
-		managedStorage,
 		metadataCollection,
+		blobDb,
 	}
 }
 
-func getManagedStorage(dbName string, db *mgo.Database, session *mgo.Session) blobstore.ManagedStorage {
-	rs := blobstore.NewGridFS(ImagesDB, dbName, session)
+// Override for testing.
+var getManagedStorage = func(session *mgo.Session) blobstore.ManagedStorage {
+	rs := blobstore.NewGridFS(ImagesDB, ImagesDB, session)
+	db := session.DB(ImagesDB)
 	metadataDb := db.With(session)
 	return blobstore.NewManagedStorage(metadataDb, rs)
+}
+
+func (s *imageStorage) getManagedStorage() blobstore.ManagedStorage {
+	return getManagedStorage(s.blobDb.Session.Copy())
 }
 
 func (s *imageStorage) txnRunnerWithSession() (jujutxn.Runner, *mgo.Session) {
@@ -74,15 +79,16 @@ var txnRunner = func(db *mgo.Database) jujutxn.Runner {
 
 // AddImage is defined on the Storage interface.
 func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr error) {
+	managedStorage := s.getManagedStorage()
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
+	if err := managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store image")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := s.managedStorage.RemoveForEnvironment(s.envUUID, path)
+		err := managedStorage.RemoveForEnvironment(s.envUUID, path)
 		if err != nil {
 			logger.Errorf("failed to remove image blob: %v", err)
 		}
@@ -143,7 +149,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 	if oldPath != "" && oldPath != path {
 		// Attempt to remove the old path. Failure is non-fatal.
-		err := s.managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
+		err := managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
 		if err != nil {
 			logger.Errorf("failed to remove old image blob: %v", err)
 		} else {
@@ -156,7 +162,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 // DeleteImage is defined on the Storage interface.
 func (s *imageStorage) DeleteImage(metadata *Metadata) (resultErr error) {
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := s.managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
+	if err := s.getManagedStorage().RemoveForEnvironment(s.envUUID, path); err != nil {
 		return errors.Annotate(err, "cannot remove image blob")
 	}
 	// Remove the metadata.
@@ -188,7 +194,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 	if err != nil {
 		return nil, nil, err
 	}
-	image, err := s.imageBlob(metadataDoc.Path)
+	image, err := s.imageBlob(s.getManagedStorage(), metadataDoc.Path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -229,8 +235,8 @@ func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (ima
 	return doc, nil
 }
 
-func (s *imageStorage) imageBlob(path string) (io.ReadCloser, error) {
-	r, _, err := s.managedStorage.GetForEnvironment(s.envUUID, path)
+func (s *imageStorage) imageBlob(managedStorage blobstore.ManagedStorage, path string) (io.ReadCloser, error) {
+	r, _, err := managedStorage.GetForEnvironment(s.envUUID, path)
 	return r, err
 }
 

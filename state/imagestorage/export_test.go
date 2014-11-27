@@ -11,7 +11,7 @@ import (
 
 // ManagedStorage returns the managedStorage attribute for the storage.
 func ManagedStorage(s Storage) blobstore.ManagedStorage {
-	return s.(*imageStorage).managedStorage
+	return s.(*imageStorage).getManagedStorage()
 }
 
 // MetadataCollection returns the metadataCollection attribute for the storage.
@@ -19,10 +19,13 @@ func MetadataCollection(s Storage) *mgo.Collection {
 	return s.(*imageStorage).metadataCollection
 }
 
-// SetRemoveFailsManagedStorage sets a patched managedStorage attribute for storage,
+// RemoveFailsManagedStorage returns a patched managedStorage,
 // which fails when Remove is called.
-func SetRemoveFailsManagedStorage(s Storage) {
-	s.(*imageStorage).managedStorage = removeFailsManagedStorage{s.(*imageStorage).managedStorage}
+var RemoveFailsManagedStorage = func(session *mgo.Session) blobstore.ManagedStorage {
+	rs := blobstore.NewGridFS(ImagesDB, ImagesDB, session)
+	db := session.DB(ImagesDB)
+	metadataDb := db.With(session)
+	return removeFailsManagedStorage{blobstore.NewManagedStorage(metadataDb, rs)}
 }
 
 type removeFailsManagedStorage struct {
@@ -34,3 +37,4 @@ func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
 }
 
 var TxnRunner = &txnRunner
+var GetManagedStorage = &getManagedStorage
