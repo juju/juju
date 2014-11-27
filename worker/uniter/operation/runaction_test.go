@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type RunActionSuite struct {
@@ -22,7 +22,7 @@ type RunActionSuite struct {
 var _ = gc.Suite(&RunActionSuite{})
 
 func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
-	errBadAction := context.NewBadActionError("some-action-id", "splat")
+	errBadAction := runner.NewBadActionError("some-action-id", "splat")
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errBadAction},
 	}
@@ -42,7 +42,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 }
 
 func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
-	errBadAction := context.NewBadActionError("some-action-id", "foof")
+	errBadAction := runner.NewBadActionError("some-action-id", "foof")
 	runnerFactory := &MockRunnerFactory{
 		MockNewActionRunner: &MockNewActionRunner{err: errBadAction},
 	}
@@ -63,7 +63,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 
 func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
-		MockNewActionRunner: &MockNewActionRunner{err: context.ErrActionNotAvailable},
+		MockNewActionRunner: &MockNewActionRunner{err: runner.ErrActionNotAvailable},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
 	op, err := factory.NewAction(someActionId)
@@ -85,7 +85,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(newState, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot create context for action ".*": foop`)
+	c.Assert(err, gc.ErrorMatches, `cannot create runner for action ".*": foop`)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
 }
 

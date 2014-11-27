@@ -9,8 +9,8 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.operation")
@@ -97,8 +97,8 @@ type Callbacks interface {
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
-	NotifyHookCompleted(string, context.Context)
-	NotifyHookFailed(string, context.Context)
+	NotifyHookCompleted(string, runner.Context)
+	NotifyHookFailed(string, runner.Context)
 
 	// FailAction marks the supplied action failed. It exists so we can test
 	// the operation package without involving the API. It's only used by

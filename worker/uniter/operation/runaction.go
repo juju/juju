@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/worker/uniter/context"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type runAction struct {
 	actionId string
 
 	callbacks     Callbacks
-	runnerFactory context.Factory
+	runnerFactory runner.Factory
 
 	name   string
-	runner context.Runner
+	runner runner.Runner
 }
 
 // String is part of the Operation interface.
@@ -32,15 +32,15 @@ func (ra *runAction) String() string {
 // Prepare is part of the Operation interface.
 func (ra *runAction) Prepare(state State) (*State, error) {
 	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId)
-	if cause := errors.Cause(err); context.IsBadActionError(cause) {
+	if cause := errors.Cause(err); runner.IsBadActionError(cause) {
 		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
 			return nil, err
 		}
 		return nil, ErrSkipExecute
-	} else if cause == context.ErrActionNotAvailable {
+	} else if cause == runner.ErrActionNotAvailable {
 		return nil, ErrSkipExecute
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot create context for action %q", ra.actionId)
+		return nil, errors.Annotatef(err, "cannot create runner for action %q", ra.actionId)
 	}
 	actionData, err := rnr.Context().ActionData()
 	if err != nil {

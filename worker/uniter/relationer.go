@@ -9,9 +9,9 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 
 	apiuniter "github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // Relationer manages a unit's presence in a relation.
@@ -34,13 +34,13 @@ func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir, hooks cha
 }
 
 // ContextInfo returns a represention of r's current state.
-func (r *Relationer) ContextInfo() *context.RelationInfo {
+func (r *Relationer) ContextInfo() *runner.RelationInfo {
 	members := r.dir.State().Members
 	memberNames := make([]string, 0, len(members))
 	for memberName := range members {
 		memberNames = append(memberNames, memberName)
 	}
-	return &context.RelationInfo{r.ru, memberNames}
+	return &runner.RelationInfo{r.ru, memberNames}
 }
 
 // IsImplicit returns whether the local relation endpoint is implicit. Implicit

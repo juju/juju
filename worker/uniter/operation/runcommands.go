@@ -6,7 +6,7 @@ package operation
 import (
 	"fmt"
 
-	"github.com/juju/juju/worker/uniter/context"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type runCommands struct {
@@ -16,9 +16,9 @@ type runCommands struct {
 	sendResponse   CommandResponseFunc
 
 	callbacks     Callbacks
-	runnerFactory context.Factory
+	runnerFactory runner.Factory
 
-	runner context.Runner
+	runner runner.Runner
 }
 
 // String is part of the Operation interface.
@@ -57,10 +57,10 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 
 	response, err := rc.runner.RunCommands(rc.commands)
 	switch err {
-	case context.ErrRequeueAndReboot:
+	case runner.ErrRequeueAndReboot:
 		logger.Warningf("cannot requeue external commands")
 		fallthrough
-	case context.ErrReboot:
+	case runner.ErrReboot:
 		err = ErrNeedsReboot
 	}
 	rc.sendResponse(response, err)

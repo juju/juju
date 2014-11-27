@@ -10,8 +10,8 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type RunCommandsSuite struct {
@@ -73,7 +73,7 @@ func (s *RunCommandsSuite) TestExecuteLockError(c *gc.C) {
 }
 
 func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
-	for _, sendErr := range []error{context.ErrRequeueAndReboot, context.ErrReboot} {
+	for _, sendErr := range []error{runner.ErrRequeueAndReboot, runner.ErrReboot} {
 		runnerFactory := NewRunCommandsRunnerFactory(
 			&utilexec.ExecResponse{Code: 101}, sendErr,
 		)

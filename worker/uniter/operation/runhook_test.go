@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type RunHookSuite struct {
@@ -124,7 +124,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(c *gc.C, runErr error) (operation.Op
 }
 
 func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, context.NewMissingHookError("blah-blah"))
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, runner.NewMissingHookError("blah-blah"))
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -143,7 +143,7 @@ func (s *RunHookSuite) TestExecuteMissingHookError(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, context.ErrRequeueAndReboot)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, runner.ErrRequeueAndReboot)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -163,7 +163,7 @@ func (s *RunHookSuite) TestExecuteRequeueRebootError(c *gc.C) {
 }
 
 func (s *RunHookSuite) TestExecuteRebootError(c *gc.C) {
-	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, context.ErrReboot)
+	op, callbacks, runnerFactory := s.getExecuteRunnerTest(c, runner.ErrReboot)
 	_, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 

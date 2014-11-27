@@ -10,18 +10,18 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type runHook struct {
 	info hook.Info
 
 	callbacks     Callbacks
-	runnerFactory context.Factory
+	runnerFactory runner.Factory
 
 	name   string
-	runner context.Runner
+	runner runner.Runner
 }
 
 // String is part of the Operation interface.
@@ -73,13 +73,13 @@ func (rh *runHook) Execute(state State) (*State, error) {
 	err = rh.runner.RunHook(rh.name)
 	cause := errors.Cause(err)
 	switch {
-	case context.IsMissingHookError(cause):
+	case runner.IsMissingHookError(cause):
 		ranHook = false
 		err = nil
-	case cause == context.ErrRequeueAndReboot:
+	case cause == runner.ErrRequeueAndReboot:
 		step = Queued
 		fallthrough
-	case cause == context.ErrReboot:
+	case cause == runner.ErrReboot:
 		err = ErrNeedsReboot
 	case err == nil:
 	default:

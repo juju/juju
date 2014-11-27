@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -246,7 +246,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
 	u.deployer = &deployerProxy{deployer}
-	runnerFactory, err := context.NewFactory(
+	runnerFactory, err := runner.NewFactory(
 		u.st, unitTag, u.getRelationInfos, u.paths,
 	)
 	if err != nil {
@@ -296,8 +296,8 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
-	relationInfos := map[int]*context.RelationInfo{}
+func (u *Uniter) getRelationInfos() map[int]*runner.RelationInfo {
+	relationInfos := map[int]*runner.RelationInfo{}
 	for id, r := range u.relationers {
 		relationInfos[id] = r.ContextInfo()
 	}

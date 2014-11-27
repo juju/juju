@@ -9,15 +9,15 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // NewFactory returns a Factory that creates Operations backed by the supplied
 // parameters.
 func NewFactory(
 	deployer charm.Deployer,
-	runnerFactory context.Factory,
+	runnerFactory runner.Factory,
 	callbacks Callbacks,
 	abort <-chan struct{},
 ) Factory {
@@ -31,7 +31,7 @@ func NewFactory(
 
 type factory struct {
 	deployer      charm.Deployer
-	runnerFactory context.Factory
+	runnerFactory runner.Factory
 	callbacks     Callbacks
 	abort         <-chan struct{}
 }
