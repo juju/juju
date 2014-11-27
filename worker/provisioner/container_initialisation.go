@@ -29,6 +29,8 @@ import (
 type ContainerSetup struct {
 	runner              worker.Runner
 	supportedContainers []instance.ContainerType
+	envUUID             string
+	apiServerAddr       string
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
@@ -47,11 +49,13 @@ type ContainerSetup struct {
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
 // containers are created on the given machine.
 func NewContainerSetupHandler(runner worker.Runner, workerName string, supportedContainers []instance.ContainerType,
-	machine *apiprovisioner.Machine, provisioner *apiprovisioner.State,
+	envUUID, apiServerAddr string, machine *apiprovisioner.Machine, provisioner *apiprovisioner.State,
 	config agent.Config, initLock *fslock.Lock) worker.StringsWatchHandler {
 
 	return &ContainerSetup{
 		runner:              runner,
+		envUUID:             envUUID,
+		apiServerAddr:       apiServerAddr,
 		machine:             machine,
 		supportedContainers: supportedContainers,
 		provisioner:         provisioner,
@@ -168,7 +172,9 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig)
+		broker, err = NewLxcBroker(
+			cs.provisioner, cs.config, managerConfig, container.NewImageURLGetter(cs.apiServerAddr, cs.envUUID),
+		)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -1,26 +1,43 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package container
 
 import (
 	"fmt"
-	"math/rand"
 	"os/exec"
 	"path"
 	"strings"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/instance"
 )
 
-// ImageURL returns a URL which can be used to download with the specified parameters from
-// the state server blob store.
-func ImageURL(apiInfo *Info, kind instance.ContainerType, series, arch string) (string, error) {
-	serverRoot, err := serverRoot(apiInfo)
-	if err != nil {
-		return "", err
+// ImageURLGetter implementations provide a getter which returns a URL which
+// can be used to fetch an image blob.
+type ImageURLGetter interface {
+	// ImageURL returns a URL which can be used to fetch an image of the
+	// specified kind, series, and arch.
+	ImageURL(kind instance.ContainerType, series, arch string) (string, error)
+}
+
+type imageURLGetter struct {
+	serverRoot string
+	envuuid    string
+}
+
+// NewImageURLGetter returns an ImageURLGetter for the specified state
+// server address and environment UUID.
+func NewImageURLGetter(serverRoot, envuuid string) ImageURLGetter {
+	return &imageURLGetter{
+		serverRoot,
+		envuuid,
 	}
+}
+
+// ImageURL is specified on the NewImageURLGetter interface.
+func (ug *imageURLGetter) ImageURL(kind instance.ContainerType, series, arch string) (string, error) {
 	imageURL, err := ImageDownloadURL(kind, series, arch)
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
@@ -28,18 +45,9 @@ func ImageURL(apiInfo *Info, kind instance.ContainerType, series, arch string) (
 	imageFilename := path.Base(imageURL)
 
 	imageUrl := fmt.Sprintf(
-		"%s/environment/%s/images/%v/%s/%s/%s", serverRoot, apiInfo.EnvironTag.Id(), kind, series, arch, imageFilename,
+		"%s/environment/%s/images/%v/%s/%s/%s", ug.serverRoot, ug.envuuid, kind, series, arch, imageFilename,
 	)
 	return imageUrl, nil
-}
-
-func serverRoot(apiInfo *Info) (string, error) {
-	if len(apiInfo.Addrs) == 0 {
-		return "", errors.New("no API host ports")
-	}
-	// Choose a API server at random.
-	apiAddress := apiInfo.Addrs[rand.Int()%len(apiInfo.Addrs)]
-	return fmt.Sprintf("https://%s", apiAddress), nil
 }
 
 // ImageDownloadURL determines the public URL which can be used to obtain an

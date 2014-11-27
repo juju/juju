@@ -22,7 +22,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
@@ -114,6 +113,7 @@ type containerManager struct {
 	createWithClone   bool
 	useAUFS           bool
 	backingFilesystem string
+	imageURLGetter    container.ImageURLGetter
 }
 
 // containerManager implements container.Manager.
@@ -122,7 +122,7 @@ var _ container.Manager = (*containerManager)(nil)
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
+func NewContainerManager(conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
 	name := conf.PopValue(container.ConfigName)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
@@ -161,6 +161,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		createWithClone:   useClone,
 		useAUFS:           useAUFS,
 		backingFilesystem: backingFS,
+		imageURLGetter:    imageURLGetter,
 	}, nil
 }
 
@@ -220,14 +221,6 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
 
-	// If we need to create a container, we direct the lxc utilities to download
-	// image from the state server, so we can cache them. Here we construct the
-	// URL used to download the image and which is passed to lxc.
-	hostArch := arch.HostArch()
-	imageURL, err := api.ImageURL(machineConfig.APIInfo, instance.LXC, series, hostArch)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to create the image URL")
-	}
 	var lxcContainer golxc.Container
 	if manager.createWithClone {
 		templateContainer, err := EnsureCloneTemplate(
@@ -239,7 +232,7 @@ func (manager *containerManager) CreateContainer(
 			machineConfig.AptMirror,
 			machineConfig.EnableOSRefreshUpdate,
 			machineConfig.EnableOSUpgrade,
-			imageURL,
+			manager.imageURLGetter,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -276,7 +269,14 @@ func (manager *containerManager) CreateContainer(
 			"--userdata", userDataFilename, // Our groovey cloud-init
 			"--hostid", name, // Use the container name as the hostid
 			"-r", series,
-			"-T", imageURL,
+		}
+		if manager.imageURLGetter != nil {
+			arch := arch.HostArch()
+			imageURL, err := manager.imageURLGetter.ImageURL(instance.LXC, series, arch)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "cannot determine cached image URL")
+			}
+			templateParams = append(templateParams, "-T", imageURL)
 		}
 		if err = createContainer(lxcContainer, network, directory, nil, templateParams); err != nil {
 			return nil, nil, err
@@ -341,7 +341,8 @@ func createContainer(lxcContainer golxc.Container, network *container.NetworkCon
 	defer closer()
 
 	// Create the container.
-	logger.Tracef("create the container")
+	logger.Debugf("create the lxc container")
+	logger.Debugf("lxc-create template params: %v", templateParams)
 	if err := lxcContainer.Create(configFile, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
 		return errors.Annotatef(err, "lxc container creation failed")
 	}

@@ -263,6 +263,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigName:   env.config.namespace(),
 		container.ConfigLogDir: env.config.logDir(),
 	}
+	var imageURLGetter container.ImageURLGetter
 	if containerType == instance.LXC {
 		if useLxcClone, ok := cfg.LXCUseClone(); ok {
 			managerConfig["use-clone"] = fmt.Sprint(useLxcClone)
@@ -270,9 +271,14 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		if useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS(); ok {
 			managerConfig["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
 		}
+		// For lxc containers, we cache image tarballs in the environment storage, so here
+		// we construct a URL getter.
+		if uuid, ok := ecfg.UUID(); ok {
+			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid)
+		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
-		containerType, managerConfig)
+		containerType, managerConfig, imageURLGetter)
 	if err != nil {
 		return err
 	}

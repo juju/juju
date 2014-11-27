@@ -691,11 +691,17 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
+	envUUID, err := st.EnvironTag()
+	if err != nil {
+		return err
+	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(
 		runner,
 		watcherName,
 		containers,
+		envUUID.Id(),
+		st.Addr(),
 		machine,
 		pr,
 		agentConfig,

@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -106,7 +106,7 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Storage, envuuid, series, arch string) (
 	*imagestorage.Metadata, io.ReadCloser, error,
 ) {
-	imageURL, err := api.ImageDownloadURL(instance.LXC, series, arch)
+	imageURL, err := container.ImageDownloadURL(instance.LXC, series, arch)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot determine LXC image URL: %v", err)
 	}

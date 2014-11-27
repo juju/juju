@@ -100,3 +100,7 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	return inst, nil
 
 }
+
+// FakeLxcURLScript is used to replace ubuntu-cloudimg-query in tests.
+var FakeLxcURLScript = `#!/bin/bash
+echo -n test://cloud-images/$1-$2-$3.tar.gz`

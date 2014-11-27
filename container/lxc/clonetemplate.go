@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
@@ -19,6 +20,8 @@ import (
 	corecloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 )
 
 const (
@@ -108,7 +111,7 @@ func EnsureCloneTemplate(
 	aptMirror string,
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
-	imageURL string,
+	imageURLGetter container.ImageURLGetter,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
@@ -152,7 +155,14 @@ func EnsureCloneTemplate(
 		"--userdata", userDataFilename, // Our groovey cloud-init
 		"--hostid", name, // Use the container name as the hostid
 		"-r", series,
-		"-T", imageURL,
+	}
+	if imageURLGetter != nil {
+		arch := arch.HostArch()
+		imageURL, err := imageURLGetter.ImageURL(instance.LXC, series, arch)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot determine cached image URL")
+		}
+		templateParams = append(templateParams, "-T", imageURL)
 	}
 	var extraCreateArgs []string
 	if backingFilesystem == Btrfs {

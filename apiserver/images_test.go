@@ -17,6 +17,7 @@ import (
 
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
+	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/state/imagestorage"
 )
@@ -64,12 +65,9 @@ func useTestImageData(files map[string]string) {
 	}
 }
 
-var lxcURLScript = `#!/bin/bash
-echo -n test://cloud-images/$1-$2-$3.tar.gz`
-
 func (s *imageSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// Set up some image data for a fake server.
-	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", lxcURLScript)
+	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	useTestImageData(map[string]string{
 		"/trusty-released-amd64-root.tar.gz": s.imageData,
 		"/SHA256SUMS":                        s.imageChecksum + " *trusty-released-amd64-root.tar.gz",
@@ -94,7 +92,7 @@ func (s *imageSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 
 func (s *imageSuite) TestDownloadFetchChecksumMismatch(c *gc.C) {
 	// Set up some image data for a fake server.
-	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", lxcURLScript)
+	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	useTestImageData(map[string]string{
 		"/trusty-released-amd64-root.tar.gz": s.imageData,
 		"/SHA256SUMS":                        "different-checksum *trusty-released-amd64-root.tar.gz",
@@ -111,7 +109,7 @@ func (s *imageSuite) TestDownloadFetchChecksumMismatch(c *gc.C) {
 
 func (s *imageSuite) TestDownloadFetchNoSHA256File(c *gc.C) {
 	// Set up some image data for a fake server.
-	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", lxcURLScript)
+	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	useTestImageData(map[string]string{
 		"/trusty-released-amd64-root.tar.gz": s.imageData,
 	})
