@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 func init() {
@@ -72,9 +73,24 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevic
 		if !canAccess(tag) {
 			err = common.ErrPerm
 		} else {
-			err = d.st.SetMachineBlockDevices(tag.Id(), arg.BlockDevices)
+			err = d.st.SetMachineBlockDevices(tag.Id(), stateBlockDeviceInfo(arg.BlockDevices))
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo {
+	result := make([]state.BlockDeviceInfo, len(devices))
+	for i, dev := range devices {
+		result[i] = state.BlockDeviceInfo{
+			dev.DeviceName,
+			dev.Label,
+			dev.UUID,
+			dev.Serial,
+			dev.Size,
+			dev.InUse,
+		}
+	}
+	return result
 }
