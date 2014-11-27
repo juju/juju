@@ -1288,15 +1288,17 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	subnetInfo.VLANTag = 4095
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "invalid VLAN tag 4095: must be between 0 and 4094")
+
+	eitherOrMsg := "either both AllocatableIPLow and AllocatableIPHigh must be set or neither set"
 	subnetInfo.VLANTag = 0
 	subnetInfo.AllocatableIPHigh = "192.168.0.1"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, eitherOrMsg)
 
 	subnetInfo.AllocatableIPLow = "192.168.0.1"
 	subnetInfo.AllocatableIPHigh = ""
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "either both AllocatableIPLow and AllocatableIPHigh must be set or neither set")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, eitherOrMsg)
 
 	// invalid IP address
 	subnetInfo.AllocatableIPHigh = "foobar"
