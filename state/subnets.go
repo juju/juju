@@ -77,6 +77,7 @@ func (s *Subnet) EnsureDead() (err error) {
 		C:      subnetsC,
 		Id:     s.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		Assert: isAliveDoc,
 	}}
 	return s.st.runTransaction(ops)
 }

@@ -1225,7 +1225,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	return svc, nil
 }
 
-// AddSubnet creates a new subnet
+// AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
 
