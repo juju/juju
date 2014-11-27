@@ -1332,7 +1332,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 	// ProviderId should be unique as well as CIDR
 	subnetInfo.CIDR = "192.0.0.0/0"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, gc.ErrorMatches, `ProviderId not unique "testing uniqueness".*`)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `ProviderId not unique "testing uniqueness".*`)
 }
 
 func (s *StateSuite) TestSubnetEnsureDead(c *gc.C) {
