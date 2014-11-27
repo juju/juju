@@ -1398,7 +1398,8 @@ func (s *StateSuite) TestRefresh(c *gc.C) {
 
 	c.Assert(subnetCopy.Life(), gc.Equals, state.Alive)
 	err = subnetCopy.Refresh()
-	c.Assert(subnetCopy.Life(), gc.Equals, state.Alive)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetCopy.Life(), gc.Equals, state.Dead)
 }
 
 func (s *StateSuite) TestAddService(c *gc.C) {

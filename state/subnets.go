@@ -60,6 +60,7 @@ func (s *Subnet) Life() Life {
 	return s.doc.Life
 }
 
+// EnsureDead sets the Life of the subnet to Dead
 func (s *Subnet) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
 	if s.doc.Life == Dead {
@@ -82,6 +83,7 @@ func (s *Subnet) EnsureDead() (err error) {
 	return s.st.runTransaction(ops)
 }
 
+// Remove removes a dead subnet. If the subnet is not dead it returns an error.
 func (s *Subnet) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
 	if s.doc.Life != Dead {
