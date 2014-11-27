@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -984,10 +985,13 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	err := symlink.New("/nowhere/special", JujuRun)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = os.Stat(JujuRun)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	if runtime.GOOS != "windows" {
+		// cannot make symlink to nonexistent file on windows
+		err := symlink.New("/nowhere/special", jujuRun)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = os.Stat(jujuRun)
+		c.Assert(err, jc.Satisfies, os.IsNotExist)
+	}
 	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		// juju-run should have been recreated
 		_, err := os.Stat(JujuRun)

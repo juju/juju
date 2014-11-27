@@ -112,7 +112,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "jujud",
+		Name: names.Jujud,
 		Doc:  jujudDoc,
 	})
 	jujud.Log.Factory = &writerFactory{}

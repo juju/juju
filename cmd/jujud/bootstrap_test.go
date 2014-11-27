@@ -575,7 +575,6 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-
 	expectedSeries := make(set.Strings)
 	if exploded {
 		for _, series := range version.SupportedSeries() {
@@ -655,14 +654,12 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
-
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := provider.PrepareForBootstrap(nullContext(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
-
 	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream(), cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, jc.ErrorIsNil)

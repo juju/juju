@@ -9,7 +9,11 @@ import (
 )
 
 func Dial(socketPath string) (*rpc.Client, error) {
-	return rpc.Dial("unix", socketPath)
+	con, err := net.DialTimeout("unix", socketPath, Timeout)
+	if err != nil {
+		return nil, err
+	}
+	return rpc.NewClient(con), nil
 }
 
 func Listen(socketPath string) (net.Listener, error) {
