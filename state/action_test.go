@@ -46,7 +46,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	tag := action.Tag()
-	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+action.Id())
+	c.Assert(tag.String(), gc.Equals, "action-"+action.Id())
 
 	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,7 +59,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	c.Assert(actionResult, gc.DeepEquals, result)
 
 	tag = actionResult.Tag()
-	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_"+actionResult.Id())
+	c.Assert(tag.String(), gc.Equals, "action-"+actionResult.Id())
 }
 
 func (s *ActionSuite) TestAddAction(c *gc.C) {
@@ -311,7 +311,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
-	expect := expectActionNotificationIds(fa1, fa2)
+	expect := expectActionIds(fa1, fa2)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 
@@ -327,7 +327,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	fa3, err := unit2.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-	expect2 := expectActionNotificationIds(fa3)
+	expect2 := expectActionIds(fa3)
 	wc2.AssertChange(expect2...)
 	wc2.AssertNoChange()
 
@@ -337,7 +337,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	fa5, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expect = expectActionNotificationIds(fa4, fa5)
+	expect = expectActionIds(fa4, fa5)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 }
@@ -492,7 +492,7 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// expect the first and last one in the watcher
-	expect := expectActionNotificationIds(fa1, fa3)
+	expect := expectActionIds(fa1, fa3)
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 }
@@ -567,14 +567,6 @@ func expectActionIds(actions ...*state.Action) []string {
 	ids := make([]string, len(actions))
 	for i, action := range actions {
 		ids[i] = action.Id()
-	}
-	return ids
-}
-
-func expectActionNotificationIds(actions ...*state.Action) []string {
-	ids := make([]string, len(actions))
-	for i, action := range actions {
-		ids[i] = action.NotificationId()
 	}
 	return ids
 }

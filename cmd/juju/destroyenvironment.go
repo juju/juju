@@ -25,6 +25,7 @@ var DoubleEnvironmentError = stderrors.New("you cannot supply both -e and the en
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
+	BlockableCommand
 	cmd.CommandBase
 	envName   string
 	assumeYes bool
@@ -138,12 +139,10 @@ func (c *DestroyEnvironmentCommand) ensureUserFriendlyErrorLog(err error) error 
 	if err == nil {
 		return nil
 	}
-	errMsg := stdFailureMsg
 	if params.IsCodeOperationBlocked(err) {
-		errMsg = blockedOperationMsg
-		err = cmd.ErrSilent
+		return c.processBlockedError(err, BlockDestroy)
 	}
-	logger.Errorf(errMsg, c.envName)
+	logger.Errorf(stdFailureMsg, c.envName)
 	return err
 }
 
@@ -162,12 +161,5 @@ If the environment is unusable, then you may run
 to forcefully destroy the environment. Upon doing so, review
 your environment provider console for any resources that need
 to be cleaned up. Using force will also by-pass destroy-envrionment block.
-
-`
-var blockedOperationMsg = `
-destroy-environment operation has been blocked for environment %q.
-To remove the block run
-
-    juju unblock destroy-environment
 
 `

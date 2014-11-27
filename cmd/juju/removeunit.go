@@ -12,7 +12,7 @@ import (
 
 // RemoveUnitCommand is responsible for destroying service units.
 type RemoveUnitCommand struct {
-	BlockableRemoveCommand
+	BlockableCommand
 	UnitNames []string
 }
 
@@ -46,5 +46,5 @@ func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return c.processBlockedError(client.DestroyServiceUnits(c.UnitNames...))
+	return c.processBlockedError(client.DestroyServiceUnits(c.UnitNames...), BlockRemove)
 }

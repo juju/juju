@@ -26,15 +26,15 @@ type Factory interface {
 
 	// NewRunContext returns an execution context suitable for running an
 	// arbitrary script.
-	NewRunContext(relationId int, remoteUnitName string) (*HookContext, error)
+	NewRunContext(relationId int, remoteUnitName string) (Context, error)
 
 	// NewHookContext returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
-	NewHookContext(hookInfo hook.Info) (*HookContext, error)
+	NewHookContext(hookInfo hook.Info) (Context, error)
 
 	// NewActionContext returns an execution context suitable for running the
 	// action identified by the supplied id.
-	NewActionContext(actionId string) (*HookContext, error)
+	NewActionContext(actionId string) (Context, error)
 }
 
 // CharmFunc is used to get a snapshot of the charm at context creation time.
@@ -108,7 +108,7 @@ type factory struct {
 }
 
 // NewRunContext exists to satisfy the Factory interface.
-func (f *factory) NewRunContext(relationId int, remoteUnitName string) (*HookContext, error) {
+func (f *factory) NewRunContext(relationId int, remoteUnitName string) (Context, error) {
 	ctx, err := f.coreContext()
 
 	if err != nil {
@@ -129,7 +129,7 @@ func (f *factory) NewRunContext(relationId int, remoteUnitName string) (*HookCon
 }
 
 // NewHookContext exists to satisfy the Factory interface.
-func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
+func (f *factory) NewHookContext(hookInfo hook.Info) (Context, error) {
 	if err := hookInfo.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -169,16 +169,17 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 }
 
 // NewActionContext exists to satisfy the Factory interface.
-func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
+func (f *factory) NewActionContext(actionId string) (Context, error) {
 	ch, err := f.getCharm()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	tag, ok := names.ParseActionTagFromId(actionId)
+	ok := names.IsValidAction(actionId)
 	if !ok {
 		return nil, &badActionError{actionId, "not valid actionId"}
 	}
+	tag := names.NewActionTag(actionId)
 	action, err := f.state.Action(tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
 		return nil, ErrActionNotAvailable

@@ -342,13 +342,15 @@ func (s *upgradesSuite) TestAddEnvUUIDToOpenPorts(c *gc.C) {
 
 	var newDoc portsDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.PortID, gc.Equals, "m#2#n#juju-public")
+	p := Ports{s.state, newDoc, false}
+	c.Assert(p.GlobalKey(), gc.Equals, "m#2#n#juju-public")
 	c.Assert(newDoc.Ports, gc.DeepEquals, range1)
 	c.Assert(newDoc.MachineID, gc.Equals, "2")
 	c.Assert(newDoc.NetworkName, gc.Equals, "juju-public")
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
-	c.Assert(newDoc.PortID, gc.Equals, "m#1#n#net3")
+	p = Ports{s.state, newDoc, false}
+	c.Assert(p.GlobalKey(), gc.Equals, "m#1#n#net3")
 	c.Assert(newDoc.Ports, gc.DeepEquals, range2)
 	c.Assert(newDoc.MachineID, gc.Equals, "1")
 	c.Assert(newDoc.NetworkName, gc.Equals, "net3")
@@ -1078,7 +1080,6 @@ func openLegacyRange(c *gc.C, unit *Unit, from, to int, proto string) {
 }
 
 func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Unit) {
-	defer patchPortOptFuncs()()
 
 	// Setup the test scenario by creating 3 services with 1, 2, and 3
 	// units respectively, and 3 machines. Then assign the units like
@@ -1170,7 +1171,7 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	//   without opening the ports on the unit itself)
 	portRange, err := NewPortRange(units[2][1].Name(), 100, 110, "tcp")
 	c.Assert(err, jc.ErrorIsNil)
-	portsMachine2, err := getOrCreateOldPorts(
+	portsMachine2, err := GetOrCreatePorts(
 		s.state, machines[2].Id(), network.DefaultPublic,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1271,7 +1272,7 @@ func (s *upgradesSuite) newRange(from, to int, proto string) network.PortRange {
 
 func (s *upgradesSuite) assertInitialMachinePorts(c *gc.C, machines []*Machine, units map[int][]*Unit) {
 	for i := range machines {
-		ports, err := getOldPorts(s.state, machines[i].Id(), network.DefaultPublic)
+		ports, err := GetPorts(s.state, machines[i].Id(), network.DefaultPublic)
 		if i != 2 {
 			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 			c.Assert(ports, gc.IsNil)
@@ -1369,6 +1370,8 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
+	s.patchPortOptFuncs()
+
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1387,6 +1390,8 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
+	s.patchPortOptFuncs()
+
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1408,6 +1413,104 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitPortsPostMigration(c, units)
 	s.assertFinalMachinePorts(c, machines, units)
+}
+
+// patchPortOptsFuncs patches addPortsDocOps, updatePortsDocOps and setPortsDocOps
+// to accommodate pre 1.22 schema during multihop upgrades. It returns a func
+// which restores original behaviour.
+func (s *upgradesSuite) patchPortOptFuncs() {
+	gitjujutesting.PatchValue(
+		&GetPorts,
+		func(st *State, machineId, networkName string) (*Ports, error) {
+			openedPorts, closer := st.getCollection(openedPortsC)
+			defer closer()
+
+			var doc portsDoc
+			key := portsGlobalKey(machineId, networkName)
+			err := openedPorts.FindId(key).One(&doc)
+			if err != nil {
+				doc.MachineID = machineId
+				doc.NetworkName = networkName
+				p := Ports{st, doc, false}
+				if err == mgo.ErrNotFound {
+					return nil, errors.NotFoundf(p.String())
+				}
+				return nil, errors.Annotatef(err, "cannot get %s", p.String())
+			}
+
+			return &Ports{st, doc, false}, nil
+		})
+
+	gitjujutesting.PatchValue(
+		&GetOrCreatePorts,
+		func(st *State, machineId, networkName string) (*Ports, error) {
+			ports, err := GetPorts(st, machineId, networkName)
+			if errors.IsNotFound(err) {
+				doc := portsDoc{
+					MachineID:   machineId,
+					NetworkName: networkName,
+				}
+				ports = &Ports{st, doc, true}
+				upgradesLogger.Debugf(
+					"created ports for machine %q, network %q",
+					machineId, networkName,
+				)
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return ports, nil
+		})
+
+	gitjujutesting.PatchValue(
+		&addPortsDocOps,
+		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+			pDoc.Ports = ports
+			return []txn.Op{{
+				C:      machinesC,
+				Id:     st.docID(pDoc.MachineID),
+				Assert: notDeadDoc,
+			}, {
+				C:      openedPortsC,
+				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
+				Assert: portsAssert,
+				Insert: pDoc,
+			}}, nil
+		})
+
+	gitjujutesting.PatchValue(
+		&updatePortsDocOps,
+		func(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
+			return []txn.Op{{
+				C:      machinesC,
+				Id:     st.docID(pDoc.MachineID),
+				Assert: notDeadDoc,
+			}, {
+				C:      unitsC,
+				Id:     portRange.UnitName,
+				Assert: notDeadDoc,
+			}, {
+				C:      openedPortsC,
+				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
+				Assert: portsAssert,
+				Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
+			}}
+		},
+	)
+
+	gitjujutesting.PatchValue(
+		&setPortsDocOps,
+		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
+			return []txn.Op{{
+				C:      machinesC,
+				Id:     st.docID(pDoc.MachineID),
+				Assert: notDeadDoc,
+			}, {
+				C:      openedPortsC,
+				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
+				Assert: portsAssert,
+				Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
+			}}
+		})
 }
 
 func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {

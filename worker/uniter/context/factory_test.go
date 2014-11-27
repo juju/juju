@@ -73,10 +73,10 @@ func (s *FactorySuite) getCache(relId int, unitName string) (params.RelationSett
 	return context.CachedSettings(s.factory, relId, unitName)
 }
 
-func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
+func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx context.Context) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
-	c.Assert(ctx.AssignedMachineTag(), jc.DeepEquals, names.NewMachineTag("0"))
+	c.Assert(ctx.(*context.HookContext).AssignedMachineTag(), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectOK := s.unit.PrivateAddress()
 	actual, actualOK := ctx.PrivateAddress()
@@ -90,7 +90,7 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	name, uuid := ctx.EnvInfo()
+	name, uuid := ctx.(*context.HookContext).EnvInfo()
 	c.Assert(name, gc.Equals, env.Name())
 	c.Assert(uuid, gc.Equals, env.UUID())
 
@@ -107,20 +107,20 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
 }
 
-func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
+func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx context.Context) {
 	actionData, err := ctx.ActionData()
 	c.Assert(actionData, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
-func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int) *context.ContextRelation {
+func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx context.Context, relId int) *context.ContextRelation {
 	rel, found := ctx.HookRelation()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(rel.Id(), gc.Equals, relId)
 	return rel.(*context.ContextRelation)
 }
 
-func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx *context.HookContext) {
+func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx context.Context) {
 	rel, found := ctx.HookRelation()
 	c.Assert(rel, gc.IsNil)
 	c.Assert(found, jc.IsFalse)
@@ -362,7 +362,7 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 		"outfile": "/some/file.bz2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := ctx.ActionData()
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,7 +380,7 @@ func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "dummy")
 	action, err := s.unit.AddAction("no-such-action", nil)
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
@@ -392,7 +392,7 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 		"outfile": 123,
 	})
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
@@ -404,7 +404,7 @@ func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
@@ -416,7 +416,7 @@ func (s *FactorySuite) TestNewActionContextUnauthAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := otherUnit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := s.factory.NewActionContext(action.NotificationId())
+	ctx, err := s.factory.NewActionContext(action.Id())
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, context.ErrActionNotAvailable)

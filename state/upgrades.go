@@ -11,9 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v4"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -178,7 +176,7 @@ func beginUnitMigrationOps(st *State, unit *Unit, machineId string) (
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
-	machinePorts, err = getOrCreateOldPorts(st, machineId, network.DefaultPublic)
+	machinePorts, err = getOrCreatePorts(st, machineId, network.DefaultPublic)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -286,53 +284,9 @@ func finishUnitMigrationOps(
 	return migratedPorts, migratedRanges, ops
 }
 
-// getOrCreateOldPorts attempts to retrieve a ports document and returns a newly
-// created one if it does not exist. getOrCreateOldPorts does NOT prepend the
-// environment UUID to the ports _id field.
-func getOrCreateOldPorts(st *State, machineId, networkName string) (*Ports, error) {
-	ports, err := getOldPorts(st, machineId, networkName)
-	if errors.IsNotFound(err) {
-		key := portsGlobalKey(machineId, networkName)
-		doc := portsDoc{
-			PortID: key,
-		}
-		ports = &Ports{st, doc, true}
-		upgradesLogger.Debugf(
-			"created ports for machine %q, network %q",
-			machineId, networkName,
-		)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ports, nil
-}
-
-// getOldPorts returns the ports document for the specified machine and
-// network, NOT prepending the environment UUID.
-func getOldPorts(st *State, machineId, networkName string) (*Ports, error) {
-	openedPorts, closer := st.getCollection(openedPortsC)
-	defer closer()
-
-	var doc portsDoc
-	key := portsGlobalKey(machineId, networkName)
-	err := openedPorts.FindId(key).One(&doc)
-	if err != nil {
-		doc.MachineID = machineId
-		doc.NetworkName = networkName
-		p := Ports{st, doc, false}
-		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf(p.String())
-		}
-		return nil, errors.Annotatef(err, "cannot get %s", p.String())
-	}
-
-	return &Ports{st, doc, false}, nil
-}
-
 // MigrateUnitPortsToOpenedPorts loops through all units stored in state and
 // migrates any ports into the openedPorts collection.
 func MigrateUnitPortsToOpenedPorts(st *State) error {
-	defer patchPortOptFuncs()()
 	err := st.ResumeTransactions()
 	if err != nil {
 		return errors.Trace(err)
@@ -385,7 +339,7 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 		skippedRanges += filteredRanges
 
 		migratedPorts, migratedRanges, ops := finishUnitMigrationOps(
-			unit, rangesToMigrate, machinePorts.doc.PortID, ops,
+			unit, rangesToMigrate, machinePorts.GlobalKey(), ops,
 		)
 
 		if err = st.runTransaction(ops); err != nil {
@@ -408,83 +362,6 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	upgradesLogger.Infof("legacy unit ports migrated to machine port ranges")
 
 	return nil
-}
-
-// patchPortOpts patches addPortsDocOps, updatePortsDocOps and setPortsDocOps
-// to accommodate pre 1.22 schema during multihop upgrades. It returns a func
-// which restores original behaviour.
-func patchPortOptFuncs() func() {
-	restoreAddFunc := testing.PatchValue(
-		&addPortsDocOps,
-		func(st *State, mPorts Ports, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
-			mID, err := extractPortsIdPart(mPorts.doc.PortID, machineIdPart)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			pdoc := &portsDoc{
-				PortID: mPorts.doc.PortID,
-				Ports:  ports,
-			}
-			return []txn.Op{{
-				C:      machinesC,
-				Id:     st.docID(mID),
-				Assert: notDeadDoc,
-			}, {
-				C:      openedPortsC,
-				Id:     pdoc.PortID,
-				Assert: portsAssert,
-				Insert: pdoc,
-			}}, nil
-		})
-
-	restoreUpdateFunc := testing.PatchValue(
-		&updatePortsDocOps,
-		func(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
-			machineID, err := extractPortsIdPart(pDoc.PortID, machineIdPart)
-			if err != nil {
-				panic(err)
-			}
-			return []txn.Op{{
-				C:      machinesC,
-				Id:     machineID,
-				Assert: notDeadDoc,
-			}, {
-				C:      unitsC,
-				Id:     portRange.UnitName,
-				Assert: notDeadDoc,
-			}, {
-				C:      openedPortsC,
-				Id:     pDoc.PortID,
-				Assert: portsAssert,
-				Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
-			}}
-		},
-	)
-
-	restoreSetFunc := testing.PatchValue(
-		&setPortsDocOps,
-		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
-			machineID, err := extractPortsIdPart(pDoc.PortID, machineIdPart)
-			if err != nil {
-				panic(err)
-			}
-			return []txn.Op{{
-				C:      machinesC,
-				Id:     machineID,
-				Assert: notDeadDoc,
-			}, {
-				C:      openedPortsC,
-				Id:     pDoc.PortID,
-				Assert: portsAssert,
-				Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
-			}}
-		})
-
-	return func() {
-		restoreAddFunc()
-		restoreUpdateFunc()
-		restoreSetFunc()
-	}
 }
 
 // CreateUnitMeterStatus creates documents in the meter status collection for all existing units.

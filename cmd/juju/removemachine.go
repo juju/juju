@@ -13,7 +13,7 @@ import (
 
 // RemoveMachineCommand causes an existing machine to be destroyed.
 type RemoveMachineCommand struct {
-	BlockableRemoveCommand
+	BlockableCommand
 	MachineIds []string
 	Force      bool
 }
@@ -68,5 +68,5 @@ func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
 	if c.Force {
 		return apiclient.ForceDestroyMachines(c.MachineIds...)
 	}
-	return c.processBlockedError(apiclient.DestroyMachines(c.MachineIds...))
+	return c.processBlockedError(apiclient.DestroyMachines(c.MachineIds...), BlockRemove)
 }

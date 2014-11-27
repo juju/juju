@@ -509,7 +509,7 @@ func getAddAction(s *FilterSuite, c *gc.C) func(name string) string {
 	return func(name string) string {
 		newAction, err := s.unit.AddAction(name, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		newId := newAction.NotificationId()
+		newId := newAction.Id()
 		return newId
 	}
 }
