@@ -1388,7 +1388,6 @@ var inferEndpointsTests = []struct {
 	}, {
 		summary: "invalid relations",
 		inputs: [][]string{
-			{"lg", "lg"},
 			{"ms", "ms"},
 			{"wp", "wp"},
 			{"rk1", "rk1"},
@@ -1396,12 +1395,34 @@ var inferEndpointsTests = []struct {
 		},
 		err: `no relations found`,
 	}, {
-		summary: "container scoped relations only considered when there's exactly one subordinate service",
+		summary: "container scoped relation not possible when there's no subordinate",
 		inputs: [][]string{
 			{"lg-p", "wp"},
 		},
 		err: `no relations found`,
 	}, {
+		summary: "container scoped relations between 2 subordinates is ok",
+		inputs:  [][]string{{"lg:logging-directory", "lg2:logging-client"}},
+		eps: []state.Endpoint{{
+			ServiceName: "lg",
+			Relation: charm.Relation{
+				Name:      "logging-directory",
+				Role:      "requirer",
+				Interface: "logging",
+				Limit:     1,
+				Scope:     charm.ScopeContainer,
+			}}, {
+			ServiceName: "lg2",
+			Relation: charm.Relation{
+				Name:      "logging-client",
+				Role:      "provider",
+				Interface: "logging",
+				Limit:     0,
+				Scope:     charm.ScopeGlobal,
+			}},
+		},
+	},
+	{
 		summary: "valid peer relation",
 		inputs: [][]string{
 			{"rk1"},
@@ -1522,16 +1543,18 @@ var inferEndpointsTests = []struct {
 func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 	s.AddTestingService(c, "ms", s.AddTestingCharm(c, "mysql-alternative"))
 	s.AddTestingService(c, "wp", s.AddTestingCharm(c, "wordpress"))
-	s.AddTestingService(c, "lg", s.AddTestingCharm(c, "logging"))
+	loggingCh := s.AddTestingCharm(c, "logging")
+	s.AddTestingService(c, "lg", loggingCh)
+	s.AddTestingService(c, "lg2", loggingCh)
 	riak := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "rk1", riak)
 	s.AddTestingService(c, "rk2", riak)
 	s.AddTestingService(c, "lg-p", s.AddTestingCharm(c, "logging-principal"))
 
 	for i, t := range inferEndpointsTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %s", i, t.summary)
 		for j, input := range t.inputs {
-			c.Logf("  input %d", j)
+			c.Logf("  input %d: %+v", j, input)
 			eps, err := s.State.InferEndpoints(input...)
 			if t.err == "" {
 				c.Assert(err, jc.ErrorIsNil)
