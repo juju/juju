@@ -1346,12 +1346,7 @@ func (s *StateSuite) TestAddSubnetErrors(c *gc.C) {
 }
 
 func (s *StateSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
-	subnetInfo := state.SubnetInfo{
-		ProviderId:        "foo",
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.1",
-	}
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
 
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1368,6 +1363,11 @@ func (s *StateSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// check the change was persisted
+	subnetCopy, err := s.State.Subnet("192.168.1.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(subnetCopy.Life(), gc.Equals, state.Dead)
+
 	// Remove should now work
 	err = subnet.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1381,18 +1381,14 @@ func (s *StateSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
 }
 
 func (s *StateSuite) TestRefresh(c *gc.C) {
-	subnetInfo := state.SubnetInfo{
-		ProviderId:        "foo",
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.1",
-	}
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
 
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	subnetCopy := &state.Subnet{}
-	*subnetCopy = *subnet
+	subnetCopy, err := s.State.Subnet("192.168.1.0/24")
+	c.Assert(err, jc.ErrorIsNil)
+
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -74,11 +74,9 @@ func (s *Subnet) EnsureDead() (err error) {
 	}()
 
 	ops := []txn.Op{{
-		C:  subnetsC,
-		Id: s.doc.DocID,
-		Update: bson.D{{"$set", bson.D{
-			{"Life", Dead},
-		}}},
+		C:      subnetsC,
+		Id:     s.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	return s.st.runTransaction(ops)
 }
