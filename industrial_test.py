@@ -13,6 +13,7 @@ from deploy_stack import (
     )
 from jujuconfig import get_juju_home
 from jujupy import (
+    AgentsNotStarted,
     EnvJujuClient,
     SimpleEnvironment,
     temp_bootstrap_env,
@@ -176,9 +177,10 @@ class IndustrialTest:
             for result in attempt.iter_test_results(self.old_client,
                                                     self.new_client):
                 yield result
-                if False in result[1:]:
-                    self.destroy_both()
-                    return
+            # If a stage ends with a failure, no further stages should be run.
+            if False in result[1:]:
+                self.destroy_both()
+                return
 
 
 class StageAttempt:
@@ -395,7 +397,10 @@ class DeployManyAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
-        return {'deploy-many': {'title': 'deploy many'}}
+        return OrderedDict([
+            ('add-machine-many', {'title': 'add many machines'}),
+            ('deploy-many', {'title': 'deploy many'}),
+            ])
 
     def __init__(self, host_count=5, container_count=10):
         super(DeployManyAttempt, self).__init__()
@@ -403,13 +408,31 @@ class DeployManyAttempt(SteppedStageAttempt):
         self.container_count = container_count
 
     def iter_steps(self, client):
-        results = {'test_id': 'deploy-many'}
+        results = {'test_id': 'add-machine-many'}
         yield results
         old_status = client.get_status()
         for machine in range(self.host_count):
             client.juju('add-machine', ())
         yield results
-        new_status = client.wait_for_started()
+        try:
+            new_status = client.wait_for_started()
+        except AgentsNotStarted as e:
+            new_status = e.status
+            results['result'] = False
+        else:
+            results['result'] = True
+        yield results
+        results = {'test_id': 'deploy-many'}
+        yield results
+        stuck_new_machines = [
+            k for k, v in new_status.iter_new_machines(old_status)
+            if v.get('agent-state') != 'started']
+        for machine in stuck_new_machines:
+            client.juju('destroy-machine', ('--force', machine))
+            client.juju('add-machine', ())
+        yield results
+        if len(stuck_new_machines) > 0:
+            new_status = client.wait_for_started()
         new_machines = dict(new_status.iter_new_machines(old_status))
         if len(new_machines) != self.host_count:
             raise AssertionError('Got {} machines, not {}'.format(

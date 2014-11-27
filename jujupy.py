@@ -110,6 +110,14 @@ class JujuClientDevel:
             command, args, sudo, check)
 
 
+class AgentsNotStarted(Exception):
+
+    def __init__(self, environment, status):
+        super(AgentsNotStarted, self).__init__(
+            'Timed out waiting for agents to start in %s.' % environment)
+        self.status = status
+
+
 class EnvJujuClient:
 
     @classmethod
@@ -244,6 +252,7 @@ class EnvJujuClient:
 
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
+        status = None
         for ignored in until_timeout(timeout):
             try:
                 status = self.get_status()
@@ -256,8 +265,7 @@ class EnvJujuClient:
             print(format_listing(states, 'started'))
             sys.stdout.flush()
         else:
-            raise Exception('Timed out waiting for agents to start in %s.' %
-                            self.env.environment)
+            raise AgentsNotStarted(self.env.environment, status)
         return status
 
     def wait_for_version(self, version, timeout=300):
