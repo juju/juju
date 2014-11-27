@@ -1380,6 +1380,27 @@ func (s *StateSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestRefresh(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		ProviderId:        "foo",
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.1",
+	}
+
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnetCopy := &state.Subnet{}
+	*subnetCopy = *subnet
+	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(subnetCopy.Life(), gc.Equals, state.Alive)
+	err = subnetCopy.Refresh()
+	c.Assert(subnetCopy.Life(), gc.Equals, state.Alive)
+}
+
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", s.owner.String(), charm, nil)
