@@ -26,7 +26,7 @@ var RestoreMachineKey = "0"
 type ClientConnection func() (*Client, func() error, error)
 
 // Restore is responsable for finishing a restore after a placeholder
-// machine has been bootstraped, it receives the name of a local backup file 
+// machine has been bootstraped, it receives the name of a local backup file
 // or the id of one in the server and will return error on failure.
 func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	var (

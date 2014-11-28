@@ -323,8 +323,6 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 // restore patch.  Once we have an HTTP-based upload this code will
 // be removed.
 
-
-
 type sendFunc func(host, filename string, archive io.Reader) error
 
 // SimpleUpload sends the backup archive to the server where it is saved

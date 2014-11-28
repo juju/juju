@@ -4,6 +4,6 @@
 package juju
 
 const (
-	UploadedPrefix = "file://"
-	RestoreSSHUsername    = "ubuntu"
+	UploadedPrefix     = "file://"
+	RestoreSSHUsername = "ubuntu"
 )
