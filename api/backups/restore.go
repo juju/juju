@@ -5,6 +5,7 @@ package backups
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -12,17 +13,22 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/rpc"
 )
 
 var logger = loggo.GetLogger("juju.api.backups")
 
+//TODO(perrito666): this Key needs to be determined in a dinamic way since machine 0
+// might not always be there in HA contexts
+var RestoreMachineKey = "0"
+
 type ClientConnection func() (*Client, func() error, error)
 
 // Restore is responsable for finishing a restore after a placeholder
-// machine has been bootstraped, it receives the name of a backup
-// file on server and will return error on failure.
-func (c *Client) Restore(backupFileName, backupId string, newClient ClientConnection) error {
+// machine has been bootstraped, it receives the name of a local backup file 
+// or the id of one in the server and will return error on failure.
+func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	var (
 		err  error
 		rErr error
@@ -56,7 +62,8 @@ func (c *Client) Restore(backupFileName, backupId string, newClient ClientConnec
 	logger.Debugf("Server in 'about to restore' mode")
 
 	// Upload
-	if backupFileName != "" {
+	if strings.HasPrefix(backupId, juju.UploadedPrefix) {
+		backupFileName := strings.TrimPrefix(backupId, juju.UploadedPrefix)
 		backupFile, err := os.Open(backupFileName)
 		if err != nil {
 			return errors.Annotatef(err, "cannot open backup file %q", backupFileName)
@@ -70,7 +77,7 @@ func (c *Client) Restore(backupFileName, backupId string, newClient ClientConnec
 	// Restore
 	restoreArgs := params.RestoreArgs{
 		BackupId: backupId,
-		Machine:  "0",
+		Machine:  RestoreMachineKey,
 	}
 
 	for a := strategy.Start(); a.Next(); {

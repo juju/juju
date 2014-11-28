@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/juju"
 )
 
 // RestoreCommand is a subcommand of backups that implement the restore behaior
@@ -80,8 +81,12 @@ func (c *RestoreCommand) Init(args []string) error {
 	if c.backupId != "" && c.bootstrap {
 		return errors.Errorf("it is not possible to rebootstrap and restore from an id.")
 	}
+	var err error
 	if c.filename != "" {
-		c.filename = filepath.Base(c.filename)
+		c.filename, err = filepath.Abs(c.filename)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -97,8 +102,10 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer closer()
-	apiclient := *client
-	if err := apiclient.Restore(c.filename, c.backupId, c.newClient); err != nil {
+	if c.filename != "" {
+		c.backupId = juju.UploadedPrefix + c.filename
+	}
+	if err := client.Restore(c.backupId, c.newClient); err != nil {
 		// Backwards compatibility
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)

@@ -222,6 +222,6 @@ func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) Restore(string, string, apibackups.ClientConnection) error {
+func (c *fakeAPIClient) Restore(string, apibackups.ClientConnection) error {
 	return nil
 }

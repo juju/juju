@@ -50,6 +50,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/db"
@@ -169,7 +170,7 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
 
 // Get pulls the associated metadata and archive file from environment storage.
 func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
-	if strings.HasPrefix(id, uploadedPrefix) {
+	if strings.HasPrefix(id, juju.UploadedPrefix) {
 		archiveFile, err := openUploaded(id)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -322,10 +323,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 // restore patch.  Once we have an HTTP-based upload this code will
 // be removed.
 
-const (
-	uploadedPrefix = "file://"
-	sshUsername    = "ubuntu"
-)
+
 
 type sendFunc func(host, filename string, archive io.Reader) error
 
@@ -334,13 +332,13 @@ type sendFunc func(host, filename string, archive io.Reader) error
 // to locate the file on the server.
 func SimpleUpload(publicAddress string, archive io.Reader, send sendFunc) (string, error) {
 	filename := time.Now().UTC().Format(FilenameTemplate)
-	host := sshUsername + "@" + publicAddress
+	host := juju.RestoreSSHUsername + "@" + publicAddress
 	err := send(host, filename, archive)
-	return uploadedPrefix + filename, errors.Trace(err)
+	return juju.UploadedPrefix + filename, errors.Trace(err)
 }
 
 func resolveUploaded(id string) (string, error) {
-	filename := strings.TrimPrefix(id, uploadedPrefix)
+	filename := strings.TrimPrefix(id, juju.UploadedPrefix)
 	filename = filepath.FromSlash(filename)
 	if !strings.HasPrefix(filepath.Base(filename), FilenamePrefix) {
 		return "", errors.Errorf("invalid ID for uploaded file: %q", id)
@@ -349,7 +347,7 @@ func resolveUploaded(id string) (string, error) {
 		return "", errors.Errorf("expected relative path in ID, got %q", id)
 	}
 
-	sshUser, err := user.Lookup(sshUsername)
+	sshUser, err := user.Lookup(juju.RestoreSSHUsername)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
