@@ -92,7 +92,7 @@ func (doc *storageMetaDoc) validate() error {
 	// Check the file-related fields.
 	if !doc.isFileInfoComplete() {
 		if doc.Stored != 0 {
-			return errors.New(`"Stored" flag is unexpectedly true`)
+			return errors.New(`"Stored" is unexpectedly set`)
 		}
 		// Don't check the file-related fields.
 		return nil
