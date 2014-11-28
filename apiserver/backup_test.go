@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -197,8 +198,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 
 	// Set the metadata part.
 	s.meta = backups.NewMetadata()
-	var metaResult params.BackupsMetadataResult
-	metaResult.UpdateFromMetadata(s.meta)
+	metaResult := apiserverbackups.ResultFromMetadata(s.meta)
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
 	header.Set("Content-Type", apihttp.CTYPE_JSON)

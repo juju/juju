@@ -81,6 +81,11 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		if err := h.validateMetadataResult(metaResult); err != nil {
+			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
 		meta := apiserverbackups.MetadataFromResult(metaResult)
 		id, err := backups.Add(archive, meta)
 		if err != nil {
@@ -93,6 +98,16 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	default:
 		h.sendError(resp, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", req.Method))
 	}
+}
+
+func (h *backupHandler) validateMetadataResult(metaResult params.BackupsMetadataResult) error {
+	if metaResult.ID != "" {
+		return errors.New("got unexpected metadata ID")
+	}
+	if !metaResult.Stored.IsZero() {
+		return errors.New(`got unexpected metadata "Stored" value`)
+	}
+	return nil
 }
 
 func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, error) {
