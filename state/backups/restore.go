@@ -125,7 +125,7 @@ func updateAllMachines(privateAddress string, st *state.State) error {
 		}
 		pendingMachineCount++
 		go func() {
-			err := runMachineUpdate(machine, setAgentAddressScript(privateAddress))
+			err := runMachineUpdate(machine.Addresses(), setAgentAddressScript(privateAddress))
 			done <- errors.Annotatef(err, "failed to update machine %s", machine)
 		}()
 	}
@@ -188,8 +188,8 @@ func setAgentAddressScript(stateAddr string) string {
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script.
-func runMachineUpdate(m *state.Machine, sshArg string) error {
-	addr := network.SelectPublicAddress(m.Addresses())
+func runMachineUpdate(allAddr []network.Address, sshArg string) error {
+	addr := network.SelectPublicAddress(allAddr)
 	if addr == "" {
 		return errors.Errorf("no appropriate public address found")
 	}
