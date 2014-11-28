@@ -5,6 +5,14 @@ package state
 
 import "github.com/juju/juju/network"
 
+type AddressState string
+
+const (
+	AddressStateUnknown    AddressState = ""
+	AddressStateAllocated  AddressState = "allocated"
+	AddressStateUnvailable AddressState = "unavailable"
+)
+
 // IPAddressInfo describes a single IP address.
 type IPAddressInfo struct {
 	State       AddressState
@@ -30,7 +38,7 @@ type ipaddressDoc struct {
 	Value       string
 	Type        network.AddressType
 	Scope       network.Scope `bson:"networkscope,omitempty"`
-	State       int
+	State       AddressState  `bson:",omitempty"`
 }
 
 func (i *IPAddress) SubnetId() string {
