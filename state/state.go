@@ -53,6 +53,7 @@ const (
 	settingsrefsC      = "settingsrefs"
 	constraintsC       = "constraints"
 	unitsC             = "units"
+	subnetsC           = "subnets"
 
 	// actionsC and related collections store state of Actions that
 	// have been enqueued.
@@ -1222,6 +1223,69 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
+}
+
+// AddSubnet creates and returns a new subnet
+func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
+
+	subnetID := st.docID(args.CIDR)
+	subDoc := subnetDoc{
+		DocID:             subnetID,
+		EnvUUID:           st.EnvironUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        args.ProviderId,
+		AllocatableIPHigh: args.AllocatableIPHigh,
+		AllocatableIPLow:  args.AllocatableIPLow,
+		AvailabilityZone:  args.AvailabilityZone,
+	}
+	subnet = &Subnet{doc: subDoc, st: st}
+	err = subnet.Validate()
+	if err != nil {
+		return nil, err
+	}
+	ops := []txn.Op{{
+		C:      subnetsC,
+		Id:     subnetID,
+		Assert: txn.DocMissing,
+		Insert: subDoc,
+	}}
+
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.Subnet(args.CIDR); err == nil {
+			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+	case nil:
+		// if the ProviderId was not unique adding the subnet can fail
+		// without an error. Refreshing catches this
+		err = subnet.Refresh()
+		if err == nil {
+			return subnet, nil
+		}
+		return nil, errors.Annotatef(err, "ProviderId not unique %q", args.ProviderId)
+	}
+	return nil, errors.Trace(err)
+}
+
+func (st *State) Subnet(cidr string) (*Subnet, error) {
+	subnets, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	doc := &subnetDoc{}
+	err := subnets.FindId(st.docID(cidr)).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("subnet %q", cidr)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
+	}
+	return &Subnet{st, *doc}, nil
 }
 
 // AddNetwork creates a new network with the given params. If a
