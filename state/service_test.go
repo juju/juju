@@ -1748,3 +1748,12 @@ func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(requestedNetworks, gc.DeepEquals, networks)
 }
+
+func (s *ServiceSuite) TestMetricCredentials(c *gc.C) {
+	err := s.mysql.UpdateMetricCredentials([]byte("hello there"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
+
+	service, err := s.State.Service(s.mysql.Name())
+	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
+}
