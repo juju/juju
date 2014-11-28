@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import datetime
 import errno
+import logging
 import os
 import re
 from shutil import rmtree
@@ -144,3 +145,9 @@ def s3_cmd(params, drop_output=False):
             command, stdout=open('/dev/null', 'w'))
     else:
         return subprocess.check_output(command)
+
+
+def configure_logging(log_level):
+    logging.basicConfig(
+        level=log_level, format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')

@@ -23,7 +23,10 @@ from substrate import (
     make_substrate,
     terminate_instances,
     )
-from utility import until_timeout
+from utility import (
+    configure_logging,
+    until_timeout,
+    )
 
 
 class MultiIndustrialTest:
@@ -493,6 +496,7 @@ def maybe_write_json(filename, results):
 
 
 def main():
+    configure_logging(logging.WARNING)
     args = parse_args()
     mit = MultiIndustrialTest.from_args(args)
     results = mit.run_tests()
