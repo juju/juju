@@ -53,6 +53,14 @@ def parse_error(test_case):
 
 
 def iter_steps_validate_info(test, stage, client):
+    """Proxy a steps iterator to and compare with get_test_info output.
+
+    Unexpected steps, or steps in the wrong order will raise an exception.
+
+    :param test: A unittest.TestCase
+    :param stage: The SteppedStageAttempt to test.
+    :param client: The EnvJujuClient to use for iter_steps.
+    """
     step_iter = stage.iter_steps(client)
     test_ids = stage.get_test_info().keys()
     result = step_iter.next()
