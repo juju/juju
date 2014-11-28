@@ -58,7 +58,7 @@ func (s *debugLogSuite) TestNoAuth(c *gc.C) {
 
 func (s *debugLogSuite) TestNoLogfile(c *gc.C) {
 	reader := s.openWebsocket(c, nil)
-	s.assertErrorResponse(c, reader, "cannot open log file: .*: no such file or directory")
+	s.assertErrorResponse(c, reader, "cannot open log file: .*: "+utils.NoSuchFileErrRegexp)
 	s.assertWebsocketClosed(c, reader)
 }
 
