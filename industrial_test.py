@@ -399,6 +399,7 @@ class DeployManyAttempt(SteppedStageAttempt):
     def get_test_info():
         return OrderedDict([
             ('add-machine-many', {'title': 'add many machines'}),
+            ('ensure-machines', {'title': 'Ensure sufficient machines'}),
             ('deploy-many', {'title': 'deploy many'}),
             ])
 
@@ -422,7 +423,7 @@ class DeployManyAttempt(SteppedStageAttempt):
         else:
             results['result'] = True
         yield results
-        results = {'test_id': 'deploy-many'}
+        results = {'test_id': 'ensure-machines'}
         yield results
         stuck_new_machines = [
             k for k, v in new_status.iter_new_machines(old_status)
@@ -437,6 +438,10 @@ class DeployManyAttempt(SteppedStageAttempt):
         if len(new_machines) != self.host_count:
             raise AssertionError('Got {} machines, not {}'.format(
                 len(new_machines), self.host_count))
+        results['result'] = True
+        yield results
+        results = {'test_id': 'deploy-many'}
+        yield results
         for machine_name in sorted(new_machines, key=int):
             target = 'lxc:{}'.format(machine_name)
             for container in range(self.container_count):

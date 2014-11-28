@@ -52,6 +52,21 @@ def parse_error(test_case):
             yield stderr
 
 
+def iter_steps_validate_info(test, stage, client):
+    step_iter = stage.iter_steps(client)
+    test_ids = stage.get_test_info().keys()
+    result = step_iter.next()
+    unexpected = True
+    for test_id in test_ids:
+        while result['test_id'] == test_id:
+            unexpected = False
+            yield result
+            result = step_iter.next()
+            unexpected = True
+    test.assertFalse(
+        unexpected, 'Unexpected test_id: {}'.format(result['test_id']))
+
+
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
@@ -706,7 +721,7 @@ class TestDestroyEnvironmentAttempt(TestCase):
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
         destroy_env = DestroyEnvironmentAttempt()
-        iterator = destroy_env.iter_steps(client)
+        iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
         with patch('subprocess.check_call') as mock_cc:
             with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
@@ -895,7 +910,7 @@ class TestDeployManyAttempt(TestCase):
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
         deploy_many = DeployManyAttempt(9, 11)
-        deploy_iter = deploy_many.iter_steps(client)
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
@@ -919,7 +934,11 @@ class TestDeployManyAttempt(TestCase):
                     deploy_iter.next(),
                     {'test_id': 'add-machine-many', 'result': True})
         self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'deploy-many'})
+                         {'test_id': 'ensure-machines'})
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'ensure-machines'})
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'ensure-machines', 'result': True})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'deploy-many'})
         with patch('subprocess.check_call') as mock_cc:
@@ -936,7 +955,7 @@ class TestDeployManyAttempt(TestCase):
     def test_iter_step_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
-        deploy_iter = deploy_many.iter_steps(client)
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
@@ -960,7 +979,11 @@ class TestDeployManyAttempt(TestCase):
                     deploy_iter.next(),
                     {'test_id': 'add-machine-many', 'result': True})
         self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'deploy-many'})
+                         {'test_id': 'ensure-machines'})
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'ensure-machines'})
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'ensure-machines', 'result': True})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'deploy-many'})
         with patch('subprocess.check_call') as mock_cc:
@@ -981,7 +1004,7 @@ class TestDeployManyAttempt(TestCase):
     def test_iter_step_add_machine_failure(self):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
-        deploy_iter = deploy_many.iter_steps(client)
+        deploy_iter = iter_steps_validate_info(self, deploy_many, client)
         self.assertEqual(deploy_iter.next(), {'test_id': 'add-machine-many'})
         status = yaml.safe_dump({
             'machines': {'0': {'agent-state': 'started'}},
@@ -1005,14 +1028,14 @@ class TestDeployManyAttempt(TestCase):
                     deploy_iter.next(),
                     {'test_id': 'add-machine-many', 'result': False})
         self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'deploy-many'})
+                         {'test_id': 'ensure-machines'})
         status = yaml.safe_dump({
             'machines': dict((str(x), {'agent-state': 'started'})
                              for x in range(deploy_many.host_count + 1)),
             'services': {},
             })
         with patch('subprocess.check_call') as mock_cc:
-            self.assertEqual({'test_id': 'deploy-many'},
+            self.assertEqual({'test_id': 'ensure-machines'},
                              deploy_iter.next())
         for x in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
@@ -1020,10 +1043,12 @@ class TestDeployManyAttempt(TestCase):
                 '--force', str((x + 1))), x * 2)
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), x * 2 + 1)
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual({'test_id': 'ensure-machines', 'result': True},
+                             deploy_iter.next())
+        self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
         with patch('subprocess.check_call') as mock_cc:
-            with patch('subprocess.check_output', return_value=status):
-                self.assertEqual({'test_id': 'deploy-many'},
-                                 deploy_iter.next())
+            self.assertEqual({'test_id': 'deploy-many'}, deploy_iter.next())
         calls = self.predict_add_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
