@@ -3,6 +3,7 @@ __metaclass__ = type
 from contextlib import contextmanager
 import os
 import shutil
+import StringIO
 import subprocess
 import tempfile
 from textwrap import dedent
@@ -24,7 +25,7 @@ from jujupy import (
     Environment,
     EnvJujuClient,
     ErroredUnit,
-    format_listing,
+    GroupReporter,
     get_local_root,
     JujuClientDevel,
     SimpleEnvironment,
@@ -1352,9 +1353,47 @@ class TestEnvironment(TestCase):
         self.assertEqual(0, mock_set.call_count)
 
 
-class TestFormatListing(TestCase):
+class TestGroupReporter(TestCase):
 
-    def test_format_listing(self):
-        result = format_listing(
-            {'1': ['a', 'b'], '2': ['c'], 'expected': ['d']}, 'expected')
-        self.assertEqual('1: a, b | 2: c', result)
+    def test_single(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        self.assertEqual(sio.getvalue(), "")
+        reporter.update({"working": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1")
+        reporter.update({"done": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1\n")
+
+    def test_single_ticks(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        reporter.update({"working": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1")
+        reporter.update({"working": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1 .")
+        reporter.update({"working": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1 ..")
+        reporter.update({"done": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1 ..\n")
+
+    def test_multiple_values(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        reporter.update({"working": ["1", "2"]})
+        self.assertEqual(sio.getvalue(), "working: 1, 2")
+        reporter.update({"working": ["1"], "done": ["2"]})
+        self.assertEqual(sio.getvalue(), "working: 1, 2\nworking: 1")
+        reporter.update({"done": ["1", "2"]})
+        self.assertEqual(sio.getvalue(), "working: 1, 2\nworking: 1\n")
+
+    def test_multiple_groups(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        reporter.update({"working": ["1", "2"], "starting": ["3"]})
+        first = "starting: 3 | working: 1, 2"
+        self.assertEqual(sio.getvalue(), first)
+        reporter.update({"working": ["1", "3"], "done": ["2"]})
+        second = "working: 1, 3"
+        self.assertEqual(sio.getvalue(), "\n".join([first, second]))
+        reporter.update({"done": ["1", "2", "3"]})
+        self.assertEqual(sio.getvalue(), "\n".join([first, second, ""]))
