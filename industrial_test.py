@@ -3,6 +3,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 from collections import OrderedDict
+from datetime import datetime
 import json
 import logging
 import sys
@@ -414,9 +415,10 @@ class DeployManyAttempt(SteppedStageAttempt):
         old_status = client.get_status()
         for machine in range(self.host_count):
             client.juju('add-machine', ())
+        timeout_start = datetime.now()
         yield results
         try:
-            new_status = client.wait_for_started()
+            new_status = client.wait_for_started(start=timeout_start)
         except AgentsNotStarted as e:
             new_status = e.status
             results['result'] = False
@@ -431,9 +433,9 @@ class DeployManyAttempt(SteppedStageAttempt):
         for machine in stuck_new_machines:
             client.juju('destroy-machine', ('--force', machine))
             client.juju('add-machine', ())
+        timeout_start = datetime.now()
         yield results
-        if len(stuck_new_machines) > 0:
-            new_status = client.wait_for_started()
+        new_status = client.wait_for_started(start=timeout_start)
         new_machines = dict(new_status.iter_new_machines(old_status))
         if len(new_machines) != self.host_count:
             raise AssertionError('Got {} machines, not {}'.format(
@@ -447,8 +449,9 @@ class DeployManyAttempt(SteppedStageAttempt):
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
+        timeout_start = datetime.now()
         yield results
-        client.wait_for_started()
+        client.wait_for_started(start=timeout_start)
         results['result'] = True
         yield results
 

@@ -1,6 +1,10 @@
 __metaclass__ = type
 
 from contextlib import contextmanager
+from datetime import (
+    datetime,
+    timedelta,
+    )
 import os
 import shutil
 import subprocess
@@ -361,12 +365,23 @@ class TestEnvJujuClient(TestCase):
     def test_wait_for_started_timeout(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        with patch('jujupy.until_timeout', lambda x: range(0)):
+        with patch('jujupy.until_timeout', lambda x, start=None: range(1)):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started()
+
+    def test_wait_for_started_start(self):
+        value = self.make_status_yaml('agent-state', 'started', 'pending')
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        now = datetime.now() + timedelta(days=1)
+        with patch('utility.until_timeout.now', return_value=now):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    client.wait_for_started(start=now - timedelta(1200))
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
@@ -1214,7 +1229,7 @@ class TestEnvironment(TestCase):
     def test_wait_for_started_timeout(self):
         value = self.make_status_yaml('agent-state', 'pending', 'started')
         env = Environment('local', JujuClientDevel(None, None))
-        with patch('jujupy.until_timeout', lambda x: range(0)):
+        with patch('jujupy.until_timeout', lambda x, start=None: range(1)):
             with patch.object(EnvJujuClient, 'get_juju_output',
                               return_value=value):
                 with self.assertRaisesRegexp(

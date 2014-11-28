@@ -656,9 +656,10 @@ class FakeEnvJujuClient(EnvJujuClient):
         super(FakeEnvJujuClient, self).__init__(
             SimpleEnvironment(name, {'type': 'fake'}), '1.2', '/jbin/juju')
 
-    def wait_for_started(self):
+    def wait_for_started(self, start=None):
         with patch('sys.stdout'):
-            return super(FakeEnvJujuClient, self).wait_for_started(0.01)
+            return super(FakeEnvJujuClient, self).wait_for_started(0.01,
+                                                                   start=start)
 
     def wait_for_ha(self):
         with patch('sys.stdout'):
@@ -945,8 +946,9 @@ class TestDeployManyAttempt(TestCase):
                          {'test_id': 'ensure-machines'})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'ensure-machines'})
-        self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'ensure-machines', 'result': True})
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(deploy_iter.next(),
+                             {'test_id': 'ensure-machines', 'result': True})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'deploy-many'})
         with patch('subprocess.check_call') as mock_cc:
@@ -990,8 +992,9 @@ class TestDeployManyAttempt(TestCase):
                          {'test_id': 'ensure-machines'})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'ensure-machines'})
-        self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'ensure-machines', 'result': True})
+        with patch('subprocess.check_output', return_value=status):
+            self.assertEqual(deploy_iter.next(),
+                             {'test_id': 'ensure-machines', 'result': True})
         self.assertEqual(deploy_iter.next(),
                          {'test_id': 'deploy-many'})
         with patch('subprocess.check_call') as mock_cc:

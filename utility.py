@@ -31,9 +31,11 @@ class until_timeout:
 
     :ivar timeout: Number of seconds to wait.
     """
-    def __init__(self, timeout):
+    def __init__(self, timeout, start=None):
         self.timeout = timeout
-        self.start = self.now()
+        if start is None:
+            start = self.now()
+        self.start = start
 
     def __iter__(self):
         return self
