@@ -6,6 +6,7 @@ package backups
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 
@@ -21,6 +22,10 @@ func (c *Client) Upload(archive io.Reader, meta params.BackupsMetadataResult) (i
 			logger.Debugf("upload request failed")
 		}
 	}()
+
+	// Empty out some of the metadata.
+	meta.ID = ""
+	meta.Stored = time.Time{}
 
 	// Send the request.
 	logger.Debugf("sending upload request")
