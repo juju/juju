@@ -18,11 +18,11 @@ class TestDumping_env(TestCase):
         with patch.object(client, 'destroy_environment') as de_mock:
             with patch('subprocess.check_call') as cc_mock:
                 with patch('deploy_stack.copy_remote_logs') as crl_mock:
-                    with self.assertRaises(ValueError):
-                        with dumping_env(client, 'foo', 'bar'):
-                            raise ValueError
+                    with patch('glob.glob', return_value=[]) as glob_mock:
+                        with self.assertRaises(ValueError):
+                            with dumping_env(client, 'foo', 'bar'):
+                                raise ValueError
         crl_mock.assert_called_once_with('foo', 'bar')
-        cc_mock.assert_called_once_with(['gzip', '-f'])
         de_mock.assert_called_once_with()
 
     def test_dumping_env_success(self):
@@ -30,8 +30,9 @@ class TestDumping_env(TestCase):
         with patch.object(client, 'destroy_environment') as de_mock:
             with patch('subprocess.check_call') as cc_mock:
                 with patch('deploy_stack.copy_remote_logs') as crl_mock:
-                    with dumping_env(client, 'foo', 'bar'):
-                        pass
+                    with patch('glob.glob', return_value=['log']) as glob_mock:
+                        with dumping_env(client, 'foo', 'bar'):
+                            pass
         crl_mock.assert_called_once_with('foo', 'bar')
-        cc_mock.assert_called_once_with(['gzip', '-f'])
+        cc_mock.assert_called_once_with(['gzip', '-f', 'log'])
         self.assertEqual(de_mock.call_count, 0)

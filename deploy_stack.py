@@ -215,9 +215,9 @@ def dump_logs(client, host, directory, host_id=None):
         copy_local_logs(directory, client)
     else:
         copy_remote_logs(host, directory)
-    subprocess.check_call(
-        ['gzip', '-f'] +
-        glob.glob(os.path.join(directory, '*.log')))
+    log_files = glob.glob(os.path.join(directory, '*.log'))
+    if log_files:
+        subprocess.check_call(['gzip', '-f'] + log_files)
 
     dump_euca_console(host_id, directory)
 
