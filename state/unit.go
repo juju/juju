@@ -1544,54 +1544,35 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	doc, ndoc, err := newActionDoc(u.st, u, name, payload)
-	if err != nil {
-		return nil, fmt.Errorf("cannot add action; %v", err)
-	}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.DocID,
-		Assert: notDeadDoc,
-	}, {
-		C:      actionsC,
-		Id:     doc.DocId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}, {
-		C:      actionNotificationsC,
-		Id:     ndoc.DocId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
-			return nil, err
-		} else if !notDead {
-			return nil, ErrDead
-		}
-		return ops, nil
-	}
-	if err = u.st.run(buildTxn); err == nil {
-		return newAction(u.st, doc), nil
-	}
-	return nil, err
+	return u.st.EnqueueAction(u.Tag(), name, payload)
 }
 
 // CancelAction removes a pending Action from the queue for this
 // ActionReceiver and marks it as cancelled.
-func (u *Unit) CancelAction(action *Action) (*ActionResult, error) {
+func (u *Unit) CancelAction(action *Action) (*Action, error) {
 	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
-// Actions returns a list of actions for this unit
+// WatchActionNotifications starts and returns a StringsWatcher that
+// notifies when actions with Id prefixes matching this Unit are added
+func (u *Unit) WatchActionNotifications() StringsWatcher {
+	return u.st.watchEnqueuedActionsFilteredBy(u)
+}
+
+// Actions returns a list of actions pending or completed for this unit.
 func (u *Unit) Actions() ([]*Action, error) {
 	return u.st.matchingActions(u)
 }
 
-// ActionResults returns a list of action results for this unit
-func (u *Unit) ActionResults() ([]*ActionResult, error) {
-	return u.st.matchingActionResults(u)
+// CompletedActions returns a list of actions that have finished for
+// this unit.
+func (u *Unit) CompletedActions() ([]*Action, error) {
+	return u.st.matchingActionsCompleted(u)
+}
+
+// PendingActions returns a list of actions pending for this unit.
+func (u *Unit) PendingActions() ([]*Action, error) {
+	return u.st.matchingActionsPending(u)
 }
 
 // Resolve marks the unit as having had any previous state transition
@@ -1663,12 +1644,6 @@ func (u *Unit) ClearResolved() error {
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil
-}
-
-// WatchActions starts and returns a StringsWatcher that notifies when
-// actions with Id prefixes matching this Unit are added
-func (u *Unit) WatchActions() StringsWatcher {
-	return u.st.watchEnqueuedActionsFilteredBy(u)
 }
 
 // AddMetric adds a new batch of metrics to the database.

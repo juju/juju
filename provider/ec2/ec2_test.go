@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	amzec2 "launchpad.net/goamz/ec2"
 
@@ -68,7 +69,7 @@ func (*Suite) TestBlockDeviceMappings(c *gc.C) {
 		c.Logf("Test %s", t.name)
 		cons := constraints.Value{RootDisk: t.constraint}
 		mappings, err := getBlockDeviceMappings(cons)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)
 	}

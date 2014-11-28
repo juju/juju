@@ -5,6 +5,7 @@ package ssh_test
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
@@ -25,7 +26,7 @@ func (s *FingerprintSuite) TestKeyFingerprint(c *gc.C) {
 	}
 	for _, k := range keys {
 		fingerprint, _, err := ssh.KeyFingerprint(k.Key)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(fingerprint, gc.Equals, k.Fingerprint)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go.crypto/ssh"
+	"github.com/juju/errors"
 )
 
 // rsaGenerateKey allows for tests to patch out rsa key generation
@@ -29,7 +30,7 @@ var KeyBits = 2048
 func GenerateKey(comment string) (private, public string, err error) {
 	key, err := rsaGenerateKey(rand.Reader, KeyBits)
 	if err != nil {
-		return "", "", err
+		return "", "", errors.Trace(err)
 	}
 
 	identity := pem.EncodeToMemory(
@@ -38,15 +39,27 @@ func GenerateKey(comment string) (private, public string, err error) {
 			Bytes: x509.MarshalPKCS1PrivateKey(key),
 		})
 
-	signer, err := ssh.ParsePrivateKey(identity)
+	public, err = PublicKey(identity, comment)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to load key: %v", err)
+		return "", "", errors.Trace(err)
+	}
+
+	return string(identity), public, nil
+}
+
+// PublicKey returns the public key for any private key. The public key is
+// suitable to be added into an authorized_keys file, and has the comment
+// passed in as the comment part of the key.
+func PublicKey(privateKey []byte, comment string) (string, error) {
+	signer, err := ssh.ParsePrivateKey(privateKey)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to load key")
 	}
 
 	auth_key := string(ssh.MarshalAuthorizedKey(signer.PublicKey()))
 	// Strip off the trailing new line so we can add a comment.
 	auth_key = strings.TrimSpace(auth_key)
-	public = fmt.Sprintf("%s %s\n", auth_key, comment)
+	public := fmt.Sprintf("%s %s\n", auth_key, comment)
 
-	return string(identity), public, nil
+	return public, nil
 }

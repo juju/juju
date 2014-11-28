@@ -10,14 +10,14 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/state"
 )
 
 var (
-	Create           = create
-	NewMongoConnInfo = newMongoConnInfo
+	Create = create
 
 	TestGetFilesToBackUp = &getFilesToBackUp
 	GetDBDumper          = &getDBDumper
@@ -32,12 +32,6 @@ var (
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
-func newBackupDoc(meta *Metadata) *storageMetaDoc {
-	var doc storageMetaDoc
-	doc.UpdateFromMetadata(meta)
-	return &doc
-}
-
 func getBackupDBWrapper(st *state.State) *storageDBWrapper {
 	envUUID := st.EnvironTag().Id()
 	db := st.MongoSession().DB(storageDBName)
@@ -46,8 +40,8 @@ func getBackupDBWrapper(st *state.State) *storageDBWrapper {
 
 // NewBackupID creates a new backup ID based on the metadata.
 func NewBackupID(meta *Metadata) string {
-	doc := newBackupDoc(meta)
-	return newStorageID(doc)
+	doc := newStorageMetaDoc(meta)
+	return newStorageID(&doc)
 }
 
 // GetBackupMetadata returns the metadata retrieved from storage.
@@ -56,26 +50,32 @@ func GetBackupMetadata(st *state.State, id string) (*Metadata, error) {
 	defer db.Close()
 	doc, err := getStorageMetadata(db, id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return doc.asMetadata(), nil
+	return docAsMetadata(doc), nil
 }
 
 // AddBackupMetadata adds the metadata to storage.
 func AddBackupMetadata(st *state.State, meta *Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addStorageMetadata(db, doc)
+	doc := newStorageMetaDoc(meta)
+	return addStorageMetadata(db, &doc)
 }
 
 // AddBackupMetadataID adds the metadata to storage, using the given
 // backup ID.
 func AddBackupMetadataID(st *state.State, meta *Metadata, id string) error {
+	restore := testing.PatchValue(&newStorageID, func(*storageMetaDoc) string {
+		return id
+	})
+	defer restore()
+
 	db := getBackupDBWrapper(st)
 	defer db.Close()
-	doc := newBackupDoc(meta)
-	return addStorageMetadataID(db, doc, id)
+	doc := newStorageMetaDoc(meta)
+	_, err := addStorageMetadata(db, &doc)
+	return errors.Trace(err)
 }
 
 // SetBackupStoredTime stores the time of when the identified backup archive

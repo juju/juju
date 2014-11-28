@@ -83,7 +83,7 @@ func (*suite) TestInvalidEnv(c *gc.C) {
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		cfg, err := es.Config(t.name)
 		c.Check(err, gc.ErrorMatches, t.err)
 		c.Check(cfg, gc.IsNil)
@@ -113,7 +113,7 @@ environments:
 	defer loggo.RemoveWriter("invalid-env-tester")
 
 	envs, err := environs.ReadEnvironsBytes([]byte(content))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	names := envs.Names()
 	sort.Strings(names)
 	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
@@ -121,12 +121,12 @@ environments:
 	c.Check(tw.Log(), gc.HasLen, 0)
 	// Now we actually grab the 'valid' entry
 	_, err = envs.Config("valid")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	// And still we have no warnings
 	c.Check(tw.Log(), gc.HasLen, 0)
 	// Only once we grab the deprecated one do we see any warnings
 	_, err = envs.Config("deprecated")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(tw.Log(), gc.HasLen, 2)
 }
 
@@ -141,13 +141,13 @@ environments:
         type: ec2
 `
 	_, err := environs.ReadEnvironsBytes([]byte(content))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*suite) TestNoEnv(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	es, err := environs.ReadEnvirons("")
 	c.Assert(es, gc.IsNil)
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
@@ -164,7 +164,7 @@ environments:
         state-server: false
 `, func(c *gc.C, envs *environs.Environs) {
 		cfg, err := envs.Config("")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.Name(), gc.Equals, "only")
 	}}, {`
 default:
@@ -180,7 +180,7 @@ environments:
 		c.Assert(err, gc.ErrorMatches, `environment "invalid" has an unknown provider type "crazy"`)
 		c.Assert(cfg, gc.IsNil)
 		cfg, err = envs.Config("valid")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.Name(), gc.Equals, "valid")
 	}}, {`
 environments:
@@ -201,7 +201,7 @@ func (*suite) TestConfig(c *gc.C) {
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		envs, err := environs.ReadEnvironsBytes([]byte(t.env))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		t.check(c, envs)
 	}
 }
@@ -215,14 +215,14 @@ environments:
         authorized-keys: i-am-a-key
 `
 	outfile, err := environs.WriteEnvirons("", env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	path := gitjujutesting.HomePath(".juju", "environments.yaml")
 	c.Assert(path, gc.Equals, outfile)
 
 	envs, err := environs.ReadEnvirons("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := envs.Config("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
@@ -231,7 +231,7 @@ func (s *suite) TestConfigPerm(c *gc.C) {
 
 	path := gitjujutesting.HomePath(".juju")
 	info, err := os.Lstat(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	oldPerm := info.Mode().Perm()
 	env := `
 environments:
@@ -241,14 +241,14 @@ environments:
         authorized-keys: i-am-a-key
 `
 	outfile, err := environs.WriteEnvirons("", env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info, err = os.Lstat(outfile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(0600))
 
 	info, err = os.Lstat(filepath.Dir(outfile))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode().Perm(), gc.Equals, oldPerm)
 
 }
@@ -264,13 +264,13 @@ environments:
 `
 	path := filepath.Join(c.MkDir(), "a-file")
 	outfile, err := environs.WriteEnvirons(path, env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Equals, outfile)
 
 	envs, err := environs.ReadEnvirons(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := envs.Config("")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
@@ -288,11 +288,11 @@ func (*suite) TestBootstrapConfig(c *gc.C) {
 	c.Assert(inMap(attrs, "admin-secret"), jc.IsTrue)
 
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cfg1, err := environs.BootstrapConfig(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expect := cfg.AllAttrs()
 	expect["admin-secret"] = ""
@@ -358,11 +358,11 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		registered := &dummyProvider{}
 		environs.RegisterProvider(name, registered, aliases...)
 		p, err := environs.Provider(name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(p, gc.Equals, registered)
 		for _, alias := range aliases {
 			p, err := environs.Provider(alias)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(p, gc.Equals, registered)
 			c.Assert(p, gc.Equals, registered)
 		}
@@ -379,7 +379,7 @@ func (s *suite) TestRegisterProvider(c *gc.C) {
 		for _, step := range test {
 			err := registerProvider(step.name, step.aliases)
 			if step.err == "" {
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			} else {
 				c.Assert(err, gc.ErrorMatches, step.err)
 			}
@@ -398,10 +398,10 @@ func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) func() {
 	var err error
 	s.writer = &loggo.TestWriter{}
 	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return func() {
 		_, _, err := loggo.RemoveWriter("test")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -416,10 +416,10 @@ environments:
 	defer restore()
 
 	envs, err := environs.ReadEnvironsBytes([]byte(content))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	environs.UpdateEnvironAttrs(envs, "deprecated", attrs)
 	_, err = envs.Config("deprecated")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var stripped string
 	if log := s.writer.Log(); len(log) == 1 {
@@ -431,7 +431,7 @@ environments:
 
 const (
 	// This is a standard configuration warning when old attribute was specified.
-	standardDeprecationWarning = `.*Your configuration should be updated to set .*`
+	standardDeprecationWarning = `.*Your configuration should be updated to set .* %v.*`
 
 	// This is a standard deprecation warning when both old and new attributes were specified.
 	standardDeprecationWarningWithNew = `.*is deprecated and will be ignored since the new .*`
@@ -441,14 +441,14 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
 		"tools-metadata-url": "aknowndeprecatedfield",
 	}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, "aknowndeprecatedfield")
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarning(c *gc.C) {
 	// Test that the warning is logged.
 	attrs := testing.Attrs{"provisioner-safe-mode": true}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, "destroyed")
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -479,13 +479,13 @@ func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 
 func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
 	attrs := testing.Attrs{"lxc-use-clone": true}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, true)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWarning(c *gc.C) {
 	attrs := testing.Attrs{"tools-stream": "devel"}
-	expected := fmt.Sprintf(standardDeprecationWarning)
+	expected := fmt.Sprintf(standardDeprecationWarning, "devel")
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual"
@@ -61,7 +62,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 	case string:
 		sshexpectedinput := ssh + ".expected-input"
 		err := ioutil.WriteFile(sshexpectedinput, []byte(input), 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	default:
 		c.Errorf("input has invalid type: %T", input)
 	}
@@ -77,7 +78,7 @@ func installFakeSSH(c *gc.C, input, output interface{}, rc int) testing.Restorer
 	}
 	script := fmt.Sprintf(sshscript, stdout, stderr, rc)
 	err := ioutil.WriteFile(ssh, []byte(script), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return testing.PatchEnvPathPrepend(fakebin)
 }
 

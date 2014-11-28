@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container"
@@ -40,7 +41,7 @@ func (s *flockSuite) TestValidNamesLockDir(c *gc.C) {
 	} {
 		dir := c.MkDir()
 		_, err := container.NewLock(dir, name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -65,29 +66,29 @@ func (s *flockSuite) TestInvalidNames(c *gc.C) {
 func (s *flockSuite) TestNewLockWithExistingDir(c *gc.C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = container.NewLock(dir, "special")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *flockSuite) TestLockBlocks(c *gc.C) {
 
 	dir := c.MkDir()
 	lock1, err := container.NewLock(dir, "testing")
-	c.Assert(err, gc.IsNil)
-	c.Assert(container.IsLocked(lock1), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.IsLocked(lock1), jc.IsFalse)
 	lock2, err := container.NewLock(dir, "testing")
-	c.Assert(err, gc.IsNil)
-	c.Assert(container.IsLocked(lock2), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.IsLocked(lock2), jc.IsFalse)
 
 	acquired := make(chan struct{})
 	err = lock1.Lock("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(container.IsLocked(lock1), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.IsLocked(lock1), jc.IsTrue)
 
 	go func() {
 		lock2.Lock("")
-		c.Assert(container.IsLocked(lock2), gc.Equals, true)
+		c.Assert(container.IsLocked(lock2), jc.IsTrue)
 		acquired <- struct{}{}
 		close(acquired)
 	}()
@@ -101,8 +102,8 @@ func (s *flockSuite) TestLockBlocks(c *gc.C) {
 	}
 
 	err = lock1.Unlock()
-	c.Assert(err, gc.IsNil)
-	c.Assert(container.IsLocked(lock1), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.IsLocked(lock1), jc.IsFalse)
 
 	select {
 	case <-acquired:
@@ -115,14 +116,14 @@ func (s *flockSuite) TestLockBlocks(c *gc.C) {
 func (s *flockSuite) TestUnlock(c *gc.C) {
 	dir := c.MkDir()
 	lock, err := container.NewLock(dir, "testing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = lock.Lock("test")
-	c.Assert(err, gc.IsNil)
-	c.Assert(container.IsLocked(lock), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.IsLocked(lock), jc.IsTrue)
 
 	err = lock.Unlock()
-	c.Assert(err, gc.IsNil)
-	c.Assert(container.IsLocked(lock), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(container.IsLocked(lock), jc.IsFalse)
 }
 
 func (s *flockSuite) TestStress(c *gc.C) {
@@ -147,7 +148,7 @@ func (s *flockSuite) TestStress(c *gc.C) {
 		}
 		for i := 0; i < lockAttempts; i++ {
 			err = lock.Lock(name)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			state := atomic.AddInt32(lockState, 1)
 			c.Assert(state, gc.Equals, int32(1))
 			// Tell the go routine scheduler to give a slice to someone else
@@ -157,7 +158,7 @@ func (s *flockSuite) TestStress(c *gc.C) {
 			// else grabbing the lock before we decrement the state.
 			atomic.AddInt32(lockState, -1)
 			err = lock.Unlock()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			// increment the general counter
 			atomic.AddInt64(counter, 1)
 		}

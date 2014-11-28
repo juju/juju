@@ -8,15 +8,16 @@ import (
 	"path"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -47,10 +48,10 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		MachineNonce: "gxshasqlnng",
 		DataDir:      environs.DataDir,
 		LogDir:       agent.DefaultLogDir,
-		Jobs: []juju.MachineJob{
-			juju.JobManageEnviron,
-			juju.JobHostUnits,
-			juju.JobManageNetworking,
+		Jobs: []multiwatcher.MachineJob{
+			multiwatcher.JobManageEnviron,
+			multiwatcher.JobHostUnits,
+			multiwatcher.JobManageNetworking,
 		},
 		CloudInitOutputLog: cloudInitOutputLog,
 		Tools: &tools.Tools{
@@ -92,11 +93,11 @@ func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 	cfg := makeMachineConfig(c)
 
 	encodedData, err := makeCustomData(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	reference, err := environs.ComposeUserData(cfg, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }

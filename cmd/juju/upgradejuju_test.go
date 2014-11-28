@@ -297,7 +297,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {
-				c.Check(err, gc.IsNil)
+				c.Check(err, jc.ErrorIsNil)
 			}
 			continue
 		}
@@ -309,14 +309,14 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
 		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
@@ -324,15 +324,15 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 			continue
-		} else if !c.Check(err, gc.IsNil) {
+		} else if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 
 		// Check expected changes to environ/state.
 		cfg, err := s.State.EnvironConfig()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		agentVersion, ok := cfg.AgentVersion()
-		c.Check(ok, gc.Equals, true)
+		c.Check(ok, jc.IsTrue)
 		c.Check(agentVersion, gc.Equals, version.MustParse(test.expectVersion))
 
 		for _, uploaded := range test.expectUploaded {
@@ -346,15 +346,15 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
 	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	_, r, err := storage.Tools(vers)
-	if !c.Check(err, gc.IsNil) {
+	if !c.Check(err, jc.ErrorIsNil) {
 		return
 	}
 	data, err := ioutil.ReadAll(r)
 	r.Close()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	expectContent := version.Current
 	expectContent.Number = agentVersion
 	checkToolsContent(c, data, "jujud contents "+expectContent.String())
@@ -362,7 +362,7 @@ func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agen
 
 func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 	zr, err := gzip.NewReader(bytes.NewReader(data))
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	defer zr.Close()
 	tr := tar.NewReader(zr)
 	found := false
@@ -371,7 +371,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 		if err == io.EOF {
 			break
 		}
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		if strings.ContainsAny(hdr.Name, "/\\") {
 			c.Fail()
 		}
@@ -379,7 +379,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 			c.Fail()
 		}
 		content, err := ioutil.ReadAll(tr)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(string(content), gc.Equals, uploaded)
 		found = true
 	}
@@ -398,7 +398,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		"agent-version":  "1.2.3",
 	}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 
 	// Set API host ports so FindTools works.
@@ -407,19 +407,19 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 		Port:    1234,
 	}}}
 	err = s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
 	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
 	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	vers := version.Current
 	vers.Build = 1
 	s.checkToolsUploaded(c, vers, vers.Number)
 	//_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
-	//c.Assert(err, gc.IsNil)
+	//c.Assert(err, jc.ErrorIsNil)
 }
 
 type DryRunTest struct {
@@ -479,7 +479,7 @@ upgrade to this version by running
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &UpgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(com), test.cmdArgs)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
 			"agent-version":      test.agentVersion,
@@ -487,26 +487,26 @@ upgrade to this version by running
 		}
 
 		err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		versions := make([]version.Binary, len(test.tools))
 		for i, v := range test.tools {
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
 		ctx := coretesting.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Check agent version doesn't change
 		cfg, err := s.State.EnvironConfig()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		agentVer, ok := cfg.AgentVersion()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(agentVer, gc.Equals, version.MustParse(test.agentVersion))
 		output := coretesting.Stderr(ctx)
 		c.Assert(output, gc.Equals, test.expectedCmdOutput)
@@ -522,7 +522,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	fakeAPI.patch(s)
 	cmd := &UpgradeJujuCommand{}
 	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = cmd.Run(coretesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
@@ -552,10 +552,10 @@ func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
 		cmd := &UpgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(cmd),
 			append([]string{"--reset-previous-upgrade"}, args...))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = cmd.Run(ctx)
 		if expect {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, "previous upgrade not reset and no new upgrade triggered")
 		}

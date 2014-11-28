@@ -36,7 +36,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
 }
@@ -84,11 +84,11 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
 	err := s.units[0].OpenPorts("tcp", 1234, 1400)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.units[0].OpenPort("tcp", 4321)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.units[2].OpenPorts("udp", 1111, 2222)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
@@ -108,7 +108,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := s.firewaller.WatchOpenedPorts(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Changes: expectChanges, StringsWatcherId: "1"},
@@ -166,7 +166,7 @@ func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 		}},
 	}
 	result, err := s.firewaller.GetMachinePorts(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachinePortsResults{
 		Results: []params.MachinePortsResult{
 			{Ports: expectPortsMachine0},
@@ -193,7 +193,7 @@ func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
 	networkTag := names.NewNetworkTag(network.DefaultPublic)
 	expectResults := []string{networkTag.String()}
 	result, err := s.firewaller.GetMachineActiveNetworks(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: expectResults},

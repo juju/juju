@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils"
 )
 
@@ -27,23 +26,16 @@ import (
 
 var runCommand = utils.RunCommand
 
-// DBConnInfo is a simplification of authentication.MongoInfo, focused
-// on the needs of juju state backups.  To ensure that the info is valid
-// for use in backups, use the Check() method to get the contained
-// values.
-type DBConnInfo struct {
+// DBInfo wraps all the DB-specific information backups needs to dump
+// the database. This includes a simplification of the information in
+// authentication.MongoInfo.
+type DBInfo struct {
 	// Address is the DB system's host address.
 	Address string
 	// Username is used when connecting to the DB system.
 	Username string
 	// Password is used when connecting to the DB system.
 	Password string
-}
-
-// DBInfo wraps all the DB-specific information backups needs to dump
-// and restore the database.
-type DBInfo struct {
-	DBConnInfo
 	// Targets is a list of databases to dump.
 	Targets set.Strings
 }
@@ -55,26 +47,22 @@ var ignoredDatabases = set.NewStrings(
 	"presence",
 )
 
-// NewDBBackupInfo returns the information needed by backups to dump
+type DBSession interface {
+	DatabaseNames() ([]string, error)
+}
+
+// NewDBInfo returns the information needed by backups to dump
 // the database.
-func NewDBBackupInfo(st *state.State) (*DBInfo, error) {
-	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
-	targets, err := getBackupTargetDatabases(st)
+func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
+	targets, err := getBackupTargetDatabases(session)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	info := DBInfo{
-		DBConnInfo: *connInfo,
-		Targets:    targets,
-	}
-	return &info, nil
-}
-
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
-	info := DBConnInfo{
 		Address:  mgoInfo.Addrs[0],
 		Password: mgoInfo.Password,
+		Targets:  targets,
 	}
 
 	// TODO(dfc) Backup should take a Tag.
@@ -82,11 +70,11 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *DBConnInfo {
 		info.Username = mgoInfo.Tag.String()
 	}
 
-	return &info
+	return &info, nil
 }
 
-func getBackupTargetDatabases(st *state.State) (set.Strings, error) {
-	dbNames, err := st.MongoSession().DatabaseNames()
+func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
+	dbNames, err := session.DatabaseNames()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get DB names")
 	}

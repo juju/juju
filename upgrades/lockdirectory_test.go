@@ -42,7 +42,7 @@ func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
 	err := ioutil.WriteFile(
 		filepath.Join(s.bin, "chown"),
 		[]byte(fakecommand), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	loggo.GetLogger("juju.upgrade").SetLogLevel(loggo.TRACE)
 
@@ -56,7 +56,7 @@ func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
 
 func (s *ensureLockDirSuite) assertChownCalled(c *gc.C) {
 	bytes, err := ioutil.ReadFile(filepath.Join(s.bin, "chown.args"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(bytes), gc.Equals, fmt.Sprintf("ubuntu:ubuntu %s\n", s.lockdir))
 }
 
@@ -66,7 +66,7 @@ func (s *ensureLockDirSuite) assertNoChownCalled(c *gc.C) {
 
 func (s *ensureLockDirSuite) TestLockDirCreated(c *gc.C) {
 	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.lockdir, jc.IsDirectory)
 	s.assertChownCalled(c)
@@ -74,10 +74,10 @@ func (s *ensureLockDirSuite) TestLockDirCreated(c *gc.C) {
 
 func (s *ensureLockDirSuite) TestIdempotent(c *gc.C) {
 	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.lockdir, jc.IsDirectory)
 	s.assertChownCalled(c)
@@ -86,7 +86,7 @@ func (s *ensureLockDirSuite) TestIdempotent(c *gc.C) {
 func (s *ensureLockDirSuite) TestNoChownIfNoHome(c *gc.C) {
 	s.PatchValue(upgrades.UbuntuHome, filepath.Join(s.home, "not-exist"))
 	err := upgrades.EnsureLockDirExistsAndUbuntuWritable(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.lockdir, jc.IsDirectory)
 	s.assertNoChownCalled(c)

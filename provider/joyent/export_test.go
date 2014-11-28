@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joyent/gosign/auth"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -201,23 +202,23 @@ func CreateContainer(s *JoyentStorage) error {
 // MakeConfig creates a functional environConfig for a test.
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return env.(*joyentEnviron).Ecfg()
 }
 
 // MakeCredentials creates credentials for a test.
 func MakeCredentials(c *gc.C, attrs testing.Attrs) *auth.Credentials {
 	creds, err := credentials(MakeConfig(c, attrs))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return creds
 }
 
 // MakeStorage creates an env storage for a test.
 func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
 	stor, err := newStorage(MakeConfig(c, attrs), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return stor
 }
 

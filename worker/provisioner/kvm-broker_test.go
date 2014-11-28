@@ -75,10 +75,10 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
 	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, s.agentConfig, managerConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -86,7 +86,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -97,7 +97,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
 }
 
@@ -107,13 +107,13 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	kvm2 := s.startInstance(c, "1/kvm/2")
 
 	err := s.broker.StopInstances(kvm0.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInstances(c, kvm1, kvm2)
 	c.Assert(s.kvmContainerDir(kvm0), jc.DoesNotExist)
 	c.Assert(s.kvmRemovedContainerDir(kvm0), jc.IsDirectory)
 
 	err = s.broker.StopInstances(kvm1.Id(), kvm2.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInstances(c)
 }
 
@@ -123,14 +123,14 @@ func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
 	s.assertInstances(c, kvm0, kvm1)
 
 	err := s.broker.StopInstances(kvm1.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	kvm2 := s.startInstance(c, "1/kvm/2")
 	s.assertInstances(c, kvm0, kvm2)
 }
 
 func (s *kvmBrokerSuite) assertInstances(c *gc.C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, results, inst...)
 }
 
@@ -173,7 +173,7 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
 	return event.InstanceId
 }
@@ -205,7 +205,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
 }
 
@@ -220,7 +220,7 @@ func (s *kvmProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 	// Check that an instance is not provisioned when the machine is created.
 	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
 }
@@ -240,7 +240,7 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return container
 }
 

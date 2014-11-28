@@ -30,7 +30,7 @@ func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
 		return nil
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcsw.WriteCalled, jc.IsTrue)
 }
 

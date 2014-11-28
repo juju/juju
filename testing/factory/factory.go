@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -92,6 +94,11 @@ type MetricParams struct {
 	Sent    bool
 }
 
+type EnvParams struct {
+	Name  string
+	Owner names.Tag
+}
+
 // RandomSuffix adds a random 5 character suffix to the presented string.
 func (*Factory) RandomSuffix(prefix string) string {
 	result := prefix
@@ -116,8 +123,7 @@ func (factory *Factory) UniqueString(prefix string) string {
 // MakeUser will create a user with values defined by the params.
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params == nil {
 		params = &UserParams{}
@@ -133,20 +139,20 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	}
 	if params.Creator == nil {
 		env, err := factory.st.Environment()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoEnvUser {
 		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Disabled {
 		err := user.Disable()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
 }
@@ -169,7 +175,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
 	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return envUser
 }
 
@@ -192,7 +198,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 	if params.Password == "" {
 		var err error
 		params.Password, err = utils.RandomPassword()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return params
 }
@@ -220,23 +226,22 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		parentId,
 		instance.LXC,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return m
 }
 
 // MakeMachine will add a machine with values defined in params. For some
 // values in params, if they are missing, some meaningful empty values will be
 // set.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(params.Password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
@@ -247,8 +252,7 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 //   all-hooks, category, dummy, format2, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
 //   varnish-alternative, wordpress.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	if params == nil {
 		params = &CharmParams{}
@@ -271,14 +275,13 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := factory.UniqueString("bundlesha")
 	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return charm
 }
 
 // MakeService creates a service with the specified parameters, substituting
 // sane defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Service {
 	if params == nil {
 		params = &ServiceParams{}
@@ -295,14 +298,13 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	}
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
 
 // MakeUnit creates a service unit with specified params, filling in
 // sane defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	if params == nil {
 		params = &UnitParams{}
@@ -314,21 +316,20 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 		params.Service = factory.MakeService(c, nil)
 	}
 	unit, err := params.Service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
 		serviceCharmURL, _ := params.Service.CharmURL()
 		err = unit.SetCharmURL(serviceCharmURL)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return unit
 }
 
 // MakeMetric makes a metric with specified params, filling in
 // sane defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params stuct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricBatch {
 	now := time.Now().Round(time.Second).UTC()
 	if params == nil {
@@ -347,18 +348,17 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
 		err := metric.SetSent()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return metric
 }
 
 // MakeRelation create a relation with specified params, filling in sane
 // defaults for missing values.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
+// If params is not specified, defaults are used.
 func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Relation {
 	if params == nil {
 		params = &RelationParams{}
@@ -370,7 +370,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 			}),
 		})
 		e1, err := s1.Endpoint("server")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		s2 := factory.MakeService(c, &ServiceParams{
 			Charm: factory.MakeCharm(c, &CharmParams{
@@ -378,13 +378,43 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 			}),
 		})
 		e2, err := s2.Endpoint("db")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		params.Endpoints = []state.Endpoint{e1, e2}
 	}
 
 	relation, err := factory.st.AddRelation(params.Endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return relation
+}
+
+// MakeEnvironment creates an environment with specified params,
+// filling in sane defaults for missing values. If params is nil,
+// defaults are used for all values.
+//
+// By default the new enviroment shares the same owner as the calling
+// Factory's environment.
+func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State {
+	if params == nil {
+		params = new(EnvParams)
+	}
+	if params.Name == "" {
+		params.Name = factory.UniqueString("testenv")
+	}
+	if params.Owner == nil {
+		origEnv, err := factory.st.Environment()
+		c.Assert(err, jc.ErrorIsNil)
+		params.Owner = origEnv.Owner()
+	}
+
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": params.Name,
+		"uuid": uuid.String(),
+	})
+	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
+	c.Assert(err, jc.ErrorIsNil)
+	return st
 }

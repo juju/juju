@@ -33,7 +33,6 @@ var (
 	_ Entity = (*Environment)(nil)
 	_ Entity = (*User)(nil)
 	_ Entity = (*Action)(nil)
-	_ Entity = (*ActionResult)(nil)
 )
 
 // Lifer represents an entity with a life.
@@ -169,13 +168,53 @@ type InstanceIdGetter interface {
 var _ InstanceIdGetter = (*Machine)(nil)
 
 // ActionsWatcher defines the methods an entity exposes to watch Actions
-// and ActionResults queued up for itself
+// queued up for itself
 type ActionsWatcher interface {
 	Entity
-	WatchActions() StringsWatcher
+	WatchActionNotifications() StringsWatcher
 }
 
-var _ ActionsWatcher = (*Unit)(nil)
+var (
+	_ ActionsWatcher = (*Unit)(nil)
+	// TODO(jcw4): when we implement service level Actions
+	// _ ActionsWatcher = (*Service)(nil)
+)
 
-// TODO(jcw4): when we implement service level Actions
-// var _ ActionsWatcher = (*Service)(nil)
+// ActionReceiver describes Entities that can have Actions queued for
+// them, and that can get ActionRelated information about those actions.
+// TODO(jcw4) consider implementing separate Actor classes for this
+// interface; for example UnitActor that implements this interface, and
+// takes a Unit and performs all these actions.
+type ActionReceiver interface {
+	Entity
+
+	// AddAction queues an action with the given name and payload for this
+	// ActionReceiver.
+	AddAction(name string, payload map[string]interface{}) (*Action, error)
+
+	// CancelAction removes a pending Action from the queue for this
+	// ActionReceiver and marks it as cancelled.
+	CancelAction(action *Action) (*Action, error)
+
+	// WatchActionNotifications returns a StringsWatcher that will notify
+	// on changes to the queued actions for this ActionReceiver.
+	WatchActionNotifications() StringsWatcher
+
+	// Actions returns the list of Actions queued and completed for this
+	// ActionReceiver.
+	Actions() ([]*Action, error)
+
+	// CompletedActions returns the list of Actions completed for this
+	// ActionReceiver.
+	CompletedActions() ([]*Action, error)
+
+	// PendingActions returns the list of Actions queued for this
+	// ActionReceiver.
+	PendingActions() ([]*Action, error)
+}
+
+var (
+	_ ActionReceiver = (*Unit)(nil)
+	// TODO(jcw4) - use when Actions can be queued for Services.
+	//_ ActionReceiver = (*Service)(nil)
+)

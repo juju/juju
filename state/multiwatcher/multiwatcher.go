@@ -10,7 +10,6 @@ import (
 
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -175,7 +174,7 @@ type MachineInfo struct {
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
-	Jobs                     []juju.MachineJob
+	Jobs                     []MachineJob
 	Addresses                []network.Address
 }
 
@@ -255,4 +254,33 @@ func (i *AnnotationInfo) EntityId() EntityId {
 type Endpoint struct {
 	ServiceName string
 	Relation    charm.Relation
+}
+
+// MachineJob values define responsibilities that machines may be
+// expected to fulfil.
+type MachineJob string
+
+const (
+	JobHostUnits        MachineJob = "JobHostUnits"
+	JobManageEnviron    MachineJob = "JobManageEnviron"
+	JobManageNetworking MachineJob = "JobManageNetworking"
+
+	// Deprecated in 1.18
+	JobManageStateDeprecated MachineJob = "JobManageState"
+)
+
+// NeedsState returns true if the job requires a state connection.
+func (job MachineJob) NeedsState() bool {
+	return job == JobManageEnviron
+}
+
+// AnyJobNeedsState returns true if any of the provided jobs
+// require a state connection.
+func AnyJobNeedsState(jobs ...MachineJob) bool {
+	for _, j := range jobs {
+		if j.NeedsState() {
+			return true
+		}
+	}
+	return false
 }

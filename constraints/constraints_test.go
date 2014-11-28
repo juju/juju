@@ -308,13 +308,13 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		cons0, err := constraints.Parse(t.args...)
 		if t.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		cons1, err := constraints.Parse(cons0.String())
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(cons1, gc.DeepEquals, cons0)
 	}
 }
@@ -324,16 +324,16 @@ func (s *ConstraintsSuite) TestMerge(c *gc.C) {
 	con2 := constraints.MustParse("cpu-cores=42")
 	con3 := constraints.MustParse("root-disk=8G container=lxc networks=net1,^net2")
 	merged, err := constraints.Merge(con1, con2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cpu-cores=42"))
 	merged, err = constraints.Merge(con1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, con1)
 	merged, err = constraints.Merge(con1, con2, con3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cpu-cores=42 root-disk=8G container=lxc networks=net1,^net2"))
 	merged, err = constraints.Merge()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(merged, jc.DeepEquals, constraints.Value{})
 	foo := "foo"
 	merged, err = constraints.Merge(constraints.Value{Arch: &foo}, con2)
@@ -480,7 +480,7 @@ func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *gc.C) {
 		var cons constraints.Value
 		val := constraints.ConstraintsValue{&cons}
 		err := val.Set(t.Value.String())
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
@@ -489,7 +489,7 @@ func (s *ConstraintsSuite) TestRoundtripString(c *gc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		cons, err := constraints.Parse(t.Value.String())
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
@@ -498,10 +498,10 @@ func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		data, err := json.Marshal(t.Value)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
@@ -510,10 +510,10 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
 	for _, t := range constraintsRoundtripTests {
 		c.Logf("test %s", t.Name)
 		data, err := goyaml.Marshal(t.Value)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		var cons constraints.Value
 		err = goyaml.Unmarshal(data, &cons)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
@@ -601,7 +601,7 @@ func (s *ConstraintsSuite) TestWithout(c *gc.C) {
 		c.Logf("test %d", i)
 		initial := constraints.MustParse(t.initial)
 		final, err := constraints.Without(initial, t.without...)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(final, jc.DeepEquals, constraints.MustParse(t.final))
 	}
 }

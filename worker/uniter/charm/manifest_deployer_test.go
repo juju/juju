@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -49,16 +50,16 @@ func (s *ManifestDeployerSuite) addCharm(c *gc.C, revision int, content ...ft.En
 func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
 	info := s.addCharm(c, revision, content...)
 	err := s.deployer.Stage(info, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharm(c, revision, content...)
 	return info
 }
 
 func (s *ManifestDeployerSuite) assertCharm(c *gc.C, revision int, content ...ft.Entry) {
 	url, err := charm.ReadCharmURL(filepath.Join(s.targetPath, ".juju-charm"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.DeepEquals, charmURL(revision))
 	ft.Entries(content).Check(c, s.targetPath)
 }
@@ -86,7 +87,7 @@ func (s *ManifestDeployerSuite) TestDontAbortStageWhenNotClosed(c *gc.C) {
 	}()
 	close(stopWaiting)
 	err := <-errors
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ManifestDeployerSuite) TestDeployWithoutStage(c *gc.C) {
@@ -185,7 +186,7 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 	}
 	info := s.addMockCharm(c, 2, mockCharm)
 	err := s.deployer.Stage(info, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and see it fail to expand. We're not too bothered about the actual
 	// content of the target dir at this stage, but we do want to check it's
@@ -198,9 +199,9 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C
 	// same charm...
 	failDeploy = false
 	err = s.deployer.NotifyResolved()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ...we end up with the right stuff in play.
 	s.assertCharm(c, 2, upgradeContent...)
@@ -230,14 +231,14 @@ func (s *ManifestDeployerSuite) TestUpgradeConflictRevertRetryDifferentCharm(c *
 	}
 	badInfo := s.addMockCharm(c, 2, badCharm)
 	err := s.deployer.Stage(badInfo, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.deployer.Deploy()
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 
 	// Notify the Deployer that it'll be expected to revert the changes from
 	// the last attempt.
 	err = s.deployer.NotifyRevert()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a charm upgrade that creates a bunch of different files, without
 	// error, and deploy it; check user files are preserved, and nothing from

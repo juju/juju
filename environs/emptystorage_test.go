@@ -4,6 +4,7 @@
 package environs_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -32,5 +33,5 @@ func (s *EmptyStorageSuite) TestURL(c *gc.C) {
 func (s *EmptyStorageSuite) TestList(c *gc.C) {
 	names, err := storage.List(environs.EmptyStorage, "anything")
 	c.Assert(names, gc.IsNil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

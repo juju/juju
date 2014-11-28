@@ -62,25 +62,25 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 
 	// Upload an archive with its original revision.
 	savedURL, err := client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
 	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	charmDir.SetDiskRevision(42)
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.Revision, gc.Equals, 42)
 
 	// Upload a charm directory again, revision should be bumped.
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
 
 func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer lis.Close()
 	url := fmt.Sprintf("http://%v", lis.Addr())
 	http.HandleFunc("/charms", func(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +105,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 
 func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	client := s.APIState.Client()
 	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
@@ -177,10 +177,10 @@ func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
 	client := s.APIState.Client()
 	user := names.NewUserTag("foo@ubuntuone")
 	err := client.ShareEnvironment([]names.UserTag{user})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
@@ -190,14 +190,14 @@ func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
 	client := s.APIState.Client()
 	user := names.NewUserTag("foo@ubuntuone")
 	err := client.ShareEnvironment([]names.UserTag{user})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 
 	err = client.UnshareEnvironment([]names.UserTag{user})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.EnvironmentUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
@@ -270,7 +270,7 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 
 	client := s.APIState.Client()
 	reader, err := client.WatchDebugLog(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	connectURL := connectURLFromReader(c, reader)
 
@@ -295,10 +295,10 @@ func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
 	info := s.APIInfo(c)
 	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	connectURL := connectURLFromReader(c, reader)
 	c.Assert(connectURL.Path, gc.Matches, "/log")
 }
@@ -307,14 +307,14 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
 	// If the server supports it, we should log at "/environment/UUID/log"
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
 	info.EnvironTag = environ.EnvironTag()
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	connectURL := connectURLFromReader(c, reader)
 	c.ExpectFailure("debug log always goes to /log for compatibility http://pad.lv/1326799")
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/%s/log", environ.UUID()))
@@ -325,15 +325,15 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Backwards compatibility, passing EnvironTag = "" should just work
 	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
 	// Passing in the correct environment UUID should also work
 	environ, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info.EnvironTag = environ.EnvironTag()
 	apistate, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apistate.Close()
 
 	// Passing in a bad environment UUID should fail with a known error
@@ -349,17 +349,17 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	// correct error code is seen by the client from the
 	// SetEnvironAgentVersion call when an upgrade is in progress.
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nextVersion := version.MustParse("9.8.7")
 	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.APIState.Client().SetEnvironAgentVersion(nextVersion)
 
@@ -398,7 +398,7 @@ func (r *badReader) Read(p []byte) (n int, err error) {
 func echoURL(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
 	response := &params.ErrorResult{}
 	message, err := json.Marshal(response)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return func(config *websocket.Config) (io.ReadCloser, error) {
 		pr, pw := io.Pipe()
 		go func() {
@@ -412,9 +412,9 @@ func echoURL(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
 func connectURLFromReader(c *gc.C, rc io.ReadCloser) *url.URL {
 	bufReader := bufio.NewReader(rc)
 	location, err := bufReader.ReadString('\n')
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	connectURL, err := url.Parse(strings.TrimSpace(location))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rc.Close()
 	return connectURL
 }

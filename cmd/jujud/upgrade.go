@@ -8,13 +8,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -65,7 +65,7 @@ type upgradeWorkerContext struct {
 	machineId       string
 	isMaster        bool
 	apiState        *api.State
-	jobs            []juju.MachineJob
+	jobs            []multiwatcher.MachineJob
 	agentConfig     agent.Config
 	isStateServer   bool
 	st              *state.State
@@ -96,7 +96,7 @@ func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) err
 func (c *upgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
 	apiState *api.State,
-	jobs []juju.MachineJob,
+	jobs []multiwatcher.MachineJob,
 ) worker.Worker {
 	c.agent = agent
 	c.apiState = apiState
@@ -156,7 +156,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
 	for _, job := range c.jobs {
-		if job == juju.JobManageEnviron {
+		if job == multiwatcher.JobManageEnviron {
 			c.isStateServer = true
 		}
 	}
@@ -446,15 +446,15 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 // jobsToTargets determines the upgrade targets corresponding to the
 // jobs assigned to a machine agent. This determines the upgrade steps
 // which will run during an upgrade.
-func jobsToTargets(jobs []juju.MachineJob, isMaster bool) (targets []upgrades.Target) {
+func jobsToTargets(jobs []multiwatcher.MachineJob, isMaster bool) (targets []upgrades.Target) {
 	for _, job := range jobs {
 		switch job {
-		case juju.JobManageEnviron:
+		case multiwatcher.JobManageEnviron:
 			targets = append(targets, upgrades.StateServer)
 			if isMaster {
 				targets = append(targets, upgrades.DatabaseMaster)
 			}
-		case juju.JobHostUnits:
+		case multiwatcher.JobHostUnits:
 			targets = append(targets, upgrades.HostMachine)
 		}
 	}

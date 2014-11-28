@@ -12,12 +12,12 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 type StatusCommand struct {
@@ -342,7 +342,7 @@ func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatu
 	}
 
 	for _, job := range machine.Jobs {
-		if job == juju.JobManageEnviron {
+		if job == multiwatcher.JobManageEnviron {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}

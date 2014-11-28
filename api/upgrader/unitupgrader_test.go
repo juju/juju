@@ -39,9 +39,9 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	s.rawMachine, _, _, s.rawUnit = s.addMachineServiceCharmAndUnit(c, "wordpress")
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.rawUnit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
 
 	// Create the upgrader facade.
@@ -51,13 +51,13 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 func (s *unitUpgraderSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	charm := s.AddTestingCharm(c, serviceName)
 	service := s.AddTestingService(c, serviceName, charm)
 	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine, service, charm, unit
 }
 
@@ -79,10 +79,10 @@ func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
 	err = s.st.SetVersion(s.rawUnit.Tag().String(), cur)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.rawUnit.Refresh()
 	agentTools, err = s.rawUnit.AgentTools()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(agentTools.Version, gc.Equals, cur)
 }
 
@@ -108,26 +108,26 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 	// UnitUpgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
 	stateTools, err := s.st.Tools(s.rawUnit.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(stateTools.Version.Number, gc.DeepEquals, version.Current.Number)
 	c.Assert(stateTools.URL, gc.NotNil)
 }
 
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	w, err := s.st.WatchAPIVersion(s.rawUnit.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	// Initial event
 	wc.AssertOneChange()
 	vers := version.MustParseBinary("10.20.34-quantal-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// One change noticing the new version
 	wc.AssertOneChange()
 	vers = version.MustParseBinary("10.20.35-quantal-amd64")
 	err = s.rawMachine.SetAgentVersion(vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
@@ -153,7 +153,7 @@ func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	// UnitUpgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
 	stateVersion, err := s.st.DesiredVersion(s.rawUnit.Tag().String())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateVersion, gc.Equals, cur.Number)
 }
 

@@ -6,6 +6,7 @@ package backups_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -29,7 +30,7 @@ var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) checkHelpCommands(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we have registered all the sub commands by
 	// inspecting the help output.
@@ -45,7 +46,7 @@ func (s *backupsSuite) checkHelpCommands(c *gc.C) {
 
 func (s *backupsSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := "(?s)usage: juju backups <command> .+"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)

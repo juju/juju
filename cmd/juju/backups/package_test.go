@@ -67,7 +67,7 @@ func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
 	if s.filename != "" {
 		err := os.Remove(s.filename)
 		if !os.IsNotExist(err) {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 
@@ -103,7 +103,7 @@ func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
 func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	c.Assert(s.filename, gc.Not(gc.Equals), "")
 	archive, err := os.Open(s.filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer archive.Close()
 
 	data, err := ioutil.ReadAll(archive)

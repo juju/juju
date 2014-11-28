@@ -6,6 +6,7 @@ package tools
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/juju/environs/storage"
@@ -48,6 +49,7 @@ func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVe
 	var list coretools.List
 	var foundAnyTools bool
 	for _, name := range names {
+		name = filepath.ToSlash(name)
 		if !strings.HasPrefix(name, storagePrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}

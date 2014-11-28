@@ -6,6 +6,7 @@ package testing
 import (
 	"io"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
@@ -19,9 +20,9 @@ import (
 func CreateLocalTestStorage(c *gc.C) (closer io.Closer, stor storage.Storage, dataDir string) {
 	dataDir = c.MkDir()
 	underlying, err := filestorage.NewFileStorageWriter(dataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	listener, err := httpstorage.Serve("localhost:0", underlying)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	stor = httpstorage.Client(listener.Addr().String())
 	closer = listener
 	return

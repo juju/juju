@@ -131,7 +131,7 @@ func (*storageSuite) TestList(c *gc.C) {
 
 	prefix := "prefix"
 	names, err := storage.List(azStorage, prefix)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	// The prefix has been passed down as a query parameter.
 	c.Check(transport.Exchanges[0].Request.URL.Query()["prefix"], gc.DeepEquals, []string{prefix})
@@ -149,7 +149,7 @@ func (*storageSuite) TestListWithNonexistentContainerReturnsNoFiles(c *gc.C) {
 	transport.AddExchange(response, nil)
 
 	names, err := storage.List(azStorage, "prefix")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(names, gc.IsNil)
 }
 
@@ -162,16 +162,16 @@ func (*storageSuite) TestGet(c *gc.C) {
 	transport.AddExchange(response, nil)
 
 	reader, err := storage.Get(azStorage, filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(reader, gc.NotNil)
 	defer reader.Close()
 
 	context, err := azStorage.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	c.Check(transport.Exchanges[0].Request.URL.String(), gc.Matches, context.GetFileURL(container, filename)+"?.*")
 	data, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, blobContent)
 }
 
@@ -198,10 +198,10 @@ func (*storageSuite) TestPut(c *gc.C) {
 	transport.AddExchange(putResponse, nil)
 	transport.AddExchange(putResponse, nil)
 	err := azStorage.Put(filename, strings.NewReader(blobContent), int64(len(blobContent)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := azStorage.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 4)
 	c.Check(transport.Exchanges[2].Request.URL.String(), gc.Matches, context.GetFileURL(container, filename)+"?.*")
 }
@@ -213,10 +213,10 @@ func (*storageSuite) TestRemove(c *gc.C) {
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := azStorage.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	c.Check(transport.Exchanges[0].Request.URL.String(), gc.Matches, context.GetFileURL(container, filename)+"?.*")
 	c.Check(transport.Exchanges[0].Request.Method, gc.Equals, "DELETE")
@@ -239,10 +239,10 @@ func (*storageSuite) TestRemoveAll(c *gc.C) {
 	transport.AddExchange(response, nil)
 
 	err := storage.RemoveAll()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = storage.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Without going too far into gwacl's innards, this is roughly what
 	// it needs to do in order to delete a container.
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
@@ -257,7 +257,7 @@ func (*storageSuite) TestRemoveNonExistentBlobSucceeds(c *gc.C) {
 	azStorage, transport := makeFakeStorage(container, "account", "")
 	transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*storageSuite) TestURL(c *gc.C) {
@@ -270,28 +270,28 @@ func (*storageSuite) TestURL(c *gc.C) {
 	// that we're really getting the expected kind of URL.
 	setStorageEndpoint(azStorage, gwacl.GetEndpoint("West US"))
 	URL, err := azStorage.URL(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	parsedURL, err := url.Parse(URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(parsedURL.Host, gc.Matches, fmt.Sprintf("%s.blob.core.windows.net", account))
 	c.Check(parsedURL.Path, gc.Matches, fmt.Sprintf("/%s/%s", container, filename))
 	values, err := url.ParseQuery(parsedURL.RawQuery)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	signature := values.Get("sig")
 	// The query string contains a non-empty signature.
 	c.Check(signature, gc.Not(gc.HasLen), 0)
 	// The signature is base64-encoded.
 	_, err = base64.StdEncoding.DecodeString(signature)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// If Key is empty, query string does not contain a signature.
 	key = ""
 	azStorage, _ = makeFakeStorage(container, account, key)
 	URL, err = azStorage.URL(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	parsedURL, err = url.Parse(URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	values, err = url.ParseQuery(parsedURL.RawQuery)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(values.Get("sig"), gc.HasLen, 0)
 }
 
@@ -302,7 +302,7 @@ func (*storageSuite) TestCreateContainerCreatesContainerIfDoesNotExist(c *gc.C) 
 
 	err := azStorage.createContainer("cntnr")
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 2)
 	// Without going too far into gwacl's innards, this is roughly what
 	// it needs to do in order to call GetContainerProperties.
@@ -329,7 +329,7 @@ func (*storageSuite) TestCreateContainerIsDoneIfContainerAlreadyExists(c *gc.C) 
 
 	err := azStorage.createContainer("cntnr")
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	// Without going too far into gwacl's innards, this is roughly what
 	// it needs to do in order to call GetContainerProperties.
@@ -357,7 +357,7 @@ func (*storageSuite) TestDeleteContainer(c *gc.C) {
 
 	err := azStorage.deleteContainer("cntnr")
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(transport.ExchangeCount, gc.Equals, 1)
 	// Without going too far into gwacl's innards, this is roughly what
 	// it needs to do in order to call GetContainerProperties.

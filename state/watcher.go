@@ -1269,7 +1269,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 // WatchMeterStatus returns a watcher observing the changes to the unit's
 // meter status.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return newEntityWatcher(u.st, meterStatusC, u.globalKey())
+	return newEntityWatcher(u.st, meterStatusC, u.st.docID(u.globalKey()))
 }
 
 func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {
@@ -1619,6 +1619,203 @@ func (w *cleanupWatcher) loop() (err error) {
 	}
 }
 
+// actionStatusWatcher is a StringsWatcher that filters notifications
+// to Action Id's that match the ActionReceiver and ActionStatus set
+// provided.
+type actionStatusWatcher struct {
+	commonWatcher
+	source         chan watcher.Change
+	sink           chan []string
+	receiverFilter bson.D
+	statusFilter   bson.D
+}
+
+var _ StringsWatcher = (*actionStatusWatcher)(nil)
+
+// newActionStatusWatcher returns the StringsWatcher that will notify
+// on changes to Actions with the given ActionReceiver and ActionStatus
+// filters.
+func newActionStatusWatcher(st *State, receivers []ActionReceiver, statusSet ...ActionStatus) StringsWatcher {
+	watchLogger.Debugf("newActionStatusWatcher receivers:'%+v', statuses'%+v'", receivers, statusSet)
+	w := &actionStatusWatcher{
+		commonWatcher:  commonWatcher{st: st},
+		source:         make(chan watcher.Change),
+		sink:           make(chan []string),
+		receiverFilter: actionReceiverInCollectionOp(receivers...),
+		statusFilter:   statusInCollectionOp(statusSet...),
+	}
+
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.sink)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+// Changes returns the channel that sends the ids of any
+// Actions that change in the actionsC collection, if they
+// match the ActionReceiver and ActionStatus filters on the
+// watcher.
+func (w *actionStatusWatcher) Changes() <-chan []string {
+	watchLogger.Tracef("actionStatusWatcher Changes()")
+	return w.sink
+}
+
+// loop performs the main event loop cycle, polling for changes and
+// responding to Changes requests
+func (w *actionStatusWatcher) loop() error {
+	watchLogger.Tracef("actionStatusWatcher loop()")
+	var (
+		changes []string
+		in      <-chan watcher.Change = w.source
+		out     chan<- []string       = w.sink
+	)
+
+	w.st.watcher.WatchCollection(actionsC, w.source)
+	defer w.st.watcher.UnwatchCollection(actionsC, w.source)
+
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.filterAndMergeIds(w.st, &changes, updates); err != nil {
+				return err
+			}
+			if len(changes) > 0 {
+				out = w.sink
+			}
+		case out <- changes:
+			changes = nil
+			out = nil
+		}
+	}
+}
+
+// initial pre-loads the id's that have already been added to the
+// collection that would otherwise not normally trigger the watcher
+func (w *actionStatusWatcher) initial() ([]string, error) {
+	watchLogger.Tracef("actionStatusWatcher initial()")
+	return w.matchingIds()
+}
+
+// matchingIds is a helper function that filters the actionsC collection
+// on the ActionReceivers and ActionStatus set defined on the watcher.
+// If ids are passed in the collection is further filtered to only
+// Actions that also have one of the supplied _id's.
+func (w *actionStatusWatcher) matchingIds(ids ...string) ([]string, error) {
+	watchLogger.Tracef("actionStatusWatcher matchingIds() ids:'%+v'", ids)
+
+	coll, closer := w.st.getCollection(actionsC)
+	defer closer()
+
+	idFilter := localIdInCollectionOp(w.st, ids...)
+	query := bson.D{{"$and", []bson.D{idFilter, w.receiverFilter, w.statusFilter}}}
+	iter := coll.Find(query).Iter()
+	var found []string
+	var doc actionDoc
+	for iter.Next(&doc) {
+		found = append(found, w.st.localID(doc.DocId))
+	}
+	watchLogger.Debugf("actionStatusWatcher matchingIds() ids:'%+v', found:'%+v'", ids, found)
+	return found, iter.Close()
+}
+
+// filterAndMergeIds combines existing pending changes along with
+// updates from the upstream watcher, and updates the changes set.
+// If the upstream changes do not match the ActionReceivers and
+// ActionStatus set filters defined on the watcher, they are silently
+// dropped.
+func (w *actionStatusWatcher) filterAndMergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
+	watchLogger.Tracef("actionStatusWatcher filterAndMergeIds(changes:'%+v', updates:'%+v')", changes, updates)
+	var adds []string
+	for id, exists := range updates {
+		switch id := id.(type) {
+		case string:
+			localId := st.localID(id)
+			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
+			if exists {
+				if !idAlreadyInChangeset {
+					adds = append(adds, localId)
+				}
+			} else {
+				if idAlreadyInChangeset {
+					// remove id from changes
+					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+				}
+			}
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
+		}
+	}
+	if len(adds) > 0 {
+		ids, err := w.matchingIds(adds...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		*changes = append(*changes, ids...)
+	}
+	return nil
+}
+
+// inCollectionOp takes a key name and a list of potential values and
+// returns a bson.D Op that will match on the supplied key and values.
+func inCollectionOp(key string, ids ...string) bson.D {
+	ret := bson.D{}
+	switch len(ids) {
+	case 0:
+	case 1:
+		ret = append(ret, bson.DocElem{key, ids[0]})
+	default:
+		ret = append(ret, bson.DocElem{key, bson.D{{"$in", ids}}})
+	}
+	return ret
+}
+
+// localIdInCollectionOp is a special form of inCollectionOp that just
+// converts id's to their env-uuid prefixed form.
+func localIdInCollectionOp(st *State, localIds ...string) bson.D {
+	ids := make([]string, len(localIds))
+	for i, id := range localIds {
+		ids[i] = st.docID(id)
+	}
+	return inCollectionOp("_id", ids...)
+}
+
+// actionReceiverInCollectionOp is a special form of inCollectionOp
+// that just converts []ActionReceiver to a []string containing the
+// ActionReceiver Name() values.
+func actionReceiverInCollectionOp(receivers ...ActionReceiver) bson.D {
+	ids := make([]string, len(receivers))
+	for i, r := range receivers {
+		ids[i] = r.Tag().Id()
+	}
+	return inCollectionOp("receiver", ids...)
+}
+
+// statusInCollectionOp is a special form of inCollectionOp that just
+// converts []ActionStatus to a []string with the same values.
+func statusInCollectionOp(statusSet ...ActionStatus) bson.D {
+	ids := make([]string, len(statusSet))
+	for i, s := range statusSet {
+		ids[i] = string(s)
+	}
+	return inCollectionOp("status", ids...)
+}
+
 // idPrefixWatcher is a StringsWatcher that watches for changes on the
 // specified collection that match common prefixes
 type idPrefixWatcher struct {
@@ -1710,7 +1907,7 @@ func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(in
 	ensureMarkerFn := ensureSuffixFn(marker)
 	prefixes := make([]string, len(receivers))
 	for ix, receiver := range receivers {
-		prefixes[ix] = st.docID(ensureMarkerFn(receiver.Name()))
+		prefixes[ix] = st.docID(ensureMarkerFn(receiver.Tag().Id()))
 	}
 
 	return func(key interface{}) bool {
@@ -1740,7 +1937,8 @@ func (w *idPrefixWatcher) initial() ([]string, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filterFn == nil || w.filterFn(doc.DocId) {
-			ids = append(ids, w.st.localID(doc.DocId))
+			actionId := actionNotificationIdToActionId(w.st.localID(doc.DocId))
+			ids = append(ids, actionId)
 		}
 	}
 	return ids, iter.Close()
@@ -1759,10 +1957,11 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error 
 		switch id := id.(type) {
 		case string:
 			localId := st.localID(id)
-			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
+			actionId := actionNotificationIdToActionId(localId)
+			chIx, idAlreadyInChangeset := indexOf(actionId, *changes)
 			if idExists {
 				if !idAlreadyInChangeset {
-					*changes = append(*changes, localId)
+					*changes = append(*changes, actionId)
 				}
 			} else {
 				if idAlreadyInChangeset {
@@ -1775,6 +1974,14 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error 
 		}
 	}
 	return nil
+}
+
+func actionNotificationIdToActionId(id string) string {
+	ix := strings.Index(id, actionMarker)
+	if ix == -1 {
+		return id
+	}
+	return id[ix+len(actionMarker):]
 }
 
 func indexOf(find string, in []string) (int, bool) {
@@ -1813,14 +2020,14 @@ func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) Str
 // WatchActionResults starts and returns a StringsWatcher that
 // notifies on new ActionResults being added.
 func (st *State) WatchActionResults() StringsWatcher {
-	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionMarker))
+	return st.WatchActionResultsFilteredBy()
 }
 
 // WatchActionResultsFilteredBy starts and returns a StringsWatcher
 // that notifies on new ActionResults being added for the ActionRecevers
 // being watched.
 func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionMarker, receivers...))
+	return newActionStatusWatcher(st, receivers, []ActionStatus{ActionCompleted, ActionCancelled, ActionFailed}...)
 }
 
 // machineInterfacesWatcher notifies about changes to all network interfaces

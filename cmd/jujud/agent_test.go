@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -110,8 +110,8 @@ func (fakeAPIOpenConfig) OldPassword() string {
 	return "old"
 }
 
-func (fakeAPIOpenConfig) Jobs() []juju.MachineJob {
-	return []juju.MachineJob{}
+func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob {
+	return []multiwatcher.MachineJob{}
 }
 
 var _ = gc.Suite(&apiOpenSuite{})
@@ -302,7 +302,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 		Port:    1234,
 	}}}
 	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // primeAgent writes the configuration file and tools with version vers
@@ -311,11 +311,11 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	logger.Debugf("priming agent %s", tag.String())
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
 	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.MongoInfo(c)
@@ -342,10 +342,10 @@ func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
 	hostPort, err := parseHostPort(apiInfo.Addrs[0])
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	logger.Debugf("api host ports primed %#v", hostPort)
 }
@@ -385,7 +385,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 			StatePort:  gitjujutesting.MgoServer.Port(),
 			APIPort:    port,
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
@@ -398,10 +398,10 @@ func (s *agentSuite) primeStateAgent(
 	c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.MongoInfo(c)
@@ -415,21 +415,21 @@ func (s *agentSuite) primeStateAgent(
 func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir()}, args...)
 	err := coretesting.InitCommand(a, args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
 	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	conf.SetPassword("")
 	err = conf.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that it starts initially and changes the password
 	assertOpen := func(conf agent.Config) {
 		st, gotEnt, err := openAPIState(conf, agentCmd)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
 		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
@@ -438,8 +438,8 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 
 	// Check that the initial password is no longer valid.
 	err = ent.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ent.PasswordValid(initialPassword), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ent.PasswordValid(initialPassword), jc.IsFalse)
 
 	// Read the configuration and check that we can connect with it.
 	conf = refreshConfig(c, conf)
@@ -457,23 +457,23 @@ func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
 
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }
 
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsFalse)
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.ConfigSetterWriter {
 	config1, err := agent.ReadConfig(agent.ConfigPath(config.DataDir(), config.Tag()))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return config1
 }

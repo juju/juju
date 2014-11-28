@@ -50,9 +50,9 @@ func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, s
 
 	metadataDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = imagemetadata.MergeAndWriteMetadata("precise", images, &cloudSpec, stor)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	id := "SupportedArchitectures"
 	environs.RegisterImageDataSourceFunc(id, func(environs.Environ) (simplestreams.DataSource, error) {
@@ -71,7 +71,7 @@ func (s *archSuite) TestSupportedArchitecturesNone(c *gc.C) {
 		CloudSpec: cloudSpec,
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(arches, gc.HasLen, 0)
 }
 
@@ -81,7 +81,7 @@ func (s *archSuite) TestSupportedArchitecturesOne(c *gc.C) {
 		CloudSpec: cloudSpec,
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(arches, jc.SameContents, []string{"ppc64el"})
 }
 
@@ -91,6 +91,6 @@ func (s *archSuite) TestSupportedArchitecturesMany(c *gc.C) {
 		CloudSpec: cloudSpec,
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(arches, jc.SameContents, []string{"amd64", "ppc64el"})
 }

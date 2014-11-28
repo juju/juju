@@ -94,10 +94,10 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 
 func assertJENVContents(c *gc.C, filename, username, password string) {
 	raw, err := ioutil.ReadFile(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	details := map[string]interface{}{}
 	err = goyaml.Unmarshal(raw, &details)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details["user"], gc.Equals, username)
 	c.Assert(details["password"], gc.Equals, password)
 	c.Assert(details["state-servers"], gc.DeepEquals, []interface{}{"localhost:12345"})
@@ -113,7 +113,7 @@ func (s *UserAddCommandSuite) AssertJENVContents(c *gc.C, filename string) {
 
 func (s *UserAddCommandSuite) TestAddUserJustUsername(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "")
 	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
@@ -130,7 +130,7 @@ environment file written to .*foobar.jenv
 
 func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplayname(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
 	expected := `user "Foo Bar (foobar)" added`
@@ -140,7 +140,7 @@ func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplayname(c *gc.C) {
 
 func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--generate")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
 	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
 	c.Assert(s.mockAPI.password, gc.HasLen, 24)
@@ -166,7 +166,7 @@ func (s *UserAddCommandSuite) TestJenvOutput(c *gc.C) {
 	outputName := filepath.Join(c.MkDir(), "output")
 	context, err := testing.RunCommand(c, newUserAddCommand(),
 		"foobar", "--output", outputName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertJENVContents(c, context.AbsPath(outputName+".jenv"))
 }
 
@@ -174,7 +174,7 @@ func (s *UserAddCommandSuite) TestJenvOutputWithSuffix(c *gc.C) {
 	outputName := filepath.Join(c.MkDir(), "output.jenv")
 	context, err := testing.RunCommand(c, newUserAddCommand(),
 		"foobar", "--output", outputName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AssertJENVContents(c, context.AbsPath(outputName))
 }
 

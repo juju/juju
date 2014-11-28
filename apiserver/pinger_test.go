@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -57,9 +58,9 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = st.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = st.Ping()
 	c.Assert(err, gc.Equals, rpc.ErrShutdown)
 
@@ -73,11 +74,11 @@ func (s *pingerSuite) TestPing(c *gc.C) {
 func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
 	st, err := api.Open(s.APIInfo(c), api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	time.Sleep(coretesting.ShortWait)
 	err = st.Ping()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
@@ -94,12 +95,12 @@ func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	s.PatchValue(apiserver.MaxClientPingInterval, 50*time.Millisecond)
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// As long as we don't wait too long, the connection stays open
 	for i := 0; i < 10; i++ {
 		time.Sleep(10 * time.Millisecond)
 		err = st.Ping()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	// However, once we stop pinging for too long, the connection dies
 	time.Sleep(75 * time.Millisecond)
@@ -123,7 +124,7 @@ func (s *mongoPingerSuite) SetUpSuite(c *gc.C) {
 func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gitjujutesting.MgoServer.Destroy()
 
 	attempt := utils.AttemptStrategy{

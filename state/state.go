@@ -53,6 +53,7 @@ const (
 	settingsrefsC      = "settingsrefs"
 	constraintsC       = "constraints"
 	unitsC             = "units"
+	subnetsC           = "subnets"
 
 	// actionsC and related collections store state of Actions that
 	// have been enqueued.
@@ -637,9 +638,9 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	}
 }
 
-// parseTag, given an entity tag, returns the collection name and id
+// tagToCollectionAndId, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
+func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error) {
 	if tag == nil {
 		return "", nil, errors.Errorf("tag is nil")
 	}
@@ -671,7 +672,7 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
-		id = actionIdFromTag(tag)
+		id = tag.Id()
 	default:
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -1224,6 +1225,69 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	return svc, nil
 }
 
+// AddSubnet creates and returns a new subnet
+func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
+
+	subnetID := st.docID(args.CIDR)
+	subDoc := subnetDoc{
+		DocID:             subnetID,
+		EnvUUID:           st.EnvironUUID(),
+		Life:              Alive,
+		CIDR:              args.CIDR,
+		VLANTag:           args.VLANTag,
+		ProviderId:        args.ProviderId,
+		AllocatableIPHigh: args.AllocatableIPHigh,
+		AllocatableIPLow:  args.AllocatableIPLow,
+		AvailabilityZone:  args.AvailabilityZone,
+	}
+	subnet = &Subnet{doc: subDoc, st: st}
+	err = subnet.Validate()
+	if err != nil {
+		return nil, err
+	}
+	ops := []txn.Op{{
+		C:      subnetsC,
+		Id:     subnetID,
+		Assert: txn.DocMissing,
+		Insert: subDoc,
+	}}
+
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.Subnet(args.CIDR); err == nil {
+			return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+	case nil:
+		// if the ProviderId was not unique adding the subnet can fail
+		// without an error. Refreshing catches this
+		err = subnet.Refresh()
+		if err == nil {
+			return subnet, nil
+		}
+		return nil, errors.Annotatef(err, "ProviderId not unique %q", args.ProviderId)
+	}
+	return nil, errors.Trace(err)
+}
+
+func (st *State) Subnet(cidr string) (*Subnet, error) {
+	subnets, closer := st.getCollection(subnetsC)
+	defer closer()
+
+	doc := &subnetDoc{}
+	err := subnets.FindId(st.docID(cidr)).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("subnet %q", cidr)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get subnet %q", cidr)
+	}
+	return &Subnet{st, *doc}, nil
+}
+
 // AddNetwork creates a new network with the given params. If a
 // network with the same name or provider id already exists in state,
 // an error satisfying errors.IsAlreadyExists is returned.
@@ -1462,7 +1526,7 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 			subordinateCount++
 		}
 	}
-	return subordinateCount == 1
+	return subordinateCount >= 1
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1576,8 +1640,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
-		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
-			return nil, errors.Errorf("container scoped relation requires one subordinate service")
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
+			return nil, errors.Errorf("container scoped relation requires at least one subordinate service")
 		}
 
 		// Create a new unique id if that has not already been done, and add
@@ -1673,93 +1737,6 @@ func (rdc relationDocSlice) Len() int      { return len(rdc) }
 func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
 func (rdc relationDocSlice) Less(i, j int) bool {
 	return rdc[i].Id < rdc[j].Id
-}
-
-// Action returns an Action by Id.
-func (st *State) Action(id string) (*Action, error) {
-	actions, closer := st.getCollection(actionsC)
-	defer closer()
-
-	doc := actionDoc{}
-	err := actions.FindId(st.docID(id)).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("action %q", id)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get action %q", id)
-	}
-
-	return newAction(st, doc), nil
-}
-
-// matchingActions finds actions that match ActionReceiver
-func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
-	return st.matchingActionsByReceiverName(ar.Name())
-}
-
-// matchingActionsByReceiverName returns all Actions associated with the
-// ActionReceiver with the given name.
-func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, error) {
-	var doc actionDoc
-	var actions []*Action
-
-	actionsCollection, closer := st.getCollection(actionsC)
-	defer closer()
-
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", receiver}}
-	iter := actionsCollection.Find(sel).Iter()
-
-	for iter.Next(&doc) {
-		actions = append(actions, newAction(st, doc))
-	}
-	return actions, errors.Trace(iter.Close())
-
-}
-
-// ActionByTag returns an Action given an ActionTag.
-func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
-	return st.Action(actionIdFromTag(tag))
-}
-
-// ActionResult returns an ActionResult by Id.
-func (st *State) ActionResult(id string) (*ActionResult, error) {
-	actionresults, closer := st.getCollection(actionresultsC)
-	defer closer()
-
-	doc := actionResultDoc{}
-	err := actionresults.FindId(st.docID(id)).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("action result %q", id)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get actionresult %q", id)
-	}
-	return newActionResult(st, doc), nil
-}
-
-// ActionResultByTag returns an ActionResult given an ActionTag. We
-// intentionally use the ActionTag rather than an ActionResultTag
-// because conceptually they're the same Action.
-func (st *State) ActionResultByTag(tag names.ActionTag) (*ActionResult, error) {
-	return st.ActionResult(actionResultIdFromTag(tag))
-}
-
-// matchingActionResults finds action results from a given ActionReceiver.
-func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, error) {
-	var doc actionResultDoc
-	var results []*ActionResult
-
-	actionresults, closer := st.getCollection(actionresultsC)
-	defer closer()
-
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
-	iter := actionresults.Find(sel).Iter()
-	for iter.Next(&doc) {
-		results = append(results, newActionResult(st, doc))
-	}
-	return results, errors.Trace(iter.Close())
 }
 
 // Unit returns a unit by name.
@@ -1930,6 +1907,22 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	}}
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set state serving info")
+	}
+	return nil
+}
+
+// SetSystemIdentity sets the system identity value in the database
+// if and only iff it is empty.
+func SetSystemIdentity(st *State, identity string) error {
+	ops := []txn.Op{{
+		C:      stateServersC,
+		Id:     stateServingInfoKey,
+		Assert: bson.D{{"systemidentity", ""}},
+		Update: bson.D{{"$set", bson.D{{"systemidentity", identity}}}},
+	}}
+
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

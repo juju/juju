@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/version"
@@ -18,7 +19,7 @@ func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
 	if err != nil && err.Error() == `invalid series "precise"` {
 		c.Fatalf(`Unable to lookup series "precise", you may need to: apt-get install distro-info`)
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vers, gc.Equals, "12.04")
 }
 
@@ -26,7 +27,7 @@ func (s *supportedSeriesSuite) TestSupportedSeries(c *gc.C) {
 	d := c.MkDir()
 	filename := filepath.Join(d, "ubuntu.csv")
 	err := ioutil.WriteFile(filename, []byte(distInfoData), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(version.DistroInfo, filename)
 
 	expectedSeries := []string{"precise", "quantal", "raring", "saucy"}

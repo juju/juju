@@ -27,7 +27,7 @@ type FakeBackups struct {
 	MetaList []*backups.Metadata
 	// Archive holds the archive file to return.
 	Archive io.ReadCloser
-	// Error holds the Metadata to return.
+	// Error holds the error to return.
 	Error error
 
 	// IDArg holds the ID that was passed in.
@@ -106,7 +106,7 @@ type FakeStorage struct {
 	MetaList []filestorage.Metadata
 	// File holds the stored file to return.
 	File io.ReadCloser
-	// Error holds the Metadata to return.
+	// Error holds the error to return.
 	Error error
 
 	// IDArg holds the ID that was passed in.

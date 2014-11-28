@@ -29,10 +29,8 @@ var _ = gc.Suite(&dumpSuite{}) // Register the suite.
 func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	connInfo := backups.DBConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
 	targets := set.NewStrings("juju", "admin")
-
-	s.dbInfo = &backups.DBInfo{connInfo, targets}
+	s.dbInfo = &backups.DBInfo{"a", "b", "c", targets}
 	s.targets = targets
 	s.dumpDir = c.MkDir()
 }
@@ -51,13 +49,13 @@ func (s *dumpSuite) patch(c *gc.C) {
 func (s *dumpSuite) prepDB(c *gc.C, name string) string {
 	dirName := filepath.Join(s.dumpDir, name)
 	err := os.Mkdir(dirName, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return dirName
 }
 
 func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) backups.DBDumper {
 	dumper, err := backups.NewDBDumper(s.dbInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Prep each of the target databases.
 	for _, dbName := range targetDBs {
@@ -70,7 +68,7 @@ func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) backups.DBDumper {
 func (s *dumpSuite) checkDBs(c *gc.C, dbNames ...string) {
 	for _, dbName := range dbNames {
 		_, err := os.Stat(filepath.Join(s.dumpDir, dbName))
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -85,9 +83,9 @@ func (s *dumpSuite) TestDumpRanCommand(c *gc.C) {
 	dumper := s.prep(c, "juju", "admin")
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.ranCommand, gc.Equals, true)
+	c.Check(s.ranCommand, jc.IsTrue)
 }
 
 func (s *dumpSuite) TestDumpStripped(c *gc.C) {
@@ -96,7 +94,7 @@ func (s *dumpSuite) TestDumpStripped(c *gc.C) {
 	s.prepDB(c, "backups") // ignored
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkDBs(c, "juju", "admin")
 	s.checkStripped(c, "backups")
@@ -109,7 +107,7 @@ func (s *dumpSuite) TestDumpStrippedMultiple(c *gc.C) {
 	s.prepDB(c, "presence") // ignored
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkDBs(c, "juju", "admin")
 	// Only "backups" is actually ignored when dumping.  Restore takes
@@ -123,7 +121,7 @@ func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
 	dumper := s.prep(c, "juju", "admin")
 
 	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkDBs(c, "juju", "admin")
 }

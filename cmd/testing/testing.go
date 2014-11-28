@@ -13,6 +13,7 @@ import (
 	"os/exec"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
@@ -51,7 +52,7 @@ func HelpText(command cmd.Command, name string) string {
 // NullContext returns a no-op command context.
 func NullContext(c *gc.C) *cmd.Context {
 	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard

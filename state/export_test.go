@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	gc "gopkg.in/check.v1"
@@ -99,7 +100,7 @@ func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.U
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
 	c.Assert(ch, gc.NotNil)
 	service, err := st.AddService(name, owner.String(), ch, networks)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
 
@@ -108,10 +109,10 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch, err := charm.ReadCharmDir(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if revision != -1 {
 		ch.SetRevision(revision)
 	}
@@ -122,7 +123,7 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
 	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }
 
@@ -136,7 +137,7 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
 	}}
 	err := st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var MachineIdLessThan = machineIdLessThan
@@ -199,8 +200,8 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
-	return st.parseTag(tag)
+func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interface{}, error) {
+	return st.tagToCollectionAndId(tag)
 }
 
 func RunTransaction(st *State, ops []txn.Op) error {
@@ -230,6 +231,10 @@ func WatcherEnsureSuffixFn(marker string) func(string) string {
 
 func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	return makeIdFilter(st, marker, receivers...)
+}
+
+func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
+	return newActionStatusWatcher(st, receivers, statuses...)
 }
 
 var (

@@ -209,12 +209,7 @@ func (st *State) Uniter() (*uniter.State, error) {
 	if !ok {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
-	envTag, err := st.EnvironTag()
-	if err != nil {
-		logger.Warningf("ignoring invalid environ tag: %v", err)
-	}
-	charmsURL := uniter.CharmsURL(st.Addr(), envTag)
-	return uniter.NewState(st, unitTag, charmsURL), nil
+	return uniter.NewState(st, unitTag), nil
 }
 
 func (st *State) DiskManager() (*diskmanager.State, error) {

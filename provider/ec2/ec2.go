@@ -16,7 +16,6 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -750,7 +750,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
-	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -970,12 +970,7 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, nil
 }
 
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented by the
-// EC2 provider yet.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
-	ec2Inst := e.ec2()
-
+func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) (string, error) {
 	var err error
 	var instancesResp *ec2.InstancesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -987,19 +982,31 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
 		// the ec2 api
-		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+		return "", err
 	}
 
 	if len(instancesResp.Reservations) == 0 {
-		return errors.New("unexpected AWS response: instance not found")
+		return "", errors.New("unexpected AWS response: instance not found")
 	}
 	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return errors.New("unexpected AWS response: reservation not found")
+		return "", errors.New("unexpected AWS response: reservation not found")
 	}
 	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
-		return errors.New("unexpected AWS response: network interface not found")
+		return "", errors.New("unexpected AWS response: network interface not found")
 	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
+	return networkInterfaceId, nil
+}
+
+// AllocateAddress requests an address to be allocated for the
+// given instance on the given network. This is not implemented by the
+// EC2 provider yet.
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	if err != nil {
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+	}
 	for a := shortAttempt.Start(); a.Next(); {
 		err = AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
 		if err == nil {
@@ -1024,8 +1031,23 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	if err != nil {
+		return errors.Annotatef(err, "failed to unassign IP address %q to instance %q", addr, instId)
+	}
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = ec2Inst.UnassignPrivateIPAddresses(networkInterfaceId, []string{addr.Value})
+		if err == nil {
+			break
+		}
+
+	}
+	if err != nil {
+		return errors.Annotatef(err, "failed to unassign IP address %q for instance %q", addr, instId)
+	}
+	return nil
 }
 
 // Subnets returns basic information about all subnets known

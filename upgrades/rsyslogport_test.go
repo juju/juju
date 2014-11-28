@@ -4,6 +4,7 @@
 package upgrades_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -31,24 +32,24 @@ func (s *rsyslogPortSuite) SetUpTest(c *gc.C) {
 		state:    s.State,
 	}
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.SyslogPort(), gc.Not(gc.Equals), config.DefaultSyslogPort)
 }
 
 func (s *rsyslogPortSuite) TestSyslogPortChanged(c *gc.C) {
 	err := upgrades.UpdateRsyslogPort(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.SyslogPort(), gc.Equals, config.DefaultSyslogPort)
 }
 
 func (s *rsyslogPortSuite) TestIdempotent(c *gc.C) {
 	err := upgrades.UpdateRsyslogPort(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = upgrades.UpdateRsyslogPort(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.SyslogPort(), gc.Equals, config.DefaultSyslogPort)
 }

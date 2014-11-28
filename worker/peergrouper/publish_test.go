@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -38,7 +39,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	apiServers := [][]network.HostPort{hostPorts1}
 	for i := 0; i < 2; i++ {
 		err := statePublish.publishAPIServers(apiServers, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	c.Assert(mock.calls, gc.Equals, 1)
@@ -47,7 +48,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	apiServers = append(apiServers, hostPorts2)
 	for i := 0; i < 2; i++ {
 		err := statePublish.publishAPIServers(apiServers, nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Assert(mock.calls, gc.Equals, 2)
 	c.Assert(mock.apiHostPorts, gc.DeepEquals, apiServers)
@@ -62,7 +63,7 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 		statePublish := newPublisher(&mock, preferIPv6)
 		for i := 0; i < 2; i++ {
 			err := statePublish.publishAPIServers([][]network.HostPort{publish}, nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(mock.calls, gc.Equals, 1)
 		c.Assert(mock.apiHostPorts, gc.DeepEquals, [][]network.HostPort{expect})

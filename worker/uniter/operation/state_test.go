@@ -5,8 +5,8 @@ package operation_test
 
 import (
 	"path/filepath"
-	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -25,8 +25,6 @@ var relhook = &hook.Info{
 	Kind:       hooks.RelationJoined,
 	RemoteUnit: "some-thing/123",
 }
-
-var now = time.Now().Round(time.Second)
 
 var stateTests = []struct {
 	st  operation.State
@@ -63,6 +61,38 @@ var stateTests = []struct {
 			Kind:     operation.Install,
 			Step:     operation.Pending,
 			CharmURL: stcurl,
+			ActionId: &someActionId,
+		},
+		err: `unexpected action id`,
+	}, {
+		st: operation.State{
+			Kind:     operation.Install,
+			Step:     operation.Pending,
+			CharmURL: stcurl,
+		},
+	},
+	// RunAction operation.
+	{
+		st: operation.State{
+			Kind: operation.RunAction,
+			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.Install},
+		},
+		err: `missing action id`,
+	}, {
+		st: operation.State{
+			Kind:     operation.RunAction,
+			Step:     operation.Pending,
+			Hook:     &hook.Info{Kind: hooks.Install},
+			CharmURL: stcurl,
+		},
+		err: `unexpected charm URL`,
+	}, {
+		st: operation.State{
+			Kind:     operation.RunAction,
+			Step:     operation.Pending,
+			Hook:     &hook.Info{Kind: hooks.Install},
+			ActionId: &someActionId,
 		},
 	},
 	// RunHook operation.
@@ -80,6 +110,14 @@ var stateTests = []struct {
 			Hook: &hook.Info{Kind: hooks.RelationJoined},
 		},
 		err: `"relation-joined" hook requires a remote unit`,
+	}, {
+		st: operation.State{
+			Kind:     operation.RunHook,
+			Step:     operation.Pending,
+			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			ActionId: &someActionId,
+		},
+		err: `unexpected action id`,
 	}, {
 		st: operation.State{
 			Kind:     operation.RunHook,
@@ -106,7 +144,7 @@ var stateTests = []struct {
 			Step: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
-				ActionId: "wordpress/0_a_1",
+				ActionId: "feedface-dead-4567-beef-123456789012",
 			},
 		},
 	}, {
@@ -127,6 +165,14 @@ var stateTests = []struct {
 			Step: operation.Pending,
 		},
 		err: `missing charm URL`,
+	}, {
+		st: operation.State{
+			Kind:     operation.Upgrade,
+			Step:     operation.Pending,
+			CharmURL: stcurl,
+			ActionId: &someActionId,
+		},
+		err: `unexpected action id`,
 	}, {
 		st: operation.State{
 			Kind:     operation.Upgrade,
@@ -158,10 +204,18 @@ var stateTests = []struct {
 		err: `unexpected charm URL`,
 	}, {
 		st: operation.State{
+			Kind:     operation.Continue,
+			Step:     operation.Pending,
+			Hook:     relhook,
+			ActionId: &someActionId,
+		},
+		err: `unexpected action id`,
+	}, {
+		st: operation.State{
 			Kind:               operation.Continue,
 			Step:               operation.Pending,
 			Hook:               relhook,
-			CollectMetricsTime: now.Unix(),
+			CollectMetricsTime: 98765432,
 		},
 	},
 }
@@ -174,20 +228,20 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		_, err := file.Read()
 		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
 		write := func() {
-			err := file.Write(t.st.Started, t.st.Kind, t.st.Step, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
-			c.Assert(err, gc.IsNil)
+			err := file.Write(&t.st)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.err != "" {
-			c.Assert(write, gc.PanicMatches, "invalid uniter state: "+t.err)
+			c.Assert(write, gc.PanicMatches, "invalid operation state: "+t.err)
 			err := utils.WriteYaml(path, &t.st)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			_, err = file.Read()
-			c.Assert(err, gc.ErrorMatches, "cannot read charm state at .*: invalid uniter state: "+t.err)
+			c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: `+t.err)
 			continue
 		}
 		write()
 		st, err := file.Read()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*st, gc.DeepEquals, t.st)
 	}
 }

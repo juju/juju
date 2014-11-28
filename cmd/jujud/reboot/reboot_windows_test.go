@@ -2,6 +2,7 @@ package reboot_test
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -28,20 +29,20 @@ func (s *RebootSuite) shutdownCommandParams(c *gc.C) []string {
 
 func (s *RebootSuite) TestRebootNoContainers(c *gc.C) {
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedRebootParams := s.rebootCommandParams(c)
 
 	err = w.ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedRebootParams...)
 }
 
 func (s *RebootSuite) TestShutdownNoContainers(c *gc.C) {
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedShutdownParams := s.shutdownCommandParams(c)
 
 	err = w.ExecuteReboot(params.ShouldShutdown)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedShutdownParams...)
 }

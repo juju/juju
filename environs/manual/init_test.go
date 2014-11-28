@@ -28,7 +28,7 @@ func (s *initialisationSuite) TestDetectSeries(c *gc.C) {
 	}, "\n")
 	defer installFakeSSH(c, manual.DetectionScript, response, 0)()
 	_, series, err := manual.DetectSeriesAndHardwareCharacteristics("whatever")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series, gc.Equals, "edgy")
 }
 
@@ -47,7 +47,7 @@ func (s *initialisationSuite) TestDetectionError(c *gc.C) {
 	// if the script doesn't fail, stderr is simply ignored.
 	defer installFakeSSH(c, manual.DetectionScript, []string{scriptResponse, "non-empty-stderr"}, 0)()
 	hc, _, err = manual.DetectSeriesAndHardwareCharacteristics("hostname")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc.String(), gc.Equals, "arch=armhf cpu-cores=1 mem=4M")
 }
 
@@ -108,7 +108,7 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 		scriptResponse := strings.Join(test.scriptResponse, "\n")
 		defer installFakeSSH(c, manual.DetectionScript, scriptResponse, 0)()
 		hc, _, err := manual.DetectSeriesAndHardwareCharacteristics("hostname")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(hc.String(), gc.Equals, test.expectedHc)
 	}
 }
@@ -116,18 +116,18 @@ func (s *initialisationSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 	defer installFakeSSH(c, manual.CheckProvisionedScript, "", 0)()
 	provisioned, err := manual.CheckProvisioned("example.com")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
 	defer installFakeSSH(c, manual.CheckProvisionedScript, "non-empty", 0)()
 	provisioned, err = manual.CheckProvisioned("example.com")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsTrue)
 
 	// stderr should not affect result.
 	defer installFakeSSH(c, manual.CheckProvisionedScript, []string{"", "non-empty-stderr"}, 0)()
 	provisioned, err = manual.CheckProvisioned("example.com")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provisioned, jc.IsFalse)
 
 	// if the script fails for whatever reason, then checkProvisioned
@@ -141,7 +141,7 @@ func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
 	defer installFakeSSH(c, "", "", 0)() // successful creation of ubuntu user
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
 	err := manual.InitUbuntuUser("testhost", "testuser", "", nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserExisting(c *gc.C) {

@@ -77,10 +77,10 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
 	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
@@ -88,7 +88,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -99,7 +99,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return result.Instance
 }
 
@@ -111,7 +111,7 @@ func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	s.assertInstances(c, lxc)
 	// Uses default network config
 	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
 }
@@ -125,7 +125,7 @@ func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
 	s.assertInstances(c, lxc)
 	// Uses default network config
 	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = br0")
 }
@@ -136,13 +136,13 @@ func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 	lxc2 := s.startInstance(c, "1/lxc/2")
 
 	err := s.broker.StopInstances(lxc0.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInstances(c, lxc1, lxc2)
 	c.Assert(s.lxcContainerDir(lxc0), jc.DoesNotExist)
 	c.Assert(s.lxcRemovedContainerDir(lxc0), jc.IsDirectory)
 
 	err = s.broker.StopInstances(lxc1.Id(), lxc2.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInstances(c)
 }
 
@@ -152,14 +152,14 @@ func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 	s.assertInstances(c, lxc0, lxc1)
 
 	err := s.broker.StopInstances(lxc1.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	lxc2 := s.startInstance(c, "1/lxc/2")
 	s.assertInstances(c, lxc0, lxc2)
 }
 
 func (s *lxcBrokerSuite) assertInstances(c *gc.C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, results, inst...)
 }
 
@@ -204,7 +204,7 @@ func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 	event = <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
 	return event.InstanceId
 }
@@ -238,7 +238,7 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
 
@@ -253,7 +253,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
 
 	// Check that an instance is not provisioned when the machine is created.
 	_, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectNoEvents(c)
 }
@@ -273,7 +273,7 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, "0", instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return container
 }
 

@@ -7,6 +7,8 @@ package uniter
 
 import (
 	"fmt"
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -570,10 +573,11 @@ func (u *uniterBaseAPI) WatchMeterStatus(args params.Entities) (params.NotifyWat
 	return result, nil
 }
 
-// WatchActions returns an ActionWatcher for observing incoming action calls
-// to a unit.  See also state/watcher.go Unit.WatchActions().  This method
-// is called from api/uniter/uniter.go WatchActions().
-func (u *uniterBaseAPI) WatchActions(args params.Entities) (params.StringsWatchResults, error) {
+// WatchActionNotifications returns a StringsWatcher for observing
+// incoming action calls to a unit. See also state/watcher.go
+// Unit.WatchActionNotifications(). This method is called from
+// api/uniter/uniter.go WatchActionNotifications().
+func (u *uniterBaseAPI) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
 	nothing := params.StringsWatchResults{}
 
 	result := params.StringsWatchResults{
@@ -590,7 +594,7 @@ func (u *uniterBaseAPI) WatchActions(args params.Entities) (params.StringsWatchR
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			result.Results[i], err = u.watchOneUnitActions(tag)
+			result.Results[i], err = u.watchOneUnitActionNotifications(tag)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -681,6 +685,45 @@ func (u *uniterBaseAPI) CharmArchiveSha256(args params.CharmURLs) (params.String
 	return result, nil
 }
 
+// CharmArchiveURLs returns the URLS for the charm archive
+// (bundle) data for each charm url in the given parameters.
+func (u *uniterBaseAPI) CharmArchiveURLs(args params.CharmURLs) (params.StringsResults, error) {
+	apiHostPorts, err := u.st.APIHostPorts()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	envUUID := u.st.EnvironUUID()
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.URLs)),
+	}
+	for i, curl := range args.URLs {
+		if _, err := charm.ParseURL(curl.URL); err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		urlPath := "/"
+		if envUUID != "" {
+			urlPath = path.Join(urlPath, "environment", envUUID)
+		}
+		urlPath = path.Join(urlPath, "charms")
+		archiveURLs := make([]string, len(apiHostPorts))
+		for j, server := range apiHostPorts {
+			archiveURL := &url.URL{
+				Scheme: "https",
+				Host:   network.SelectInternalHostPort(server, false),
+				Path:   urlPath,
+			}
+			q := archiveURL.Query()
+			q.Set("url", curl.URL)
+			q.Set("file", "*")
+			archiveURL.RawQuery = q.Encode()
+			archiveURLs[j] = archiveURL.String()
+		}
+		result.Results[i].Result = archiveURLs
+	}
+	return result, nil
+}
+
 // Relation returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
 func (u *uniterBaseAPI) Relation(args params.RelationUnits) (params.RelationResults, error) {
@@ -716,15 +759,13 @@ func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResult
 	}
 
 	for i, arg := range args.Entities {
-		actionTag, err := names.ParseActionTag(arg.Tag)
+		action, err := actionFn(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-
-		action, err := actionFn(actionTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+		if action.Status() != state.ActionPending {
+			results.Results[i].Error = common.ServerError(common.ErrActionNotAvailable)
 			continue
 		}
 		results.Results[i].Action.Action = &params.Action{
@@ -1305,13 +1346,13 @@ func (u *uniterBaseAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, e
 	return "", watcher.EnsureErr(watch)
 }
 
-func (u *uniterBaseAPI) watchOneUnitActions(tag names.UnitTag) (params.StringsWatchResult, error) {
+func (u *uniterBaseAPI) watchOneUnitActionNotifications(tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	unit, err := u.getUnit(tag)
 	if err != nil {
 		return nothing, err
 	}
-	watch := unit.WatchActions()
+	watch := unit.WatchActionNotifications()
 
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{
@@ -1396,7 +1437,7 @@ func (u *uniterBaseAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitT
 // authAndActionFromTagFn first authenticates the request, and then returns
 // a function with which to authenticate and retrieve each action in the
 // request.
-func (u *uniterBaseAPI) authAndActionFromTagFn() (func(names.ActionTag) (*state.Action, error), error) {
+func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, error), error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return nil, err
@@ -1406,17 +1447,27 @@ func (u *uniterBaseAPI) authAndActionFromTagFn() (func(names.ActionTag) (*state.
 		return nil, fmt.Errorf("calling entity is not a unit")
 	}
 
-	return func(tag names.ActionTag) (*state.Action, error) {
-		unitTag := tag.PrefixTag()
-		if unitTag != unit {
+	return func(tag string) (*state.Action, error) {
+		actionTag, err := names.ParseActionTag(tag)
+		if err != nil {
+			return nil, err
+		}
+		action, err := u.st.ActionByTag(actionTag)
+		if err != nil {
+			return nil, err
+		}
+		receiverTag, err := names.ActionReceiverTag(action.Receiver())
+		if err != nil {
+			return nil, err
+		}
+		if unit != receiverTag {
 			return nil, common.ErrPerm
 		}
 
-		if !canAccess(unitTag) {
+		if !canAccess(receiverTag) {
 			return nil, common.ErrPerm
 		}
-
-		return u.st.ActionByTag(tag)
+		return action, nil
 	}, nil
 }
 

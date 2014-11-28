@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -43,7 +44,7 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	})
 	env, err := environs.PrepareFromName(
 		"erewhemos", envcmd.BootstrapContextNoVerify(coretesting.Context(c)), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 
@@ -97,11 +98,11 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 
 var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju:{{.Stream}}:tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 `
 var expectedOutputMirrorsTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju:{{.Stream}}:tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 .*Writing tools/streams/v1/mirrors\.json
 `
 
@@ -217,7 +218,7 @@ func (s *ToolsMetadataSuite) TestGenerateDeleteExisting(c *gc.C) {
 
 	// Remove existing proposed tarballs, and create some different ones.
 	err := os.RemoveAll(filepath.Join(metadataDir, "tools", "proposed"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	toolstesting.MakeTools(c, metadataDir, "proposed", currentVersionStrings)
 
 	// Generate proposed metadata again, using --clean.
@@ -310,7 +311,7 @@ Finding tools in .*
 .*Fetching tools from dir "released" to generate hash: %s
 .*Fetching tools from dir "released" to generate hash: %s
 .*Writing tools/streams/v1/index2\.json
-.*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-released-tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)

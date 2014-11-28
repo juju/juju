@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
@@ -46,7 +47,7 @@ func (s *environSuite) TestStop(c *gc.C) {
 
 func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 	err := w.Stop()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestInvalidConfig(c *gc.C) {
@@ -58,17 +59,17 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st2.Close()
 	err = st2.UpdateEnvironConfig(map[string]interface{}{"type": "unknown"}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w := st2.WatchForEnvironConfigChanges()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
 		env, err := worker.WaitForEnviron(w, st2, nil)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		done <- env
 	}()
 	<-worker.LoadedInvalid
@@ -87,10 +88,10 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 	// reopen the state so that we can wangle a dodgy environ config in there.
 	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	obs, err := worker.NewEnvironObserver(s.State)
 	c.Assert(err, gc.ErrorMatches, `cannot make Environ: secret: expected string, got int\(999\)`)
 	c.Assert(obs, gc.IsNil)
@@ -98,14 +99,14 @@ func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 
 func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	originalConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	logc := make(logChan, 1009)
 	c.Assert(loggo.RegisterWriter("testing", logc, loggo.WARNING), gc.IsNil)
 	defer loggo.RemoveWriter("testing")
 
 	obs, err := worker.NewEnvironObserver(s.State)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env := obs.Environ()
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, originalConfig.AllAttrs())

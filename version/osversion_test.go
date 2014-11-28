@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -62,9 +63,9 @@ func (*readSeriesSuite) TestReadSeries(c *gc.C) {
 	for i, t := range readSeriesTests {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		series, err := version.ReadSeries(f)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(series, gc.Equals, t.series)
 	}
 }
@@ -80,7 +81,7 @@ func sysctlError() (string, error) {
 
 func (*kernelVersionSuite) TestKernelToMajorVersion(c *gc.C) {
 	majorVersion, err := version.KernelToMajor(sysctlMacOS10dot9dot2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(majorVersion, gc.Equals, 13)
 }
 
@@ -94,7 +95,7 @@ func (*kernelVersionSuite) TestKernelToMajorVersionNoDots(c *gc.C) {
 	majorVersion, err := version.KernelToMajor(func() (string, error) {
 		return "1234", nil
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(majorVersion, gc.Equals, 1234)
 }
 
@@ -116,7 +117,7 @@ func (*kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
 
 func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersion(c *gc.C) {
 	series, err := version.MacOSXSeriesFromKernelVersion(sysctlMacOS10dot9dot2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(series, gc.Equals, "mavericks")
 }
 
@@ -137,7 +138,8 @@ func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
 	}{
 		{version: 13, series: "mavericks"},
 		{version: 12, series: "mountainlion"},
-		{version: 14, series: "unknown", err: `unknown series ""`},
+		{version: 14, series: "yosemite"},
+		{version: 15, series: "unknown", err: `unknown series ""`},
 		{version: 4, series: "unknown", err: `unknown series ""`},
 		{version: 0, series: "unknown", err: `unknown series ""`},
 	}
@@ -146,7 +148,7 @@ func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Check(series, gc.Equals, test.series)
 	}

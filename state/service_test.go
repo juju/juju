@@ -45,24 +45,24 @@ func (s *ServiceSuite) SetUpTest(c *gc.C) {
 
 func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	ch, force, err := s.mysql.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, s.charm.URL())
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 	url, force := s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, s.charm.URL())
-	c.Assert(force, gc.Equals, false)
+	c.Assert(force, jc.IsFalse)
 
 	// Add a compatible charm and force it.
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 	err = s.mysql.SetCharm(sch, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = s.mysql.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 	url, force = s.mysql.CharmURL()
 	c.Assert(url, gc.DeepEquals, sch.URL())
-	c.Assert(force, gc.Equals, true)
+	c.Assert(force, jc.IsTrue)
 }
 
 func (s *ServiceSuite) TestSetCharmPreconditions(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	svc := s.AddTestingService(c, "fakemysql", ms)
 	err := svc.SetCharm(ms, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
 		c.Logf("test %d: %s", i, t.summary)
@@ -173,12 +173,12 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 
 	err = svc.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
@@ -186,18 +186,18 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
 	providerSvc := s.AddTestingService(c, "myprovider", providerCharm)
 	err := providerSvc.SetCharm(providerCharm, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	requirerSvc := s.AddTestingService(c, "myrequirer", requirerCharm)
 	err = requirerSvc.SetCharm(requirerCharm, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
@@ -282,7 +282,7 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 		origCh := charms[t.startconfig]
 		svc := s.AddTestingService(c, "wordpress", origCh)
 		err := svc.UpdateConfigSettings(t.startvalues)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
 		err = svc.SetCharm(newCh, false)
@@ -293,16 +293,16 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 			expectCh = origCh
 			expectVals = t.startvalues
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			expectCh = newCh
 			expectVals = t.endvalues
 		}
 
 		sch, _, err := svc.Charm()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(sch.URL(), gc.DeepEquals, expectCh.URL())
 		settings, err := svc.ConfigSettings()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if len(expectVals) == 0 {
 			c.Assert(settings, gc.HasLen, 0)
 		} else {
@@ -310,7 +310,7 @@ func (s *ServiceSuite) TestSetCharmConfig(c *gc.C) {
 		}
 
 		err = svc.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -319,10 +319,10 @@ func (s *ServiceSuite) TestSetCharmWithDyingService(c *gc.C) {
 
 	_, err := s.mysql.AddUnit()
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.SetCharm(sch, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
@@ -331,7 +331,7 @@ func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit()
 		err = s.mysql.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 
 		// Change the service life to Dead manually, as there's no
@@ -343,7 +343,7 @@ func (s *ServiceSuite) TestSetCharmWhenDead(c *gc.C) {
 		}}
 
 		err = state.RunTransaction(s.State, ops)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dead)
 	}).Check()
 
@@ -355,7 +355,7 @@ func (s *ServiceSuite) TestSetCharmWithRemovedService(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.mysql)
 	err = s.mysql.SetCharm(sch, true)
 	c.Assert(err, gc.Equals, state.ErrDead)
@@ -366,7 +366,7 @@ func (s *ServiceSuite) TestSetCharmWhenRemoved(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.mysql.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertRemoved(c, s.mysql)
 	}).Check()
 
@@ -379,14 +379,14 @@ func (s *ServiceSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = s.mysql.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 	}).Check()
 
 	err := s.mysql.SetCharm(sch, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 }
 
@@ -397,17 +397,17 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 		jujutxn.TestHook{
 			Before: func() {
 				currentCh, force, err := s.mysql.Charm()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, s.charm.URL())
 
 				err = s.mysql.SetCharm(sch, false)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
 				// Verify the before hook worked.
 				currentCh, force, err := s.mysql.Charm()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, sch.URL())
 			},
@@ -417,9 +417,9 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 			After: func() {
 				// Verify it worked after the retry.
 				err := s.mysql.Refresh()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				currentCh, force, err := s.mysql.Charm()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(force, jc.IsTrue)
 				c.Assert(currentCh.URL(), jc.DeepEquals, sch.URL())
 			},
@@ -427,7 +427,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 	).Check()
 
 	err := s.mysql.SetCharm(sch, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
@@ -435,18 +435,18 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
 	err := s.mysql.SetCharm(oldCh, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State,
 		func() {
 			err := s.mysql.UpdateConfigSettings(charm.Settings{"key": "value"})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		},
 		nil, // Ensure there will be a retry.
 	).Check()
 
 	err = s.mysql.SetCharm(newCh, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc.C) {
@@ -462,38 +462,38 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 				// charm URLs change between oldCh and newCh. Ensure
 				// refcounts change as expected.
 				unit1, err := s.mysql.AddUnit()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				unit2, err := s.mysql.AddUnit()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				err = s.mysql.SetCharm(newCh, false)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
 				err = unit1.SetCharmURL(newCh.URL())
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
 				// Update newCh settings, switch to oldCh and update its
 				// settings as well.
 				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value1"})
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				err = s.mysql.SetCharm(oldCh, false)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
 				err = unit2.SetCharmURL(oldCh.URL())
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
 				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value2"})
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
 				// Verify the charm and refcounts after the second attempt.
 				err := s.mysql.Refresh()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				currentCh, force, err := s.mysql.Charm()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, oldCh.URL())
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
@@ -506,24 +506,24 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 				// and newCh. Change them again to trigger another
 				// attempt.
 				err := s.mysql.SetCharm(newCh, false)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
 				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value3"})
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				err = s.mysql.SetCharm(oldCh, false)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
 				err = s.mysql.UpdateConfigSettings(charm.Settings{"key": "value4"})
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
 				// Verify the charm and refcounts after the third attempt.
 				err := s.mysql.Refresh()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				currentCh, force, err := s.mysql.Charm()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, oldCh.URL())
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
@@ -535,9 +535,9 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 			After: func() {
 				// Verify the charm and refcounts after the final third attempt.
 				err := s.mysql.Refresh()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				currentCh, force, err := s.mysql.Charm()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(force, jc.IsTrue)
 				c.Assert(currentCh.URL(), jc.DeepEquals, newCh.URL())
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
@@ -547,7 +547,7 @@ func (s *ServiceSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c *gc
 	).Check()
 
 	err := s.mysql.SetCharm(newCh, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var serviceUpdateConfigSettingsTests = []struct {
@@ -608,15 +608,15 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 		svc := s.AddTestingService(c, "dummy-service", sch)
 		if t.initial != nil {
 			err := svc.UpdateConfigSettings(t.initial)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		err := svc.UpdateConfigSettings(t.update)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			settings, err := svc.ConfigSettings()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			expect := t.expect
 			if expect == nil {
 				expect = charm.Settings{}
@@ -624,7 +624,7 @@ func (s *ServiceSuite) TestUpdateConfigSettings(c *gc.C) {
 			c.Assert(settings, gc.DeepEquals, expect)
 		}
 		err = svc.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -635,7 +635,7 @@ func assertNoSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Ch
 
 func assertSettingsRef(c *gc.C, st *state.State, svcName string, sch *state.Charm, refcount int) {
 	rc, err := state.ServiceSettingsRefCount(st, svcName, sch.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc, gc.Equals, refcount)
 }
 
@@ -657,7 +657,7 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 
 	// Changing to the same charm does not change the refcount.
 	err := svc.SetCharm(oldCh, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
@@ -666,51 +666,51 @@ func (s *ServiceSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// incremented. Consequently, because oldCh's refcount is 0, the
 	// settings doc will be removed.
 	err = svc.SetCharm(newCh, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertSettingsRef(c, s.State, svcName, newCh, 1)
 
 	// The same but newCh swapped with oldCh.
 	err = svc.SetCharm(oldCh, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Adding a unit without a charm URL set does not affect the
 	// refcount.
 	u, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl, ok := u.CharmURL()
-	c.Assert(ok, gc.Equals, false)
+	c.Assert(ok, jc.IsFalse)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Setting oldCh as the units charm URL increments oldCh, which is
 	// used by svc as well, hence 2.
 	err = u.SetCharmURL(oldCh.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl, ok = u.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(curl, gc.DeepEquals, oldCh.URL())
 	assertSettingsRef(c, s.State, svcName, oldCh, 2)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// A dead unit does not decrement the refcount.
 	err = u.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 2)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Once the unit is removed, refcount is decremented.
 	err = u.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, svcName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 
 	// Finally, after the service is destroyed and removed (since the
 	// last unit's gone), the refcount is again decremented.
 	err = svc.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, svcName, oldCh)
 	assertNoSettingsRef(c, s.State, svcName, newCh)
 }
@@ -734,7 +734,7 @@ peers:
 
 func (s *ServiceSuite) assertServiceRelations(c *gc.C, svc *state.Service, expectedKeys ...string) []*state.Relation {
 	rels, err := svc.Relations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if len(rels) == 0 {
 		return nil
 	}
@@ -756,16 +756,16 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	s.assertServiceRelations(c, s.mysql)
 
 	err := s.mysql.SetCharm(oldCh, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertServiceRelations(c, s.mysql, "mysql:cluster")
 
 	err = s.mysql.SetCharm(newCh, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertServiceRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
 	// Check state consistency by attempting to destroy the service.
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
@@ -795,11 +795,11 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "mysql" has no "mysql" relation`)
 
 	jiEP, err := s.mysql.Endpoint("juju-info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jiEP, gc.DeepEquals, jujuInfoEp("mysql"))
 
 	serverEP, err := s.mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "mysql",
 		Relation: charm.Relation{
@@ -811,7 +811,7 @@ func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
 	})
 
 	eps, err := s.mysql.Endpoints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{jiEP, serverEP})
 }
 
@@ -822,11 +822,11 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "myriak" has no "garble" relation`)
 
 	jiEP, err := riak.Endpoint("juju-info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jiEP, gc.DeepEquals, jujuInfoEp("myriak"))
 
 	ringEP, err := riak.Endpoint("ring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ringEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "myriak",
 		Relation: charm.Relation{
@@ -839,7 +839,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	})
 
 	adminEP, err := riak.Endpoint("admin")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(adminEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "myriak",
 		Relation: charm.Relation{
@@ -851,7 +851,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	})
 
 	endpointEP, err := riak.Endpoint("endpoint")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endpointEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "myriak",
 		Relation: charm.Relation{
@@ -863,7 +863,7 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 	})
 
 	eps, err := riak.Endpoints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{adminEP, endpointEP, jiEP, ringEP})
 }
 
@@ -874,11 +874,11 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `service "wordpress" has no "nonsense" relation`)
 
 	jiEP, err := wordpress.Endpoint("juju-info")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(jiEP, gc.DeepEquals, jujuInfoEp("wordpress"))
 
 	urlEP, err := wordpress.Endpoint("url")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "wordpress",
 		Relation: charm.Relation{
@@ -890,7 +890,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	})
 
 	ldEP, err := wordpress.Endpoint("logging-dir")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ldEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "wordpress",
 		Relation: charm.Relation{
@@ -902,7 +902,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	})
 
 	mpEP, err := wordpress.Endpoint("monitoring-port")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mpEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "wordpress",
 		Relation: charm.Relation{
@@ -914,7 +914,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	})
 
 	dbEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dbEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "wordpress",
 		Relation: charm.Relation{
@@ -927,7 +927,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	})
 
 	cacheEP, err := wordpress.Endpoint("cache")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cacheEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "wordpress",
 		Relation: charm.Relation{
@@ -941,66 +941,66 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *gc.C) {
 	})
 
 	eps, err := wordpress.Endpoints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(eps, gc.DeepEquals, []state.Endpoint{cacheEP, dbEP, jiEP, ldEP, mpEP, urlEP})
 }
 
 func (s *ServiceSuite) TestServiceRefresh(c *gc.C) {
 	s1, err := s.State.Service(s.mysql.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.SetCharm(s.charm, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	testch, force, err := s1.Charm()
-	c.Assert(err, gc.IsNil)
-	c.Assert(force, gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(force, jc.IsFalse)
 	c.Assert(testch.URL(), gc.DeepEquals, s.charm.URL())
 
 	err = s1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testch, force, err = s1.Charm()
-	c.Assert(err, gc.IsNil)
-	c.Assert(force, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(force, jc.IsTrue)
 	c.Assert(testch.URL(), gc.DeepEquals, s.charm.URL())
 
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *gc.C) {
 	// Check that querying for the exposed flag works correctly.
-	c.Assert(s.mysql.IsExposed(), gc.Equals, false)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag works correctly.
 	err := s.mysql.SetExposed()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.mysql.IsExposed(), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 	err = s.mysql.ClearExposed()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.mysql.IsExposed(), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.IsExposed(), jc.IsFalse)
 
 	// Check that setting and clearing the exposed flag repeatedly does not fail.
 	err = s.mysql.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.ClearExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.ClearExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetExposed()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.mysql.IsExposed(), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.mysql.IsExposed(), jc.IsTrue)
 
 	// Make the service Dying and check that ClearExposed and SetExposed fail.
 	// TODO(fwereade): maybe service destruction should always unexpose?
 	u, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.ClearExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 	err = s.mysql.SetExposed()
@@ -1008,9 +1008,9 @@ func (s *ServiceSuite) TestServiceExposed(c *gc.C) {
 
 	// Remove the service and check that both fail.
 	err = u.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetExposed()
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
 	err = s.mysql.ClearExposed()
@@ -1020,23 +1020,23 @@ func (s *ServiceSuite) TestServiceExposed(c *gc.C) {
 func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	// Check that principal units can be added on their own.
 	unitZero, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
-	c.Assert(unitZero.IsPrincipal(), gc.Equals, true)
+	c.Assert(unitZero.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
 	c.Assert(state.GetUnitEnvUUID(unitZero), gc.Equals, s.State.EnvironUUID())
 
 	unitOne, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitOne.Name(), gc.Equals, "mysql/1")
-	c.Assert(unitOne.IsPrincipal(), gc.Equals, true)
+	c.Assert(unitOne.IsPrincipal(), jc.IsTrue)
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unitZero.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a subordinate service and check that units cannot be added directly.
 	// to add a subordinate unit.
@@ -1048,51 +1048,51 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	// Indirectly create a subordinate unit by adding a relation and entering
 	// scope as a principal.
 	eps, err := s.State.InferEndpoints("logging", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(unitZero)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	subZero, err := s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that once it's refreshed unitZero has subordinates.
 	err = unitZero.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitZero.SubordinateNames(), gc.DeepEquals, []string{"logging/0"})
 
 	// Check the subordinate unit has been assigned its principal's machine.
 	id, err := subZero.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(id, gc.Equals, m.Id())
 }
 
 func (s *ServiceSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	u, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit()
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to service "mysql": service is not alive`)
 	err = u.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit()
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to service "mysql": service "mysql" not found`)
 }
 
 func (s *ServiceSuite) TestReadUnit(c *gc.C) {
 	_, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that retrieving a unit from state works correctly.
 	unit, err := s.State.Unit("mysql/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
 
 	// Check that retrieving a non-existent or an invalidly
@@ -1105,21 +1105,21 @@ func (s *ServiceSuite) TestReadUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit "pressword/0" not found`)
 
 	units, err := s.mysql.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sortedUnitNames(units), gc.DeepEquals, []string{"mysql/0", "mysql/1"})
 }
 
 func (s *ServiceSuite) TestReadUnitWhenDying(c *gc.C) {
 	// Test that we can still read units when the service is Dying...
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.mysql.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Unit("mysql/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// ...and when those units are Dying or Dead...
 	testWhenDying(c, unit, noErr, noErr, func() error {
@@ -1133,12 +1133,12 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *gc.C) {
 	// ...and even, in a very limited way, when the service itself is removed.
 	removeAllUnits(c, s.mysql)
 	_, err = s.mysql.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ServiceSuite) TestDestroySimple(c *gc.C) {
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1146,33 +1146,33 @@ func (s *ServiceSuite) TestDestroySimple(c *gc.C) {
 
 func (s *ServiceSuite) TestDestroyStillHasUnits(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *ServiceSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1180,16 +1180,16 @@ func (s *ServiceSuite) TestDestroyOnceHadUnits(c *gc.C) {
 
 func (s *ServiceSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1197,24 +1197,24 @@ func (s *ServiceSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 
 func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	err = s.mysql.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -1222,14 +1222,14 @@ func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy a service with no units in relation scope; check service and
 	// unit removed.
 	err = wordpress.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel.Refresh()
@@ -1247,35 +1247,35 @@ func (s *ServiceSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) {
 func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err = s.State.InferEndpoints("logging", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a separate reference to the first relation.
 	unit, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel0.Unit(unit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Optionally update the service document to get correct relation counts.
 	if refresh {
 		err = s.mysql.Destroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Destroy, and check that the first relation becomes Dying...
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel0.Life(), gc.Equals, state.Dying)
 
 	// ...while the second is removed directly.
@@ -1285,7 +1285,7 @@ func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool
 	// Drop the last reference to the first relation; check the relation and
 	// the service are are both removed.
 	err = ru.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = rel0.Refresh()
@@ -1297,7 +1297,7 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	units := make([]*state.Unit, 5)
 	for i := range units {
 		unit, err := s.mysql.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 		if i%2 != 0 {
 			preventUnitDestroyRemove(c, unit)
@@ -1306,24 +1306,24 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 
 	// Check state is clean.
 	dirty, err := s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
 
 	// Destroy mysql, and check units are not touched.
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		assertLife(c, unit, state.Alive)
 	}
 
 	// Check a cleanup doc was added.
 	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
 
 	// Run the cleanup and check the units.
 	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for i, unit := range units {
 		if i%2 != 0 {
 			assertLife(c, unit, state.Dying)
@@ -1334,22 +1334,22 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 
 	// Check for queued unit cleanups, and run them.
 	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsTrue)
 	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
-	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dirty, jc.IsFalse)
 }
 
 func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 
 	c.Assert(s.mysql.Destroy(), gc.IsNil)
@@ -1366,7 +1366,7 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
 	err := s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.Unit("mysql/0")
@@ -1380,38 +1380,38 @@ func uint64p(val uint64) *uint64 {
 func (s *ServiceSuite) TestConstraints(c *gc.C) {
 	// Constraints are initially empty (for now).
 	cons, err := s.mysql.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
 	// Constraints can be set.
 	cons2 := constraints.Value{Mem: uint64p(4096)}
 	err = s.mysql.SetConstraints(cons2)
 	cons3, err := s.mysql.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons3, gc.DeepEquals, cons2)
 
 	// Constraints are completely overwritten when re-set.
 	cons4 := constraints.Value{CpuPower: uint64p(750)}
 	err = s.mysql.SetConstraints(cons4)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons5, err := s.mysql.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons5, gc.DeepEquals, cons4)
 
 	// Destroy the existing service; there's no way to directly assert
 	// that the constraints are deleted...
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// ...but we can check that old constraints do not affect new services
 	// with matching names.
 	ch, _, err := s.mysql.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, s.mysql.Name(), ch)
 	cons6, err := mysql.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons6, jc.Satisfies, constraints.IsEmpty)
 }
 
@@ -1430,34 +1430,34 @@ func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.mysql.SetConstraints(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`setting constraints on service "mysql": unsupported constraints: cpu-power`},
 	})
 	scons, err := s.mysql.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(scons, gc.DeepEquals, cons)
 }
 
 func (s *ServiceSuite) TestConstraintsLifecycle(c *gc.C) {
 	// Dying.
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons1 := constraints.MustParse("mem=1G")
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: not found or not alive`)
 	scons, err := s.mysql.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&scons, jc.Satisfies, constraints.IsEmpty)
 
 	// Removed (== Dead, for a service).
 	err = unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: not found or not alive`)
 	_, err = s.mysql.Constraints()
@@ -1478,29 +1478,29 @@ func (s *ServiceSuite) TestSubordinateConstraints(c *gc.C) {
 func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	// Alive unit...
 	alive, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Dying unit...
 	dying, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, dying)
 	err = dying.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead unit...
 	dead, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, dead)
 	err = dead.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dead.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Gone unit.
 	gone, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = gone.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// All except gone unit are reported in initial event.
 	w := s.mysql.WatchUnits()
@@ -1511,13 +1511,13 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
 	err = alive.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dead.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 }
@@ -1532,19 +1532,19 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *gc.C) {
 
 	// Create one unit, check one change.
 	quick, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(quick.Name())
 	wc.AssertNoChange()
 
 	// Destroy that unit (short-circuited to removal), check one change.
 	err = quick.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(quick.Name())
 	wc.AssertNoChange()
 
 	// Create another, check one change.
 	slow, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(slow.Name())
 	wc.AssertNoChange()
 
@@ -1554,19 +1554,19 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *gc.C) {
 
 	// Make unit Dying, change detected.
 	err = slow.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(slow.Name())
 	wc.AssertNoChange()
 
 	// Make unit Dead, change detected.
 	err = slow.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(slow.Name())
 	wc.AssertNoChange()
 
 	// Remove unit, final change not detected.
 	err = slow.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
 
@@ -1580,7 +1580,7 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 
 	// Add a relation; check change.
 	mysqlep, err := s.mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wpch := s.AddTestingCharm(c, "wordpress")
 	wpi := 0
 	addRelation := func() *state.Relation {
@@ -1588,9 +1588,9 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 		wpi++
 		wp := s.AddTestingService(c, name, wpch)
 		wpep, err := wp.Endpoint("db")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		rel, err := s.State.AddRelation(mysqlep, wpep)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		return rel
 	}
 	rel0 := addRelation()
@@ -1604,7 +1604,7 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 
 	// Destroy a relation; check change.
 	err = rel0.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel0.String())
 	wc.AssertNoChange()
 
@@ -1622,24 +1622,24 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 
 	// Add a unit to the new relation; check no change.
 	unit, err := s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru2, err := rel2.Unit(unit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru2.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Destroy the relation with the unit in scope, and add another; check
 	// changes.
 	err = rel2.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel3 := addRelation()
 	wc.AssertChange(rel2.String(), rel3.String())
 	wc.AssertNoChange()
 
 	// Leave scope, destroying the relation, and check that change as well.
 	err = ru2.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel2.String())
 	wc.AssertNoChange()
 
@@ -1653,21 +1653,21 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 	wpxWatcherC.AssertNoChange()
 
 	wpxep, err := wpx.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	relx, err := s.State.AddRelation(mysqlep, wpxep)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wpxWatcherC.AssertChange(relx.String())
 	wpxWatcherC.AssertNoChange()
 }
 
 func removeAllUnits(c *gc.C, s *state.Service) {
 	us, err := s.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range us {
 		err = u.EnsureDead()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = u.Remove()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -1681,16 +1681,16 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 
 	// Make one change (to a separate instance), check one event.
 	service, err := s.State.Service(s.mysql.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = service.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
 	err = service.ClearExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = service.SetCharm(s.charm, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Stop, check closed.
@@ -1699,7 +1699,7 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 
 	// Remove service, start new watch, check single event.
 	err = service.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
@@ -1714,11 +1714,11 @@ func (s *ServiceSuite) TestAnnotatorForService(c *gc.C) {
 func (s *ServiceSuite) TestAnnotationRemovalForService(c *gc.C) {
 	annotations := map[string]string{"mykey": "myvalue"}
 	err := s.mysql.SetAnnotations(annotations)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ann, err := s.mysql.Annotations()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
 
@@ -1735,9 +1735,9 @@ func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 
 func (s *ServiceSuite) TestNetworks(c *gc.C) {
 	service, err := s.State.Service(s.mysql.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	networks, err := service.Networks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(networks, gc.HasLen, 0)
 }
 
@@ -1745,6 +1745,6 @@ func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {
 	networks := []string{"yes", "on"}
 	service := s.AddTestingServiceWithNetworks(c, "withnets", s.charm, networks)
 	requestedNetworks, err := service.Networks()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(requestedNetworks, gc.DeepEquals, networks)
 }

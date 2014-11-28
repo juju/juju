@@ -5,6 +5,7 @@ package peergrouper_test
 
 import (
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -24,7 +25,7 @@ func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
 	err = inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
 
 	info := inst.DialInfo()
@@ -34,13 +35,13 @@ func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	}
 
 	err = peergrouper.MaybeInitiateMongoServer(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// This would return a mgo.QueryError if a ReplicaSet
 	// configuration already existed but we tried to create
 	// one with replicaset.Initiate again.
 	err = peergrouper.MaybeInitiateMongoServer(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO test login
 }

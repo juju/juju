@@ -9,19 +9,30 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
+
+// FindTags wraps a slice of strings that are prefixes to use when
+// searching for matching tags.
+type FindTags struct {
+	Prefixes []string `json:"prefixes"`
+}
+
+// FindTagResults wraps the mapping between the requested prefix and the
+// matching tags for each requested prefix.
+type FindTagsResults struct {
+	Matches map[string][]Entity `json:"matches"`
+}
 
 // Entity identifies a single entity.
 type Entity struct {
@@ -110,7 +121,7 @@ type AddMachineParams struct {
 	// new machine when it is created.
 	Series      string
 	Constraints constraints.Value
-	Jobs        []juju.MachineJob
+	Jobs        []multiwatcher.MachineJob
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
@@ -425,11 +436,6 @@ type IsMasterResult struct {
 	Master bool
 }
 
-// ServiceTags encapsulates a slice of names.ServiceTag.
-type ServiceTags struct {
-	ServiceTags []names.ServiceTag `json:"servicetags,omitempty"`
-}
-
 // ContainerManagerConfigParams contains the parameters for the
 // ContainerManagerConfig provisioner API call.
 type ContainerManagerConfigParams struct {
@@ -708,14 +714,14 @@ type FindToolsResult struct {
 
 // RebootActionResults holds a list of RebootActionResult and any error.
 type RebootActionResults struct {
-	Results []RebootActionResult `json:results,omitempty`
+	Results []RebootActionResult `json:"results,omitempty"`
 }
 
 // RebootActionResult holds the result of a single call to
 // machine.ShouldRebootOrShutdown.
 type RebootActionResult struct {
-	Result RebootAction `json:result,omitempty`
-	Error  *Error       `json:error,omitempty`
+	Result RebootAction `json:"result,omitempty"`
+	Error  *Error       `json:"error,omitempty"`
 }
 
 // Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
@@ -754,3 +760,16 @@ const (
 	// detected.
 	StatusDown = Status(multiwatcher.StatusDown)
 )
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of a datastore.
+type DatastoreResult struct {
+	Result storage.Datastore `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of multiple datastores.
+type DatastoreResults struct {
+	Results []DatastoreResult `json:"results,omitempty"`
+}

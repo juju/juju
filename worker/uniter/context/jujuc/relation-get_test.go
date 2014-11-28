@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -186,7 +187,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
@@ -214,7 +215,7 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
--r  (= %s)
+-r, --relation  (= %s)
     specify a relation by id
 
 relation-get prints the value of a unit's relation setting, specified by key.
@@ -251,7 +252,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
@@ -268,13 +269,13 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, 1, "m/0")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "pew\npew\n\n")
 }

@@ -249,7 +249,7 @@ func factoryV1 func(st *state.State, resources *common.Resources, auth common.Au
 func (s *baseSuite) testNewMonitorSucceedsV1(c *gc.C, factory factoryV1) {
         ...
         api, err := factory(s.State, s.resources, s.authorizer)
-        c.Assert(err, gc.IsNil)
+        c.Assert(err, jc.ErrorIsNil)
         ...
 }
 
@@ -264,7 +264,7 @@ type writeCPUV1 interface {
 func (s *baseSuite) testWriteCPUSucceedsV1(c *gc.C, api writeCPUV1) {
         ...
         results, err := api.WriteCPU(args)
-        c.Assert(err, gc.IsNil)
+        c.Assert(err, jc.ErrorIsNil)
         ...
 }
 ```
@@ -302,7 +302,7 @@ Here `newAPI()` is a little but useful helper:
 ```
 func (s *monitoringSuiteV1) newAPI(c *gc.C) *monitoring.MonitoringAPIV1 {
 	api, err := monitoring.NewMonitorAPIV1(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 ```
