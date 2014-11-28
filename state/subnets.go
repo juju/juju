@@ -60,6 +60,11 @@ func (s *Subnet) Life() Life {
 	return s.doc.Life
 }
 
+// ID returns the unique id for the subnet, for other entities to reference it
+func (s *Subnet) ID() string {
+	return s.doc.DocID
+}
+
 // EnsureDead sets the Life of the subnet to Dead
 func (s *Subnet) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
