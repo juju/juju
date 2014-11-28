@@ -1442,7 +1442,7 @@ func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
 			subordinateCount++
 		}
 	}
-	return subordinateCount == 1
+	return subordinateCount >= 1
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1556,7 +1556,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
-		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
 			return nil, errors.Errorf("container scoped relation requires one subordinate service")
 		}
 
