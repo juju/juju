@@ -179,7 +179,9 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 			host = j
 		}
 		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
-		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, "juju-"+h.tag.String(), tlsConf)
+		logTag := "juju" + h.syslogConfig.Namespace + "-" + h.tag.String()
+		logger.Debugf("making syslog connection for %q to %s", logTag, target)
+		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, logTag, tlsConf)
 		if err != nil {
 			return err
 		}
