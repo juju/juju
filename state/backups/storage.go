@@ -54,9 +54,6 @@ type storageMetaDoc struct {
 }
 
 func (doc *storageMetaDoc) isFileInfoComplete() bool {
-	if doc.Finished == 0 {
-		return false
-	}
 	if doc.Checksum == "" {
 		return false
 	}
@@ -76,6 +73,7 @@ func (doc *storageMetaDoc) validate() error {
 	if doc.Started == 0 {
 		return errors.New("missing Started")
 	}
+	// We don't check doc.Finished because it doesn't have to be set.
 	if doc.Environment == "" {
 		return errors.New("missing Environment")
 	}
@@ -89,16 +87,12 @@ func (doc *storageMetaDoc) validate() error {
 		return errors.New("missing Version")
 	}
 
+	// We don't check doc.Stored because it doesn't have to be set.
+
 	// Check the file-related fields.
 	if !doc.isFileInfoComplete() {
-		if doc.Stored != 0 {
-			return errors.New(`"Stored" is unexpectedly set`)
-		}
 		// Don't check the file-related fields.
 		return nil
-	}
-	if doc.Finished == 0 {
-		return errors.New("missing Finished")
 	}
 	if doc.Checksum == "" {
 		return errors.New("missing Checksum")
@@ -134,21 +128,23 @@ func docAsMetadata(doc *storageMetaDoc) *Metadata {
 
 	meta.SetID(doc.ID)
 
-	if doc.isFileInfoComplete() {
-		// Set the file-related fields.
-
+	if doc.Finished != 0 {
 		finished := metadocUnixToTime(doc.Finished)
 		meta.Finished = &finished
+	}
+
+	if doc.isFileInfoComplete() {
+		// Set the file-related fields.
 
 		// The doc should have already been validated when stored.
 		meta.FileMetadata.Raw.Size = doc.Size
 		meta.FileMetadata.Raw.Checksum = doc.Checksum
 		meta.FileMetadata.Raw.ChecksumFormat = doc.ChecksumFormat
+	}
 
-		if doc.Stored != 0 {
-			stored := metadocUnixToTime(doc.Stored)
-			meta.SetStored(&stored)
-		}
+	if doc.Stored != 0 {
+		stored := metadocUnixToTime(doc.Stored)
+		meta.SetStored(&stored)
 	}
 
 	return meta
@@ -369,6 +365,7 @@ func setStorageStoredTime(dbWrap *storageDBWrapper, id string, stored time.Time)
 		}
 		return errors.Annotate(err, "while running transaction")
 	}
+
 	return nil
 }
 
