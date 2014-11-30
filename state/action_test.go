@@ -89,6 +89,14 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 }
 
+func (s *ActionSuite) TestAddActionRequiresName(c *gc.C) {
+	name := ""
+
+	// verify can not add an Action without a name
+	_, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
+	c.Assert(err, gc.ErrorMatches, "actionName required")
+}
+
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	name := "fakeaction"
 	params1 := map[string]interface{}{"outfile": "outfile.tar.bz2"}

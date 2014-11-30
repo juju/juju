@@ -185,7 +185,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 			{Receiver: s.wordpressUnit.Tag().String(), Name: expectedName, Parameters: expectedParameters},
 			// Service tag instead of Unit tag.
 			{Receiver: s.wordpress.Tag().String(), Name: "baz"},
-			// TODO(jcw4) notice no Name. Shouldn't Action Names be required?
+			// Missing name.
 			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},
 		},
 	}
@@ -206,11 +206,8 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
-	// TODO(jcw4) shouldn't Action Names be required?
-	c.Assert(res.Results[3].Error, gc.IsNil)
-	c.Assert(res.Results[3].Action, gc.NotNil)
-	c.Assert(res.Results[3].Action.Receiver, gc.Equals, s.mysqlUnit.Tag().String())
-	c.Assert(res.Results[3].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+	c.Assert(res.Results[3].Error, gc.ErrorMatches, "actionName required")
+	c.Assert(res.Results[3].Action, gc.IsNil)
 
 	// Make sure an Action was enqueued for the wordpress Unit.
 	actions, err = s.wordpressUnit.Actions()
@@ -220,14 +217,10 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
 	c.Assert(actions[0].Receiver(), gc.Equals, s.wordpressUnit.Name())
 
-	// Make sure an Action was enqueued for the mysql Unit.
+	// Make sure an Action was not enqueued for the mysql Unit.
 	actions, err = s.mysqlUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 1)
-	// TODO(jcw4) notice Action Name empty. Shouldn't Action Names be required?
-	c.Assert(actions[0].Name(), gc.Equals, "")
-	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
-	c.Assert(actions[0].Receiver(), gc.Equals, s.mysqlUnit.Name())
+	c.Assert(actions, gc.HasLen, 0)
 }
 
 type testCaseAction struct {

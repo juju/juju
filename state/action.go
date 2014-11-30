@@ -288,6 +288,10 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 
 // EnqueueAction
 func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (*Action, error) {
+	if len(actionName) == 0 {
+		return nil, errors.Errorf("actionName required")
+	}
+
 	receiverCollectionName, receiverId, err := st.tagToCollectionAndId(receiver)
 	if err != nil {
 		return nil, errors.Trace(err)
