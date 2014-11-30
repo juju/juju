@@ -206,7 +206,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
-	c.Assert(res.Results[3].Error, gc.ErrorMatches, "actionName required")
+	c.Assert(res.Results[3].Error, gc.ErrorMatches, "action name required")
 	c.Assert(res.Results[3].Action, gc.IsNil)
 
 	// Make sure an Action was enqueued for the wordpress Unit.

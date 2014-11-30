@@ -94,7 +94,7 @@ func (s *ActionSuite) TestAddActionRequiresName(c *gc.C) {
 
 	// verify can not add an Action without a name
 	_, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
-	c.Assert(err, gc.ErrorMatches, "actionName required")
+	c.Assert(err, gc.ErrorMatches, "action name required")
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
