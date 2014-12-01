@@ -6,6 +6,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from cStringIO import StringIO
 import errno
+from itertools import chain
 import logging
 import os
 import re
@@ -250,10 +251,10 @@ class EnvJujuClient:
         args = (charm,)
         return self.juju('deploy', args)
 
-    def wait_for_started(self, timeout=1200):
+    def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
         status = None
-        for ignored in until_timeout(timeout):
+        for ignored in chain([None], until_timeout(timeout, start=start)):
             try:
                 status = self.get_status()
             except CannotConnectEnv:

@@ -1,4 +1,7 @@
-from datetime import timedelta
+from datetime import (
+    datetime,
+    timedelta,
+    )
 from contextlib import contextmanager
 from unittest import TestCase
 
@@ -44,3 +47,9 @@ class TestUntilTimeout(TestCase):
         deltas = [timedelta(), timedelta(4, 0), timedelta(5, 0)]
         with self.patched_until(86400 * 5, deltas) as until:
             self.assertEqual([86400 * 5, 86400], list(until))
+
+    def test_start(self):
+        now = datetime.now() + timedelta(days=1)
+        now_iter = iter([now, now, now + timedelta(10)])
+        with patch('utility.until_timeout.now', side_effect=now_iter.next):
+            self.assertEqual(list(until_timeout(10, now - timedelta(10))), [])
