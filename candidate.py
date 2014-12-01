@@ -110,13 +110,10 @@ def extract_candidates(path, dry_run=False, verbose=False):
         command = ['dpkg', '-x', package_path, candidate_path]
         if not dry_run:
             subprocess.check_call(command)
-        bin_path = os.path.join(
-            candidate_path, 'usr', 'lib', 'juju-%s' % version,
-            'bin', 'buildvars.json')
         if verbose:
-            print('Copying %s to %s' % (buildvars_path, bin_path))
+            print('Copying %s to %s' % (buildvars_path, candidate_path))
         if not dry_run:
-            shutil.copyfile(buildvars_path, bin_path)
+            shutil.copyfile(buildvars_path, candidate_path)
 
 
 def parse_args(args=None):
