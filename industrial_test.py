@@ -404,7 +404,7 @@ class DeployManyAttempt(SteppedStageAttempt):
             ('deploy-many', {'title': 'deploy many'}),
             ])
 
-    def __init__(self, host_count=5, container_count=10):
+    def __init__(self, host_count=5, container_count=8):
         super(DeployManyAttempt, self).__init__()
         self.host_count = host_count
         self.container_count = container_count
