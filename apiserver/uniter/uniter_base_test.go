@@ -18,7 +18,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -426,7 +425,10 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 	s.PatchValue(uniter.GetEnvironment, func(st *state.State) (environs.Environ, error) {
 		return s.Environ, nil
 	})
-	dummy.SetZone(s.Environ, instance.Id("id-1"), "a-zone")
+	instID, err := dummy.AddInstance(s.Environ, s.machine0)
+	c.Assert(err, jc.ErrorIsNil)
+	err = dummy.SetZone(s.Environ, *instID, "a-zone")
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},

@@ -37,7 +37,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -240,6 +239,7 @@ type environState struct {
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
 	insts        map[instance.Id]*dummyInstance
+	zones        []dummyZone
 	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
 	storageDelay time.Duration
@@ -259,9 +259,6 @@ type environ struct {
 	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
-
-	zones     set.Strings
-	instZones map[instance.Id]string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -1177,11 +1174,15 @@ func AddInstance(env environs.Environ, machine *state.Machine) (*instance.Id, er
 // zones the dummy provider knows about.
 //
 // This function is strictly an aid to testing.
-func addZone(e *environ, zoneName string) {
-	if e.zones == nil {
-		e.zones = set.NewStrings()
+func addZone(e *environState, zoneName string) dummyZone {
+	for _, zone := range e.zones {
+		if zone.name == zoneName {
+			return zone
+		}
 	}
-	e.zones.Add(zoneName)
+	zone := dummyZone{zoneName, true}
+	e.zones = append(e.zones, zone)
+	return zone
 }
 
 // SetZone associates the given instance ID with the zone name. This
@@ -1190,13 +1191,20 @@ func addZone(e *environ, zoneName string) {
 // dummy provider knows about.
 //
 // This function is strictly an aid to testing.
-func SetZone(env environs.Environ, instID instance.Id, zoneName string) {
+func SetZone(env environs.Environ, instID instance.Id, zoneName string) error {
 	e := env.(*environ)
-	if e.instZones == nil {
-		e.instZones = make(map[instance.Id]string)
+	envst, err := e.state()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	addZone(e, zoneName)
-	e.instZones[instID] = zoneName
+
+	inst, ok := envst.insts[instID]
+	if !ok {
+		return errors.Errorf("unknown instance %q", instID)
+	}
+	zone := addZone(envst, zoneName)
+	inst.zone = &zone
+	return nil
 }
 
 type dummyZone struct {
@@ -1218,9 +1226,14 @@ func (dz *dummyZone) Available() bool {
 // provider. In the case of the dummy provider, this is set to whatever
 // you like (via AddZone).
 func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	envst, err := e.state()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var zones []common.AvailabilityZone
-	for _, name := range e.zones.SortedValues() {
-		zones = append(zones, &dummyZone{name, true})
+	for _, zone := range envst.zones {
+		zones = append(zones, &zone)
 	}
 	return zones, nil
 }
@@ -1232,13 +1245,17 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	var err error
+
+	envst, err := e.state()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	err = nil
 	names := make([]string, len(ids))
 	for i, id := range ids {
-		zoneName, ok := e.instZones[id]
-		if !ok || zoneName == "" {
+		inst, ok := envst.insts[id]
+		if !ok || inst.zone == nil {
 			if err == nil {
 				err = environs.ErrNoInstances
 			}
@@ -1247,7 +1264,7 @@ func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, er
 		if err != nil {
 			err = environs.ErrPartialInstances
 		}
-		names[i] = zoneName
+		names[i] = inst.zone.name
 	}
 	return names, err
 }
@@ -1264,6 +1281,7 @@ type dummyInstance struct {
 
 	mu        sync.Mutex
 	addresses []network.Address
+	zone      *dummyZone
 }
 
 func (inst *dummyInstance) Id() instance.Id {
