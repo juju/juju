@@ -16,6 +16,7 @@ from jujuci import (
     get_artifacts,
     JENKINS_URL,
 )
+from utility import temp_dir
 
 
 BUILD_REVISION = 'build-revision'
@@ -116,6 +117,49 @@ def extract_candidates(path, dry_run=False, verbose=False):
             shutil.copyfile(buildvars_path, candidate_path)
 
 
+def get_scripts(juju_release_tools=None):
+    assemble_script = 'assemble-streams.bash'
+    publish_script = 'publish-public-tools.bash'
+    if juju_release_tools:
+        assemble_script = os.path.join(
+            juju_release_tools, assemble_script)
+        publish_script = os.path.join(
+            juju_release_tools, publish_script)
+    return assemble_script, publish_script
+
+
+def run_command(command, dry_run=False, verbose=False):
+    if verbose:
+        print('Executing: %s' % command)
+    if not dry_run:
+        output = subprocess.check_output(command)
+        if verbose:
+            print(output)
+
+
+def publish_candidates(path, streams_path,
+                       juju_release_tools=None, dry_run=False, verbose=False):
+        with temp_dir() as debs_path:
+            for dir_name in get_artifact_dirs(path):
+                artifacts_path = os.path.join(path, dir_name)
+                for deb_name in os.listdir(artifacts_path):
+                    deb_path = os.path.join(artifacts_path, deb_name)
+                    print('Copying %s' % deb_path)
+                    new_path = os.path.join(debs_path, deb_name)
+                    shutil.copyfile(deb_path, new_path)
+            assemble_script, publish_script = get_scripts(juju_release_tools)
+            # XXX sinzui 2014-12-01: IGNORE uses the local juju, but when
+            # testing juju's that change generate-tools, we may need to use
+            # the highest version.
+            command = [
+                assemble_script, '-t',  debs_path, 'weekly', 'IGNORE',
+                streams_path]
+            run_command(command, dry_run=dry_run, verbose=verbose)
+        juju_dist_path = os.path.join(streams_path, 'juju-dist')
+        command = [publish_script,  'weekly', juju_dist_path, 'cpc']
+        run_command(command, dry_run=dry_run, verbose=verbose)
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("Manage the successful Juju CI candidates.")
@@ -139,10 +183,21 @@ def parse_args(args=None):
     parser_update.add_argument(
         'path', help='The path to save the candiate data to.')
     # ./candidate extract master ~/candidate
-    parser_extract = subparsers.add_parser('extract', help='Update candidate')
+    parser_extract = subparsers.add_parser(
+        'extract',
+        help='extract candidates that match the local series and arch.')
     parser_extract.add_argument(
         'path', help='The path to the candiate data dir.')
-    # ./candidate publsh ~/candidate
+    # ./candidate publish ~/candidate
+    parser_publish = subparsers.add_parser(
+        'publish', help='Publish streams for the candidates')
+    parser_publish.add_argument(
+        '-t', '--juju-release-tools',
+        help='The path to the juju-release-tools dir.')
+    parser_publish.add_argument(
+        'path', help='The path to the candiate data dir.')
+    parser_publish.add_argument(
+        'streams_path', help='The path to the streams data dir.')
     return parser.parse_args(args)
 
 
@@ -157,6 +212,11 @@ def main(argv):
         elif args.command == 'extract':
             extract_candidates(
                 args.path, dry_run=args.dry_run, verbose=args.verbose)
+        elif args.command == 'publish':
+            publish_candidates(
+                args.path, args.streams_path,
+                juju_release_tools=args.juju_release_tools,
+                dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:
