@@ -169,6 +169,7 @@ type instanceData struct {
 	DocID      string      `bson:"_id"`
 	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
+	AvailZone  string      `bson:"availabilityzone,omitempty"`
 	EnvUUID    string      `bson:"env-uuid"`
 	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
@@ -813,7 +814,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 // that if the provisioner crashes (or its connection to the state is
 // lost) after starting the instance, we can be sure that only a single
 // instance will be able to act for that machine.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
+func (m *Machine) SetProvisioned(id instance.Id, nonce, availabilityZone string, characteristics *instance.HardwareCharacteristics) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
@@ -827,6 +828,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		DocID:      m.doc.DocID,
 		MachineId:  m.doc.Id,
 		InstanceId: id,
+		AvailZone:  availabilityZone,
 		EnvUUID:    m.doc.EnvUUID,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
@@ -873,7 +875,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // collection and have a worker that takes care of the actual work.
 // Merge SetProvisioned() in here or drop it at that point.
 func (m *Machine) SetInstanceInfo(
-	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, nonce, availabilityZone string, characteristics *instance.HardwareCharacteristics,
 	networks []NetworkInfo, interfaces []NetworkInterfaceInfo) error {
 
 	// Add the networks and interfaces first.
@@ -895,7 +897,7 @@ func (m *Machine) SetInstanceInfo(
 			return err
 		}
 	}
-	return m.SetProvisioned(id, nonce, characteristics)
+	return m.SetProvisioned(id, nonce, availabilityZone, characteristics)
 }
 
 // notProvisionedError records an error when a machine is not provisioned.

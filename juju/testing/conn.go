@@ -186,7 +186,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	err = machine.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }

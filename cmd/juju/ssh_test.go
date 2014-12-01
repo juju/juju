@@ -239,7 +239,7 @@ func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*stat
 		// must set an instance id as the ssh command uses that as a signal the
 		// machine has been provisioned
 		inst, md := testing.AssertStartInstance(c, s.Environ, m.Id())
-		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", md), gc.IsNil)
+		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", md), gc.IsNil)
 		machines[i] = m
 	}
 	return machines

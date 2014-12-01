@@ -46,7 +46,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[0].SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machines[0].SetProvisioned("i-manager", "fake_nonce", nil)
+	err = s.machines[0].SetProvisioned("i-manager", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machines[0].Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)

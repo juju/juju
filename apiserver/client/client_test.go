@@ -340,7 +340,7 @@ func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Create a provisioned state server.
 	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start an upgrade.
@@ -2199,7 +2199,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", agent.BootstrapNonce, "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, jc.ErrorIsNil)

@@ -44,7 +44,7 @@ func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
+	err = machine.SetProvisioned("i-manager", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(st, gc.NotNil)

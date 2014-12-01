@@ -87,7 +87,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	// Now provision the even machines in the first half and watch them get addresses.
 	for i := 0; i < len(insts)/2; i += 2 {
 		m := machines[i]
-		err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
+		err := m.SetProvisioned(insts[i].Id(), "nonce", "a_zone", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
 		dummy.SetInstanceStatus(insts[i], "running")
@@ -118,7 +118,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	for i := len(insts) / 2; i < len(insts); i++ {
 		if i%2 == 0 {
 			m := machines[i]
-			err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
+			err := m.SetProvisioned(insts[i].Id(), "nonce", "a_zone", nil)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
@@ -165,7 +165,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 	// Associate the odd-numbered machines with an instance.
 	for i := 1; i < len(machines); i += 2 {
 		m := machines[i]
-		err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
+		err := m.SetProvisioned(insts[i].Id(), "nonce", "a_zone", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Associate the first half of the instances with an address and status.

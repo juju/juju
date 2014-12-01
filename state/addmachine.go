@@ -50,6 +50,11 @@ type MachineTemplate struct {
 	// fields must be set appropriately.
 	InstanceId instance.Id
 
+	// AvailZone holds the availability zone to associate with the
+	// machine. If the provider does not support availability zones then
+	// this will be the empty string.
+	AvailZone string
+
 	// HardwareCharacteristics holds the h/w characteristics to
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
@@ -256,6 +261,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				DocID:      mdoc.DocID,
 				MachineId:  mdoc.Id,
 				InstanceId: template.InstanceId,
+				AvailZone:  template.AvailZone,
 				EnvUUID:    mdoc.EnvUUID,
 				Arch:       template.HardwareCharacteristics.Arch,
 				Mem:        template.HardwareCharacteristics.Mem,

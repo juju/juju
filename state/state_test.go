@@ -1094,7 +1094,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", "a_zone", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-quantal-amd64"))
 		c.Assert(err, jc.ErrorIsNil)
@@ -1718,7 +1718,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	// Dying machine...
 	dying, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1772,7 +1772,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1984,7 +1984,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Provision a machine: reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -2936,7 +2936,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	nextVersion := agentVersion
@@ -2967,7 +2967,7 @@ func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	nextVersion := agentVersion
@@ -3603,7 +3603,7 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

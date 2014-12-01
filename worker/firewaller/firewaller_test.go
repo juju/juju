@@ -53,7 +53,7 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C, firewallMode string) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
+	err = machine.SetProvisioned("i-manager", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -127,7 +127,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit,
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
 	inst, hc := testing.AssertStartInstance(c, s.Environ, m.Id())
-	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
+	err := m.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst
 }

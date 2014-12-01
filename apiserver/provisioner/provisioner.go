@@ -598,7 +598,7 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
-			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.Characteristics)
+			err = machine.SetProvisioned(arg.InstanceId, arg.Nonce, arg.AvailZone, arg.Characteristics)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -629,7 +629,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 			networks, interfaces, err = networkParamsToStateParams(arg.Networks, arg.Interfaces)
 			if err == nil {
 				err = machine.SetInstanceInfo(
-					arg.InstanceId, arg.Nonce, arg.Characteristics,
+					arg.InstanceId, arg.Nonce, arg.AvailZone, arg.Characteristics,
 					networks, interfaces)
 			}
 			if err != nil {

@@ -1705,7 +1705,7 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
-	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
+	err = m.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1719,7 +1719,7 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
-	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
+	err = m.SetProvisioned("i-missing", "fake_nonce", "a_zone", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetInstanceStatus("missing")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1736,7 +1736,7 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
-	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
+	err = m.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
 }

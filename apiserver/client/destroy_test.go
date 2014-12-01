@@ -29,11 +29,11 @@ var _ = gc.Suite(&destroyEnvironmentSuite{})
 func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", nil)
+	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m1.SetProvisioned(instance.Id("manual:1"), "manual:1:fake_nonce", nil)
+	err = m1.SetProvisioned(instance.Id("manual:1"), "manual:1:fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return m0, m1
 }
@@ -45,13 +45,13 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
-	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
+	err = m0.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	inst, _ = testing.AssertStartInstance(c, s.Environ, m1.Id())
-	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
+	err = m1.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
@@ -59,7 +59,7 @@ func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Mac
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}, m1.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.SetProvisioned("container0", "fake_nonce", nil)
+	err = m2.SetProvisioned("container0", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return m0, m1, m2

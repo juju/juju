@@ -96,7 +96,7 @@ func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
 func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	err = machine.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,7 +224,7 @@ func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C, expected []string) {
 
 	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
+	err = machineInState.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
