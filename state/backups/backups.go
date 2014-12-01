@@ -53,7 +53,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups/db"
 )
 
 const (
@@ -62,6 +61,11 @@ const (
 
 	// FilenameTemplate is used with time.Time.Format to generate a filename.
 	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
+
+	// Machine 0 agent config.
+	// TODO(perrito666) get this from an authoritative source and avoid assuming
+	// machine 0.
+	ServerAgentConf = "/var/lib/juju/agents/machine-0/agent.conf"
 )
 
 var logger = loggo.GetLogger("juju.state.backups")
@@ -233,6 +237,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 	if err != nil {
 		return errors.Annotatef(err, "cannot read metadata file, this backup is either too old or corrupt")
 	}
+	// TODO(perrito666) Create a compatibility table of sorts.
 	version := meta.Origin.Version
 
 	// delete all the files to be replaced
@@ -245,7 +250,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 	}
 
 	var agentConfig agent.ConfigSetterWriter
-	if agentConfig, err = agent.ReadConfig("/var/lib/juju/agents/machine-0/agent.conf"); err != nil {
+	if agentConfig, err = agent.ReadConfig(ServerAgentConf); err != nil {
 		return errors.Annotate(err, "cannot load agent config from disk")
 	}
 	ssi, ok := agentConfig.StateServingInfo()
@@ -264,7 +269,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 	}
 
 	// Restore backed up mongo
-	if err := db.PlaceNewMongo(workspace.DBDumpDir, version); err != nil {
+	if err := PlaceNewMongo(workspace.DBDumpDir, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
 	}
 
@@ -296,7 +301,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newIn
 	// update all agents known to the new state server.
 	// TODO(perrito666): We should never stop process because of this
 	// it is too late to go back and errors in a couple of agents have
-	// better change of being fixed by the user, if we where to fail
+	// better chance of being fixed by the user, if we where to fail
 	// we risk an inconsistent state server because of one unresponsive
 	// agent, we should nevertheless return the err info to the user.
 	// for this updateAllMachines will not return errors for individual

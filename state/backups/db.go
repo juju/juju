@@ -8,12 +8,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/utils"
+	jujuUtils "github.com/juju/juju/utils"
+	"github.com/juju/juju/version"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -24,7 +28,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommand = utils.RunCommand
+var runCommand = jujuUtils.RunCommand
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -209,4 +213,82 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 		databases.Add(info.Name())
 	}
 	return databases, nil
+}
+
+// runExternalCommand it is intended to be a wrapper around utils.RunCommand
+// its main objective is to provide a suiteable output for our use case.
+func runExternalCommand(cmd string, args ...string) error {
+	if out, err := utils.RunCommand(cmd, args...); err != nil {
+		if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
+			return errors.Annotatef(err, "error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
+		}
+		return errors.Annotatef(err, "cannot execute %q", cmd)
+	}
+	return nil
+}
+
+// mongorestorePath will look for mongorestore binary on the system
+// and return it if mongorestore actually exists.
+// it will look first for the juju provided one and if not found make a
+// try at a system one.
+func mongorestorePath() (string, error) {
+	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"
+
+	if _, err := os.Stat(mongoRestoreFullPath); err == nil {
+		return mongoRestoreFullPath, nil
+	}
+
+	path, err := exec.LookPath("mongorestore")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return path, nil
+}
+
+// mongoRestoreArgsForVersion returns a string slice containing the args to be used
+// to call mongo restore since these can change depending on the backup method.
+// Version 0: a dump made with --db, stoping the state server.
+// Version 1: a dump made with --oplog with a running state server.
+// TODO (perrito666) change versions to use metadata version
+func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {
+	dbDir := filepath.Join(agent.DefaultDataDir, "db")
+	switch {
+	case ver.Major == 1 && ver.Minor < 22:
+		return []string{"--drop", "--dbpath", dbDir, dumpPath}, nil
+	case ver.Major == 1 && ver.Minor >= 22:
+		return []string{"--drop", "--oplogReplay", "--dbpath", dbDir, dumpPath}, nil
+	default:
+		return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
+	}
+}
+
+// PlaceNewMongo tries to use mongorestore to replace an existing
+// mongo with the dump in newMongoDumpPath returns an error if its not possible.
+func PlaceNewMongo(newMongoDumpPath string, ver version.Number) error {
+	mongoRestore, err := mongorestorePath()
+	if err != nil {
+		return errors.Annotate(err, "mongorestore not available")
+	}
+
+	mgoRestoreArgs, err := mongoRestoreArgsForVersion(ver, newMongoDumpPath)
+	if err != nil {
+		return errors.Errorf("cannot restore this backup version")
+	}
+	err = runExternalCommand("initctl", "stop", mongo.ServiceName(""))
+	if err != nil {
+		return errors.Annotate(err, "failed to stop mongo")
+	}
+
+	err = runExternalCommand(mongoRestore, mgoRestoreArgs...)
+
+	if err != nil {
+		return errors.Annotate(err, "failed to restore database dump")
+	}
+
+	err = runExternalCommand("initctl", "start", mongo.ServiceName(""))
+	if err != nil {
+		return errors.Annotate(err, "failed to start mongo")
+	}
+
+	return nil
 }

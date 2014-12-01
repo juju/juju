@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
+// TODO(perrito666) create an authoritative source for all possible
+// uses of this const, not only here but all around juju
 const restoreUserHome = "/home/ubuntu/"
 
 func (a *API) backupFile(backupId string, backup backups.Backups) (io.ReadCloser, error) {
@@ -45,6 +47,8 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
 	defer closer.Close()
+	// TODO(perrito666) when upload is properly coded files will be added
+	// to the backups index and this method can just leave.
 	fileHandler, err := a.backupFile(p.BackupId, backup)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain a backup")

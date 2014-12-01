@@ -138,6 +138,8 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 // directories that are to contain new files; this is to avoid
 // possible mixup from new/old files that lead to an inconsistent
 // restored state machine.
+// TODO make this version sensitive when these files change, it would 
+// also be a good idea to save these instead of deleting them.
 func PrepareMachineForRestore() error {
 	replaceFolders, err := replaceableFolders()
 	if err != nil {

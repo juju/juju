@@ -49,11 +49,12 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 			return errors.Trace(err)
 		}
 		defer prepareClientCloser()
-		if err = prepareClient.facade.FacadeCall("PrepareRestore", nil, &rErr); err == nil {
+		err = prepareClient.facade.FacadeCall("PrepareRestore", nil, &rErr)
+		if err == nil {
 			break
 		}
-		if err != nil && !params.IsCodeUpgradeInProgress(rErr) {
-			return errors.Trace(err)
+		if !params.IsCodeUpgradeInProgress(rErr) {
+			return errors.Annotatef(err, "could not start prepare restore mode, server returned: %v", rErr)
 		}
 	}
 	if err != nil {
@@ -70,6 +71,7 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 		}
 		logger.Debugf("Uploading %q", backupFileName)
 		if backupId, err = c.Upload(backupFile); err != nil {
+			//TODO(perrito666): this is a recoverable error, we should undo Prepare
 			return errors.Annotatef(err, "cannot upload backup file %s", backupFileName)
 		}
 	}
@@ -95,6 +97,8 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 		if err == rpc.ErrShutdown && rErr == nil {
 			break
 		}
+		//TODO(perrito666): There are some of the possible outcomes that might
+		// deserve disable PrepareRestore mode
 		if err != nil && !params.IsCodeUpgradeInProgress(rErr) {
 			return errors.Annotatef(err, "cannot perform restore: %v", rErr)
 		}
@@ -115,10 +119,11 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 		}
 		defer finishClientCloser()
 
-		if err = finishClient.facade.FacadeCall("FinishRestore", nil, &rErr); err == nil {
+		err = finishClient.facade.FacadeCall("FinishRestore", nil, &rErr)
+		if err == nil {
 			break
 		}
-		if err != nil && !params.IsCodeUpgradeInProgress(rErr) {
+		if !params.IsCodeUpgradeInProgress(rErr) {
 			return errors.Annotatef(err, "cannot complete restore: %v", rErr)
 		}
 	}

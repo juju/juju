@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -74,12 +73,6 @@ type CommandBase struct {
 // NewAPIClient returns a client for the backups api endpoint.
 func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
-}
-
-// NewBaseAPIClient calls EnvCommandBase NewAPIClient to obtain a
-// regular api.Client instead of the backups one.
-func (c *CommandBase) NewBaseAPIClient() (*api.Client, error) {
-	return c.EnvCommandBase.NewAPIClient()
 }
 
 var newAPIClient = func(c *CommandBase) (APIClient, error) {
