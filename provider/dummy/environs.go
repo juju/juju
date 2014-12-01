@@ -1200,13 +1200,27 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // corresponding to the list of instance IDs.  The returned list will
 // map exactly onto the instance IDs (in the same order).
 func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	var err error
+
+	err = nil
 	names := make([]string, len(ids))
 	for i, id := range ids {
-		if zoneName, ok := e.instZones[id]; ok {
-			names[i] = zoneName
+		zoneName, ok := e.instZones[id]
+		if !ok || zoneName == "" {
+			if err == nil {
+				err = environs.ErrNoInstances
+			}
+			continue
 		}
+		if err != nil {
+			err = environs.ErrPartialInstances
+		}
+		names[i] = zoneName
 	}
-	return names, nil
+	return names, err
 }
 
 type dummyInstance struct {
