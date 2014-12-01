@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -416,10 +417,6 @@ func (s *uniterBaseSuite) testPrivateAddress(
 	})
 }
 
-type zoneSetter interface {
-	SetZone(instID instance.Id, zoneName string)
-}
-
 func (s *uniterBaseSuite) testAvailabilityZone(
 	c *gc.C,
 	facade interface {
@@ -429,7 +426,7 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 	s.PatchValue(uniter.GetEnvironment, func(st *state.State) (environs.Environ, error) {
 		return s.Environ, nil
 	})
-	s.Environ.(zoneSetter).SetZone(instance.Id("id-1"), "a-zone")
+	dummy.SetZone(s.Environ, instance.Id("id-1"), "a-zone")
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},

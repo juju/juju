@@ -1144,16 +1144,30 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-// AddZone adds an availability zone with the given name to the set of
+// addZone adds an availability zone with the given name to the set of
 // zones the dummy provider knows about.
 //
-// This method is strictly an aid to testing and is not part of any
-// provider-related interfaces.
-func (e *environ) AddZone(zoneName string) {
+// This function is strictly an aid to testing.
+func addZone(e *environ, zoneName string) {
 	if e.zones == nil {
 		e.zones = set.NewStrings()
 	}
 	e.zones.Add(zoneName)
+}
+
+// SetZone associates the given instance ID with the zone name. This
+// information is later used by the InstanceAvailabilityZoneNames
+// method. The zone name is automatically added to the set of zones the
+// dummy provider knows about.
+//
+// This function is strictly an aid to testing.
+func SetZone(env environs.Environ, instID instance.Id, zoneName string) {
+	e := env.(*environ)
+	if e.instZones == nil {
+		e.instZones = make(map[instance.Id]string)
+	}
+	addZone(e, zoneName)
+	e.instZones[instID] = zoneName
 }
 
 type dummyZone struct {
@@ -1180,21 +1194,6 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 		zones = append(zones, &dummyZone{name, true})
 	}
 	return zones, nil
-}
-
-// SetZone associates the given instance ID with the zone name. This
-// information is later used by the InstanceAvailabilityZoneNames
-// method. The zone name is automatically added to the set of zones the
-// dummy provider knows about.
-//
-// This method is strictly an aid to testing and is not part of any
-// provider-related interfaces.
-func (e *environ) SetZone(instID instance.Id, zoneName string) {
-	if e.instZones == nil {
-		e.instZones = make(map[instance.Id]string)
-	}
-	e.AddZone(zoneName)
-	e.instZones[instID] = zoneName
 }
 
 // InstanceAvailabilityZoneNames returns the list of zone names
