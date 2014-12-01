@@ -141,7 +141,7 @@ def parse_args(args=None):
     # ./candidate extract master ~/candidate
     parser_extract = subparsers.add_parser('extract', help='Update candidate')
     parser_extract.add_argument(
-        'path', help='The path to save the candiate data to.')
+        'path', help='The path to the candiate data dir.')
     # ./candidate publsh ~/candidate
     return parser.parse_args(args)
 
