@@ -54,7 +54,6 @@ func (f *FakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 type FakeClient struct {
 	calls       []string
-	methodArg   string
 	pathArg     string
 	argsArg     interface{}
 	attachedArg io.Reader
@@ -69,17 +68,15 @@ type FakeClient struct {
 	Response *http.Response
 }
 
-func (f *FakeClient) SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error) {
+func (f *FakeClient) SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error) {
 	f.calls = append(f.calls, "SendHTTPRequest")
-	f.methodArg = method
 	f.pathArg = path
 	f.argsArg = args
 	return f.Request, f.Response, f.Error
 }
 
-func (f *FakeClient) SendHTTPRequestReader(method, path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
+func (f *FakeClient) SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
 	f.calls = append(f.calls, "SendHTTPRequestReader")
-	f.methodArg = method
 	f.pathArg = path
 	f.attachedArg = attached
 	f.metaArg = meta
@@ -88,17 +85,15 @@ func (f *FakeClient) SendHTTPRequestReader(method, path string, attached io.Read
 }
 
 // CheckCalled checks that the fake was called properly.
-func (f *FakeClient) CheckCalled(c *gc.C, method, path string, args interface{}, calls ...string) {
+func (f *FakeClient) CheckCalled(c *gc.C, path string, args interface{}, calls ...string) {
 	c.Check(f.calls, gc.DeepEquals, calls)
-	c.Check(f.methodArg, gc.Equals, method)
 	c.Check(f.pathArg, gc.Equals, path)
 	c.Check(f.argsArg, gc.Equals, args)
 }
 
 // CheckCalledReader checks that the fake was called properly.
-func (f *FakeClient) CheckCalledReader(c *gc.C, method, path string, attached io.Reader, meta interface{}, name string, calls ...string) {
+func (f *FakeClient) CheckCalledReader(c *gc.C, path string, attached io.Reader, meta interface{}, name string, calls ...string) {
 	c.Check(f.calls, gc.DeepEquals, calls)
-	c.Check(f.methodArg, gc.Equals, method)
 	c.Check(f.pathArg, gc.Equals, path)
 	c.Check(f.attachedArg, gc.Equals, attached)
 	c.Check(f.metaArg, gc.Equals, meta)

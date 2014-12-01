@@ -27,7 +27,7 @@ func (c *Client) Download(id string) (_ io.ReadCloser, err error) {
 	args := params.BackupsDownloadArgs{
 		ID: id,
 	}
-	_, resp, err := c.http.SendHTTPRequest("GET", "backups", &args)
+	_, resp, err := c.http.SendHTTPRequest("backups", &args)
 	if err != nil {
 		return nil, errors.Annotate(err, "while sending HTTP request")
 	}

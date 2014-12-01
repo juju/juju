@@ -29,7 +29,7 @@ func (c *Client) Upload(archive io.Reader, meta params.BackupsMetadataResult) (i
 
 	// Send the request.
 	logger.Debugf("sending upload request")
-	_, resp, err := c.http.SendHTTPRequestReader("PUT", "backups", archive, &meta, "juju-backup.tar.gz")
+	_, resp, err := c.http.SendHTTPRequestReader("backups", archive, &meta, "juju-backup.tar.gz")
 	if err != nil {
 		return "", errors.Annotate(err, "while sending HTTP request")
 	}
