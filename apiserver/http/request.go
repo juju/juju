@@ -140,7 +140,7 @@ func ExtractRequestAttachment(req *http.Request, metaResult interface{}) (io.Rea
 		}
 		return nil, errors.Trace(err)
 	}
-	if err := checkContentType(part.Header, CTYPE_RAW); err != nil {
+	if err := checkContentType(part.Header, "application/octet-stream"); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// We're not going to worry about verifying that the file matches the

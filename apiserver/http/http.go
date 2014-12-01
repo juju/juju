@@ -9,6 +9,4 @@ type DigestAlgorithm string
 
 const (
 	DIGEST_SHA DigestAlgorithm = "SHA"
-
-	CTYPE_RAW = "application/octet-stream"
 )

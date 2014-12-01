@@ -157,7 +157,7 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
 	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DIGEST_SHA)+"="+meta.Checksum())
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_RAW)
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 }
 
 func (s *backupsDownloadSuite) TestBody(c *gc.C) {
