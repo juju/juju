@@ -1325,8 +1325,8 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 }
 
 // GenerateStateServerCertAndKey makes sure that the config has a CACert and
-// CAPrivateKey, generates and retruns new certificate and key.
-func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
+// CAPrivateKey, generates and returns new certificate and key.
+func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
 		return "", "", fmt.Errorf("environment configuration has no ca-cert")
@@ -1335,8 +1335,7 @@ func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
 	if !hasCAKey {
 		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	var noHostnames []string
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
+	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.

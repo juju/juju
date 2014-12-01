@@ -121,10 +121,11 @@ type State struct {
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
 type StateServingInfo struct {
-	APIPort    int
-	StatePort  int
-	Cert       string
-	PrivateKey string
+	APIPort      int
+	StatePort    int
+	Cert         string
+	PrivateKey   string
+	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
@@ -1899,6 +1900,14 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
+	}
+	if info.CAPrivateKey == "" {
+		// No CA certificate key means we can't generate new state server
+		// certificates when needed to add to the certificate SANs.
+		// Older Juju deployments discard the key because no one realised
+		// the certificate was flawed, so at best we can log a warning
+		// until an upgrade process is written.
+		logger.Warningf("state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
 		C:      stateServersC,

@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
@@ -99,6 +100,7 @@ var (
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
+	newCertificateUpdater    = certupdater.NewCertificateUpdater
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -700,8 +702,8 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcher(st)
 			})
-
-			runner.StartWorker("apiserver", func() (worker.Worker, error) {
+			apiserverWorker := func() (worker.Worker, error) {
+				agentConfig = a.CurrentConfig()
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
 				// agent, potentially enabling human intervention to fix
@@ -733,6 +735,19 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					LogDir:    logDir,
 					Validator: a.limitLogins,
 				})
+			}
+			runner.StartWorker("apiserver", apiserverWorker)
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+				return a.ChangeConfig(func(config agent.ConfigSetter) error {
+					config.SetStateServingInfo(info)
+					logger.Debugf("stop api server worker")
+					runner.StopWorker("apiserver")
+					logger.Debugf("start new apiserver worker with new certificate")
+					return runner.StartWorker("apiserver", apiserverWorker)
+				})
+			}
+			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
+				return newCertificateUpdater(m, agentConfig, st, stateServingSetter), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -957,6 +972,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 		StatePort:      i.StatePort,
 		Cert:           i.Cert,
 		PrivateKey:     i.PrivateKey,
+		CAPrivateKey:   i.CAPrivateKey,
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,
 	}

@@ -46,9 +46,10 @@ type format_1_18Serialization struct {
 
 	PreferIPv6 bool `yaml:"prefer-ipv6,omitempty"`
 
-	// Only state server machines have these next three items
+	// Only state server machines have these next items
 	StateServerCert string `yaml:",omitempty"`
 	StateServerKey  string `yaml:",omitempty"`
+	CAPrivateKey    string `yaml:",omitempty"`
 	APIPort         int    `yaml:",omitempty"`
 	StatePort       int    `yaml:",omitempty"`
 	SharedSecret    string `yaml:",omitempty"`
@@ -113,6 +114,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		config.servingInfo = &params.StateServingInfo{
 			Cert:           format.StateServerCert,
 			PrivateKey:     format.StateServerKey,
+			CAPrivateKey:   format.CAPrivateKey,
 			APIPort:        format.APIPort,
 			StatePort:      format.StatePort,
 			SharedSecret:   format.SharedSecret,
@@ -157,6 +159,7 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 	if config.servingInfo != nil {
 		format.StateServerCert = config.servingInfo.Cert
 		format.StateServerKey = config.servingInfo.PrivateKey
+		format.CAPrivateKey = config.servingInfo.CAPrivateKey
 		format.APIPort = config.servingInfo.APIPort
 		format.StatePort = config.servingInfo.StatePort
 		format.SharedSecret = config.servingInfo.SharedSecret

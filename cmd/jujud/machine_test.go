@@ -33,6 +33,7 @@ import (
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -53,6 +54,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
@@ -1084,6 +1086,88 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
+	started := make(chan struct{})
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+		certupdater.StateServingInfoSetter,
+	) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for certificate update worker to start")
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
+	started := make(chan struct{})
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+		certupdater.StateServingInfoSetter,
+	) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	// See if the worker to be started.
+	select {
+	case <-started:
+		c.Fatalf("certificate update worker unexpectedly started")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
+	// Set up the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+
+	// Set up check that certificate has been updated.
+	updated := make(chan struct{})
+	go func() {
+		for {
+			stateInfo, _ := a.CurrentConfig().StateServingInfo()
+			srvCert, err := cert.ParseCert(stateInfo.Cert)
+			c.Assert(err, jc.ErrorIsNil)
+			sanIPs := make([]string, len(srvCert.IPAddresses))
+			for i, ip := range srvCert.IPAddresses {
+				sanIPs[i] = ip.String()
+			}
+			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
+				close(updated)
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	// Wait for certificate to be updated.
+	select {
+	case <-updated:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for certificate to be updated")
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {

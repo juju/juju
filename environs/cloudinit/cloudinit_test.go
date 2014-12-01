@@ -118,10 +118,11 @@ func must(s string, err error) string {
 }
 
 var stateServingInfo = &params.StateServingInfo{
-	Cert:       string(serverCert),
-	PrivateKey: string(serverKey),
-	StatePort:  37017,
-	APIPort:    17070,
+	Cert:         string(serverCert),
+	PrivateKey:   string(serverKey),
+	CAPrivateKey: "ca-private-key",
+	StatePort:    37017,
+	APIPort:      17070,
 }
 
 var logDir = must(paths.LogDir("precise"))
@@ -830,6 +831,11 @@ var verifyTests = []struct {
 	{"missing state server private key", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.StateServingInfo
 		info.PrivateKey = ""
+		cfg.StateServingInfo = &info
+	}},
+	{"missing ca cert private key", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.StateServingInfo
+		info.CAPrivateKey = ""
 		cfg.StateServingInfo = &info
 	}},
 	{"missing state port", func(cfg *cloudinit.MachineConfig) {

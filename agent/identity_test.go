@@ -39,6 +39,7 @@ var attributeParams = AgentConfigParams{
 var servingInfo = params.StateServingInfo{
 	Cert:           "old cert",
 	PrivateKey:     "old key",
+	CAPrivateKey:   "old ca key",
 	StatePort:      69,
 	APIPort:        47,
 	SharedSecret:   "shared",
