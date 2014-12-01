@@ -590,8 +590,15 @@ class TestSteppedStageAttempt(TestCase):
             None, {'test_id': 'foo-id', 'result': True}])
         new_iter = iter([
             None, {'test_id': 'foo-id', 'result': False}])
+
+        class StubSA(SteppedStageAttempt):
+
+            @staticmethod
+            def get_test_info():
+                return {'foo-id': {'title': 'foo-id'}}
+
         self.assertItemsEqual(
-            SteppedStageAttempt._iter_test_results(old_iter, new_iter),
+            StubSA._iter_test_results(old_iter, new_iter),
             [('foo-id', True, False)])
 
     def test__iter_test_results_interleaved(self):
@@ -602,8 +609,15 @@ class TestSteppedStageAttempt(TestCase):
             {'test_id': 'foo-id', 'result': True},
             {'test_id': 'foo-id', 'result': False},
             ])
+
+        class StubSA(SteppedStageAttempt):
+
+            @staticmethod
+            def get_test_info():
+                return {'foo-id': {'title': 'foo-id'}}
+
         self.assertItemsEqual(
-            SteppedStageAttempt._iter_test_results(both_iter, both_iter),
+            StubSA._iter_test_results(both_iter, both_iter),
             [('foo-id', True, False)])
 
     def test__iter_test_results_id_mismatch(self):
@@ -623,8 +637,17 @@ class TestSteppedStageAttempt(TestCase):
             None, {'test_id': 'foo-id', 'result': False},
             None, {'test_id': 'bar-id', 'result': False},
             ])
+
+        class StubSA(SteppedStageAttempt):
+
+            @staticmethod
+            def get_test_info():
+                return {
+                    'foo-id': {'title': 'foo-id'},
+                    'bar-id': {'title': 'bar-id'},
+                }
         self.assertItemsEqual(
-            SteppedStageAttempt._iter_test_results(old_iter, new_iter),
+            StubSA._iter_test_results(old_iter, new_iter),
             [('foo-id', True, False), ('bar-id', False, False)])
 
     def test_iter_test_results(self):
@@ -633,6 +656,13 @@ class TestSteppedStageAttempt(TestCase):
         error = ValueError('asdf')
 
         class StubSA(SteppedStageAttempt):
+
+            @staticmethod
+            def get_test_info():
+                return {
+                    'test-1': {'title': 'test-1'},
+                    'test-2': {'title': 'test-2'},
+                    }
 
             def iter_steps(self, client):
                 yield {'test_id': 'test-1'}

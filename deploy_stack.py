@@ -32,6 +32,7 @@ from substrate import (
     verify_libvirt_domain,
 )
 from utility import (
+    configure_logging,
     PortTimeoutError,
     print_now,
     scoped_environ,

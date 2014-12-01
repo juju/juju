@@ -282,8 +282,8 @@ class SteppedStageAttempt:
                 last_result = result
             yield result
 
-    @staticmethod
-    def _iter_test_results(old_iter, new_iter):
+    @classmethod
+    def _iter_test_results(cls, old_iter, new_iter):
         """Iterate through none-or-result to get result for each operation.
 
         Yield the result as a tuple of (test-id, old_result, new_result).
@@ -305,8 +305,12 @@ class SteppedStageAttempt:
                     return
             if old_result['test_id'] != new_result['test_id']:
                 raise ValueError('Test id mismatch.')
-            yield (old_result['test_id'], old_result['result'],
-                   new_result['result'])
+            results = (old_result['result'], new_result['result'])
+            result_strings = ['succeeded' if r else 'failed' for r in results]
+            logging.info('{}: old {}, new {}.'.format(
+                cls.get_test_info()[old_result['test_id']]['title'],
+                *result_strings))
+            yield (old_result['test_id'],) + results
 
     def iter_test_results(self, old, new):
         """Iterate through the results for this operation for both clients."""
@@ -496,7 +500,7 @@ def maybe_write_json(filename, results):
 
 
 def main():
-    configure_logging(logging.WARNING)
+    configure_logging(logging.INFO)
     args = parse_args()
     mit = MultiIndustrialTest.from_args(args)
     results = mit.run_tests()
