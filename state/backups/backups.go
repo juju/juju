@@ -169,7 +169,7 @@ func (b *backups) Add(archive io.Reader, meta *Metadata) (string, error) {
 	return meta.ID(), nil
 }
 
-// Get pulls the associated metadata and archive file from environment storage.
+// Get retrieves the associated metadata and archive file from environment storage.
 func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
 	rawmeta, archiveFile, err := b.storage.Get(id)
 	if err != nil {
