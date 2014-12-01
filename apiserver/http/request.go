@@ -55,13 +55,11 @@ func AttachToRequest(req *http.Request, attached io.Reader, meta interface{}, na
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	// Initialize the request body.
-	req.Body = ioutil.NopCloser(&chainedReader{
-		readers: []io.Reader{
-			&parts,
-			attached,
-			bytes.NewBufferString("\r\n--" + writer.Boundary() + "--\r\n"),
-		},
-	})
+	req.Body = ioutil.NopCloser(io.MultiReader(
+		&parts,
+		attached,
+		bytes.NewBufferString("\r\n--"+writer.Boundary()+"--\r\n"),
+	))
 
 	// Set the metadata part.
 	header := make(textproto.MIMEHeader)
@@ -84,22 +82,6 @@ func AttachToRequest(req *http.Request, attached io.Reader, meta interface{}, na
 	// use a chained reader to facilitate streaming directly from the
 	// reader.
 	return nil
-}
-
-type chainedReader struct {
-	readers []io.Reader
-}
-
-func (r *chainedReader) Read(p []byte) (int, error) {
-	count := 0
-	for _, reader := range r.readers {
-		n, err := reader.Read(p[count:])
-		count += n
-		if err != nil {
-			return count, err
-		}
-	}
-	return count, nil
 }
 
 // ExtractRequestAttachment extracts the attached file and its metadata
