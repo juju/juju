@@ -77,7 +77,10 @@ func availabilityZones(st *state.State, tags ...names.Tag) ([]azResult, error) {
 	// Collect the instance IDs. We send a single request to the
 	// provider for all the entities at once. So that means gathering a
 	// list of instance IDs, one for each entity. If an entity has any
-	// sort of trouble then we skip it.
+	// sort of trouble then we don't collect its instance ID but record
+	// the error in the results instead. That way we can skip those
+	// error entries later when we merge the collected zone names back
+	// into the results.
 	var instIDs []instance.Id
 	for i, tag := range tags {
 		results[i].tag = tag
@@ -101,7 +104,9 @@ func availabilityZones(st *state.State, tags ...names.Tag) ([]azResult, error) {
 
 	// Update the results. The number of zone names we get back should
 	// match the number of results without an error. Their order will
-	// match as well.
+	// match as well. We skip any result that already has an error set,
+	// ensuring that the collected zone names are matched up with the
+	// correct result.
 	for i, result := range results {
 		if result.err != nil {
 			continue

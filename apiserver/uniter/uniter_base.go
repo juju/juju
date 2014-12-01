@@ -192,7 +192,12 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 
-	// Collect the tags.
+	// Collect the tags. No tag will be collected for any entity where
+	// the tag is invalid or not authorized. Instead the corresponding
+	// result will be updated with the error. When we later merge the
+	// zones into the results we skip the entries that have errors. Thus
+	// the collected zones will be matched back up with the correct
+	// entity in the results.
 	var tags []names.Tag
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
@@ -208,13 +213,15 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		results.Results[i].Error = common.ServerError(err)
 	}
 
-	// Collect the zones.
+	// Collect the zones for just the valid tags.
 	azResults, err := availabilityZones(u.st, tags...)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 
-	// Update the results.
+	// Update the results with the collected zone names. We skip past
+	// results that already have errors set so the collected zones get
+	// matched back up with the correct entity.
 	for i, result := range results.Results {
 		if result.Error != nil {
 			continue
