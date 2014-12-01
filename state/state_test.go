@@ -1246,6 +1246,16 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAddIPAddress(c *gc.C) {
+	addressInfo := state.IPAddressInfo{
+		SubnetId:    "foo",
+		MachineId:   "bar",
+		InterfaceId: "bam",
+		Value:       "192.168.178.1",
+		Type:        network.IPv4Address,
+	}
+}
+
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        "foo",

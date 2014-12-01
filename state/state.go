@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -1227,24 +1228,24 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 }
 
 // AddIPAddress creates and returns a new IP address
-func (st *State) AddIPAddress(args IPAddressInfo) (ipaddress *IPAddress, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot add IP address %v", args.Value)
+func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %v", addr.Value)
 
-	addressID := st.docID(args.Value)
-	ipDoc := ipaddressDoc{
-		DocID:       addressID,
-		EnvUUID:     st.EnvironUUID(),
-		State:       args.State,
-		SubnetId:    args.SubnetId,
-		MachineId:   args.MachineId,
-		InterfaceId: args.InterfaceId,
-		Value:       args.Value,
-		Type:        args.Type,
-		Scope:       args.Scope,
-	}
-	ip := net.ParseIP(args.Value)
+	// This checks for a missing value as well as invalid values
+	ip := net.ParseIP(addr.Value)
 	if ip == nil {
-		return nil, errors.Errorf("invalid IP address %q", args.Value)
+		return nil, errors.Errorf("invalid IP address %q", addr.Value)
+	}
+
+	addressID := st.docID(addr.Value)
+	ipDoc := ipaddressDoc{
+		DocID:    addressID,
+		EnvUUID:  st.EnvironUUID(),
+		State:    AddressStateUnknown,
+		SubnetId: subnetid,
+		Value:    addr.Value,
+		Type:     addr.Type,
+		Scope:    addr.Scope,
 	}
 
 	ipaddress = &IPAddress{doc: ipDoc, st: st}
@@ -1258,8 +1259,8 @@ func (st *State) AddIPAddress(args IPAddressInfo) (ipaddress *IPAddress, err err
 	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
-		if _, err = st.IPAddress(args.Value); err == nil {
-			return nil, errors.AlreadyExistsf("IP address %q", args.Value)
+		if _, err = st.IPAddress(addr.Value); err == nil {
+			return nil, errors.AlreadyExistsf("IP address %q", addr.Value)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
