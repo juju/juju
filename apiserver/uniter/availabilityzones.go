@@ -34,15 +34,6 @@ func getInstanceID(st *state.State, tag names.Tag) (instance.Id, error) {
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-	case names.MachineTag:
-		machine, err := st.Machine(tag.Id())
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		instID, err = machine.InstanceId()
-		if err != nil {
-			return "", errors.Trace(err)
-		}
 	default:
 		return "", errors.Errorf("unsupported tag type: %v", tag)
 	}
