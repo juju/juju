@@ -37,7 +37,7 @@ func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
 }
 
 func (s *downloadSuite) TestFailedRequest(c *gc.C) {
-	s.setFailure(c, "something went wrong!", -1)
+	s.setFailure(c, "something went wrong!", http.StatusInternalServerError)
 
 	_, err := s.client.Download("spam")
 

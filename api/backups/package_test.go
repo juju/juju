@@ -97,10 +97,6 @@ func (s *httpSuite) setJSONSuccess(c *gc.C, result interface{}) {
 }
 
 func (s *httpSuite) setFailure(c *gc.C, msg string, status int) {
-	if status < 0 {
-		status = http.StatusInternalServerError
-	}
-
 	failure := params.Error{
 		Message: msg,
 	}
