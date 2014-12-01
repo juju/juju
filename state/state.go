@@ -1244,10 +1244,10 @@ func (st *State) AddIPAddress(args IPAddressInfo) (ipaddress *IPAddress, err err
 	}
 	ip := net.ParseIP(args.Value)
 	if ip == nil {
-		return nil, errors.New("invalid IP address %q", args.Value)
+		return nil, errors.Errorf("invalid IP address %q", args.Value)
 	}
 
-	subnet = &IPAddress{doc: subDoc, st: st}
+	ipaddress = &IPAddress{doc: ipDoc, st: st}
 	ops := []txn.Op{{
 		C:      ipaddressesC,
 		Id:     addressID,
@@ -1264,7 +1264,7 @@ func (st *State) AddIPAddress(args IPAddressInfo) (ipaddress *IPAddress, err err
 			return nil, errors.Trace(err)
 		}
 	case nil:
-		return subnet, nil
+		return ipaddress, nil
 	}
 	return nil, errors.Trace(err)
 }
