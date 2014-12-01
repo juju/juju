@@ -1226,6 +1226,49 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	return svc, nil
 }
 
+// AddIPAddress creates and returns a new IP address
+func (st *State) AddIPAddress(args IPAddressInfo) (ipaddress *IPAddress, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %v", args.Value)
+
+	addressID := st.docID(args.Value)
+	ipDoc := ipaddressDoc{
+		DocID:       addressID,
+		EnvUUID:     st.EnvironUUID(),
+		State:       args.State,
+		SubnetId:    args.SubnetId,
+		MachineId:   args.MachineId,
+		InterfaceId: args.InterfaceId,
+		Value:       args.Value,
+		Type:        args.Type,
+		Scope:       args.Scope,
+	}
+	ip := net.ParseIP(args.Value)
+	if ip == nil {
+		return nil, errors.New("invalid IP address %q", args.Value)
+	}
+
+	subnet = &IPAddress{doc: subDoc, st: st}
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     addressID,
+		Assert: txn.DocMissing,
+		Insert: ipDoc,
+	}}
+
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.IPAddress(args.Value); err == nil {
+			return nil, errors.AlreadyExistsf("IP address %q", args.Value)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+	case nil:
+		return subnet, nil
+	}
+	return nil, errors.Trace(err)
+}
+
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
