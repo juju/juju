@@ -1247,13 +1247,12 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddIPAddress(c *gc.C) {
-	addressInfo := state.IPAddressInfo{
-		SubnetId:    "foo",
-		MachineId:   "bar",
-		InterfaceId: "bam",
-		Value:       "192.168.178.1",
-		Type:        network.IPv4Address,
-	}
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(ipAddr.Value(), gc.Equals, "192.168.1.0")
+	c.Assert(ipAddr.SubnetId(), gc.Equals, "foobar")
 }
 
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
