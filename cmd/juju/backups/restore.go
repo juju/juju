@@ -5,6 +5,7 @@ package backups
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 // RestoreCommand is a subcommand of backups that implement the restore behaior
@@ -103,20 +103,28 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 	}
 	defer closer()
 	if c.filename != "" {
-		c.backupId = juju.UploadedPrefix + c.filename
-	}
-	if err := client.Restore(c.backupId, c.newClient); err != nil {
-		// Backwards compatibility
-		if params.IsCodeNotImplemented(err) {
-			return errors.Errorf(restoreAPIIncompatibility)
+		backupFile, err := os.Open(c.filename)
+		if err != nil {
+			return errors.Annotatef(err, "cannot open backup file %q", c.filename)
 		}
-		return errors.Trace(err)
+		if err := client.RestoreFromFile(backupFile, c.newClient); err != nil {
+			// Backwards compatibility
+			if params.IsCodeNotImplemented(err) {
+				return errors.Errorf(restoreAPIIncompatibility)
+			}
+			return errors.Trace(err)
+		}
+		fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", c.filename)
+	} else {
+		if err := client.RestoreFromID(c.backupId, c.newClient); err != nil {
+			// Backwards compatibility
+			if params.IsCodeNotImplemented(err) {
+				return errors.Errorf(restoreAPIIncompatibility)
+			}
+			return errors.Trace(err)
+		}
+		fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", c.backupId)
 	}
-	restoreTarget := c.filename
-	if c.filename == "" {
-		restoreTarget = c.backupId
-	}
-	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", restoreTarget)
 	return nil
 }
 

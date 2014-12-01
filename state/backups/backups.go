@@ -111,7 +111,7 @@ type Backups interface {
 	// Remove deletes the backup from storage.
 	Remove(id string) error
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(io.ReadCloser, string, instance.Id) error
+	Restore(string, string, instance.Id) error
 }
 
 type backups struct {
@@ -226,7 +226,15 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupFile io.ReadCloser, privateAddress string, newInstId instance.Id) error {
+func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id) error {
+	// TODO(perrito666) when upload is properly coded files will be added
+	// to the backups index and this method can just leave.
+	backupFile, err := backupFile(backupId, b)
+	if err != nil {
+		return errors.Annotate(err, "cannot obtain a backup")
+	}
+	defer backupFile.Close()
+
 	workspace, err := NewArchiveWorkspaceReader(backupFile)
 	if err != nil {
 		return errors.Annotate(err, "cannot unpack backup file")

@@ -4,56 +4,20 @@
 package backups
 
 import (
-	"io"
 	"os"
-	"strings"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
 )
-
-// TODO(perrito666) create an authoritative source for all possible
-// uses of this const, not only here but all around juju
-const restoreUserHome = "/home/ubuntu/"
-
-func (a *API) backupFile(backupId string, backup backups.Backups) (io.ReadCloser, error) {
-	var (
-		fileHandler io.ReadCloser
-		err         error
-	)
-	switch {
-	case strings.HasPrefix(backupId, backups.FilenamePrefix):
-		fileName := strings.TrimPrefix(backupId, backups.FilenamePrefix)
-		fileName = restoreUserHome + fileName
-		if fileHandler, err = os.Open(fileName); err != nil {
-			return nil, errors.Annotatef(err, "error opening %q", fileName)
-		}
-	case backupId == "":
-		return nil, errors.Errorf("no backup file or id given")
-	default:
-		if _, fileHandler, err = backup.Get(backupId); err != nil {
-			return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
-		}
-	}
-	return fileHandler, nil
-}
 
 // Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
 	defer closer.Close()
-	// TODO(perrito666) when upload is properly coded files will be added
-	// to the backups index and this method can just leave.
-	fileHandler, err := a.backupFile(p.BackupId, backup)
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain a backup")
-	}
-	defer fileHandler.Close()
 
 	// Obtain the address of the machine where restore is going to be performed
 	machine, err := a.st.Machine(p.Machine)
@@ -83,7 +47,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	// Restore
-	if err := backup.Restore(fileHandler, addr, instanceId); err != nil {
+	if err := backup.Restore(p.BackupId, addr, instanceId); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 

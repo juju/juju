@@ -8,15 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
-	jujuUtils "github.com/juju/juju/utils"
+	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -28,7 +26,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommand = jujuUtils.RunCommand
+var runCommand = utils.RunCommand
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -215,18 +213,6 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 	return databases, nil
 }
 
-// runExternalCommand it is intended to be a wrapper around utils.RunCommand
-// its main objective is to provide a suiteable output for our use case.
-func runExternalCommand(cmd string, args ...string) error {
-	if out, err := utils.RunCommand(cmd, args...); err != nil {
-		if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
-			return errors.Annotatef(err, "error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
-		}
-		return errors.Annotatef(err, "cannot execute %q", cmd)
-	}
-	return nil
-}
-
 // mongorestorePath will look for mongorestore binary on the system
 // and return it if mongorestore actually exists.
 // it will look first for the juju provided one and if not found make a
@@ -274,18 +260,18 @@ func PlaceNewMongo(newMongoDumpPath string, ver version.Number) error {
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
-	err = runExternalCommand("initctl", "stop", mongo.ServiceName(""))
+	err = runCommand("initctl", "stop", mongo.ServiceName(""))
 	if err != nil {
 		return errors.Annotate(err, "failed to stop mongo")
 	}
 
-	err = runExternalCommand(mongoRestore, mgoRestoreArgs...)
+	err = runCommand(mongoRestore, mgoRestoreArgs...)
 
 	if err != nil {
 		return errors.Annotate(err, "failed to restore database dump")
 	}
 
-	err = runExternalCommand("initctl", "start", mongo.ServiceName(""))
+	err = runCommand("initctl", "start", mongo.ServiceName(""))
 	if err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}

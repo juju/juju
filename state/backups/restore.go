@@ -1,15 +1,17 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !windows !linux
+// +build !windows
 
 package backups
 
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
@@ -28,6 +30,10 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
+// TODO(perrito666) create an authoritative source for all possible
+// uses of this const, not only here but all around juju
+const restoreUserHome = "/home/ubuntu/"
+
 // resetReplicaSet re-initiates replica-set using the new state server
 // values, this is required after a mongo restore.
 // In case of failure returns error.
@@ -43,7 +49,7 @@ func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
 var filesystemRoot = getFilesystemRoot
 
 func getFilesystemRoot() string {
-	return "/"
+	return string(os.PathSeparator)
 }
 
 // newDialInfo returns mgo.DialInfo with the given address using the minimal
@@ -231,4 +237,29 @@ func backupVersion(backupMetadata *Metadata, backupFilesPath string) (int, error
 		return 0, nil
 	}
 	return 1, nil
+}
+
+// backupFile is due to be obsoleted when upload supports adding
+// files to the backups db and Backups.Get becoms the only way
+// to obtain a backup file handler.
+func backupFile(backupId string, backup Backups) (io.ReadCloser, error) {
+	var (
+		fileHandler io.ReadCloser
+		err         error
+	)
+	switch {
+	case strings.HasPrefix(backupId, FilenamePrefix):
+		fileName := strings.TrimPrefix(backupId, FilenamePrefix)
+		fileName = restoreUserHome + fileName
+		if fileHandler, err = os.Open(fileName); err != nil {
+			return nil, errors.Annotatef(err, "error opening %q", fileName)
+		}
+	case backupId == "":
+		return nil, errors.Errorf("no backup file or id given")
+	default:
+		if _, fileHandler, err = backup.Get(backupId); err != nil {
+			return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
+		}
+	}
+	return fileHandler, nil
 }
