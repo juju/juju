@@ -81,7 +81,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		if err := h.validateMetadataResult(metaResult); err != nil {
+		if err := validateBackupMetadataResult(metaResult); err != nil {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -100,7 +100,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h *backupHandler) validateMetadataResult(metaResult params.BackupsMetadataResult) error {
+func validateBackupMetadataResult(metaResult params.BackupsMetadataResult) error {
 	if metaResult.ID != "" {
 		return errors.New("got unexpected metadata ID")
 	}
