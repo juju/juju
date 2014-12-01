@@ -4,7 +4,13 @@
 package gce
 
 import (
+	"fmt"
+	"net/http"
 	"sync"
+
+	"code.google.com/p/goauth2/oauth"
+	"code.google.com/p/goauth2/oauth/jwt"
+	"code.google.com/p/google-api-go-client/compute/v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -14,6 +20,15 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+)
+
+const (
+	driverScopes = "https://www.googleapis.com/auth/compute " +
+		"https://www.googleapis.com/auth/devstorage.full_control"
+
+	tokenURL = "https://accounts.google.com/o/oauth2/token"
+
+	authURL = "https://accounts.google.com/o/oauth2/auth"
 )
 
 // This file contains the core of the gce Environ implementation. You will
@@ -32,6 +47,10 @@ type environ struct {
 	lock    sync.Mutex
 	ecfg    *environConfig
 	storage storage.Storage
+
+	gce       *compute.Service
+	region    string
+	projectID string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -57,6 +76,31 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	}
 	env.ecfg = ecfg
 	env.storage = storage
+
+	jtok := jwt.NewToken(ecfg.ClientEmail, driverScopes, []byte(ecfg.PrivateKey))
+	jtok.ClaimSet.Aud = tokenURL
+
+	token, err := jtok.Assert(&http.Client{})
+	if err != nil {
+		return fmt.Errorf("can't retrieve auth token: %s", err)
+	}
+
+	transport := &oauth.Transport{
+		Config: &oauth.Config{
+			ClientId: ecfg.ClientId,
+			Scope:    driverScopes,
+			TokenURL: tokenURL,
+			AuthURL:  authURL,
+		},
+		Token: token,
+	}
+
+	service, err := compute.New(transport.Client())
+	if err != nil {
+		return err
+	}
+
+	env.gce = service
 	return nil
 }
 
@@ -86,22 +130,12 @@ func (env *environ) Destroy() error {
 	return common.Destroy(env)
 }
 
-// AllocateAddress requests a specific address to be allocated for the
-// given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	return nil
-}
-
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
-	return nil, nil
-}
-
-func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) {
-	return nil, nil
+	return nil, errNotImplemented
 }
 
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	return nil
+	return errNotImplemented
 }
 
 // firewall stuff
@@ -110,21 +144,21 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
-	return nil
+	return errNotImplemented
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
-	return nil
+	return errNotImplemented
 }
 
 // Ports returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
-	return nil, nil
+	return nil, errNotImplemented
 }
 
 // instance stuff
@@ -141,8 +175,20 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
-	_ = env.getSnapshot()
-	return nil, errNotImplemented
+	e := env.getSnapshot()
+
+	results, err := e.gce.Instances.AggregatedList(env.projectID).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	ids := []instance.Id{}
+	for _, item := range results.Items {
+		for _, inst := range item.Instances {
+			ids = append(ids, instance.Id(inst.Name))
+		}
+	}
+	return env.Instances(ids)
 }
 
 func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
@@ -162,11 +208,30 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 }
 
 func (env *environ) StateServerInstances() ([]instance.Id, error) {
-	return nil, nil
+	return nil, errNotImplemented
 }
 
 func (env *environ) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
+}
+
+// Networks
+
+// SupportAddressAllocation takes a network.Id and returns a bool
+// and an error. The bool indicates whether that network supports
+// static ip address allocation.
+func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
+// AllocateAddress requests a specific address to be allocated for the
+// given instance on the given network.
+func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	return errNotImplemented
+}
+
+func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) {
+	return nil, errNotImplemented
 }
 
 // SupportNetworks returns whether the environment has support to
@@ -180,12 +245,5 @@ func (env *environ) SupportNetworks() bool {
 // does not support unit placement, then machines may not be created
 // without units, and units cannot be placed explcitly.
 func (env *environ) SupportsUnitPlacement() error {
-	return nil
-}
-
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
+	return errNotImplemented
 }

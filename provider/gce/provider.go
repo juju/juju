@@ -65,7 +65,6 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 }
 
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	// If you keep configSecretFields up to date, this method should Just Work.
 	ecfg, err := validateConfig(cfg, nil)
 	if err != nil {
 		return nil, err
@@ -79,22 +78,4 @@ func (environProvider) BoilerplateConfig() string {
 	// boilerplateConfig is kept in config.go, in the hope that people editing
 	// config will keep it up to date.
 	return boilerplateConfig
-}
-
-func (environProvider) PublicAddress() (string, error) {
-	// Don't bother implementing this method until you're ready to deploy units.
-	// You probably won't need to by that stage; it's due for retirement. If it
-	// turns out that you do need to, remember that this method will *only* be
-	// called in code running on an instance in an environment using this
-	// provider; and it needs to return the address of *that* instance.
-	return "", errNotImplemented
-}
-
-func (environProvider) PrivateAddress() (string, error) {
-	// Don't bother implementing this method until you're ready to deploy units.
-	// You probably won't need to by that stage; it's due for retirement. If it
-	// turns out that you do need to, remember that this method will *only* be
-	// called in code running on an instance in an environment using this
-	// provider; and it needs to return the address of *that* instance.
-	return "", errNotImplemented
 }

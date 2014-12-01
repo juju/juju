@@ -79,7 +79,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 }
 
 func set(val *string, attrs map[string]interface{}, field string) error {
-	if i, ok := attrs[cfgPrivateKey]; ok {
+	if i, ok := attrs[field]; ok {
 		if s, ok := i.(string); ok {
 			*val = s
 		} else {
