@@ -241,6 +241,8 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 
 	// Build the metadata.
 	meta := NewMetadata()
+	meta.Started = time.Time{}
+	meta.Origin = UnknownOrigin()
 	err = meta.MarkComplete(size, checksum)
 	if err != nil {
 		return nil, errors.Trace(err)
