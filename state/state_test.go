@@ -1251,8 +1251,18 @@ func (s *StateSuite) TestAddIPAddress(c *gc.C) {
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(ipAddr.Value(), gc.Equals, "192.168.1.0")
-	c.Assert(ipAddr.SubnetId(), gc.Equals, "foobar")
+	checkAddress := func(ipAddr *state.IPAddress) {
+		c.Assert(ipAddr.Value(), gc.Equals, "192.168.1.0")
+		c.Assert(ipAddr.SubnetId(), gc.Equals, "foobar")
+		c.Assert(ipAddr.Type(), gc.Equals, addr.Type)
+		c.Assert(ipAddr.Scope(), gc.Equals, network.ScopePublic)
+	}
+	checkAddress(ipAddr)
+
+	// verify the address was stored in the state
+	ipAddr, err = s.State.IPAddress("192.168.1.0")
+	c.Assert(err, jc.ErrorIsNil)
+	checkAddress(ipAddr)
 }
 
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
