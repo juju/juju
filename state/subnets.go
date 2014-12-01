@@ -88,6 +88,7 @@ func (s *Subnet) EnsureDead() (err error) {
 }
 
 // Remove removes a dead subnet. If the subnet is not dead it returns an error.
+// It also removes an IP addresses associated with the subnet.
 func (s *Subnet) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
 	if s.doc.Life != Dead {
