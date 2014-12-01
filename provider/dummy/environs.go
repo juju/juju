@@ -1144,6 +1144,35 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
+// AddInstance adds an existing machine to the registry of instances in
+// the dummy environment. This helps where dummy.StartInstance was
+// circumvented in tests.
+//
+// This function is strictly an aid to testing.
+func AddInstance(env environs.Environ, machine *state.Machine) (*instance.Id, error) {
+	e := env.(*environ)
+	envst, err := e.state()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	instID, err := machine.InstanceId()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	inst := &dummyInstance{
+		// We don't worry about the network-related fields since we don't
+		// need them. If we need them later we can add them then.
+		id:        instID,
+		machineId: machine.Id(),
+		series:    machine.Series(),
+		state:     envst,
+	}
+	envst.insts[instID] = inst
+	return &instID, nil
+}
+
 // addZone adds an availability zone with the given name to the set of
 // zones the dummy provider knows about.
 //
