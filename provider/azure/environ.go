@@ -1302,6 +1302,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 	return &context, nil
 }
 
+// TODO(ericsnow) lp-1398055
+// Implement the ZonedEnviron interface.
+
 // Region is specified in the HasRegion interface.
 func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 	ecfg := env.getSnapshot().ecfg
