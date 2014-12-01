@@ -1269,6 +1269,22 @@ func (st *State) AddIPAddress(args IPAddressInfo) (ipaddress *IPAddress, err err
 	return nil, errors.Trace(err)
 }
 
+// IPAddress returns an existing IP address from the state
+func (st *State) IPAddress(value string) (*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	doc := &ipaddressDoc{}
+	err := addresses.FindId(st.docID(value)).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("IP address %q", value)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
+	}
+	return &IPAddress{st, *doc}, nil
+}
+
 // AddSubnet creates and returns a new subnet
 func (st *State) AddSubnet(args SubnetInfo) (subnet *Subnet, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add subnet %v", args.CIDR)
