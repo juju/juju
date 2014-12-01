@@ -3,7 +3,11 @@
 
 package state
 
-import "github.com/juju/juju/network"
+import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/network"
+	"gopkg.in/mgo.v2/txn"
+)
 
 type AddressState string
 
@@ -65,6 +69,13 @@ func (i *IPAddress) Scope() network.Scope {
 	return i.doc.Scope
 }
 
-func (i *IPAddress) Remove() error {
-	return nil
+// Remove removes a dead subnet. If the subnet is not dead it returns an error.
+func (i *IPAddress) Remove() (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot remove IP address %v", i)
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     i.doc.DocID,
+		Remove: true,
+	}}
+	return i.st.runTransaction(ops)
 }
