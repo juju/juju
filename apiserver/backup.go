@@ -127,7 +127,7 @@ func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, er
 }
 
 func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, apihttp.CTYPE_JSON)
+	body, err := h.read(req, "application/json")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -159,7 +159,7 @@ func (h *backupHandler) sendJSON(w http.ResponseWriter, statusCode int, result i
 		return
 	}
 
-	w.Header().Set("Content-Type", apihttp.CTYPE_JSON)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	w.Write(body)
 

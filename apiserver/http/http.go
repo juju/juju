@@ -10,6 +10,5 @@ type DigestAlgorithm string
 const (
 	DIGEST_SHA DigestAlgorithm = "SHA"
 
-	CTYPE_JSON = "application/json"
-	CTYPE_RAW  = "application/octet-stream"
+	CTYPE_RAW = "application/octet-stream"
 )

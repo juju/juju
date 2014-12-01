@@ -53,7 +53,7 @@ func (s *baseBackupsSuite) backupURL(c *gc.C) string {
 
 func (s *baseBackupsSuite) checkErrorResponse(c *gc.C, resp *http.Response, statusCode int, msg string) {
 	c.Check(resp.StatusCode, gc.Equals, statusCode)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_JSON)
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
 
 	body, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +135,7 @@ func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 	s.fake.Archive = ioutil.NopCloser(archive)
 	s.body = archive.Bytes()
 
-	ctype := apihttp.CTYPE_JSON
+	ctype := "application/json"
 	body := s.newBody(c, meta.ID())
 	resp, err := s.authRequest(c, "GET", s.backupURL(c), ctype, body)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +201,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 	metaResult := apiserverbackups.ResultFromMetadata(s.meta)
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
-	header.Set("Content-Type", apihttp.CTYPE_JSON)
+	header.Set("Content-Type", "application/json")
 	part, err := writer.CreatePart(header)
 	c.Assert(err, jc.ErrorIsNil)
 	err = json.NewEncoder(part).Encode(metaResult)
@@ -235,7 +235,7 @@ func (s *backupsUploadSuite) TestResponse(c *gc.C) {
 	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_JSON)
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
 }
 
 func (s *backupsUploadSuite) TestBody(c *gc.C) {

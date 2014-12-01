@@ -39,7 +39,7 @@ func SetRequestArgs(req *http.Request, args interface{}) error {
 		return errors.Annotate(err, "while serializing args")
 	}
 
-	req.Header.Set("Content-Type", CTYPE_JSON)
+	req.Header.Set("Content-Type", "application/json")
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	return nil
 }
@@ -66,7 +66,7 @@ func AttachToRequest(req *http.Request, attached io.Reader, meta interface{}, na
 	// Set the metadata part.
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
-	header.Set("Content-Type", CTYPE_JSON)
+	header.Set("Content-Type", "application/json")
 	part, err := writer.CreatePart(header)
 	if err != nil {
 		return errors.Trace(err)
@@ -125,7 +125,7 @@ func ExtractRequestAttachment(req *http.Request, metaResult interface{}) (io.Rea
 		return nil, errors.Trace(err)
 	}
 
-	if err := checkContentType(part.Header, CTYPE_JSON); err != nil {
+	if err := checkContentType(part.Header, "application/json"); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := json.NewDecoder(part).Decode(metaResult); err != nil {
