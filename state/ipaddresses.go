@@ -6,6 +6,7 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/network"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -81,6 +82,11 @@ func (i *IPAddress) Scope() network.Scope {
 	return i.doc.Scope
 }
 
+// State returns the state of an IP address.
+func (i *IPAddress) State() AddressState {
+	return i.doc.State
+}
+
 // Remove removes a no-longer need IP address.
 func (i *IPAddress) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove IP address %v", i)
@@ -88,6 +94,20 @@ func (i *IPAddress) Remove() (err error) {
 		C:      ipaddressesC,
 		Id:     i.doc.DocID,
 		Remove: true,
+	}}
+	return i.st.runTransaction(ops)
+}
+
+// SetState sets the State of an IPAddress. Valid state transitions are Unknown
+// to Allocated or Unavailable. Any other transition will fail.
+func (i *IPAddress) SetState(newState AddressState) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to state %q", i, newState)
+	unknownOrSame := bson.D{{"state", bson.D{{"$in", []string{string(AddressStateUnknown), string(newState)}}}}}
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     i.doc.DocID,
+		Assert: unknownOrSame,
+		Update: bson.D{{"$set", bson.D{{"state", string(newState)}}}},
 	}}
 	return i.st.runTransaction(ops)
 }
