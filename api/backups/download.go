@@ -14,16 +14,8 @@ import (
 )
 
 // Download returns an io.ReadCloser for the given backup id.
-func (c *Client) Download(id string) (_ io.ReadCloser, err error) {
-	logger.Debugf("sending download request (%s)", id)
-	defer func() {
-		if err != nil {
-			logger.Debugf("download request failed (%s)", id)
-		}
-	}()
-
+func (c *Client) Download(id string) (io.ReadCloser, error) {
 	// Send the request.
-	logger.Debugf("sending download request (%s)", id)
 	args := params.BackupsDownloadArgs{
 		ID: id,
 	}
@@ -40,7 +32,6 @@ func (c *Client) Download(id string) (_ io.ReadCloser, err error) {
 		}
 		return nil, errors.Trace(failure)
 	}
-	logger.Debugf("download request succeeded (%s)", id)
 
 	return resp.Body, nil
 }
