@@ -25,6 +25,11 @@ func (manualBootstrapInstance) Refresh() error {
 	return nil
 }
 
+// AvailabilityZone implements instance.Instance.AvailabilityZone.
+func (manualBootstrapInstance) AvailabilityZone() string {
+	return ""
+}
+
 func (inst manualBootstrapInstance) Addresses() (addresses []network.Address, err error) {
 	addr, err := manual.HostAddress(inst.host)
 	if err != nil {

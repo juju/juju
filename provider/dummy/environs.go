@@ -1255,6 +1255,11 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, e
 	return
 }
 
+// AvailabilityZone implements instance.Instance.AvailabilityZone.
+func (*dummyInstance) AvailabilityZone() string {
+	return ""
+}
+
 // providerDelay controls the delay before dummy responds.
 // non empty values in JUJU_DUMMY_DELAY will be parsed as
 // time.Durations into this value.

@@ -168,6 +168,11 @@ func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	return addresses, nil
 }
 
+// AvailabilityZone implements instance.Instance.AvailabilityZone.
+func (inst *ec2Instance) AvailabilityZone() string {
+	return inst.Instance.AvailZone
+}
+
 func (p environProvider) BoilerplateConfig() string {
 	return `
 # https://juju.ubuntu.com/docs/config-aws.html

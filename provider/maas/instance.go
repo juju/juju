@@ -96,6 +96,11 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	return addrs, nil
 }
 
+// AvailabilityZone implements instance.Instance.AvailabilityZone.
+func (mi *maasInstance) AvailabilityZone() string {
+	return mi.zone()
+}
+
 func (mi *maasInstance) ipAddresses() ([]string, error) {
 	// we have to do this the hard way, since maasObject doesn't have this built-in yet
 	addressArray := mi.getMaasObject().GetMap()["ip_addresses"]

@@ -44,6 +44,11 @@ type Instance interface {
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by SortPorts.
 	Ports(machineId string) ([]network.PortRange, error)
+
+	// AvailabilityZone returns the name of the availability zone in
+	// which the instance was provisioned. If the provider does not
+	// support zones, the returned value will be the empty string.
+	AvailabilityZone() string
 }
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).
