@@ -217,19 +217,17 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	size := fi.Size()
 
 	// Extract the timestamp.
-	var timestamp *time.Time
+	var timestamp time.Time
 	rawstat := fi.Sys()
 	if rawstat != nil {
 		stat, ok := rawstat.(*syscall.Stat_t)
 		if ok {
-			ts := time.Unix(int64(stat.Ctim.Sec), 0)
-			timestamp = &ts
+			timestamp = time.Unix(int64(stat.Ctim.Sec), 0)
 		}
 	}
-	if timestamp == nil {
+	if timestamp.IsZero() {
 		// Fall back to modification time.
-		ts := fi.ModTime()
-		timestamp = &ts
+		timestamp = fi.ModTime()
 	}
 
 	// Get the checksum.
@@ -247,6 +245,6 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	meta.Finished = timestamp
+	meta.Finished = &timestamp
 	return meta, nil
 }
