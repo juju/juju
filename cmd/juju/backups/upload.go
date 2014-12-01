@@ -113,6 +113,7 @@ func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.Back
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	archive.Seek(0, os.SEEK_SET)
 	meta, err := ad.Metadata()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -122,7 +123,26 @@ func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.Back
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		meta.Origin = backups.UnknownOrigin()
+	} else {
+		// Make sure the file info is set.
+		fileMeta, err := backups.BuildMetadata(archive)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		if meta.Size() == int64(0) {
+			if err := meta.SetFileInfo(fileMeta.Size(), "", ""); err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+		}
+		if meta.Checksum() == "" {
+			err := meta.SetFileInfo(0, fileMeta.Checksum(), fileMeta.ChecksumFormat())
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
+		}
+		if meta.Finished == nil || meta.Finished.IsZero() {
+			meta.Finished = fileMeta.Finished
+		}
 	}
 	archive.Seek(0, os.SEEK_SET)
 
