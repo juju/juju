@@ -18,17 +18,6 @@ const (
 	AddressStateUnvailable AddressState = "unavailable"
 )
 
-// IPAddressInfo describes a single IP address.
-type IPAddressInfo struct {
-	State       AddressState
-	SubnetId    string
-	MachineId   string
-	InterfaceId string
-	Value       string
-	Type        network.AddressType
-	Scope       network.Scope
-}
-
 type IPAddress struct {
 	st  *State
 	doc ipaddressDoc
