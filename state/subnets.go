@@ -93,11 +93,28 @@ func (s *Subnet) Remove() (err error) {
 	if s.doc.Life != Dead {
 		return errors.New("subnet is not dead")
 	}
-	ops := []txn.Op{{
+	addresses, closer := s.st.getCollection(ipaddressesC)
+	defer closer()
+
+	ops := []txn.Op{}
+	id := s.ID()
+	var doc struct {
+		DocID string `bson:"_id"`
+	}
+	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      ipaddressesC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+
+	ops = append(ops, txn.Op{
 		C:      subnetsC,
 		Id:     s.doc.DocID,
 		Remove: true,
-	}}
+	})
 	return s.st.runTransaction(ops)
 }
 
