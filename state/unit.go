@@ -170,22 +170,6 @@ func (u *Unit) Life() Life {
 	return u.doc.Life
 }
 
-// InstanceId returns the instance ID of the unit's machine.
-func (u *Unit) InstanceId() (instance.Id, error) {
-	mid, err := u.AssignedMachineId()
-	if err != nil {
-		return "", errors.Annotatef(err, "unit %q has no assigned machine", u)
-	}
-
-	machine, err := u.st.Machine(mid)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	instId, err := machine.InstanceId()
-	return instId, errors.Trace(err)
-}
-
 // AgentTools returns the tools that the agent is currently running.
 // It an error that satisfies errors.IsNotFound if the tools have not
 // yet been set.

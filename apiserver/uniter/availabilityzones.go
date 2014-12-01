@@ -30,7 +30,15 @@ func getInstanceID(st *state.State, tag names.Tag) (instance.Id, error) {
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		instID, err = unit.InstanceId()
+		mid, err := unit.AssignedMachineId()
+		if err != nil {
+			return "", errors.Annotatef(err, "unit %q has no assigned machine", unit)
+		}
+		machine, err := st.Machine(mid)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		instID, err = machine.InstanceId()
 		if err != nil {
 			return "", errors.Trace(err)
 		}

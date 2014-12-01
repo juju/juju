@@ -1680,20 +1680,6 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
 
-func (s *UnitSuite) TestInstanceId(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.AssignToMachine(machine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	instId, err := s.unit.InstanceId()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(string(instId), gc.Equals, "i-exist")
-}
-
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
