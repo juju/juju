@@ -206,11 +206,11 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	return meta, nil
 }
 
-// BuildMetadata generates the metadata for a file.
-func BuildMetadata(arFile *os.File) (*Metadata, error) {
+// BuildMetadata generates the metadata for a backup archive file.
+func BuildMetadata(file *os.File) (*Metadata, error) {
 
 	// Extract the file size.
-	fi, err := arFile.Stat()
+	fi, err := file.Stat()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -234,7 +234,7 @@ func BuildMetadata(arFile *os.File) (*Metadata, error) {
 
 	// Get the checksum.
 	hasher := sha1.New()
-	_, err = io.Copy(hasher, arFile)
+	_, err = io.Copy(hasher, file)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
