@@ -564,9 +564,12 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc instanceAZFunc) error {
 			continue
 		}
 
-		zone, err := azFunc(st, doc["instanceid"].(instance.Id))
+		zone, err := azFunc(st, instance.Id(doc["instanceid"].(string)))
 		if err != nil {
-			return errors.Trace(err)
+			if !errors.IsNotSupported(err) {
+				return errors.Trace(err)
+			}
+			zone = ""
 		}
 
 		// Set AvailZone.
