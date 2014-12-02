@@ -21,7 +21,7 @@ func AvailabilityZone(st *state.State, instID instance.Id) (string, error) {
 	}
 	zenv, ok := env.(provcommon.ZonedEnviron)
 	if !ok {
-		return "", errors.NotSupportedf("zones for provider %v", env)
+		return "", errors.NotSupportedf(`zones for provider "%T"`, env)
 	}
 
 	// Request the zone.
