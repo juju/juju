@@ -20,7 +20,11 @@ var logger = loggo.GetLogger("juju.api.backups")
 var (
 	//TODO(perrito666): this Key needs to be determined in a dinamic way since machine 0
 	// might not always be there in HA contexts
+	// RestoreMachineKey holds the value for the machine where we restore, this should be
+	// obtained from the running environment.
 	RestoreMachineKey = "0"
+	// RestoreStrategy is the attempt strategy for api server calls re-attempts in case
+	// the server is upgrading.
 	RestoreStrategy   = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Min:   10,
