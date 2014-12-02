@@ -737,9 +737,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			runner.StartWorker("apiserver", apiserverWorker)
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info *state.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
-					config.SetStateServingInfo(info)
+					paramsInfo := params.StateServingInfo{
+						Cert:           info.Cert,
+						PrivateKey:     info.PrivateKey,
+						CAPrivateKey:   info.CAPrivateKey,
+						StatePort:      info.StatePort,
+						APIPort:        info.APIPort,
+						SharedSecret:   info.SharedSecret,
+						SystemIdentity: info.SystemIdentity,
+					}
+					config.SetStateServingInfo(paramsInfo)
 					logger.Debugf("stop api server worker")
 					runner.StopWorker("apiserver")
 					logger.Debugf("start new apiserver worker with new certificate")
@@ -747,7 +756,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, stateServingSetter), nil
+				return newCertificateUpdater(m, st, stateServingSetter), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil

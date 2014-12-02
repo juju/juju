@@ -1090,7 +1090,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+	newUpdater := func(certupdater.AddressWatcher, certupdater.Environ,
 		certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
@@ -1114,7 +1114,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
-	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+	newUpdater := func(certupdater.AddressWatcher, certupdater.Environ,
 		certupdater.StateServingInfoSetter,
 	) worker.Worker {
 		close(started)
@@ -1136,25 +1136,40 @@ func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonS
 	}
 }
 
+func checkCertificate(c *gc.C, newCert string) bool {
+	srvCert, err := cert.ParseCert(newCert)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the addresses of the new cert
+	sanIPs := make([]string, len(srvCert.IPAddresses))
+	for i, ip := range srvCert.IPAddresses {
+		sanIPs[i] = ip.String()
+	}
+	return len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3"
+}
+
 func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 	// Set up the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
+	oldStateInfo, _ := a.CurrentConfig().StateServingInfo()
 
 	// Set up check that certificate has been updated.
 	updated := make(chan struct{})
 	go func() {
 		for {
 			stateInfo, _ := a.CurrentConfig().StateServingInfo()
-			srvCert, err := cert.ParseCert(stateInfo.Cert)
-			c.Assert(err, jc.ErrorIsNil)
-			sanIPs := make([]string, len(srvCert.IPAddresses))
-			for i, ip := range srvCert.IPAddresses {
-				sanIPs[i] = ip.String()
-			}
-			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
-				close(updated)
-				break
+			c.Assert(stateInfo.PrivateKey, gc.Not(gc.Equals), "")
+			if checkCertificate(c, stateInfo.Cert) {
+				// Check that only the certificate has been updated.
+				stateInfo.Cert = ""
+				stateInfo.PrivateKey = ""
+				oldStateInfo.Cert = ""
+				oldStateInfo.PrivateKey = ""
+				if c.Check(stateInfo, jc.DeepEquals, oldStateInfo) {
+					close(updated)
+					break
+				}
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -1167,6 +1182,13 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 	case <-updated:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timeout while waiting for certificate to be updated")
+	}
+
+	stateInfo, err := s.State.StateServingInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateInfo.PrivateKey, gc.Not(gc.Equals), "")
+	if !checkCertificate(c, stateInfo.Cert) {
+		c.Error("invalid state server certificate")
 	}
 }
 
