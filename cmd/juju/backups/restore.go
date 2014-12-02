@@ -107,7 +107,7 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Annotatef(err, "cannot open backup file %q", c.filename)
 		}
-		if err := client.RestoreFromFile(backupFile, c.newClient); err != nil {
+		if err := client.RestoreReader(backupFile, c.newClient); err != nil {
 			// Backwards compatibility
 			if params.IsCodeNotImplemented(err) {
 				return errors.Errorf(restoreAPIIncompatibility)
@@ -116,7 +116,7 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context) error {
 		}
 		fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", c.filename)
 	} else {
-		if err := client.RestoreFromID(c.backupId, c.newClient); err != nil {
+		if err := client.Restore(c.backupId, c.newClient); err != nil {
 			// Backwards compatibility
 			if params.IsCodeNotImplemented(err) {
 				return errors.Errorf(restoreAPIIncompatibility)

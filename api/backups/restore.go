@@ -17,9 +17,9 @@ import (
 
 var logger = loggo.GetLogger("juju.api.backups")
 
-//TODO(perrito666): this Key needs to be determined in a dinamic way since machine 0
-// might not always be there in HA contexts
 var (
+	//TODO(perrito666): this Key needs to be determined in a dinamic way since machine 0
+	// might not always be there in HA contexts
 	RestoreMachineKey = "0"
 	RestoreStrategy   = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
@@ -56,7 +56,8 @@ func prepareRestore(newClient ClientConnection) error {
 	return errors.Annotatef(err, "could not start restore process: %v", rErr)
 }
 
-func (c *Client) RestoreFromFile(backupFile io.Reader, newClient ClientConnection) error {
+// RestoreReader performs a restore with a backup file as an imput.
+func (c *Client) RestoreReader(backupFile io.Reader, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		errors.Trace(err)
 	}
@@ -71,7 +72,8 @@ func (c *Client) RestoreFromFile(backupFile io.Reader, newClient ClientConnectio
 	return c.restore(backupId, newClient)
 }
 
-func (c *Client) RestoreFromID(backupId string, newClient ClientConnection) error {
+// Restore performs restore using a backup id corresponding to a backup stored in the server
+func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		errors.Trace(err)
 	}
@@ -79,7 +81,7 @@ func (c *Client) RestoreFromID(backupId string, newClient ClientConnection) erro
 	return c.restore(backupId, newClient)
 }
 
-// Restore is responsable for finishing a restore after a placeholder
+// restore is responsable for finishing a restore after a placeholder
 // machine has been bootstraped, it receives the name of a local backup file
 // or the id of one in the server and will return error on failure.
 func (c *Client) restore(backupId string, newClient ClientConnection) error {

@@ -15,14 +15,19 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -145,4 +150,96 @@ func (r *RestoreSuite) TestSetAgentAddressScript(c *gc.C) {
 		logger.Infof(fmt.Sprintf("Testing with address %q", address))
 		c.Assert(strings.Contains(template, expectedString), gc.Equals, true)
 	}
+}
+
+var caCertPEM = `
+-----BEGIN CERTIFICATE-----
+MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
+MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
+NDM1NFowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
+CwYJKoZIhvcNAQEBA0sAMEgCQQCCOOpn9aWKcKr2GQGtygwD7PdfNe1I9BYiPAqa
+2I33F5+6PqFdfujUKvoyTJI6XG4Qo/CECaaN9smhyq9DxzMhAgMBAAGjZjBkMA4G
+A1UdDwEB/wQEAwIABDASBgNVHRMBAf8ECDAGAQH/AgEBMB0GA1UdDgQWBBQQDswP
+FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
+JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
+8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
+-----END CERTIFICATE-----
+`
+
+func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
+	machineTag, err := names.ParseTag("machine-0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	dataDir := path.Join(r.cwd, "dataDir")
+	err = os.Mkdir(dataDir, os.FileMode(0755))
+	c.Assert(err, jc.ErrorIsNil)
+
+	logDir := path.Join(r.cwd, "logDir")
+	err = os.Mkdir(logDir, os.FileMode(0755))
+	c.Assert(err, jc.ErrorIsNil)
+
+	configParams := agent.AgentConfigParams{
+	DataDir    :       dataDir,
+	LogDir      :      logDir,
+	UpgradedToVersion : version.Current.Number,
+	Tag             : machineTag,
+	Password          :"dummyPassword",
+	Nonce             :"dummyNonce",
+	StateAddresses    :[]string{"fakeStateAddress:1234",},
+	APIAddresses      :[]string{"fakeAPIAddress:12345",},
+	CACert            :caCertPEM,
+}
+	statePort := 12345
+	privateAddress := "dummyPrivateAddress"
+	servingInfo := params.StateServingInfo{
+	APIPort   : 1234,
+	StatePort :statePort,
+	Cert       :caCertPEM,
+	PrivateKey :"a key",
+	SharedSecret   :"a secret",
+	SystemIdentity :"an identity",
+}
+
+	conf, err := agent.NewStateMachineConfig(configParams, servingInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dialInfo, err := newDialInfo(privateAddress, conf)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dialInfo.Username, gc.Equals, "admin")
+	c.Assert(dialInfo.Password, gc.Equals, "dummyPassword")
+	c.Assert(dialInfo.Direct, gc.Equals, true)
+	c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress , statePort)})
+}
+
+// TestUpdateMongoEntries has all the testing for this function to avoid creating multiple
+// mongo instances.
+func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
+	server := &gitjujutesting.MgoInstance{}
+	err := server.Start(coretesting.Certs)
+	c.Assert(err, jc.ErrorIsNil)
+	defer server.DestroyWithLog()
+	dialInfo := server.DialInfo()
+	mgoAddr := server.Addr()
+	dialInfo.Addrs = []string{mgoAddr}
+	err = updateMongoEntries("1234", dialInfo)
+	c.Assert(err, gc.ErrorMatches, "cannot update machine 0 instance information: not found")
+
+	session := server.MustDial()
+	defer session.Close()
+
+	err = session.DB("juju").C("machines").Insert(bson.M{"machineid": "0", "instanceid": "0"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	query := session.DB("juju").C("machines").Find(bson.M{"machineid": "0", "instanceid": "1234"})
+	n, err := query.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	err = updateMongoEntries("1234", dialInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	query = session.DB("juju").C("machines").Find(bson.M{"machineid": "0", "instanceid": "1234"})
+	n, err = query.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 1)
 }

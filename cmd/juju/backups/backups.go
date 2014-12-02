@@ -62,9 +62,9 @@ type APIClient interface {
 	// Remove removes the stored backup.
 	Remove(id string) error
 	// Restore will restore a backup with the given id into the state server
-	RestoreFromID(string, backups.ClientConnection) error
+	Restore(string, backups.ClientConnection) error
 	// Restore will restore a backup file into the state server
-	RestoreFromFile(io.Reader, backups.ClientConnection) error
+	RestoreReader(io.Reader, backups.ClientConnection) error
 }
 
 // CommandBase is the base type for backups sub-commands.

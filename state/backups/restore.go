@@ -82,6 +82,7 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 		return errors.Annotate(err, "cannot connect to mongo to update")
 	}
 	defer session.Close()
+	// TODO(perrito666): Take the Machine id from an autoritative source
 	if err := session.DB("juju").C("machines").Update(bson.M{"machineid": "0"}, bson.M{"$set": bson.M{"instanceid": string(newInstId)}}); err != nil {
 		return errors.Annotate(err, "cannot update machine 0 instance information")
 	}
