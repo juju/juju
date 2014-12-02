@@ -1256,6 +1256,7 @@ func (s *StateSuite) TestAddIPAddress(c *gc.C) {
 		c.Assert(ipAddr.SubnetId(), gc.Equals, "foobar")
 		c.Assert(ipAddr.Type(), gc.Equals, addr.Type)
 		c.Assert(ipAddr.Scope(), gc.Equals, network.ScopePublic)
+		c.Assert(ipAddr.State(), gc.Equals, state.AddressStateUnknown)
 	}
 	checkAddress(ipAddr)
 
@@ -1272,7 +1273,6 @@ func (s *StateSuite) TestAddIPAddressInvalid(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
-	// check adding it twice is an error the second time
 	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
 	_, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1282,6 +1282,18 @@ func (s *StateSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
 
 func (s *StateSuite) TestIPAddressNotFound(c *gc.C) {
 	_, err := s.State.IPAddress("192.168.1.0")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *StateSuite) TestIPAddressRemove(c *gc.C) {
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = ipAddr.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.IPAddress("192.168.1.0")
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
