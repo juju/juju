@@ -541,6 +541,51 @@ func MigrateMachineInstanceIdToInstanceData(st *State) error {
 	return st.runTransaction(ops)
 }
 
+type instanceAZFunc func(*State, instance.Id) (string, error)
+
+// AddAvailabilityZoneToInstanceData sets the AvailZone field on
+// instanceData docs that don't have it already.
+func AddAvailabilityZoneToInstanceData(st *State, azFunc instanceAZFunc) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	instDatas, closer := st.getCollection(instanceDataC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := instDatas.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		zone, ok := doc["availabilityzone"]
+		if ok {
+			continue
+		}
+
+		zone, err := azFunc(st, doc["instanceid"])
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Set AvailZone.
+		ops = append(ops, txn.Op{
+			C:      instanceDataC,
+			Id:     doc["_id"].(string),
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"availabilityzone", zone}}},
+			},
+		})
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	err = st.runTransaction(ops)
+	return errors.Trace(err)
+}
+
 // AddEnvUUIDToServices prepends the environment UUID to the ID of
 // all service docs and adds new "env-uuid" field.
 func AddEnvUUIDToServices(st *State) error {
