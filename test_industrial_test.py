@@ -742,7 +742,8 @@ class TestBootstrapAttempt(TestCase):
         with patch('subprocess.check_output', return_value=output):
             self.assertTrue(bootstrap.get_result(client))
 
-    def test_get_result_false(self):
+    @patch('logging.error')
+    def test_get_result_false(self, le_mock):
         bootstrap = BootstrapAttempt()
         client = FakeEnvJujuClient()
         output = yaml.safe_dump({
@@ -992,7 +993,8 @@ class TestDeployManyAttempt(TestCase):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'deploy-many', 'result': True})
 
-    def test_iter_step_failure(self):
+    @patch('logging.error')
+    def test_iter_step_failure(self, le_mock):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)
@@ -1042,7 +1044,8 @@ class TestDeployManyAttempt(TestCase):
                     'Timed out waiting for agents to start in steve.'):
                 deploy_iter.next()
 
-    def test_iter_step_add_machine_failure(self):
+    @patch('logging.error')
+    def test_iter_step_add_machine_failure(self, le_mock):
         deploy_many = DeployManyAttempt()
         client = FakeEnvJujuClient()
         deploy_iter = iter_steps_validate_info(self, deploy_many, client)

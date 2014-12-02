@@ -371,7 +371,8 @@ class TestEnvJujuClient(TestCase):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
-                    client.wait_for_started()
+                    with patch('logging.error'):
+                        client.wait_for_started()
 
     def test_wait_for_started_start(self):
         value = self.make_status_yaml('agent-state', 'started', 'pending')
@@ -382,7 +383,19 @@ class TestEnvJujuClient(TestCase):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
-                    client.wait_for_started(start=now - timedelta(1200))
+                    with patch('logging.error'):
+                        client.wait_for_started(start=now - timedelta(1200))
+
+    def test_wait_for_started_logs_status(self):
+        value = self.make_status_yaml('agent-state', 'pending', 'started')
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Timed out waiting for agents to start in local'):
+                with patch('logging.error') as le_mock:
+                    client.wait_for_started(0)
+        le_mock.assert_called_once_with(value)
 
     def test_wait_for_ha(self):
         value = yaml.safe_dump({
@@ -983,7 +996,7 @@ class TestJujuClientDevel(TestCase):
 class TestStatus(TestCase):
 
     def test_agent_items_empty(self):
-        status = Status({'machines': {}, 'services': {}})
+        status = Status({'machines': {}, 'services': {}}, '')
         self.assertItemsEqual([], status.agent_items())
 
     def test_agent_items(self):
@@ -998,7 +1011,7 @@ class TestStatus(TestCase):
                     }
                 }
             }
-        })
+        }, '')
         expected = [
             ('1', {'foo': 'bar'}), ('jenkins/1', {'baz': 'qux'})]
         self.assertItemsEqual(expected, status.agent_items())
@@ -1011,7 +1024,7 @@ class TestStatus(TestCase):
                 }}
             },
             'services': {}
-        })
+        }, '')
         expected = [
             ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
             ('2', {'qux': 'baz'})
@@ -1032,7 +1045,7 @@ class TestStatus(TestCase):
                     }
                 }
             }
-        })
+        }, '')
         expected = {
             'good': ['1', 'jenkins/2'],
             'bad': ['jenkins/1'],
@@ -1054,7 +1067,7 @@ class TestStatus(TestCase):
                     }
                 }
             }
-        })
+        }, '')
         self.assertEqual(status.agent_states(),
                          status.check_agents_started('env1'))
 
@@ -1072,7 +1085,7 @@ class TestStatus(TestCase):
                     }
                 }
             }
-        })
+        }, '')
         self.assertIs(None, status.check_agents_started('env1'))
 
     def test_check_agents_started_agent_error(self):
@@ -1081,7 +1094,7 @@ class TestStatus(TestCase):
                 '1': {'agent-state': 'any-error'},
             },
             'services': {}
-        })
+        }, '')
         with self.assertRaisesRegexp(ErroredUnit,
                                      '1 is in state any-error'):
             status.check_agents_started('env1')
@@ -1094,7 +1107,7 @@ class TestStatus(TestCase):
                 '1': {'agent-state-info': 'any-error'},
             },
             'services': {}
-        })
+        }, '')
         with self.assertRaisesRegexp(ErroredUnit,
                                      '1 is in state any-error'):
             status.check_agents_started('env1')
@@ -1114,7 +1127,7 @@ class TestStatus(TestCase):
                     },
                 }
             }
-        })
+        }, '')
         self.assertEqual({
             '1.6.2': {'1'},
             '1.6.1': {'jenkins/0', '2'},
@@ -1126,13 +1139,13 @@ class TestStatus(TestCase):
             'machines': {
                 'bar': 'bar_info',
                 }
-            })
+            }, '')
         new_status = Status({
             'machines': {
                 'foo': 'foo_info',
                 'bar': 'bar_info',
                 }
-            })
+            }, '')
         self.assertItemsEqual(new_status.iter_new_machines(old_status),
                               [('foo', 'foo_info')])
 
@@ -1142,12 +1155,23 @@ class TestStatus(TestCase):
                 '0': {'instance-id': 'foo-bar'},
                 '1': {},
                 }
-            })
+            }, '')
         self.assertEqual(status.get_instance_id('0'), 'foo-bar')
         with self.assertRaises(KeyError):
             status.get_instance_id('1')
         with self.assertRaises(KeyError):
             status.get_instance_id('2')
+
+    def test_from_text(self):
+        text = TestEnvJujuClient.make_status_yaml(
+            'agent-state', 'pending', 'horsefeathers')
+        status = Status.from_text(text)
+        self.assertEqual(status.status_text, text)
+        self.assertEqual(status.status, {
+            'machines': {'0': {'agent-state': 'pending'}},
+            'services': {'jenkins': {'units': {'jenkins/0': {
+                'agent-state': 'horsefeathers'}}}}
+        })
 
 
 def fast_timeout(count):
@@ -1236,7 +1260,8 @@ class TestEnvironment(TestCase):
                 with self.assertRaisesRegexp(
                         Exception,
                         'Timed out waiting for agents to start in local'):
-                    env.wait_for_started()
+                    with patch('logging.error'):
+                        env.wait_for_started()
 
     def test_wait_for_version(self):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
