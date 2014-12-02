@@ -49,11 +49,6 @@ func (inst *localInstance) Addresses() ([]network.Address, error) {
 	return nil, errors.NotImplementedf("localInstance.Addresses")
 }
 
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (*localInstance) AvailabilityZone() string {
-	return ""
-}
-
 // OpenPorts implements instance.Instance.OpenPorts.
 func (inst *localInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	logger.Infof("OpenPorts called for %s:%v", machineId, ports)

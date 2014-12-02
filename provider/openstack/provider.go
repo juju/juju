@@ -455,11 +455,6 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (inst *openstackInstance) AvailabilityZone() string {
-	return inst.serverDetail.AvailabilityZone
-}
-
 // convertNovaAddresses returns nova addresses in generic format
 func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
 	var machineAddresses []network.Address
@@ -1106,8 +1101,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		}
 	}
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: inst.hardwareCharacteristics(),
+		Instance:         inst,
+		Hardware:         inst.hardwareCharacteristics(),
+		AvailabilityZone: inst.serverDetail.AvailabilityZone,
 	}, nil
 }
 

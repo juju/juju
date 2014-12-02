@@ -51,6 +51,11 @@ type StartInstanceResult struct {
 
 	// NetworkInfo contains information about configured networks.
 	NetworkInfo []network.Info
+
+	// AvailabilityZone holds the name of the availability zone in
+	// which the instance was provisioned. If the provider does not
+	// support zones, the value will be the empty string.
+	AvailabilityZone string
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

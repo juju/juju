@@ -168,11 +168,6 @@ func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	return addresses, nil
 }
 
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (inst *ec2Instance) AvailabilityZone() string {
-	return inst.Instance.AvailZone
-}
-
 func (p environProvider) BoilerplateConfig() string {
 	return `
 # https://juju.ubuntu.com/docs/config-aws.html
@@ -770,8 +765,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		// Tags currently not supported by EC2
 	}
 	return &environs.StartInstanceResult{
-		Instance: inst,
-		Hardware: &hc,
+		Instance:         inst,
+		Hardware:         &hc,
+		AvailabilityZone: inst.Instance.AvailZone,
 	}, nil
 }
 

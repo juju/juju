@@ -110,11 +110,6 @@ func (azInstance *azureInstance) Addresses() ([]network.Address, error) {
 	return addrs, nil
 }
 
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (*azureInstance) AvailabilityZone() string {
-	return ""
-}
-
 func (azInstance *azureInstance) ipAddress() string {
 	azInstance.mu.Lock()
 	defer azInstance.mu.Unlock()

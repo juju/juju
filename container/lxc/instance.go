@@ -59,8 +59,3 @@ func (lxc *lxcInstance) Ports(machineId string) ([]network.PortRange, error) {
 func (lxc *lxcInstance) String() string {
 	return fmt.Sprintf("lxc:%s", lxc.id)
 }
-
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (*lxcInstance) AvailabilityZone() string {
-	return ""
-}

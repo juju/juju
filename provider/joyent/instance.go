@@ -43,8 +43,3 @@ func (inst *joyentInstance) Addresses() ([]network.Address, error) {
 
 	return addresses, nil
 }
-
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (*joyentInstance) AvailabilityZone() string {
-	return ""
-}

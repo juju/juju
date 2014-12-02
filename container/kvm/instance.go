@@ -58,8 +58,3 @@ func (kvm *kvmInstance) Ports(machineId string) ([]network.PortRange, error) {
 func (kvm *kvmInstance) String() string {
 	return fmt.Sprintf("kvm:%s", kvm.id)
 }
-
-// AvailabilityZone implements instance.Instance.AvailabilityZone.
-func (*kvmInstance) AvailabilityZone() string {
-	return ""
-}
