@@ -4,6 +4,8 @@
 package upgrades
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/utils"
 )
