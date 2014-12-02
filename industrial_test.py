@@ -31,6 +31,7 @@ from utility import (
 
 
 QUICK = 'quick'
+DENSITY = 'density'
 FULL = 'full'
 
 
@@ -46,8 +47,9 @@ class MultiIndustrialTest:
     @classmethod
     def from_args(cls, args):
         stages = {
-            QUICK: [BootstrapAttempt, DeployManyAttempt,
-                    DestroyEnvironmentAttempt],
+            QUICK: [BootstrapAttempt, DestroyEnvironmentAttempt],
+            DENSITY: [BootstrapAttempt, DeployManyAttempt,
+                      DestroyEnvironmentAttempt],
             FULL: [BootstrapAttempt, DeployManyAttempt,
                    BackupRestoreAttempt, EnsureAvailabilityAttempt,
                    DestroyEnvironmentAttempt]

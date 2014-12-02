@@ -19,6 +19,7 @@ import yaml
 from industrial_test import (
     BackupRestoreAttempt,
     BootstrapAttempt,
+    DENSITY,
     DeployManyAttempt,
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
@@ -176,8 +177,7 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.attempt_count, 7)
         self.assertEqual(mit.max_attempts, 14)
         self.assertEqual(
-            mit.stages, [BootstrapAttempt, DeployManyAttempt,
-                         DestroyEnvironmentAttempt])
+            mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
         args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
                          suite=FULL, new_agent_url=None)
         mit = MultiIndustrialTest.from_args(args)
@@ -189,6 +189,14 @@ class TestMultiIndustrialTest(TestCase):
             mit.stages, [
                 BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
                 EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+
+    def test_density_suite(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         suite=DENSITY, new_agent_url=None)
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(
+            mit.stages, [BootstrapAttempt, DeployManyAttempt,
+                         DestroyEnvironmentAttempt])
 
     def test_from_args_new_agent_url(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
