@@ -74,7 +74,7 @@ func (m *MetricBatch) validate() error {
 	return nil
 }
 
-// AddMetric adds a new batch of metrics to the database.
+// addMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
 func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric, creds []byte) (*MetricBatch, error) {
 	if len(metrics) == 0 {

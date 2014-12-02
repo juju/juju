@@ -156,7 +156,7 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now}
-	err := s.service.UpdateMetricCredentials([]byte("hello there"))
+	err := s.service.SetMetricCredentials([]byte("hello there"))
 	c.Assert(err, gc.IsNil)
 	_, err = s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)

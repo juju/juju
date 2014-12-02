@@ -1750,10 +1750,23 @@ func (s *ServiceSuite) TestNetworksOnService(c *gc.C) {
 }
 
 func (s *ServiceSuite) TestMetricCredentials(c *gc.C) {
-	err := s.mysql.UpdateMetricCredentials([]byte("hello there"))
-	c.Assert(err, gc.IsNil)
+	err := s.mysql.SetMetricCredentials([]byte("hello there"))
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
 
 	service, err := s.State.Service(s.mysql.Name())
 	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
+}
+
+func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
+	_, err := s.mysql.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.SetMetricCredentials([]byte("set before dying"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	assertLife(c, s.mysql, state.Dying)
+	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
+	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: service not found or dead")
+
 }
