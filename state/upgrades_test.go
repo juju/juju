@@ -1669,6 +1669,71 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 	c.Assert(keyExists, jc.IsFalse)
 }
 
+func (s *upgradesSuite) TestAddAvailabilityZoneToInstanceData(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = "1"
+	s.azSetUp(c, machineID, instID)
+
+	azfunc := func(*State, instance.Id) (string, error) {
+		return "a_zone", nil
+	}
+
+	err := AddAvailabilityZoneToInstanceData(s.state, azfunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkAvailabilityZone(c, machineID, "a_zone")
+}
+
+func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
+	ops := []txn.Op{
+		txn.Op{
+			C:      machinesC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: bson.M{
+				"_id":        machineID,
+				"instanceid": instID,
+			},
+		},
+		txn.Op{
+			C:      instanceDataC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: bson.M{
+				"_id":        machineID,
+				"machineid":  machineID,
+				"instanceid": instID,
+				// We do *not* set AvailZone.
+			},
+		},
+	}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure "availabilityzone" isn't set.
+	var instanceMap bson.M
+	insts, closer := s.state.getCollection(instanceDataC)
+	defer closer()
+	err = insts.FindId(machineID).One(&instanceMap)
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok := instanceMap["availabilityzone"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+// checkAvailabilityZone checks to see if the availability zone is set
+// for the instance data associated with the machine.
+func (s *upgradesSuite) checkAvailabilityZone(c *gc.C, machineID string, expectedZone string) {
+	var instanceMap bson.M
+	insts, closer := s.state.getCollection(instanceDataC)
+	defer closer()
+	err := insts.FindId(machineID).One(&instanceMap)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, ok := instanceMap["availabilityzone"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(zone, gc.Equals, expectedZone)
+}
+
 // setUpJobManageNetworking prepares the test environment for the JobManageNetworking tests.
 func (s *upgradesSuite) setUpJobManageNetworking(c *gc.C, provider string, manual bool) {
 	// Set provider type.
