@@ -252,6 +252,7 @@ class EnvJujuClient:
 
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
+        reporter = GroupReporter(sys.stdout, 'started')
         status = None
         for ignored in chain([None], until_timeout(timeout, start=start)):
             try:
@@ -262,14 +263,14 @@ class EnvJujuClient:
             states = status.check_agents_started()
             if states is None:
                 break
-            print(format_listing(states, 'started'))
-            sys.stdout.flush()
+            reporter.update(states)
         else:
             logging.error(status.status_text)
             raise AgentsNotStarted(self.env.environment, status)
         return status
 
     def wait_for_version(self, version, timeout=300):
+        reporter = GroupReporter(sys.stdout, version)
         for ignored in until_timeout(timeout):
             try:
                 versions = self.get_status(120).get_agent_versions()
@@ -278,13 +279,13 @@ class EnvJujuClient:
                 continue
             if versions.keys() == [version]:
                 break
-            print(format_listing(versions, version))
-            sys.stdout.flush()
+            reporter.update(versions)
         else:
             raise Exception('Some versions did not update.')
 
     def wait_for_ha(self, timeout=1200):
         desired_state = 'has-vote'
+        reporter = GroupReporter(sys.stdout, desired_state)
         for remaining in until_timeout(timeout):
             status = self.get_status()
             states = {}
@@ -296,7 +297,7 @@ class EnvJujuClient:
             if states.keys() == [desired_state]:
                 if len(states.get(desired_state, [])) >= 3:
                     return
-            print_now(format_listing(states, desired_state))
+            reporter.update(states)
         else:
             raise Exception('Timed out waiting for voting to be enabled.')
 
@@ -595,10 +596,31 @@ class Environment(SimpleEnvironment):
                                        testing_url)
 
 
-def format_listing(listing, expected):
-    value_listing = []
-    for value, entries in listing.items():
-        if value == expected:
-            continue
-        value_listing.append('%s: %s' % (value, ', '.join(entries)))
-    return ' | '.join(value_listing)
+class GroupReporter:
+
+    def __init__(self, stream, expected):
+        self.stream = stream
+        self.expected = expected
+        self.last_group = None
+        self.ticks = 0
+
+    def _write(self, string):
+        self.stream.write(string)
+        self.stream.flush()
+
+    def update(self, group):
+        if group == self.last_group:
+            self._write("." if self.ticks else " .")
+            self.ticks += 1
+            return
+        value_listing = []
+        for value, entries in sorted(group.items()):
+            if value == self.expected:
+                continue
+            value_listing.append('%s: %s' % (value, ', '.join(entries)))
+        string = ' | '.join(value_listing)
+        if self.last_group:
+            string = "\n" + string
+        self._write(string)
+        self.last_group = group
+        self.ticks = 0
