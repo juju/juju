@@ -5,9 +5,11 @@ package tools_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -389,6 +391,10 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", withMirrors)
 	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
+
+	// No release stream generated so there will not be a legacy index file created.
+	_, err = writer.Get("tools/streams/v1/index.json")
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
@@ -830,7 +836,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 	c.Assert(out, jc.DeepEquals, metadata)
 }
 
-func (*metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
+func (*metadataHelperSuite) writeMetadataMultipleStream(c *gc.C) (storage.StorageReader, map[string][]*tools.ToolsMetadata) {
 	metadata := map[string][]*tools.ToolsMetadata{
 		"released": []*tools.ToolsMetadata{{
 			Release: "precise",
@@ -853,9 +859,14 @@ func (*metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil) // non-existence is not an error
 	err = tools.WriteMetadata(stor, metadata, []string{"released", "proposed"}, tools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
+	return stor, metadata
+}
 
+func (s *metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
+	stor, metadata := s.writeMetadataMultipleStream(c)
 	// Read back what was just written.
-	out, err = tools.ReadAllMetadata(stor)
+	out, err := tools.ReadAllMetadata(stor)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
 			// FullPath is set by ReadAllMetadata.
@@ -864,6 +875,34 @@ func (*metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
 		}
 	}
 	c.Assert(out, jc.DeepEquals, metadata)
+}
+
+func (s *metadataHelperSuite) TestWriteMetadataLegacyIndex(c *gc.C) {
+	stor, _ := s.writeMetadataMultipleStream(c)
+	// Read back the legacy index
+	rdr, err := stor.Get("tools/streams/v1/index.json")
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadAll(rdr)
+	c.Assert(err, jc.ErrorIsNil)
+	var indices simplestreams.Indices
+	err = json.Unmarshal(data, &indices)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(indices.Indexes, gc.HasLen, 1)
+	indices.Updated = ""
+	c.Assert(indices.Indexes["com.ubuntu.juju:released:tools"], gc.NotNil)
+	indices.Indexes["com.ubuntu.juju:released:tools"].Updated = ""
+	expected := simplestreams.Indices{
+		Format: "index:1.0",
+		Indexes: map[string]*simplestreams.IndexMetadata{
+			"com.ubuntu.juju:released:tools": &simplestreams.IndexMetadata{
+				Format:           "products:1.0",
+				DataType:         "content-download",
+				ProductsFilePath: "streams/v1/com.ubuntu.juju-released-tools.json",
+				ProductIds:       []string{"com.ubuntu.juju:12.04:amd64"},
+			},
+		},
+	}
+	c.Assert(indices, jc.DeepEquals, expected)
 }
 
 func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
@@ -887,9 +926,10 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.PatchValue(tools.WriteMetadataFiles, func(stor storage.Storage, metadataInfo []tools.MetadataFile) error {
-		// The product data is the same, we only write the index.
-		c.Assert(metadataInfo, gc.HasLen, 1)
+		// The product data is the same, we only write the indices.
+		c.Assert(metadataInfo, gc.HasLen, 2)
 		c.Assert(metadataInfo[0].Path, gc.Equals, "streams/v1/index2.json")
+		c.Assert(metadataInfo[1].Path, gc.Equals, "streams/v1/index.json")
 		return nil
 	})
 	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
