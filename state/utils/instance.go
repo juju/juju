@@ -11,11 +11,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var getEnvironment = GetEnvironment
+
 // AvailabilityZone returns the availability zone associated with
 // an instance ID.
 func AvailabilityZone(st *state.State, instID instance.Id) (string, error) {
 	// Get the provider.
-	env, err := GetEnvironment(st)
+	env, err := getEnvironment(st)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
