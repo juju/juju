@@ -221,8 +221,7 @@ class EnvJujuClient:
         """Get the current status as a dict."""
         for ignored in until_timeout(timeout):
             try:
-                return Status(yaml_loads(
-                    self.get_juju_output('status')))
+                return Status.from_text(self.get_juju_output('status'))
             except subprocess.CalledProcessError as e:
                 pass
         raise Exception(
@@ -266,6 +265,7 @@ class EnvJujuClient:
             print(format_listing(states, 'started'))
             sys.stdout.flush()
         else:
+            logging.error(status.status_text)
             raise AgentsNotStarted(self.env.environment, status)
         return status
 
@@ -438,8 +438,14 @@ def temp_bootstrap_env(juju_home, client):
 
 class Status:
 
-    def __init__(self, status):
+    def __init__(self, status, status_text):
         self.status = status
+        self.status_text = status_text
+
+    @classmethod
+    def from_text(cls, text):
+        status_yaml = yaml_loads(text)
+        return cls(status_yaml, text)
 
     def iter_machines(self):
         for machine_name, machine in sorted(self.status['machines'].items()):
