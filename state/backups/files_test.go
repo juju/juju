@@ -122,10 +122,16 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
-	err := os.Remove(filepath.Join(s.root, "/var/lib/juju/nonce.txt"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = os.Remove(filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"))
-	c.Assert(err, jc.ErrorIsNil)
+	missing := []string{
+		"/var/lib/juju/nonce.txt",
+		"/home/ubuntu/.ssh/authorized_keys",
+		"/var/log/juju/all-machines.log",
+		"/var/log/juju/machine-0.log",
+	}
+	for _, filename := range missing {
+		err := os.Remove(filepath.Join(s.root, filename))
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
@@ -143,8 +149,6 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
 		filepath.Join(s.root, "/var/lib/juju/system-identity"),
 		filepath.Join(s.root, "/var/lib/juju/tools"),
-		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
-		filepath.Join(s.root, "/var/log/juju/machine-0.log"),
 	}
 	// This got re-created.
 	expected = append(expected, filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"))

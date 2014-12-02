@@ -76,8 +76,6 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
-		filepath.Join(rootDir, paths.LogsDir, allMachinesLog),
-		filepath.Join(rootDir, paths.LogsDir, machine0Log),
 
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
@@ -86,6 +84,25 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, initConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
+
+	// Handle logs (might not exist).
+	// TODO(ericsnow) We should consider dropping these entirely.
+	allmachines := filepath.Join(rootDir, paths.LogsDir, allMachinesLog)
+	if _, err := os.Stat(allmachines); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		backupFiles = append(backupFiles, allmachines)
+	}
+	machine0 := filepath.Join(rootDir, paths.LogsDir, machine0Log)
+	if _, err := os.Stat(machine0); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		backupFiles = append(backupFiles, machine0)
+	}
 
 	// Handle nonce.txt (might not exist).
 	nonce := filepath.Join(rootDir, paths.DataDir, nonceFile)
