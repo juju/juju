@@ -32,6 +32,7 @@ from substrate import (
     verify_libvirt_domain,
 )
 from utility import (
+    configure_logging,
     PortTimeoutError,
     print_now,
     scoped_environ,
@@ -329,9 +330,7 @@ def deploy_job():
     log_level = logging.INFO
     if args.verbose:
         log_level = logging.DEBUG
-    logging.basicConfig(
-        level=log_level, format='%(asctime)s %(levelname)s %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
+    configure_logging(log_level)
     if not args.run_startup:
         juju_path = args.new_juju_bin
     else:
