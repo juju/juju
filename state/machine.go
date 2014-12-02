@@ -164,9 +164,6 @@ func (m *Machine) globalKey() string {
 	return machineGlobalKey(m.doc.Id)
 }
 
-// TODO(ericsnow) lp-1398141
-// instanceData needs to include the availability zone.
-
 // instanceData holds attributes relevant to a provisioned machine.
 type instanceData struct {
 	DocID      string      `bson:"_id"`

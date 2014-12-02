@@ -239,7 +239,6 @@ type environState struct {
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
 	insts        map[instance.Id]*dummyInstance
-	zones        []dummyZone
 	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
 	storageDelay time.Duration
@@ -1170,105 +1169,6 @@ func AddInstance(env environs.Environ, machine *state.Machine) (*instance.Id, er
 	return &instID, nil
 }
 
-// addZone adds an availability zone with the given name to the set of
-// zones the dummy provider knows about.
-//
-// This function is strictly an aid to testing.
-func addZone(e *environState, zoneName string) dummyZone {
-	for _, zone := range e.zones {
-		if zone.name == zoneName {
-			return zone
-		}
-	}
-	zone := dummyZone{zoneName, true}
-	e.zones = append(e.zones, zone)
-	return zone
-}
-
-// SetZone associates the given instance ID with the zone name. This
-// information is later used by the InstanceAvailabilityZoneNames
-// method. The zone name is automatically added to the set of zones the
-// dummy provider knows about.
-//
-// This function is strictly an aid to testing.
-func SetZone(env environs.Environ, instID instance.Id, zoneName string) error {
-	e := env.(*environ)
-	envst, err := e.state()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	inst, ok := envst.insts[instID]
-	if !ok {
-		return errors.Errorf("unknown instance %q", instID)
-	}
-	zone := addZone(envst, zoneName)
-	inst.zone = &zone
-	return nil
-}
-
-type dummyZone struct {
-	name      string
-	available bool
-}
-
-// Name returns the availability zone's name.
-func (dz *dummyZone) Name() string {
-	return dz.name
-}
-
-// Available returns whether or not the zone is available.
-func (dz *dummyZone) Available() bool {
-	return dz.available
-}
-
-// AvailabilityZones returns the list of availability zones in the
-// provider. In the case of the dummy provider, this is set to whatever
-// you like (via AddZone).
-func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
-	envst, err := e.state()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var zones []common.AvailabilityZone
-	for _, zone := range envst.zones {
-		zones = append(zones, &zone)
-	}
-	return zones, nil
-}
-
-// InstanceAvailabilityZoneNames returns the list of zone names
-// corresponding to the list of instance IDs.  The returned list will
-// map exactly onto the instance IDs (in the same order).
-func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	if len(ids) == 0 {
-		return nil, environs.ErrNoInstances
-	}
-
-	envst, err := e.state()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	err = nil
-	names := make([]string, len(ids))
-	for i, id := range ids {
-		inst, ok := envst.insts[id]
-		if !ok || inst.zone == nil {
-			if err == nil {
-				err = environs.ErrNoInstances
-			}
-			continue
-		}
-		if err != nil {
-			err = environs.ErrPartialInstances
-		}
-		names[i] = inst.zone.name
-	}
-	return names, err
-}
-
 type dummyInstance struct {
 	state        *environState
 	ports        map[network.PortRange]bool
@@ -1281,7 +1181,6 @@ type dummyInstance struct {
 
 	mu        sync.Mutex
 	addresses []network.Address
-	zone      *dummyZone
 }
 
 func (inst *dummyInstance) Id() instance.Id {
