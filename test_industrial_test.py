@@ -115,6 +115,8 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.suite, FULL)
         args = parse_args(['rai', 'new-juju', QUICK])
         self.assertEqual(args.suite, QUICK)
+        args = parse_args(['rai', 'new-juju', DENSITY])
+        self.assertEqual(args.suite, DENSITY)
         with parse_error(self) as stderr:
             args = parse_args(['rai', 'new-juju', 'foo'])
         self.assertRegexpMatches(

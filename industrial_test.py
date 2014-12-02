@@ -46,14 +46,7 @@ class MultiIndustrialTest:
 
     @classmethod
     def from_args(cls, args):
-        stages = {
-            QUICK: [BootstrapAttempt, DestroyEnvironmentAttempt],
-            DENSITY: [BootstrapAttempt, DeployManyAttempt,
-                      DestroyEnvironmentAttempt],
-            FULL: [BootstrapAttempt, DeployManyAttempt,
-                   BackupRestoreAttempt, EnsureAvailabilityAttempt,
-                   DestroyEnvironmentAttempt]
-        }[args.suite]
+        stages = list(suites[args.suite])
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
                    args.new_agent_url)
@@ -489,12 +482,22 @@ class BackupRestoreAttempt(StageAttempt):
         return True
 
 
+suites = {
+    QUICK: (BootstrapAttempt, DestroyEnvironmentAttempt),
+    DENSITY: (BootstrapAttempt, DeployManyAttempt,
+              DestroyEnvironmentAttempt),
+    FULL: (BootstrapAttempt, DeployManyAttempt,
+           BackupRestoreAttempt, EnsureAvailabilityAttempt,
+           DestroyEnvironmentAttempt)
+    }
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
-    parser.add_argument('suite', choices=[QUICK, FULL])
+    parser.add_argument('suite', choices=suites.keys())
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--new-agent-url')
