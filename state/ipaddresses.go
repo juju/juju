@@ -32,7 +32,7 @@ type ipaddressDoc struct {
 	Value       string
 	Type        network.AddressType
 	Scope       network.Scope `bson:"networkscope,omitempty"`
-	State       AddressState  `bson:",omitempty"`
+	State       AddressState
 }
 
 // SubnetId returns the ID of the subnet the IP address is associated with. If

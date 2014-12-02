@@ -1269,7 +1269,7 @@ func (s *StateSuite) TestAddIPAddress(c *gc.C) {
 func (s *StateSuite) TestAddIPAddressInvalid(c *gc.C) {
 	addr := network.Address{Value: "foo"}
 	_, err := s.State.AddIPAddress(addr, "foobar")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*invalid IP address.*")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, `invalid IP address "foo"`)
 }
 
 func (s *StateSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
@@ -1316,7 +1316,7 @@ func (s *StateSuite) TestIPAddressSetState(c *gc.C) {
 
 	// setting back to unknown isn't permitted
 	err = ipAddr.SetState(state.AddressStateUnknown)
-	c.Assert(err, gc.ErrorMatches, "bambazbing")
+	c.Assert(err, gc.ErrorMatches, `cannot set IP address .* to state "".*`)
 }
 
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
