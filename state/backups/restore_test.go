@@ -179,26 +179,26 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	configParams := agent.AgentConfigParams{
-	DataDir    :       dataDir,
-	LogDir      :      logDir,
-	UpgradedToVersion : version.Current.Number,
-	Tag             : machineTag,
-	Password          :"dummyPassword",
-	Nonce             :"dummyNonce",
-	StateAddresses    :[]string{"fakeStateAddress:1234",},
-	APIAddresses      :[]string{"fakeAPIAddress:12345",},
-	CACert            :caCertPEM,
-}
+		DataDir:           dataDir,
+		LogDir:            logDir,
+		UpgradedToVersion: version.Current.Number,
+		Tag:               machineTag,
+		Password:          "dummyPassword",
+		Nonce:             "dummyNonce",
+		StateAddresses:    []string{"fakeStateAddress:1234"},
+		APIAddresses:      []string{"fakeAPIAddress:12345"},
+		CACert:            caCertPEM,
+	}
 	statePort := 12345
 	privateAddress := "dummyPrivateAddress"
 	servingInfo := params.StateServingInfo{
-	APIPort   : 1234,
-	StatePort :statePort,
-	Cert       :caCertPEM,
-	PrivateKey :"a key",
-	SharedSecret   :"a secret",
-	SystemIdentity :"an identity",
-}
+		APIPort:        1234,
+		StatePort:      statePort,
+		Cert:           caCertPEM,
+		PrivateKey:     "a key",
+		SharedSecret:   "a secret",
+		SystemIdentity: "an identity",
+	}
 
 	conf, err := agent.NewStateMachineConfig(configParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -208,7 +208,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 	c.Assert(dialInfo.Username, gc.Equals, "admin")
 	c.Assert(dialInfo.Password, gc.Equals, "dummyPassword")
 	c.Assert(dialInfo.Direct, gc.Equals, true)
-	c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress , statePort)})
+	c.Assert(dialInfo.Addrs, gc.DeepEquals, []string{fmt.Sprintf("%s:%d", privateAddress, statePort)})
 }
 
 // TestUpdateMongoEntries has all the testing for this function to avoid creating multiple
