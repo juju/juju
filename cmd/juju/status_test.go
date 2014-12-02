@@ -1435,31 +1435,44 @@ var statusTests = []testCase{
 			},
 		},
 
-		// TODO(katco-): BUG:1385456: Filtering services is currently broken.
-		// // once again, with a scope on mysql/1
-		// scopedExpect{
-		// 	"machines with nested containers",
-		// 	[]string{"mysql/1"},
-		// 	M{
-		// 		"environment": "dummyenv",
-		// 		"machines": M{
-		// 			"1": machine1WithContainersScoped,
-		// 		},
-		// 		"services": M{
-		// 			"mysql": M{
-		// 				"charm":   "cs:quantal/mysql-1",
-		// 				"exposed": true,
-		// 				"units": M{
-		// 					"mysql/1": M{
-		// 						"machine":        "1/lxc/0",
-		// 						"agent-state":    "started",
-		// 						"public-address": "dummyenv-2.dns",
-		// 					},
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// },
+		// once again, with a scope on mysql/1
+		scopedExpect{
+			"machines with nested containers",
+			[]string{"mysql/1"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": M{
+						"agent-state": "started",
+						"containers": M{
+							"1/lxc/0": M{
+								"agent-state": "started",
+								"dns-name":    "dummyenv-2.dns",
+								"instance-id": "dummyenv-2",
+								"series":      "quantal",
+							},
+						},
+						"dns-name":    "dummyenv-1.dns",
+						"instance-id": "dummyenv-1",
+						"series":      "quantal",
+						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+					},
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/1": M{
+								"machine":        "1/lxc/0",
+								"agent-state":    "started",
+								"public-address": "dummyenv-2.dns",
+							},
+						},
+					},
+				},
+			},
+		},
 	), test(
 		"service with out of date charm",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
