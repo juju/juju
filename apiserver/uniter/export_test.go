@@ -4,5 +4,5 @@
 package uniter
 
 var (
-	GetEnvironment = &getEnvironment
+	GetZone = &getZone
 )

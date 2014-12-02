@@ -422,12 +422,10 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 		AvailabilityZone(args params.Entities) (params.StringResults, error)
 	},
 ) {
-	s.PatchValue(uniter.GetEnvironment, func(st *state.State) (environs.Environ, error) {
-		return s.Environ, nil
+	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
+		return "a_zone", nil
 	})
 	instID, err := dummy.AddInstance(s.Environ, s.machine0)
-	c.Assert(err, jc.ErrorIsNil)
-	err = dummy.SetZone(s.Environ, *instID, "a-zone")
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

@@ -178,6 +178,23 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 
 // TODO(ericsnow) Factor out the common code amongst the many methods here.
 
+var getZone = func(st *state.State, tag names.Tag) (string, error) {
+	unit, err := st.Unit(tag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	mid, err := unit.AssignedMachineId()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	machine, err := u.st.Machine(mid)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	zone, err := machine.AvailabilityZone()
+	return zone, errors.Trace(err)
+}
+
 // AvailabilityZone returns the availability zone for each given unit, if applicable.
 func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
 	var results params.StringResults
@@ -192,12 +209,9 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 
-	// Collect the tags. No tag will be collected for any entity where
+	// Collect the zones. No zone will be collected for any entity where
 	// the tag is invalid or not authorized. Instead the corresponding
-	// result will be updated with the error. When we later merge the
-	// zones into the results we skip the entries that have errors. Thus
-	// the collected zones will be matched back up with the correct
-	// entity in the results.
+	// result will be updated with the error.
 	var tags []names.Tag
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
@@ -207,28 +221,14 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			tags = append(tags, tag)
-			err = nil
+			zone, err2 := getZone(u.st, tag)
+			if err2 != nil {
+				err = errors.Trace(err2)
+			} else {
+				results.Results[i].Result = zone
+			}
 		}
 		results.Results[i].Error = common.ServerError(err)
-	}
-
-	// Collect the zones for just the valid tags.
-	azResults, err := availabilityZones(u.st, tags...)
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-
-	// Update the results with the collected zone names. We skip past
-	// results that already have errors set so the collected zones get
-	// matched back up with the correct entity.
-	for i, result := range results.Results {
-		if result.Error != nil {
-			continue
-		}
-		results.Results[i].Result = azResults[0].zone
-		results.Results[i].Error = common.ServerError(azResults[0].err)
-		azResults = azResults[1:]
 	}
 
 	return results, nil

@@ -764,6 +764,19 @@ func (m *Machine) InstanceStatus() (string, error) {
 	return instData.Status, err
 }
 
+// AvailabilityZone returns the provier-specific instance availability
+// zone in which the machine was provisioned.
+func (m *Machine) AvailabilityZone() (string, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if errors.IsNotFound(err) {
+		err = NotProvisionedError(m.Id())
+	}
+	if err != nil {
+		return "", err
+	}
+	return instData.AvailZone, err
+}
+
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(status string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set instance status for machine %q", m)
