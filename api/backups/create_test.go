@@ -28,7 +28,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 			c.Check(p.Notes, gc.Equals, "important")
 
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.Meta)
+				s.Meta.UpdateResult(result)
 				result.Notes = p.Notes
 			} else {
 				c.Fatalf("wrong output structure")

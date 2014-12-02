@@ -4,9 +4,9 @@
 package peergrouper
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 
@@ -35,9 +35,16 @@ type InitiateMongoParams struct {
 	Password string
 }
 
-// MaybeInitiateMongoServer checks for an existing mongo configuration.
-// If no existing configuration is found one is created using Initiate.
+// MaybeInitiateMongoServer is a convenience function for initiating a mongo
+// replicaset only if it is not already initiated.
 func MaybeInitiateMongoServer(p InitiateMongoParams) error {
+	return InitiateMongoServer(p, false)
+}
+
+// InitiateMongoServer checks for an existing mongo configuration.s
+// If no existing configuration is found one is created using Initiate.
+// If force flag is true, the configuration will be started anyway.
+func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 	logger.Debugf("Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
 	defer logger.Infof("finished MaybeInitiateMongoServer")
 
@@ -57,8 +64,9 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 	// Initiate may fail while mongo is initialising, so we retry until
 	// we succssfully populate the replicaset config.
 	var err error
+	attemptNo := 0
 	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
-		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
+		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort, force)
 		if err == nil {
 			logger.Infof("replica set initiated")
 			return nil
@@ -66,28 +74,28 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 		if attempt.HasNext() {
 			logger.Debugf("replica set initiation failed, will retry: %v", err)
 		}
+		attemptNo += 1
 	}
-	return fmt.Errorf("cannot initiate replica set: %v", err)
+	return errors.Annotatef(err, "cannot initiate replica set")
 }
 
 // attemptInitiateMongoServer attempts to initiate the replica set.
-func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) error {
+func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
+		return errors.Annotatef(err, "cannot dial mongo to initiate replicaset")
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
-
-	var cfg *replicaset.Config
-	cfg, err = replicaset.CurrentConfig(session)
-	if err == nil && len(cfg.Members) > 0 {
+	cfg, err := replicaset.CurrentConfig(session)
+	if err != nil && err != mgo.ErrNotFound {
+		return errors.Errorf("cannot get replica set configuration: %v", err)
+	}
+	if !force && err == nil && len(cfg.Members) > 0 {
 		logger.Infof("replica set configuration already found: %#v", cfg)
 		return nil
 	}
-	if err != nil && err != mgo.ErrNotFound {
-		return fmt.Errorf("cannot get replica set configuration: %v", err)
-	}
+
 	return replicaset.Initiate(
 		session,
 		memberHostPort,

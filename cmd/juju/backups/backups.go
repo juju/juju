@@ -43,6 +43,7 @@ func NewCommand() cmd.Command {
 	backupsCmd.Register(envcmd.Wrap(&ListCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&DownloadCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
+	backupsCmd.Register(envcmd.Wrap(&RestoreCommand{}))
 	return &backupsCmd
 }
 
@@ -60,6 +61,10 @@ type APIClient interface {
 	Download(id string) (io.ReadCloser, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
+	// Restore will restore a backup with the given id into the state server
+	Restore(string, backups.ClientConnection) error
+	// Restore will restore a backup file into the state server
+	RestoreReader(io.Reader, backups.ClientConnection) error
 }
 
 // CommandBase is the base type for backups sub-commands.

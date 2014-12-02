@@ -21,7 +21,7 @@ func (a *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, e
 		return result, errors.Trace(err)
 	}
 
-	result.UpdateFromMetadata(meta)
+	meta.UpdateResult(&result)
 
 	return result, nil
 }

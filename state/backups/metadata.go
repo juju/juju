@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 
@@ -185,4 +186,28 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	}
 
 	return meta, nil
+}
+
+// UpdateResult updates the result with the information in the
+// metadata value.
+func (meta *Metadata) UpdateResult(result *params.BackupsMetadataResult) {
+	result.ID = meta.ID()
+
+	result.Checksum = meta.Checksum()
+	result.ChecksumFormat = meta.ChecksumFormat()
+	result.Size = meta.Size()
+	if meta.Stored() != nil {
+		result.Stored = *(meta.Stored())
+	}
+
+	result.Started = meta.Started
+	if meta.Finished != nil {
+		result.Finished = *meta.Finished
+	}
+	result.Notes = meta.Notes
+
+	result.Environment = meta.Origin.Environment
+	result.Machine = meta.Origin.Machine
+	result.Hostname = meta.Origin.Hostname
+	result.Version = meta.Origin.Version
 }

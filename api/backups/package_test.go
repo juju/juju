@@ -35,7 +35,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 func (s *baseSuite) metadataResult() *params.BackupsMetadataResult {
 	result := &params.BackupsMetadataResult{}
-	result.UpdateFromMetadata(s.Meta)
+	s.Meta.UpdateResult(result)
 	return result
 }
 
