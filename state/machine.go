@@ -781,6 +781,19 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 	return NotProvisionedError(m.Id())
 }
 
+// AvailabilityZone returns the provier-specific instance availability
+// zone in which the machine was provisioned.
+func (m *Machine) AvailabilityZone() (string, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if errors.IsNotFound(err) {
+		err = NotProvisionedError(m.Id())
+	}
+	if err != nil {
+		return "", err
+	}
+	return instData.AvailZone, err
+}
+
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)

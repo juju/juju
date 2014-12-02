@@ -803,6 +803,20 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 	c.Assert(*md, gc.DeepEquals, *expected)
 }
 
+func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", "a_zone", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, err := s.machine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zone, gc.Equals, "a_zone")
+	m, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	zone, err = m.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zone, gc.Equals, "a_zone")
+}
+
 func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	// Check before provisioning.
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
