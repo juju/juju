@@ -162,7 +162,7 @@ const lshwXMLTemplate = `
    <description>Motherboard</description>
     <node id="pci" claimed="true" class="bridge" handle="PCIBUS:0000:00">
      <description>Host bridge</description>{{$list := .}}{{range $mac, $ifi := $list}}
-      <node id="network{{if gt (len $list) 1}}:{{$ifi.DeviceIndex}}{{end}}" claimed="true" class="network" handle="PCI:0000:00:03.0">
+      <node id="network{{if gt (len $list) 1}}:{{$ifi.DeviceIndex}}{{end}}"{{if $ifi.Disabled}} disabled="true"{{end}} claimed="true" class="network" handle="PCI:0000:00:03.0">
        <description>Ethernet interface</description>
        <product>82540EM Gigabit Ethernet Controller</product>
        <logicalname>{{$ifi.InterfaceName}}</logicalname>
@@ -171,7 +171,6 @@ const lshwXMLTemplate = `
     </node>
   </node>
 </node>
-</list>
 </list>
 `
 
@@ -196,7 +195,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
 		version.Current.Arch),
 	)
-	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0"}})
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -222,7 +221,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
 		version.Current.Arch),
 	)
-	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0"}})
+	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0", false}})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	instance, hc := testing.AssertStartInstance(c, env, "1")
@@ -603,7 +602,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
 		version.Current.Arch),
 	)
-	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0"}})
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -754,7 +753,7 @@ const lshwXMLTestExtractInterfaces = `
     <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
      <description>CPU</description>
       <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
-        <node id="network:0" claimed="true" class="network" handle="PCI:0000:03:00.0">
+        <node id="network:0" disabled="true" claimed="true" class="network" handle="PCI:0000:03:00.0">
          <logicalname>wlan0</logicalname>
          <serial>aa:bb:cc:dd:ee:ff</serial>
         </node>
@@ -777,20 +776,20 @@ func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
 	inst := suite.getInstance("testInstance")
 	interfaces, primaryIface, err := extractInterfaces(inst, []byte(lshwXMLTestExtractInterfaces))
 	c.Assert(err, gc.IsNil)
-	c.Check(primaryIface, gc.Equals, "wlan0")
+	c.Check(primaryIface, gc.Equals, "eth0")
 	c.Check(interfaces, jc.DeepEquals, map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
 	})
 }
 
 func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
 	inst := suite.getInstance("testInstance")
 	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", true},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
@@ -798,16 +797,17 @@ func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
 	interfaces, primaryIface, err := inst.environ.getInstanceNetworkInterfaces(inst)
 	c.Assert(err, gc.IsNil)
-	c.Check(primaryIface, gc.Equals, "wlan0")
+	// Both wlan0 and eth0 are disabled in lshw output.
+	c.Check(primaryIface, gc.Equals, "vnet1")
 	c.Check(interfaces, jc.DeepEquals, templateInterfaces)
 }
 
 func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	test_instance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", true},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
@@ -826,7 +826,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(primaryIface, gc.Equals, "wlan0")
+	c.Check(primaryIface, gc.Equals, "vnet1")
 	c.Check(networkInfo, jc.SameContents, []network.Info{
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:ff",
@@ -836,7 +836,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			VLANTag:       0,
 			DeviceIndex:   0,
 			InterfaceName: "wlan0",
-			Disabled:      true,
+			Disabled:      true, // from networksToDisable("WLAN")
 		},
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
@@ -846,7 +846,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			VLANTag:       42,
 			DeviceIndex:   1,
 			InterfaceName: "eth0",
-			Disabled:      false,
+			Disabled:      true, // from the lshw interface info
 		},
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f2",
@@ -865,9 +865,9 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	test_instance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
@@ -884,7 +884,7 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(primaryIface, gc.Equals, "wlan0")
+	c.Check(primaryIface, gc.Equals, "eth0")
 	c.Check(networkInfo, jc.SameContents, []network.Info{
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
@@ -903,9 +903,9 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	test_instance := suite.getInstance("node1")
 	templateInterfaces := map[string]ifaceInfo{
-		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
-		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
-		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0", true},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0", false},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1", false},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
 	c.Assert(err, gc.IsNil)
@@ -920,7 +920,7 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
-	c.Check(primaryIface, gc.Equals, "wlan0")
+	c.Check(primaryIface, gc.Equals, "eth0")
 	c.Check(networkInfo, gc.HasLen, 0)
 }
 
@@ -1044,7 +1044,7 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 	data, err := json.Marshal(allAttrs)
 	c.Assert(err, gc.IsNil)
 	s.testMAASObject.TestServer.NewNode(string(data))
-	lshwXML, err := s.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0"}})
+	lshwXML, err := s.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
 	c.Assert(err, gc.IsNil)
 	s.testMAASObject.TestServer.AddNodeDetails(nodename, lshwXML)
 }
