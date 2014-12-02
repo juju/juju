@@ -188,7 +188,8 @@ def parse_args(args=None):
         help='extract candidates that match the local series and arch.')
     parser_extract.add_argument(
         'path', help='The path to the candiate data dir.')
-    # ./candidate publish ~/candidate
+    # ./candidate --juju-release-tools $JUJU_RELEASE_TOOLS \
+    #    publish ~/candidate ~/streams
     parser_publish = subparsers.add_parser(
         'publish', help='Publish streams for the candidates')
     parser_publish.add_argument(

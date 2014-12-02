@@ -1,9 +1,12 @@
 from mock import patch
+import os
 from unittest import TestCase
 
 from candidate import (
     find_publish_revision_number,
+    prepare_dir,
 )
+from utility import temp_dir
 
 
 class CandidateTestCase(TestCase):
@@ -46,3 +49,23 @@ class CandidateTestCase(TestCase):
             found_number = find_publish_revision_number(1, limit=5)
         self.assertEqual(None, found_number)
         self.assertEqual(1, mock.call_count)
+
+    def test_prepare_dir_clean_existing(self):
+        with temp_dir() as base_dir:
+            candidate_dir_path = os.path.join(base_dir, 'candidate', 'master')
+            os.makedirs(candidate_dir_path)
+            os.makedirs(os.path.join(candidate_dir_path, 'subdir'))
+            candidate_file_path = os.path.join(candidate_dir_path, 'vars.json')
+            with open(candidate_file_path, 'w') as cf:
+                cf.write('data')
+            prepare_dir(candidate_dir_path)
+            self.assertTrue(os.path.isdir(candidate_dir_path))
+            self.assertEqual([], os.listdir(candidate_dir_path))
+
+    def test_prepare_dir_create_new(self):
+        with temp_dir() as base_dir:
+            os.makedirs(os.path.join(base_dir, 'candidate'))
+            candidate_dir_path = os.path.join(base_dir, 'candidate', 'master')
+            prepare_dir(candidate_dir_path)
+            self.assertTrue(os.path.isdir(candidate_dir_path))
+            self.assertEqual([], os.listdir(candidate_dir_path))
