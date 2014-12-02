@@ -228,7 +228,7 @@ var findInstanceSpecTests = []struct {
 	{
 		series: "precise",
 		cons:   "mem=7G cpu-cores=2",
-		itype:  "Large",
+		itype:  "D2",
 	}, {
 		series: "precise",
 		cons:   "instance-type=ExtraLarge",
