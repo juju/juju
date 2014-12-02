@@ -1319,6 +1319,34 @@ func (s *StateSuite) TestIPAddressSetState(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set IP address .* to state "".*`)
 }
 
+func (s *StateSuite) TestIPAddressSetMachineId(c *gc.C) {
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.MachineId(), gc.Equals, "")
+
+	err = ipAddr.SetMachineId("wibble")
+	c.Assert(err, jc.ErrorIsNil)
+
+	freshCopy, err := s.State.IPAddress("192.168.1.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshCopy.MachineId(), gc.Equals, "wibble")
+}
+
+func (s *StateSuite) TestIPAddressSetInterfaceId(c *gc.C) {
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
+
+	err = ipAddr.SetInterfaceId("wobble")
+	c.Assert(err, jc.ErrorIsNil)
+
+	freshCopy, err := s.State.IPAddress("192.168.1.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshCopy.InterfaceId(), gc.Equals, "wobble")
+}
+
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        "foo",

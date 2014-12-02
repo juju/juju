@@ -79,6 +79,7 @@ func (i *IPAddress) State() AddressState {
 // Remove removes a no-longer need IP address.
 func (i *IPAddress) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove IP address %v", i)
+
 	ops := []txn.Op{{
 		C:      ipaddressesC,
 		Id:     i.doc.DocID,
@@ -99,6 +100,30 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 		Id:     i.doc.DocID,
 		Assert: unknownOrSame,
 		Update: bson.D{{"$set", bson.D{{"state", string(newState)}}}},
+	}}
+	return i.st.runTransaction(ops)
+}
+
+// SetMachineId sets the ID of the machine the address is associated with
+func (i *IPAddress) SetMachineId(machineId string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to machine ID %q", i, machineId)
+
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     i.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"machineid", machineId}}}},
+	}}
+	return i.st.runTransaction(ops)
+}
+
+// SetInterfaceId sets the ID of the network interface the address is associated with
+func (i *IPAddress) SetInterfaceId(interfaceId string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to interface ID %q", i, interfaceId)
+
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     i.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"interfaceid", interfaceId}}}},
 	}}
 	return i.st.runTransaction(ops)
 }
