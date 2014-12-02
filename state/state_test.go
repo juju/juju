@@ -1453,6 +1453,27 @@ func (s *StateSuite) TestSubnetEnsureDeadRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestSubnetRemoveKillsAddresses(c *gc.C) {
+	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddIPAddress(network.NewAddress("192.168.1.0", ""), subnet.ID())
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddIPAddress(network.NewAddress("192.168.1.1", ""), subnet.ID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = subnet.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = subnet.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.IPAddress("192.168.1.0")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	_, err = s.State.IPAddress("192.168.1.1")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
 func (s *StateSuite) TestRefresh(c *gc.C) {
 	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
 
