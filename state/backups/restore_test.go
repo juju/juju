@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -242,4 +243,21 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	n, err = query.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
+}
+
+func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
+	var (
+		passedAddress string
+		passedArgs    []string
+	)
+	fakeSSHCommand := func(address string, args []string, options *ssh.Options) *ssh.Cmd {
+		passedAddress = address
+		passedArgs = args
+		return ssh.Command("", []string{"ls"}, &ssh.Options{})
+	}
+
+	r.PatchValue(&sshCommand, fakeSSHCommand)
+	runViaSSH("invalidAddress", "invalidScript")
+	c.Assert(passedAddress, gc.Equals, "ubuntu@invalidAddress")
+	c.Assert(passedArgs, gc.DeepEquals, []string{"sudo", "-n", "bash", "-c 'invalidScript'"})
 }

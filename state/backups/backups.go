@@ -314,8 +314,11 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	// agent, we should nevertheless return the err info to the user.
 	// for this updateAllMachines will not return errors for individual
 	// agent update failures
-	err = updateAllMachines(privateAddress, st)
+	machines, err := st.AllMachines()
 	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = updateAllMachines(privateAddress, machines); err != nil {
 		return errors.Annotate(err, "cannot update agents")
 	}
 

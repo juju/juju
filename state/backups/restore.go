@@ -114,11 +114,7 @@ func newStateConnection(agentConf agent.Config) (*state.State, error) {
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(privateAddress string, st *state.State) error {
-	machines, err := st.AllMachines()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 	pendingMachineCount := 0
 	done := make(chan error)
 	for key := range machines {
@@ -136,8 +132,8 @@ func updateAllMachines(privateAddress string, st *state.State) error {
 		}()
 	}
 	for ; pendingMachineCount > 0; pendingMachineCount-- {
-		if updateErr := <-done; updateErr != nil && err == nil {
-			logger.Errorf("failed updating machine: %v", err)
+		if updateErr := <-done; updateErr != nil {
+			logger.Errorf("failed updating machine: %v", updateErr)
 		}
 	}
 	// We should return errors encapsulated in a digest.
@@ -177,20 +173,16 @@ do
 done
 `))
 
-func execTemplate(tmpl *template.Template, data interface{}) string {
+// setAgentAddressScript generates an ssh script argument to update state addresses.
+func setAgentAddressScript(stateAddr string) string {
 	var buf bytes.Buffer
-	err := tmpl.Execute(&buf, data)
+	err := agentAddressTemplate.Execute(&buf, struct {
+		Address string
+	}{stateAddr})
 	if err != nil {
 		panic(errors.Annotate(err, "template error"))
 	}
 	return buf.String()
-}
-
-// setAgentAddressScript generates an ssh script argument to update state addresses.
-func setAgentAddressScript(stateAddr string) string {
-	return execTemplate(agentAddressTemplate, struct {
-		Address string
-	}{stateAddr})
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script.
@@ -202,17 +194,19 @@ func runMachineUpdate(allAddr []network.Address, sshArg string) error {
 	return runViaSSH(addr, sshArg)
 }
 
+// sshCommand hods ssh.Command type for testing purposes
+var sshCommand = ssh.Command
+
 // runViaSSH runs script in the remote machine with address addr.
 func runViaSSH(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
 	sshOptions := ssh.Options{}
 	sshOptions.SetIdentities("/var/lib/juju/system-identity")
-	userCmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, &sshOptions)
+	userCmd := sshCommand(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, &sshOptions)
 	var stderrBuf bytes.Buffer
 	userCmd.Stderr = &stderrBuf
-	err := userCmd.Run()
-	if err != nil {
+	if err := userCmd.Run(); err != nil {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())
 	}
 	return nil
