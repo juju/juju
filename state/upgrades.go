@@ -541,11 +541,9 @@ func MigrateMachineInstanceIdToInstanceData(st *State) error {
 	return st.runTransaction(ops)
 }
 
-type instanceAZFunc func(*State, instance.Id) (string, error)
-
 // AddAvailabilityZoneToInstanceData sets the AvailZone field on
 // instanceData docs that don't have it already.
-func AddAvailabilityZoneToInstanceData(st *State, azFunc instanceAZFunc) error {
+func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.Id) (string, error)) error {
 	err := st.ResumeTransactions()
 	if err != nil {
 		return errors.Trace(err)

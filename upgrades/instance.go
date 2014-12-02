@@ -10,10 +10,9 @@ import (
 	"github.com/juju/juju/state/utils"
 )
 
+var addAZToInstData = state.AddAvailabilityZoneToInstanceData
+
 func addAvaililityZoneToInstanceData(context Context) error {
-	err := state.AddAvailabilityZoneToInstanceData(
-		context.State(),
-		utils.AvailabilityZone,
-	)
+	err := addAZToInstData(context.State(), utils.AvailabilityZone)
 	return errors.Trace(err)
 }
