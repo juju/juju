@@ -398,7 +398,11 @@ generate_streams() {
     fi
 
     set -x
-    minor_version=$(echo "1.20.11" | sed -r 's,1.([^.]+).*,\1,')
+    if [[ $RELEASE == "IGNORE" ]]; then
+        minor_version=$(juju version | sed -r 's,1.([^.-]+).*,\1,')
+    else
+        minor_version=$(echo "$RELEASE" | sed -r 's,1.([^.-]+).*,\1,')
+    fi
     if [[ $((minor_version)) > 20 ]]; then
         CLEAN="--clean"
     else
@@ -424,7 +428,9 @@ generate_streams() {
         $SCRIPT_DIR/validate_streams.py \
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
-    $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
+    if [[ $((minor_version)) == 21 ]]; then
+        $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
+    fi
     set +x
     echo "The tools are in ${DEST_DIST}."
 
@@ -492,7 +498,9 @@ generate_streams() {
             fi
         done
     fi
-    $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
+    if [[ $((minor_version)) == 21 ]]; then
+        $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
+    fi
     set +x
     echo "The agents are in $JUJU_DIST."
 }
