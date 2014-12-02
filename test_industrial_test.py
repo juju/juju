@@ -19,13 +19,16 @@ import yaml
 from industrial_test import (
     BackupRestoreAttempt,
     BootstrapAttempt,
+    DENSITY,
     DeployManyAttempt,
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
+    FULL,
     IndustrialTest,
     maybe_write_json,
     MultiIndustrialTest,
     parse_args,
+    QUICK,
     StageAttempt,
     SteppedStageAttempt,
     )
@@ -86,33 +89,44 @@ class TestParseArgs(TestCase):
             args = parse_args(['env'])
         self.assertRegexpMatches(
             stderr.getvalue(), '.*error: too few arguments.*')
-        args = parse_args(['rai', 'new-juju'])
+        with parse_error(self) as stderr:
+            args = parse_args(['rai', 'new-juju'])
+        self.assertRegexpMatches(
+            stderr.getvalue(), '.*error: too few arguments.*')
+        args = parse_args(['rai', 'new-juju', QUICK])
         self.assertEqual(args.env, 'rai')
         self.assertEqual(args.new_juju_path, 'new-juju')
+        self.assertEqual(args.suite, QUICK)
 
     def test_parse_args_attempts(self):
-        args = parse_args(['rai', 'new-juju'])
+        args = parse_args(['rai', 'new-juju', QUICK])
         self.assertEqual(args.attempts, 2)
-        args = parse_args(['rai', 'new-juju', '--attempts', '3'])
+        args = parse_args(['rai', 'new-juju', '--attempts', '3', QUICK])
         self.assertEqual(args.attempts, 3)
 
     def test_parse_args_json_file(self):
-        args = parse_args(['rai', 'new-juju'])
+        args = parse_args(['rai', 'new-juju', QUICK])
         self.assertIs(args.json_file, None)
-        args = parse_args(['rai', 'new-juju', '--json-file', 'foobar'])
+        args = parse_args(['rai', 'new-juju', '--json-file', 'foobar', QUICK])
         self.assertEqual(args.json_file, 'foobar')
 
-    def test_parse_args_quick(self):
-        args = parse_args(['rai', 'new-juju'])
-        self.assertEqual(args.quick, False)
-        args = parse_args(['rai', 'new-juju', '--quick'])
-        self.assertEqual(args.quick, True)
+    def test_parse_args_suite(self):
+        args = parse_args(['rai', 'new-juju', 'full'])
+        self.assertEqual(args.suite, FULL)
+        args = parse_args(['rai', 'new-juju', QUICK])
+        self.assertEqual(args.suite, QUICK)
+        args = parse_args(['rai', 'new-juju', DENSITY])
+        self.assertEqual(args.suite, DENSITY)
+        with parse_error(self) as stderr:
+            args = parse_args(['rai', 'new-juju', 'foo'])
+        self.assertRegexpMatches(
+            stderr.getvalue(), ".*argument suite: invalid choice: 'foo'.*")
 
     def test_parse_args_agent_url(self):
-        args = parse_args(['rai', 'new-juju'])
+        args = parse_args(['rai', 'new-juju', QUICK])
         self.assertEqual(args.new_agent_url, None)
         args = parse_args(['rai', 'new-juju', '--new-agent-url',
-                           'http://example.org'])
+                           'http://example.org', QUICK])
         self.assertEqual(args.new_agent_url, 'http://example.org')
 
 
@@ -158,17 +172,16 @@ class TestMultiIndustrialTest(TestCase):
 
     def test_from_args(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         quick=True, new_agent_url=None)
+                         suite=QUICK, new_agent_url=None)
         mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'foo')
         self.assertEqual(mit.new_juju_path, 'new-path')
         self.assertEqual(mit.attempt_count, 7)
         self.assertEqual(mit.max_attempts, 14)
         self.assertEqual(
-            mit.stages, [BootstrapAttempt, DeployManyAttempt,
-                         DestroyEnvironmentAttempt])
+            mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
         args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
-                         quick=False, new_agent_url=None)
+                         suite=FULL, new_agent_url=None)
         mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'bar')
         self.assertEqual(mit.new_juju_path, 'new-path2')
@@ -179,9 +192,17 @@ class TestMultiIndustrialTest(TestCase):
                 BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
                 EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
 
+    def test_density_suite(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         suite=DENSITY, new_agent_url=None)
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(
+            mit.stages, [BootstrapAttempt, DeployManyAttempt,
+                         DestroyEnvironmentAttempt])
+
     def test_from_args_new_agent_url(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         quick=True, new_agent_url='http://example.net')
+                         suite=QUICK, new_agent_url='http://example.net')
         mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
 
