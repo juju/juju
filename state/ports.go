@@ -373,8 +373,7 @@ func (m *Machine) AllPorts() ([]*Ports, error) {
 	defer closer()
 
 	docs := []portsDoc{}
-	query := bson.M{"env-uuid": m.st.EnvironUUID(), "machine-id": m.Id()}
-	err := openedPorts.Find(query).All(&docs)
+	err := openedPorts.Find(bson.D{{"machine-id", m.Id()}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -507,7 +506,7 @@ func getPorts(st *State, machineId, networkName string) (*Ports, error) {
 
 	var doc portsDoc
 	key := portsGlobalKey(machineId, networkName)
-	err := openedPorts.FindId(st.docID(key)).One(&doc)
+	err := openedPorts.FindId(key).One(&doc)
 	if err != nil {
 		doc.MachineID = machineId
 		doc.NetworkName = networkName

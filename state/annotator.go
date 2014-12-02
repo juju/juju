@@ -64,7 +64,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		annotations, closer := a.st.getCollection(annotationsC)
 		defer closer()
-		if count, err := annotations.FindId(a.st.docID(a.globalKey)).Count(); err != nil {
+		if count, err := annotations.FindId(a.globalKey).Count(); err != nil {
 			return nil, err
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
@@ -124,7 +124,7 @@ func (a *annotator) Annotations() (map[string]string, error) {
 	doc := new(annotatorDoc)
 	annotations, closer := a.st.getCollection(annotationsC)
 	defer closer()
-	err := annotations.FindId(a.st.docID(a.globalKey)).One(doc)
+	err := annotations.FindId(a.globalKey).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
 		return make(map[string]string), nil

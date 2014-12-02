@@ -1427,7 +1427,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 	s.PatchValue(
 		&GetPorts,
 		func(st *State, machineId, networkName string) (*Ports, error) {
-			openedPorts, closer := st.getCollection(openedPortsC)
+			openedPorts, closer := st.getRawCollection(openedPortsC)
 			defer closer()
 
 			var doc portsDoc

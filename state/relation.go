@@ -201,7 +201,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 
 			svc := &Service{st: r.st}
 			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-			removable := append(bson.D{{"_id", r.st.docID(ep.ServiceName)}}, hasLastRef...)
+			removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
 			if err := services.Find(removable).One(&svc.doc); err == nil {
 				ops = append(ops, svc.removeOps(hasLastRef)...)
 				continue

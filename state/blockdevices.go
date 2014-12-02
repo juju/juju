@@ -44,7 +44,7 @@ func getBlockDevicesDoc(st *State, machineId string) (*blockDevicesDoc, error) {
 	defer cleanup()
 
 	var doc blockDevicesDoc
-	if err := coll.FindId(st.docID(machineId)).One(&doc); err != nil {
+	if err := coll.FindId(machineId).One(&doc); err != nil {
 		return nil, err
 	}
 	return &doc, nil
@@ -84,7 +84,7 @@ func getBlockDevices(st *State, machineId string) ([]storage.BlockDevice, error)
 	defer cleanup()
 
 	var doc blockDevicesDoc
-	err := coll.FindId(st.docID(machineId)).One(&doc)
+	err := coll.FindId(machineId).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, errors.Annotate(err, "cannot get block devices")
 	}
