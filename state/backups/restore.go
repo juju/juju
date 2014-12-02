@@ -219,27 +219,6 @@ func runViaSSH(addr string, script string) error {
 	return nil
 }
 
-// backupVersion will use information from the backup file and metadata (if available)
-// to determine which backup version this file belongs to.
-// Once Metadata is given a version option we can version backups
-// we could use juju version to signal this, but currently:
-// Version 0: juju backup plugin (a bash script)
-// Version 1: juju backups create (first implementation) for the
-// moment this version is determined by checking for metadata but not
-// its contents.
-func backupVersion(backupMetadata *Metadata, backupFilesPath string) (int, error) {
-	backupMetadataFile := true
-	if _, err := os.Stat(filepath.Join(backupFilesPath, "metadata.json")); os.IsNotExist(err) {
-		backupMetadataFile = false
-	} else if err != nil {
-		return 0, errors.Annotate(err, "cannot read metadata file")
-	}
-	if backupMetadata == nil && !backupMetadataFile {
-		return 0, nil
-	}
-	return 1, nil
-}
-
 // backupFile is due to be obsoleted when upload supports adding
 // files to the backups db and Backups.Get becoms the only way
 // to obtain a backup file handler.
