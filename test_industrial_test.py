@@ -17,6 +17,7 @@ from mock import (
 import yaml
 
 from industrial_test import (
+    BACKUP,
     BackupRestoreAttempt,
     BootstrapAttempt,
     DENSITY,
@@ -117,6 +118,8 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.suite, QUICK)
         args = parse_args(['rai', 'new-juju', DENSITY])
         self.assertEqual(args.suite, DENSITY)
+        args = parse_args(['rai', 'new-juju', BACKUP])
+        self.assertEqual(args.suite, BACKUP)
         with parse_error(self) as stderr:
             args = parse_args(['rai', 'new-juju', 'foo'])
         self.assertRegexpMatches(
@@ -198,6 +201,14 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DeployManyAttempt,
+                         DestroyEnvironmentAttempt])
+
+    def test_backup_suite(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         suite=BACKUP, new_agent_url=None)
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(
+            mit.stages, [BootstrapAttempt, BackupRestoreAttempt,
                          DestroyEnvironmentAttempt])
 
     def test_from_args_new_agent_url(self):

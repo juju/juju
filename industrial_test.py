@@ -33,6 +33,7 @@ from utility import (
 QUICK = 'quick'
 DENSITY = 'density'
 FULL = 'full'
+BACKUP = 'backup'
 
 
 class MultiIndustrialTest:
@@ -488,7 +489,9 @@ suites = {
               DestroyEnvironmentAttempt),
     FULL: (BootstrapAttempt, DeployManyAttempt,
            BackupRestoreAttempt, EnsureAvailabilityAttempt,
-           DestroyEnvironmentAttempt)
+           DestroyEnvironmentAttempt),
+    BACKUP: (BootstrapAttempt, BackupRestoreAttempt,
+             DestroyEnvironmentAttempt),
     }
 
 
