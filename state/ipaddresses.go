@@ -91,7 +91,9 @@ func (i *IPAddress) Remove() (err error) {
 // to Allocated or Unavailable. Any other transition will fail.
 func (i *IPAddress) SetState(newState AddressState) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to state %q", i, newState)
-	unknownOrSame := bson.D{{"state", bson.D{{"$in", []string{string(AddressStateUnknown), string(newState)}}}}}
+
+	validStates := []AddressState{AddressStateUnknown, newState}
+	unknownOrSame := bson.D{{"state", bson.D{{"$in", validStates}}}}
 	ops := []txn.Op{{
 		C:      ipaddressesC,
 		Id:     i.doc.DocID,

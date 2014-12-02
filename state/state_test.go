@@ -1297,6 +1297,28 @@ func (s *StateSuite) TestIPAddressRemove(c *gc.C) {
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
+func (s *StateSuite) TestIPAddressSetState(c *gc.C) {
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.State(), gc.Equals, state.AddressStateUnknown)
+
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	c.Assert(err, jc.ErrorIsNil)
+
+	freshCopy, err := s.State.IPAddress("192.168.1.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(freshCopy.State(), gc.Equals, state.AddressStateAllocated)
+
+	// setting the state to the same state is permitted
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// setting back to unknown isn't permitted
+	err = ipAddr.SetState(state.AddressStateUnknown)
+	c.Assert(err, gc.ErrorMatches, "bambazbing")
+}
+
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
 		ProviderId:        "foo",
