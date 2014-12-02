@@ -187,7 +187,7 @@ var getZone = func(st *state.State, tag names.Tag) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	machine, err := u.st.Machine(mid)
+	machine, err := st.Machine(mid)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -212,7 +212,6 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 	// Collect the zones. No zone will be collected for any entity where
 	// the tag is invalid or not authorized. Instead the corresponding
 	// result will be updated with the error.
-	var tags []names.Tag
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -226,6 +225,7 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 				err = errors.Trace(err2)
 			} else {
 				results.Results[i].Result = zone
+				err = nil
 			}
 		}
 		results.Results[i].Error = common.ServerError(err)

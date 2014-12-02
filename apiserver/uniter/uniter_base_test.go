@@ -17,10 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -425,8 +423,6 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
 		return "a_zone", nil
 	})
-	instID, err := dummy.AddInstance(s.Environ, s.machine0)
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
@@ -436,7 +432,7 @@ func (s *uniterBaseSuite) testAvailabilityZone(
 
 	c.Check(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
-			{Result: "a-zone"},
+			{Result: "a_zone"},
 		},
 	})
 }
