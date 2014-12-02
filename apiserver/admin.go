@@ -164,11 +164,11 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		return fail, err
 	}
 
-	var maybeUserInfo *params.UserInfo
+	var maybeUserInfo *params.AuthUserInfo
 	// Send back user info if user
 	if isUser {
 		lastConnection := getAndUpdateLastLoginForEntity(entity)
-		maybeUserInfo = &params.UserInfo{
+		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
 			LastConnection: lastConnection,
 		}

@@ -118,7 +118,7 @@ func New(changelog *mgo.Collection) *Watcher {
 		// exact values, so we need to log and unwrap
 		// the error first.
 		if err != nil && cause != tomb.ErrDying {
-			errors.LoggedErrorf(logger, "watcher loop failed: %v", err)
+			logger.Infof("watcher loop failed: %v", err)
 		}
 		w.tomb.Kill(cause)
 		w.tomb.Done()

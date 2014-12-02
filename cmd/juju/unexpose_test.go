@@ -4,12 +4,13 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,24 +27,24 @@ func runUnexpose(c *gc.C, args ...string) error {
 
 func (s *UnexposeSuite) assertExposed(c *gc.C, service string, expected bool) {
 	svc, err := s.State.Service(service)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual := svc.IsExposed()
 	c.Assert(actual, gc.Equals, expected)
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	err = runExpose(c, "some-service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertExposed(c, "some-service-name", true)
 
 	err = runUnexpose(c, "some-service-name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertExposed(c, "some-service-name", false)
 
 	err = runUnexpose(c, "nonexistent-service")

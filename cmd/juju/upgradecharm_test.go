@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -25,7 +27,7 @@ type UpgradeCharmErrorsSuite struct {
 
 func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	mockstore := charmtesting.NewMockStore(c, map[string]int{})
+	mockstore := charmtesting.NewMockStore(c, testcharms.Repo, map[string]int{})
 	s.AddCleanup(func(*gc.C) { mockstore.Close() })
 	s.PatchValue(&charm.Store, &charm.CharmStore{
 		BaseURL: mockstore.Address(),
@@ -49,9 +51,9 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *gc.C) {
-	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "riak")
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = runUpgradeCharm(c, "riak", "--repository=blah")
 	c.Assert(err, gc.ErrorMatches, `no repository found at ".*blah"`)
@@ -68,9 +70,9 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
-	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "riak")
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
@@ -104,22 +106,22 @@ var _ = gc.Suite(&UpgradeCharmSuccessSuite{})
 
 func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.path = charmtesting.Charms.ClonedDirPath(s.SeriesPath, "riak")
+	s.path = testcharms.Repo.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.riak, err = s.State.Service("riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ch, forced, err := s.riak.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(forced, gc.Equals, false)
+	c.Assert(forced, jc.IsFalse)
 }
 
 func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *gc.C, revision int, forced bool) *charm.URL {
 	err := s.riak.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := s.riak.Charm()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, revision)
 	c.Assert(force, gc.Equals, forced)
 	s.AssertCharmUploaded(c, ch.URL())
@@ -128,13 +130,13 @@ func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *gc.C, revision int, forced 
 
 func (s *UpgradeCharmSuccessSuite) assertLocalRevision(c *gc.C, revision int, path string) {
 	dir, err := charm.ReadCharmDir(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Revision(), gc.Equals, revision)
 }
 
 func (s *UpgradeCharmSuccessSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	err := runUpgradeCharm(c, "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, false)
 	// Even though the remote revision is bumped, the local one should
 	// be unchanged.
@@ -143,36 +145,36 @@ func (s *UpgradeCharmSuccessSuite) TestLocalRevisionUnchanged(c *gc.C) {
 
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	dir, err := charm.ReadCharmDir(s.path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(42)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = runUpgradeCharm(c, "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 42, false)
 	s.assertLocalRevision(c, 42, s.path)
 }
 
 func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *gc.C) {
 	dir, err := charm.ReadCharmDir(s.path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	dir.SetRevision(42)
 	buf := &bytes.Buffer{}
 	err = dir.ArchiveTo(buf)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bundlePath := path.Join(s.SeriesPath, "riak.charm")
 	err = ioutil.WriteFile(bundlePath, buf.Bytes(), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = runUpgradeCharm(c, "riak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 42, false)
 	s.assertLocalRevision(c, 7, s.path)
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
 	err := runUpgradeCharm(c, "riak", "--force")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, true)
 	// Local revision is not changed.
 	s.assertLocalRevision(c, 7, s.path)
@@ -193,13 +195,13 @@ peers:
 `)
 
 func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
-	myriakPath := charmtesting.Charms.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
+	myriakPath := testcharms.Repo.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
 	err := ioutil.WriteFile(path.Join(myriakPath, "metadata.yaml"), myriakMeta, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Test with local repo and no explicit revsion.
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, 7, false)
 	c.Assert(curl.String(), gc.Equals, "local:trusty/myriak-7")
 	s.assertLocalRevision(c, 7, myriakPath)
@@ -210,9 +212,9 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-42")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl = s.assertUpgraded(c, 42, false)
 	c.Assert(curl.String(), gc.Equals, "local:trusty/myriak-42")
 	s.assertLocalRevision(c, 42, myriakPath)

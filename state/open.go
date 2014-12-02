@@ -82,40 +82,34 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	}
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
-	if err := checkEnvironConfig(cfg); err != nil {
+	ops, err := st.envSetupOps(cfg, "", owner)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
-	}
-	st.environTag = names.NewEnvironTag(uuid)
-	newEnvUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
-	ops := []txn.Op{
-		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
-		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+	ops = append(ops,
 		createInitialUserOp(st, owner, info.Password),
-		createEnvironmentOp(st, owner, cfg.Name(), uuid, uuid),
-		newEnvUserOp,
-		{
+		txn.Op{
 			C:      stateServersC,
 			Id:     environGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &stateServersDoc{
-				EnvUUID: uuid,
+				EnvUUID: st.EnvironUUID(),
 			},
-		}, {
+		},
+		txn.Op{
 			C:      stateServersC,
 			Id:     apiHostPortsKey,
 			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
-		}, {
+		},
+		txn.Op{
 			C:      stateServersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
 			Insert: &StateServingInfo{},
 		},
-	}
+	)
+
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
@@ -125,26 +119,54 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	return st, nil
 }
 
+func (st *State) envSetupOps(cfg *config.Config, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+	if err := checkEnvironConfig(cfg); err != nil {
+		return nil, errors.Trace(err)
+	}
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
+	}
+	st.environTag = names.NewEnvironTag(uuid)
+
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
+	if serverUUID == "" {
+		serverUUID = uuid
+	}
+	envUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
+	ops := []txn.Op{
+		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
+		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		createEnvironmentOp(st, owner, cfg.Name(), uuid, serverUUID),
+		envUserOp,
+	}
+	return ops, nil
+}
+
 var indexes = []struct {
 	collection string
 	key        []string
 	unique     bool
+	sparse     bool
 }{
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{relationsC, []string{"endpoints.relationname"}, false},
-	{relationsC, []string{"endpoints.servicename"}, false},
-	{unitsC, []string{"service"}, false},
-	{unitsC, []string{"principal"}, false},
-	{unitsC, []string{"machineid"}, false},
+	{relationsC, []string{"endpoints.relationname"}, false, false},
+	{relationsC, []string{"endpoints.servicename"}, false, false},
+	{unitsC, []string{"service"}, false, false},
+	{unitsC, []string{"principal"}, false, false},
+	{unitsC, []string{"machineid"}, false, false},
 	// TODO(thumper): schema change to remove this index.
-	{usersC, []string{"name"}, false},
-	{networksC, []string{"providerid"}, true},
-	{networkInterfacesC, []string{"interfacename", "machineid"}, true},
-	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
-	{networkInterfacesC, []string{"networkname"}, false},
-	{networkInterfacesC, []string{"machineid"}, false},
+	{usersC, []string{"name"}, false, false},
+	{networksC, []string{"providerid"}, true, false},
+	{networkInterfacesC, []string{"interfacename", "machineid"}, true, false},
+	{networkInterfacesC, []string{"macaddress", "networkname"}, true, false},
+	{networkInterfacesC, []string{"networkname"}, false, false},
+	{networkInterfacesC, []string{"machineid"}, false, false},
+	{blockDevicesC, []string{"machineid"}, false, false},
+	{subnetsC, []string{"providerid"}, true, true},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -234,7 +256,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}()
 
 	for _, item := range indexes {
-		index := mgo.Index{Key: item.key, Unique: item.unique}
+		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
 			return nil, errors.Annotate(err, "cannot create database index")
 		}
@@ -254,7 +276,7 @@ func (st *State) CACert() string {
 }
 
 func (st *State) Close() (err error) {
-	defer errors.Contextf(&err, "closing state failed")
+	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()

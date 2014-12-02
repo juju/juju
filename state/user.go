@@ -10,6 +10,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -112,6 +113,32 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		return nil, errors.Trace(err)
 	}
 	return user, nil
+}
+
+// User returns the state User for the given name,
+func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
+	var result []*User
+
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	var query bson.D
+	if !includeDeactivated {
+		query = append(query, bson.DocElem{"deactivated", false})
+	}
+	iter := users.Find(query).Iter()
+	defer iter.Close()
+
+	var doc userDoc
+	for iter.Next(&doc) {
+		result = append(result, &User{st: st, doc: doc})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Always return a predictable order, sort by Name.
+	sort.Sort(userList(result))
+	return result, nil
 }
 
 // User represents a local user in the database.
@@ -235,7 +262,7 @@ func (u *User) PasswordValid(password string) bool {
 	// from the database, there is a very small timeframe where an user
 	// could be disabled after it has been read but prior to being checked,
 	// but in practice, this isn't a problem.
-	if u.IsDeactivated() {
+	if u.IsDisabled() {
 		return false
 	}
 	if u.doc.PasswordSalt != "" {
@@ -268,21 +295,21 @@ func (u *User) Refresh() error {
 	return nil
 }
 
-// Deactivate deactivates the user.  Deactivated identities cannot log in.
-func (u *User) Deactivate() error {
-	initialEnv, err := u.st.InitialEnvironment()
+// Disable deactivates the user.  Disabled identities cannot log in.
+func (u *User) Disable() error {
+	environment, err := u.st.StateServerEnvironment()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if u.doc.Name == initialEnv.Owner().Name() {
-		return errors.Unauthorizedf("cannot deactivate initial environment owner")
+	if u.doc.Name == environment.Owner().Name() {
+		return errors.Unauthorizedf("cannot disable state server environment owner")
 	}
-	return errors.Annotatef(u.setDeactivated(true), "cannot deactivate user %q", u.Name())
+	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
 }
 
-// Activate reactivates the user, setting disabled to false.
-func (u *User) Activate() error {
-	return errors.Annotatef(u.setDeactivated(false), "cannot activate user %q", u.Name())
+// Enable reactivates the user, setting disabled to false.
+func (u *User) Enable() error {
+	return errors.Annotatef(u.setDeactivated(false), "cannot enable user %q", u.Name())
 }
 
 func (u *User) setDeactivated(value bool) error {
@@ -302,9 +329,16 @@ func (u *User) setDeactivated(value bool) error {
 	return nil
 }
 
-// IsDeactivated returns whether the user is currently deactiviated.
-func (u *User) IsDeactivated() bool {
+// IsDisabled returns whether the user is currently enabled.
+func (u *User) IsDisabled() bool {
 	// Yes, this is a cached value, but in practice the user object is
 	// never held around for a long time.
 	return u.doc.Deactivated
 }
+
+// userList type is used to provide the methods for sorting.
+type userList []*User
+
+func (u userList) Len() int           { return len(u) }
+func (u userList) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
+func (u userList) Less(i, j int) bool { return u[i].Name() < u[j].Name() }

@@ -24,7 +24,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -91,11 +92,11 @@ openstack:
     #
     # network: <your network label or uuid>
 
-    # tools-metadata-url specifies the location of the Juju tools and
+    # agent-metadata-url specifies the location of the Juju tools and
     # metadata. It defaults to the global public tools metadata
     # location https://streams.canonical.com/tools.
     #
-    # tools-metadata-url:  https://your-tools-metadata-url
+    # agent-metadata-url:  https://your-agent-metadata-url
 
     # image-metadata-url specifies the location of Ubuntu cloud image
     # metadata. It defaults to the global public image metadata
@@ -109,11 +110,11 @@ openstack:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # auth-url defaults to the value of the environment variable
     # OS_AUTH_URL, but can be specified here.
@@ -193,11 +194,11 @@ hpcloud:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # auth-url holds the keystone url for authentication. It defaults
     # to the value of the environment variable OS_AUTH_URL.
@@ -447,10 +448,10 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 		return nil, err
 	}
 	var floatingIP string
-	if inst.floatingIP != nil {
+	if inst.floatingIP != nil && inst.floatingIP.IP != "" {
 		floatingIP = inst.floatingIP.IP
+		logger.Debugf("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	}
-	logger.Infof("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
@@ -571,6 +572,11 @@ func (e *environ) SupportNetworks() bool {
 	// TODO(dimitern) Once we have support for networking, inquire
 	// about capabilities and return true if supported.
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 var unsupportedConstraints = []string{
@@ -905,7 +911,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 		if err != nil {
 			return nil, err
 		}
-		logger.Debugf("allocated new public ip: %v", newfip.IP)
+		logger.Debugf("allocated new public IP: %v", newfip.IP)
 	}
 	return newfip, nil
 }
@@ -939,29 +945,29 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	var availabilityZone string
+func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		if !placement.availabilityZone.State.Available {
-			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+			return nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
-		availabilityZone = placement.availabilityZone.Name
+		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
 
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
-	if availabilityZone == "" {
+	if len(availabilityZones) == 0 {
 		var group []instance.Id
 		var err error
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(e, group)
@@ -969,14 +975,20 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
 		} else if err != nil {
-			return nil, nil, nil, err
-		} else if len(zoneInstances) > 0 {
-			availabilityZone = zoneInstances[0].ZoneName
+			return nil, err
+		} else {
+			for _, zone := range zoneInstances {
+				availabilityZones = append(availabilityZones, zone.ZoneName)
+			}
+		}
+		if len(availabilityZones) == 0 {
+			// No explicitly selectable zones available, so use an unspecified zone.
+			availabilityZones = []string{""}
 		}
 	}
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()
@@ -988,21 +1000,21 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 	var networks = []nova.ServerNetworks{}
@@ -1010,7 +1022,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if usingNetwork != "" {
 		networkId, err := e.resolveNetwork(usingNetwork)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
@@ -1020,7 +1032,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if withPublicIP {
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -1029,34 +1041,41 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
-	var opts = nova.RunServerOpts{
-		Name:               e.machineFullName(args.MachineConfig.MachineId),
-		FlavorId:           spec.InstanceType.Id,
-		ImageId:            spec.Image.Id,
-		UserData:           userData,
-		SecurityGroupNames: groupNames,
-		Networks:           networks,
-		AvailabilityZone:   availabilityZone,
-	}
 	var server *nova.Entity
-	for a := shortAttempt.Start(); a.Next(); {
-		server, err = e.nova().RunServer(opts)
-		if err == nil || !gooseerrors.IsNotFound(err) {
+	for _, availZone := range availabilityZones {
+		var opts = nova.RunServerOpts{
+			Name:               e.machineFullName(args.MachineConfig.MachineId),
+			FlavorId:           spec.InstanceType.Id,
+			ImageId:            spec.Image.Id,
+			UserData:           userData,
+			SecurityGroupNames: groupNames,
+			Networks:           networks,
+			AvailabilityZone:   availZone,
+		}
+		for a := shortAttempt.Start(); a.Next(); {
+			server, err = e.nova().RunServer(opts)
+			if err == nil || !gooseerrors.IsNotFound(err) {
+				break
+			}
+		}
+		if isNoValidHostsError(err) {
+			logger.Infof("no valid hosts available in zone %q, trying another availability zone", availZone)
+		} else {
 			break
 		}
 	}
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &openstackInstance{
 		e:            e,
@@ -1071,17 +1090,25 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
 	}
-	return inst, inst.hardwareCharacteristics(), nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: inst.hardwareCharacteristics(),
+	}, nil
+}
+
+func isNoValidHostsError(err error) bool {
+	gooseErr, ok := err.(gooseerrors.Error)
+	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
@@ -1144,7 +1171,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[string]instance.In
 		if server, found := serversById[string(id)]; found {
 			// HPCloud uses "BUILD(spawning)" as an intermediate BUILD states once networking is available.
 			switch server.Status {
-			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
+			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning, nova.StatusShutoff, nova.StatusSuspended:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 				out[string(id)] = &openstackInstance{e: e, serverDetail: &server}
 				continue
@@ -1211,19 +1238,25 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, err
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // OpenStack provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	return network.Address{}, jujuerrors.NotImplementedf("AllocateAddress")
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return jujuerrors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the OpenStack provider yet.
-func (*environ) ListNetworks() ([]network.BasicInfo, error) {
-	return nil, jujuerrors.NotImplementedf("ListNetworks")
+func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, jujuerrors.NotImplementedf("Subnets")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {

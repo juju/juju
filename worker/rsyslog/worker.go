@@ -179,7 +179,9 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 			host = j
 		}
 		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
-		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, "juju-"+h.tag.String(), tlsConf)
+		logTag := "juju" + h.syslogConfig.Namespace + "-" + h.tag.String()
+		logger.Debugf("making syslog connection for %q to %s", logTag, target)
+		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, logTag, tlsConf)
 		if err != nil {
 			return err
 		}
@@ -293,6 +295,13 @@ func (h *RsyslogConfigHandler) rsyslogHosts() ([]string, error) {
 			hosts = append(hosts, j.Address.Value)
 		}
 	}
+
+	// Explicitly add the '*' wildcard host. This will ensure that rsyslog
+	// clients will always be able to connect even if their hostnames and/or IPAddresses
+	// are changed. This also ensures we can continue to use SSL for our rsyslog connections
+	// and we can avoid having to use the skipVerify flag.
+	hosts = append(hosts, "*")
+
 	return hosts, nil
 }
 

@@ -29,7 +29,7 @@ func (s *debugInternalSuite) TestParseLogLine(c *gc.C) {
 	line := "machine-0: 2014-03-24 22:34:25 INFO juju.cmd.jujud machine.go:127 machine agent machine-0 start (1.17.7.1-trusty-amd64 [gc])"
 	logLine := parseLogLine(line)
 	c.Assert(logLine.line, gc.Equals, line)
-	c.Assert(logLine.agent, gc.Equals, "machine-0")
+	c.Assert(logLine.agentTag, gc.Equals, "machine-0")
 	c.Assert(logLine.level, gc.Equals, loggo.INFO)
 	c.Assert(logLine.module, gc.Equals, "juju.cmd.jujud")
 }
@@ -38,7 +38,7 @@ func (s *debugInternalSuite) TestParseLogLineMachineMultiline(c *gc.C) {
 	line := "machine-1: continuation line"
 	logLine := parseLogLine(line)
 	c.Assert(logLine.line, gc.Equals, line)
-	c.Assert(logLine.agent, gc.Equals, "machine-1")
+	c.Assert(logLine.agentTag, gc.Equals, "machine-1")
 	c.Assert(logLine.level, gc.Equals, loggo.UNSPECIFIED)
 	c.Assert(logLine.module, gc.Equals, "")
 }
@@ -47,7 +47,7 @@ func (s *debugInternalSuite) TestParseLogLineInvalid(c *gc.C) {
 	line := "not a full line"
 	logLine := parseLogLine(line)
 	c.Assert(logLine.line, gc.Equals, line)
-	c.Assert(logLine.agent, gc.Equals, "")
+	c.Assert(logLine.agentTag, gc.Equals, "")
 	c.Assert(logLine.level, gc.Equals, loggo.UNSPECIFIED)
 	c.Assert(logLine.module, gc.Equals, "")
 }
@@ -89,7 +89,7 @@ func (s *debugInternalSuite) TestCheckLevel(c *gc.C) {
 
 func checkIncludeEntity(logValue string, agent ...string) bool {
 	stream := &logStream{includeEntity: agent}
-	line := &logLine{agent: logValue}
+	line := &logLine{agentTag: logValue}
 	return stream.checkIncludeEntity(line)
 }
 
@@ -121,7 +121,7 @@ func (s *debugInternalSuite) TestCheckIncludeModule(c *gc.C) {
 
 func checkExcludeEntity(logValue string, agent ...string) bool {
 	stream := &logStream{excludeEntity: agent}
-	line := &logLine{agent: logValue}
+	line := &logLine{agentTag: logValue}
 	return stream.exclude(line)
 }
 
@@ -207,10 +207,10 @@ func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, back
 	dir := c.MkDir()
 	logPath := filepath.Join(dir, "logfile.txt")
 	logFile, err := os.Create(logPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer logFile.Close()
 	logFileReader, err := os.Open(logPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer logFileReader.Close()
 
 	logFile.WriteString(`line 1
@@ -223,7 +223,7 @@ line 3
 		maxLines:     maxLines,
 	}
 	err = stream.positionLogFile(logFileReader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	writer := &chanWriter{make(chan []byte)}
 	stream.start(logFileReader, writer)
@@ -251,7 +251,7 @@ line 3
 
 	err = stream.tomb.Wait()
 	if errMatch == "" {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, gc.ErrorMatches, errMatch)
 	}
@@ -309,7 +309,7 @@ func assertStreamParams(c *gc.C, obtained, expected *logStream) {
 
 func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	obtained, err := newLogStream(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertStreamParams(c, obtained, &logStream{})
 
 	values := url.Values{
@@ -334,7 +334,7 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 		fromTheStart:  true,
 	}
 	obtained, err = newLogStream(values)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertStreamParams(c, obtained, expected)
 
 	_, err = newLogStream(url.Values{"maxLines": []string{"foo"}})
@@ -348,4 +348,108 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 
 	_, err = newLogStream(url.Values{"level": []string{"foo"}})
 	c.Assert(err, gc.ErrorMatches, `level value "foo" is not one of "TRACE", "DEBUG", "INFO", "WARNING", "ERROR"`)
+}
+
+type agentMatchTest struct {
+	about    string
+	line     string
+	filter   string
+	expected bool
+}
+
+var agentMatchTests []agentMatchTest = []agentMatchTest{
+	{
+		about:    "Matching with wildcard - match everything",
+		line:     "machine-1: sdscsc",
+		filter:   "*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard as suffix - match machine tag...",
+		line:     "machine-1: sdscsc",
+		filter:   "mach*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard as prefix - match machine tag...",
+		line:     "machine-1: sdscsc",
+		filter:   "*ch*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard in the middle - match machine tag...",
+		line:     "machine-1: sdscsc",
+		filter:   "mach*1",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard - match machine name",
+		line:     "machine-1: sdscsc",
+		filter:   "1*",
+		expected: true,
+	}, {
+		about:    "Matching exact machine name",
+		line:     "machine-1: sdscsc",
+		filter:   "2",
+		expected: false,
+	}, {
+		about:    "Matching invalid filter",
+		line:     "machine-1: sdscsc",
+		filter:   "my-service",
+		expected: false,
+	}, {
+		about:    "Matching exact machine tag",
+		line:     "machine-1: sdscsc",
+		filter:   "machine-1",
+		expected: true,
+	}, {
+		about:    "Matching exact machine tag = not equal",
+		line:     "machine-1: sdscsc",
+		filter:   "machine-3",
+		expected: false,
+	}, {
+		about:    "Matching with wildcard - match unit tag...",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "un*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard - match unit name",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "ubuntu*",
+		expected: true,
+	}, {
+		about:    "Matching exact unit name",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "ubuntu/2",
+		expected: false,
+	}, {
+		about:    "Matching exact unit tag",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "unit-ubuntu-1",
+		expected: true,
+	}, {
+		about:    "Matching exact unit tag = not equal",
+		line:     "unit-ubuntu-2: sdscsc",
+		filter:   "unit-ubuntu-1",
+		expected: false,
+	},
+}
+
+// TestAgentMatchesFilter tests that line agent matches desired filter as expected
+func (s *debugInternalSuite) TestAgentMatchesFilter(c *gc.C) {
+	for i, test := range agentMatchTests {
+		c.Logf("test %d: %v\n", i, test.about)
+		matched := AgentMatchesFilter(ParseLogLine(test.line), test.filter)
+		c.Assert(matched, gc.Equals, test.expected)
+	}
+}
+
+// TestAgentLineFragmentParsing tests that agent tag and name are parsed correctly from log line
+func (s *debugInternalSuite) TestAgentLineFragmentParsing(c *gc.C) {
+	checkAgentParsing(c, "Drop trailing colon", "machine-1: sdscsc", "machine-1", "1")
+	checkAgentParsing(c, "Drop unit specific [", "unit-ubuntu-1[blah777787]: scscdcdc", "unit-ubuntu-1", "ubuntu/1")
+	checkAgentParsing(c, "No colon in log line - invalid", "unit-ubuntu-1 scscdcdc", "", "")
+}
+
+func checkAgentParsing(c *gc.C, about, line, tag, name string) {
+	c.Logf("test %q\n", about)
+	logLine := ParseLogLine(line)
+	c.Assert(logLine.LogLineAgentTag(), gc.Equals, tag)
+	c.Assert(logLine.LogLineAgentName(), gc.Equals, name)
 }

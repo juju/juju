@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
@@ -21,11 +21,11 @@ func (s *ListSourceSuite) TestNoUpdates(c *gc.C) {
 	source := relation.NewListSource(hookList(hooks.Start, hooks.Stop))
 	c.Check(source.Changes(), gc.IsNil)
 
-	err := source.Update(params.RelationUnitsChange{})
+	err := source.Update(multiwatcher.RelationUnitsChange{})
 	c.Check(err, gc.ErrorMatches, "HookSource does not accept updates")
 
 	err = source.Stop()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ListSourceSuite) TestQueue(c *gc.C) {

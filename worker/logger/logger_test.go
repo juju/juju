@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -86,7 +87,7 @@ func (s *LoggerSuite) TestRunStop(c *gc.C) {
 
 func (s *LoggerSuite) TestInitialState(c *gc.C) {
 	config, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := config.LoggingConfig()
 
 	initial := "<root>=DEBUG;wibble=ERROR"
@@ -94,7 +95,7 @@ func (s *LoggerSuite) TestInitialState(c *gc.C) {
 
 	loggo.ResetLoggers()
 	err = loggo.ConfigureLoggers(initial)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	loggingWorker, _ := s.makeLogger(c)
 	defer worker.Stop(loggingWorker)

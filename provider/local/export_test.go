@@ -4,6 +4,7 @@ package local
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -30,19 +31,27 @@ func ConfigNamespace(cfg *config.Config) string {
 // CreateDirs calls createDirs on the localEnviron.
 func CreateDirs(c *gc.C, cfg *config.Config) error {
 	env, err := providerInstance.Open(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return env.(*localEnviron).config.createDirs()
 }
 
 // CheckDirs returns the list of directories to check for permissions in the test.
 func CheckDirs(c *gc.C, cfg *config.Config) []string {
 	localConfig, err := providerInstance.newConfig(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return []string{
 		localConfig.rootDir(),
 		localConfig.storageDir(),
 		localConfig.mongoDir(),
 	}
+}
+
+// ContainerAndBridge returns the "container" and "network-bridge"
+// settings as seen by the local provider.
+func ContainerAndBridge(c *gc.C, cfg *config.Config) (string, string) {
+	localConfig, err := providerInstance.newConfig(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return string(localConfig.container()), localConfig.networkBridge()
 }
 
 // MockAddressForInterface replaces the getAddressForInterface with a function

@@ -4,6 +4,7 @@
 package version
 
 var (
+	DistroInfo                    = &distroInfo
 	ReadSeries                    = readSeries
 	KernelToMajor                 = kernelToMajor
 	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -98,9 +99,9 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 func CreateTestKey(c *gc.C) func(*gc.C) {
 	keyFile := fmt.Sprintf("~/.ssh/%s", testKeyFileName)
 	keyFilePath, err := utils.NormalizePath(keyFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return func(c *gc.C) {
 		os.Remove(keyFilePath)
 	}

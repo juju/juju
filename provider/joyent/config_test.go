@@ -9,11 +9,13 @@ import (
 	"os"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
@@ -22,19 +24,19 @@ import (
 func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 	attrs = coretesting.FakeConfig().Merge(attrs)
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":             "joyent",
-		"sdc-user":         "juju-test",
+		"sdc-user":         "test",
 		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":          "https://test.api.joyentcloud.com",
-		"manta-user":       "juju-test",
+		"sdc-url":          "test://test.api.joyentcloud.com",
+		"manta-user":       "test",
 		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":        "https://test.manta.joyent.com",
+		"manta-url":        "test://test.manta.joyent.com",
 		"private-key-path": "~/.ssh/provider_id_rsa",
 		"algorithm":        "rsa-sha256",
 		"control-dir":      "juju-test",
@@ -60,6 +62,8 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
 	s.privateKeyData = generatePrivateKey(c)
+	jp.RegisterMachinesEndpoint()
+	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
 }
 
 func generatePrivateKey(c *gc.C) string {
@@ -69,7 +73,7 @@ func generatePrivateKey(c *gc.C) string {
 	}()
 	ssh.KeyBits = 32
 	private, _, err := ssh.GenerateKey("test-client")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return private
 }
 
@@ -134,15 +138,15 @@ var newConfigTests = []struct {
 	},
 }, {
 	info:   "sdc-url is inserted if missing",
-	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "sdc-url cannot be empty",
 	insert: coretesting.Attrs{"sdc-url": ""},
 	err:    ".* cannot get sdc-url value from environment variable .*",
 }, {
 	info:   "sdc-url is untouched if present",
-	insert: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
-	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
@@ -189,15 +193,15 @@ var newConfigTests = []struct {
 	},
 }, {
 	info:   "manta-url is inserted if missing",
-	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "manta-url cannot be empty",
 	insert: coretesting.Attrs{"manta-url": ""},
 	err:    ".* cannot get manta-url value from environment variable .*",
 }, {
 	info:   "manta-url is untouched if present",
-	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "private-key-path is inserted if missing",
 	remove: []string{"private-key-path"},
@@ -240,7 +244,7 @@ func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			if err != nil {
 				continue
 			}
@@ -274,8 +278,8 @@ var changeConfigTests = []struct {
 	expect: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can change sdc-url",
-	insert: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
-	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "can change manta-user",
 	insert: coretesting.Attrs{"manta-user": "manta_user"},
@@ -286,8 +290,8 @@ var changeConfigTests = []struct {
 	expect: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can change manta-url",
-	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "can insert unknown field",
 	insert: coretesting.Attrs{"unknown": "ignoti"},
@@ -305,7 +309,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			if err != nil {
 				continue
 			}
@@ -325,13 +329,13 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		environ, err := environs.New(baseConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		err = environ.SetConfig(testConfig)
 		newAttrs := environ.Config().AllAttrs()
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			for field, value := range test.expect {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
@@ -368,14 +372,14 @@ var prepareConfigTests = []struct {
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
@@ -388,17 +392,17 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	// By default "private-key-path isn't set until after validateConfig has been called.
 	attrs := validAttrs().Delete("private-key-path", "private-key")
 	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer os.Remove(keyFilePath)
 	testConfig := newConfig(c, attrs)
 	preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	attrs = preparedConfig.Config().AllAttrs()
 	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)
 	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)

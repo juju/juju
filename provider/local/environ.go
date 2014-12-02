@@ -20,7 +20,6 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
@@ -73,6 +73,11 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*localEnviron) SupportNetworks() bool {
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *localEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
@@ -135,13 +140,14 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
+	mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
+		agent.LxcBridge:   env.config.networkBridge(),
 
 		// The local provider only supports a single state server,
 		// so we make the oplog size to a small value. This makes
@@ -350,9 +356,9 @@ func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
@@ -361,7 +367,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
@@ -370,9 +376,12 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := createContainer(env, args)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	return inst, hardware, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: hardware,
+	}, nil
 }
 
 // Override for testing.
@@ -430,19 +439,25 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return insts, err
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not supported on the
 // local provider.
-func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	return network.Address{}, errors.NotSupportedf("AllocateAddress")
+func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
-func (*localEnviron) ListNetworks() ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*localEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

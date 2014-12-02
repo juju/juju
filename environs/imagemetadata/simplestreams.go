@@ -26,6 +26,9 @@ const (
 	// StreamsVersionV1 is used to construct the path for accessing streams data.
 	StreamsVersionV1 = "v1"
 
+	// IndexFileVersion is used to construct the streams index file.
+	IndexFileVersion = 1
+
 	// currentStreamsVersion is the current version of image simplestreams data.
 	currentStreamsVersion = StreamsVersionV1
 )
@@ -257,7 +260,7 @@ func appendMatchingImages(source simplestreams.DataSource, matchingImages []inte
 
 // GetLatestImageIdMetadata is provided so it can be call by tests outside the imagemetadata package.
 func GetLatestImageIdMetadata(data []byte, source simplestreams.DataSource, cons *ImageConstraint) ([]*ImageMetadata, error) {
-	metadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", "<unknown>", ImageMetadata{})
+	metadata, err := simplestreams.ParseCloudMetadata(data, simplestreams.ProductFormat, "<unknown>", ImageMetadata{})
 	if err != nil {
 		return nil, err
 	}

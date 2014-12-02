@@ -4,6 +4,7 @@
 package backups_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
@@ -30,5 +31,5 @@ func (s *removeSuite) TestRemove(c *gc.C) {
 	defer cleanup()
 
 	err := s.client.Remove(s.Meta.ID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

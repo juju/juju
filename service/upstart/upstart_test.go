@@ -62,7 +62,7 @@ fi
 func (s *UpstartSuite) MakeTool(c *gc.C, name, script string) {
 	path := filepath.Join(s.testPath, name)
 	err := ioutil.WriteFile(path, []byte(checkargs+script), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpstartSuite) StoppedStatus(c *gc.C) {
@@ -81,7 +81,7 @@ func (s *UpstartSuite) TestInitDir(c *gc.C) {
 func (s *UpstartSuite) goodInstall(c *gc.C) {
 	s.MakeTool(c, "start", "exit 0")
 	err := s.service.Install()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpstartSuite) TestInstalled(c *gc.C) {
@@ -105,11 +105,11 @@ func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
 
 func (s *UpstartSuite) TestRunning(c *gc.C) {
 	s.MakeTool(c, "status", "exit 1")
-	c.Assert(s.service.Running(), gc.Equals, false)
+	c.Assert(s.service.Running(), jc.IsFalse)
 	s.MakeTool(c, "status", `echo "GIBBERISH NONSENSE"`)
-	c.Assert(s.service.Running(), gc.Equals, false)
+	c.Assert(s.service.Running(), jc.IsFalse)
 	s.RunningStatus(c)
-	c.Assert(s.service.Running(), gc.Equals, true)
+	c.Assert(s.service.Running(), jc.IsTrue)
 }
 
 func (s *UpstartSuite) TestStart(c *gc.C) {
@@ -150,7 +150,7 @@ func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 	s.MakeTool(c, "stop", "exit 99")
 	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.MakeTool(c, "stop", "exit 0")
 	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 	_, err = os.Stat(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
@@ -165,7 +165,7 @@ func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
 	// StopAndRemove will fail, as it calls stop.
 	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Plain old Remove will succeed.
 	c.Assert(s.service.Remove(), gc.IsNil)
@@ -214,7 +214,7 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	s.service.Conf = conf
 	svc := s.service
 	cmds, err := s.service.InstallCommands()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmds, gc.DeepEquals, []string{
 		"cat >> " + expectPath + " << 'EOF'\n" + expectContent + "EOF\n",
 		"start some-service",
@@ -225,21 +225,27 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string
 	c.Assert(err, gc.ErrorMatches, ".*exit status 99.*")
 	s.MakeTool(c, "start", "exit 0")
 	err = svc.Install()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	content, err := ioutil.ReadFile(expectPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, expectContent)
 }
 
 func (s *UpstartSuite) TestInstallSimple(c *gc.C) {
 	conf := s.dummyConf(c)
-	s.assertInstall(c, conf, "\n\nscript\n\n  exec do something\nend script\n")
+	s.assertInstall(c, conf, "\n\nscript\n\n\n  exec do something\nend script\n")
+}
+
+func (s *UpstartSuite) TestInstallExtraScript(c *gc.C) {
+	conf := s.dummyConf(c)
+	conf.ExtraScript = "extra lines of script"
+	s.assertInstall(c, conf, "\n\nscript\nextra lines of script\n\n  exec do something\nend script\n")
 }
 
 func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
 	conf := s.dummyConf(c)
 	conf.Out = "/some/output/path"
-	s.assertInstall(c, conf, "\n\nscript\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chown syslog:syslog /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
+	s.assertInstall(c, conf, "\n\nscript\n\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chown syslog:syslog /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
 }
 
 func (s *UpstartSuite) TestInstallEnv(c *gc.C) {
@@ -250,6 +256,7 @@ env QUX="ping pong"
 
 
 script
+
 
   exec do something
 end script
@@ -264,6 +271,7 @@ limit nofile 65000 65000
 limit nproc 20000 20000
 
 script
+
 
   exec do something
 end script
@@ -285,11 +293,11 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 		pathTo("status"), pathTo("status-started"), pathTo("status"),
 	))
 	err := symlink.New(pathTo("status-started"), pathTo("status"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	conf := s.dummyConf(c)
 	s.service.UpdateConfig(conf)
 	err = s.service.Install()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.service, jc.Satisfies, (*upstart.Service).Running)
 }

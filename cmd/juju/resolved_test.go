@@ -4,12 +4,13 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -73,15 +74,15 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = u.SetStatus(state.StatusError, "lol borken", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	for i, t := range resolvedTests {
@@ -90,11 +91,11 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.unit != "" {
 			unit, err := s.State.Unit(t.unit)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(unit.Resolved(), gc.Equals, t.mode)
 		}
 	}

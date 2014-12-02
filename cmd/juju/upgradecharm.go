@@ -135,7 +135,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	repo = config.SpecializeCharmRepo(repo, conf)
+	config.SpecializeCharmRepo(repo, conf)
 
 	// If no explicit revision was set with either SwitchURL
 	// or Revision flags, discover the latest.

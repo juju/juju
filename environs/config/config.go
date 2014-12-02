@@ -68,21 +68,92 @@ const (
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
 	fallbackLtsSeries string = "trusty"
+
+	// Only use numactl if user specifically requests it
+	DefaultNumaControlPolicy = false
+
+	// Only prevent destroy-environment from running
+	// if user specifically requests it. Otherwise, let it run.
+	DefaultPreventDestroyEnvironment = false
+
+	// Only prevent remove-object from running
+	// if user specifically requests it. Otherwise, let it run.
+	// Object here is a juju artifact - machine, service, unit or relation.
+	DefaultPreventRemoveObject = false
 )
 
 // TODO(katco-): Please grow this over time.
 // Centralized place to store values of config keys. This transitions
 // mistakes in referencing key-values to a compile-time error.
 const (
+	//
+	// Settings Attributes
+	//
+
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
+	// AgentStreamKey stores the key for this setting.
+	AgentStreamKey = "agent-stream"
+
+	// AgentMetadataURLKey stores the key for this setting.
+	AgentMetadataURLKey = "agent-metadata-url"
+
+	// HttpProxyKey stores the key for this setting.
+	HttpProxyKey = "http-proxy"
+
+	// HttpsProxyKey stores the key for this setting.
+	HttpsProxyKey = "https-proxy"
+
+	// FtpProxyKey stores the key for this setting.
+	FtpProxyKey = "ftp-proxy"
+
+	// AptHttpProxyKey stores the key for this setting.
+	AptHttpProxyKey = "apt-http-proxy"
+
+	// AptHttpsProxyKey stores the key for this setting.
+	AptHttpsProxyKey = "apt-https-proxy"
+
+	// AptFtpProxyKey stores the key for this setting.
+	AptFtpProxyKey = "apt-ftp-proxy"
+
+	// NoProxyKey stores the key for this setting.
+	NoProxyKey = "no-proxy"
+
+	// LxcClone stores the value for this setting.
+	LxcClone = "lxc-clone"
+
+	// NumaControlPolicyKey stores the value for this setting
+	SetNumaControlPolicyKey = "set-numa-control-policy"
+
+	// BlockKeyPrefix is the prefix used for environment variables that block commands
+	BlockKeyPrefix = "block-"
+
+	// PreventDestroyEnvironmentKey stores the value for this setting
+	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
+
+	// PreventRemoveObjectKey stores the value for this setting
+	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
+
 	//
-	// Deprecated Settings
+	// Deprecated Settings Attributes
 	//
 
+	// Deprecated by provisioner-harvest-mode
 	// ProvisionerSafeModeKey stores the key for this setting.
 	ProvisionerSafeModeKey = "provisioner-safe-mode"
+
+	// Deprecated by agent-stream
+	// ToolsStreamKey stores the key for this setting.
+	ToolsStreamKey = "tools-stream"
+
+	// Deprecated by agent-metadata-url
+	// ToolsMetadataURLKey stores the key for this setting.
+	ToolsMetadataURLKey = "tools-metadata-url"
+
+	// Deprecated by use-clone
+	// LxcUseClone stores the key for this setting.
+	LxcUseClone = "lxc-use-clone"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -124,6 +195,16 @@ var harvestingMethodToFlag = map[HarvestMode]string{
 	HarvestNone:      "none",
 	HarvestUnknown:   "unknown",
 	HarvestDestroyed: "destroyed",
+}
+
+// proxyAttrs contains attribute names that could contain loopback URLs, pointing to localhost
+var ProxyAttributes = []string{
+	HttpProxyKey,
+	HttpsProxyKey,
+	FtpProxyKey,
+	AptHttpProxyKey,
+	AptHttpsProxyKey,
+	AptFtpProxyKey,
 }
 
 // String returns the description of the harvesting mode.
@@ -330,39 +411,43 @@ func (c *Config) fillInStringDefault(attr string) {
 	}
 }
 
-// processDeprecatedAttributes ensures that the config is set up so that it works
-// correctly when used with older versions of Juju which require that deprecated
-// attribute values still be used.
-func (cfg *Config) processDeprecatedAttributes() {
-	// The tools url has changed so ensure that both old and new values are in the config so that
-	// upgrades work. "tools-url" is the old attribute name.
-	if oldToolsURL := cfg.defined["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
-		_, newToolsSpecified := cfg.ToolsURL()
-		// Ensure the new attribute name "tools-metadata-url" is set.
-		if !newToolsSpecified {
-			cfg.defined["tools-metadata-url"] = oldToolsURL
-		}
+// ProcessDeprecatedAttributes gathers any deprecated attributes in attrs and adds or replaces
+// them with new name value pairs for the replacement attrs.
+// Ths ensures that older versions of Juju which require that deprecated
+// attribute values still be used will work as expected.
+func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interface{} {
+	processedAttrs := make(map[string]interface{}, len(attrs))
+	for k, v := range attrs {
+		processedAttrs[k] = v
 	}
-	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
-	// we still want it in the config for upgrades.
-	cfg.defined["tools-url"], _ = cfg.ToolsURL()
+	// The tools url has changed so ensure that both old and new values are in the config so that
+	// upgrades work. "agent-metadata-url" is the old attribute name.
+	if oldToolsURL, ok := attrs[ToolsMetadataURLKey]; ok && oldToolsURL.(string) != "" {
+		if newTools, ok := attrs[AgentMetadataURLKey]; !ok || newTools.(string) == "" {
+			// Ensure the new attribute name "agent-metadata-url" is set.
+			processedAttrs[AgentMetadataURLKey] = oldToolsURL
+		}
+		// Even if the user has edited their environment yaml to remove the deprecated tools-metadata-url value,
+		// we still want it in the config for upgrades.
+		processedAttrs[ToolsMetadataURLKey] = processedAttrs[AgentMetadataURLKey]
+	}
 
 	// Copy across lxc-use-clone to lxc-clone.
-	if lxcUseClone, ok := cfg.defined["lxc-use-clone"]; ok {
-		_, newValSpecified := cfg.LXCUseClone()
+	if lxcUseClone, ok := attrs[LxcUseClone]; ok {
+		_, newValSpecified := attrs[LxcClone]
 		// Ensure the new attribute name "lxc-clone" is set.
 		if !newValSpecified {
-			cfg.defined["lxc-clone"] = lxcUseClone
+			processedAttrs[LxcClone] = lxcUseClone
 		}
 	}
 
 	// Update the provider type from null to manual.
-	if cfg.Type() == "null" {
-		cfg.defined["type"] = "manual"
+	if attrs["type"] == "null" {
+		processedAttrs["type"] = "manual"
 	}
 
-	if _, ok := cfg.defined[ProvisionerHarvestModeKey]; !ok {
-		if safeMode, ok := cfg.defined[ProvisionerSafeModeKey].(bool); ok {
+	if _, ok := attrs[ProvisionerHarvestModeKey]; !ok {
+		if safeMode, ok := attrs[ProvisionerSafeModeKey].(bool); ok {
 
 			var harvestModeDescr string
 			if safeMode {
@@ -371,7 +456,7 @@ func (cfg *Config) processDeprecatedAttributes() {
 				harvestModeDescr = HarvestAll.String()
 			}
 
-			cfg.defined[ProvisionerHarvestModeKey] = harvestModeDescr
+			processedAttrs[ProvisionerHarvestModeKey] = harvestModeDescr
 
 			logger.Infof(
 				`Based on your "%s" setting, configuring "%s" to "%s".`,
@@ -381,6 +466,20 @@ func (cfg *Config) processDeprecatedAttributes() {
 			)
 		}
 	}
+
+	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
+	if _, ok := attrs[AgentStreamKey]; !ok {
+		if toolsKey, ok := attrs[ToolsStreamKey]; ok {
+			processedAttrs[AgentStreamKey] = toolsKey
+			logger.Infof(
+				`Based on your "%s" setting, configuring "%s" to "%s".`,
+				ToolsStreamKey,
+				AgentStreamKey,
+				toolsKey,
+			)
+		}
+	}
+	return processedAttrs
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -489,7 +588,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	cfg.processDeprecatedAttributes()
+	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
 
@@ -630,6 +729,34 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// NumaCtlPreference returns if numactl is preferred.
+func (c *Config) NumaCtlPreference() bool {
+	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
+		return numa.(bool)
+	}
+	return DefaultNumaControlPolicy
+}
+
+// PreventDestroyEnvironment returns if destroy-environment
+// should be blocked from proceeding, thus preventing the operation.
+func (c *Config) PreventDestroyEnvironment() bool {
+	if attrValue, ok := c.defined[PreventDestroyEnvironmentKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventDestroyEnvironment
+}
+
+// PreventRemoveObject returns if remove-object
+// should be blocked from proceeding, thus preventing the operation.
+// Object in this context is a juju artifact: either a machine,
+// a service, a unit or a relation.
+func (c *Config) PreventRemoveObject() bool {
+	if attrValue, ok := c.defined[PreventRemoveObjectKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventRemoveObject
+}
+
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
@@ -665,22 +792,22 @@ func (c *Config) ProxySettings() proxy.Settings {
 
 // HttpProxy returns the http proxy for the environment.
 func (c *Config) HttpProxy() string {
-	return c.asString("http-proxy")
+	return c.asString(HttpProxyKey)
 }
 
 // HttpsProxy returns the https proxy for the environment.
 func (c *Config) HttpsProxy() string {
-	return c.asString("https-proxy")
+	return c.asString(HttpsProxyKey)
 }
 
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
-	return c.asString("ftp-proxy")
+	return c.asString(FtpProxyKey)
 }
 
 // NoProxy returns the 'no proxy' for the environment.
 func (c *Config) NoProxy() string {
-	return c.asString("no-proxy")
+	return c.asString(NoProxyKey)
 }
 
 func (c *Config) getWithFallback(key, fallback string) string {
@@ -703,19 +830,19 @@ func (c *Config) AptProxySettings() proxy.Settings {
 // AptHttpProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHttpProxy() string {
-	return c.getWithFallback("apt-http-proxy", "http-proxy")
+	return c.getWithFallback(AptHttpProxyKey, HttpProxyKey)
 }
 
 // AptHttpsProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHttpsProxy() string {
-	return c.getWithFallback("apt-https-proxy", "https-proxy")
+	return c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey)
 }
 
 // AptFtpProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFtpProxy() string {
-	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
+	return c.getWithFallback(AptFtpProxyKey, FtpProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -791,10 +918,10 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 	return version.Zero, false
 }
 
-// ToolsURL returns the URL that locates the tools tarballs and metadata,
+// AgentMetadataURL returns the URL that locates the agent tarballs and metadata,
 // and whether it has been set.
-func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.defined["tools-metadata-url"]; ok && url != "" {
+func (c *Config) AgentMetadataURL() (string, bool) {
+	if url, ok := c.defined[AgentMetadataURLKey]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -885,11 +1012,11 @@ func (c *Config) ImageStream() string {
 	return "released"
 }
 
-// ToolsStream returns the simplestreams stream
+// AgentStream returns the simplestreams stream
 // used to identify which tools to use when
 // when bootstrapping or upgrading an environment.
-func (c *Config) ToolsStream() string {
-	v, _ := c.defined["tools-stream"].(string)
+func (c *Config) AgentStream() string {
+	v, _ := c.defined[AgentStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -906,7 +1033,7 @@ func (c *Config) TestMode() bool {
 // LXCUseClone reports whether the LXC provisioner should create a
 // template and use cloning to speed up container provisioning.
 func (c *Config) LXCUseClone() (bool, bool) {
-	v, ok := c.defined["lxc-clone"].(bool)
+	v, ok := c.defined[LxcClone].(bool)
 	return v, ok
 }
 
@@ -968,10 +1095,10 @@ var fields = schema.Fields{
 	"name":                       schema.String(),
 	"uuid":                       schema.UUID(),
 	"default-series":             schema.String(),
-	"tools-metadata-url":         schema.String(),
+	AgentMetadataURLKey:          schema.String(),
 	"image-metadata-url":         schema.String(),
 	"image-stream":               schema.String(),
-	"tools-stream":               schema.String(),
+	AgentStreamKey:               schema.String(),
 	"authorized-keys":            schema.String(),
 	"authorized-keys-path":       schema.String(),
 	"firewall-mode":              schema.String(),
@@ -990,30 +1117,34 @@ var fields = schema.Fields{
 	"logging-config":             schema.String(),
 	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
-	"http-proxy":                 schema.String(),
-	"https-proxy":                schema.String(),
-	"ftp-proxy":                  schema.String(),
-	"no-proxy":                   schema.String(),
-	"apt-http-proxy":             schema.String(),
-	"apt-https-proxy":            schema.String(),
-	"apt-ftp-proxy":              schema.String(),
+	HttpProxyKey:                 schema.String(),
+	HttpsProxyKey:                schema.String(),
+	FtpProxyKey:                  schema.String(),
+	NoProxyKey:                   schema.String(),
+	AptHttpProxyKey:              schema.String(),
+	AptHttpsProxyKey:             schema.String(),
+	AptFtpProxyKey:               schema.String(),
 	"apt-mirror":                 schema.String(),
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
 	"bootstrap-addresses-delay":  schema.ForceInt(),
 	"test-mode":                  schema.Bool(),
 	"proxy-ssh":                  schema.Bool(),
-	"lxc-clone":                  schema.Bool(),
+	LxcClone:                     schema.Bool(),
 	"lxc-clone-aufs":             schema.Bool(),
 	"prefer-ipv6":                schema.Bool(),
 	"enable-os-refresh-update":   schema.Bool(),
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
+	SetNumaControlPolicyKey:      schema.Bool(),
+	PreventDestroyEnvironmentKey: schema.Bool(),
+	PreventRemoveObjectKey:       schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":            schema.String(),
-	"lxc-use-clone":        schema.Bool(),
+	ToolsMetadataURLKey:    schema.String(),
+	LxcUseClone:            schema.Bool(),
 	ProvisionerSafeModeKey: schema.Bool(),
+	ToolsStreamKey:         schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -1037,22 +1168,26 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	"rsyslog-ca-cert":            schema.Omit,
-	"http-proxy":                 schema.Omit,
-	"https-proxy":                schema.Omit,
-	"ftp-proxy":                  schema.Omit,
-	"no-proxy":                   schema.Omit,
-	"apt-http-proxy":             schema.Omit,
-	"apt-https-proxy":            schema.Omit,
-	"apt-ftp-proxy":              schema.Omit,
+	HttpProxyKey:                 schema.Omit,
+	HttpsProxyKey:                schema.Omit,
+	FtpProxyKey:                  schema.Omit,
+	NoProxyKey:                   schema.Omit,
+	AptHttpProxyKey:              schema.Omit,
+	AptHttpsProxyKey:             schema.Omit,
+	AptFtpProxyKey:               schema.Omit,
 	"apt-mirror":                 schema.Omit,
-	"lxc-clone":                  schema.Omit,
+	LxcClone:                     schema.Omit,
 	"disable-network-management": schema.Omit,
-	"tools-stream":               schema.Omit,
+	AgentStreamKey:               schema.Omit,
+	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
+	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":            "",
-	"lxc-use-clone":        schema.Omit,
+	ToolsMetadataURLKey:    "",
+	LxcUseClone:            schema.Omit,
 	ProvisionerSafeModeKey: schema.Omit,
+	ToolsStreamKey:         schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -1062,7 +1197,7 @@ var alwaysOptional = schema.Defaults{
 	"admin-secret":       "", // TODO(rog) omit
 	"ca-private-key":     "", // TODO(rog) omit
 	"image-metadata-url": "", // TODO(rog) omit
-	"tools-metadata-url": "", // TODO(rog) omit
+	AgentMetadataURLKey:  "", // TODO(rog) omit
 
 	"default-series": "",
 
@@ -1109,6 +1244,9 @@ func allDefaults() schema.Defaults {
 		"proxy-ssh":                  true,
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
+		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
+		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1147,7 +1285,7 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
-	"lxc-clone",
+	LxcClone,
 	"lxc-clone-aufs",
 	"syslog-port",
 	"prefer-ipv6",
@@ -1176,7 +1314,10 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	result := coerced.(map[string]interface{})
 	for name, value := range attrs {
 		if fields[name] == nil {
-			logger.Warningf("unknown config field %q", name)
+			if val, isString := value.(string); isString && val != "" {
+				// only warn about attributes with non-empty string values
+				logger.Warningf("unknown config field %q", name)
+			}
 			result[name] = value
 		}
 	}
@@ -1198,24 +1339,22 @@ func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-type Specializer interface {
-	WithAuthAttrs(string) charm.Repository
-	WithTestMode(testMode bool) charm.Repository
-}
-
-// SpecializeCharmRepo returns a repository customized for given configuration.
+// SpecializeCharmRepo customizes a repository for a given configuration.
 // It adds authentication if necessary and sets a charm store's testMode flag.
-func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) {
+	type Specializer interface {
+		SetAuthAttrs(string)
+		SetTestMode(testMode bool)
+	}
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
 		if CS, isCS := repo.(Specializer); isCS {
-			repo = CS.WithAuthAttrs(auth)
+			CS.SetAuthAttrs(auth)
 		}
 	}
 	if CS, isCS := repo.(Specializer); isCS {
-		repo = CS.WithTestMode(cfg.TestMode())
+		CS.SetTestMode(cfg.TestMode())
 	}
-	return repo
 }
 
 // SSHTimeoutOpts lists the amount of time we will wait for various
@@ -1246,10 +1385,10 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 // proxy settings.
 func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "http-proxy", proxySettings.Http)
-	addIfNotEmpty(settings, "https-proxy", proxySettings.Https)
-	addIfNotEmpty(settings, "ftp-proxy", proxySettings.Ftp)
-	addIfNotEmpty(settings, "no-proxy", proxySettings.NoProxy)
+	addIfNotEmpty(settings, HttpProxyKey, proxySettings.Http)
+	addIfNotEmpty(settings, HttpsProxyKey, proxySettings.Https)
+	addIfNotEmpty(settings, FtpProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, NoProxyKey, proxySettings.NoProxy)
 	return settings
 }
 
@@ -1257,8 +1396,8 @@ func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 // proxy settings.
 func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "apt-http-proxy", proxySettings.Http)
-	addIfNotEmpty(settings, "apt-https-proxy", proxySettings.Https)
-	addIfNotEmpty(settings, "apt-ftp-proxy", proxySettings.Ftp)
+	addIfNotEmpty(settings, AptHttpProxyKey, proxySettings.Http)
+	addIfNotEmpty(settings, AptHttpsProxyKey, proxySettings.Https)
+	addIfNotEmpty(settings, AptFtpProxyKey, proxySettings.Ftp)
 	return settings
 }

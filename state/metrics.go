@@ -52,6 +52,28 @@ type Metric struct {
 	Credentials []byte    `bson:"credentials"`
 }
 
+// validate checks that the MetricBatch contains valid metrics.
+func (m *MetricBatch) validate() error {
+	charmUrl, err := charm.ParseURL(m.doc.CharmUrl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	chrm, err := m.st.Charm(charmUrl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	chrmMetrics := chrm.Metrics()
+	if chrmMetrics == nil {
+		return errors.Errorf("charm doesn't implement metrics")
+	}
+	for _, m := range m.doc.Metrics {
+		if err := chrmMetrics.ValidateMetric(m.Key, m.Value); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
 func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
@@ -67,13 +89,16 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
-			EnvUUID:  st.EnvironTag().Id(),
+			EnvUUID:  st.EnvironUUID(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
 			Created:  created,
 			Metrics:  metrics,
 		}}
+	if err := metric.validate(); err != nil {
+		return nil, err
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
@@ -152,7 +177,7 @@ func (st *State) CleanupOldMetrics() error {
 		metricsLogger.Infof("no metrics found to cleanup")
 		return nil
 	}
-	return err
+	return errors.Trace(err)
 }
 
 // MetricsToSend returns batchSize metrics that need to be sent
@@ -244,7 +269,7 @@ func (m *MetricBatch) Metrics() []Metric {
 
 // SetSent sets the sent flag to true
 func (m *MetricBatch) SetSent() error {
-	ops := setSentOps([]*MetricBatch{m})
+	ops := setSentOps([]string{m.UUID()})
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
@@ -253,12 +278,12 @@ func (m *MetricBatch) SetSent() error {
 	return nil
 }
 
-func setSentOps(metrics []*MetricBatch) []txn.Op {
-	ops := make([]txn.Op, len(metrics))
-	for i, m := range metrics {
+func setSentOps(batchUUIDs []string) []txn.Op {
+	ops := make([]txn.Op, len(batchUUIDs))
+	for i, u := range batchUUIDs {
 		ops[i] = txn.Op{
 			C:      metricsC,
-			Id:     m.UUID(),
+			Id:     u,
 			Assert: txn.DocExists,
 			Update: bson.M{"$set": bson.M{"sent": true}},
 		}
@@ -266,14 +291,11 @@ func setSentOps(metrics []*MetricBatch) []txn.Op {
 	return ops
 }
 
-// SetMetricBatchesSent sets sent on each MetricBatch in the slice provided.
-func (st *State) SetMetricBatchesSent(metrics []*MetricBatch) error {
-	ops := setSentOps(metrics)
+// SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
+func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
+	ops := setSentOps(batchUUIDs)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")
-	}
-	for _, m := range metrics {
-		m.doc.Sent = true
 	}
 	return nil
 }

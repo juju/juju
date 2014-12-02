@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/names"
@@ -39,7 +40,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.machiner = machiner
 }
 
@@ -54,9 +55,9 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	err := s.machine0.SetStatus(state.StatusStarted, "blah", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.SetStatus(state.StatusStopped, "foo", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
@@ -65,7 +66,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
@@ -76,21 +77,21 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 
 	// Verify machine 0 - no change.
 	status, info, _, err := s.machine0.Status()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	// ...machine 1 is fine though.
 	status, info, _, err = s.machine1.Status()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "not really")
 }
 
 func (s *machinerSuite) TestLife(c *gc.C) {
 	err := s.machine1.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -99,7 +100,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.Life(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "dead"},
@@ -119,7 +120,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.EnsureDead(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
@@ -129,10 +130,10 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	})
 
 	err = s.machine0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
 	err = s.machine1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
 
 	// Try it again on a Dead machine; should work.
@@ -140,14 +141,14 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
 	result, err = s.machiner.EnsureDead(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	})
 
 	// Verify Life is unchanged.
 	err = s.machine1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
 }
 
@@ -167,7 +168,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	}}
 
 	result, err := s.machiner.SetMachineAddresses(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
@@ -177,10 +178,10 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	})
 
 	err = s.machine1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, addresses)
 	err = s.machine0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
 }
 
@@ -193,7 +194,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.Watch(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},

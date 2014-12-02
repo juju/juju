@@ -1974,7 +1974,7 @@ Juju CI has functional tests that exercise a function works across multiple vers
 1. 100% major.minor compatibility. Stable micro releases work with every combination?
 	1. The means keeping a pool of stable packages for CI.
 	1. Encourages creating new minor stables instead of adding test combinations; but SRU discourages minor releases.
-	1. CI is **blocked** because Juju doesn’t allow anyone to specify the juju version to bootstrap the env with, nor can tools-metadata-url be set more than once to control the version found.
+	1. CI is **blocked** because Juju doesn’t allow anyone to specify the juju version to bootstrap the env with, nor can agent-metadata-url be set more than once to control the version found.
 
 ### Work Items
 

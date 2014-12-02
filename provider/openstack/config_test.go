@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -82,7 +83,7 @@ func (t configTest) check(c *gc.C) {
 	}).Merge(t.config)
 
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Set environment variables if any.
 	savedVars := make(map[string]string)
@@ -96,14 +97,14 @@ func (t configTest) check(c *gc.C) {
 
 	e, err := environs.New(cfg)
 	if t.change != nil {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		osenv := e.(*environ)
 		old = osenv.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(changed, old)
@@ -115,7 +116,7 @@ func (t configTest) check(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
@@ -142,9 +143,9 @@ func (t configTest) check(c *gc.C) {
 			"password":    t.password,
 			"tenant-name": t.tenantName,
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
 	}
 	if t.firewallMode != "" {
@@ -161,7 +162,7 @@ func (t configTest) check(c *gc.C) {
 	c.Assert(ecfg.SSLHostnameVerification(), gc.Equals, expectedHostnameVerification)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, gc.Equals, true)
+		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
 }
@@ -457,10 +458,10 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	})
 
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Keep err for validation below.
 	valid, err := providerInstance.Validate(cfg, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Check deprecated attributes removed.
 	allAttrs := valid.AllAttrs()
 	for _, attr := range []string{"default-image-id", "default-instance-type"} {
@@ -475,16 +476,16 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 		"type": "openstack",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env0, err := providerInstance.Prepare(ctx, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
 	env1, err := providerInstance.Prepare(ctx, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := env1.(*environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
 
@@ -498,10 +499,10 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 		"control-bucket": "burblefoo",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.Prepare(testing.Context(c), cfg)
-	c.Assert(err, gc.IsNil)
+	env, err := providerInstance.Prepare(envtesting.BootstrapContext(c), cfg)
+	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
 }

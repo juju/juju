@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -67,7 +68,7 @@ func (s *ConfigValidatorSuite) updateEnvironConfig(c *gc.C) error {
 
 func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
 	err := s.updateEnvironConfig(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ConfigValidatorSuite) TestUpdateEnvironConfigFailsOnConfigValidateError(c *gc.C) {
@@ -84,9 +85,9 @@ func (s *ConfigValidatorSuite) TestUpdateEnvironConfigFailsOnConfigValidateError
 func (s *ConfigValidatorSuite) TestUpdateEnvironConfigUpdatesState(c *gc.C) {
 	s.updateEnvironConfig(c)
 	stateCfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newValidCfg, err := mockValidCfg()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateCfg.AllAttrs()["arbitrary-key"], gc.Equals, newValidCfg.AllAttrs()["arbitrary-key"])
 }
 
@@ -100,7 +101,7 @@ func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "policy returned nil configValidator without an error")
 	configValidatorErr = errors.NotImplementedf("Validator")
 	err = s.updateEnvironConfig(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
@@ -111,5 +112,5 @@ func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
 
 	state.SetPolicy(s.State, nil)
 	err := s.updateEnvironConfig(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

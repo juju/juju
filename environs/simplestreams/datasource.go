@@ -16,7 +16,7 @@ import (
 // A DataSource retrieves simplestreams metadata.
 type DataSource interface {
 	// Description describes the origin of this datasource.
-	// eg tools-metadata-url, cloud storage, keystone catalog etc.
+	// eg agent-metadata-url, cloud storage, keystone catalog etc.
 	Description() string
 	// Fetch loads the data at the specified relative path. It returns a reader from which
 	// the data can be retrieved as well as the full URL of the file. The full URL is typically
@@ -71,6 +71,8 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
 	client := utils.GetHTTPClient(h.hostnameVerification)
 	// dataURL can be http:// or file://
+	// MakeFileURL will only modify the URL if it's a file URL
+	dataURL = utils.MakeFileURL(dataURL)
 	resp, err := client.Get(dataURL)
 	if err != nil {
 		logger.Debugf("Got error requesting %q: %v", dataURL, err)
@@ -90,7 +92,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 
 // URL is defined in simplestreams.DataSource.
 func (h *urlDataSource) URL(path string) (string, error) {
-	return urlJoin(h.baseURL, path), nil
+	return utils.MakeFileURL(urlJoin(h.baseURL, path)), nil
 }
 
 // SetAllowRetry is defined in simplestreams.DataSource.

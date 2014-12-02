@@ -31,7 +31,9 @@ import (
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -44,6 +46,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -52,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -63,6 +67,7 @@ import (
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -93,6 +98,7 @@ var (
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
+	newDiskManager           = diskmanager.NewWorker
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -128,15 +134,6 @@ func (a *MachineAgent) BeginRestore() error {
 		return fmt.Errorf("already restoring")
 	}
 	a.restoring = true
-	return nil
-}
-
-// FinishRestore will restart jujud and err if restore flag is not true
-func (a *MachineAgent) FinishRestore() error {
-	if !a.restoring {
-		return fmt.Errorf("restore is not in progress")
-	}
-	a.tomb.Kill(worker.ErrTerminateAgent)
 	return nil
 }
 
@@ -249,12 +246,47 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
+	case worker.ErrRebootMachine:
+		logger.Infof("Caught reboot error")
+		err = a.executeRebootOrShutdown(params.ShouldReboot)
+	case worker.ErrShutdownMachine:
+		logger.Infof("Caught shutdown error")
+		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	err = agentDone(err)
 	a.tomb.Kill(err)
 	return err
+}
+
+func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
+	agentCfg := a.CurrentConfig()
+	// At this stage, all API connections would have been closed
+	// We need to reopen the API to clear the reboot flag after
+	// scheduling the reboot. It may be cleaner to do this in the reboot
+	// worker, before returning the ErrRebootMachine.
+	st, _, err := openAPIState(agentCfg, a)
+	if err != nil {
+		logger.Infof("Reboot: Error connecting to state")
+		return errors.Trace(err)
+	}
+	// block until all units/containers are ready, and reboot/shutdown
+	finalize, err := reboot.NewRebootWaiter(st, agentCfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("Reboot: Executing reboot")
+	err = finalize.ExecuteReboot(action)
+	if err != nil {
+		logger.Infof("Reboot: Error executing reboot: %v", err)
+		return errors.Trace(err)
+	}
+	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
+	// so the agent will simply exit without error pending reboot/shutdown.
+	return worker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
@@ -264,6 +296,46 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+	rWorker := func(stopch <-chan struct{}) error {
+		return a.restoreStateWatcher(st, stopch)
+	}
+	return worker.NewSimpleWorker(rWorker), nil
+}
+
+func (a *MachineAgent) restoreChanged(st *state.State) error {
+	rinfo, err := st.EnsureRestoreInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot read restore state")
+	}
+	switch rinfo.Status() {
+	case state.RestorePending:
+		a.PrepareRestore()
+	case state.RestoreInProgress:
+		a.BeginRestore()
+	}
+	return nil
+}
+
+func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
+	restoreWatch := st.WatchRestoreInfoChanges()
+	defer func() {
+		restoreWatch.Kill()
+		restoreWatch.Wait()
+	}()
+
+	for {
+		select {
+		case <-restoreWatch.Changes():
+			if err := a.restoreChanged(st); err != nil {
+				return err
+			}
+		case <-stopch:
+			return nil
+		}
+	}
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -355,7 +427,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageEnviron {
+		if job == multiwatcher.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)
@@ -394,6 +466,17 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
+	a.startWorkerAfterUpgrade(runner, "reboot", func() (worker.Worker, error) {
+		reboot, err := st.Reboot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		lock, err := hookExecutionLock(DataDir)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return rebootworker.NewReboot(reboot, agentConfig, lock)
+	})
 	a.startWorkerAfterUpgrade(runner, "apiaddressupdater", func() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
 	})
@@ -406,11 +489,18 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+	a.startWorkerAfterUpgrade(runner, "diskmanager", func() (worker.Worker, error) {
+		api, err := st.DiskManager()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+	})
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageNetworking {
+		if job == multiwatcher.JobManageNetworking {
 			intrusiveMode = true
 			break
 		}
@@ -438,13 +528,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	for _, job := range entity.Jobs() {
 		switch job {
-		case params.JobHostUnits:
+		case multiwatcher.JobHostUnits:
 			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
-		case params.JobManageEnviron:
+		case multiwatcher.JobManageEnviron:
 			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
@@ -464,13 +554,17 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			})
 
 			logger.Infof("starting metric workers")
-			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
-				return metricworker.NewCleanup(getMetricAPI(st)), nil
+			a.startWorkerAfterUpgrade(runner, "metricmanagerworker", func() (worker.Worker, error) {
+				return metricworker.NewMetricsManager(getMetricAPI(st))
 			})
-			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
-				return metricworker.NewSender(getMetricAPI(st)), nil
+			a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
+				inner := func(<-chan struct{}) error {
+					agentConfig := a.CurrentConfig()
+					return agent.WriteSystemIdentityFile(agentConfig)
+				}
+				return worker.NewSimpleWorker(inner), nil
 			})
-		case params.JobManageStateDeprecated:
+		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
@@ -484,10 +578,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// We don't yet support nested lxc containers but anything else can run an LXC container.
-	if entity.ContainerType() != instance.LXC {
+	// LXC containers are only supported on bare metal and fully virtualized linux systems
+	// Nested LXC containers and Windows machines cannot run LXC containers
+	supportsLXC, err := lxc.IsLXCSupported()
+	if err != nil {
+		logger.Warningf("no lxc containers possible: %v", err)
+	}
+	if err == nil && supportsLXC {
 		supportedContainers = append(supportedContainers, instance.LXC)
 	}
+
 	supportsKvm, err := kvm.IsKVMSupported()
 	if err != nil {
 		logger.Warningf("determining kvm support: %v\nno kvm containers possible", err)
@@ -556,11 +656,6 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	// Create system-identity file.
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return nil, err
-	}
-
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
@@ -604,6 +699,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
+			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
+				return a.newRestoreStateWatcher(st)
+			})
+
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -634,7 +733,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					Key:       key,
 					DataDir:   dataDir,
 					LogDir:    logDir,
-					Validator: a.limitLoginsDuringUpgrade,
+					Validator: a.limitLogins,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {

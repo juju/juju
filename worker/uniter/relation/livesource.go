@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -89,7 +89,7 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
 // correctly. In particular, the first event represents the ideal state of
 // the relation, and must be delivered for the source to be able to calculate
 // the desired hooks.
-func (q *liveSource) Changes() <-chan params.RelationUnitsChange {
+func (q *liveSource) Changes() <-chan multiwatcher.RelationUnitsChange {
 	return q.watcher.Changes()
 }
 
@@ -100,7 +100,7 @@ func (q *liveSource) Stop() error {
 
 // Update modifies the queue such that the hook.Info values it sends will
 // reflect the supplied change.
-func (q *liveSource) Update(change params.RelationUnitsChange) error {
+func (q *liveSource) Update(change multiwatcher.RelationUnitsChange) error {
 	if !q.started {
 		q.started = true
 		// The first event represents the ideal final state of the system.
@@ -115,7 +115,7 @@ func (q *liveSource) Update(change params.RelationUnitsChange) error {
 		// the ideal state, and insert those at the head of the queue. The
 		// easiest way to do this is to inject a departure update for those
 		// missing members before processing the ideal state.
-		departs := params.RelationUnitsChange{}
+		departs := multiwatcher.RelationUnitsChange{}
 		for unit := range q.info {
 			if _, found := change.Changed[unit]; !found {
 				departs.Departed = append(departs.Departed, unit)
@@ -185,7 +185,7 @@ func (q *liveSource) Pop() {
 	}
 }
 
-func (q *liveSource) update(change params.RelationUnitsChange) {
+func (q *liveSource) update(change multiwatcher.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
 	for unit := range change.Changed {

@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -95,6 +95,10 @@ var scpTests = []struct {
 		args:   []string{"--", "-r", "-v", "mongodb/1:foo", "mongodb/0:", "-q", "-l5"},
 		result: commonArgsNoProxy + "-- -r -v ubuntu@dummyenv-2.dns:foo ubuntu@dummyenv-1.dns: -q -l5\n",
 	}, {
+		about:  "scp from unit mongodb/1 to current dir as 'mongo' user",
+		args:   []string{"mongo@mongodb/1:foo", "."},
+		result: commonArgsNoProxy + "mongo@dummyenv-2.dns:foo .\n",
+	}, {
 		about: "scp with no such machine",
 		args:  []string{"5:foo", "bar"},
 		error: "machine 5 not found",
@@ -103,12 +107,12 @@ var scpTests = []struct {
 
 func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	m := s.makeMachines(4, c, true)
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	dummyCharm, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummyCharm)
 	s.addUnit(srv, m[0], c)
 
@@ -120,7 +124,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	// Simulate machine 3 has a public IPv6 address.
 	ipv6Addr := network.NewAddress("2001:db8::1", network.ScopePublic)
 	err = m[3].SetAddresses(ipv6Addr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range scpTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
@@ -129,18 +133,18 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd.proxy = t.proxy
 
 		err := envcmd.Wrap(scpcmd).Init(t.args)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		err = scpcmd.Run(ctx)
 		if t.error != "" {
 			c.Check(err, gc.ErrorMatches, t.error)
 			c.Check(t.result, gc.Equals, "")
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			// we suppress stdout from scp
 			c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 			data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			actual := string(data)
 			if t.proxy {
 				actual = strings.Replace(actual, ".dns", ".internal", 2)
@@ -150,19 +154,25 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	}
 }
 
-var hostsFromTargets = map[string]string{
-	"0":          "dummyenv-0.dns",
-	"mysql/0":    "dummyenv-0.dns",
-	"mongodb/0":  "dummyenv-1.dns",
-	"mongodb/1":  "dummyenv-2.dns",
-	"ipv6-svc/0": "2001:db8::1",
+type userHost struct {
+	user string
+	host string
 }
 
-func dummyHostsFromTarget(target string) (string, error) {
-	if res, ok := hostsFromTargets[target]; ok {
-		return res, nil
+var userHostsFromTargets = map[string]userHost{
+	"0":               userHost{"ubuntu", "dummyenv-0.dns"},
+	"mysql/0":         userHost{"ubuntu", "dummyenv-0.dns"},
+	"mongodb/0":       userHost{"ubuntu", "dummyenv-1.dns"},
+	"mongodb/1":       userHost{"ubuntu", "dummyenv-2.dns"},
+	"mongo@mongodb/1": userHost{"mongo", "dummyenv-2.dns"},
+	"ipv6-svc/0":      userHost{"ubuntu", "2001:db8::1"},
+}
+
+func dummyHostsFromTarget(target string) (string, string, error) {
+	if res, ok := userHostsFromTargets[target]; ok {
+		return res.user, res.host, nil
 	}
-	return target, nil
+	return "ubuntu", target, nil
 }
 
 func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
@@ -170,7 +180,7 @@ func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 		if t.error != "" {
 			// We are just running a focused set of tests on
 			// expandArgs, we aren't implementing the full
-			// hostsFromTargets to actually trigger errors
+			// userHostsFromTargets to actually trigger errors
 			continue
 		}
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
@@ -187,16 +197,16 @@ func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 		c.Check(strings.HasSuffix(argString, "\n"), jc.IsTrue)
 		argString = argString[:len(argString)-1]
 		args := strings.Split(argString, " ")
-		expanded, err := expandArgs(t.args, func(target string) (string, error) {
-			if res, ok := hostsFromTargets[target]; ok {
+		expanded, err := expandArgs(t.args, func(target string) (string, string, error) {
+			if res, ok := userHostsFromTargets[target]; ok {
 				if t.proxy {
-					res = strings.Replace(res, ".dns", ".internal", 1)
+					res.host = strings.Replace(res.host, ".dns", ".internal", 1)
 				}
-				return res, nil
+				return res.user, res.host, nil
 			}
-			return target, nil
+			return "ubuntu", target, nil
 		})
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(expanded, gc.DeepEquals, args)
 	}
 }
@@ -217,16 +227,16 @@ func (s *expandArgsSuite) TestExpandArgs(c *gc.C) {
 	for i, t := range expandTests {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Check(expanded, gc.DeepEquals, t.result)
 	}
 }
 
 func (s *expandArgsSuite) TestExpandArgsPropagatesErrors(c *gc.C) {
-	erroringHostFromTargets := func(string) (string, error) {
-		return "", fmt.Errorf("this is my error")
+	erroringUserHostFromTargets := func(string) (string, string, error) {
+		return "", "", fmt.Errorf("this is my error")
 	}
-	expanded, err := expandArgs([]string{"foo:1", "bar"}, erroringHostFromTargets)
+	expanded, err := expandArgs([]string{"foo:1", "bar"}, erroringUserHostFromTargets)
 	c.Assert(err, gc.ErrorMatches, "this is my error")
 	c.Check(expanded, gc.IsNil)
 }

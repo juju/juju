@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -29,7 +28,6 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent/tools"
@@ -39,6 +37,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
@@ -51,10 +50,6 @@ import (
 // unless they fail.
 const worstCase = coretesting.LongWait
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
 type UniterSuite struct {
 	coretesting.GitSuite
 	testing.JujuConnSuite
@@ -64,6 +59,7 @@ type UniterSuite struct {
 
 	st     *api.State
 	uniter *apiuniter.State
+	ticker *uniter.ManualTicker
 }
 
 var _ = gc.Suite(&UniterSuite{})
@@ -74,12 +70,12 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.dataDir = c.MkDir()
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cmd := exec.Command("go", "build", "github.com/juju/juju/cmd/jujud")
 	cmd.Dir = toolsDir
 	out, err := cmd.CombinedOutput()
 	c.Logf(string(out))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.oldLcAll = os.Getenv("LC_ALL")
 	os.Setenv("LC_ALL", "en_US")
 	s.unitDir = filepath.Join(s.dataDir, "agents", "unit-u-0")
@@ -94,6 +90,8 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
+	s.ticker = uniter.NewManualTicker()
+	s.PatchValue(uniter.ActiveMetricsTimer, s.ticker.ReturnTimer)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
@@ -109,19 +107,19 @@ func (s *UniterSuite) Reset(c *gc.C) {
 
 func (s *UniterSuite) ResetContext(c *gc.C) {
 	err := os.RemoveAll(s.unitDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", unit.Tag())
 	s.uniter, err = s.st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 }
 
@@ -180,7 +178,7 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	defer func() {
 		if ctx.uniter != nil {
 			err := ctx.uniter.Stop()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}()
 	for i, s := range steps {
@@ -200,14 +198,18 @@ juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
+func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
+	err := ioutil.WriteFile(path, []byte(contents), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	hook := badHook
 	if good {
 		hook = goodHook
 	}
 	content := fmt.Sprintf(hook, filepath.Base(path))
-	err := ioutil.WriteFile(path, []byte(content), 0755)
-	c.Assert(err, gc.IsNil)
+	ctx.writeExplicitHook(c, path, content)
 }
 
 func (ctx *context) writeActions(c *gc.C, path string, names []string) {
@@ -216,11 +218,23 @@ func (ctx *context) writeActions(c *gc.C, path string, names []string) {
 	}
 }
 
+func (ctx *context) writeMetricsYaml(c *gc.C, path string) {
+	metricsYamlPath := filepath.Join(path, "metrics.yaml")
+	var metricsYamlFull []byte = []byte(`
+metrics:
+  pings:
+    type: gauge
+    description: sample metric
+`)
+	err := ioutil.WriteFile(metricsYamlPath, []byte(metricsYamlFull), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (ctx *context) writeAction(c *gc.C, path, name string) {
 	var actions = map[string]string{
 		"action-log": `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+juju-log $JUJU_ENV_UUID action-log
 `[1:],
 		"snapshot": `
 #!/bin/bash --norc
@@ -228,28 +242,29 @@ action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
 action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
 action-set completion.status="yes" completion.time="5m"
 action-set completion="yes"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail": `
 #!/bin/bash --norc
 action-fail "I'm afraid I can't let you do that, Dave."
 action-set foo="still works"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail-error": `
 #!/bin/bash --norc
 action-fail too many arguments
 action-set foo="still works"
 action-fail "A real message"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+`[1:],
+		"action-reboot": `
+#!/bin/bash --norc
+juju-reboot || action-set reboot-delayed="good"
+juju-reboot --now || action-set reboot-now="good"
 `[1:],
 	}
 
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
-	content := fmt.Sprintf(action, filepath.Base(actionPath))
-	err := ioutil.WriteFile(actionPath, []byte(content), 0755)
-	c.Assert(err, gc.IsNil)
+	err := ioutil.WriteFile(actionPath, []byte(action), 0755)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ctx *context) writeActionsYaml(c *gc.C, path string, names ...string) {
@@ -281,6 +296,10 @@ actions:
    action-log-fail-error:
       params:
 `[1:],
+		"action-reboot": `
+   action-reboot:
+      params:
+`[1:],
 	}
 	actionsYamlPath := filepath.Join(path, "actions.yaml")
 	var actionsYamlFull string
@@ -293,7 +312,7 @@ actions:
 			[]string{actionsYamlFull, actionsYaml[name]}, "\n")
 	}
 	err := ioutil.WriteFile(actionsYamlPath, []byte(actionsYamlFull), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
@@ -344,13 +363,13 @@ var bootstrapTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: open .*: not a directory`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*: not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
 		// don't serve charm
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: preparing operation "install cs:quantal/wordpress-0": failed to download charm .* 404 Not Found`},
 	),
 }
 
@@ -1095,6 +1114,17 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 				adminTag.String() + "\nprivate.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
+			"run commands: jujuc environment",
+			quickStartRelation{},
+			relationRunCommands{
+				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
+				fmt.Sprintf("echo $JUJU_REMOTE_UNIT >> %s", testFile("jujuc-env.output")),
+			},
+			verifyFile{
+				testFile("jujuc-env.output"),
+				"db:0\nmysql/0\n",
+			},
+		), ut(
 			"run commands: proxy settings set",
 			quickStartRelation{},
 			setProxySettings{Http: "http", Https: "https", Ftp: "ftp", NoProxy: "localhost"},
@@ -1324,15 +1354,28 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 var collectMetricsEventTests = []uniterTest{
 	ut(
 		"collect-metrics event triggered by manual timer",
-		quickStart{},
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeMetricsYaml(c, path)
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
 		metricsTick{},
 		waitHooks{"collect-metrics"},
 	),
 	ut(
 		"collect-metrics resumed after hook error",
-		startupError{"config-changed"},
+		startupErrorWithCustomCharm{
+			badHook: "config-changed",
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeMetricsYaml(c, path)
+			},
+		},
 		metricsTick{},
-		verifyWaiting{},
 		fixHook{"config-changed"},
 		resolveError{state.ResolvedRetryHooks},
 		waitUnit{
@@ -1341,10 +1384,35 @@ var collectMetricsEventTests = []uniterTest{
 		waitHooks{"config-changed", "start", "collect-metrics"},
 		verifyRunning{},
 	),
+	ut(
+		"collect-metrics state maintained during uniter restart",
+		startupErrorWithCustomCharm{
+			badHook: "config-changed",
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeMetricsYaml(c, path)
+			},
+		},
+		metricsTick{},
+		fixHook{"config-changed"},
+		stopUniter{},
+		startUniter{},
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"config-changed", "start", "collect-metrics"},
+		verifyRunning{},
+	),
+	ut(
+		"collect-metrics event not triggered for non-metered charm",
+		quickStart{},
+		metricsTick{},
+		waitHooks{},
+	),
 }
 
 func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
-	s.runUniterTests(c, meterStatusEventTests)
+	s.runUniterTests(c, collectMetricsEventTests)
 }
 
 var actionEventTests = []uniterTest{
@@ -1365,8 +1433,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log", nil},
-		waitHooks{"action-log"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
@@ -1389,8 +1456,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log-fail", nil},
-		waitHooks{"action-log-fail"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name: "action-log-fail",
 			results: map[string]interface{}{
 				"foo": "still works",
@@ -1416,8 +1482,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log-fail-error", nil},
-		waitHooks{"action-log-fail-error"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name: "action-log-fail-error",
 			results: map[string]interface{}{
 				"foo": "still works",
@@ -1446,8 +1511,7 @@ var actionEventTests = []uniterTest{
 			name:   "snapshot",
 			params: map[string]interface{}{"outfile": "foo.bar"},
 		},
-		waitHooks{"snapshot"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name: "snapshot",
 			results: map[string]interface{}{
 				"outfile": map[string]interface{}{
@@ -1482,12 +1546,11 @@ var actionEventTests = []uniterTest{
 			name:   "snapshot",
 			params: map[string]interface{}{"outfile": 2},
 		},
-		waitHooks{"snapshot"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
-			message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
+			message: `cannot run "snapshot" action: JSON validation failed: (root).outfile : must be of type string, given 2`,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1506,12 +1569,11 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
-		waitHooks{"snapshot"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
-			message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
+			message: `cannot run "snapshot" action: not defined`,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1533,12 +1595,7 @@ var actionEventTests = []uniterTest{
 		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
-		waitHooks{
-			"action-log",
-			"action-log",
-			"action-log",
-		},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
@@ -1568,8 +1625,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log", nil},
-		waitNoHooks{"action-log", "fail-action-log"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
@@ -1579,26 +1635,25 @@ var actionEventTests = []uniterTest{
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
 		startupErrorWithCustomCharm{
-			badHook: "install",
+			badHook: "start",
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
 				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		addAction{"action-log", nil},
-		waitNoHooks{"action-log", "fail-action-log"},
 		waitUnit{
 			status: params.StatusError,
-			info:   `hook failed: "install"`,
+			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
-				"hook": "install",
+				"hook": "start",
 			},
 		},
-		fixHook{"install"},
+		verifyNoActionResults{},
+		verifyWaiting{},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{status: params.StatusStarted},
-		waitHooks{"config-changed", "start", "action-log"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
@@ -1621,7 +1676,7 @@ var subordinatesTests = []uniterTest{
 		unitDying,
 		waitSubordinateDying{},
 		waitHooks{"stop"},
-		verifyRunning{true},
+		verifyWaiting{},
 		removeSubordinate{},
 		waitUniterDead{},
 	), ut(
@@ -1649,7 +1704,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 		func() {
 			defer s.Reset(c)
 			env, err := s.State.Environment()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			ctx := &context{
 				s:       s,
 				st:      s.State,
@@ -1657,6 +1712,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				path:    s.unitDir,
 				dataDir: s.dataDir,
 				charms:  make(map[string][]byte),
+				ticker:  s.ticker,
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -1666,13 +1722,13 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 // Assign the unit to a provisioned machine with dummy addresses set.
 func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	err := u.AssignToNewMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mid, err := u.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machine, err := st.Machine(mid)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAddresses(network.Address{
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
@@ -1682,7 +1738,7 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 		Scope: network.ScopePublic,
 		Value: "public.address.example.com",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
@@ -1695,12 +1751,12 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		charms:  make(map[string][]byte),
 	}
 
-	testing.AddStateServerMachine(c, ctx.st)
+	addStateServerMachine(c, ctx.st)
 
 	// Create the subordinate service.
-	dir := charmtesting.Charms.ClonedDir(c.MkDir(), "logging")
+	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
 	curl, err := corecharm.ParseURL("cs:quantal/logging")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
 	ctx.svc = s.AddTestingService(c, "u", ctx.sch)
@@ -1708,20 +1764,20 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	// Create the principal service and add a relation.
 	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wpu, err := wps.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	eps, err := s.State.InferEndpoints("wordpress", "u")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertAssignUnit(c, s.State, wpu)
 
 	// Create the subordinate unit by entering scope as the principal.
 	wpru, err := rel.Unit(wpu)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wpru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.unit, err = s.State.Unit("u/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.APILogin(c, ctx.unit)
 
@@ -1737,6 +1793,160 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	})
 }
 
+var rebootHook = `
+#!/bin/bash --norc
+juju-reboot
+`[1:]
+
+var badRebootHook = `
+#!/bin/bash --norc
+juju-reboot
+exit 1
+`[1:]
+
+var rebootNowHook = `
+#!/bin/bash --norc
+
+if [ -f "i_have_risen" ]
+then
+    exit 0
+fi
+touch i_have_risen
+juju-reboot --now
+`[1:]
+
+var rebootTests = []uniterTest{
+	ut(
+		"test that juju-reboot disabled in actions",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-reboot")
+				ctx.writeActionsYaml(c, path, "action-reboot")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		addAction{"action-reboot", nil},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitActionResults{[]actionResult{{
+			name: "action-reboot",
+			results: map[string]interface{}{
+				"reboot-delayed": "good",
+				"reboot-now":     "good",
+			},
+			status: params.ActionCompleted,
+		}}},
+	),
+	ut(
+		"test that juju-reboot finishes hook, and reboots",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, rebootHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUniterDead{"machine needs to reboot"},
+		waitHooks{"install"},
+		startUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"config-changed", "start"},
+	),
+	ut(
+		"test that juju-reboot --now kills hook and exits",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, rebootNowHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUniterDead{"machine needs to reboot"},
+		waitHooks{"install"},
+		startUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+	),
+	ut(
+		"test juju-reboot will not happen if hook errors out",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, badRebootHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{
+			status: params.StatusError,
+			info:   fmt.Sprintf(`hook failed: "install"`),
+		},
+	),
+}
+
+func (s *UniterSuite) TestReboot(c *gc.C) {
+	s.runUniterTests(c, rebootTests)
+}
+
+var jujuRunRebootTests = []uniterTest{
+	ut(
+		"test juju-reboot",
+		quickStart{},
+		runCommands{"juju-reboot"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"test juju-reboot with bad hook",
+		startupError{"install"},
+		runCommands{"juju-reboot"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{},
+	),
+	ut(
+		"test juju-reboot --now",
+		quickStart{},
+		runCommands{"juju-reboot --now"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"test juju-reboot --now with bad hook",
+		startupError{"install"},
+		runCommands{"juju-reboot --now"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{},
+	),
+}
+
+func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
+	s.runUniterTests(c, jujuRunRebootTests)
+}
+
 func step(c *gc.C, ctx *context, s stepper) {
 	c.Logf("%#v", s)
 	s.step(c, ctx)
@@ -1747,11 +1957,22 @@ type ensureStateWorker struct{}
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
 	if err != nil || len(addresses) == 0 {
-		testing.AddStateServerMachine(c, ctx.st)
+		addStateServerMachine(c, ctx.st)
 	}
 	addresses, err = ctx.st.APIAddressesFromMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.HasLen, 1)
+}
+
+func addStateServerMachine(c *gc.C, st *state.State) {
+	// The AddStateServerMachine call will update the API host ports
+	// to made-up addresses. We need valid addresses so that the uniter
+	// can download charms from the API server.
+	apiHostPorts, err := st.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	testing.AddStateServerMachine(c, st)
+	err = st.SetAPIHostPorts(apiHostPorts)
+	c.Assert(err, gc.IsNil)
 }
 
 type createCharm struct {
@@ -1767,7 +1988,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
-	base := charmtesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
+	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -1782,9 +2003,9 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 		s.customize(c, ctx, base)
 	}
 	dir, err := corecharm.ReadCharmDir(base)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(s.revision)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	step(c, ctx, addCharm{dir, curl(s.revision)})
 }
 
@@ -1796,15 +2017,15 @@ type addCharm struct {
 func (s addCharm) step(c *gc.C, ctx *context) {
 	var buf bytes.Buffer
 	err := s.dir.ArchiveTo(&buf)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	body := buf.Bytes()
 	hash, _, err := utils.ReadSHA256(&buf)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	ctx.charms[storagePath] = body
 	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, storagePath, hash)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type serveCharm struct{}
@@ -1813,7 +2034,7 @@ func (s serveCharm) step(c *gc.C, ctx *context) {
 	storage := ctx.st.Storage()
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		delete(ctx.charms, storagePath)
 	}
 }
@@ -1827,10 +2048,10 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 		csau.serviceName = "u"
 	}
 	sch, err := ctx.st.Charm(curl(0))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	svc := ctx.s.AddTestingService(c, csau.serviceName, sch)
 	unit, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the unit to a provisioned machine to match expected state.
 	assertAssignUnit(c, ctx.st, unit)
@@ -1897,9 +2118,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	}
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
-	c.Assert(err, gc.IsNil)
-	ctx.ticker = uniter.NewManualTicker()
-	uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
@@ -1928,7 +2147,7 @@ func (s waitUniterDead) step(c *gc.C, ctx *context) {
 	}
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 	err = ctx.unit.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.unit.Life(), gc.Equals, state.Dead)
 }
 
@@ -1965,7 +2184,7 @@ func (s stopUniter) step(c *gc.C, ctx *context) {
 	ctx.uniter = nil
 	err := u.Stop()
 	if s.err == "" {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, gc.ErrorMatches, s.err)
 	}
@@ -1980,17 +2199,12 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 }
 
 type verifyRunning struct {
-	noHooks bool
 }
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	if s.noHooks {
-		step(c, ctx, waitHooks{})
-	} else {
-		step(c, ctx, waitHooks{"config-changed"})
-	}
+	step(c, ctx, waitHooks{"config-changed"})
 }
 
 type startupErrorWithCustomCharm struct {
@@ -2083,7 +2297,7 @@ type resolveError struct {
 
 func (s resolveError) step(c *gc.C, ctx *context) {
 	err := ctx.unit.SetResolved(s.resolved)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type waitUnit struct {
@@ -2119,7 +2333,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 				continue
 			}
 			status, info, data, err := ctx.unit.Status()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if string(status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue
@@ -2186,13 +2400,16 @@ type actionResult struct {
 	message string
 }
 
-type verifyActionResults struct {
+type waitActionResults struct {
 	expectedResults []actionResult
 }
 
-func (s verifyActionResults) step(c *gc.C, ctx *context) {
-	timeout := time.After(worstCase)
+func (s waitActionResults) step(c *gc.C, ctx *context) {
 	resultsWatcher := ctx.st.WatchActionResults()
+	defer func() {
+		c.Assert(resultsWatcher.Stop(), gc.IsNil)
+	}()
+	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
 		select {
@@ -2200,14 +2417,16 @@ func (s verifyActionResults) step(c *gc.C, ctx *context) {
 			continue
 		case <-timeout:
 			c.Fatalf("timed out waiting for action results")
-		case changes := <-resultsWatcher.Changes():
+		case changes, ok := <-resultsWatcher.Changes():
 			c.Logf("Got changes: %#v", changes)
-			c.Assert(len(changes), gc.Equals, len(s.expectedResults))
-			actualResults := make([]actionResult, len(changes))
-			for i, change := range changes {
-				c.Logf("Change: %s", change)
-				result, err := ctx.st.ActionResult(change)
-				c.Assert(err, gc.IsNil)
+			c.Assert(ok, jc.IsTrue)
+			stateActionResults, err := ctx.unit.CompletedActions()
+			c.Assert(err, jc.ErrorIsNil)
+			if len(stateActionResults) != len(s.expectedResults) {
+				continue
+			}
+			actualResults := make([]actionResult, len(stateActionResults))
+			for i, result := range stateActionResults {
 				results, message := result.Results()
 				actualResults[i] = actionResult{
 					name:    result.Name(),
@@ -2245,36 +2464,13 @@ findMatch:
 	c.Assert(matches, gc.Equals, desiredMatches)
 }
 
-// make sure no hooks are run from the given slice
-type waitNoHooks []string
+type verifyNoActionResults struct{}
 
-func (s waitNoHooks) step(c *gc.C, ctx *context) {
-	if len(s) == 0 {
-		// Give unwanted hooks a moment to run...
-		ctx.s.BackingState.StartSync()
-		time.Sleep(coretesting.ShortWait)
-	}
-	originalHooks := ctx.hooks
-	ctx.hooks = append(ctx.hooks, s...)
-	c.Logf("waiting to make sure hooks don't run: %#v", ctx.hooks)
-	match, _ := ctx.matchHooks(c)
-	if match {
-		c.Fatalf("received unwanted hook")
-	}
-	timeout := time.After(worstCase)
-	for {
-		ctx.s.BackingState.StartSync()
-		select {
-		case <-time.After(coretesting.ShortWait):
-			if match, _ = ctx.matchHooks(c); match {
-				c.Fatalf("received unwanted hook")
-			}
-		case <-timeout:
-			ctx.hooks = originalHooks
-			return
-		}
-	}
-	ctx.hooks = originalHooks
+func (s verifyNoActionResults) step(c *gc.C, ctx *context) {
+	time.Sleep(coretesting.ShortWait)
+	result, err := ctx.unit.CompletedActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 0)
 }
 
 type fixHook struct {
@@ -2293,21 +2489,21 @@ type changeMeterStatus struct {
 
 func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	err := ctx.unit.SetMeterStatus(s.code, s.info)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type metricsTick struct{}
 
 func (s metricsTick) step(c *gc.C, ctx *context) {
 	err := ctx.ticker.Tick()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
 	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addAction struct {
@@ -2317,7 +2513,7 @@ type addAction struct {
 
 func (s addAction) step(c *gc.C, ctx *context) {
 	_, err := ctx.unit.AddAction(s.name, s.params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type upgradeCharm struct {
@@ -2328,9 +2524,9 @@ type upgradeCharm struct {
 func (s upgradeCharm) step(c *gc.C, ctx *context) {
 	curl := curl(s.revision)
 	sch, err := ctx.st.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.svc.SetCharm(sch, s.forced)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	serveCharm{}.step(c, ctx)
 }
 
@@ -2344,16 +2540,16 @@ func (s verifyCharm) step(c *gc.C, ctx *context) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	path := filepath.Join(ctx.path, "charm", "revision")
 	content, err := ioutil.ReadFile(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
 	checkRevision := s.revision
 	if s.attemptedRevision > checkRevision {
 		checkRevision = s.attemptedRevision
 	}
 	err = ctx.unit.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	url, ok := ctx.unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 
@@ -2426,7 +2622,7 @@ type fixUpgradeError struct{}
 func (s fixUpgradeError) step(c *gc.C, ctx *context) {
 	charmPath := filepath.Join(ctx.path, "charm")
 	err := os.Chmod(charmPath, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addRelation struct {
@@ -2441,9 +2637,9 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
 	eps, err := ctx.st.InferEndpoints("u", "mysql")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.relation, err = ctx.st.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.relationUnits = map[string]*state.RelationUnit{}
 	if !s.waitJoin {
 		return
@@ -2451,7 +2647,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 
 	// It's hard to do this properly (watching scope) without perturbing other tests.
 	ru, err := ctx.relation.Unit(ctx.unit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	timeout := time.After(worstCase)
 	for {
 		c.Logf("waiting to join relation")
@@ -2460,7 +2656,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 			c.Fatalf("failed to join relation")
 		case <-time.After(coretesting.ShortWait):
 			inScope, err := ru.InScope()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if inScope {
 				return
 			}
@@ -2472,11 +2668,11 @@ type addRelationUnit struct{}
 
 func (s addRelationUnit) step(c *gc.C, ctx *context) {
 	u, err := ctx.relatedSvc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := ctx.relation.Unit(u)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.relationUnits[u.Name()] = ru
 }
 
@@ -2486,7 +2682,7 @@ type changeRelationUnit struct {
 
 func (s changeRelationUnit) step(c *gc.C, ctx *context) {
 	settings, err := ctx.relationUnits[s.name].Settings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	key := "madness?"
 	raw, _ := settings.Get(key)
 	val, _ := raw.(string)
@@ -2497,7 +2693,7 @@ func (s changeRelationUnit) step(c *gc.C, ctx *context) {
 	}
 	settings.Set(key, val)
 	_, err = settings.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type removeRelationUnit struct {
@@ -2506,7 +2702,7 @@ type removeRelationUnit struct {
 
 func (s removeRelationUnit) step(c *gc.C, ctx *context) {
 	err := ctx.relationUnits[s.name].LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.relationUnits[s.name] = nil
 }
 
@@ -2521,7 +2717,7 @@ func (s relationState) step(c *gc.C, ctx *context) {
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 		return
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.relation.Life(), gc.Equals, s.life)
 
 }
@@ -2535,9 +2731,9 @@ func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = ctx.st.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type removeSubordinateRelation struct {
@@ -2546,11 +2742,11 @@ type removeSubordinateRelation struct {
 
 func (s removeSubordinateRelation) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type waitSubordinateExists struct {
@@ -2570,7 +2766,7 @@ func (s waitSubordinateExists) step(c *gc.C, ctx *context) {
 			if errors.IsNotFound(err) {
 				continue
 			}
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			return
 		}
 	}
@@ -2587,7 +2783,7 @@ func (waitSubordinateDying) step(c *gc.C, ctx *context) {
 			c.Fatalf("subordinate was not made Dying")
 		case <-time.After(coretesting.ShortWait):
 			err := ctx.subordinate.Refresh()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if ctx.subordinate.Life() != state.Dying {
 				continue
 			}
@@ -2600,9 +2796,9 @@ type removeSubordinate struct{}
 
 func (removeSubordinate) step(c *gc.C, ctx *context) {
 	err := ctx.subordinate.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.subordinate.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.subordinate = nil
 }
 
@@ -2613,10 +2809,10 @@ type assertYaml struct {
 
 func (s assertYaml) step(c *gc.C, ctx *context) {
 	data, err := ioutil.ReadFile(filepath.Join(ctx.path, s.path))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual := make(map[string]interface{})
 	err = goyaml.Unmarshal(data, &actual)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, s.expect)
 }
 
@@ -2629,9 +2825,9 @@ func (s writeFile) step(c *gc.C, ctx *context) {
 	path := filepath.Join(ctx.path, s.path)
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(path, nil, s.mode)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type chmod struct {
@@ -2642,7 +2838,7 @@ type chmod struct {
 func (s chmod) step(c *gc.C, ctx *context) {
 	path := filepath.Join(ctx.path, s.path)
 	err := os.Chmod(path, s.mode)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type custom struct {
@@ -2680,19 +2876,19 @@ func curl(revision int) *corecharm.URL {
 func appendHook(c *gc.C, charm, name, data string) {
 	path := filepath.Join(charm, "hooks", name)
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	_, err = f.Write([]byte(data))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	path := filepath.Join(charmPath, "metadata.yaml")
 	f, err := os.Open(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	meta, err := corecharm.ReadMeta(f)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	replace := func(what map[string]corecharm.Relation) bool {
 		for relName, relation := range what {
@@ -2708,20 +2904,20 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	c.Assert(replaced, gc.Equals, true, gc.Commentf("charm %q does not implement relation %q", charmPath, oldName))
 
 	newmeta, err := goyaml.Marshal(meta)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ioutil.WriteFile(path, newmeta, 0644)
 
 	f, err = os.Open(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	meta, err = corecharm.ReadMeta(f)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func createHookLock(c *gc.C, dataDir string) *fslock.Lock {
 	lockDir := filepath.Join(dataDir, "locks")
 	lock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return lock
 }
 
@@ -2731,16 +2927,16 @@ type acquireHookSyncLock struct {
 
 func (s acquireHookSyncLock) step(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), gc.Equals, false)
+	c.Assert(lock.IsLocked(), jc.IsFalse)
 	err := lock.Lock(s.message)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var releaseHookSyncLock = custom{func(c *gc.C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
 	// Force the release.
 	err := lock.BreakLock()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }}
 
 var verifyHookSyncLockUnlocked = custom{func(c *gc.C, ctx *context) {
@@ -2763,32 +2959,63 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 		"no-proxy":    s.NoProxy,
 	}
 	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	isExpectedEnvironment := func() bool {
+		for name, expect := range map[string]string{
+			"http_proxy":  s.Http,
+			"HTTP_PROXY":  s.Http,
+			"https_proxy": s.Https,
+			"HTTPS_PROXY": s.Https,
+			"ftp_proxy":   s.Ftp,
+			"FTP_PROXY":   s.Ftp,
+			"no_proxy":    s.NoProxy,
+			"NO_PROXY":    s.NoProxy,
+		} {
+			if actual := os.Getenv(name); actual != expect {
+				c.Logf("%s not yet set to %s (got %s)", name, expect, actual)
+				return false
+			}
+		}
+		return true
+	}
+
 	// wait for the new values...
-	expected := (proxy.Settings)(s)
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if ctx.uniter.GetProxyValues() == expected {
-			// Also confirm that the values were specified for the environment.
-			c.Assert(os.Getenv("http_proxy"), gc.Equals, expected.Http)
-			c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, expected.Http)
-			c.Assert(os.Getenv("https_proxy"), gc.Equals, expected.Https)
-			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
-			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
-			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
-			c.Assert(os.Getenv("no_proxy"), gc.Equals, expected.NoProxy)
-			c.Assert(os.Getenv("NO_PROXY"), gc.Equals, expected.NoProxy)
+		if isExpectedEnvironment() {
 			return
 		}
 	}
 	c.Fatal("settings didn't get noticed by the uniter")
 }
 
+type relationRunCommands []string
+
+func (cmds relationRunCommands) step(c *gc.C, ctx *context) {
+	commands := strings.Join(cmds, "\n")
+	args := uniter.RunCommandsArgs{
+		Commands:       commands,
+		RelationId:     0,
+		RemoteUnitName: "",
+	}
+	result, err := ctx.uniter.RunCommands(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result.Code, gc.Equals, 0)
+	c.Check(string(result.Stdout), gc.Equals, "")
+	c.Check(string(result.Stderr), gc.Equals, "")
+}
+
 type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	result, err := ctx.uniter.RunCommands(commands)
-	c.Assert(err, gc.IsNil)
+	args := uniter.RunCommandsArgs{
+		Commands:       commands,
+		RelationId:     -1,
+		RemoteUnitName: "",
+	}
+	result, err := ctx.uniter.RunCommands(args)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Code, gc.Equals, 0)
 	c.Check(string(result.Stdout), gc.Equals, "")
 	c.Check(string(result.Stderr), gc.Equals, "")
@@ -2798,17 +3025,23 @@ type asyncRunCommands []string
 
 func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	socketPath := filepath.Join(ctx.path, uniter.RunListenerFile)
+	args := uniter.RunCommandsArgs{
+		Commands:       commands,
+		RelationId:     -1,
+		RemoteUnitName: "",
+	}
+
+	socketPath := filepath.Join(ctx.path, "run.socket")
 
 	go func() {
 		// make sure the socket exists
 		client, err := rpc.Dial("unix", socketPath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		defer client.Close()
 
 		var result utilexec.ExecResponse
-		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
-		c.Assert(err, gc.IsNil)
+		err = client.Call(uniter.JujuRunEndpoint, args, &result)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result.Code, gc.Equals, 0)
 		c.Check(string(result.Stdout), gc.Equals, "")
 		c.Check(string(result.Stderr), gc.Equals, "")
@@ -2827,7 +3060,7 @@ func (verify verifyFile) fileExists() bool {
 
 func (verify verifyFile) checkContent(c *gc.C) {
 	content, err := ioutil.ReadFile(verify.filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, verify.content)
 }
 

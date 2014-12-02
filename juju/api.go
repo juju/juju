@@ -336,7 +336,7 @@ func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, er
 // with the provided apiInfo, assuming we've just successfully
 // connected to the API server.
 func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
-	defer errors.Contextf(&err, "failed to cache API credentials")
+	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
 	var environUUID string
 	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {
 		environUUID = apiInfo.EnvironTag.Id()

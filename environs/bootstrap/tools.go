@@ -76,7 +76,7 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 		return nil, findToolsErr
 	}
 
-	isDev := env.Config().ToolsStream() != envtools.ReleasedStream || env.Config().Development()
+	isDev := env.Config().AgentStream() != envtools.ReleasedStream || env.Config().Development()
 	if !isDev || vers != nil {
 		// We are not running a development build, or agent-version
 		// was specified; the only tools available are the ones we've
@@ -92,7 +92,7 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 	// so we can see if we need to build any locally. If we need
 	// to, only then do we validate that we can upload (which
 	// involves a potentially expensive SupportedArchitectures call).
-	var archSeries set.Strings
+	archSeries := make(set.Strings)
 	for _, tools := range toolsList {
 		archSeries.Add(tools.Version.Arch + tools.Version.Series)
 	}

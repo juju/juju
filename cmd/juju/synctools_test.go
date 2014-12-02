@@ -99,9 +99,6 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 	for i, test := range syncToolsCommandTests {
 		c.Logf("test %d: %s", i, test.description)
 		called := false
-		if test.sctx.Stream == "" {
-			test.sctx.Stream = "released"
-		}
 		syncTools = func(sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
 			c.Assert(sctx.MajorVersion, gc.Equals, test.sctx.MajorVersion)
@@ -122,7 +119,7 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 			return nil
 		}
 		ctx, err := runSyncToolsCommand(c, test.args...)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ctx, gc.NotNil)
 		c.Assert(called, jc.IsTrue)
 		s.Reset(c)
@@ -133,21 +130,21 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	called := false
 	dir := c.MkDir()
 	syncTools = func(sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, gc.Equals, false)
-		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.Stream, gc.Equals, "released")
+		c.Assert(sctx.AllVersions, jc.IsFalse)
+		c.Assert(sctx.DryRun, jc.IsFalse)
+		c.Assert(sctx.Stream, gc.Equals, "proposed")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
 		c.Assert(uploader.WriteMirrors, gc.Equals, envtools.DoNotWriteMirrors)
 		url, err := uploader.Storage.URL("")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(url, gc.Equals, "file://"+dir)
 		called = true
 		return nil
 	}
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir)
-	c.Assert(err, gc.IsNil)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir, "--stream", "proposed")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -163,7 +160,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 		return nil
 	}
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir, "--public")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -172,14 +169,14 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	called := false
 	dir := c.MkDir()
 	syncTools = func(sctx *sync.SyncContext) error {
-		c.Assert(sctx.AllVersions, gc.Equals, false)
-		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.AllVersions, jc.IsFalse)
+		c.Assert(sctx.DryRun, jc.IsFalse)
 		c.Assert(sctx.Stream, gc.Equals, "released")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
 		url, err := uploader.Storage.URL("")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(url, gc.Equals, "file://"+dir)
 		called = true
 		return nil
@@ -193,8 +190,8 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
 	// Run sync-tools command with --destination flag.
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
-	c.Assert(err, gc.IsNil)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir, "--stream", "released")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 	// Check deprecated message was logged.
@@ -215,8 +212,8 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(2)
-	c.Assert(err, gc.IsNil)
+	list, err := a.FindTools(2, "released")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list, jc.SameContents, result)
 	c.Assert(called, jc.IsTrue)
 }
@@ -229,7 +226,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(1)
+	list, err := a.FindTools(1, "released")
 	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 	c.Assert(list, gc.HasLen, 0)
 }
@@ -242,7 +239,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(1)
+	list, err := a.FindTools(1, "released")
 	c.Assert(err, gc.Equals, findToolsErr) // error comes through untranslated
 	c.Assert(list, gc.HasLen, 0)
 }
@@ -252,14 +249,14 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	fake := fakeSyncToolsAPI{
 		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
 			data, err := ioutil.ReadAll(r)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(data), gc.Equals, "abc")
 			c.Assert(v, gc.Equals, version.Current)
 			return nil, uploadToolsErr
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	err := a.UploadTools("released", &coretools.Tools{Version: version.Current}, []byte("abc"))
+	err := a.UploadTools("released", "released", &coretools.Tools{Version: version.Current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
 

@@ -4,22 +4,35 @@
 package params
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
+
+// FindTags wraps a slice of strings that are prefixes to use when
+// searching for matching tags.
+type FindTags struct {
+	Prefixes []string `json:"prefixes"`
+}
+
+// FindTagResults wraps the mapping between the requested prefix and the
+// matching tags for each requested prefix.
+type FindTagsResults struct {
+	Matches map[string][]Entity `json:"matches"`
+}
 
 // Entity identifies a single entity.
 type Entity struct {
@@ -63,6 +76,22 @@ func (result ErrorResults) OneError() error {
 	return nil
 }
 
+// Combine returns one error from the result which is an accumulation of the
+// errors.  If there are no errors in the result, the return value is nil.
+// Otherwise the error values are combined with new-line characters.
+func (result ErrorResults) Combine() error {
+	var errorStrings []string
+	for _, r := range result.Results {
+		if r.Error != nil {
+			errorStrings = append(errorStrings, r.Error.Error())
+		}
+	}
+	if errorStrings != nil {
+		return errors.New(strings.Join(errorStrings, "\n"))
+	}
+	return nil
+}
+
 // ErrorResult holds the error status of a single operation.
 type ErrorResult struct {
 	Error *Error
@@ -92,7 +121,7 @@ type AddMachineParams struct {
 	// new machine when it is created.
 	Series      string
 	Constraints constraints.Value
-	Jobs        []MachineJob
+	Jobs        []multiwatcher.MachineJob
 
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
@@ -372,16 +401,7 @@ type AllWatcherId struct {
 
 // AllWatcherNextResults holds deltas returned from calling AllWatcher.Next().
 type AllWatcherNextResults struct {
-	Deltas []Delta
-}
-
-// Delta holds details of a change to the environment.
-type Delta struct {
-	// If Removed is true, the entity has been removed;
-	// otherwise it has been created or changed.
-	Removed bool
-	// Entity holds data about the entity that has changed.
-	Entity EntityInfo
+	Deltas []multiwatcher.Delta
 }
 
 // ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
@@ -394,102 +414,6 @@ type ListSSHKeys struct {
 type ModifyUserSSHKeys struct {
 	User string
 	Keys []string
-}
-
-// MarshalJSON implements json.Marshaler.
-func (d *Delta) MarshalJSON() ([]byte, error) {
-	b, err := json.Marshal(d.Entity)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	buf.WriteByte('[')
-	c := "change"
-	if d.Removed {
-		c = "remove"
-	}
-	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().Kind, c)
-	buf.Write(b)
-	buf.WriteByte(']')
-	return buf.Bytes(), nil
-}
-
-// UnmarshalJSON implements json.Unmarshaler.
-func (d *Delta) UnmarshalJSON(data []byte) error {
-	var elements []json.RawMessage
-	if err := json.Unmarshal(data, &elements); err != nil {
-		return err
-	}
-	if len(elements) != 3 {
-		return fmt.Errorf(
-			"Expected 3 elements in top-level of JSON but got %d",
-			len(elements))
-	}
-	var entityKind, operation string
-	if err := json.Unmarshal(elements[0], &entityKind); err != nil {
-		return err
-	}
-	if err := json.Unmarshal(elements[1], &operation); err != nil {
-		return err
-	}
-	if operation == "remove" {
-		d.Removed = true
-	} else if operation != "change" {
-		return fmt.Errorf("Unexpected operation %q", operation)
-	}
-	switch entityKind {
-	case "machine":
-		d.Entity = new(MachineInfo)
-	case "service":
-		d.Entity = new(ServiceInfo)
-	case "unit":
-		d.Entity = new(UnitInfo)
-	case "relation":
-		d.Entity = new(RelationInfo)
-	case "annotation":
-		d.Entity = new(AnnotationInfo)
-	default:
-		return fmt.Errorf("Unexpected entity name %q", entityKind)
-	}
-	if err := json.Unmarshal(elements[2], &d.Entity); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EntityInfo is implemented by all entity Info types.
-type EntityInfo interface {
-	// EntityId returns an identifier that will uniquely
-	// identify the entity within its kind
-	EntityId() EntityId
-}
-
-// IMPORTANT NOTE: the types below are direct subsets of the entity docs
-// held in mongo, as defined in the state package (serviceDoc,
-// machineDoc etc).
-// In particular, the document marshalled into mongo
-// must unmarshal correctly into these documents.
-// If the format of a field in a document is changed in mongo, or
-// a field is removed and it coincides with one of the
-// fields below, a similar change must be made here.
-//
-// MachineInfo corresponds with state.machineDoc.
-// ServiceInfo corresponds with state.serviceDoc.
-// UnitInfo corresponds with state.unitDoc.
-// RelationInfo corresponds with state.relationDoc.
-// AnnotationInfo corresponds with state.annotatorDoc.
-
-var (
-	_ EntityInfo = (*MachineInfo)(nil)
-	_ EntityInfo = (*ServiceInfo)(nil)
-	_ EntityInfo = (*UnitInfo)(nil)
-	_ EntityInfo = (*RelationInfo)(nil)
-	_ EntityInfo = (*AnnotationInfo)(nil)
-)
-
-type EntityId struct {
-	Kind string
-	Id   interface{}
 }
 
 // StateServingInfo holds information needed by a state
@@ -510,106 +434,6 @@ type IsMasterResult struct {
 	// lives on the same instance as the mongo replica
 	// set master.
 	Master bool
-}
-
-// MachineInfo holds the information about a Machine
-// that is watched by StateWatcher.
-type MachineInfo struct {
-	Id                       string `bson:"_id"`
-	InstanceId               string
-	Status                   Status
-	StatusInfo               string
-	StatusData               map[string]interface{}
-	Life                     Life
-	Series                   string
-	SupportedContainers      []instance.ContainerType
-	SupportedContainersKnown bool
-	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
-	Jobs                     []MachineJob
-	Addresses                []network.Address
-}
-
-func (i *MachineInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "machine",
-		Id:   i.Id,
-	}
-}
-
-// ServiceTags encapsulates a slice of names.ServiceTag.
-type ServiceTags struct {
-	ServiceTags []names.ServiceTag `json:"servicetags,omitempty"`
-}
-
-type ServiceInfo struct {
-	Name        string `bson:"_id"`
-	Exposed     bool
-	CharmURL    string
-	OwnerTag    string
-	Life        Life
-	MinUnits    int
-	Constraints constraints.Value
-	Config      map[string]interface{}
-	Subordinate bool
-}
-
-func (i *ServiceInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "service",
-		Id:   i.Name,
-	}
-}
-
-type UnitInfo struct {
-	Name           string `bson:"_id"`
-	Service        string
-	Series         string
-	CharmURL       string
-	PublicAddress  string
-	PrivateAddress string
-	MachineId      string
-	Ports          []network.Port
-	Status         Status
-	StatusInfo     string
-	StatusData     map[string]interface{}
-	Subordinate    bool
-}
-
-func (i *UnitInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "unit",
-		Id:   i.Name,
-	}
-}
-
-type Endpoint struct {
-	ServiceName string
-	Relation    charm.Relation
-}
-
-type RelationInfo struct {
-	Key       string `bson:"_id"`
-	Id        int
-	Endpoints []Endpoint
-}
-
-func (i *RelationInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "relation",
-		Id:   i.Key,
-	}
-}
-
-type AnnotationInfo struct {
-	Tag         string
-	Annotations map[string]string
-}
-
-func (i *AnnotationInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "annotation",
-		Id:   i.Tag,
-	}
 }
 
 // ContainerManagerConfigParams contains the parameters for the
@@ -785,8 +609,8 @@ type ReauthRequest struct {
 	Nonce  string `json:"nonce"`
 }
 
-// UserInfo describes a logged-in local user or remote identity.
-type UserInfo struct {
+// AuthUserInfo describes a logged-in local user or remote identity.
+type AuthUserInfo struct {
 	DisplayName    string     `json:"display-name"`
 	Identity       string     `json:"identity"`
 	LastConnection *time.Time `json:"last-connection,omitempty"`
@@ -812,7 +636,7 @@ type LoginResultV1 struct {
 	ReauthRequest *ReauthRequest `json:"reauth-request,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
-	UserInfo *UserInfo `json:"user-info,omitempty"`
+	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
 
 	// Facades describes all the available API facade versions to the
 	// authenticated client.
@@ -890,12 +714,62 @@ type FindToolsResult struct {
 
 // RebootActionResults holds a list of RebootActionResult and any error.
 type RebootActionResults struct {
-	Results []RebootActionResult `json:results,omitempty`
+	Results []RebootActionResult `json:"results,omitempty"`
 }
 
 // RebootActionResult holds the result of a single call to
 // machine.ShouldRebootOrShutdown.
 type RebootActionResult struct {
-	Result RebootAction `json:result,omitempty`
-	Error  *Error       `json:error,omitempty`
+	Result RebootAction `json:"result,omitempty"`
+	Error  *Error       `json:"error,omitempty"`
+}
+
+// Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
+type Life multiwatcher.Life
+
+const (
+	Alive = Life(multiwatcher.Alive)
+	Dying = Life(multiwatcher.Dying)
+	Dead  = Life(multiwatcher.Dead)
+)
+
+// Status represents the status of an entity.
+// It could be a unit, machine or its agent.
+type Status multiwatcher.Status
+
+const (
+	// The entity is not yet participating in the environment.
+	StatusPending = Status(multiwatcher.StatusPending)
+
+	// The unit has performed initial setup and is adapting itself to
+	// the environment. Not applicable to machines.
+	StatusInstalled = Status(multiwatcher.StatusInstalled)
+
+	// The entity is actively participating in the environment.
+	StatusStarted = Status(multiwatcher.StatusStarted)
+
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped = Status(multiwatcher.StatusStopped)
+
+	// The entity requires human intervention in order to operate
+	// correctly.
+	StatusError = Status(multiwatcher.StatusError)
+
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown = Status(multiwatcher.StatusDown)
+)
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of a datastore.
+type DatastoreResult struct {
+	Result storage.Datastore `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// DatastoreResult holds the result of an API call to retrieve details
+// of multiple datastores.
+type DatastoreResults struct {
+	Results []DatastoreResult `json:"results,omitempty"`
 }

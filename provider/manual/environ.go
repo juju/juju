@@ -68,8 +68,8 @@ type manualEnviron struct {
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	return nil, nil, nil, errNoStartInstance
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return nil, errNoStartInstance
 }
 
 func (*manualEnviron) StopInstances(...instance.Id) error {
@@ -99,6 +99,11 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportNetworks() bool {
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
@@ -179,7 +184,9 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		if out == noAgentDir {
 			return environs.ErrNotBootstrapped
 		}
-		return errors.LoggedErrorf(logger, "unexpected output: %q", out)
+		err := errors.Errorf("unexpected output: %q", out)
+		logger.Infof(err.Error())
+		return err
 	}
 	return nil
 }
@@ -247,19 +254,25 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 	return instances, err
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not supported on the
 // manual provider.
-func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	return network.Address{}, errors.NotSupportedf("AllocateAddress")
+func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*manualEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the manual provider yet.
-func (*manualEnviron) ListNetworks() ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*manualEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {

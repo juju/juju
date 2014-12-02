@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -199,16 +200,16 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// check that StateServerInstances returns the id of the bootstrap machine.
 	instanceIds, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 
 	insts, err := env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
@@ -220,14 +221,14 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
 	addresses, err := insts[0].Addresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("first instance: UserData: %q", userData)
 	var userDataMap map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &userDataMap)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(userDataMap, jc.DeepEquals, map[interface{}]interface{}{
 		"output": map[interface{}]interface{}{
 			"all": "| tee -a /var/log/cloud-init-output.log",
@@ -249,11 +250,11 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("second instance: UserData: %q", userData)
 	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	CheckPackage(c, userDataMap, "curl", true)
 	CheckPackage(c, userDataMap, "mongodb-server", false)
 	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
@@ -261,7 +262,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// TODO check for provisioning agent
 
 	err = env.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = env.StateServerInstances()
 	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
@@ -283,18 +284,18 @@ func splitAuthKeys(keys string) []interface{} {
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -304,7 +305,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 	inst, err := t.testStartInstanceAvailZone(c, "test-available")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
 }
 
@@ -320,8 +321,8 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
 	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
@@ -348,7 +349,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	resultZones = make([]amzec2.AvailabilityZoneInfo, 1)
 	resultZones[0].Name = "whatever"
 	zones, err = env.AvailabilityZones()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 
@@ -358,7 +359,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	resultErr = fmt.Errorf("failed to get availability zones")
 	resultZones[0].Name = "andever"
 	zones, err = env.AvailabilityZones()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 }
@@ -378,7 +379,7 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	resultZones[0].State = "available"
 	resultZones[1].State = "impaired"
 	zones, err := env.AvailabilityZones()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 2)
 	c.Assert(zones[0].Name(), gc.Equals, resultZones[0].Name)
 	c.Assert(zones[1].Name(), gc.Equals, resultZones[1].Name)
@@ -401,8 +402,8 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{{ZoneName: "az1"}},
@@ -421,14 +422,14 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 		},
 	}
 	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
 		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
@@ -450,8 +451,8 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
@@ -464,10 +465,36 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azInsufficientInstanceCapacityErr = &amzec2.Error{
+	Code: "InsufficientInstanceCapacity",
+	Message: "We currently do not have sufficient m1.small capacity in the " +
+		"Availability Zone you requested (us-east-1d). Our system will " +
+		"be working on provisioning additional capacity. You can currently get m1.small " +
+		"capacity by not specifying an Availability Zone in your request or choosing " +
+		"us-east-1c, us-east-1a.",
+}
+
+var azNoDefaultSubnetErr = &amzec2.Error{
+	Code:    "InvalidInput",
+	Message: "No default subnet for availability zone: ''us-east-1e''.",
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azNoDefaultSubnetErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{
@@ -479,17 +506,33 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	var azArgs []string
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
-		return nil, azConstrainedErr
+		return nil, runInstancesError
 	})
 	_, _, _, err = testing.StartInstance(env, "1")
-	c.Assert(err, gc.ErrorMatches, `cannot run instances: The requested Availability Zone is currently constrained etc\. \(Unsupported\)`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"cannot run instances: %s \\(%s\\)",
+		regexp.QuoteMeta(runInstancesError.Message),
+		runInstancesError.Code,
+	))
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneInsufficientInstanceCapacity(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azNoDefaultSubnetErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 
 	mock := mockAvailabilityZoneAllocations{
 		result: []common.AvailabilityZoneInstances{
@@ -505,7 +548,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
-			return nil, azConstrainedErr
+			return nil, runInstancesError
 		}
 		return realRunInstances(e, ri)
 	})
@@ -516,23 +559,15 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	addrs, err := inst.Addresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
 	expected := []network.Address{{
-		Value: "*.testing.invalid",
-		Type:  network.HostName,
-		Scope: network.ScopePublic,
-	}, {
-		Value: "*.internal.invalid",
-		Type:  network.HostName,
-		Scope: network.ScopeCloudLocal,
-	}, {
 		Value: "8.0.0.*",
 		Type:  network.IPv4Address,
 		Scope: network.ScopePublic,
@@ -552,17 +587,17 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 tags=foo")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
@@ -574,11 +609,11 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cpu-cores=2 tags=bar")
 	consB := constraints.MustParse("arch=i386 instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=i386 instance-type=m1.small tags=bar"))
 }
 
@@ -587,7 +622,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	placement := ""
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
@@ -610,14 +645,14 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
@@ -630,15 +665,15 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	params.Series = coretesting.FakeDefaultSeries
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -646,20 +681,155 @@ func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 
 	env := t.Prepare(c)
 	sources, err := tools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }
 
 func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := t.Prepare(c)
 	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, jc.ErrorIsNil)
+
+	instId := instanceIds[0]
+	addr := network.Address{Value: "8.0.0.4"}
+
+	// Invalid instance found
+	err = env.AllocateAddress(instId+"foo", "", addr)
+	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
+
+	// No network interface
+	err = env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
+}
+
+func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Environ, instance.Id) {
+	// setting a default-vpc will create a network interface
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	return env, instanceIds[0]
+}
+
+func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	var actualAddr network.Address
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		actualAddr = addr
+		return nil
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actualAddr, gc.Equals, addr)
+}
+
+func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		return &amzec2.Error{Code: "InvalidParameterValue"}
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+
+	err = env.AllocateAddress(instId, "", network.Address{})
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+}
+
+func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		return &amzec2.Error{Code: "PrivateIpAddressLimitExceeded"}
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
+}
+
+func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	addr := network.Address{Value: "8.0.0.4"}
+	// Allocate the address first so we can release it
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.ReleaseAddress(instId, "", addr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Releasing a second time tests that the first call actually released
+	// it plus tests the error handling of ReleaseAddress
+	err = env.ReleaseAddress(instId, "", addr)
+	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
+	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportAddressAllocationCaches(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"none"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsFalse)
+
+	// this value won't change normally, the change here is to
+	// ensure that subsequent calls use the cached value
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	result, err = env.SupportAddressAllocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"none"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.IsFalse)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
@@ -689,9 +859,9 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.srv.startServer(c)
 
 	cfg, err := config.New(config.NoDefaults, localConfigAttrs)
-	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
 	t.env = env
 }
 

@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -51,7 +52,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
 	results, err := lg.Life(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: params.Alive},
@@ -78,6 +79,6 @@ func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
 	}
 	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
 	result, err := lg.Life(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

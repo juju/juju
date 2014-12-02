@@ -186,31 +186,37 @@ var TestImagesData = map[string]string{
              "id": "ami-00000011"
            },
            "usww1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "eu-west-1",
              "id": "ami-00000016"
            },
            "apne1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "ap-northeast-1",
              "id": "ami-00000026"
            },
            "apne1he": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "hvm",
              "region": "ap-northeast-1",
              "id": "ami-00000087"
            },
-           "test1pe": {
-             "root_store": "ebs",
+           "test1peebs": {
+             "root_store": "ssd",
              "virt": "pv",
              "region": "test",
              "id": "ami-00000033"
            },
-           "test1he": {
+           "test1pessd": {
              "root_store": "ebs",
+             "virt": "pv",
+             "region": "test",
+             "id": "ami-00000039"
+           },
+           "test1he": {
+             "root_store": "ssd",
              "virt": "hvm",
              "region": "test",
              "id": "ami-00000035"
@@ -229,13 +235,13 @@ var TestImagesData = map[string]string{
        "20121218": {
          "items": {
            "test1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "test",
              "id": "ami-00000034"
            },
            "apne1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "ap-northeast-1",
              "id": "ami-00000023"
@@ -260,25 +266,25 @@ var TestImagesData = map[string]string{
              "id": "ami-00000011"
            },
            "usww1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "eu-west-1",
              "id": "ami-01000016"
            },
            "apne1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "ap-northeast-1",
              "id": "ami-01000026"
            },
            "apne1he": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "hvm",
              "region": "ap-northeast-1",
              "id": "ami-01000087"
            },
            "test1he": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "hvm",
              "region": "test",
              "id": "ami-01000035"
@@ -297,13 +303,13 @@ var TestImagesData = map[string]string{
        "20121218": {
          "items": {
            "test1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "test",
              "id": "ami-01000034"
            },
            "apne1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "ap-northeast-1",
              "id": "ami-01000023"
@@ -322,7 +328,7 @@ var TestImagesData = map[string]string{
        "20121218": {
          "items": {
            "test1pe": {
-             "root_store": "ebs",
+             "root_store": "ssd",
              "virt": "pv",
              "region": "test",
              "id": "ami-02000034"

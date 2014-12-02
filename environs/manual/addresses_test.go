@@ -6,6 +6,7 @@ package manual_test
 import (
 	"errors"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual"
@@ -39,7 +40,7 @@ func (s *addressesSuite) SetUpTest(c *gc.C) {
 func (s *addressesSuite) TestHostAddress(c *gc.C) {
 	addr, err := manual.HostAddress(validHost)
 	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, network.Address{
 		Value: validHost,
 		Type:  network.HostName,
@@ -57,7 +58,7 @@ func (s *addressesSuite) TestHostAddressError(c *gc.C) {
 func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
 	addr, err := manual.HostAddress("127.0.0.1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, network.Address{
 		Value: "127.0.0.1",
 		Type:  network.IPv4Address,
@@ -68,7 +69,7 @@ func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
 func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
 	addr, err := manual.HostAddress("::1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr, gc.Equals, network.Address{
 		Value: "::1",
 		Type:  network.IPv6Address,

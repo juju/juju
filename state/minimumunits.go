@@ -23,13 +23,15 @@ import (
 type minUnitsDoc struct {
 	// ServiceName is safe to be used here in place of its globalKey, since
 	// the referred entity type is always the Service.
-	ServiceName string `bson:"_id"`
+	DocID       string `bson:"_id"`
+	ServiceName string
+	EnvUUID     string `bson:"env-uuid"`
 	Revno       int
 }
 
 // SetMinUnits changes the number of minimum units required by the service.
 func (s *Service) SetMinUnits(minUnits int) (err error) {
-	defer errors.Maskf(&err, "cannot set minimum units for service %q", s)
+	defer errors.DeferredAnnotatef(&err, "cannot set minimum units for service %q", s)
 	defer func() {
 		if err == nil {
 			s.doc.MinUnits = minUnits
@@ -76,7 +78,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 	if service.doc.MinUnits == 0 {
 		return append(ops, txn.Op{
 			C:      minUnitsC,
-			Id:     serviceName,
+			Id:     state.docID(serviceName),
 			Assert: txn.DocMissing,
 			Insert: &minUnitsDoc{ServiceName: serviceName},
 		})
@@ -101,7 +103,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,
-		Id:     serviceName,
+		Id:     st.docID(serviceName),
 		Update: bson.D{{"$inc", bson.D{{"revno", 1}}}},
 	}
 }
@@ -111,7 +113,7 @@ func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 func minUnitsRemoveOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,
-		Id:     serviceName,
+		Id:     st.docID(serviceName),
 		Remove: true,
 	}
 }
@@ -124,7 +126,7 @@ func (s *Service) MinUnits() int {
 // EnsureMinUnits adds new units if the service's MinUnits value is greater
 // than the number of alive units.
 func (s *Service) EnsureMinUnits() (err error) {
-	defer errors.Maskf(&err, "cannot ensure minimum units for service %q", s)
+	defer errors.DeferredAnnotatef(&err, "cannot ensure minimum units for service %q", s)
 	service := &Service{st: s.st, doc: s.doc}
 	for {
 		// Ensure the service is alive.

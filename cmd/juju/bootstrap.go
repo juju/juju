@@ -32,6 +32,11 @@ machine provisioned for the juju state server.  They will also be set as default
 constraints on the environment for all future machines, exactly as if the
 constraints were set with juju set-constraints.
 
+It is possible to override constraints and the automatic machine selection
+algorithm by using the "--to" flag. The value associated with "--to" is a
+"placement directive", which tells Juju how to identify the first machine to use.
+For more information on placement directives, see "juju help placement".
+
 Bootstrap initializes the cloud environment synchronously and displays information
 about the current installation steps.  The time for bootstrap to complete varies
 across cloud providers from a few seconds to several minutes.  Once bootstrap has
@@ -55,6 +60,7 @@ See Also:
    juju help switch
    juju help constraints
    juju help set-constraints
+   juju help placement
 `
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -85,7 +91,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destory the environment if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -236,7 +242,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 
-	err = bootstrapFuncs.Bootstrap(ctx, environ, bootstrap.BootstrapParams{
+	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,

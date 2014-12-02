@@ -5,6 +5,7 @@ package logger_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -37,14 +38,14 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 	// Create a machine to work with
 	var err error
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
 	s.logger, err = logger.NewLoggerAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
@@ -61,7 +62,7 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("germany/7")
 	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
@@ -73,9 +74,9 @@ func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.LoggingConfig(), gc.Equals, loggingConfig)
 }
 

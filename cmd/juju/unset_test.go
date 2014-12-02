@@ -7,6 +7,7 @@ import (
 	"bytes"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -81,7 +82,7 @@ func assertUnsetSuccess(c *gc.C, dir string, svc *state.Service, args []string, 
 	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 	settings, err := svc.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
 }
 

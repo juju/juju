@@ -23,15 +23,24 @@ const defaultCpuPower = 100
 
 // filterImages returns only that subset of the input (in the same order) that
 // this provider finds suitable.
-func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageMetadata {
-	result := make([]*imagemetadata.ImageMetadata, 0, len(images))
+func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceConstraint) []*imagemetadata.ImageMetadata {
+	// Gather the images for each available storage type.
+	imagesByStorage := make(map[string][]*imagemetadata.ImageMetadata)
 	for _, image := range images {
-		// For now, we only want images with "ebs" storage.
-		if image.Storage == ebsStorage {
-			result = append(result, image)
+		imagesByStorage[image.Storage] = append(imagesByStorage[image.Storage], image)
+	}
+	// If a storage constraint has been specified, use that or else default to ssd.
+	storageTypes := []string{ssdStorage}
+	if ic != nil && len(ic.Storage) > 0 {
+		storageTypes = ic.Storage
+	}
+	// Return the first set of images for which we have a storage type match.
+	for _, storageType := range storageTypes {
+		if len(imagesByStorage[storageType]) > 0 {
+			return imagesByStorage[storageType]
 		}
 	}
-	return result
+	return nil
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
@@ -55,7 +64,7 @@ func findInstanceSpec(
 	if len(matchingImages) == 0 {
 		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
-	suitableImages := filterImages(matchingImages)
+	suitableImages := filterImages(matchingImages, ic)
 	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.

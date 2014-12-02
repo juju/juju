@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -14,10 +15,11 @@ import (
 
 func (s *backupsSuite) TestListOkay(c *gc.C) {
 	impl := s.setBackups(c, s.meta, "")
-	impl.archive = ioutil.NopCloser(bytes.NewBufferString("spamspamspam"))
+	impl.Archive = ioutil.NopCloser(bytes.NewBufferString("spamspamspam"))
 	args := params.BackupsListArgs{}
 	result, err := s.api.List(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	item := params.BackupsMetadataResult{}
 	item.UpdateFromMetadata(s.meta)
 	expected := params.BackupsListResult{

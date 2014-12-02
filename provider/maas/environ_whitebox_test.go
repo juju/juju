@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -63,7 +64,7 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	storageDir := c.MkDir()
 	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir)
+	suite.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -76,7 +77,7 @@ func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
 	instances, err := suite.makeEnviron().Instances([]instance.Id{id})
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0].Id(), gc.Equals, id)
 }
@@ -107,7 +108,7 @@ func (suite *environSuite) TestAllInstances(c *gc.C) {
 	id := suite.addNode(allocatedNode)
 	instances, err := suite.makeEnviron().AllInstances()
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.HasLen, 1)
 	c.Assert(instances[0].Id(), gc.Equals, id)
 }
@@ -115,7 +116,7 @@ func (suite *environSuite) TestAllInstances(c *gc.C) {
 func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
 	instances, err := suite.makeEnviron().AllInstances()
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(instances, gc.HasLen, 0)
 }
 
@@ -160,12 +161,12 @@ const lshwXMLTemplate = `
   <node id="core" claimed="true" class="bus" handle="DMI:0008">
    <description>Motherboard</description>
     <node id="pci" claimed="true" class="bridge" handle="PCIBUS:0000:00">
-     <description>Host bridge</description>{{range $m, $n := .}}
-      <node id="network:0" claimed="true" class="network" handle="PCI:0000:00:03.0">
+     <description>Host bridge</description>{{$list := .}}{{range $mac, $ifi := $list}}
+      <node id="network{{if gt (len $list) 1}}:{{$ifi.DeviceIndex}}{{end}}" claimed="true" class="network" handle="PCI:0000:00:03.0">
        <description>Ethernet interface</description>
        <product>82540EM Gigabit Ethernet Controller</product>
-       <logicalname>{{$n}}</logicalname>
-       <serial>{{$m}}</serial>
+       <logicalname>{{$ifi.InterfaceName}}</logicalname>
+       <serial>{{$mac}}</serial>
       </node>{{end}}
     </node>
   </node>
@@ -174,7 +175,7 @@ const lshwXMLTemplate = `
 </list>
 `
 
-func (suite *environSuite) generateHWTemplate(netMacs map[string]string) (string, error) {
+func (suite *environSuite) generateHWTemplate(netMacs map[string]ifaceInfo) (string, error) {
 	tmpl, err := template.New("test").Parse(lshwXMLTemplate)
 	if err != nil {
 		return "", err
@@ -195,24 +196,24 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
 		version.Current.Arch),
 	)
-	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
-	c.Assert(err, gc.IsNil)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0"}})
+	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
-	c.Check(found, gc.Equals, true)
+	c.Check(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that StateServerInstances returns the id of the bootstrap machine.
 	instanceIds, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
@@ -221,18 +222,18 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
 		version.Current.Arch),
 	)
-	lshwXML, err = suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f1": "eth0"})
-	c.Assert(err, gc.IsNil)
+	lshwXML, err = suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f1": {0, "eth0"}})
+	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	instance, hc := testing.AssertStartInstance(c, env, "1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
 	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", version.Current.Arch))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// The value of the "user data" parameter used when starting the node
@@ -240,16 +241,16 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	// the node's filesystem.
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node1"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(len(nodeRequestValues), gc.Equals, 2)
 	userData := nodeRequestValues[1].Get("user_data")
 	decodedUserData, err := decodeUserData(userData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info := machineInfo{"host1"}
 	cloudinitRunCmd, err := info.cloudinitRunCmd("precise")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(decodedUserData), jc.Contains, string(data))
 
 	// Trash the tools and try to start another instance.
@@ -267,16 +268,46 @@ func stringp(val string) *string {
 	return &val
 }
 
+func (suite *environSuite) TestSelectNodeValidZone(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "zone": "bar"}`)
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	node, err := env.selectNode(snArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(node, gc.NotNil)
+}
+
+func (suite *environSuite) TestSelectNodeInvalidZone(c *gc.C) {
+	env := suite.makeEnviron()
+
+	snArgs := selectNodeArgs{
+		AvailabilityZones: []string{"foo", "bar"},
+		Constraints:       constraints.Value{},
+		IncludeNetworks:   nil,
+		ExcludeNetworks:   nil,
+	}
+
+	_, err := env.selectNode(snArgs)
+	c.Assert(fmt.Sprintf("%s", err), gc.Equals, "cannot run instances: gomaasapi: got error back from server: 409 Conflict ()")
+}
+
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
 	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire"})
 
 	// no "name" parameter should have been passed through
@@ -291,10 +322,10 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 
 	_, err := env.acquireNode("host0", "", constraints.Value{}, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	actions, found := operations["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Check(actions, gc.DeepEquals, []string{"acquire"})
 
 	// no "name" parameter should have been passed through
@@ -310,10 +341,10 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 
 	_, err := env.acquireNode("", "", constraints, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(nodeRequestValues[0].Get("arch"), gc.Equals, "arm")
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
 }
@@ -378,10 +409,10 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 
 	_, err := env.acquireNode("", "", constraints.Value{}, nil, nil)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeRequestValues, found := requestValues["node0"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(found, jc.IsTrue)
 	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
@@ -395,7 +426,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 		nil, nil,
 	)
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
 	nodeValues, found := requestValues["node0"]
 	c.Assert(found, jc.IsTrue)
@@ -489,7 +520,7 @@ func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
 	err := suite.makeEnviron().StopInstances()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
 }
@@ -504,11 +535,60 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	suite.testMAASObject.TestServer.OwnedNodes()["test2"] = true
 
 	err := suite.makeEnviron().StopInstances("test1", "test2", "test3")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	operations := suite.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"release"})
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
+}
+
+func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 409}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
+	attemptedNodes := [][]string{}
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		attemptedNodes = append(attemptedNodes, ids["nodes"])
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1", "test2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedNodes := [][]string{[]string{"test1", "test2"}, []string{"test1"}, []string{"test2"}}
+	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 405}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(maasErr.StatusCode, gc.Equals, 405)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return environs.ErrNoInstances
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
 }
 
 func (suite *environSuite) TestStateServerInstances(c *gc.C) {
@@ -521,9 +601,9 @@ func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 		err := common.SaveState(env.Storage(), &common.BootstrapState{
 			StateInstances: expected,
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		stateServerInstances, err := env.StateServerInstances()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(stateServerInstances, jc.SameContents, expected)
 	}
 }
@@ -543,7 +623,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	stor := env.Storage()
 
 	err := env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// Instances have been stopped.
 	operations := suite.testMAASObject.TestServer.NodesOperations()
@@ -551,7 +631,7 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	c.Check(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
 	// Files have been cleaned up.
 	listing, err := storage.List(stor, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
 
@@ -562,11 +642,11 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
 		version.Current.Arch),
 	)
-	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
-	c.Assert(err, gc.IsNil)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0"}})
+	c.Assert(err, jc.ErrorIsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
@@ -575,17 +655,17 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)
-	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -593,10 +673,10 @@ func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 
 func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
 	rc, _, err := source.Fetch(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	retrieved, err := ioutil.ReadAll(rc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
@@ -607,9 +687,9 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	data := makeRandomBytes(10)
 	stor := NewStorage(env)
 	err := stor.Put("tools/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sources, err := envtools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }
 
@@ -620,7 +700,7 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
 }
 
@@ -631,7 +711,7 @@ func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
 }
 
@@ -639,10 +719,10 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
 }
 
@@ -651,7 +731,7 @@ func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "armhf", "release": "precise"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
@@ -662,24 +742,28 @@ func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
-	suite.testMAASObject.TestServer.NewNetwork(`{"name": "net_1"}`)
-	suite.testMAASObject.TestServer.NewNetwork(`{"name": "net_2"}`)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_1","ip":"0.1.2.0","netmask":"255.255.255.0"}`,
+	)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_2","ip":"0.2.2.0","netmask":"255.255.255.0"}`,
+	)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_2", "aa:bb:cc:dd:ee:22")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_2", "aa:bb:cc:dd:ee:12")
 
 	networks, err := env.getNetworkMACs("net_1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:11", "aa:bb:cc:dd:ee:21"})
 
 	networks, err = env.getNetworkMACs("net_2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(networks, jc.SameContents, []string{"aa:bb:cc:dd:ee:12", "aa:bb:cc:dd:ee:22"})
 
 	networks, err = env.getNetworkMACs("net_3")
 	c.Check(networks, gc.HasLen, 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
@@ -687,7 +771,7 @@ func (suite *environSuite) TestGetInstanceNetworks(c *gc.C) {
 	test_instance := suite.getInstance("instance_for_network")
 	suite.testMAASObject.TestServer.ConnectNodeToNetwork("instance_for_network", "test_network")
 	networks, err := suite.makeEnviron().getInstanceNetworks(test_instance)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(networks, gc.DeepEquals, []networkDetails{
 		{Name: "test_network", IP: "192.168.123.1", Mask: "255.255.255.0", VLANTag: 321,
 			Description: "test_network_123_321"},
@@ -709,18 +793,18 @@ const lshwXMLTestExtractInterfaces = `
     <node id="cpu" claimed="true" class="processor" handle="DMI:0004">
      <description>CPU</description>
       <node id="pci:2" claimed="true" class="bridge" handle="PCIBUS:0000:03">
-        <node id="network" claimed="true" class="network" handle="PCI:0000:03:00.0">
+        <node id="network:0" claimed="true" class="network" handle="PCI:0000:03:00.0">
          <logicalname>wlan0</logicalname>
          <serial>aa:bb:cc:dd:ee:ff</serial>
         </node>
-        <node id="network" claimed="true" class="network" handle="PCI:0000:04:00.0">
+        <node id="network:1" claimed="true" class="network" handle="PCI:0000:04:00.0">
          <logicalname>eth0</logicalname>
          <serial>aa:bb:cc:dd:ee:f1</serial>
         </node>
       </node>
     </node>
   </node>
-  <node id="network:0" claimed="true" class="network" handle="">
+  <node id="network:2" claimed="true" class="network" handle="">
    <logicalname>vnet1</logicalname>
    <serial>aa:bb:cc:dd:ee:f2</serial>
   </node>
@@ -730,40 +814,42 @@ const lshwXMLTestExtractInterfaces = `
 
 func (suite *environSuite) TestExtractInterfaces(c *gc.C) {
 	inst := suite.getInstance("testInstance")
-	interfaces, err := extractInterfaces(inst, []byte(lshwXMLTestExtractInterfaces))
-	c.Assert(err, gc.IsNil)
-	c.Check(interfaces, jc.DeepEquals, map[string]string{
-		"aa:bb:cc:dd:ee:ff": "wlan0",
-		"aa:bb:cc:dd:ee:f1": "eth0",
-		"aa:bb:cc:dd:ee:f2": "vnet1",
+	interfaces, primaryIface, err := extractInterfaces(inst, []byte(lshwXMLTestExtractInterfaces))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(primaryIface, gc.Equals, "wlan0")
+	c.Check(interfaces, jc.DeepEquals, map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
 	})
 }
 
 func (suite *environSuite) TestGetInstanceNetworkInterfaces(c *gc.C) {
 	inst := suite.getInstance("testInstance")
-	templateInterfaces := map[string]string{
-		"aa:bb:cc:dd:ee:ff": "wlan0",
-		"aa:bb:cc:dd:ee:f1": "eth0",
-		"aa:bb:cc:dd:ee:f2": "vnet1",
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("testInstance", lshwXML)
-	interfaces, err := inst.environ.getInstanceNetworkInterfaces(inst)
-	c.Assert(err, gc.IsNil)
+	interfaces, primaryIface, err := inst.environ.getInstanceNetworkInterfaces(inst)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(primaryIface, gc.Equals, "wlan0")
 	c.Check(interfaces, jc.DeepEquals, templateInterfaces)
 }
 
 func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	test_instance := suite.getInstance("node1")
-	templateInterfaces := map[string]string{
-		"aa:bb:cc:dd:ee:ff": "wlan0",
-		"aa:bb:cc:dd:ee:f1": "eth0",
-		"aa:bb:cc:dd:ee:f2": "vnet1",
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("LAN", 2, 42)
@@ -772,10 +858,14 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
-	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance, set.NewStrings("LAN", "Virt"))
-	c.Assert(err, gc.IsNil)
+	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
+		test_instance,
+		set.NewStrings("WLAN"), // Disable WLAN only.
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
+	c.Check(primaryIface, gc.Equals, "wlan0")
 	c.Check(networkInfo, jc.SameContents, []network.Info{
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:ff",
@@ -783,6 +873,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			NetworkName:   "WLAN",
 			ProviderId:    "WLAN",
 			VLANTag:       0,
+			DeviceIndex:   0,
 			InterfaceName: "wlan0",
 			Disabled:      true,
 		},
@@ -792,6 +883,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			NetworkName:   "LAN",
 			ProviderId:    "LAN",
 			VLANTag:       42,
+			DeviceIndex:   1,
 			InterfaceName: "eth0",
 			Disabled:      false,
 		},
@@ -801,6 +893,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			NetworkName:   "Virt",
 			ProviderId:    "Virt",
 			VLANTag:       0,
+			DeviceIndex:   2,
 			InterfaceName: "vnet1",
 			Disabled:      false,
 		},
@@ -810,23 +903,27 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 // The same test, but now "Virt" network does not have matched MAC address
 func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	test_instance := suite.getInstance("node1")
-	templateInterfaces := map[string]string{
-		"aa:bb:cc:dd:ee:ff": "wlan0",
-		"aa:bb:cc:dd:ee:f1": "eth0",
-		"aa:bb:cc:dd:ee:f2": "vnet1",
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("LAN", 2, 42)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance, set.NewStrings("LAN"))
-	c.Assert(err, gc.IsNil)
+	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
+		test_instance,
+		set.NewStrings(), // All enabled.
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
+	c.Check(primaryIface, gc.Equals, "wlan0")
 	c.Check(networkInfo, jc.SameContents, []network.Info{
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
@@ -834,6 +931,7 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 			NetworkName:   "LAN",
 			ProviderId:    "LAN",
 			VLANTag:       42,
+			DeviceIndex:   1,
 			InterfaceName: "eth0",
 			Disabled:      false,
 		},
@@ -843,21 +941,25 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 // The same test, but now no networks have matched MAC
 func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	test_instance := suite.getInstance("node1")
-	templateInterfaces := map[string]string{
-		"aa:bb:cc:dd:ee:ff": "wlan0",
-		"aa:bb:cc:dd:ee:f1": "eth0",
-		"aa:bb:cc:dd:ee:f2": "vnet1",
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
 	}
 	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance, set.NewStrings("Virt"))
-	c.Assert(err, gc.IsNil)
+	networkInfo, primaryIface, err := suite.makeEnviron().setupNetworks(
+		test_instance,
+		set.NewStrings(), // All enabled.
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: order of networks is based on lshwXML
+	c.Check(primaryIface, gc.Equals, "wlan0")
 	c.Check(networkInfo, gc.HasLen, 0)
 }
 
@@ -866,12 +968,108 @@ func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
 }
 
+func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportAddressAllocation("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(supported, jc.IsTrue)
+}
+
+func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
+	test_instance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, jc.ErrorIsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	// resulting CIDR 192.168.2.1/24
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	// resulting CIDR 192.168.3.1/24
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	// resulting CIDR 192.168.1.1/24
+	suite.getNetwork("WLAN", 1, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	return test_instance
+}
+
+func (suite *environSuite) TestSubnets(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+
+	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.BasicInfo{
+		network.BasicInfo{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		network.BasicInfo{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		network.BasicInfo{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
+	}
+	c.Assert(netInfo, jc.SameContents, expectedInfo)
+}
+
+func (suite *environSuite) TestAllocateAddress(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	// note that the default test server always succeeds if we provide a
+	// valid instance id and net id
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
+	env := suite.makeEnviron()
+	err := env.AllocateAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.ErrorMatches, "instance foo not found")
+}
+
+func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
+	test_instance := suite.getInstance("node1")
+	env := suite.makeEnviron()
+	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
+}
+
+func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	reserveIPAddress := func(ipaddresses gomaasapi.MAASObject, cidr string, addr network.Address) error {
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReserveIPAddress, reserveIPAddress)
+
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.Equals, environs.ErrIPAddressUnavailable)
+}
+
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
 	placement := "zone=zone1"
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (suite *environSuite) TestReleaseAddress(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	env := suite.makeEnviron()
+
+	err := env.AllocateAddress(test_instance.Id(), "LAN", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// by releasing again we can test that the first release worked, *and*
+	// the error handling of ReleaseError
+	err = env.ReleaseAddress("foo", "bar", network.Address{Value: "192.168.2.1"})
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*failed to release IP address 192\\.168\\.2\\.1(.|\n)*")
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
@@ -898,7 +1096,7 @@ func (s *environSuite) TestPrecheckInvalidPlacement(c *gc.C) {
 func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
 	env := s.makeEnviron()
 	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, "assumed_node_name")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
@@ -906,7 +1104,7 @@ func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
 	s.newNode(c, "thenode1", "host1", map[string]interface{}{"zone": "test-available"})
 	s.testMAASObject.TestServer.AddZone("test-available", "description")
 	inst, err := s.testStartInstanceAvailZone(c, "test-available")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
 }
 
@@ -932,7 +1130,7 @@ func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 
 	s.testMAASObject.TestServer.AddZone("whatever", "andever")
 	zones, err = env.AvailabilityZones()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 	c.Assert(zones[0].Available(), jc.IsTrue)
@@ -942,7 +1140,7 @@ func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
 	// Environs to cut down repeated IaaS requests.
 	s.testMAASObject.TestServer.AddZone("somewhere", "outthere")
 	zones, err = env.AvailabilityZones()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zones, gc.HasLen, 1)
 	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 }
@@ -972,10 +1170,10 @@ func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[str
 		allAttrs[k] = v
 	}
 	data, err := json.Marshal(allAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testMAASObject.TestServer.NewNode(string(data))
-	lshwXML, err := s.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
-	c.Assert(err, gc.IsNil)
+	lshwXML, err := s.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0"}})
+	c.Assert(err, jc.ErrorIsNil)
 	s.testMAASObject.TestServer.AddNodeDetails(nodename, lshwXML)
 }
 
@@ -983,10 +1181,10 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.newNode(c, "node0", "bootstrap-host", nil)
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		Placement: "bootstrap-host",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
 
@@ -1009,7 +1207,7 @@ func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
 		},
 	}
 	_, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
 
@@ -1088,4 +1286,26 @@ func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
 		"zone":       []string{"zone2"},
 		"agent_name": []string{exampleAgentName},
 	}})
+}
+
+func (s *environSuite) TestStartInstanceDistributionOneAssigned(c *gc.C) {
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{
+			ZoneName: "zone1",
+		}, {
+			ZoneName: "zone2",
+		}},
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	s.testMAASObject.TestServer.AddZone("zone1", "description")
+	s.testMAASObject.TestServer.AddZone("zone2", "description")
+	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "zone1"})
+	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+
+	env := s.bootstrap(c)
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
+		// one acquire for the bootstrap, one for StartInstance.
+		"acquire", "acquire",
+	})
 }

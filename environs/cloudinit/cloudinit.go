@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -85,7 +86,7 @@ type MachineConfig struct {
 	LogDir string
 
 	// Jobs holds what machine jobs to run.
-	Jobs []params.MachineJob
+	Jobs []multiwatcher.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -392,7 +393,7 @@ func (e requiresError) Error() string {
 }
 
 func verifyConfig(cfg *MachineConfig) (err error) {
-	defer errors.Maskf(&err, "invalid machine configuration")
+	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}

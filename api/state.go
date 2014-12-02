@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/api/keyupdater"
@@ -208,12 +209,15 @@ func (st *State) Uniter() (*uniter.State, error) {
 	if !ok {
 		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
-	envTag, err := st.EnvironTag()
-	if err != nil {
-		logger.Warningf("ignoring invalid environ tag: %v", err)
+	return uniter.NewState(st, unitTag), nil
+}
+
+func (st *State) DiskManager() (*diskmanager.State, error) {
+	machineTag, ok := st.authTag.(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
 	}
-	charmsURL := uniter.CharmsURL(st.Addr(), envTag)
-	return uniter.NewState(st, unitTag, charmsURL), nil
+	return diskmanager.NewState(st, machineTag), nil
 }
 
 // Firewaller returns a version of the state that provides functionality

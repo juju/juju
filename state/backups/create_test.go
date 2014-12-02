@@ -6,10 +6,11 @@ package backups_test
 import (
 	"os"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/metadata"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type createSuite struct {
@@ -27,21 +28,16 @@ func (d *TestDBDumper) Dump(dumpDir string) error {
 	return nil
 }
 
-func (s *createSuite) metadata(notes string) *metadata.Metadata {
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return metadata.NewMetadata(*origin, notes, nil)
-}
-
 func (s *createSuite) TestLegacy(c *gc.C) {
-	meta := s.metadata("")
+	meta := backupstesting.NewMetadataStarted()
 	metadataFile, err := meta.AsJSONBuffer()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
 	args := backups.NewTestCreateArgs(testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.NotNil)
 
 	archiveFile, size, checksum := backups.ExposeCreateResult(result)
@@ -49,7 +45,7 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 
 	// Check the result.
 	file, ok := archiveFile.(*os.File)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	s.checkSize(c, file, size)
 	s.checkChecksum(c, file, checksum)
@@ -63,5 +59,5 @@ func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
 	args := backups.NewTestCreateArgs(testFiles, dumper, nil)
 	_, err := backups.Create(args)
 
-	c.Check(err, gc.ErrorMatches, "missing metadataFile")
+	c.Check(err, gc.ErrorMatches, "missing metadataReader")
 }

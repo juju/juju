@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -77,7 +78,7 @@ type MachineStatus struct {
 	Id            string
 	Containers    map[string]MachineStatus
 	Hardware      string
-	Jobs          []params.MachineJob
+	Jobs          []multiwatcher.MachineJob
 	HasVote       bool
 	WantsVote     bool
 }
@@ -504,7 +505,7 @@ func (c *Client) EnvironmentUUID() string {
 }
 
 // ShareEnvironment allows the given users access to the environment.
-func (c *Client) ShareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
+func (c *Client) ShareEnvironment(users []names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -515,12 +516,16 @@ func (c *Client) ShareEnvironment(users []names.UserTag) (result params.ErrorRes
 		}
 	}
 
-	err = c.facade.FacadeCall("ShareEnvironment", args, &result)
-	return result, err
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Combine()
 }
 
 // UnshareEnvironment removes access to the environment for the given users.
-func (c *Client) UnshareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
+func (c *Client) UnshareEnvironment(users []names.UserTag) error {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
 		if &user != nil {
@@ -531,8 +536,12 @@ func (c *Client) UnshareEnvironment(users []names.UserTag) (result params.ErrorR
 		}
 	}
 
-	err = c.facade.FacadeCall("ShareEnvironment", args, &result)
-	return result, err
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Combine()
 }
 
 // WatchAll holds the id of the newly-created AllWatcher.

@@ -19,7 +19,8 @@ type uniterV0Suite struct {
 	uniterBaseSuite
 	*commontesting.EnvironWatcherTest
 
-	uniter *uniter.UniterAPIV0
+	uniter        *uniter.UniterAPIV0
+	meteredUniter *uniter.UniterAPIV0
 }
 
 var _ = gc.Suite(&uniterV0Suite{})
@@ -32,8 +33,18 @@ func (s *uniterV0Suite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.uniter = uniterAPIV0
+
+	meteredAuthorizer := apiservertesting.FakeAuthorizer{
+		Tag: s.meteredUnit.Tag(),
+	}
+	s.meteredUniter, err = uniter.NewUniterAPIV0(
+		s.State,
+		s.resources,
+		meteredAuthorizer,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(
 		s.uniter,
@@ -134,28 +145,28 @@ func (s *uniterV0Suite) TestWatchConfigSettings(c *gc.C) {
 	s.testWatchConfigSettings(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActions(c *gc.C) {
-	s.testWatchActions(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotifications(c *gc.C) {
+	s.testWatchActionNotifications(c, s.uniter)
 }
 
 func (s *uniterV0Suite) TestWatchPreexistingActions(c *gc.C) {
 	s.testWatchPreexistingActions(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsMalformedTag(c *gc.C) {
-	s.testWatchActionsMalformedTag(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
+	s.testWatchActionNotificationsMalformedTag(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsMalformedUnitName(c *gc.C) {
-	s.testWatchActionsMalformedUnitName(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
+	s.testWatchActionNotificationsMalformedUnitName(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsNotUnit(c *gc.C) {
-	s.testWatchActionsNotUnit(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsNotUnit(c *gc.C) {
+	s.testWatchActionNotificationsNotUnit(c, s.uniter)
 }
 
-func (s *uniterV0Suite) TestWatchActionsPermissionDenied(c *gc.C) {
-	s.testWatchActionsPermissionDenied(c, s.uniter)
+func (s *uniterV0Suite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
+	s.testWatchActionNotificationsPermissionDenied(c, s.uniter)
 }
 
 func (s *uniterV0Suite) TestConfigSettings(c *gc.C) {
@@ -168,6 +179,10 @@ func (s *uniterV0Suite) TestWatchServiceRelations(c *gc.C) {
 
 func (s *uniterV0Suite) TestCharmArchiveSha256(c *gc.C) {
 	s.testCharmArchiveSha256(c, s.uniter)
+}
+
+func (s *uniterV0Suite) TestCharmArchiveURLs(c *gc.C) {
+	s.testCharmArchiveURLs(c, s.uniter)
 }
 
 func (s *uniterV0Suite) TestCurrentEnvironUUID(c *gc.C) {
@@ -270,7 +285,7 @@ func (s *uniterV0Suite) TestWatchUnitAddresses(c *gc.C) {
 }
 
 func (s *uniterV0Suite) TestAddMetrics(c *gc.C) {
-	s.testAddMetrics(c, s.uniter)
+	s.testAddMetrics(c, s.meteredUniter)
 }
 
 func (s *uniterV0Suite) TestAddMetricsIncorrectTag(c *gc.C) {
@@ -303,7 +318,7 @@ func (s *uniterV0Suite) TestGetOwnerTag(c *gc.C) {
 		{Tag: tag},
 	}}
 	result, err := s.uniter.GetOwnerTag(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{
 		Result: s.AdminUserTag(c).String(),
 	})
@@ -329,7 +344,7 @@ func (s *uniterV0Suite) TestRequestReboot(c *gc.C) {
 		{Tag: "nasty-tag"},
 	}}
 	errResult, err := s.uniter.RequestReboot(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
@@ -339,10 +354,10 @@ func (s *uniterV0Suite) TestRequestReboot(c *gc.C) {
 		}})
 
 	rFlag, err := s.machine0.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
 	rFlag, err = s.machine1.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsFalse)
 }

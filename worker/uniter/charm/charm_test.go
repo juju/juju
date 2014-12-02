@@ -7,23 +7,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/charm"
 )
-
-func TestPackage(t *stdtesting.T) {
-	// TODO(fwereade) 2014-03-21 not-worth-a-bug-number
-	// rewrite BundlesDir tests to use the mocks below and not require an API
-	// server and associated gubbins.
-	coretesting.MgoTestPackage(t)
-}
 
 // bundleReader is a charm.BundleReader that lets us mock out the bundles we
 // deploy to test the Deployers.
@@ -64,22 +56,22 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 
 func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
 	base := c.MkDir()
-	dirpath := charmtesting.Charms.ClonedDirPath(base, "dummy")
+	dirpath := testcharms.Repo.ClonedDirPath(base, "dummy")
 	if customize != nil {
 		customize(dirpath)
 	}
 	dir, err := corecharm.ReadCharmDir(dirpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(url.Revision)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bunpath := filepath.Join(base, "bundle")
 	file, err := os.Create(bunpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
 	err = dir.ArchiveTo(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bundle, err := corecharm.ReadCharmArchive(bunpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return br.AddBundle(c, url, bundle)
 }
 
@@ -106,6 +98,7 @@ type mockBundle struct {
 }
 
 func (b mockBundle) Manifest() (set.Strings, error) {
+	// TODO(dfc) this looks like set.Strings().Duplicate()
 	return set.NewStrings(b.paths.Values()...), nil
 }
 

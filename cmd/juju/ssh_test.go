@@ -14,13 +14,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -49,11 +49,11 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvPathPrepend(s.bin)
 	for _, name := range []string{"ssh", "scp"} {
 		f, err := os.OpenFile(filepath.Join(s.bin, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		_, err = f.Write([]byte(fakecommand))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = f.Close()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -87,6 +87,11 @@ var sshTests = []struct {
 		sshArgs + "ubuntu@dummyenv-0.internal\n",
 	},
 	{
+		"connect to unit mongodb/1 as the mongo user",
+		[]string{"ssh", "mongo@mongodb/1"},
+		sshArgs + "mongo@dummyenv-2.internal\n",
+	},
+	{
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
 		sshArgs + "ubuntu@dummyenv-2.internal ls /\n",
@@ -100,12 +105,12 @@ var sshTests = []struct {
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	m := s.makeMachines(3, c, true)
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
 	dummy, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
 
@@ -130,7 +135,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	s.makeMachines(1, c, true)
 	// Setting proxy-ssh=false in the environment overrides --proxy.
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": false}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 	jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
@@ -220,14 +225,14 @@ func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
 	addrPub := network.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), network.ScopePublic)
 	addrPriv := network.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), network.ScopeCloudLocal)
 	err := m.SetAddresses(addrPub, addrPriv)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if setAddresses {
 			s.setAddresses(m, c)
 		}
@@ -242,7 +247,7 @@ func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*stat
 
 func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *gc.C) {
 	u, err := srv.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -53,7 +54,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	}
 
 	err := s.manager.UnpackTools(t1, bytes.NewReader(gzfile))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertDirNames(c, s.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	s.assertToolsContents(c, t1, files)
 
@@ -71,7 +72,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 		SHA256:  checksum2,
 	}
 	err = s.manager.UnpackTools(t2, bytes.NewReader(gzfile2))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertDirNames(c, s.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	s.assertToolsContents(c, t1, files)
 }
@@ -93,17 +94,17 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	dir := s.manager.(*agenttools.DiskManager).SharedToolsDir(t.Version)
 	assertDirNames(c, dir, wantNames)
 	expectedFileContents, err := json.Marshal(t)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertFileContents(c, dir, toolsFile, string(expectedFileContents), 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
 	gotTools, err := s.manager.ReadTools(t.Version)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotTools, gc.Equals, *t)
 	// Make sure that the tools directory is readable by the ubuntu user (for
 	// juju-run)
 	info, err := os.Stat(dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(agenttools.DirPerm))
 }

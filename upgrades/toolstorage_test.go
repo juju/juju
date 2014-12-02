@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -36,18 +37,34 @@ var migrateToolsVersions = []version.Binary{
 	version.MustParseBinary("2.3.4-trusty-ppc64el"),
 }
 
+func (s *migrateToolsStorageSuite) TestMigrateToolsStorageNoTools(c *gc.C) {
+	fakeToolsStorage := &fakeToolsStorage{
+		stored: make(map[version.Binary]toolstorage.Metadata),
+	}
+	s.PatchValue(upgrades.StateToolsStorage, func(*state.State) (toolstorage.StorageCloser, error) {
+		return fakeToolsStorage, nil
+	})
+
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	envtesting.RemoveFakeTools(c, stor, "releases")
+	envtesting.RemoveFakeToolsMetadata(c, stor)
+	err := upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fakeToolsStorage.stored, gc.HasLen, 0)
+}
+
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorage(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
-	envtesting.RemoveFakeTools(c, stor)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
+	envtesting.RemoveFakeTools(c, stor, "releases")
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
 	s.testMigrateToolsStorage(c, &mockAgentConfig{})
 }
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
 	for _, providerType := range []string{"local", "manual"} {
 		s.testMigrateToolsStorage(c, &mockAgentConfig{
 			values: map[string]string{
@@ -60,14 +77,14 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) 
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
-	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "releases", "released", migrateToolsVersions...)
 	// Overwrite one of the tools archives with junk, so the hash does not match.
 	err := stor.Put(
-		envtools.StorageName(migrateToolsVersions[0]),
+		envtools.StorageName(migrateToolsVersions[0], "releases"),
 		strings.NewReader("junk"),
 		4,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, gc.ErrorMatches, "failed to fetch 1.2.3-precise-amd64 tools: hash mismatch")
 }
@@ -80,7 +97,7 @@ func (s *migrateToolsStorageSuite) testMigrateToolsStorage(c *gc.C, agentConfig 
 		return fakeToolsStorage, nil
 	})
 	err := upgrades.MigrateToolsStorage(s.State, agentConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fakeToolsStorage.stored, gc.DeepEquals, map[version.Binary]toolstorage.Metadata{
 		migrateToolsVersions[0]: toolstorage.Metadata{
 			Version: migrateToolsVersions[0],

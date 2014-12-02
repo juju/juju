@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -74,7 +75,7 @@ func AssertStartInstance(
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstance(env, machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
 
@@ -97,7 +98,7 @@ func AssertStartInstanceWithConstraints(
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstanceWithConstraints(env, machineId, cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
 
@@ -123,7 +124,7 @@ func AssertStartInstanceWithNetworks(
 ) {
 	inst, hc, _, err := StartInstanceWithConstraintsAndNetworks(
 		env, machineId, cons, networks)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
 
@@ -185,5 +186,10 @@ func StartInstanceWithParams(
 	}
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig
-	return env.StartInstance(params)
+	// TODO(axw) refactor these test helpers to return StartInstanceResult
+	result, err := env.StartInstance(params)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return result.Instance, result.Hardware, result.NetworkInfo, nil
 }

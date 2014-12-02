@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/jujutest"
@@ -203,7 +204,7 @@ var imageData = map[string]string{
       "1130preciseamd64": {
        "version": "1.13.0",
        "size": 2973595,
-       "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.13.0-precise-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
       }
@@ -220,14 +221,14 @@ var imageData = map[string]string{
       "1130raringamd64": {
        "version": "1.13.0",
        "size": 2973173,
-       "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.13.0-raring-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       },
       "1140raringamd64": {
        "version": "1.14.0",
        "size": 2973173,
-       "path": "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.14.0-raring-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
@@ -244,14 +245,14 @@ var imageData = map[string]string{
       "201precisearm": {
        "version": "2.0.1",
        "size": 1951096,
-       "path": "tools/releases/20130806/juju-2.0.1-precise-arm.tgz",
+       "path": "tools/released/20130806/juju-2.0.1-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       },
       "1114precisearm": {
        "version": "1.11.4",
        "size": 1951096,
-       "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
+       "path": "tools/released/20130806/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       }
@@ -262,14 +263,14 @@ var imageData = map[string]string{
       "1114precisearm": {
        "version": "1.11.4",
        "size": 2851541,
-       "path": "tools/releases/20130803/juju-1.11.4-precise-arm.tgz",
+       "path": "tools/released/20130803/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       },
       "1115precisearm": {
        "version": "1.11.5",
        "size": 2031281,
-       "path": "tools/releases/20130803/juju-1.11.5-precise-arm.tgz",
+       "path": "tools/released/20130803/juju-1.11.5-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
@@ -286,14 +287,14 @@ var imageData = map[string]string{
       "1114raringarm": {
        "version": "1.11.4",
        "size": 1950327,
-       "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
+       "path": "tools/released/20130806/juju-1.11.4-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
       },
       "201raringarm": {
        "version": "2.0.1",
        "size": 1950327,
-       "path": "tools/releases/20130806/juju-2.0.1-raring-arm.tgz",
+       "path": "tools/released/20130806/juju-2.0.1-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
       }
@@ -320,7 +321,7 @@ var imageData = map[string]string{
       "1130preciseamd64": {
        "version": "1.16.0",
        "size": 2973512,
-       "path": "tools/releases/20130806/juju-1.16.0-trusty-amd64.tgz",
+       "path": "tools/testing/20130806/juju-1.16.0-trusty-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dac"
       }
@@ -555,7 +556,7 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURL
 	var obtainedURLs = make([]string, len(baseURLs))
 	for i, source := range obtained {
 		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		obtainedURLs[i] = url
 	}
 	c.Assert(obtainedURLs, gc.DeepEquals, baseURLs)
@@ -625,17 +626,17 @@ type TestItem struct {
 
 func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
-		return simplestreams.SignedIndex(s.StreamsVersion) + ".sjson"
+		return fmt.Sprintf("streams/%s/index.sjson", s.StreamsVersion)
 	}
-	return simplestreams.UnsignedIndex(s.StreamsVersion)
+	return fmt.Sprintf("streams/%s/index.json", s.StreamsVersion)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indexRef.Format, gc.Equals, Index_v1)
 	c.Assert(indexRef.Source, gc.Equals, s.Source)
-	c.Assert(len(indexRef.Indexes) > 0, gc.Equals, true)
+	c.Assert(len(indexRef.Indexes) > 0, jc.IsTrue)
 }
 
 func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
@@ -655,15 +656,15 @@ func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathExists(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Not(gc.Equals), "")
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"bad", "spec"},
 		Series:    []string{"precise"},
@@ -674,7 +675,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
 		Series:    []string{"precise"},
@@ -687,11 +688,11 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 
 func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *gc.C) *simplestreams.CloudMetadata {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	metadata, err := indexRef.GetCloudMetadataWithFormat(s.ValidConstraint, Product_v1, s.RequireSigned)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata.Format, gc.Equals, Product_v1)
-	c.Assert(len(metadata.Products) > 0, gc.Equals, true)
+	c.Assert(len(metadata.Products) > 0, jc.IsTrue)
 	return metadata
 }
 

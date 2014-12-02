@@ -6,12 +6,11 @@ package uniter
 import (
 	"fmt"
 	"net/url"
-	"path"
 
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/names"
 )
 
 // This module implements a subset of the interface provided by
@@ -33,34 +32,33 @@ func (c *Charm) URL() *charm.URL {
 	return c.curl
 }
 
-func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
-	var results params.StringResults
+// ArchiveURLs returns the URLs to the charm archive (bundle) in the
+// environment storage. Each URL should be tried until one succeeds.
+func (c *Charm) ArchiveURLs() ([]*url.URL, error) {
+	var results params.StringsResults
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.curl.String()}},
 	}
-	err := c.st.facade.FacadeCall(apiCall, args, &results)
+	err := c.st.facade.FacadeCall("CharmArchiveURLs", args, &results)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", result.Error
+		return nil, result.Error
 	}
-	return result.Result, nil
-}
-
-// ArchiveURL returns the url to the charm archive (bundle) in the
-// environment storage.
-func (c *Charm) ArchiveURL() *url.URL {
-	archiveURL := *c.st.charmsURL
-	q := archiveURL.Query()
-	q.Set("url", c.curl.String())
-	q.Set("file", "*")
-	archiveURL.RawQuery = q.Encode()
-	return &archiveURL
+	archiveURLs := make([]*url.URL, len(result.Result))
+	for i, rawurl := range result.Result {
+		archiveURL, err := url.Parse(rawurl)
+		if err != nil {
+			return nil, errors.Annotate(err, "server returned an invalid URL")
+		}
+		archiveURLs[i] = archiveURL
+	}
+	return archiveURLs, nil
 }
 
 // ArchiveSha256 returns the SHA256 digest of the charm archive
@@ -74,17 +72,20 @@ func (c *Charm) ArchiveURL() *url.URL {
 // Cache the result after getting it once for the same charm URL,
 // because it's immutable.
 func (c *Charm) ArchiveSha256() (string, error) {
-	return c.getArchiveInfo("CharmArchiveSha256")
-}
-
-// CharmsURL takes an API server address and an optional environment
-// tag and constructs a base URL used for fetching charm archives.
-// If the environment tag empty or invalid, it will be ignored.
-func CharmsURL(apiAddr string, envTag names.EnvironTag) *url.URL {
-	urlPath := "/"
-	if envTag.Id() != "" {
-		urlPath = path.Join(urlPath, "environment", envTag.Id())
+	var results params.StringResults
+	args := params.CharmURLs{
+		URLs: []params.CharmURL{{URL: c.curl.String()}},
 	}
-	urlPath = path.Join(urlPath, "charms")
-	return &url.URL{Scheme: "https", Host: apiAddr, Path: urlPath}
+	err := c.st.facade.FacadeCall("CharmArchiveSha256", args, &results)
+	if err != nil {
+		return "", err
+	}
+	if len(results.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", result.Error
+	}
+	return result.Result, nil
 }

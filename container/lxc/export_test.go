@@ -3,7 +3,9 @@
 
 package lxc
 
-import "github.com/juju/juju/container"
+import (
+	"github.com/juju/juju/container"
+)
 
 var (
 	ContainerConfigFilename = containerConfigFilename
@@ -13,6 +15,8 @@ var (
 	RestartSymlink          = restartSymlink
 	ReleaseVersion          = &releaseVersion
 	PreferFastLXC           = preferFastLXC
+	InitProcessCgroupFile   = &initProcessCgroupFile
+	RuntimeGOOS             = &runtimeGOOS
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {

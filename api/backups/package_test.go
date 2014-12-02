@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/backups/metadata"
+	stbackups "github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -39,27 +39,26 @@ func (s *baseSuite) metadataResult() *params.BackupsMetadataResult {
 	return result
 }
 
-func (s *baseSuite) checkMetadataResult(
-	c *gc.C, result *params.BackupsMetadataResult, meta *metadata.Metadata,
-) {
-	pfinished := meta.Finished()
-	var finished time.Time
-	if pfinished != nil {
-		finished = *pfinished
+func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata) {
+	var finished, stored time.Time
+	if meta.Finished != nil {
+		finished = *meta.Finished
+	}
+	if meta.Stored() != nil {
+		stored = *(meta.Stored())
 	}
 
 	c.Check(result.ID, gc.Equals, meta.ID())
-	c.Check(result.Started, gc.Equals, meta.Started())
+	c.Check(result.Started, gc.Equals, meta.Started)
 	c.Check(result.Finished, gc.Equals, finished)
 	c.Check(result.Checksum, gc.Equals, meta.Checksum())
 	c.Check(result.ChecksumFormat, gc.Equals, meta.ChecksumFormat())
 	c.Check(result.Size, gc.Equals, meta.Size())
-	c.Check(result.Stored, gc.Equals, meta.Stored())
-	c.Check(result.Notes, gc.Equals, meta.Notes())
+	c.Check(result.Stored, gc.Equals, stored)
+	c.Check(result.Notes, gc.Equals, meta.Notes)
 
-	origin := meta.Origin()
-	c.Check(result.Environment, gc.Equals, origin.Environment())
-	c.Check(result.Machine, gc.Equals, origin.Machine())
-	c.Check(result.Hostname, gc.Equals, origin.Hostname())
-	c.Check(result.Version, gc.Equals, origin.Version())
+	c.Check(result.Environment, gc.Equals, meta.Origin.Environment)
+	c.Check(result.Machine, gc.Equals, meta.Origin.Machine)
+	c.Check(result.Hostname, gc.Equals, meta.Origin.Hostname)
+	c.Check(result.Version, gc.Equals, meta.Origin.Version)
 }

@@ -64,15 +64,21 @@ func IsUnknownEnviromentError(err error) bool {
 }
 
 var (
-	ErrBadId          = stderrors.New("id not found")
-	ErrBadCreds       = stderrors.New("invalid entity name or password")
-	ErrPerm           = stderrors.New("permission denied")
-	ErrNotLoggedIn    = stderrors.New("not logged in")
-	ErrUnknownWatcher = stderrors.New("unknown watcher id")
-	ErrUnknownPinger  = stderrors.New("unknown pinger id")
-	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
-	ErrBadRequest     = stderrors.New("invalid request")
-	ErrTryAgain       = stderrors.New("try again")
+	ErrBadId              = stderrors.New("id not found")
+	ErrBadCreds           = stderrors.New("invalid entity name or password")
+	ErrPerm               = stderrors.New("permission denied")
+	ErrNotLoggedIn        = stderrors.New("not logged in")
+	ErrUnknownWatcher     = stderrors.New("unknown watcher id")
+	ErrUnknownPinger      = stderrors.New("unknown pinger id")
+	ErrStoppedWatcher     = stderrors.New("watcher has been stopped")
+	ErrBadRequest         = stderrors.New("invalid request")
+	ErrTryAgain           = stderrors.New("try again")
+	ErrActionNotAvailable = stderrors.New("action no longer available")
+
+	ErrOperationBlocked = &params.Error{
+		Code:    params.CodeOperationBlocked,
+		Message: "The operation has been blocked.",
+	}
 )
 
 var singletonErrorCodes = map[error]string{
@@ -88,6 +94,7 @@ var singletonErrorCodes = map[error]string{
 	ErrUnknownWatcher:            params.CodeNotFound,
 	ErrStoppedWatcher:            params.CodeStopped,
 	ErrTryAgain:                  params.CodeTryAgain,
+	ErrActionNotAvailable:        params.CodeActionNotAvailable,
 }
 
 func singletonCode(err error) (string, bool) {
@@ -108,6 +115,9 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
+	msg := err.Error()
+	// Skip past annotations when looking for the code.
+	err = errors.Cause(err)
 	code, ok := singletonCode(err)
 	switch {
 	case ok:
@@ -133,7 +143,7 @@ func ServerError(err error) *params.Error {
 		code = params.ErrCode(err)
 	}
 	return &params.Error{
-		Message: err.Error(),
+		Message: msg,
 		Code:    code,
 	}
 }

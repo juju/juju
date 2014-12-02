@@ -8,26 +8,25 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+)
 
-	"github.com/juju/juju/instance"
+const (
+	UnitsC    = unitsC
+	ServicesC = servicesC
+	SettingsC = settingsC
 )
 
 var (
-	NewBackupID           = newBackupID
-	GetBackupMetadata     = getBackupMetadata
-	AddBackupMetadata     = addBackupMetadata
-	AddBackupMetadataID   = addBackupMetadataID
-	SetBackupStored       = setBackupStored
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
@@ -83,14 +82,14 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(st.docID(key)).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
+	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
@@ -101,19 +100,19 @@ func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.U
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
 	c.Assert(ch, gc.NotNil)
 	service, err := st.AddService(name, owner.String(), ch, networks)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := charmtesting.Charms.ClonedDirPath(c.MkDir(), name)
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	ch, err := charm.ReadCharmDir(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if revision != -1 {
 		ch.SetRevision(revision)
 	}
@@ -124,7 +123,7 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
 	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }
 
@@ -133,37 +132,15 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 	ops := []txn.Op{{
 		C:      charmsC,
-		Id:     curl.String(),
+		Id:     st.docID(curl.String()),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
 	}}
 	err := st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var MachineIdLessThan = machineIdLessThan
-
-// SCHEMACHANGE
-// This method is used to reset a deprecated machine attribute.
-func SetMachineInstanceId(m *Machine, instanceId string) {
-	m.doc.InstanceId = instance.Id(instanceId)
-}
-
-// SCHEMACHANGE
-// ClearInstanceDocId sets instanceid on instanceData for machine to "".
-func ClearInstanceDocId(c *gc.C, m *Machine) {
-	ops := []txn.Op{
-		{
-			C:      instanceDataC,
-			Id:     m.doc.Id,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
-		},
-	}
-
-	err := m.st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-}
 
 // SCHEMACHANGE
 // This method is used to reset the ownertag attribute
@@ -217,14 +194,18 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(st.docID(serviceName)).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
-	return st.parseTag(tag)
+func ConvertTagToCollectionNameAndId(st *State, tag names.Tag) (string, interface{}, error) {
+	return st.tagToCollectionAndId(tag)
+}
+
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
 }
 
 // Return the PasswordSalt that goes along with the PasswordHash
@@ -240,18 +221,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func EnsureActionMarker(prefix string) string {
-	return ensureActionMarker(prefix)
-}
-
-var EnsureActionResultMarker = ensureSuffixFn(actionResultMarker)
-
-func GetActionResultId(actionId string) (string, bool) {
-	return convertActionIdToActionResultId(actionId)
-}
-
-func WatcherMergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
-	return mergeIds(st, changes, initial, updates)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changeset, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
@@ -260,6 +231,10 @@ func WatcherEnsureSuffixFn(marker string) func(string) string {
 
 func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	return makeIdFilter(st, marker, receivers...)
+}
+
+func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
+	return newActionStatusWatcher(st, receivers, statuses...)
 }
 
 var (
@@ -294,6 +269,10 @@ func DocID(st *State, id string) string {
 
 func LocalID(st *State, id string) string {
 	return st.localID(id)
+}
+
+func StrictLocalID(st *State, id string) (string, error) {
+	return st.strictLocalID(id)
 }
 
 func GetUnitEnvUUID(unit *Unit) string {

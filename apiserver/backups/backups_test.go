@@ -5,60 +5,28 @@ package backups_test
 
 import (
 	"io"
+	"io/ioutil"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/backups"
+	backupsAPI "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
-
-type fakeBackups struct {
-	meta    *metadata.Metadata
-	archive io.ReadCloser
-	err     error
-}
-
-func (i *fakeBackups) Create(files.Paths, db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
-	if i.err != nil {
-		return nil, errors.Trace(i.err)
-	}
-	return i.meta, nil
-}
-
-func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
-	if i.err != nil {
-		return nil, nil, errors.Trace(i.err)
-	}
-	return i.meta, i.archive, nil
-}
-
-func (i *fakeBackups) List() ([]metadata.Metadata, error) {
-	if i.err != nil {
-		return nil, errors.Trace(i.err)
-	}
-	return []metadata.Metadata{*i.meta}, nil
-}
-
-func (i *fakeBackups) Remove(string) error {
-	if i.err != nil {
-		return errors.Trace(i.err)
-	}
-	return nil
-}
 
 type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *backups.API
-	meta       *metadata.Metadata
+	api        *backupsAPI.API
+	meta       *backups.Metadata
 }
 
 var _ = gc.Suite(&backupsSuite{})
@@ -70,44 +38,42 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	tag := names.NewLocalUserTag("spam")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
-	s.api, err = backups.NewAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
-	s.meta = s.newMeta("")
+	s.api, err = backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	s.meta = backupstesting.NewMetadataStarted()
 }
 
-func (s *backupsSuite) newMeta(notes string) *metadata.Metadata {
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return metadata.NewMetadata(*origin, notes, nil)
-}
-
-func (s *backupsSuite) setBackups(c *gc.C, meta *metadata.Metadata, err string) *fakeBackups {
-	fake := fakeBackups{
-		meta: meta,
+func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *backupstesting.FakeBackups {
+	fake := backupstesting.FakeBackups{
+		Meta: meta,
+	}
+	if meta != nil {
+		fake.MetaList = append(fake.MetaList, meta)
 	}
 	if err != "" {
-		fake.err = errors.Errorf(err)
+		fake.Error = errors.Errorf(err)
 	}
-	backups.SetBackups(s.api, &fake)
+	s.PatchValue(backupsAPI.NewBackups,
+		func(*state.State) (backups.Backups, io.Closer) {
+			return &fake, ioutil.NopCloser(nil)
+		},
+	)
 	return &fake
 }
 
 func (s *backupsSuite) TestRegistered(c *gc.C) {
 	_, err := common.Facades.GetType("Backups", 0)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	api, err := backups.NewAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
-	st, backupsImpl := backups.APIValues(api)
-
-	c.Check(st, gc.Equals, s.State)
-	c.Check(backupsImpl, gc.NotNil)
+	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewServiceTag("eggs")
-	_, err := backups.NewAPI(s.State, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }

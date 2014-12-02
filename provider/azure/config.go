@@ -154,7 +154,7 @@ azure:
     # http://msdn.microsoft.com/en-us/library/windowsazure
     # for details.
     #
-    management-subscription-id: <00000000-0000-0000-0000-000000000000>
+    management-subscription-id: 00000000-0000-0000-0000-000000000000
     management-certificate-path: /home/me/azure.pem
 
     # storage-account-name holds Windows Azure Storage info.
@@ -172,11 +172,11 @@ azure:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in

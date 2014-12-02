@@ -12,6 +12,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -30,8 +31,8 @@ type format_1_18Serialization struct {
 	DataDir           string
 	LogDir            string
 	Nonce             string
-	Jobs              []params.MachineJob `yaml:",omitempty"`
-	UpgradedToVersion *version.Number     `yaml:"upgradedToVersion"`
+	Jobs              []multiwatcher.MachineJob `yaml:",omitempty"`
+	UpgradedToVersion *version.Number           `yaml:"upgradedToVersion"`
 
 	CACert         string
 	StateAddresses []string `yaml:",omitempty"`

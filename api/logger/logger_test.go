@@ -5,6 +5,7 @@ package logger_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -46,18 +47,18 @@ func (s *loggerSuite) TestLoggingConfigWrongMachine(c *gc.C) {
 
 func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
 	config, err := s.logger.LoggingConfig(s.rawMachine.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, gc.Not(gc.Equals), "")
 }
 
 func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"logging-config": loggingConfig}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, watcher)
 	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
 	// Initial event

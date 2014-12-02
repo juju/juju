@@ -37,7 +37,9 @@ func relationKey(endpoints []Endpoint) string {
 // relationDoc is the internal representation of a Relation in MongoDB.
 // Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
-	Key       string `bson:"_id"`
+	DocID     string `bson:"_id"`
+	Key       string `bson:"key"`
+	EnvUUID   string `bson:"env-uuid"`
 	Id        int
 	Endpoints []Endpoint
 	Life      Life
@@ -74,7 +76,7 @@ func (r *Relation) Refresh() error {
 	defer closer()
 
 	doc := relationDoc{}
-	err := relations.FindId(r.doc.Key).One(&doc)
+	err := relations.FindId(r.doc.DocID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("relation %v", r)
 	}
@@ -99,7 +101,7 @@ func (r *Relation) Life() Life {
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
-	defer errors.Maskf(&err, "cannot destroy relation %q", r)
+	defer errors.DeferredAnnotatef(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
 		return fmt.Errorf("is a peer relation")
 	}
@@ -153,7 +155,7 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 	}
 	return []txn.Op{{
 		C:      relationsC,
-		Id:     r.doc.Key,
+		Id:     r.doc.DocID,
 		Assert: bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}},
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}, false, nil
@@ -167,7 +169,7 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.Op, error) {
 	relOp := txn.Op{
 		C:      relationsC,
-		Id:     r.doc.Key,
+		Id:     r.doc.DocID,
 		Remove: true,
 	}
 	if departingUnit != nil {

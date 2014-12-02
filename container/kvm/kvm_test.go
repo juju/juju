@@ -37,7 +37,7 @@ func (s *KVMSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	var err error
 	s.manager, err = kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: "test"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*KVMSuite) TestManagerNameNeeded(c *gc.C) {
@@ -51,13 +51,13 @@ func (*KVMSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
 func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 	containers, err := s.manager.ListContainers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 0)
 }
 
@@ -78,7 +78,7 @@ func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
 	s.createRunningContainer(c, "testNoMatch")
 	s.createRunningContainer(c, "other")
 	containers, err := s.manager.ListContainers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 2)
 	expectedIds := []instance.Id{"test-match1", "test-match2"}
 	ids := []instance.Id{containers[0].Id(), containers[1].Id()}
@@ -89,7 +89,7 @@ func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 	running := s.createRunningContainer(c, "test-running")
 	s.ContainerFactory.New("test-stopped")
 	containers, err := s.manager.ListContainers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containers, gc.HasLen, 1)
 	c.Assert(string(containers[0].Id()), gc.Equals, running.Name())
 }
@@ -105,7 +105,7 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
 
 	err := s.manager.DestroyContainer(instance.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	name := string(instance.Id())
 	// Check that the container dir is no longer in the container dir
@@ -123,11 +123,11 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 			coretesting.Attrs{"image-stream": "released"},
 		),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Mock machineConfig with a mocked simple stream URL.
 	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Config = envCfg
 
 	// CreateContainer sets TestStartParams internally; we call this
@@ -142,7 +142,7 @@ func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 
 	// Mock machineConfig with a mocked simple stream URL.
 	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.ImageStream = "daily"
 
 	// CreateContainer sets TestStartParams internally; we call this
@@ -309,7 +309,7 @@ func (s *KVMSuite) TestIsKVMSupportedKvmOkNotFound(c *gc.C) {
 	s.PatchValue(kvm.KVMPath, "")
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, false)
+	c.Check(supported, jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "kvm-ok executable not found")
 }
 
@@ -321,11 +321,11 @@ func (s *KVMSuite) TestIsKVMSupportedBinaryErrorsOut(c *gc.C) {
 	// Create mocked binary which returns an error and give the test access.
 	tmpDir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash\nexit 127"), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(kvm.KVMPath, tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, false)
+	c.Check(supported, jc.IsFalse)
 	c.Assert(err, gc.ErrorMatches, "exit status 127")
 }
 
@@ -337,12 +337,12 @@ func (s *KVMSuite) TestIsKVMSupportedNoPath(c *gc.C) {
 	s.PatchEnvironment("PATH", "")
 	tmpDir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(kvm.KVMPath, tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, true)
-	c.Assert(err, gc.IsNil)
+	c.Check(supported, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // Test the case that kvm-ok is found in the path.
@@ -354,8 +354,8 @@ func (s *KVMSuite) TestIsKVMSupportedOnlyPath(c *gc.C) {
 	s.PatchEnvironment("PATH", tmpDir)
 
 	supported, err := kvm.IsKVMSupported()
-	c.Check(supported, gc.Equals, true)
-	c.Assert(err, gc.IsNil)
+	c.Check(supported, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *KVMSuite) TestKVMPathIsCorrect(c *gc.C) {

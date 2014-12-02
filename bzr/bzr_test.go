@@ -38,23 +38,23 @@ func (s *BzrSuite) SetUpTest(c *gc.C) {
 	bzrdir := c.MkDir()
 	s.PatchEnvironment("BZR_HOME", bzrdir)
 	err := os.MkdirAll(filepath.Join(bzrdir, bzrHome), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(
 		filepath.Join(bzrdir, bzrHome, "bazaar.conf"),
 		[]byte(bzr_config), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.b = bzr.New(c.MkDir())
 	c.Assert(s.b.Init(), gc.IsNil)
 }
 
 func (s *BzrSuite) TestNewFindsRoot(c *gc.C) {
 	err := os.Mkdir(s.b.Join("dir"), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	b := bzr.New(s.b.Join("dir"))
 	// When bzr has to search for the root, it will expand any symlinks it
 	// found along the way.
 	path, err := filepath.EvalSymlinks(s.b.Location())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(b.Location(), jc.SamePath, path)
 }
 
@@ -70,7 +70,7 @@ func (s *BzrSuite) TestErrorHandling(c *gc.C) {
 
 func (s *BzrSuite) TestInit(c *gc.C) {
 	_, err := os.Stat(s.b.Join(".bzr"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BzrSuite) TestRevisionIdOnEmpty(c *gc.C) {
@@ -81,19 +81,19 @@ func (s *BzrSuite) TestRevisionIdOnEmpty(c *gc.C) {
 
 func (s *BzrSuite) TestCommit(c *gc.C) {
 	f, err := os.Create(s.b.Join("myfile"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	f.Close()
 	err = s.b.Add("myfile")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.b.Commit("my log message")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	revid, err := s.b.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := exec.Command("bzr", "log", "--long", "--show-ids", "-v", s.b.Location())
 	output, err := cmd.CombinedOutput()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(output), gc.Matches, "(?s).*revision-id: "+revid+"\n.*message:\n.*my log message\n.*added:\n.*myfile .*")
 }
 
@@ -107,54 +107,54 @@ func (s *BzrSuite) TestPush(c *gc.C) {
 
 	// Create and add b1/file to the branch.
 	f, err := os.Create(b1.Join("file"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	f.Close()
 	err = b1.Add("file")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = b1.Commit("added file")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Push file to b2.
 	err = b1.Push(&bzr.PushAttr{Location: b2.Location()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Push location should be set to b2.
 	location, err := b1.PushLocation()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(location, jc.SamePath, b2.Location())
 
 	// Now push it to b3.
 	err = b1.Push(&bzr.PushAttr{Location: b3.Location()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Push location is still set to b2.
 	location, err = b1.PushLocation()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(location, jc.SamePath, b2.Location())
 
 	// Push it again, this time with the remember flag set.
 	err = b1.Push(&bzr.PushAttr{Location: b3.Location(), Remember: true})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Now the push location has shifted to b3.
 	location, err = b1.PushLocation()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(location, jc.SamePath, b3.Location())
 
 	// Both b2 and b3 should have the file.
 	_, err = os.Stat(b2.Join("file"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(b3.Join("file"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BzrSuite) TestCheckClean(c *gc.C) {
 	err := s.b.CheckClean()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create and add b1/file to the branch.
 	f, err := os.Create(s.b.Join("file"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	f.Close()
 
 	err = s.b.CheckClean()

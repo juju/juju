@@ -6,11 +6,14 @@ package local
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"os/user"
+	"regexp"
 	"strconv"
 	"syscall"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
@@ -58,7 +61,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		if username == "" {
 			u, err := userCurrent()
 			if err != nil {
-				return nil, fmt.Errorf("failed to determine username for namespace: %v", err)
+				return nil, errors.Annotate(err, "failed to determine username for namespace")
 			}
 			username = u.Username
 		}
@@ -66,7 +69,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		namespace = fmt.Sprintf("%s-%s", username, cfg.Name())
 		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create namespace: %v", err)
+			return nil, errors.Annotate(err, "failed to create namespace")
 		}
 	}
 	// Do the initial validation on the config.
@@ -75,13 +78,41 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if err := VerifyPrerequisites(localConfig.container()); err != nil {
-		return nil, fmt.Errorf("failed verification of local provider prerequisites: %v", err)
+		return nil, errors.Annotate(err, "failed verification of local provider prerequisites")
+	}
+	if cfg, err = providerInstance.correctLocalhostURLs(cfg, localConfig); err != nil {
+		return nil, errors.Annotate(err, "failed to replace localhost references in loopback URLs specified in proxy config settings")
 	}
 	environ := &localEnviron{name: cfg.Name()}
 	if err := environ.SetConfig(cfg); err != nil {
-		return nil, fmt.Errorf("failure setting config: %v", err)
+		return nil, errors.Annotate(err, "failure setting config")
 	}
 	return environ, nil
+}
+
+// correctLocalhostURLs exams proxy attributes and changes URL values pointing to localhost to use bridge IP.
+func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *environConfig) (*config.Config, error) {
+	attrs := cfg.AllAttrs()
+	updatedAttrs := make(map[string]interface{})
+	for _, key := range config.ProxyAttributes {
+		anAttr := attrs[key]
+		if anAttr == nil {
+			continue
+		}
+		var attrStr string
+		var isString bool
+		if attrStr, isString = anAttr.(string); !isString || attrStr == "" {
+			continue
+		}
+		newValue, err := p.swapLocalhostForBridgeIP(attrStr, providerCfg)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		updatedAttrs[key] = newValue
+		logger.Infof("\nAttribute %q is set to (%v)\n", key, newValue)
+	}
+	// Update desired attributes on current configuration
+	return cfg.Apply(updatedAttrs)
 }
 
 var detectAptProxies = apt.DetectProxies
@@ -123,10 +154,10 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		cfg.NoProxy() == "" {
 		proxySettings := proxy.DetectProxies()
 		logger.Tracef("Proxies detected %#v", proxySettings)
-		setIfNotBlank("http-proxy", proxySettings.Http)
-		setIfNotBlank("https-proxy", proxySettings.Https)
-		setIfNotBlank("ftp-proxy", proxySettings.Ftp)
-		setIfNotBlank("no-proxy", proxySettings.NoProxy)
+		setIfNotBlank(config.HttpProxyKey, proxySettings.Http)
+		setIfNotBlank(config.HttpsProxyKey, proxySettings.Https)
+		setIfNotBlank(config.FtpProxyKey, proxySettings.Ftp)
+		setIfNotBlank(config.NoProxyKey, proxySettings.NoProxy)
 	}
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&
@@ -135,9 +166,9 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		if err != nil {
 			return nil, err
 		}
-		setIfNotBlank("apt-http-proxy", proxySettings.Http)
-		setIfNotBlank("apt-https-proxy", proxySettings.Https)
-		setIfNotBlank("apt-ftp-proxy", proxySettings.Ftp)
+		setIfNotBlank(config.AptHttpProxyKey, proxySettings.Http)
+		setIfNotBlank(config.AptHttpsProxyKey, proxySettings.Https)
+		setIfNotBlank(config.AptFtpProxyKey, proxySettings.Ftp)
 	}
 	if len(attrs) > 0 {
 		cfg, err = cfg.Apply(attrs)
@@ -147,6 +178,32 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	}
 
 	return p.Open(cfg)
+}
+
+// swapLocalhostForBridgeIP substitutes bridge ip for localhost. Non-localhost values are not modified.
+func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerConfig *environConfig) (string, error) {
+	// TODO(anastasia) 2014-10-31 Bug#1385277 Parse method does not cater for malformed URL, eg. localhost:8080
+	parsedUrl, err := url.Parse(originalURL)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	// Localhost url can be specified in 3 ways: localhost, 127.0.0.1 or ::1
+	// This regular expression does not cater for a. subnets, eg. 127.0.0.1/8 nor b. digits preceding :: in ipv6 url, eg. 0::0:1.
+	localHostRegexp := regexp.MustCompile(`localhost|127\.[\d.]+|[0:]+1|\[?::1]?`)
+	hostAndPort := parsedUrl.Host
+	if !localHostRegexp.MatchString(hostAndPort) {
+		// If not localhost, return current attribute value
+		return originalURL, nil
+	}
+	//If localhost is specified, use its network bridge ip
+	bridgeAddress, nwerr := getAddressForInterface(providerConfig.networkBridge())
+	if nwerr != nil {
+		return "", errors.Trace(nwerr)
+	}
+	// Host and post specification is host:port
+	hostAndPortRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))(?P<port>($|:[^:]+$))`)
+	parsedUrl.Host = hostAndPortRegexp.ReplaceAllString(hostAndPort, fmt.Sprintf("%s$port", bridgeAddress))
+	return parsedUrl.String(), nil
 }
 
 // checkLocalPort checks that the passed port is not used so far.
@@ -181,16 +238,19 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate unknown attrs: %v", err)
+		return nil, errors.Annotatef(err, "failed to validate unknown attrs")
 	}
 	localConfig := newEnvironConfig(cfg, validated)
+	// Set correct default network bridge if needed
+	// fix for http://pad.lv/1394450
+	localConfig.setDefaultNetworkBridge()
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
 	containerType := localConfig.container()
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
 		if err != nil {
-			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
+			return nil, errors.Annotatef(err, "old config is not a valid local config: %v", old)
 		}
 		if containerType != oldLocalConfig.container() {
 			return nil, fmt.Errorf("cannot change container from %q to %q",
@@ -238,7 +298,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	// If we're cloning, and the user hasn't specified otherwise,
 	// prefer to skip update logic.
 	if useClone, _ := localConfig.LXCUseClone(); useClone && containerType == instance.LXC {
-		defineIfNot("enable-os-refresh-update", false)
+		defineIfNot("enable-os-refresh-update", true)
 		defineIfNot("enable-os-upgrade", false)
 	}
 

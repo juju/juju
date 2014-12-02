@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
@@ -51,8 +52,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -67,31 +68,31 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 		cfg, err := env.Config().Apply(map[string]interface{}{
 			key: value,
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		env.cfg = cfg
 	}
 
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", coretesting.CACert)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
 	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{})
@@ -101,8 +102,8 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{Constraints: cons})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Constraints: cons})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
 }
@@ -111,8 +112,8 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	placement := "directive"
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{Placement: placement})
-	c.Assert(err, gc.IsNil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Placement: placement})
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
 }
@@ -126,11 +127,11 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		"tools-stream": "proposed"})
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+		"agent-stream": "proposed"})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
@@ -143,10 +144,10 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"development": true})
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
@@ -194,12 +195,12 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
 		cfg, err := env.Config().Remove([]string{"agent-version"})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = env.SetConfig(cfg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		s.PatchValue(&version.Current.Number, t.currentVersion)
 		bootstrapTools, err := bootstrap.SetBootstrapTools(env, availableTools)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(bootstrapTools.Version.Number, gc.Equals, t.expectedTools)
 		agentVersion, _ := env.Config().AgentVersion()
 		c.Assert(agentVersion, gc.Equals, t.expectedAgentVersion)
@@ -222,9 +223,9 @@ func createImageMetadata(c *gc.C) (dir string, _ []*imagemetadata.ImageMetadata)
 	}
 	sourceDir := c.MkDir()
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
 
@@ -233,20 +234,20 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
-	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		MetadataDir: metadataDir,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
 
 	datasources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 2)
 	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
 	c.Assert(env.machineConfig, gc.NotNil)
@@ -259,19 +260,19 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 
 	noImagesDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
-	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	c.Assert(err, jc.ErrorIsNil)
+	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		MetadataDir: noImagesDir,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 
 	datasources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(datasources, gc.HasLen, 1)
 	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
 }

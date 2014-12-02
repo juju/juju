@@ -6,6 +6,7 @@ package config_test
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -76,21 +77,47 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
+		about:       "Agent Stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			"agent-stream":       "agent-stream-value",
+		},
+	}, {
+		about:       "Deprecated tools-stream used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"tools-stream": "tools-stream-value",
+		},
+	}, {
+		about:       "Deprecated tools-stream ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"agent-stream": "agent-stream-value",
+			"tools-stream": "ignore-me",
+		},
+	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"tools-metadata-url": "tools-metadata-url-value",
+			"agent-metadata-url": "agent-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL used",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":      "my-type",
-			"name":      "my-name",
-			"tools-url": "tools-metadata-url-value",
+			"type":               "my-type",
+			"name":               "my-name",
+			"tools-metadata-url": "tools-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL ignored",
@@ -98,8 +125,8 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
-			"tools-metadata-url": "tools-metadata-url-value",
-			"tools-url":          "ignore-me",
+			"agent-metadata-url": "agent-metadata-url-value",
+			"tools-metadata-url": "ignore-me",
 		},
 	}, {
 		about:       "Explicit series",
@@ -315,6 +342,54 @@ var configTests = []configTest{
 			"type": "my-type",
 			"name": "my-name",
 			"disable-network-management": true,
+		},
+	}, {
+		about:       "set-numa-control-policy on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": true,
+		},
+	}, {
+		about:       "set-numa-control-policy off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": false,
+		},
+	}, {
+		about:       "block-destroy-environment on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"block-destroy-environment": true,
+		},
+	}, {
+		about:       "block-destroy-environment off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"block-destroy-environment": false,
+		},
+	}, {
+		about:       "block-remove-object on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"block-remove-object": true,
+		},
+	}, {
+		about:       "block-remove-object off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                "my-type",
+			"name":                "my-name",
+			"block-remove-object": false,
 		},
 	}, {
 		about:       "Invalid prefer-ipv6 flag",
@@ -545,7 +620,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"tools-stream": "proposed",
+			"agent-stream": "proposed",
 		},
 	}, {
 		about:       "Explicit state port",
@@ -700,7 +775,7 @@ var configTests = []configTest{
 			"image-metadata-url":        "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
-			"tools-metadata-url":        "",
+			"agent-metadata-url":        "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
@@ -960,7 +1035,7 @@ func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
 		"type":                  "type",
 		"provisioner-safe-mode": false,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(
 		cfg.ProvisionerHarvestMode().String(),
@@ -973,7 +1048,7 @@ func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
 		"type":                  "type",
 		"provisioner-safe-mode": true,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(
 		cfg.ProvisionerHarvestMode().String(),
@@ -989,7 +1064,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(err, gc.ErrorMatches, test.err)
 		return
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	typ, _ := test.attrs["type"].(string)
 	// "null" has been deprecated in favour of "manual",
@@ -1097,7 +1172,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 
 	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
 		hvstMeth, err := config.ParseHarvestMode(v.(string))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)
 	} else {
 		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
@@ -1128,12 +1203,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.ImageStream(), gc.Equals, "released")
 	}
 
-	if v, ok := test.attrs["tools-stream"]; ok {
-		c.Assert(cfg.ToolsStream(), gc.Equals, v)
-	} else {
-		c.Assert(cfg.ToolsStream(), gc.Equals, "released")
-	}
-
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -1141,24 +1210,38 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
-	toolsURL, urlPresent := cfg.ToolsURL()
-	oldToolsURL, oldURLPresent := cfg.AllAttrs()["tools-url"]
-	oldToolsURLAttrValue, oldURLAttrPresent := test.attrs["tools-url"]
-	expectedToolsURLValue := test.attrs["tools-metadata-url"]
-	if expectedToolsURLValue == nil {
-		expectedToolsURLValue = oldToolsURLAttrValue
+
+	toolsURL, urlPresent := cfg.AgentMetadataURL()
+	oldToolsURL := cfg.AllAttrs()["tools-metadata-url"]
+	oldToolsURLAttrValue, oldTSTPresent := test.attrs["tools-metadata-url"]
+	expectedToolsURLValue := test.attrs["agent-metadata-url"]
+	expectedToolsURLPresent := true
+	if expectedToolsURLValue == nil || expectedToolsURLValue == "" {
+		if oldTSTPresent {
+			expectedToolsURLValue = oldToolsURLAttrValue
+		} else {
+			expectedToolsURLValue = oldToolsURL
+			expectedToolsURLPresent = false
+		}
 	}
-	if expectedToolsURLValue != nil && expectedToolsURLValue != "" {
-		c.Assert(expectedToolsURLValue, gc.Equals, "tools-metadata-url-value")
-		c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
-		c.Assert(urlPresent, jc.IsTrue)
-		c.Assert(oldToolsURL, gc.Equals, expectedToolsURLValue)
-		c.Assert(oldURLPresent, jc.IsTrue)
-	} else {
-		c.Assert(urlPresent, jc.IsFalse)
-		c.Assert(oldURLAttrPresent, jc.IsFalse)
-		c.Assert(oldToolsURL, gc.Equals, "")
+	c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
+	c.Assert(urlPresent, gc.Equals, expectedToolsURLPresent)
+
+	// assertions for deprecated tools-stream attribute used with new agent-stream
+	agentStreamValue := cfg.AgentStream()
+	oldTstToolsStreamAttr, oldTstOk := test.attrs["tools-stream"]
+	expectedAgentStreamAttr := test.attrs["agent-stream"]
+
+	// When no agent-stream provided, look for tools-stream
+	if expectedAgentStreamAttr == nil {
+		if oldTstOk {
+			expectedAgentStreamAttr = oldTstToolsStreamAttr
+		} else {
+			// If it's still nil, then hard-coded default is used
+			expectedAgentStreamAttr = "released"
+		}
 	}
+	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
 	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
 	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
@@ -1171,14 +1254,14 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 			c.Assert(useLxcClone, gc.Equals, oldUseClone)
 		} else {
 			c.Assert(useLxcClonePresent, jc.IsFalse)
-			c.Assert(useLxcClone, gc.Equals, false)
+			c.Assert(useLxcClone, jc.IsFalse)
 		}
 	}
 	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
 	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
 		c.Assert(useLxcCloneAufs, gc.Equals, v)
 	} else {
-		c.Assert(useLxcCloneAufs, gc.Equals, false)
+		c.Assert(useLxcCloneAufs, jc.IsFalse)
 	}
 }
 
@@ -1216,19 +1299,22 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"test-mode":                 false,
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
+	attrs["agent-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
-	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
+	attrs["set-numa-control-policy"] = false
+	attrs["block-destroy-environment"] = false
+	attrs["block-remove-object"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1243,7 +1329,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
 		"new-unknown": "my-new-unknown",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	attrs["name"] = "new-name"
 	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
@@ -1362,7 +1448,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		oldConfig := newTestConfig(c, test.old)
 		err := config.Validate(newConfig, oldConfig)
 		if test.err == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
@@ -1385,11 +1471,11 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 		"known":   "this",
 		"unknown": "that",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
 		"known":   "this",
 		"unknown": "that",
@@ -1398,7 +1484,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	// Valid field: that and other attrs passed through.
 	fields := schema.Fields{"known": schema.String()}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
 		"known":   "this",
 		"unknown": "that",
@@ -1408,7 +1494,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	fields["default"] = schema.String()
 	defaults := schema.Defaults{"default": "the other"}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
 		"known":   "this",
 		"unknown": "that",
@@ -1421,13 +1507,58 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
 }
 
+type testAttr struct {
+	message string
+	aKey    string
+	aValue  string
+	checker gc.Checker
+}
+
+var emptyAttributeTests = []testAttr{
+	{
+		message: "Warning message about unknown attribute (%v) is expected because attribute value exists",
+		aKey:    "unknown",
+		aValue:  "unknown value",
+		checker: gc.Matches,
+	}, {
+		message: "Warning message about unknown attribute (%v) is unexpected because attribute value is empty",
+		aKey:    "unknown-empty",
+		aValue:  "",
+		checker: gc.Not(gc.Matches),
+	},
+}
+
+func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
+	s.addJujuFiles(c)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "myenv",
+		"type": "other",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	warningTxt := `.* unknown config field %q.*`
+
+	for i, test := range emptyAttributeTests {
+		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
+		testCfg, err := cfg.Apply(map[string]interface{}{test.aKey: test.aValue})
+		c.Assert(err, jc.ErrorIsNil)
+		attrs, err := testCfg.ValidateUnknownAttrs(nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		// all attrs passed through
+		c.Assert(attrs, gc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
+		expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
+		logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
+		// warning displayed or not based on test expectation
+		c.Assert(logOutputText, test.checker, expectedWarning, gc.Commentf(test.message, test.aKey))
+	}
+}
+
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 	final := testing.Attrs{"type": "my-type", "name": "my-name"}
 	for key, value := range explicit {
 		final[key] = value
 	}
 	result, err := config.New(config.UseDefaults, final)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return result
 }
 
@@ -1511,7 +1642,7 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		NoProxy: "no proxy",
 	}
 	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
 	// Apt proxy and proxy differ by the content of the no-proxy values.
 	proxySettings.NoProxy = ""
@@ -1527,7 +1658,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 		Ftp:   "ftp proxy",
 	}
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// The default proxy settings should still be empty.
 	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
@@ -1562,18 +1693,18 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 		},
 	}} {
 		cfg, err := config.New(config.UseDefaults, test.configValues)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey()
 		if test.errMatch == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 
 			err = cert.Verify(certPEM, testing.CACert, time.Now())
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
 			c.Assert(err, gc.NotNil)
 		} else {

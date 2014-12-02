@@ -19,6 +19,9 @@ var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
+	NewBackups            = &newBackups
+	ParseLogLine          = parseLogLine
+	AgentMatchesFilter    = agentMatchesFilter
 )
 
 const LoginRateLimit = loginRateLimit
@@ -131,4 +134,14 @@ func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
 func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 	r := TestingApiRoot(st)
 	return newAboutToRestoreRoot(r)
+}
+
+// LogLineAgentTag gives tests access to an internal logLine attribute
+func (logLine *logLine) LogLineAgentTag() string {
+	return logLine.agentTag
+}
+
+// LogLineAgentName gives tests access to an internal logLine attribute
+func (logLine *logLine) LogLineAgentName() string {
+	return logLine.agentName
 }

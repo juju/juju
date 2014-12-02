@@ -4,6 +4,7 @@
 package maas
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -43,22 +44,19 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
-	iface := "p1p2"
 
 	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server":     server,
-		"network-bridge":  iface,
 		"maas-oauth":      oauth,
 		"maas-agent-name": uuid.String(),
 		"future-key":      future,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ecfg.maasServer(), gc.Equals, server)
 	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
 	c.Check(ecfg.maasAgentName(), gc.Equals, uuid.String())
-	c.Check(ecfg.networkBridge(), gc.Equals, iface)
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
@@ -67,17 +65,8 @@ func (*configSuite) TestMaasAgentNameDefault(c *gc.C) {
 		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ecfg.maasAgentName(), gc.Equals, "")
-}
-
-func (*configSuite) TestNetworkBridgeDefault(c *gc.C) {
-	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server": "http://maas.testing.invalid/maas/",
-		"maas-oauth":  "consumer-key:resource-token:resource-secret",
-	})
-	c.Assert(err, gc.IsNil)
-	c.Check(ecfg.networkBridge(), gc.Equals, "eth0")
 }
 
 func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
@@ -107,10 +96,10 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	}
 	oldCfg, err := newConfig(baseAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newName := oldCfg.Name() + "-but-different"
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
 
@@ -125,11 +114,11 @@ func (*configSuite) TestValidateCannotChangeAgentName(c *gc.C) {
 		"maas-agent-name": "1234-5678",
 	}
 	oldCfg, err := newConfig(baseAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newCfg, err := oldCfg.Apply(map[string]interface{}{
 		"maas-agent-name": "9876-5432",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
 	c.Assert(err, gc.ErrorMatches, "cannot change maas-agent-name")
 }

@@ -89,7 +89,7 @@ func (v *validator) RegisterVocabulary(attributeName string, allowedValues inter
 // checkConflicts returns an error if the constraints Value contains conflicting attributes.
 func (v *validator) checkConflicts(cons Value) error {
 	attrValues := cons.attributesWithValues()
-	attrSet := set.NewStrings()
+	attrSet := make(set.Strings)
 	for attrTag := range attrValues {
 		attrSet.Add(attrTag)
 	}

@@ -6,6 +6,7 @@ package client_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -22,7 +23,7 @@ var _ = gc.Suite(&getSuite{})
 func (s *getSuite) TestClientServiceGetSmoketest(c *gc.C) {
 	s.setUpScenario(c)
 	results, err := s.APIState.Client().ServiceGet("wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, &params.ServiceGetResults{
 		Service: "wordpress",
 		Charm:   "wordpress",
@@ -147,11 +148,11 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
 			err := svc.SetConstraints(constraintsv)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if t.config != nil {
 			err := svc.UpdateConfigSettings(t.config)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		expect := t.expect
 		expect.Constraints = constraintsv
@@ -159,7 +160,7 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		expect.Charm = ch.Meta().Name
 		apiclient := s.APIState.Client()
 		got, err := apiclient.ServiceGet(svc.Name())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, gc.DeepEquals, expect)
 	}
 }
@@ -179,9 +180,9 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 	svc := s.AddTestingService(c, "test-service", ch)
 
 	err := svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	got, err := s.APIState.Client().ServiceGet(svc.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Config["skill-level"], gc.DeepEquals, map[string]interface{}{
 		"description": "A number indicating skill.",
 		"type":        "int",
@@ -192,6 +193,6 @@ func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
 func (s *getSuite) TestServiceGetCharmURL(c *gc.C) {
 	s.setUpScenario(c)
 	charmURL, err := s.APIState.Client().ServiceGetCharmURL("wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(charmURL.String(), gc.Equals, "local:quantal/wordpress-3")
 }

@@ -16,7 +16,10 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-const shortWait = 50 * time.Millisecond
+const (
+	shortWait = 50 * time.Millisecond
+	longWait  = 10 * time.Second
+)
 
 type ExecuteSSHCommandSuite struct {
 	testing.IsolationSuite
@@ -35,7 +38,7 @@ func (s *ExecuteSSHCommandSuite) SetUpSuite(c *gc.C) {
 func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", s.originalPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
 	s.PatchEnvPathPrepend(s.testbin)
@@ -44,7 +47,7 @@ func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
 
 func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {
 	err := ioutil.WriteFile(s.fakessh, []byte(cmd), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
@@ -53,10 +56,10 @@ func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		Host:    "hostname",
 		Command: "sudo apt-get update\nsudo apt-get upgrade",
-		Timeout: shortWait,
+		Timeout: longWait,
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Code, gc.Equals, 0)
 	c.Assert(string(response.Stdout), gc.Equals, "sudo apt-get update\nsudo apt-get upgrade\n")
 	c.Assert(string(response.Stderr), gc.Equals,
@@ -69,10 +72,10 @@ func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		IdentityFile: "identity-file",
 		Host:         "hostname",
-		Timeout:      shortWait,
+		Timeout:      longWait,
 	})
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(response.Stderr), jc.Contains, " -i identity-file ")
 }
 
@@ -99,10 +102,10 @@ func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Command:      "echo stdout; exit 42",
-		Timeout:      shortWait,
+		Timeout:      longWait,
 	})
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(response.Code, gc.Equals, 42)
 	c.Assert(string(response.Stdout), gc.Equals, "stdout\n")
 	c.Assert(string(response.Stderr), gc.Equals, "")

@@ -6,6 +6,7 @@ package maas
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -31,7 +32,7 @@ func (s *instanceTest) TestString(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 	hostname, err := instance.hostname()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := hostname + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
 }
@@ -55,9 +56,9 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 
 	err := instance.Refresh()
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	testField, err := (*instance.maasObject).GetField("test2")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(testField, gc.Equals, "test2")
 }
 
@@ -79,7 +80,7 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 
 	addr, err := inst.Addresses()
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addr, gc.DeepEquals, expected)
 }
 
@@ -94,7 +95,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
 	addr, err := inst.Addresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(addr, gc.DeepEquals, []network.Address{
 		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
 		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
@@ -137,7 +138,7 @@ func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 	hc, err := inst.hardwareCharacteristics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
 	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M`)
 }
@@ -153,7 +154,7 @@ func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 	hc, err := inst.hardwareCharacteristics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hc, gc.NotNil)
 	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b`)
 }

@@ -14,7 +14,7 @@ import (
 
 var (
 	cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")
-	notify        chan struct{}
+	notify        chan string
 )
 
 const (
@@ -30,7 +30,7 @@ func NewCleanup(client metricsmanager.MetricsManagerClient) worker.Worker {
 			return nil
 		}
 		select {
-		case notify <- struct{}{}:
+		case notify <- "cleanupCalled":
 		default:
 		}
 		return nil

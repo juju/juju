@@ -61,8 +61,8 @@ func (azInstance *azureInstance) serviceName() string {
 
 // Refresh is specified in the Instance interface.
 func (azInstance *azureInstance) Refresh() error {
-	return azInstance.apiCall(false, func(c *azureManagementContext) error {
-		d, err := c.GetDeployment(&gwacl.GetDeploymentRequest{
+	return azInstance.apiCall(false, func(api *gwacl.ManagementAPI) error {
+		d, err := api.GetDeployment(&gwacl.GetDeploymentRequest{
 			ServiceName:    azInstance.serviceName(),
 			DeploymentName: azInstance.deploymentName,
 		})
@@ -122,31 +122,24 @@ func (azInstance *azureInstance) ipAddress() string {
 
 // OpenPorts is specified in the Instance interface.
 func (azInstance *azureInstance) OpenPorts(machineId string, portRange []network.PortRange) error {
-	return azInstance.apiCall(true, func(context *azureManagementContext) error {
-		return azInstance.openEndpoints(context, portRange)
+	return azInstance.apiCall(true, func(api *gwacl.ManagementAPI) error {
+		return azInstance.openEndpoints(api, portRange)
 	})
 }
 
-// apiCall wraps a call to the azure API to ensure it is properly disposed, optionally locking
-// the environment
-func (azInstance *azureInstance) apiCall(lock bool, f func(*azureManagementContext) error) error {
+// apiCall wraps a call to the azure API, optionally locking the environment.
+func (azInstance *azureInstance) apiCall(lock bool, f func(*gwacl.ManagementAPI) error) error {
 	env := azInstance.environ
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(context)
+	api := env.getSnapshot().api
 	if lock {
 		env.Lock()
 		defer env.Unlock()
 	}
-	return f(context)
+	return f(api)
 }
 
-// openEndpoints opens the endpoints in the Azure deployment. The caller is
-// responsible for locking and unlocking the environ and releasing the
-// management context.
-func (azInstance *azureInstance) openEndpoints(context *azureManagementContext, portRanges []network.PortRange) error {
+// openEndpoints opens the endpoints in the Azure deployment.
+func (azInstance *azureInstance) openEndpoints(api *gwacl.ManagementAPI, portRanges []network.PortRange) error {
 	request := &gwacl.AddRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),
 		DeploymentName: azInstance.deploymentName,
@@ -182,20 +175,18 @@ func (azInstance *azureInstance) openEndpoints(context *azureManagementContext, 
 			request.InputEndpoints = append(request.InputEndpoints, endpoint)
 		}
 	}
-	return context.AddRoleEndpoints(request)
+	return api.AddRoleEndpoints(request)
 }
 
 // ClosePorts is specified in the Instance interface.
 func (azInstance *azureInstance) ClosePorts(machineId string, ports []network.PortRange) error {
-	return azInstance.apiCall(true, func(context *azureManagementContext) error {
-		return azInstance.closeEndpoints(context, ports)
+	return azInstance.apiCall(true, func(api *gwacl.ManagementAPI) error {
+		return azInstance.closeEndpoints(api, ports)
 	})
 }
 
-// closeEndpoints closes the endpoints in the Azure deployment. The caller is
-// responsible for locking and unlocking the environ and releasing the
-// management context.
-func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext, portRanges []network.PortRange) error {
+// closeEndpoints closes the endpoints in the Azure deployment.
+func (azInstance *azureInstance) closeEndpoints(api *gwacl.ManagementAPI, portRanges []network.PortRange) error {
 	request := &gwacl.RemoveRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),
 		DeploymentName: azInstance.deploymentName,
@@ -213,7 +204,7 @@ func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext,
 			})
 		}
 	}
-	return context.RemoveRoleEndpoints(request)
+	return api.RemoveRoleEndpoints(request)
 }
 
 // convertEndpointsToPorts converts a slice of gwacl.InputEndpoint into a slice of network.PortRange.
@@ -271,8 +262,8 @@ next:
 
 // Ports is specified in the Instance interface.
 func (azInstance *azureInstance) Ports(machineId string) (ports []network.PortRange, err error) {
-	err = azInstance.apiCall(false, func(context *azureManagementContext) error {
-		ports, err = azInstance.listPorts(context)
+	err = azInstance.apiCall(false, func(api *gwacl.ManagementAPI) error {
+		ports, err = azInstance.listPorts(api)
 		return err
 	})
 	if ports != nil {
@@ -283,11 +274,9 @@ func (azInstance *azureInstance) Ports(machineId string) (ports []network.PortRa
 
 // listPorts returns the slice of ports (network.Port) that this machine
 // has opened. The returned list does not contain the "initial ports"
-// (i.e. the ports every instance shoud have opened). The caller is
-// responsible for locking and unlocking the environ and releasing the
-// management context.
-func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]network.PortRange, error) {
-	endpoints, err := context.ListRoleEndpoints(&gwacl.ListRoleEndpointsRequest{
+// (i.e. the ports every instance shoud have opened).
+func (azInstance *azureInstance) listPorts(api *gwacl.ManagementAPI) ([]network.PortRange, error) {
+	endpoints, err := api.ListRoleEndpoints(&gwacl.ListRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),
 		DeploymentName: azInstance.deploymentName,
 		RoleName:       azInstance.roleName,

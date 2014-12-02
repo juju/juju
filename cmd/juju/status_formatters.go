@@ -29,7 +29,16 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	var out bytes.Buffer
 
 	pprint := func(uName string, u unitStatus, level int) {
-		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)"), uName, u.PublicAddress, u.AgentState)
+		var fmtPorts string
+		if len(u.OpenedPorts) > 0 {
+			fmtPorts = fmt.Sprintf(" %s", strings.Join(u.OpenedPorts, ", "))
+		}
+		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)%v"),
+			uName,
+			u.PublicAddress,
+			u.AgentState,
+			fmtPorts,
+		)
 	}
 
 	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"text/template"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -63,6 +64,7 @@ $DefaultNetstreamDriverCertFile /var/log/juju{{.Namespace}}/rsyslog-cert.pem
 $DefaultNetstreamDriverKeyFile /var/log/juju{{.Namespace}}/rsyslog-key.pem
 $InputTCPServerStreamDriverAuthMode anon
 $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+$InputTCPMaxSessions 10000 # default is 200, all agents connect to all rsyslog daemons
 
 $InputTCPServerBindRuleset remote
 $InputTCPServerRun {{.Port}}
@@ -93,7 +95,7 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 		Offset:     len("juju-") + len(namespace) + 1,
 		Port:       port,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return conf.String()
 }
 
@@ -139,6 +141,6 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, logDir, namespace, bootstrap
 		BootstrapIP: bootstrapIP,
 		Port:        port,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return conf.String()
 }

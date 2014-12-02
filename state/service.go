@@ -105,7 +105,7 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // some point; if the service has no units, and no relation involving the
 // service has any units in scope, they are all removed immediately.
 func (s *Service) Destroy() (err error) {
-	defer errors.Maskf(&err, "cannot destroy service %q", s)
+	defer errors.DeferredAnnotatef(&err, "cannot destroy service %q", s)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -159,7 +159,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
-				Id:     rel.doc.Key,
+				Id:     rel.doc.DocID,
 				Assert: bson.D{{"life", Dying}},
 			}}
 		} else if err != nil {
@@ -213,6 +213,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts bson.D) []txn.Op {
+	settingsDocID := s.st.docID(s.settingsKey())
 	ops := []txn.Op{{
 		C:      servicesC,
 		Id:     s.doc.DocID,
@@ -220,11 +221,11 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		Remove: true,
 	}, {
 		C:      settingsrefsC,
-		Id:     s.settingsKey(),
+		Id:     settingsDocID,
 		Remove: true,
 	}, {
 		C:      settingsC,
-		Id:     s.settingsKey(),
+		Id:     settingsDocID,
 		Remove: true,
 	}}
 	ops = append(ops, removeRequestedNetworksOp(s.st, s.globalKey()))
@@ -364,7 +365,7 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 		}
 		asserts = append(asserts, txn.Op{
 			C:      relationsC,
-			Id:     rel.doc.Key,
+			Id:     rel.doc.DocID,
 			Assert: txn.DocExists,
 		})
 	}
@@ -374,50 +375,58 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
-	settings, closer := s.st.getCollection(settingsC)
-	defer closer()
-
 	// Build the new service config from what can be used of the old one.
+	var newSettings charm.Settings
 	oldSettings, err := readSettings(s.st, s.settingsKey())
-	if err != nil {
-		return nil, err
+	if err == nil {
+		// Filter the old settings through to get the new settings.
+		newSettings = ch.Config().FilterSettings(oldSettings.Map())
+	} else if errors.IsNotFound(err) {
+		// No old settings, start with empty new settings.
+		newSettings = make(charm.Settings)
+	} else {
+		return nil, errors.Trace(err)
 	}
-	newSettings := ch.Config().FilterSettings(oldSettings.Map())
 
 	// Create or replace service settings.
 	var settingsOp txn.Op
 	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
-	if count, err := settings.FindId(newKey).Count(); err != nil {
-		return nil, err
-	} else if count == 0 {
+	if _, err := readSettings(s.st, newKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(s.st, newKey, newSettings)
+	} else if err != nil {
+		return nil, errors.Trace(err)
 	} else {
 		// Settings exist, just replace them with the new ones.
-		var err error
 		settingsOp, _, err = replaceSettingsOp(s.st, newKey, newSettings)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 
 	// Add or create a reference to the new settings doc.
 	incOp, err := settingsIncRefOp(s.st, s.doc.Name, ch.URL(), true)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	// Drop the reference to the old settings doc.
-	decOps, err := settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
-	if err != nil {
-		return nil, err
+	var decOps []txn.Op
+	// Drop the reference to the old settings doc (if they exist).
+	if oldSettings != nil {
+		decOps, err = settingsDecRefOps(s.st, s.doc.Name, s.doc.CharmURL) // current charm
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	// Build the transaction.
+	var ops []txn.Op
 	differentCharm := bson.D{{"charmurl", bson.D{{"$ne", ch.URL()}}}}
-	ops := []txn.Op{
-		// Old settings shouldn't change
-		oldSettings.assertUnchangedOp(),
-		// Create/replace with new settings.
+	if oldSettings != nil {
+		// Old settings shouldn't change (when they exist).
+		ops = append(ops, oldSettings.assertUnchangedOp())
+	}
+	ops = append(ops, []txn.Op{
+		// Create or replace new settings.
 		settingsOp,
 		// Increment the ref count.
 		incOp,
@@ -425,21 +434,21 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
-			Assert: append(isAliveDoc, differentCharm...),
+			Assert: append(notDeadDoc, differentCharm...),
 			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
-	}
+	}...)
 	// Add any extra peer relations that need creation.
 	newPeers := s.extraPeerRelations(ch.Meta())
 	peerOps, err := s.st.addPeerRelationsOps(s.doc.Name, newPeers)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// Get all relations - we need to check them later.
 	relations, err := s.Relations()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Make sure the relation count does not change.
 	sameRelCount := bson.D{{"relationcount", len(relations)}}
@@ -449,13 +458,13 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	ops = append(ops, txn.Op{
 		C:      servicesC,
 		Id:     s.doc.DocID,
-		Assert: append(isAliveDoc, sameRelCount...),
+		Assert: append(notDeadDoc, sameRelCount...),
 		Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
 	})
 	// Check relations to ensure no active relations are removed.
 	relOps, err := s.checkRelationsOps(ch, relations)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, relOps...)
 
@@ -466,54 +475,57 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 // SetCharm changes the charm for the service. New units will be started with
 // this charm, and existing units will be upgraded to use it. If force is true,
 // units will be upgraded even if they are in an error state.
-func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
-	services, closer := s.st.getCollection(servicesC)
-	defer closer()
-	settings := services.Database.C(settingsC)
-
+func (s *Service) SetCharm(ch *Charm, force bool) error {
 	if ch.Meta().Subordinate != s.doc.Subordinate {
-		return fmt.Errorf("cannot change a service's subordinacy")
+		return errors.Errorf("cannot change a service's subordinacy")
 	}
 	if ch.URL().Series != s.doc.Series {
-		return fmt.Errorf("cannot change a service's series")
+		return errors.Errorf("cannot change a service's series")
 	}
+
+	services, closer := s.st.getCollection(servicesC)
+	defer closer()
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			// If the service is not alive, fail out immediately; otherwise,
-			// data changed underneath us, so retry.
-			if alive, err := isAliveWithSession(settings, s.doc.Name); err != nil {
-				return nil, err
-			} else if !alive {
-				return nil, fmt.Errorf("service %q is not alive", s.doc.Name)
+			// NOTE: We're explicitly allowing SetCharm to succeed
+			// when the service is Dying, because service/charm
+			// upgrades should still be allowed to apply to dying
+			// services and units, so that bugs in departed/broken
+			// hooks can be addressed at runtime.
+			if notDead, err := isNotDeadWithSession(services, s.doc.DocID); err != nil {
+				return nil, errors.Trace(err)
+			} else if !notDead {
+				return nil, ErrDead
 			}
 		}
 		// Make sure the service doesn't have this charm already.
 		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
 		var ops []txn.Op
 		if count, err := services.Find(sel).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count == 1 {
 			// Charm URL already set; just update the force flag.
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
 			ops = []txn.Op{{
 				C:      servicesC,
 				Id:     s.doc.DocID,
-				Assert: append(isAliveDoc, sameCharm...),
+				Assert: append(notDeadDoc, sameCharm...),
 				Update: bson.D{{"$set", bson.D{{"forcecharm", force}}}},
 			}}
 		} else {
 			// Change the charm URL.
 			ops, err = s.changeCharmOps(ch, force)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 		return ops, nil
 	}
-	if err = s.st.run(buildTxn); err == nil {
+	err := s.st.run(buildTxn)
+	if err == nil {
 		s.doc.CharmURL = ch.URL()
 		s.doc.ForceCharm = force
-		return nil
 	}
 	return err
 }
@@ -640,7 +652,7 @@ func (s *Service) GetOwnerTag() string {
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	defer errors.Maskf(&err, "cannot add unit to service %q", s)
+	defer errors.DeferredAnnotatef(&err, "cannot add unit to service %q", s)
 	name, ops, err := s.addUnitOps("", nil)
 	if err != nil {
 		return nil, err
@@ -747,11 +759,12 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 }
 
 func serviceRelations(st *State, name string) (relations []*Relation, err error) {
-	defer errors.Maskf(&err, "can't get relations for service %q", name)
+	defer errors.DeferredAnnotatef(&err, "can't get relations for service %q", name)
 	relationsCollection, closer := st.getCollection(relationsC)
 	defer closer()
 
 	docs := []relationDoc{}
+	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err
@@ -824,7 +837,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	defer errors.Maskf(&err, "cannot set constraints")
+	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}
@@ -855,22 +868,25 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
-	if count, err := settingsrefs.FindId(key).Count(); err != nil {
+	docID := st.docID(key)
+	if count, err := settingsrefs.FindId(docID).Count(); err != nil {
 		return txn.Op{}, err
 	} else if count == 0 {
 		if !canCreate {
-			return txn.Op{}, errors.NotFoundf("service settings")
+			return txn.Op{}, errors.NotFoundf("service %q settings for charm %q", serviceName, curl)
 		}
 		return txn.Op{
 			C:      settingsrefsC,
-			Id:     key,
+			Id:     docID,
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		}, nil
 	}
 	return txn.Op{
 		C:      settingsrefsC,
-		Id:     key,
+		Id:     docID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 	}, nil
@@ -885,8 +901,9 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
+	docID := st.docID(key)
 	var doc settingsRefsDoc
-	if err := settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
+	if err := settingsrefs.FindId(docID).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q settings for charm %q", serviceName, curl)
 	} else if err != nil {
 		return nil, err
@@ -894,18 +911,18 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	if doc.RefCount == 1 {
 		return []txn.Op{{
 			C:      settingsrefsC,
-			Id:     key,
+			Id:     docID,
 			Assert: bson.D{{"refcount", 1}},
 			Remove: true,
 		}, {
 			C:      settingsC,
-			Id:     key,
+			Id:     docID,
 			Remove: true,
 		}}, nil
 	}
 	return []txn.Op{{
 		C:      settingsrefsC,
-		Id:     key,
+		Id:     docID,
 		Assert: bson.D{{"refcount", bson.D{{"$gt", 1}}}},
 		Update: bson.D{{"$inc", bson.D{{"refcount", -1}}}},
 	}}, nil
@@ -928,4 +945,5 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
 	RefCount int
+	EnvUUID  string `bson:"env-uuid"`
 }

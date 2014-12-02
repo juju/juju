@@ -4,11 +4,13 @@
 package lxc
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -29,10 +31,12 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate  = "ubuntu-cloud"
-	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
-	LxcRestartDir    = "/etc/lxc/auto"
-	LxcObjectFactory = golxc.Factory()
+	defaultTemplate       = "ubuntu-cloud"
+	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
+	LxcRestartDir         = "/etc/lxc/auto"
+	LxcObjectFactory      = golxc.Factory()
+	initProcessCgroupFile = "/proc/1/cgroup"
+	runtimeGOOS           = runtime.GOOS
 )
 
 const (
@@ -65,6 +69,40 @@ func containerDirFilesystem() (string, error) {
 		return "", fmt.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
+}
+
+// IsLXCSupported returns a boolean value indicating whether or not
+// we can run LXC containers
+func IsLXCSupported() (bool, error) {
+	if runtimeGOOS != "linux" {
+		return false, nil
+	}
+
+	file, err := os.Open(initProcessCgroupFile)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Split(line, ":")
+		if len(fields) != 3 {
+			return false, errors.Errorf("Malformed cgroup file")
+		}
+		if fields[2] != "/" {
+			// When running in a container the anchor point will be something
+			// other then "/". Return false here as we do not support nested LXC
+			// containers
+			return false, nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return false, errors.Errorf("Failed to read cgroup file")
+	}
+	return true, nil
 }
 
 type containerManager struct {
@@ -258,6 +296,21 @@ func (manager *containerManager) CreateContainer(
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
 	if err = lxcContainer.Start("", consoleFile); err != nil {
+		logger.Warningf("container failed to start %v", err)
+		// if the container fails to start we should try to destroy it
+		// check if the container has been constructed
+		if lxcContainer.IsConstructed() {
+			// if so, then we need to destroy the leftover container
+			if derr := lxcContainer.Destroy(); derr != nil {
+				// if an error is reported there is probably a leftover
+				// container that the user should clean up manually
+				logger.Errorf("container failed to start and failed to destroy: %v", derr)
+				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: manual cleanup of containers needed")
+			}
+			logger.Warningf("container failed to start and was destroyed - safe to retry")
+			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name()))
+		}
+		logger.Warningf("container failed to start: %v", err)
 		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
@@ -356,6 +409,18 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 		}
 	}
 	return
+}
+
+func (manager *containerManager) IsInitialized() bool {
+	requiredBinaries := []string{
+		"lxc-ls",
+	}
+	for _, bin := range requiredBinaries {
+		if _, err := exec.LookPath(bin); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"

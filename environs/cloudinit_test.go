@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -76,7 +77,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 	}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	mcfg := &cloudinit.MachineConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
@@ -84,7 +85,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg)
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
 
 	// Test when updates/upgrades are set to false.
@@ -93,9 +94,9 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		"enable-os-refresh-update": false,
 		"enable-os-upgrade":        false,
 	}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = environs.FinishMachineConfig(mcfg, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedMcfg.EnableOSRefreshUpdate = false
 	expectedMcfg.EnableOSUpgrade = false
 	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
@@ -108,13 +109,13 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		"ssl-hostname-verification": false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcfg := &cloudinit.MachineConfig{
 		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
@@ -138,13 +139,13 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 		"state-server":    false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	oldAttrs := cfg.AllAttrs()
 	mcfg := &cloudinit.MachineConfig{
 		Bootstrap: true,
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
 	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
@@ -163,12 +164,12 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	srvCertPEM := mcfg.StateServingInfo.Cert
 	srvKeyPEM := mcfg.StateServingInfo.PrivateKey
 	_, _, err = cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(9, 0, 0))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = cert.Verify(srvCertPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
 	c.Assert(err, gc.NotNil)
 }
@@ -185,16 +186,16 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	testJujuHome := c.MkDir()
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/releases/juju1.2.3-quantal-amd64.tgz",
+		URL:     "http://foo.com/tools/released/juju1.2.3-quantal-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	allJobs := []params.MachineJob{
-		params.JobManageEnviron,
-		params.JobHostUnits,
-		params.JobManageNetworking,
+	allJobs := []multiwatcher.MachineJob{
+		multiwatcher.JobManageEnviron,
+		multiwatcher.JobHostUnits,
+		multiwatcher.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",
@@ -240,14 +241,14 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	cloudcfg.AddRunCmd(script1)
 	cloudcfg.AddRunCmd(script2)
 	result, err := environs.ComposeUserData(cfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	unzipped, err := utils.Gunzip(result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	config := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(unzipped, &config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The scripts given to userData where added as the first
 	// commands to be run.
@@ -279,7 +280,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		// Just check that the cloudinit config looks good,
 		// and that there are more runcmds than the additional
 		// ones we passed into ComposeUserData.
-		c.Check(config["apt_upgrade"], gc.Equals, true)
+		c.Check(config["apt_upgrade"], jc.IsTrue)
 		c.Check(len(runCmd) > 2, jc.IsTrue)
 	}
 }

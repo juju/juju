@@ -11,6 +11,8 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
@@ -19,11 +21,14 @@ var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
+// Attribute keys
+var NetworkBridgeKey = "network-bridge"
+
 var (
 	configFields = schema.Fields{
 		"root-dir":       schema.String(),
 		"bootstrap-ip":   schema.String(),
-		"network-bridge": schema.String(),
+		NetworkBridgeKey: schema.String(),
 		"container":      schema.String(),
 		"storage-port":   schema.ForceInt(),
 		"namespace":      schema.String(),
@@ -34,7 +39,7 @@ var (
 	// range.
 	configDefaults = schema.Defaults{
 		"root-dir":       "",
-		"network-bridge": "lxcbr0",
+		NetworkBridgeKey: "",
 		"container":      string(instance.LXC),
 		"bootstrap-ip":   schema.Omit,
 		"storage-port":   8040,
@@ -69,8 +74,33 @@ func (c *environConfig) container() instance.ContainerType {
 	return instance.ContainerType(c.attrs["container"].(string))
 }
 
+// setDefaultNetworkBridge sets default network bridge if none is provided.
+// Default network bridge varies based on container type.
+// Originally, default values were returned in getter. However,
+// this meant that older clients were getting incorrect defaults
+// (http://pad.lv/1394450)
+func (c *environConfig) setDefaultNetworkBridge() {
+	name := c.networkBridge()
+	switch c.container() {
+	case instance.LXC:
+		if name == "" {
+			name = lxc.DefaultLxcBridge
+		}
+	case instance.KVM:
+		if name == "" || name == lxc.DefaultLxcBridge {
+			// Older versions of juju used "lxcbr0" by default,
+			// without checking the container type. See also
+			// http://pad.lv/1307677.
+			name = kvm.DefaultKvmBridge
+		}
+	}
+	c.attrs[NetworkBridgeKey] = name
+}
+
 func (c *environConfig) networkBridge() string {
-	return c.attrs["network-bridge"].(string)
+	// We don't care if it's not a string, because Validate takes care
+	// of that.
+	return c.attrs[NetworkBridgeKey].(string)
 }
 
 func (c *environConfig) storageDir() string {

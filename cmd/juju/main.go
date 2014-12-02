@@ -13,6 +13,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
 	// Import the providers.
@@ -51,6 +52,11 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
+	jcmd := NewJujuCommand(ctx)
+	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+}
+
+func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:            "juju",
 		Doc:             jujuDoc,
@@ -67,14 +73,17 @@ func Main(args []string) {
 		helpProviderStart+helpHPCloud+helpProviderEnd, "hpcloud", "hp-cloud")
 	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
 		helpProviderStart+helpAzureProvider+helpProviderEnd, "azure")
+	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
+		helpProviderStart+helpMAASProvider+helpProviderEnd, "maas")
 	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
+	jcmd.AddHelpTopic("placement", "How to use placement directives", helpPlacement)
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
 
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	registerCommands(jcmd, ctx)
-	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+	return jcmd
 }
 
 type commandRegistry interface {
@@ -146,10 +155,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(NewAuthorizedKeysCommand())
 
 	// Manage users and access
-	r.Register(NewUserCommand())
+	r.Register(user.NewSuperCommand())
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+
+	// Operation protection commands
+	r.Register(wrapEnvCommand(&BlockCommand{}))
+	r.Register(wrapEnvCommand(&UnblockCommand{}))
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle

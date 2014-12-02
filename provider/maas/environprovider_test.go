@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 )
@@ -31,10 +32,10 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 		"maas-server": "http://maas.testing.invalid/maas/",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	secretAttrs, err := suite.makeEnviron().Provider().SecretAttrs(config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectedAttrs := map[string]string{"maas-oauth": oauth}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
@@ -49,11 +50,11 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 		"maas-server": "http://maas.testing.invalid/maas/",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	environ, err := suite.makeEnviron().Provider().Prepare(ctx, config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	preparedConfig := environ.Config()
 	unknownAttrs := preparedConfig.UnknownAttrs()
@@ -74,9 +75,9 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 		"maas-agent-name": "foobar",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	_, err = suite.makeEnviron().Provider().Prepare(ctx, config)
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }
@@ -85,10 +86,10 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 // up at the end of the test calling this method.
 func createTempFile(c *gc.C, content []byte) string {
 	file, err := ioutil.TempFile(c.MkDir(), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, content, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }
 
@@ -102,7 +103,7 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 		"maas-server": "http://maas.testing.invalid/maas/",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := suite.makeEnviron().Provider().Open(config)
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil

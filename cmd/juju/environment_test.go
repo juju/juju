@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -40,7 +41,7 @@ var singleValueTests = []struct {
 		output: dummy.SampleConfig()["authorized-keys"].(string),
 	}, {
 		key: "unknown",
-		err: `Key "unknown" not found in "dummyenv" environment.`,
+		err: `key "unknown" not found in "dummyenv" environment.`,
 	},
 }
 
@@ -51,7 +52,7 @@ func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			output := strings.TrimSpace(testing.Stdout(context))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(output, gc.Equals, t.output)
 		}
 	}
@@ -90,13 +91,13 @@ var setEnvInitTests = []struct {
 }{
 	{
 		args: []string{},
-		err:  "No key, value pairs specified",
+		err:  "no key, value pairs specified",
 	}, {
 		args: []string{"agent-version=1.2.3"},
 		err:  `agent-version must be set via upgrade-juju`,
 	}, {
 		args: []string{"missing"},
-		err:  `Missing "=" in arg 1: "missing"`,
+		err:  `expected "key=value", got "missing"`,
 	}, {
 		args: []string{"key=value"},
 		expected: attributes{
@@ -104,13 +105,36 @@ var setEnvInitTests = []struct {
 		},
 	}, {
 		args: []string{"key=value", "key=other"},
-		err:  `Key "key" specified more than once`,
+		err:  `key "key" specified more than once`,
 	}, {
 		args: []string{"key=value", "other=embedded=equal"},
 		expected: attributes{
 			"key":   "value",
 			"other": "embedded=equal",
 		},
+	}, {
+		args: []string{"key="},
+		expected: attributes{
+			"key": "",
+		},
+	},
+}
+
+var setUnknownKeyTests = []struct {
+	args   []string
+	output string
+}{
+	{
+		args:   []string{"authoXized-keys=abc"},
+		output: `WARNING juju.cmd.juju key "authoXized-keys" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"states-port=123"},
+		output: `WARNING juju.cmd.juju key "states-port" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"loggging-config=<root>=INFO;juju.provider=DEBUG"},
+		output: `WARNING juju.cmd.juju key "loggging-config" is not defined in the current environemnt configuration: possible misspelling`,
 	},
 }
 
@@ -124,40 +148,49 @@ func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
 	}
 }
 
+func (s *SetEnvironmentSuite) TestSetUnknownKey(c *gc.C) {
+	for _, t := range setUnknownKeyTests {
+		ctx := testing.ContextForDir(c, s.DataDir())
+		code := cmd.Main(envcmd.Wrap(&SetEnvironmentCommand{}), ctx, t.args)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(c.GetTestLog(), jc.Contains, t.output)
+	}
+}
+
 func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	// default-series not set
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	series, ok := stateConfig.DefaultSeries()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
 
 	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stateConfig, err = s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	series, ok = stateConfig.DefaultSeries()
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(series, gc.Equals, "raring")
 	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
 }
 
 func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "ssl-hostname-verification=false")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	c.Assert(stateConfig.SSLHostnameVerification(), gc.Equals, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateConfig.SSLHostnameVerification(), jc.IsFalse)
 }
 
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=spartan", "broken=nope", "secret=sekrit")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	attrs := stateConfig.AllAttrs()
 	c.Assert(attrs["default-series"].(string), gc.Equals, "spartan")
 	c.Assert(attrs["broken"].(string), gc.Equals, "nope")
@@ -166,10 +199,10 @@ func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 
 func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), "default-series")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	output := strings.TrimSpace(testing.Stdout(context))
 
 	c.Assert(output, gc.Equals, "raring")
@@ -206,7 +239,7 @@ var unsetEnvTests = []struct {
 }{
 	{
 		args: []string{},
-		err:  "No keys specified",
+		err:  "no keys specified",
 	}, {
 		args:       []string{"xyz", "xyz"},
 		unexpected: []string{"xyz"},
@@ -223,11 +256,38 @@ var unsetEnvTests = []struct {
 	},
 }
 
+var unsetUnknownKeyTests = []struct {
+	args   []string
+	output string
+}{
+	{
+		args:   []string{"authorixed-keys"},
+		output: `WARNING juju.cmd.juju key "authorixed-keys" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"statez-port"},
+		output: `WARNING juju.cmd.juju key "statez-port" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"loggin-config"},
+		output: `WARNING juju.cmd.juju key "loggin-config" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+}
+
+func (s *UnsetEnvironmentSuite) TestUnsetUnknownKey(c *gc.C) {
+	for _, t := range unsetUnknownKeyTests {
+		ctx := testing.ContextForDir(c, s.DataDir())
+		code := cmd.Main(envcmd.Wrap(&UnsetEnvironmentCommand{}), ctx, t.args)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(c.GetTestLog(), jc.Contains, t.output)
+	}
+}
+
 func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
 		"xyz": 123,
 	}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
@@ -238,11 +298,11 @@ func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		if len(t.expected)+len(t.unexpected) != 0 {
 			stateConfig, err := s.State.EnvironConfig()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			for k, v := range t.expected {
 				vstate, ok := stateConfig.AllAttrs()[k]
 				c.Assert(ok, jc.IsTrue)

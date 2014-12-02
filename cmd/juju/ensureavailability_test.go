@@ -33,14 +33,14 @@ func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
 	// Add a state server to the environment, and ensure that it is
 	// considered 'alive' so that calls don't spawn new instances
 	_, err := s.State.AddMachine("precise", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.BackingState.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.machine0Pinger, err = m.SetAgentPresence()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *EnsureAvailabilitySuite) TearDownTest(c *gc.C) {
@@ -59,15 +59,15 @@ func runEnsureAvailability(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 
 	m, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
 	c.Assert(m.Series(), gc.DeepEquals, "precise")
 	mcons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
@@ -83,11 +83,11 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {
 	}
 
 	ctx, err := runEnsureAvailability(c, "-n", "3", "--format", "yaml")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var result map[string][]string
 	err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
 }
 
@@ -98,68 +98,68 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatJson(c *gc.C) {
 	}
 
 	ctx, err := runEnsureAvailability(c, "-n", "3", "--format", "json")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var result map[string][]string
 	err = json.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--series", "series", "-n", "3")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Series(), gc.DeepEquals, "series")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "3")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedCons := constraints.MustParse("mem=4G")
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithPlacement(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--to", "valid", "-n", "3")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Placement(), gc.Equals, "valid")
 	m, err = s.State.Machine("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Placement(), gc.Equals, "")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		_, err := runEnsureAvailability(c, "-n", "1")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 
 	// Running ensure-availability with constraints or series
@@ -168,30 +168,30 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "1", "--constraints", "mem=4G")
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err = s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcons, err = m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	mcons, err := machines[0].Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 	for i := 1; i < 3; i++ {
 		mcons, err := machines[i].Constraints()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expectedCons := constraints.MustParse("mem=4G")
 		c.Assert(mcons, gc.DeepEquals, expectedCons)
 	}
@@ -203,7 +203,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and non-negative")
 	}
 	ctx, err := runEnsureAvailability(c, "-n", "3")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
@@ -214,24 +214,24 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
 	ctx, err := runEnsureAvailability(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
 			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 }

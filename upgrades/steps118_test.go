@@ -7,7 +7,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/version"
 )
 
 type steps118Suite struct {
@@ -16,18 +16,21 @@ type steps118Suite struct {
 
 var _ = gc.Suite(&steps118Suite{})
 
-var expectedSteps = []string{
-	"make $DATADIR/locks owned by ubuntu:ubuntu",
-	"generate system ssh key",
-	"update rsyslog port",
-	"install rsyslog-gnutls",
-	"remove deprecated environment config settings",
-	"migrate local provider agent config",
-	"make /home/ubuntu/.profile source .juju-proxy file",
+func (s *steps118Suite) TestStateStepsFor118(c *gc.C) {
+	expected := []string{
+		"update rsyslog port",
+		"remove deprecated environment config settings",
+		"migrate local provider agent config",
+	}
+	assertStateSteps(c, version.MustParse("1.18.0"), expected)
 }
 
-func (s *steps118Suite) TestUpgradeOperationsContent(c *gc.C) {
-	upgradeSteps := upgrades.StepsFor118()
-	c.Assert(upgradeSteps, gc.HasLen, len(expectedSteps))
-	assertExpectedSteps(c, upgradeSteps, expectedSteps)
+func (s *steps118Suite) TestStepsFor118(c *gc.C) {
+	expected := []string{
+		"make $DATADIR/locks owned by ubuntu:ubuntu",
+		"generate system ssh key",
+		"install rsyslog-gnutls",
+		"make /home/ubuntu/.profile source .juju-proxy file",
+	}
+	assertSteps(c, version.MustParse("1.18.0"), expected)
 }

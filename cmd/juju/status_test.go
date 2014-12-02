@@ -13,11 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -25,7 +23,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -61,6 +61,23 @@ type stepper interface {
 	step(c *gc.C, ctx *context)
 }
 
+//
+// context
+//
+
+func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag string) *context {
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
+	return &context{
+		st:           st,
+		env:          env,
+		charms:       make(map[string]*state.Charm),
+		pingers:      make(map[string]*presence.Pinger),
+		adminUserTag: adminUserTag,
+	}
+}
+
 type context struct {
 	st           *state.State
 	env          environs.Environ
@@ -69,26 +86,11 @@ type context struct {
 	adminUserTag string // A string repr of the tag.
 }
 
-func (s *StatusSuite) newContext(c *gc.C) *context {
-	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
-	// We make changes in the API server's state so that
-	// our changes to presence are immediately noticed
-	// in the status.
-	return &context{
-		st:           st,
-		env:          s.Environ,
-		charms:       make(map[string]*state.Charm),
-		pingers:      make(map[string]*presence.Pinger),
-		adminUserTag: s.AdminUserTag(c).String(),
-	}
-}
-
-func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
+func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
-	s.JujuConnSuite.Reset(c)
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -101,14 +103,27 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 
 func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pinger {
 	pinger, err := p.SetAgentPresence()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.st.StartSync()
 	err = p.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentPresence, err := p.AgentPresence()
-	c.Assert(err, gc.IsNil)
-	c.Assert(agentPresence, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(agentPresence, jc.IsTrue)
 	return pinger
+}
+
+func (s *StatusSuite) newContext(c *gc.C) *context {
+	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
+	return newContext(c, st, s.Environ, s.AdminUserTag(c).String())
+}
+
+func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
+	ctx.reset(c)
+	s.JujuConnSuite.Reset(c)
 }
 
 // shortcuts for expected output.
@@ -219,17 +234,6 @@ var statusTests = []testCase{
 	// Status tests
 	test(
 		"bootstrap and starting a single instance",
-
-		// unlikely, as you can't run juju status in real life without
-		// machine/0 bootstrapped.
-		expect{
-			"empty state",
-			M{
-				"environment": "dummyenv",
-				"machines":    M{},
-				"services":    M{},
-			},
-		},
 
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
@@ -1367,84 +1371,8 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
-		"one service with two subordinate services",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		startAliveMachine{"0"},
-		setMachineStatus{"0", state.StatusStarted, ""},
-		addCharm{"wordpress"},
-		addCharm{"logging"},
-		addCharm{"monitoring"},
-
-		addService{name: "wordpress", charm: "wordpress"},
-		setServiceExposed{"wordpress", true},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
-		startAliveMachine{"1"},
-		setMachineStatus{"1", state.StatusStarted, ""},
-		addAliveUnit{"wordpress", "1"},
-		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
-
-		addService{name: "logging", charm: "logging"},
-		setServiceExposed{"logging", true},
-		addService{name: "monitoring", charm: "monitoring"},
-		setServiceExposed{"monitoring", true},
-
-		relateServices{"wordpress", "logging"},
-		relateServices{"wordpress", "monitoring"},
-
-		addSubordinate{"wordpress/0", "logging"},
-		addSubordinate{"wordpress/0", "monitoring"},
-
-		setUnitsAlive{"logging"},
-		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
-
-		setUnitsAlive{"monitoring"},
-		setUnitStatus{"monitoring/0", state.StatusStarted, "", nil},
-
-		// scoped on monitoring; make sure logging doesn't show up.
-		scopedExpect{
-			"subordinates scoped on:",
-			[]string{"monitoring"},
-			M{
-				"environment": "dummyenv",
-				"machines": M{
-					"1": machine1,
-				},
-				"services": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
-						"units": M{
-							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
-								"subordinates": M{
-									"monitoring/0": M{
-										"agent-state":    "started",
-										"public-address": "dummyenv-1.dns",
-									},
-								},
-								"public-address": "dummyenv-1.dns",
-							},
-						},
-						"relations": M{
-							"logging-dir":     L{"logging"},
-							"monitoring-port": L{"monitoring"},
-						},
-					},
-					"monitoring": M{
-						"charm":   "cs:quantal/monitoring-0",
-						"exposed": true,
-						"relations": M{
-							"monitoring-port": L{"wordpress"},
-						},
-						"subordinate-to": L{"wordpress"},
-					},
-				},
-			},
-		},
-	), test(
+	),
+	test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
@@ -1512,7 +1440,21 @@ var statusTests = []testCase{
 			M{
 				"environment": "dummyenv",
 				"machines": M{
-					"1": machine1WithContainersScoped,
+					"1": M{
+						"agent-state": "started",
+						"containers": M{
+							"1/lxc/0": M{
+								"agent-state": "started",
+								"dns-name":    "dummyenv-2.dns",
+								"instance-id": "dummyenv-2",
+								"series":      "quantal",
+							},
+						},
+						"dns-name":    "dummyenv-1.dns",
+						"instance-id": "dummyenv-1",
+						"series":      "quantal",
+						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+					},
 				},
 				"services": M{
 					"mysql": M{
@@ -1715,7 +1657,7 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
 
@@ -1733,7 +1675,7 @@ func (an addNetwork) step(c *gc.C, ctx *context) {
 		CIDR:       an.cidr,
 		VLANTag:    an.vlanTag,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n.Name(), gc.Equals, an.name)
 }
 
@@ -1749,7 +1691,7 @@ func (ac addContainer) step(c *gc.C, ctx *context) {
 		Jobs:   []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineInsideMachine(template, ac.parentId, instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
 
@@ -1759,12 +1701,12 @@ type startMachine struct {
 
 func (sm startMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startMissingMachine struct {
@@ -1773,14 +1715,14 @@ type startMissingMachine struct {
 
 func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetInstanceStatus("missing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startAliveMachine struct {
@@ -1789,13 +1731,13 @@ type startAliveMachine struct {
 
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[m.Id()] = pinger
 }
 
@@ -1806,9 +1748,9 @@ type setAddresses struct {
 
 func (sa setAddresses) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sa.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAddresses(sa.addresses...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setTools struct {
@@ -1818,9 +1760,9 @@ type setTools struct {
 
 func (st setTools) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(st.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAgentVersion(st.version)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addCharm struct {
@@ -1828,16 +1770,16 @@ type addCharm struct {
 }
 
 func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
 	dummy, err := ctx.st.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.charms[ac.name] = dummy
 }
 
 func (ac addCharm) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	ac.addCharmStep(c, ctx, "cs", ch.Revision())
 }
 
@@ -1860,12 +1802,12 @@ type addService struct {
 
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -1876,10 +1818,12 @@ type setServiceExposed struct {
 
 func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sse.name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.ClearExposed()
+	c.Assert(err, jc.ErrorIsNil)
 	if sse.exposed {
 		err = s.SetExposed()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -1890,11 +1834,11 @@ type setServiceCharm struct {
 
 func (ssc setServiceCharm) step(c *gc.C, ctx *context) {
 	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Service(ssc.name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.SetCharm(ch, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addCharmPlaceholder struct {
@@ -1903,11 +1847,11 @@ type addCharmPlaceholder struct {
 }
 
 func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
 	err := ctx.st.AddStoreCharmPlaceholder(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addUnit struct {
@@ -1917,13 +1861,13 @@ type addUnit struct {
 
 func (au addUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(au.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m, err := ctx.st.Machine(au.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addAliveUnit struct {
@@ -1933,14 +1877,14 @@ type addAliveUnit struct {
 
 func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(aau.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	pinger := ctx.setAgentPresence(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ctx.pingers[u.Name()] = pinger
 }
 
@@ -1950,9 +1894,9 @@ type setUnitsAlive struct {
 
 func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sua.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	us, err := s.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range us {
 		ctx.pingers[u.Name()] = ctx.setAgentPresence(c, u)
 	}
@@ -1967,9 +1911,9 @@ type setUnitStatus struct {
 
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type setUnitCharmURL struct {
@@ -1979,12 +1923,12 @@ type setUnitCharmURL struct {
 
 func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(uc.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL(uc.charm)
 	err = u.SetCharmURL(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type openUnitPort struct {
@@ -1995,9 +1939,9 @@ type openUnitPort struct {
 
 func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.OpenPort(oup.protocol, oup.number)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type ensureDyingUnit struct {
@@ -2006,9 +1950,9 @@ type ensureDyingUnit struct {
 
 func (e ensureDyingUnit) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(e.unitName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u.Life(), gc.Equals, state.Dying)
 }
 
@@ -2018,11 +1962,11 @@ type ensureDyingService struct {
 
 func (e ensureDyingService) step(c *gc.C, ctx *context) {
 	svc, err := ctx.st.Service(e.serviceName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = svc.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(svc.Life(), gc.Equals, state.Dying)
 }
 
@@ -2032,9 +1976,9 @@ type ensureDeadMachine struct {
 
 func (e ensureDeadMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(e.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
@@ -2046,9 +1990,9 @@ type setMachineStatus struct {
 
 func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetStatus(sms.status, sms.statusInfo, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type relateServices struct {
@@ -2057,9 +2001,9 @@ type relateServices struct {
 
 func (rs relateServices) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = ctx.st.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type addSubordinate struct {
@@ -2069,15 +2013,15 @@ type addSubordinate struct {
 
 func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	eps, err := ctx.st.InferEndpoints(u.ServiceName(), as.subService)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(u)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type scopedExpect struct {
@@ -2099,6 +2043,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
 		args := append([]string{"--format", format.name}, e.scope...)
+		c.Logf("running status %s", strings.Join(args, " "))
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
 		if !c.Check(stderr, gc.HasLen, 0) {
@@ -2107,15 +2052,15 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := make(M)
 		err = format.unmarshal(buf, &expected)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, jc.DeepEquals, expected)
 	}
 }
@@ -2127,42 +2072,13 @@ func (e expect) step(c *gc.C, ctx *context) {
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
-		func() {
+		func(t testCase) {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext(c)
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
-		}()
+		}(t)
 	}
-}
-
-func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
-	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		addAliveUnit{"mysql", "1"},
-	}
-	ctx := s.newContext(c)
-	defer s.resetContext(c, ctx)
-	ctx.run(c, steps)
-
-	// Status filters can only fail if the patterns are invalid.
-	code, _, stderr := runStatus(c, "[*")
-	c.Assert(code, gc.Not(gc.Equals), 0)
-	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
-
-	code, _, stderr = runStatus(c, "//")
-	c.Assert(code, gc.Not(gc.Equals), 0)
-	c.Assert(string(stderr), gc.Equals, `error: pattern "//" contains too many '/' characters`+"\n")
-
-	// Pattern validity is checked eagerly; if a bad pattern
-	// proceeds a valid, matching pattern, then the bad pattern
-	// will still cause an error.
-	code, _, stderr = runStatus(c, "*", "[*")
-	c.Assert(code, gc.Not(gc.Equals), 0)
-	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
 }
 
 type fakeApiClient struct {
@@ -2203,7 +2119,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "(started)",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []params.MachineJob{params.JobManageEnviron},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 				HasVote:        false,
 				WantsVote:      true,
 			},
@@ -2215,7 +2131,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 				AgentStateInfo: "hello",
 				Series:         "quantal",
 				Containers:     map[string]api.MachineStatus{},
-				Jobs:           []params.MachineJob{params.JobHostUnits},
+				Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 				HasVote:        false,
 				WantsVote:      false,
 			},
@@ -2419,24 +2335,31 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
 	}
 
-	for _, s := range steps {
-		s.step(c, ctx)
-	}
+	ctx.run(c, steps)
+
+	const expected = `
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (error)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
 
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
-
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stdout), gc.Equals, expected)
 
-	c.Assert(
-		string(stdout),
-		gc.Equals,
-		"\n"+
-			"- mysql/0: dummyenv-2.dns (started)\n"+
-			"  - logging/1: dummyenv-2.dns (error)\n"+
-			"- wordpress/0: dummyenv-1.dns (started)\n"+
-			"  - logging/0: dummyenv-1.dns (started)\n",
-	)
+	c.Log(`Check that "short" is an alias for oneline.`)
+	code, stdout, stderr = runStatus(c, "--format", "short")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stdout), gc.Equals, expected)
+
+	c.Log(`Check that "line" is an alias for oneline.`)
+	code, stdout, stderr = runStatus(c, "--format", "line")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stdout), gc.Equals, expected)
 }
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.newContext(c)
@@ -2505,4 +2428,328 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 			"  logging/0 started                       dummyenv-1.dns \n"+
 			"\n",
 	)
+}
+
+func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+	}
+
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+
+	client := fakeApiClient{}
+	var status = client.Status
+	s.PatchValue(&status, func(_ []string) (*api.Status, error) {
+		return nil, nil
+	})
+	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+		return &client, nil
+	})
+
+	code, _, stderr := runStatus(c, "--format", "tabular")
+	c.Check(code, gc.Equals, 1)
+	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+}
+
+//
+// Filtering Feature
+//
+
+func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
+	ctx := s.newContext(c)
+
+	steps := []stepper{
+		// Given a machine is started
+		// And the machine's ID is "0"
+		// And the machine's job is to manage the environment
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		// And the machine's address is "dummyenv-0.dns"
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		// And the "wordpress" charm is available
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		// And the "mysql" charm is available
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+		// And the "logging" charm is available
+		addCharm{"logging"},
+		// And a machine is started
+		// And the machine's ID is "1"
+		// And the machine's job is to host units
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+		// And the machine's address is "dummyenv-1.dns"
+		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		// And a unit of "wordpress" is deployed to machine "1"
+		addAliveUnit{"wordpress", "1"},
+		// And the unit is started
+		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
+		// And a machine is started
+
+		// And the machine's ID is "2"
+		// And the machine's job is to host units
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+		// And the machine's address is "dummyenv-2.dns"
+		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		// And a unit of "mysql" is deployed to machine "2"
+		addAliveUnit{"mysql", "2"},
+		// And the unit is started
+		setUnitStatus{"mysql/0", state.StatusStarted, "", nil},
+		// And the "logging" service is added
+		addService{name: "logging", charm: "logging"},
+		// And the service is exposed
+		setServiceExposed{"logging", true},
+		// And the "wordpress" service is related to the "mysql" service
+		relateServices{"wordpress", "mysql"},
+		// And the "wordpress" service is related to the "logging" service
+		relateServices{"wordpress", "logging"},
+		// And the "mysql" service is related to the "logging" service
+		relateServices{"mysql", "logging"},
+		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
+		addSubordinate{"wordpress/0", "logging"},
+		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
+		// And the "logging" service is a subordinate to unit 0 of the "mysql" service
+		addSubordinate{"mysql/0", "logging"},
+		setUnitStatus{"logging/1", state.StatusStarted, "", nil},
+		setUnitsAlive{"logging"},
+	}
+
+	ctx.run(c, steps)
+	return ctx
+}
+
+// Scenario: One unit is in an errored state and user filters to started
+func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// Given unit 1 of the "logging" service has an error
+	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	// And unit 0 of the "mysql" service has an error
+	setUnitStatus{"mysql/0", state.StatusError, "mock error", nil}.step(c, ctx)
+	// When I run juju status --format oneline started
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "started")
+	c.Assert(string(stderr), gc.Equals, "")
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: One unit is in an errored state and user filters to errored
+func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// Given unit 1 of the "logging" service has an error
+	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	// When I run juju status --format oneline error
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (error)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters to mysql service
+func (s *StatusSuite) TestFilterToService(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// When I run juju status --format oneline error
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "mysql")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters to exposed services
+func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// Given unit 1 of the "mysql" service is exposed
+	setServiceExposed{"mysql", true}.step(c, ctx)
+	// And the logging service is not exposed
+	setServiceExposed{"logging", false}.step(c, ctx)
+	// And the wordpress service is not exposed
+	setServiceExposed{"wordpress", false}.step(c, ctx)
+	// When I run juju status --format oneline exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "exposed")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters to non-exposed services
+func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	setServiceExposed{"mysql", true}.step(c, ctx)
+	// When I run juju status --format oneline not exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: Filtering on Subnets
+func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// Given the address for machine "1" is "localhost"
+	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
+	// And the address for machine "2" is "10.0.0.1"
+	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
+	// When I run juju status --format oneline 127.0.0.1
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: localhost (started)
+  - logging/0: localhost (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: Filtering on Ports
+func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// Given the address for machine "1" is "localhost"
+	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
+	// And the address for machine "2" is "10.0.0.1"
+	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
+	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
+	// When I run juju status --format oneline 80/tcp
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: localhost (started) 80/tcp
+  - logging/0: localhost (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters out a parent, but not its subordinate
+func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// When I run juju status --format oneline 80/tcp
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "logging")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters out a subordinate, but not its parent
+func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	// Given the wordpress service is exposed
+	setServiceExposed{"wordpress", true}.step(c, ctx)
+	// When I run juju status --format oneline not exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "mysql/0")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "started")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
 }

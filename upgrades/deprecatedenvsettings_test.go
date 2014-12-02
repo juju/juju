@@ -35,14 +35,15 @@ func (s *processDeprecatedEnvSettingsSuite) SetUpTest(c *gc.C) {
 		"default-instance-type": "vulch",
 		"default-image-id":      "1234",
 		"shared-storage-port":   1234,
+		"tools-url":             "some.special.url.com",
 	}
 	err := s.State.UpdateEnvironConfig(newCfg, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *processDeprecatedEnvSettingsSuite) TestEnvSettingsSet(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["public-bucket"], gc.Equals, "foo")
 	c.Assert(allAttrs["public-bucket-region"], gc.Equals, "bar")
@@ -50,15 +51,16 @@ func (s *processDeprecatedEnvSettingsSuite) TestEnvSettingsSet(c *gc.C) {
 	c.Assert(allAttrs["default-instance-type"], gc.Equals, "vulch")
 	c.Assert(allAttrs["default-image-id"], gc.Equals, "1234")
 	c.Assert(allAttrs["shared-storage-port"], gc.Equals, 1234)
+	c.Assert(allAttrs["tools-url"], gc.Equals, "some.special.url.com")
 }
 
 func (s *processDeprecatedEnvSettingsSuite) assertConfigProcessed(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	for _, deprecated := range []string{
 		"public-bucket", "public-bucket-region", "public-bucket-url",
-		"default-image-id", "default-instance-type", "shared-storage-port",
+		"default-image-id", "default-instance-type", "shared-storage-port", "tools-url",
 	} {
 		_, ok := allAttrs[deprecated]
 		c.Assert(ok, jc.IsFalse)
@@ -67,16 +69,16 @@ func (s *processDeprecatedEnvSettingsSuite) assertConfigProcessed(c *gc.C) {
 
 func (s *processDeprecatedEnvSettingsSuite) TestOldConfigRemoved(c *gc.C) {
 	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
 }
 
 func (s *processDeprecatedEnvSettingsSuite) TestIdempotent(c *gc.C) {
 	err := upgrades.ProcessDeprecatedEnvSettings(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
 
 	err = upgrades.ProcessDeprecatedEnvSettings(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
 }

@@ -39,7 +39,7 @@ type desiredPeerGroupTest struct {
 	expectErr     string
 }
 
-func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
+func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 	return []desiredPeerGroupTest{
 		{
 			// Note that this should never happen - mongo
@@ -187,7 +187,7 @@ func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
 }
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
-	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		for i, test := range desiredPeerGroupTests(ipVersion) {
 			c.Logf("\ntest %d: %s", i, test.about)
 			machineMap := make(map[string]*machine)
@@ -231,7 +231,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 				c.Check(votePresent, jc.IsTrue)
 				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 			}
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	})
 }
@@ -261,7 +261,7 @@ func newFloat64(f float64) *float64 {
 // Each machine in the description is white-space separated
 // and holds the decimal machine id followed by an optional
 // "v" if the machine wants a vote.
-func mkMachines(description string, ipVersion testIPVersion) []*machine {
+func mkMachines(description string, ipVersion TestIPVersion) []*machine {
 	descrs := parseDescr(description)
 	ms := make([]*machine, len(descrs))
 	for i, d := range descrs {
@@ -282,7 +282,7 @@ func mkMachines(description string, ipVersion testIPVersion) []*machine {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{jujuMachineTag: id}
+	return map[string]string{jujuMachineKey: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member
@@ -293,7 +293,7 @@ func memberTag(id string) map[string]string {
 // 	- 'T' if the member has no associated machine tags.
 // Unless the T flag is specified, the machine tag
 // will be the replica-set id + 10.
-func mkMembers(description string, ipVersion testIPVersion) []replicaset.Member {
+func mkMembers(description string, ipVersion TestIPVersion) []replicaset.Member {
 	descrs := parseDescr(description)
 	ms := make([]replicaset.Member, len(descrs))
 	for i, d := range descrs {
@@ -328,7 +328,7 @@ var stateFlags = map[rune]replicaset.MemberState{
 // 	- 'H' if the instance is not healthy.
 //	- 'p' if the instance is in PrimaryState
 //	- 's' if the instance is in SecondaryState
-func mkStatuses(description string, ipVersion testIPVersion) []replicaset.MemberStatus {
+func mkStatuses(description string, ipVersion TestIPVersion) []replicaset.MemberStatus {
 	descrs := parseDescr(description)
 	ss := make([]replicaset.MemberStatus, len(descrs))
 	for i, d := range descrs {
@@ -424,8 +424,8 @@ func (l membersById) Len() int           { return len(l) }
 func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
 
-// assertAPIHostPorts asserts of two sets of network.HostPort slices are the same.
-func assertAPIHostPorts(c *gc.C, got, want [][]network.HostPort) {
+// AssertAPIHostPorts asserts of two sets of network.HostPort slices are the same.
+func AssertAPIHostPorts(c *gc.C, got, want [][]network.HostPort) {
 	c.Assert(got, gc.HasLen, len(want))
 	sort.Sort(hostPortSliceByHostPort(got))
 	sort.Sort(hostPortSliceByHostPort(want))

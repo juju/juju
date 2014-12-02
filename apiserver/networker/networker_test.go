@@ -5,6 +5,7 @@ package networker_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -72,7 +73,7 @@ func (s *networkerSuite) setUpNetworks(c *gc.C) {
 func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	s.machineIfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -102,7 +103,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		Disabled:      true,
 	}}
 	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // Create and provision a container and a nested container.
@@ -113,7 +114,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	}
 	var err error
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.containerIfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		InterfaceName: "eth0",
@@ -133,10 +134,10 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
 		s.containerIfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.nestedContainerIfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		InterfaceName: "eth0",
@@ -144,7 +145,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	}}
 	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
 		s.nestedContainerIfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkerSuite) SetUpTest(c *gc.C) {
@@ -171,7 +172,7 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkerSuite) TestNetworkerNonMachineAgent(c *gc.C) {
@@ -194,7 +195,7 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 		{Tag: "machine-0-lxc-42"},
 	}}
 	results, err := s.networker.MachineNetworkInfo(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
 		Results: []params.MachineNetworkInfoResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -284,7 +285,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		{Tag: "machine-0-lxc-0-lxc-0"},
 	}}
 	results, err := s.networker.MachineNetworkInfo(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
 		Results: []params.MachineNetworkInfoResult{
 			{Error: nil, Info: expectedMachineInfo},
@@ -305,7 +306,7 @@ func (s *networkerSuite) TestWatchInterfacesPermissions(c *gc.C) {
 		{Tag: "machine-0-lxc-42"},
 	}}
 	results, err := s.networker.WatchInterfaces(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -328,7 +329,7 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 		{Tag: "machine-0-lxc-0-lxc-0"},
 	}}
 	result, err := s.networker.WatchInterfaces(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},

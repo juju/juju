@@ -80,6 +80,11 @@ type BootstrapParams struct {
 	// AvailableTools is a collection of tools which the Bootstrap method
 	// may use to decide which architecture/series to instantiate.
 	AvailableTools tools.List
+
+	// ContainerBridgeName, if non-empty, overrides the default
+	// network bridge device to use for LXC and KVM containers. See
+	// environs.DefaultBridgeName.
+	ContainerBridgeName string
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
@@ -118,14 +123,19 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// AllocateAddress requests a new address to be allocated for the
+	// AllocateAddress requests a specific address to be allocated for the
 	// given instance on the given network.
-	AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error)
+	AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error
 
-	// ListNetworks returns basic information about all networks known
-	// by the provider for the environment. They may be unknown to juju
-	// yet (i.e. when called initially or when a new network was created).
-	ListNetworks() ([]network.BasicInfo, error)
+	// ReleaseAddress releases a specific address previously allocated with
+	// AllocateAddress.
+	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
+
+	// Subnets returns basic information about all subnets known
+	// by the provider for the environment, for a specific instance. A
+	// provider may return all networks instead of just those for the
+	// instance (provider specific).
+	Subnets(inst instance.Id) ([]network.BasicInfo, error)
 
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
@@ -207,4 +217,8 @@ type BootstrapContext interface {
 	// StopInterruptNotify returns, no more signals will be
 	// delivered to the channel.
 	StopInterruptNotify(chan<- os.Signal)
+
+	// ShouldVerifyCredentials indicates whether the caller's cloud
+	// credentials should be verified.
+	ShouldVerifyCredentials() bool
 }

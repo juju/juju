@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -92,7 +93,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 		command := &APIInfoCommand{}
 		err := testing.InitCommand(envcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.refresh, gc.Equals, test.refresh)
 			c.Check(command.user, gc.Equals, test.user)
 			c.Check(command.password, gc.Equals, test.password)
@@ -200,7 +201,7 @@ func (s *APIInfoSuite) TestOutput(c *gc.C) {
 		command := &APIInfoCommand{}
 		ctx, err := testing.RunCommand(c, envcmd.Wrap(command), test.args...)
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(testing.Stdout(ctx), gc.Equals, test.output)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)

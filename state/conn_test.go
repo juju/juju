@@ -31,6 +31,7 @@ type ConnSuite struct {
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
 	machines     *mgo.Collection
+	instanceData *mgo.Collection
 	relations    *mgo.Collection
 	services     *mgo.Collection
 	units        *mgo.Collection
@@ -63,14 +64,18 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	cs.envTag = names.NewEnvironTag(uuid)
-	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
-	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
-	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
-	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
-	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
-	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
-	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
 	cs.factory = factory.NewFactory(cs.State)
+
+	jujuDB := cs.MgoSuite.Session.DB("juju")
+	cs.annotations = jujuDB.C("annotations")
+	cs.charms = jujuDB.C("charms")
+	cs.machines = jujuDB.C("machines")
+	cs.instanceData = jujuDB.C("instanceData")
+	cs.relations = jujuDB.C("relations")
+	cs.services = jujuDB.C("services")
+	cs.units = jujuDB.C("units")
+	cs.stateServers = jujuDB.C("stateServers")
+
 	c.Log("SetUpTest done")
 }
 
@@ -116,4 +121,10 @@ func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision 
 // given YAML string and adds it to the state, using the given revision.
 func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revsion)
+}
+
+// AddMetricsCharm clones a testing charm, replaces its metrics declaration with the
+// given YAML string and adds it to the state, using the given revision.
+func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revsion int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revsion)
 }

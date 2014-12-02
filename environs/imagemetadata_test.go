@@ -5,6 +5,7 @@ package environs_test
 
 import (
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -42,16 +44,16 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 		})
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
+	c.Assert(err, jc.ErrorIsNil)
 	return env
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "", "")
 	sources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"http://cloud-images.ubuntu.com/releases/",
 	})
@@ -60,7 +62,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsNoConfigURL(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 	env := s.env(c, "config-image-metadata-url", "")
 	sources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-image-metadata-url/", "http://cloud-images.ubuntu.com/releases/",
 	})
@@ -82,7 +84,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 
 	env := s.env(c, "config-image-metadata-url", "")
 	sources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-image-metadata-url/",
 		"betwixt/releases/",
@@ -104,7 +106,7 @@ func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncsError(c *gc.C) 
 func (s *ImageMetadataSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {
 	env := s.env(c, "", "daily")
 	sources, err := environs.ImageMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"http://cloud-images.ubuntu.com/daily/",
 	})

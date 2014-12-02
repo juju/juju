@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"
@@ -81,14 +82,14 @@ func (*suite) TestRead(c *gc.C) {
 		})
 		var hdr rpc.Header
 		err := codec.ReadHeader(&hdr)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(hdr, gc.DeepEquals, test.expectHdr)
 
 		c.Assert(hdr.IsRequest(), gc.Equals, test.expectHdr.IsRequest())
 
 		body := reflect.New(reflect.ValueOf(test.expectBody).Type().Elem()).Interface()
 		err = codec.ReadBody(body, test.expectHdr.IsRequest())
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(body, gc.DeepEquals, test.expectBody)
 
 		err = codec.ReadHeader(&hdr)
@@ -107,19 +108,19 @@ func (*suite) TestReadHeaderLogsRequests(c *gc.C) {
 	// Check that logging is off by default
 	var h rpc.Header
 	err := codec.ReadHeader(&h)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), gc.Matches, "")
 
 	// Check that we see a log message when we switch logging on.
 	codec.SetLogging(true)
 	err = codec.ReadHeader(&h)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), gc.Matches, ".*TRACE juju.rpc.jsoncodec <- "+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.ReadHeader(&h)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), gc.Matches, ".*TRACE juju.rpc.jsoncodec <- "+regexp.QuoteMeta(msg)+`\n`)
 }
 
@@ -139,20 +140,20 @@ func (*suite) TestWriteMessageLogsRequests(c *gc.C) {
 
 	// Check that logging is off by default
 	err := codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), gc.Matches, "")
 
 	// Check that we see a log message when we switch logging on.
 	codec.SetLogging(true)
 	err = codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	msg := `{"RequestId":1,"Type":"foo","Id":"id","Request":"frob","Params":{"X":"param"}}`
 	c.Assert(c.GetTestLog(), gc.Matches, `.*TRACE juju.rpc.jsoncodec -> `+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), gc.Matches, `.*TRACE juju.rpc.jsoncodec -> `+regexp.QuoteMeta(msg)+`\n`)
 }
 
@@ -174,7 +175,7 @@ func (*suite) TestConcurrentSetLoggingAndWrite(c *gc.C) {
 		},
 	}
 	err := codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	<-done
 }
 
@@ -192,7 +193,7 @@ func (*suite) TestConcurrentSetLoggingAndRead(c *gc.C) {
 	}()
 	var h rpc.Header
 	err := codec.ReadHeader(&h)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	<-done
 }
 
@@ -206,8 +207,8 @@ func (*suite) TestErrorAfterClose(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "error receiving message: some error")
 
 	err = codec.Close()
-	c.Assert(err, gc.IsNil)
-	c.Assert(conn.closed, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(conn.closed, jc.IsTrue)
 
 	err = codec.ReadHeader(&hdr)
 	c.Assert(err, gc.Equals, io.EOF)
@@ -262,7 +263,7 @@ func (*suite) TestWrite(c *gc.C) {
 		var conn testConn
 		codec := jsoncodec.New(&conn)
 		err := codec.WriteMessage(test.hdr, test.body)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(conn.writeMsgs, gc.HasLen, 1)
 
 		assertJSONEqual(c, conn.writeMsgs[0], test.expect)
@@ -335,13 +336,13 @@ func (*suite) TestDumpRequest(c *gc.C) {
 func assertJSONEqual(c *gc.C, v0, v1 string) {
 	var m0, m1 interface{}
 	err := json.Unmarshal([]byte(v0), &m0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = json.Unmarshal([]byte(v1), &m1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data0, err := json.Marshal(m0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data1, err := json.Marshal(m1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data0), gc.Equals, string(data1))
 }
 

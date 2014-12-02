@@ -4,11 +4,12 @@
 package main
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -130,18 +131,18 @@ var addRelationTests = []struct {
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "wordpress")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
-	c.Assert(err, gc.IsNil)
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
-	c.Assert(err, gc.IsNil)
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "riak")
+	c.Assert(err, jc.ErrorIsNil)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
-	c.Assert(err, gc.IsNil)
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
+	c.Assert(err, jc.ErrorIsNil)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)

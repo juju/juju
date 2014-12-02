@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
@@ -247,13 +246,13 @@ func UseTestImageData(stor storage.Storage, cred *identity.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	stor.Put(simplestreams.UnsignedIndex(imagemetadata.StreamsVersionV1), bytes.NewReader(data), int64(len(data)))
+	stor.Put(simplestreams.UnsignedIndex("v1", 1), bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
 func RemoveTestImageData(stor storage.Storage) {
-	stor.Remove(simplestreams.UnsignedIndex("v1"))
+	stor.Remove(simplestreams.UnsignedIndex("v1", 1))
 	stor.Remove(productMetadatafile)
 }
 
@@ -335,6 +334,11 @@ func CreateCustomStorage(e environs.Environ, containerName string) storage.Stora
 		containerName: containerName,
 		swift:         swiftClient,
 	}
+}
+
+// BlankContainerStorage creates a Storage object with blank container name.
+func BlankContainerStorage() storage.Storage {
+	return &openstackstorage{}
 }
 
 func GetNovaClient(e environs.Environ) *nova.Client {

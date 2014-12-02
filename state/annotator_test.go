@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -75,9 +76,9 @@ func testAnnotator(c *gc.C, getEntity func() (state.Annotator, error)) {
 	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)
 		entity, err := getEntity()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = entity.SetAnnotations(t.initial)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = entity.SetAnnotations(t.input)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
@@ -86,12 +87,12 @@ func testAnnotator(c *gc.C, getEntity func() (state.Annotator, error)) {
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
 			v, err := entity.Annotation(key)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(v, gc.Equals, value)
 		}
 		// The value stored in MongoDB changed.
 		ann, err := entity.Annotations()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ann, gc.DeepEquals, t.expected)
 		// Clean up existing annotations.
 		cleanup := make(map[string]string)
@@ -99,6 +100,6 @@ func testAnnotator(c *gc.C, getEntity func() (state.Annotator, error)) {
 			cleanup[key] = ""
 		}
 		err = entity.SetAnnotations(cleanup)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
