@@ -4,12 +4,13 @@
 package tools
 
 var (
-	Setenv                = setenv
-	FindExecutable        = findExecutable
-	CheckToolsSeries      = checkToolsSeries
-	ArchiveAndSHA256      = archiveAndSHA256
-	WriteMetadataFiles    = &writeMetadataFiles
-	CurrentStreamsVersion = currentStreamsVersion
+	Setenv                        = setenv
+	FindExecutable                = findExecutable
+	CheckToolsSeries              = checkToolsSeries
+	ArchiveAndSHA256              = archiveAndSHA256
+	WriteMetadataFiles            = &writeMetadataFiles
+	CurrentStreamsVersion         = currentStreamsVersion
+	MarshalToolsMetadataIndexJSON = marshalToolsMetadataIndexJSON
 )
 
 // SetSigningPublicKey sets a new public key for testing and returns the original key.

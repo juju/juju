@@ -211,10 +211,13 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	var streamMetadata = map[string][]*tools.ToolsMetadata{
 		stream: metadata,
 	}
-	index, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
+	index, legacyIndex, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
 	c.Assert(err, jc.ErrorIsNil)
 	objects := []metadataFile{
 		{simplestreams.UnsignedIndex("v1", 2), index},
+	}
+	if stream == "released" {
+		objects = append(objects, metadataFile{simplestreams.UnsignedIndex("v1", 1), legacyIndex})
 	}
 	for stream, metadata := range products {
 		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
