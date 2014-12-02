@@ -55,8 +55,8 @@ def prepare_dir(dir_path, dry_run=False, verbose=False):
         os.makedirs(dir_path)
 
 
-def update_candate(branch, path, br_number,
-                   pr_number=None, dry_run=False, verbose=False):
+def update_candidate(branch, path, br_number,
+                     pr_number=None, dry_run=False, verbose=False):
     """Download the files from the build-revision and publish-revision jobs.
 
     The buildvars.json for the specific build-revision number is downloaded.
@@ -207,7 +207,7 @@ def main(argv):
     args = parse_args(argv)
     try:
         if args.command == 'update':
-            update_candate(
+            update_candidate(
                 args.branch, args.path, args.br_number, args.pr_number,
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'extract':

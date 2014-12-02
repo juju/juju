@@ -5,6 +5,7 @@ from unittest import TestCase
 from candidate import (
     find_publish_revision_number,
     prepare_dir,
+    update_candidate,
 )
 from utility import temp_dir
 
@@ -69,3 +70,28 @@ class CandidateTestCase(TestCase):
             prepare_dir(candidate_dir_path)
             self.assertTrue(os.path.isdir(candidate_dir_path))
             self.assertEqual([], os.listdir(candidate_dir_path))
+
+    def test_update_candidate(self):
+        with patch('candidate.prepare_dir') as pd_mock:
+            with patch('candidate.find_publish_revision_number',
+                       return_value=5678) as fprn_mock:
+                with patch('candidate.get_artifacts') as ga_mock:
+                    update_candidate('gitbr:1.21:gh', '~/candidate', '1234')
+        args, kwargs = pd_mock.call_args
+        self.assertEqual(('~/candidate/1.21-artifacts', False, False), args)
+        args, kwargs = fprn_mock.call_args
+        self.assertEqual(('1234', ), args)
+        self.assertEqual(2, ga_mock.call_count)
+        output, args, kwargs = ga_mock.mock_calls[0]
+        self.assertEqual(
+            ('build-revision', '1234', 'buildvars.json',
+             '~/candidate/1.21-artifacts'),
+            args)
+        options = {'verbose': False, 'dry_run': False}
+        self.assertEqual(options, kwargs)
+        output, args, kwargs = ga_mock.mock_calls[1]
+        self.assertEqual(
+            ('publish-revision', 5678, 'juju-core*',
+             '~/candidate/1.21-artifacts'),
+            args)
+        self.assertEqual(options, kwargs)
