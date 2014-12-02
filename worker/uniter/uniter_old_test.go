@@ -14,7 +14,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
@@ -39,7 +39,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		verifyGitCharm{revision: 1},
@@ -48,14 +48,14 @@ var upgradeGitConflictsTests = []uniterTest{
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				err := os.Mkdir(filepath.Join(path, "data"), 0755)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 				appendHook(c, path, "start", "echo DATA > data/newfile")
 			},
 		},
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
@@ -65,13 +65,13 @@ var upgradeGitConflictsTests = []uniterTest{
 			customize: func(c *gc.C, ctx *context, path string) {
 				data := filepath.Join(path, "data")
 				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
@@ -81,7 +81,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  1,
 		},
 		verifyGitCharm{revision: 1},
@@ -93,13 +93,13 @@ var upgradeGitConflictsTests = []uniterTest{
 			customize: func(c *gc.C, ctx *context, path string) {
 				otherdata := filepath.Join(path, "otherdata")
 				err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
 		serveCharm{},
 		upgradeCharm{revision: 2, forced: true},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 			charm:  2,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -107,7 +107,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		custom{func(c *gc.C, ctx *context) {
 			// otherdata should exist (in v2)
 			otherdata, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "otherdata"))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(otherdata), gc.Equals, "blah")
 
 			// ignore should not (only in v1)
@@ -116,7 +116,7 @@ var upgradeGitConflictsTests = []uniterTest{
 
 			// data should contain what was written in the start hook
 			data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(string(data), gc.Equals, "STARTDATA\n")
 		}},
 	), ut(
@@ -162,12 +162,12 @@ func (s verifyGitCharm) step(c *gc.C, ctx *context) {
 	if !s.dirty {
 		revisionPath := filepath.Join(charmPath, "revision")
 		content, err := ioutil.ReadFile(revisionPath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
 		err = ctx.unit.Refresh()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		url, ok := ctx.unit.CharmURL()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(url, gc.DeepEquals, curl(s.revision))
 	}
 
@@ -178,7 +178,7 @@ func (s verifyGitCharm) step(c *gc.C, ctx *context) {
 	cmd := exec.Command("git", "status")
 	cmd.Dir = filepath.Join(ctx.path, "charm")
 	out, err := cmd.CombinedOutput()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cmp := gc.Matches
 	if s.dirty {
 		cmp = gc.Not(gc.Matches)
@@ -198,7 +198,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: juju.StatusStarted,
+			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
@@ -213,7 +213,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: juju.StatusError,
+			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},

@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"text/template"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -94,7 +95,7 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 		Offset:     len("juju-") + len(namespace) + 1,
 		Port:       port,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return conf.String()
 }
 
@@ -140,6 +141,6 @@ func ExpectedForwardSyslogConf(c *gc.C, machineTag, logDir, namespace, bootstrap
 		BootstrapIP: bootstrapIP,
 		Port:        port,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return conf.String()
 }

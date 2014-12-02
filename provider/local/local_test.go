@@ -8,6 +8,7 @@ import (
 	"net"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -35,7 +36,7 @@ func (*localSuite) TestProviderRegistered(c *gc.C) {
 func (*localSuite) TestCheckLocalPort(c *gc.C) {
 	// Listen on a random port.
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer ln.Close()
 	port := ln.Addr().(*net.TCPAddr).Port
 
@@ -45,5 +46,5 @@ func (*localSuite) TestCheckLocalPort(c *gc.C) {
 
 	ln.Close()
 	err = checkLocalPort(port, "test port, no longer in use")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

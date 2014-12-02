@@ -4,14 +4,12 @@
 package operation
 
 import (
-	"fmt"
 	"os"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -25,6 +23,9 @@ const (
 
 	// RunHook indicates that the uniter is running a hook.
 	RunHook Kind = "run-hook"
+
+	// RunAction indicates that the uniter is running an action.
+	RunAction Kind = "run-action"
 
 	// Upgrade indicates that the uniter is upgrading the charm.
 	Upgrade Kind = "upgrade"
@@ -70,6 +71,11 @@ type State struct {
 	// upgrade is complete (instead of running an upgrade-charm hook).
 	Hook *hook.Info `yaml:"hook,omitempty"`
 
+	// ActionId holds action information relevant to the current operation. If
+	// Kind is Continue, it holds the last action that was executed; if Kind is
+	// RunAction, it holds the running action.
+	ActionId *string `yaml:"action-id,omitempty"`
+
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
@@ -82,38 +88,50 @@ type State struct {
 
 // validate returns an error if the state violates expectations.
 func (st State) validate() (err error) {
-	defer errors.DeferredAnnotatef(&err, "invalid uniter state")
+	defer errors.DeferredAnnotatef(&err, "invalid operation state")
 	hasHook := st.Hook != nil
-	isAction := hasHook && st.Hook.Kind == hooks.Action
+	hasActionId := st.ActionId != nil
 	hasCharm := st.CharmURL != nil
 	switch st.Kind {
 	case Install:
 		if hasHook {
-			return fmt.Errorf("unexpected hook info")
+			return errors.New("unexpected hook info")
 		}
 		fallthrough
 	case Upgrade:
 		if !hasCharm {
-			return fmt.Errorf("missing charm URL")
+			return errors.New("missing charm URL")
+		} else if hasActionId {
+			return errors.New("unexpected action id")
+		}
+	case RunAction:
+		if !hasHook {
+			return errors.New("missing hook info")
+		} else if hasCharm {
+			return errors.New("unexpected charm URL")
+		} else if !hasActionId {
+			return errors.New("missing action id")
 		}
 	case RunHook:
-		if isAction && st.Hook.ActionId == "" {
-			return fmt.Errorf("missing action id")
+		if hasActionId {
+			return errors.New("unexpected action id")
 		}
 		fallthrough
 	case Continue:
 		if !hasHook {
-			return fmt.Errorf("missing hook info")
+			return errors.New("missing hook info")
 		} else if hasCharm {
-			return fmt.Errorf("unexpected charm URL")
+			return errors.New("unexpected charm URL")
+		} else if hasActionId {
+			return errors.New("unexpected action id")
 		}
 	default:
-		return fmt.Errorf("unknown operation %q", st.Kind)
+		return errors.Errorf("unknown operation %q", st.Kind)
 	}
 	switch st.Step {
 	case Queued, Pending, Done:
 	default:
-		return fmt.Errorf("unknown operation step %q", st.Step)
+		return errors.Errorf("unknown operation step %q", st.Step)
 	}
 	if hasHook {
 		return st.Hook.Validate()
@@ -123,6 +141,24 @@ func (st State) validate() (err error) {
 
 func (st State) CollectedMetricsAt() time.Time {
 	return time.Unix(st.CollectMetricsTime, 0)
+}
+
+// stateChange is useful for a variety of Operation implementations.
+type stateChange struct {
+	Kind     Kind
+	Step     Step
+	Hook     *hook.Info
+	ActionId *string
+	CharmURL *charm.URL
+}
+
+func (change stateChange) apply(state State) *State {
+	state.Kind = change.Kind
+	state.Step = change.Step
+	state.Hook = change.Hook
+	state.ActionId = change.ActionId
+	state.CharmURL = change.CharmURL
+	return &state
 }
 
 // StateFile holds the disk state for a uniter.
@@ -135,8 +171,6 @@ func NewStateFile(path string) *StateFile {
 	return &StateFile{path}
 }
 
-var ErrNoStateFile = errors.New("uniter state file does not exist")
-
 // Read reads a State from the file. If the file does not exist it returns
 // ErrNoStateFile.
 func (f *StateFile) Read() (*State, error) {
@@ -147,21 +181,13 @@ func (f *StateFile) Read() (*State, error) {
 		}
 	}
 	if err := st.validate(); err != nil {
-		return nil, fmt.Errorf("cannot read charm state at %q: %v", f.path, err)
+		return nil, errors.Errorf("cannot read %q: %v", f.path, err)
 	}
 	return &st, nil
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(started bool, kind Kind, step Step, hi *hook.Info, url *charm.URL, metricsTime int64) error {
-	st := &State{
-		Started:            started,
-		Kind:               kind,
-		Step:               step,
-		Hook:               hi,
-		CharmURL:           url,
-		CollectMetricsTime: metricsTime,
-	}
+func (f *StateFile) Write(st *State) error {
 	if err := st.validate(); err != nil {
 		panic(err)
 	}

@@ -1,6 +1,7 @@
 package agent_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/agent"
@@ -8,7 +9,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
-	jc "github.com/juju/testing/checkers"
 )
 
 // V1 test suite, no additional or changed tests.
@@ -25,10 +25,10 @@ var _ = gc.Suite(&agentSuiteV1{})
 
 func (s *agentSuiteV1) TestClearReboot(c *gc.C) {
 	api, err := agent.NewAgentAPIV1(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machine0.Tag().String()},
@@ -36,11 +36,11 @@ func (s *agentSuiteV1) TestClearReboot(c *gc.C) {
 	}}
 
 	rFlag, err := s.machine1.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
 	result, err := api.ClearReboot(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
@@ -49,7 +49,7 @@ func (s *agentSuiteV1) TestClearReboot(c *gc.C) {
 	})
 
 	rFlag, err = s.machine1.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsFalse)
 }
 
@@ -69,7 +69,7 @@ func (s *agentSuiteV1) TestGetEntitiesContainer(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = s.container.Tag()
 	api, err := agent.NewAgentAPIV1(s.State, s.resources, auth)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testGetEntitiesContainerV0(c, api)
 }
 
@@ -87,6 +87,6 @@ func (s *agentSuiteV1) TestSetPasswordsShort(c *gc.C) {
 
 func (s *agentSuiteV1) newAPI(c *gc.C) *agent.AgentAPIV1 {
 	api, err := agent.NewAgentAPIV1(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return api
 }

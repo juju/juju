@@ -76,7 +76,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
 	}}
 	result, err := w.WatchUnits(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
@@ -112,6 +112,6 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		getCanWatch,
 	)
 	result, err := w.WatchUnits(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

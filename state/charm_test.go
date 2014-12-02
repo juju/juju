@@ -30,7 +30,7 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 
 func (s *CharmSuite) TestCharm(c *gc.C) {
 	dummy, err := s.State.Charm(s.curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
 	c.Assert(dummy.Revision(), gc.Equals, 1)
 	c.Assert(dummy.StoragePath(), gc.Equals, "dummy-path")
@@ -136,7 +136,7 @@ options:
 
 func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(configYaml)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	forEachStandardCharm(c, func(name string) {
 		chd := testcharms.Repo.CharmDir(name)
@@ -160,7 +160,7 @@ actions:
 
 func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
 	actions, err := charm.ReadActionsYaml(bytes.NewBuffer([]byte(actionsYaml)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	forEachStandardCharm(c, func(name string) {
 		ch := s.AddActionsCharm(c, name, actionsYaml, 123)
@@ -177,7 +177,7 @@ metrics:
 
 func (s *CharmTestHelperSuite) TestMetricsCharm(c *gc.C) {
 	metrics, err := charm.ReadMetrics(bytes.NewBuffer([]byte(metricsYaml)))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	forEachStandardCharm(c, func(name string) {
 		chd := testcharms.Repo.CharmDir(name)
@@ -201,7 +201,7 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 		metrics := chd.Metrics()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)

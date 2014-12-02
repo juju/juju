@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -56,7 +56,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	// Get the machine through the facade.
 	var err error
 	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag())
 }
 
@@ -68,7 +68,7 @@ func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatu
 			c.Fatalf("timeout while waiting for machine status to change")
 		case <-time.After(10 * time.Millisecond):
 			status, _, _, err := m.Status()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if status != expectStatus {
 				c.Logf("machine %q status is %s, still waiting", m, status)
 				continue
@@ -106,12 +106,12 @@ func (s *MachinerSuite) TestRunStop(c *gc.C) {
 	mr := s.makeMachiner()
 	c.Assert(worker.Stop(mr), gc.IsNil)
 	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
-	c.Assert(s.apiMachine.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
 }
 
 func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	status, info, _, err := s.machine.Status()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 

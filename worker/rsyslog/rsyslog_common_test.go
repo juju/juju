@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/syslog"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -30,8 +31,9 @@ func TestPackage(t *stdtesting.T) {
 type RsyslogSuite struct {
 	jujutesting.JujuConnSuite
 
-	st      *api.State
-	machine *state.Machine
+	st       *api.State
+	machine  *state.Machine
+	dialTags []string
 }
 
 var _ = gc.Suite(&RsyslogSuite{})
@@ -64,7 +66,9 @@ func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(rsyslog.RestartRsyslog, func() error { return nil })
+	s.dialTags = nil
 	s.PatchValue(rsyslog.DialSyslog, func(network, raddr string, priority syslog.Priority, tag string, tlsCfg *tls.Config) (*syslog.Writer, error) {
+		s.dialTags = append(s.dialTags, tag)
 		return &syslog.Writer{}, nil
 	})
 	s.PatchValue(rsyslog.LogDir, c.MkDir())
@@ -72,24 +76,27 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", addrs)
-	c.Assert(err, gc.IsNil)
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "foo", addrs)
+	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
 	// We should get a ca-cert.pem with the contents introduced into state config.
 	waitForFile(c, filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
 	caCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
 	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
+	for _, dialTag := range s.dialTags {
+		c.Assert(dialTag, gc.Equals, "juju-foo-"+m.Tag().String())
+	}
 }

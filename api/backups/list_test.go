@@ -4,6 +4,7 @@
 package backups_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
@@ -37,7 +38,7 @@ func (s *listSuite) TestList(c *gc.C) {
 	defer cleanup()
 
 	result, err := s.client.List()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.List, gc.HasLen, 1)
 	resultItem := result.List[0]

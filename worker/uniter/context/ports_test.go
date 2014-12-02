@@ -87,7 +87,7 @@ func (s *PortsSuite) TestValidatePortRange(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 			c.Check(portRange, jc.DeepEquals, network.PortRange{})
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(portRange, jc.DeepEquals, test.portRange)
 		}
 	}
@@ -212,7 +212,7 @@ func (s *PortsSuite) TestTryOpenPorts(c *gc.C) {
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(test.pendingPorts, jc.DeepEquals, test.expectPending)
 		}
 	}
@@ -266,7 +266,7 @@ func (s *PortsSuite) TestTryClosePorts(c *gc.C) {
 		if test.expectErr != "" {
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(test.pendingPorts, jc.DeepEquals, test.expectPending)
 		}
 	}

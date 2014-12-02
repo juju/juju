@@ -91,7 +91,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 		command := &DebugLogCommand{}
 		err := testing.InitCommand(envcmd.Wrap(command), test.args)
 		if test.errMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(command.params, jc.DeepEquals, test.expected)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
@@ -110,7 +110,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 		"--lines=500",
 		"--level=WARNING",
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fake.params, gc.DeepEquals, api.DebugLogParams{
 		IncludeEntity: []string{"machine-1*"},
 		IncludeModule: []string{"juju.provisioner"},
@@ -125,7 +125,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 		return &fakeDebugLogAPI{log: "this is the log output"}, nil
 	})
 	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "this is the log output")
 }
 

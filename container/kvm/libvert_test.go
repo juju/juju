@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/container/kvm"
@@ -43,7 +44,7 @@ func (s *LibVertSuite) TestSyncImagesUtilizesSimpleStreamsSource(c *gc.C) {
 		source = "mocked-url"
 	)
 	err := kvm.SyncImages(series, arch, source)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectedArgs := strings.Split(
 		fmt.Sprintf(

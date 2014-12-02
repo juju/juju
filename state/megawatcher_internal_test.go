@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -64,7 +63,7 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.owner = names.NewLocalUserTag("test-admin")
 	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
 
@@ -89,40 +88,40 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		entities = append(entities, e)
 	}
 	m, err := s.State.AddMachine("quantal", JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// TODO(dfc) instance.Id should take a TAG!
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAddresses(network.NewAddress("example.com", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.MachineInfo{
 		Id:                      "0",
 		InstanceId:              "i-machine-0",
-		Status:                  juju.StatusPending,
-		Life:                    juju.Alive,
+		Status:                  multiwatcher.StatusPending,
+		Life:                    multiwatcher.Alive,
 		Series:                  "quantal",
-		Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
+		Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 	})
 
 	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
 	err = wordpress.SetExposed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetMinUnits(3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	setServiceConfigAttr(c, wordpress, "blog-title", "boring")
 	add(&multiwatcher.ServiceInfo{
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		OwnerTag:    s.owner.String(),
-		Life:        juju.Alive,
+		Life:        multiwatcher.Alive,
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
@@ -130,7 +129,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
 		Tag:         "service-wordpress",
 		Annotations: pairs,
@@ -141,15 +140,15 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Name:        "logging",
 		CharmURL:    serviceCharmURL(logging).String(),
 		OwnerTag:    s.owner.String(),
-		Life:        juju.Alive,
+		Life:        multiwatcher.Alive,
 		Config:      charm.Settings{},
 		Subordinate: true,
 	})
 
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.RelationInfo{
 		Key: "logging:logging-directory wordpress:logging-dir",
 		Id:  rel.Id(),
@@ -160,11 +159,11 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
 		m, err := s.State.AddMachine("quantal", JobHostUnits)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
 		add(&multiwatcher.UnitInfo{
@@ -173,61 +172,61 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Series:      m.Series(),
 			MachineId:   m.Id(),
 			Ports:       []network.Port{},
-			Status:      juju.StatusPending,
+			Status:      multiwatcher.StatusPending,
 			Subordinate: false,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
 			Annotations: pairs,
 		})
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetStatus(StatusError, m.Tag().String(), nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		hc, err := m.HardwareCharacteristics()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.MachineInfo{
 			Id:                      fmt.Sprint(i + 1),
 			InstanceId:              "i-" + m.Tag().String(),
-			Status:                  juju.StatusError,
+			Status:                  multiwatcher.StatusError,
 			StatusInfo:              m.Tag().String(),
-			Life:                    juju.Alive,
+			Life:                    multiwatcher.Alive,
 			Series:                  "quantal",
-			Jobs:                    []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		})
 		err = wu.AssignToMachine(m)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		deployer, ok := wu.DeployerTag()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
 		err = wru.EnterScope(nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
-		c.Assert(err, gc.IsNil)
-		c.Assert(lu.IsPrincipal(), gc.Equals, false)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		deployer, ok = lu.DeployerTag()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&multiwatcher.UnitInfo{
 			Name:        fmt.Sprintf("logging/%d", i),
 			Service:     "logging",
 			Series:      "quantal",
 			Ports:       []network.Port{},
-			Status:      juju.StatusPending,
+			Status:      multiwatcher.StatusPending,
 			Subordinate: true,
 		})
 	}
@@ -266,7 +265,7 @@ func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 	b := newAllWatcherStateBacking(s.State)
 	all := newStore()
 	err := b.GetAll(all)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var gotEntities entityInfoSlice = all.All()
 	sort.Sort(gotEntities)
 	sort.Sort(expectEntities)
@@ -275,7 +274,7 @@ func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 
 func setServiceConfigAttr(c *gc.C, svc *Service, attr string, val interface{}) {
 	err := svc.UpdateConfigSettings(charm.Settings{attr: val})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
@@ -305,9 +304,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetStatus(StatusError, "failure", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "machine is added if it's in backing but not in Store",
@@ -318,29 +317,29 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
-						Life:       juju.Alive,
+						Life:       multiwatcher.Alive,
 						Series:     "quantal",
-						Jobs:       []juju.MachineJob{JobHostUnits.ToParams()},
+						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:  []network.Address{},
 					}}}
 		},
 		// Machine status changes
 		func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("trusty", JobManageEnviron)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "machine is updated if it's in backing and in Store",
 				add: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "another failure",
 					},
 				},
@@ -352,11 +351,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					&multiwatcher.MachineInfo{
 						Id:                       "0",
 						InstanceId:               "i-0",
-						Status:                   juju.StatusError,
+						Status:                   multiwatcher.StatusError,
 						StatusInfo:               "another failure",
-						Life:                     juju.Alive,
+						Life:                     multiwatcher.Alive,
 						Series:                   "trusty",
-						Jobs:                     []juju.MachineJob{JobManageEnviron.ToParams()},
+						Jobs:                     []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
@@ -382,15 +381,15 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusError, "failure", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "unit is added if it's in backing but not in Store",
@@ -405,25 +404,25 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:     "quantal",
 						MachineId:  "0",
 						Ports:      []network.Port{},
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("udp", 17070)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "unit is updated if it's in backing and in multiwatcher.Store",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "another failure",
 				}},
 				change: watcher.Change{
@@ -437,25 +436,25 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:     "quantal",
 						MachineId:  "0",
 						Ports:      []network.Port{},
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "another failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			publicAddress := network.NewAddress("public", network.ScopePublic)
 			privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusError, "failure", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "unit addresses are read from the assigned machine for recent Juju releases",
@@ -472,7 +471,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						PrivateAddress: "private",
 						MachineId:      "0",
 						Ports:          []network.Port{},
-						Status:         juju.StatusError,
+						Status:         multiwatcher.StatusError,
 						StatusInfo:     "failure",
 					}}}
 		},
@@ -495,9 +494,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			err := wordpress.SetExposed()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = wordpress.SetMinUnits(42)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "service is added if it's in backing but not in Store",
@@ -511,7 +510,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Exposed:  true,
 						CharmURL: "local:quantal/quantal-wordpress-3",
 						OwnerTag: s.owner.String(),
-						Life:     juju.Alive,
+						Life:     multiwatcher.Alive,
 						MinUnits: 42,
 						Config:   charm.Settings{},
 					}}}
@@ -538,7 +537,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Name:        "wordpress",
 						CharmURL:    "local:quantal/quantal-wordpress-3",
 						OwnerTag:    s.owner.String(),
-						Life:        juju.Alive,
+						Life:        multiwatcher.Alive,
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
 					}}}
@@ -564,7 +563,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Name:     "wordpress",
 						CharmURL: "local:quantal/quantal-wordpress-3",
 						OwnerTag: s.owner.String(),
-						Life:     juju.Alive,
+						Life:     multiwatcher.Alive,
 						Config:   charm.Settings{"blog-title": "boring"},
 					}}}
 		},
@@ -588,9 +587,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
 			eps, err := st.InferEndpoints("logging", "wordpress")
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			_, err = st.AddRelation(eps...)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "relation is added if it's in backing but not in Store",
@@ -624,9 +623,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}}
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "annotation is added if it's in backing but not in Store",
@@ -641,13 +640,13 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetAnnotations(map[string]string{
 				"arble":  "khroomph",
 				"pretty": "",
 				"new":    "attr",
 			})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "annotation is updated if it's in backing and in multiwatcher.Store",
@@ -684,7 +683,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no change if status is not in backing",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
@@ -694,21 +693,21 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusStarted, "", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "status is changed if the unit exists in the store",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:       "wordpress/0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
@@ -718,25 +717,25 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     juju.StatusStarted,
+						Status:     multiwatcher.StatusStarted,
 						StatusData: make(map[string]interface{}),
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusError, "hook error", map[string]interface{}{
 				"1st-key": "one",
 				"2nd-key": 2,
 				"3rd-key": true,
 			})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "status is changed with additional status data",
 				add: []multiwatcher.EntityInfo{&multiwatcher.UnitInfo{
 					Name:   "wordpress/0",
-					Status: juju.StatusStarted,
+					Status: multiwatcher.StatusStarted,
 				}},
 				change: watcher.Change{
 					C:  "statuses",
@@ -745,7 +744,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
 						Name:       "wordpress/0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "hook error",
 						StatusData: map[string]interface{}{
 							"1st-key": "one",
@@ -766,7 +765,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				about: "no change if status is not in backing",
 				add: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
 					Id:         "0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
@@ -776,20 +775,20 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusError,
+						Status:     multiwatcher.StatusError,
 						StatusInfo: "failure",
 					}}}
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetStatus(StatusStarted, "", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "status is changed if the machine exists in the store",
 				add: []multiwatcher.EntityInfo{&multiwatcher.MachineInfo{
 					Id:         "0",
-					Status:     juju.StatusError,
+					Status:     multiwatcher.StatusError,
 					StatusInfo: "failure",
 				}},
 				change: watcher.Change{
@@ -799,7 +798,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
 						Id:         "0",
-						Status:     juju.StatusStarted,
+						Status:     multiwatcher.StatusStarted,
 						StatusData: make(map[string]interface{}),
 					}}}
 		},
@@ -829,7 +828,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
 				about: "status is changed if the service exists in the store",
@@ -962,7 +961,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			all.Update(info)
 		}
 		err := b.Changed(all, test.change)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertEntitiesEqual(c, all.All(), test.expectContents)
 		s.Reset(c)
 	}
@@ -973,11 +972,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	m0, err := s.State.AddMachine("trusty", JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
 	m1, err := s.State.AddMachine("saucy", JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
 	b := newAllWatcherStateBacking(s.State)
@@ -988,19 +987,19 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	checkNext(c, w, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "0",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "trusty",
-			Jobs:      []juju.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "1",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "saucy",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}}, "")
@@ -1013,24 +1012,24 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		Mem:  &mem,
 	}
 	err = m0.SetProvisioned("i-0", "bootstrap_nonce", hc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = m1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m1.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m1.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	m2, err := s.State.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 
 	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
 	wu, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m2)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.State.StartSync()
 
@@ -1042,17 +1041,17 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		if err == errTimeout {
 			break
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		deltas = append(deltas, d...)
 	}
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      "0",
 			InstanceId:              "i-0",
-			Status:                  juju.StatusPending,
-			Life:                    juju.Alive,
+			Status:                  multiwatcher.StatusPending,
+			Life:                    multiwatcher.Alive,
 			Series:                  "trusty",
-			Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		},
@@ -1060,19 +1059,19 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "1",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "saucy",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "2",
-			Status:    juju.StatusPending,
-			Life:      juju.Alive,
+			Status:    multiwatcher.StatusPending,
+			Life:      multiwatcher.Alive,
 			Series:    "quantal",
-			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1094,7 +1093,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	}})
 
 	err = w.Stop()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = w.Next()
 	c.Assert(err, gc.ErrorMatches, ErrStopped.Error())

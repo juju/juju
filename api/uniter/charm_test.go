@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/testing"
 )
 
 type charmSuite struct {
@@ -27,7 +26,7 @@ func (s *charmSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.apiCharm, err = s.uniter.Charm(s.wordpressCharm.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.apiCharm, gc.NotNil)
 }
 
@@ -48,49 +47,23 @@ func (s *charmSuite) TestURL(c *gc.C) {
 	c.Assert(s.apiCharm.URL(), gc.DeepEquals, s.wordpressCharm.URL())
 }
 
-func (s *charmSuite) TestArchiveURL(c *gc.C) {
+func (s *charmSuite) TestArchiveURLs(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 	url, err := url.Parse(fmt.Sprintf(
-		"https://%s/environment/%s/charms?file=%s&url=%s",
-		apiInfo.Addrs[0],
+		"https://0.1.2.3:1234/environment/%s/charms?file=%s&url=%s",
 		apiInfo.EnvironTag.Id(),
 		url.QueryEscape("*"),
 		url.QueryEscape(s.apiCharm.URL().String()),
 	))
-	c.Assert(err, gc.IsNil)
-	archiveURL := s.apiCharm.ArchiveURL()
-	c.Assert(archiveURL, gc.DeepEquals, url)
+	c.Assert(err, jc.ErrorIsNil)
+	archiveURLs, err := s.apiCharm.ArchiveURLs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(archiveURLs, gc.HasLen, 1)
+	c.Assert(archiveURLs[0], gc.DeepEquals, url)
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 	archiveSha256, err := s.apiCharm.ArchiveSha256()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(archiveSha256, gc.Equals, s.wordpressCharm.BundleSha256())
-}
-
-type charmsURLSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&charmsURLSuite{})
-
-func (s *charmsURLSuite) TestCharmsURL(c *gc.C) {
-	testCharmsURL(c, "", "", "https:///charms")
-	testCharmsURL(c, "abc.com", "", "https://abc.com/charms")
-	testCharmsURL(c, "abc.com:123", "", "https://abc.com:123/charms")
-	testCharmsURL(c, "abc.com:123", "invalid-uuid", "https://abc.com:123/charms")
-	testCharmsURL(c, "abc.com:123", "environment-f47ac10b-58cc-4372-a567-0e02b2c3d479", "https://abc.com:123/environment/f47ac10b-58cc-4372-a567-0e02b2c3d479/charms")
-}
-
-func testCharmsURL(c *gc.C, addr, envTag, expected string) {
-	tag, err := names.ParseEnvironTag(envTag)
-	if err != nil {
-		// If it's invalid, pretend it's not set at all.
-		tag = names.NewEnvironTag("")
-	}
-	url := uniter.CharmsURL(addr, tag)
-	if !c.Check(url, gc.NotNil) {
-		return
-	}
-	c.Check(url.String(), gc.Equals, expected)
 }

@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -69,15 +69,15 @@ func chanReadConfig(c *gc.C, ch <-chan *config.Config, what string) (*config.Con
 func removeServiceAndUnits(c *gc.C, service *state.Service) {
 	// Destroy all units for the service.
 	units, err := service.AllUnits()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		err = unit.EnsureDead()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = unit.Remove()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	err = service.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = service.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -93,7 +93,7 @@ type apiAuthenticator interface {
 
 func setDefaultPassword(c *gc.C, e apiAuthenticator) {
 	err := e.SetPassword(defaultPassword(e))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func defaultPassword(e apiAuthenticator) string {
@@ -106,7 +106,7 @@ type setStatuser interface {
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
 	err := entity.SetStatus(state.StatusStarted, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) error {
@@ -134,7 +134,7 @@ func (s *baseSuite) openAs(c *gc.C, tag names.Tag) *api.State {
 	info.Nonce = "fake_nonce"
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
 	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	return st
 }
@@ -160,7 +160,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []juju.MachineJob{juju.JobManageEnviron},
+			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
 			HasVote:        false,
 			WantsVote:      true,
 		},
@@ -175,7 +175,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []juju.MachineJob{juju.JobHostUnits},
+			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},
@@ -190,7 +190,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []juju.MachineJob{juju.JobHostUnits},
+			Jobs:           []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},
@@ -328,7 +328,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User(s.AdminUserTag(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, u)
 	add(u)
 
@@ -337,10 +337,10 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add(u)
 
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
 	add(m)
@@ -348,39 +348,39 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag(), gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, wu)
 		add(wu)
 
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {
 			err = m.SetConstraints(constraints.MustParse("mem=1G"))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		setDefaultPassword(c, m)
 		setDefaultStatus(c, m)
 		add(m)
 
 		err = wu.AssignToMachine(m)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		deployer, ok := wu.DeployerTag()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Put wordpress/0 in error state (with extra status data set)
 		if i == 0 {
@@ -397,13 +397,13 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.
 		err = wru.EnterScope(nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
-		c.Assert(err, gc.IsNil)
-		c.Assert(lu.IsPrincipal(), gc.Equals, false)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		deployer, ok = lu.DeployerTag()
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
 		add(lu)

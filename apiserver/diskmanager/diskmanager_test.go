@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -37,7 +38,7 @@ func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.api, err = diskmanager.NewDiskManagerAPI(nil, nil, s.authorizer)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
@@ -48,7 +49,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 			BlockDevices: devices,
 		}},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
 	})
@@ -56,7 +57,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *gc.C) {
 	results, err := s.api.SetMachineBlockDevices(params.SetMachineBlockDevices{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
@@ -77,7 +78,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
 			Machine: "unit-mysql-0",
 		}},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: nil,
@@ -97,7 +98,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
 			Machine: "machine-0",
 		}},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{
 			Error: &params.Error{"boom", ""},

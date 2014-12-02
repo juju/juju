@@ -40,7 +40,7 @@ func (*reflectSuite) TestTypeOf(c *gc.C) {
 	c.Assert(rtype.MethodNames(), gc.HasLen, len(expect))
 	for name, expectGoType := range expect {
 		m, err := rtype.Method(name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m, gc.NotNil)
 		c.Assert(m.Call, gc.NotNil)
 		c.Assert(m.ObjType, gc.Equals, rpcreflect.ObjTypeOf(expectGoType))
@@ -83,7 +83,7 @@ func (*reflectSuite) TestObjTypeOf(c *gc.C) {
 	c.Assert(objType.MethodNames(), gc.HasLen, len(expect))
 	for name, expectMethod := range expect {
 		m, err := objType.Method(name)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 		c.Assert(m, gc.NotNil)
 		c.Check(m.Call, gc.NotNil)
 		c.Check(m.Params, gc.Equals, expectMethod.Params)
@@ -126,12 +126,12 @@ func (*reflectSuite) TestFindMethod(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 
 	m, err = v.FindMethod("SimpleMethods", 0, "Call1r1e")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
 	ret, err := m.Call("a99", reflect.ValueOf(stringVal{"foo"}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ret.Interface(), gc.Equals, stringVal{"Call1r1e ret"})
 }
 
@@ -143,7 +143,7 @@ func (*reflectSuite) TestFindMethodRefusesVersionsNot0(c *gc.C) {
 	v := rpcreflect.ValueOf(reflect.ValueOf(root))
 
 	m, err := v.FindMethod("SimpleMethods", 0, "Call1r1e")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
 	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 

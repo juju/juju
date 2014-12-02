@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -63,7 +63,7 @@ func NewMachineConfig(
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
-		Jobs:                    []juju.MachineJob{juju.JobHostUnits},
+		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -90,9 +90,9 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.Jobs = []juju.MachineJob{
-		juju.JobManageEnviron,
-		juju.JobHostUnits,
+	mcfg.Jobs = []multiwatcher.MachineJob{
+		multiwatcher.JobManageEnviron,
+		multiwatcher.JobHostUnits,
 	}
 	mcfg.Constraints = cons
 	return mcfg, nil
@@ -213,7 +213,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 // If JobManageEnviron is present, this is a state server.
 func isStateMachineConfig(mcfg *cloudinit.MachineConfig) bool {
 	for _, aJob := range mcfg.Jobs {
-		if aJob == juju.JobManageEnviron {
+		if aJob == multiwatcher.JobManageEnviron {
 			return true
 		}
 	}

@@ -4,6 +4,7 @@
 package relation_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/multiwatcher"
@@ -25,6 +26,6 @@ func (s *LiveSourceSuite) TestLiveHookSource(c *gc.C) {
 		}
 		expect{}.checkDirect(c, q)
 		q.Stop()
-		c.Assert(ruw.stopped, gc.Equals, true)
+		c.Assert(ruw.stopped, jc.IsTrue)
 	}
 }

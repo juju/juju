@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
@@ -93,10 +94,10 @@ func (s *RebootSuite) TestRebootWithContainers(c *gc.C) {
 	// Timeout after 5 seconds
 	s.PatchValue(reboot.Timeout, time.Duration(5*time.Second))
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = w.ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedRebootParams...)
 	ft.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
 }
@@ -109,32 +110,32 @@ func (s *RebootSuite) TestRebootWithMissbehavingContainers(c *gc.C) {
 	// Timeout after 5 seconds
 	s.PatchValue(reboot.Timeout, time.Duration(5*time.Second))
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = w.ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedRebootParams...)
 	ft.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
 }
 
 func (s *RebootSuite) TestRebootNoContainers(c *gc.C) {
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedRebootParams := s.rebootCommandParams(c)
 
 	err = w.ExecuteReboot(params.ShouldReboot)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedRebootParams...)
 	ft.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
 }
 
 func (s *RebootSuite) TestShutdownNoContainers(c *gc.C) {
 	w, err := reboot.NewRebootWaiter(s.st, s.acfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expectedShutdownParams := s.shutdownCommandParams(c)
 
 	err = w.ExecuteReboot(params.ShouldShutdown)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedShutdownParams...)
 	ft.File{s.rebootScriptName, expectedShutdownScript, 0755}.Check(c, s.tmpDir)
 }

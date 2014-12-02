@@ -57,7 +57,7 @@ func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
 	results, err := ig.InstanceId(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
 			{Result: "foo"},

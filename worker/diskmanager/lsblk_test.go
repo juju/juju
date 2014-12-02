@@ -45,7 +45,7 @@ KNAME="sdb1" SIZE="32015122432" LABEL="media" UUID="2c1c701d-f2ce-43a4-b345-33e2
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       228936,
@@ -88,7 +88,7 @@ EOF`)
 	// If the in-use check errors, the block device will be marked "in use"
 	// to prevent it from being used, but no error will be returned.
 	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       228936,
@@ -106,7 +106,7 @@ KNAME="sdb" SIZE="1048576" LABEL="" UUID="" BOB="DOBBS"
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
 		DeviceName: "sda",
 		Size:       0,
@@ -127,6 +127,6 @@ KNAME="sdb" SIZE="32017047552" LABEL="" UUID=""
 EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
 }

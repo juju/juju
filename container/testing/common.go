@@ -40,10 +40,10 @@ func MockMachineConfig(machineId string) (*cloudinit.MachineConfig, error) {
 
 func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
 	machineConfig, err := MockMachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Config = envConfig
 	return CreateContainerWithMachineConfig(c, manager, machineConfig)
 }
@@ -56,7 +56,7 @@ func CreateContainerWithMachineConfig(
 
 	network := container.BridgeNetworkConfig("nic42")
 	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")
 	return inst
@@ -65,7 +65,7 @@ func CreateContainerWithMachineConfig(
 func AssertCloudInit(c *gc.C, filename string) []byte {
 	c.Assert(filename, jc.IsNonEmptyFile)
 	data, err := ioutil.ReadFile(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
 	return data
 }

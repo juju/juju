@@ -4,6 +4,7 @@
 package authentication_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -37,39 +38,39 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 
 	// add machine for testing machine agent authentication
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", nonce, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.machine = machine
 	s.machinePassword = password
 	s.machineNonce = nonce
 
 	// add a unit for testing unit agent authentication
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	unit, err := wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
 	password, err = utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.unitPassword = password
 
 	// add relation
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // testCase is used for structured table based tests
@@ -101,7 +102,7 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
 		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 

@@ -10,11 +10,64 @@ import (
 
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
+
+// Life describes the lifecycle state of an entity ("alive", "dying"
+// or "dead").
+type Life string
+
+const (
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
+)
+
+// Status represents the status of an entity.
+// It could be a unit, machine or its agent.
+type Status string
+
+const (
+	// The entity is not yet participating in the environment.
+	StatusPending Status = "pending"
+
+	// The unit has performed initial setup and is adapting itself to
+	// the environment. Not applicable to machines.
+	StatusInstalled Status = "installed"
+
+	// The entity is actively participating in the environment.
+	StatusStarted Status = "started"
+
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
+
+	// The entity requires human intervention in order to operate
+	// correctly.
+	StatusError Status = "error"
+
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown Status = "down"
+)
+
+// Valid returns true if status has a known value.
+func (status Status) Valid() bool {
+	switch status {
+	case
+		StatusPending,
+		StatusInstalled,
+		StatusStarted,
+		StatusStopped,
+		StatusError,
+		StatusDown:
+	default:
+		return false
+	}
+	return true
+}
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
@@ -113,15 +166,15 @@ type UnitSettings struct {
 type MachineInfo struct {
 	Id                       string `bson:"_id"`
 	InstanceId               string
-	Status                   juju.Status
+	Status                   Status
 	StatusInfo               string
 	StatusData               map[string]interface{}
-	Life                     juju.Life
+	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
-	Jobs                     []juju.MachineJob
+	Jobs                     []MachineJob
 	Addresses                []network.Address
 }
 
@@ -137,7 +190,7 @@ type ServiceInfo struct {
 	Exposed     bool
 	CharmURL    string
 	OwnerTag    string
-	Life        juju.Life
+	Life        Life
 	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
@@ -160,7 +213,7 @@ type UnitInfo struct {
 	PrivateAddress string
 	MachineId      string
 	Ports          []network.Port
-	Status         juju.Status
+	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
 	Subordinate    bool
@@ -201,4 +254,33 @@ func (i *AnnotationInfo) EntityId() EntityId {
 type Endpoint struct {
 	ServiceName string
 	Relation    charm.Relation
+}
+
+// MachineJob values define responsibilities that machines may be
+// expected to fulfil.
+type MachineJob string
+
+const (
+	JobHostUnits        MachineJob = "JobHostUnits"
+	JobManageEnviron    MachineJob = "JobManageEnviron"
+	JobManageNetworking MachineJob = "JobManageNetworking"
+
+	// Deprecated in 1.18
+	JobManageStateDeprecated MachineJob = "JobManageState"
+)
+
+// NeedsState returns true if the job requires a state connection.
+func (job MachineJob) NeedsState() bool {
+	return job == JobManageEnviron
+}
+
+// AnyJobNeedsState returns true if any of the provided jobs
+// require a state connection.
+func AnyJobNeedsState(jobs ...MachineJob) bool {
+	for _, j := range jobs {
+		if j.NeedsState() {
+			return true
+		}
+	}
+	return false
 }

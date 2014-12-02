@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -62,7 +62,7 @@ func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	testConfig, err := testConfig.Apply(map[string]interface{}{
 		"root-dir": "/usr/lib/juju",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.ErrorMatches, "failure setting config: mkdir .* permission denied")
@@ -72,25 +72,25 @@ func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 func (s *environSuite) TestName(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environ.Config().Name(), gc.Equals, "test")
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sources, err := tools.GetMetadataSources(environ)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }
 
 func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	arches, err := environ.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, a := range arches {
 		c.Assert(arch.IsSupportedArch(a), jc.IsTrue)
 	}
@@ -99,18 +99,18 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 func (*environSuite) TestSupportNetworks(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environ.SupportNetworks(), jc.IsFalse)
 }
 
 func (*environSuite) TestSupportAddressAllocation(c *gc.C) {
 	testConfig := minimalConfig(c)
 	env, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := env.SupportAddressAllocation("")
 	c.Assert(result, jc.IsFalse)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type localJujuTestSuite struct {
@@ -125,7 +125,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testPath = c.MkDir()
 	s.fakesudo = filepath.Join(s.testPath, "sudo")
 	s.PatchEnvPathPrepend(s.testPath)
@@ -134,7 +134,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 	// Write a fake "sudo" which records its args to sudo.args.
 	err = ioutil.WriteFile(s.fakesudo, []byte(echoCommandScript), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add in an admin secret
 	s.Tests.TestConfig["admin-secret"] = "sekrit"
@@ -155,7 +155,7 @@ func (s *localJujuTestSuite) MakeTool(c *gc.C, name, script string) {
 	path := filepath.Join(s.testPath, name)
 	script = "#!/bin/bash\n" + script
 	err := ioutil.WriteFile(path, []byte(script), 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localJujuTestSuite) StoppedStatus(c *gc.C) {
@@ -179,7 +179,7 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs.Environ {
 	ctx := envtesting.BootstrapContext(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	availableTools := coretools.List{&coretools.Tools{
 		Version: version.Current,
 		URL:     "http://testing.invalid/tools.tar.gz",
@@ -187,12 +187,12 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		AvailableTools: availableTools,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "quantal")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mcfg.Tools = availableTools[0]
 	err = finalizer(ctx, mcfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return environ
 }
 
@@ -204,13 +204,13 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 		envCfgAttrs := minCfg.AllAttrs()
 		if val, ok := envCfgAttrs["enable-os-refresh-update"]; !ok {
-			c.Check(cloudcfg.AptUpdate(), gc.Equals, false)
+			c.Check(cloudcfg.AptUpdate(), jc.IsFalse)
 		} else {
 			c.Check(cloudcfg.AptUpdate(), gc.Equals, val)
 		}
 
 		if val, ok := envCfgAttrs["enable-os-upgrade"]; !ok {
-			c.Check(cloudcfg.AptUpgrade(), gc.Equals, false)
+			c.Check(cloudcfg.AptUpgrade(), jc.IsFalse)
 		} else {
 			c.Check(cloudcfg.AptUpgrade(), gc.Equals, val)
 		}
@@ -221,7 +221,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		c.Assert(mcfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
-		c.Assert(mcfg.Jobs, gc.DeepEquals, []juju.MachineJob{juju.JobManageEnviron})
+		c.Assert(mcfg.Jobs, gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobManageEnviron})
 		return nil
 	}
 	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
@@ -234,7 +234,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		"enable-os-refresh-update": true,
 		"enable-os-upgrade":        true,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.testBootstrap(c, minCfg)
 }
 
@@ -244,7 +244,7 @@ func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
 	// Succeeds because there's no "agents" directory,
 	// so destroy will just return without attempting
 	// sudo or anything.
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.fakesudo+".args", jc.DoesNotExist)
 }
 
@@ -252,16 +252,16 @@ func (s *localJujuTestSuite) makeAgentsDir(c *gc.C, env environs.Environ) {
 	rootDir := env.Config().AllAttrs()["root-dir"].(string)
 	agentsDir := filepath.Join(rootDir, "agents")
 	err := os.Mkdir(agentsDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	env := s.testBootstrap(c, minimalConfig(c))
 	s.makeAgentsDir(c, env)
 	err := env.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadFile(s.fakesudo + ".args")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{
 		s.fakesudo,
 		"env",
@@ -288,7 +288,7 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	}
 	mongoService = upstart.NewService(mongo.ServiceName(namespace), mongoConf)
 	err := mongoService.Install()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoService.Installed(), jc.IsTrue)
 
 	agentConf := common.Conf{
@@ -298,7 +298,7 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
 
 	err = machineAgent.Install()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machineAgent.Installed(), jc.IsTrue)
 
 	return mongoService, machineAgent
@@ -311,7 +311,7 @@ func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 
 	err := env.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(mongo.Installed(), jc.IsFalse)
 	c.Assert(machineAgent.Installed(), jc.IsFalse)
@@ -328,12 +328,12 @@ func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
 		container.ConfigLogDir: "logdir",
 		"use-clone":            "false",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	machine1 := containertesting.CreateContainer(c, manager, "1")
 
 	err = env.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	container := s.ContainerFactory.New(string(machine1.Id()))
 	c.Assert(container.IsConstructed(), jc.IsFalse)
@@ -346,13 +346,13 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 	// Create a dir inside local/log that should be removed by Bootstrap.
 	logThings := filepath.Join(rootDir, "log", "things")
 	err := os.MkdirAll(logThings, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a cloud-init-output.log in root-dir that should be
 	// removed/truncated by Bootstrap.
 	cloudInitOutputLog := filepath.Join(rootDir, "cloud-init-output.log")
 	err = ioutil.WriteFile(cloudInitOutputLog, []byte("ohai"), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.testBootstrap(c, cfg)
 	c.Assert(logThings, jc.DoesNotExist)
@@ -363,20 +363,20 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hostArch := arch.HostArch()
 	cons := constraints.MustParse(fmt.Sprintf("arch=%s instance-type=foo tags=bar cpu-power=10 cpu-cores=2", hostArch))
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-cores", "cpu-power", "instance-type", "tags"})
 }
 
 func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	hostArch := arch.HostArch()
 	var invalidArch string
@@ -400,6 +400,6 @@ func (s *localJujuTestSuite) TestStateServerInstances(c *gc.C) {
 
 	s.makeAgentsDir(c, env)
 	instances, err = env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"localhost"})
 }

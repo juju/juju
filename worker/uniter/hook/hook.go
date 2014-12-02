@@ -14,7 +14,7 @@ import (
 // Info holds details required to execute a hook. Not all fields are
 // relevant to all Kind values.
 type Info struct {
-	Kind hooks.Kind
+	Kind hooks.Kind `yaml:"kind"`
 
 	// RelationId identifies the relation associated with the hook. It is
 	// only set when Kind indicates a relation hook.

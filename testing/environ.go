@@ -8,6 +8,7 @@ import (
 	"os"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -71,7 +72,7 @@ func CustomEnvironConfig(c *gc.C, extra Attrs) *config.Config {
 		"agent-version": "1.2.3",
 	}).Merge(extra).Delete("admin-secret", "ca-private-key")
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
@@ -135,7 +136,7 @@ func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	jujuHome := gitjujutesting.HomePath(".juju")
 	err := os.Mkdir(jujuHome, 0700)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
 	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
 }
@@ -156,11 +157,11 @@ func MakeSampleJujuHome(c *gc.C) {
 func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
 	envs := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, name := range certNames {
 		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }

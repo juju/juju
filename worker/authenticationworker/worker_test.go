@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -61,7 +62,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	// Set up an existing key (which is not in the environment) in the ssh authorised_keys file.
 	s.existingKeys = []string{sshtesting.ValidKeyTwo.Key + " existinguser@host"}
 	err := ssh.AddKeys(authenticationworker.SSHUser, s.existingKeys...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var apiRoot *api.State
 	apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
@@ -91,7 +92,7 @@ func agentConfig(c *gc.C, tag names.MachineTag) *mockConfig {
 func (s *workerSuite) setAuthorisedKeys(c *gc.C, keys ...string) {
 	keyStr := strings.Join(keys, "\n")
 	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keyStr}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 }
 
@@ -103,7 +104,7 @@ func (s *workerSuite) waitSSHKeys(c *gc.C, expected []string) {
 			c.Fatalf("timeout while waiting for authoirsed ssh keys to change")
 		case <-time.After(coretesting.ShortWait):
 			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			keysStr := strings.Join(keys, "\n")
 			expectedStr := strings.Join(expected, "\n")
 			if expectedStr != keysStr {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -62,46 +63,46 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	// Create a machine, and a couple of units.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	u0, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u1, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dep, ctx := s.makeDeployerAndContext(c)
 	defer stop(c, dep)
 
 	// Assign one unit, and wait for it to be deployed.
 	err = u0.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isDeployed(ctx, u0.Name()))
 
 	// Assign another unit, and wait for that to be deployed.
 	err = u1.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
 	err = u1.SetStatus(state.StatusInstalled, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dead, and check that it is both recalled and
 	// removed from state.
 	err = u0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isRemoved(s.State, u0.Name()))
 	s.waitFor(c, isDeployed(ctx, u1.Name()))
 
 	// Remove the Dying unit from the machine, and check that it is recalled...
 	err = u1.UnassignFromMachine()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isDeployed(ctx))
 
 	// ...and that the deployer, no longer bearing any responsibility for the
 	// Dying unit, does nothing further to it.
 	err = u1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(u1.Life(), gc.Equals, state.Dying)
 }
 
@@ -109,24 +110,24 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// Create a service, and a couple of units.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	u0, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	u1, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the units to the machine, and set them to Dying/Dead.
 	err = u0.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u1.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// note: this is not a sane state; for the unit to have a status it must
 	// have been deployed. But it's instructive to check that the right thing
 	// would happen if it were possible to have a dying unit in this situation.
 	err = u1.SetStatus(state.StatusInstalled, "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
@@ -140,19 +141,19 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 func (s *deployerSuite) prepareSubordinates(c *gc.C) (*state.Unit, []*state.RelationUnit) {
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	u, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(s.machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rus := []*state.RelationUnit{}
 	logging := s.AddTestingCharm(c, "logging")
 	for _, name := range []string{"subsvc0", "subsvc1"} {
 		s.AddTestingService(c, name, logging)
 		eps, err := s.State.InferEndpoints("wordpress", name)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		rel, err := s.State.AddRelation(eps...)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(u)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		rus = append(rus, ru)
 	}
 	return u, rus
@@ -166,29 +167,29 @@ func (s *deployerSuite) TestDeployRecallRemoveSubordinates(c *gc.C) {
 
 	// Add a subordinate, and wait for it to be deployed.
 	err := rus[0].EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure the principal is deployed first, then the subordinate
 	s.waitFor(c, isDeployed(ctx, u.Name(), sub0.Name()))
 
 	// And another.
 	err = rus[1].EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sub1, err := s.State.Unit("subsvc1/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isDeployed(ctx, u.Name(), sub0.Name(), sub1.Name()))
 
 	// Set one to Dying; check nothing happens.
 	err = sub1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.State.StartSync()
-	c.Assert(isRemoved(s.State, sub1.Name())(c), gc.Equals, false)
+	c.Assert(isRemoved(s.State, sub1.Name())(c), jc.IsFalse)
 	s.waitFor(c, isDeployed(ctx, u.Name(), sub0.Name(), sub1.Name()))
 
 	// Set the other to Dead; check it's recalled and removed.
 	err = sub0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.waitFor(c, isDeployed(ctx, u.Name(), sub1.Name()))
 	s.waitFor(c, isRemoved(s.State, sub0.Name()))
 }
@@ -197,17 +198,17 @@ func (s *deployerSuite) TestNonAliveSubordinates(c *gc.C) {
 	// Add two subordinate units and set them to Dead/Dying respectively.
 	_, rus := s.prepareSubordinates(c)
 	err := rus[0].EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sub0, err := s.State.Unit("subsvc0/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = sub0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = rus[1].EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sub1, err := s.State.Unit("subsvc1/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = sub1.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// When we start a new deployer, neither unit will be deployed and
 	// both will be removed.
@@ -239,7 +240,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*gc.C) bool {
 	return func(c *gc.C) bool {
 		sort.Strings(expected)
 		current, err := ctx.DeployedUnits()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		sort.Strings(current)
 		return strings.Join(expected, ":") == strings.Join(current, ":")
 	}
@@ -251,7 +252,7 @@ func isRemoved(st *state.State, name string) func(*gc.C) bool {
 		if errors.IsNotFound(err) {
 			return true
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		return false
 	}
 }

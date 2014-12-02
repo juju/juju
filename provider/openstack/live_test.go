@@ -9,6 +9,7 @@ import (
 	"io"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
@@ -90,9 +91,9 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// information is set during startup of the localLiveSuite
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
 		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
@@ -153,7 +154,7 @@ func (t *LiveTests) TestEnsureGroupSetsGroupId(c *gc.C) {
 	cleanup()
 	defer cleanup()
 	group, err := openstack.EnsureGroup(t.Env, groupName, rules)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(group.Rules, gc.HasLen, 2)
 	c.Check(*group.Rules[0].IPProtocol, gc.Equals, "tcp")
 	c.Check(*group.Rules[0].FromPort, gc.Equals, 22)
@@ -180,7 +181,7 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	defer cleanup()
 	apiPort := 34567 // Default 17070
 	group, err := openstack.SetUpGlobalGroup(t.Env, groupName, apiPort)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// We default to exporting 22, apiPort, and icmp/udp/tcp on
 	// all ports to other machines inside the same group
 	// TODO(jam): 2013-09-18 http://pad.lv/1227142
@@ -217,20 +218,20 @@ func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault 
 		"use-default-secgroup": useDefault,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Set up a test environment.
 	env, err := environs.New(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	defer env.Destroy()
 	// Bootstrap and start an instance.
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	inst, _ := jujutesting.AssertStartInstance(c, env, "100")
 	// Check whether the instance has the default security group assigned.
 	novaClient := openstack.GetNovaClient(env)
 	groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defaultGroupFound := false
 	for _, group := range groups {
 		if group.Name == "default" {

@@ -45,7 +45,7 @@ func (s *GenerateSuite) TestGenerate(c *gc.C) {
 	defer overrideGenerateKey(c).Restore()
 	private, public, err := ssh.GenerateKey("some-comment")
 
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(private, jc.HasPrefix, "-----BEGIN RSA PRIVATE KEY-----\n")
 	c.Check(private, jc.HasSuffix, "-----END RSA PRIVATE KEY-----\n")
 	c.Check(public, jc.HasPrefix, "ssh-rsa ")

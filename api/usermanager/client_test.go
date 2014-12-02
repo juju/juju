@@ -30,10 +30,10 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	tag, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	user, err := s.State.User(tag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
 	c.Assert(user.PasswordValid("password"), jc.IsTrue)
@@ -74,10 +74,10 @@ func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
 	err := s.usermanager.DisableUser(user.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = user.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsTrue)
 }
 
@@ -90,10 +90,10 @@ func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", Disabled: true})
 
 	err := s.usermanager.EnableUser(user.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = user.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 }
 
@@ -112,7 +112,7 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 		Name: "foobar", DisplayName: "Foo Bar"})
 
 	obtained, err := s.usermanager.UserInfo([]string{"foobar"}, usermanager.AllUsers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.UserInfo{
 		{
 			Username:    "foobar",
@@ -138,7 +138,7 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 		},
 	)
 	obtained, err := s.usermanager.UserInfo(nil, usermanager.AllUsers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []params.UserInfo{
 		{Username: "first"},
@@ -167,9 +167,9 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 	tag := s.AdminUserTag(c)
 	err := s.usermanager.SetPassword(tag.Name(), "new-password")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	user, err := s.State.User(tag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
 }
 

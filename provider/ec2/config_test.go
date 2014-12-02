@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
@@ -63,17 +64,17 @@ func (t configTest) check(c *gc.C) {
 		"control-bucket": "x",
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	e, err := environs.New(cfg)
 	if t.change != nil {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		ec2env := e.(*environ)
 		old = ec2env.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(changed, old)
@@ -85,7 +86,7 @@ func (t configTest) check(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ecfg := e.(*environ).ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testenv")
@@ -100,9 +101,9 @@ func (t configTest) check(c *gc.C) {
 			"access-key": t.accessKey,
 			"secret-key": t.secretKey,
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(expected, gc.DeepEquals, actual)
 	} else {
 		c.Assert(ecfg.accessKey(), gc.DeepEquals, testAuth.AccessKey)
@@ -113,7 +114,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, gc.Equals, true)
+		c.Check(found, jc.IsTrue)
 		c.Check(actual, gc.Equals, expect)
 	}
 
@@ -256,9 +257,9 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	home := c.MkDir()
 	sshDir := filepath.Join(home, ".ssh")
 	err := os.Mkdir(sshDir, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	utils.SetHome(home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
@@ -298,16 +299,16 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 		"type": "ec2",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
 	env0, err := providerInstance.Prepare(ctx, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
 	env1, err := providerInstance.Prepare(ctx, cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := env1.(*environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
 
@@ -321,10 +322,10 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 		"control-bucket": "burblefoo",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	env, err := providerInstance.Prepare(envtesting.BootstrapContext(c), cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
 }

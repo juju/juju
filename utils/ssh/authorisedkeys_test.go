@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
@@ -27,7 +28,7 @@ var _ = gc.Suite(&AuthorisedKeysKeysSuite{})
 
 func writeAuthKeysFile(c *gc.C, keys []string) {
 	err := ssh.WriteAuthorisedKeys(testSSHUser, keys)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *AuthorisedKeysKeysSuite) TestListKeys(c *gc.C) {
@@ -37,7 +38,7 @@ func (s *AuthorisedKeysKeysSuite) TestListKeys(c *gc.C) {
 	}
 	writeAuthKeysFile(c, keys)
 	keys, err := ssh.ListKeys(testSSHUser, ssh.Fingerprints)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(
 		keys, gc.DeepEquals,
 		[]string{sshtesting.ValidKeyOne.Fingerprint + " (user@host)", sshtesting.ValidKeyTwo.Fingerprint})
@@ -50,16 +51,16 @@ func (s *AuthorisedKeysKeysSuite) TestListKeysFull(c *gc.C) {
 	}
 	writeAuthKeysFile(c, keys)
 	actual, err := ssh.ListKeys(testSSHUser, ssh.FullKeys)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, keys)
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddNewKey(c *gc.C) {
 	key := sshtesting.ValidKeyOne.Key + " user@host"
 	err := ssh.AddKeys(testSSHUser, key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ListKeys(testSSHUser, ssh.FullKeys)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, []string{key})
 }
 
@@ -71,16 +72,16 @@ func (s *AuthorisedKeysKeysSuite) TestAddMoreKeys(c *gc.C) {
 		sshtesting.ValidKeyThree.Key + " yetanotheruser@host",
 	}
 	err := ssh.AddKeys(testSSHUser, moreKeys...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ListKeys(testSSHUser, ssh.FullKeys)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, append([]string{firstKey}, moreKeys...))
 }
 
 func (s *AuthorisedKeysKeysSuite) TestAddDuplicateKey(c *gc.C) {
 	key := sshtesting.ValidKeyOne.Key + " user@host"
 	err := ssh.AddKeys(testSSHUser, key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	moreKeys := []string{
 		sshtesting.ValidKeyOne.Key + " user@host",
 		sshtesting.ValidKeyTwo.Key + " yetanotheruser@host",
@@ -92,7 +93,7 @@ func (s *AuthorisedKeysKeysSuite) TestAddDuplicateKey(c *gc.C) {
 func (s *AuthorisedKeysKeysSuite) TestAddDuplicateComment(c *gc.C) {
 	key := sshtesting.ValidKeyOne.Key + " user@host"
 	err := ssh.AddKeys(testSSHUser, key)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	moreKeys := []string{
 		sshtesting.ValidKeyTwo.Key + " user@host",
 		sshtesting.ValidKeyThree.Key + " yetanotheruser@host",
@@ -114,9 +115,9 @@ func (s *AuthorisedKeysKeysSuite) TestAddKeepsUnrecognised(c *gc.C) {
 	writeAuthKeysFile(c, []string{sshtesting.ValidKeyOne.Key, "invalid-key"})
 	anotherKey := sshtesting.ValidKeyTwo.Key + " anotheruser@host"
 	err := ssh.AddKeys(testSSHUser, anotherKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ReadAuthorisedKeys(testSSHUser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, []string{sshtesting.ValidKeyOne.Key, "invalid-key", anotherKey})
 }
 
@@ -126,9 +127,9 @@ func (s *AuthorisedKeysKeysSuite) TestDeleteKeys(c *gc.C) {
 	thirdKey := sshtesting.ValidKeyThree.Key + " anotheruser@host"
 	writeAuthKeysFile(c, []string{firstKey, anotherKey, thirdKey})
 	err := ssh.DeleteKeys(testSSHUser, "user@host", sshtesting.ValidKeyTwo.Fingerprint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ListKeys(testSSHUser, ssh.FullKeys)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, []string{thirdKey})
 }
 
@@ -136,9 +137,9 @@ func (s *AuthorisedKeysKeysSuite) TestDeleteKeysKeepsUnrecognised(c *gc.C) {
 	firstKey := sshtesting.ValidKeyOne.Key + " user@host"
 	writeAuthKeysFile(c, []string{firstKey, sshtesting.ValidKeyTwo.Key, "invalid-key"})
 	err := ssh.DeleteKeys(testSSHUser, "user@host")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ReadAuthorisedKeys(testSSHUser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, []string{"invalid-key", sshtesting.ValidKeyTwo.Key})
 }
 
@@ -178,9 +179,9 @@ func (s *AuthorisedKeysKeysSuite) TestReplaceKeys(c *gc.C) {
 	// file when adding new keys.
 	replaceKey := sshtesting.ValidKeyThree.Key
 	err := ssh.ReplaceKeys(testSSHUser, replaceKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ListKeys(testSSHUser, ssh.FullKeys)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, []string{replaceKey})
 }
 
@@ -188,9 +189,9 @@ func (s *AuthorisedKeysKeysSuite) TestReplaceKeepsUnrecognised(c *gc.C) {
 	writeAuthKeysFile(c, []string{sshtesting.ValidKeyOne.Key, "invalid-key"})
 	anotherKey := sshtesting.ValidKeyTwo.Key + " anotheruser@host"
 	err := ssh.ReplaceKeys(testSSHUser, anotherKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actual, err := ssh.ReadAuthorisedKeys(testSSHUser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.DeepEquals, []string{"invalid-key", anotherKey})
 }
 
@@ -232,7 +233,7 @@ func (s *AuthorisedKeysKeysSuite) TestSplitAuthorisedKeys(c *gc.C) {
 
 func b64decode(c *gc.C, s string) []byte {
 	b, err := base64.StdEncoding.DecodeString(s)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return b
 }
 
@@ -265,7 +266,7 @@ func (s *AuthorisedKeysKeysSuite) TestParseAuthorisedKey(c *gc.C) {
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ak, gc.Not(gc.IsNil))
 			c.Assert(ak.Key, gc.DeepEquals, test.key)
 			c.Assert(ak.Comment, gc.Equals, test.comment)

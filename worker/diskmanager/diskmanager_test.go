@@ -6,6 +6,7 @@ package diskmanager_test
 import (
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
@@ -26,7 +27,7 @@ func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *DiskManagerWorkerSuite) TestWorkerNoOp(c *gc.C) {
+func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
 	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
 		close(done)
@@ -61,14 +62,14 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
 	}
 	for i := 0; i < 2; i++ {
 		err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	listDevices = func() ([]storage.BlockDevice, error) {
 		return []storage.BlockDevice{{DeviceName: "sdb"}}, nil
 	}
 	err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// diskmanager only calls the BlockDeviceSetter when it sees
 	// a change in disks.
@@ -98,7 +99,7 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
 		}}, nil
 	}
 	err := diskmanager.DoWork(listDevices, setDevices, new([]storage.BlockDevice))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The block Devices should be sorted when passed to the block
 	// device setter.

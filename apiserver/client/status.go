@@ -11,12 +11,12 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -440,8 +440,8 @@ func isSubordinate(ep *state.Endpoint, service *state.Service) bool {
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []juju.MachineJob {
-	paramsJobs := make([]juju.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
+	paramsJobs := make([]multiwatcher.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		paramsJobs[i] = machineJob.ToParams()
 	}
@@ -585,7 +585,7 @@ type stateAgent interface {
 }
 
 // processAgent retrieves version and status information from the given entity.
-func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus juju.Status, compatInfo string) {
+func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.Status, compatInfo string) {
 	out.Life = processLife(entity)
 
 	if t, err := entity.AgentTools(); err == nil {
@@ -594,7 +594,7 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus juju.Sta
 
 	var st state.Status
 	st, out.Info, out.Data, out.Err = entity.Status()
-	out.Status = juju.Status(st)
+	out.Status = params.Status(st)
 	compatStatus = out.Status
 	compatInfo = out.Info
 	out.Data = filterStatusData(out.Data)
@@ -602,7 +602,7 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus juju.Sta
 		return
 	}
 
-	if out.Status == juju.StatusPending {
+	if out.Status == params.StatusPending {
 		// The status is pending - there's no point
 		// in enquiring about the agent liveness.
 		return
@@ -633,7 +633,7 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus juju.Sta
 		} else {
 			compatInfo = fmt.Sprintf("(%s)", out.Status)
 		}
-		compatStatus = juju.StatusDown
+		compatStatus = params.StatusDown
 	}
 
 	return

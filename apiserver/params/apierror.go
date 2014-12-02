@@ -49,6 +49,8 @@ const (
 	CodeNotImplemented      = rpc.CodeNotImplemented
 	CodeAlreadyExists       = "already exists"
 	CodeUpgradeInProgress   = "upgrade in progress"
+	CodeActionNotAvailable  = "action no longer available"
+	CodeOperationBlocked    = "operation is blocked"
 )
 
 // ErrCode returns the error code associated with
@@ -76,6 +78,10 @@ func ClientError(err error) error {
 		Message: rerr.Message,
 		Code:    rerr.Code,
 	}
+}
+
+func IsCodeActionNotAvailable(err error) bool {
+	return ErrCode(err) == CodeActionNotAvailable
 }
 
 func IsCodeNotFound(err error) bool {
@@ -149,4 +155,8 @@ func IsCodeAlreadyExists(err error) bool {
 
 func IsCodeUpgradeInProgress(err error) bool {
 	return ErrCode(err) == CodeUpgradeInProgress
+}
+
+func IsCodeOperationBlocked(err error) bool {
+	return ErrCode(err) == CodeOperationBlocked
 }

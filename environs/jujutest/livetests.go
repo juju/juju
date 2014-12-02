@@ -87,7 +87,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
@@ -123,7 +123,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 		return
 	}
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
@@ -141,12 +141,12 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
 		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = true
 }
 
@@ -155,7 +155,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 		return
 	}
 	err := environs.Destroy(t.Env, t.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	t.bootstrapped = false
 	t.prepared = false
 	t.Env = nil
@@ -170,7 +170,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	}
 	const placement = ""
 	err := prechecker.PrecheckInstance("precise", constraints.Value{}, placement)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestStartStop is similar to Tests.TestStartStop except
@@ -183,7 +183,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	id0 := inst.Id()
 
 	insts, err := t.Env.Instances([]instance.Id{id0, id0})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Equals, id0)
 	c.Assert(insts[1].Id(), gc.Equals, id0)
@@ -193,7 +193,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	// off if other instances have been created or destroyed in the same
 	// time frame. Instead, just check the instance we created exists.
 	insts, err = t.Env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	found := false
 	for _, inst := range insts {
 		if inst.Id() == id0 {
@@ -204,7 +204,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Assert(found, gc.Equals, true, gc.Commentf("expected %v in %v", inst, insts))
 
 	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, inst.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
 	insts, err = t.Env.Instances([]instance.Id{id0, ""})
@@ -214,7 +214,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Check(insts[1], gc.IsNil)
 
 	err = t.Env.StopInstances(inst.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
@@ -235,75 +235,75 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := inst1.Ports("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
 	c.Assert(inst2, gc.NotNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
 	err = inst1.OpenPorts("1", []network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {80, 100, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ports, err = inst1.Ports("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 	ports, err = inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	err = inst2.OpenPorts("2", []network.PortRange{{89, 89, "tcp"}, {45, 45, "tcp"}, {20, 30, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 
 	// Check that opening the same port again is ok.
 	oldPorts, err := inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = inst2.OpenPorts("2", []network.PortRange{{20, 30, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
 	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
 
 	err = inst2.ClosePorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}, {20, 30, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
 	ports, err = inst2.Ports("2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 
 	// Check that we can close multiple ports.
 	err = inst1.ClosePorts("1", []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}, {80, 100, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
 	err = inst2.ClosePorts("2", []network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {600, 700, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 
@@ -325,50 +325,50 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	oldConfig := t.Env.Config()
 	defer func() {
 		err := t.Env.SetConfig(oldConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 
 	attrs := t.Env.Config().AllAttrs()
 	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := t.Env.Config().Apply(attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = t.Env.SetConfig(newConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
 	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := t.Env.Ports()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
 	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
 	err = t.Env.OpenPorts([]network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ports, err = t.Env.Ports()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}, {67, 67, "udp"}})
 
 	// Check closing some ports.
 	err = t.Env.ClosePorts([]network.PortRange{{99, 99, "tcp"}, {67, 67, "udp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ports, err = t.Env.Ports()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
 
 	// Check that we can close ports that aren't there.
 	err = t.Env.ClosePorts([]network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {2000, 2500, "tcp"}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	ports, err = t.Env.Ports()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
 
 	// Check errors when acting on instances.
@@ -394,7 +394,7 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	env := t.Env
 	t.Destroy(c)
 	err = env.Destroy() // Again, should work fine and do nothing.
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
@@ -412,38 +412,38 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 
 	env, err := st.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	owner := env.Owner()
 
 	c.Logf("opening API connection")
 	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
 	cfg, err := st.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := cfg.AgentVersion()
-	c.Check(ok, gc.Equals, true)
+	c.Check(ok, jc.IsTrue)
 	c.Check(agentVersion, gc.Equals, version.Current.Number)
 
 	// Check that the constraints have been set in the environment.
 	cons, err := st.EnvironConstraints()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons.String(), gc.Equals, "mem=2048M")
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
 	m0, err := st.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	instId0, err := m0.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the API connection is working.
 	status, err := apiState.Client().Status(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 
 	mw0 := newMachineToolWaiter(m0)
@@ -460,27 +460,27 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	repoDir := c.MkDir()
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := jujutesting.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddService("dummy", owner.String(), sch, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(st, svc, 1, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	unit := units[0]
 
 	// Wait for the unit's machine and associated agent to come up
 	// and announce itself.
 	mid1, err := unit.AssignedMachineId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	m1, err := st.Machine(mid1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mw1 := newMachineToolWaiter(m1)
 	defer mw1.Stop()
 	waitAgentTools(c, mw1, mtools0.Version)
 
 	err = m1.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	instId1, err := m1.InstanceId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	uw := newUnitToolWaiter(unit)
 	defer uw.Stop()
 	utools := waitAgentTools(c, uw, expectedVersion)
@@ -503,7 +503,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// check that the PA removes it.
 	c.Logf("removing unit")
 	err = unit.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait until unit is dead
 	uwatch := unit.Watch()
@@ -517,7 +517,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 			c.Logf("unit has been removed")
 			break
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	for {
 		c.Logf("destroying machine")
@@ -531,7 +531,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		if errors.IsNotFound(err) {
 			break
 		}
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, t.Env, instId1)
@@ -628,7 +628,7 @@ func (w *toolsWaiter) NextTools(c *gc.C) (*coretools.Tools, error) {
 func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(tools.Version, gc.Equals, expect)
 	return tools
 }
@@ -638,7 +638,7 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	upgradeTools, err := sync.Upload(t.toolsStorage, "released", &newVersion.Number, newVersion.Series)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// sync.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
@@ -647,7 +647,7 @@ func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Bi
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Version, gc.Equals, newVersion)
 	err = statetesting.SetAgentVersion(st, newVersion.Number)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i, w := range waiters {
 		c.Logf("waiting for upgrade of %d: %v", i, w.tooler.String())
@@ -666,14 +666,14 @@ func (t *LiveTests) assertStartInstance(c *gc.C, m *state.Machine) {
 	// Wait for machine to get an instance id.
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		instId, err := m.InstanceId()
 		if err != nil {
 			c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 			continue
 		}
 		_, err = t.Env.Instances([]instance.Id{instId})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		return
 	}
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
@@ -705,7 +705,7 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 	}
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		gotId, err = m.InstanceId()
 		if err != nil {
 			c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
@@ -716,7 +716,7 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 		}
 		break
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotId, gc.Equals, wantId)
 }
 
@@ -727,7 +727,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
@@ -737,7 +737,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	})
 	if result != nil && result.Instance != nil {
 		err := t.Env.StopInstances(result.Instance.Id())
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*missing machine nonce")
@@ -760,26 +760,26 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"name":         "dummy storage",
 	}))
 	dummyenv, err := environs.Prepare(dummyCfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer dummyenv.Destroy()
 
 	t.Destroy(c)
 
 	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 	// Wait for machine agent to come up on the bootstrap
 	// machine and ensure it deployed the proper series.
 	m0, err := st.Machine("0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
 

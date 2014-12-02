@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -45,7 +46,7 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
-	s.ToolsFixture.DefaultBaseURL = "file://" + s.publicToolsDir
+	s.ToolsFixture.DefaultBaseURL = utils.MakeFileURL(s.publicToolsDir)
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origCurrentVersion = version.Current
@@ -61,7 +62,7 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 	final := map[string]interface{}{
-		"agent-metadata-url": "file://" + s.customToolsDir,
+		"agent-metadata-url": utils.MakeFileURL(s.customToolsDir),
 		"agent-stream":       "proposed",
 	}
 	for k, v := range attrs {
@@ -73,10 +74,10 @@ func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 	for _, dir := range []string{s.customToolsDir, s.publicToolsDir} {
 		files, err := ioutil.ReadDir(dir)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for _, f := range files {
 			err := os.RemoveAll(filepath.Join(dir, f.Name()))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }
@@ -93,9 +94,9 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.env = env
 	s.removeTools(c)
 }
@@ -195,7 +196,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.DEBUG, "no series specified when finding tools, looking for any"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for i := 0; i < 2*len(sources); i++ {
 		messages = append(messages,
 			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},
@@ -247,7 +248,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 		public := s.uploadPublic(c, test.public...)
 		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Series, test.seek.Arch)
 		if test.err == nil {
-			if !c.Check(err, gc.IsNil) {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 			c.Check(actual.Version, gc.Equals, test.seek)
@@ -291,7 +292,7 @@ func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	for _, series := range names {
 		list := fakeToolsList(series)
 		err := envtools.CheckToolsSeries(list, series)
-		c.Check(err, gc.IsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 }
 
@@ -299,7 +300,7 @@ func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.
 	series := "quantal"
 	list := fakeToolsList(series, series, series)
 	err := envtools.CheckToolsSeries(list, series)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {

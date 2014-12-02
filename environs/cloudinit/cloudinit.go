@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -86,7 +86,7 @@ type MachineConfig struct {
 	LogDir string
 
 	// Jobs holds what machine jobs to run.
-	Jobs []juju.MachineJob
+	Jobs []multiwatcher.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.

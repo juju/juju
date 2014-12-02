@@ -31,10 +31,10 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 func (s *stateSuite) TestProviderType(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	providerType, err := s.uniter.ProviderType()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerType, gc.DeepEquals, cfg.Type())
 }
 
@@ -52,30 +52,30 @@ func (s *stateSuite) TestAllMachinePortsV1(c *gc.C) {
 
 	// Verify no ports are opened yet on the machine or unit.
 	machinePorts, err := s.wordpressMachine.AllPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machinePorts, gc.HasLen, 0)
 	unitPorts, err := s.wordpressUnit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitPorts, gc.HasLen, 0)
 
 	// Add another wordpress unit on the same machine.
 	wordpressUnit1, err := s.wordpressService.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit1.AssignToMachine(s.wordpressMachine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
 	err = s.wordpressUnit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpressUnit.OpenPorts("udp", 10, 20)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit1.OpenPorts("tcp", 201, 250)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit1.OpenPorts("udp", 1, 8)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	portsMap, err := s.uniter.AllMachinePorts(s.wordpressMachine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portsMap, jc.DeepEquals, map[network.PortRange]params.RelationUnit{
 		network.PortRange{100, 200, "tcp"}: params.RelationUnit{Unit: s.wordpressUnit.Tag().String()},
 		network.PortRange{10, 20, "udp"}:   params.RelationUnit{Unit: s.wordpressUnit.Tag().String()},

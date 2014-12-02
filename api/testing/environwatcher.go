@@ -43,24 +43,24 @@ func NewEnvironWatcherTests(
 
 func (s *EnvironWatcherTests) TestEnvironConfig(c *gc.C) {
 	envConfig, err := s.state.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	conf, err := s.facade.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// If the facade doesn't have secrets, we need to replace the config
 	// values in our environment to compare against with the secrets replaced.
 	if !s.hasSecrets {
 		env, err := environs.New(envConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		secretAttrs, err := env.Provider().SecretAttrs(envConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		secrets := make(map[string]interface{})
 		for key := range secretAttrs {
 			secrets[key] = "not available"
 		}
 		envConfig, err = envConfig.Apply(secrets)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	c.Assert(conf, jc.DeepEquals, envConfig)
@@ -68,10 +68,10 @@ func (s *EnvironWatcherTests) TestEnvironConfig(c *gc.C) {
 
 func (s *EnvironWatcherTests) TestWatchForEnvironConfigChanges(c *gc.C) {
 	envConfig, err := s.state.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.facade.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.state, w)
 
@@ -81,24 +81,24 @@ func (s *EnvironWatcherTests) TestWatchForEnvironConfigChanges(c *gc.C) {
 	// Change the environment configuration by updating an existing attribute, check it's detected.
 	newAttrs := map[string]interface{}{"logging-config": "juju=ERROR"}
 	err = s.state.UpdateEnvironConfig(newAttrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the environment configuration by adding a new attribute, check it's detected.
 	newAttrs = map[string]interface{}{"foo": "bar"}
 	err = s.state.UpdateEnvironConfig(newAttrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change the environment configuration by removing an attribute, check it's detected.
 	err = s.state.UpdateEnvironConfig(map[string]interface{}{}, []string{"foo"}, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Change it back to the original config.
 	oldAttrs := map[string]interface{}{"logging-config": envConfig.AllAttrs()["logging-config"]}
 	err = s.state.UpdateEnvironConfig(oldAttrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)

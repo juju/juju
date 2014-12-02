@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/highavailability"
@@ -26,6 +25,7 @@ import (
 	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/version"
 )
 
@@ -128,6 +128,20 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 		return err
 	}
 	return serviceSetSettingsYAML(svc, p.Config)
+}
+
+// blockedOperationError determines what error to throw up.
+// If err is not nil, it is returned wrapped in Server Error.
+// If block is true, a "blocked operation" error is thrown up.
+// Otherwise, proceed as before
+func blockedOperationError(blocked bool, err error) error {
+	if err != nil {
+		return common.ServerError(err)
+	}
+	if blocked {
+		return common.ErrOperationBlocked
+	}
+	return nil
 }
 
 // ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
@@ -496,6 +510,10 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+		//no need to iterate over all units if the operation is blocked
+		return err
+	}
 	var errs []string
 	for _, name := range args.UnitNames {
 		unit, err := c.api.state.Unit(name)
@@ -519,6 +537,9 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 
 // ServiceDestroy destroys a given service.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
+	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -582,6 +603,9 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
+	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+		return err
+	}
 	eps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return err
@@ -690,7 +714,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func stateJobs(jobs []juju.MachineJob) ([]state.MachineJob, error) {
+func stateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
 		newJob, err := machineJobFromParams(job)
@@ -702,18 +726,18 @@ func stateJobs(jobs []juju.MachineJob) ([]state.MachineJob, error) {
 	return newJobs, nil
 }
 
-// machineJobFromParams returns the job corresponding to juju.MachineJob.
+// machineJobFromParams returns the job corresponding to multiwatcher.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job juju.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case juju.JobHostUnits:
+	case multiwatcher.JobHostUnits:
 		return state.JobHostUnits, nil
-	case juju.JobManageEnviron:
+	case multiwatcher.JobManageEnviron:
 		return state.JobManageEnviron, nil
-	case juju.JobManageNetworking:
+	case multiwatcher.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case juju.JobManageStateDeprecated:
+	case multiwatcher.JobManageStateDeprecated:
 		// Deprecated in 1.18.
 		return state.JobManageStateDeprecated, nil
 	default:
@@ -764,13 +788,33 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 		case machine.Life() != state.Alive:
 			continue
 		default:
-			err = machine.Destroy()
+			{
+				if err = blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+					// no need to iterate over all machines, if the operation is blocked
+					return err
+				}
+				err = machine.Destroy()
+			}
 		}
 		if err != nil {
 			errs = append(errs, err.Error())
 		}
 	}
 	return destroyErr("machines", args.MachineNames, errs)
+}
+
+// isRemoveObjectBlocked determines whether remove object
+// operation should proceed, where object is any juju artifact
+//  such as machine, service, unit or relation.
+// We examine whether prevent-remove-object set to true.
+// If the command must be blocked, an error is thrown up,
+// effectively blocking remove operation.
+func (c *Client) isRemoveObjectBlocked() (bool, error) {
+	cfg, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return true, err
+	}
+	return cfg.PreventRemoveObject(), nil
 }
 
 // CharmInfo returns information about the requested charm.

@@ -49,13 +49,13 @@ func (s *RevisionUpdateSuite) SetUpTest(c *gc.C) {
 	s.CharmSuite.SetUpTest(c)
 
 	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 }

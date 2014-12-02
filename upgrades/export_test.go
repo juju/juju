@@ -31,4 +31,8 @@ var (
 	MigrateCharmStorage        = migrateCharmStorage
 	MigrateCustomImageMetadata = migrateCustomImageMetadata
 	MigrateToolsStorage        = migrateToolsStorage
+
+	// 122 upgrade functions
+	EnsureSystemSSHKeyRedux               = ensureSystemSSHKeyRedux
+	UpdateAuthorizedKeysForSystemIdentity = updateAuthorizedKeysForSystemIdentity
 )

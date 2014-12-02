@@ -71,6 +71,15 @@ const (
 
 	// Only use numactl if user specifically requests it
 	DefaultNumaControlPolicy = false
+
+	// Only prevent destroy-environment from running
+	// if user specifically requests it. Otherwise, let it run.
+	DefaultPreventDestroyEnvironment = false
+
+	// Only prevent remove-object from running
+	// if user specifically requests it. Otherwise, let it run.
+	// Object here is a juju artifact - machine, service, unit or relation.
+	DefaultPreventRemoveObject = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -116,6 +125,15 @@ const (
 
 	// NumaControlPolicyKey stores the value for this setting
 	SetNumaControlPolicyKey = "set-numa-control-policy"
+
+	// BlockKeyPrefix is the prefix used for environment variables that block commands
+	BlockKeyPrefix = "block-"
+
+	// PreventDestroyEnvironmentKey stores the value for this setting
+	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
+
+	// PreventRemoveObjectKey stores the value for this setting
+	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
 
 	//
 	// Deprecated Settings Attributes
@@ -398,7 +416,10 @@ func (c *Config) fillInStringDefault(attr string) {
 // Ths ensures that older versions of Juju which require that deprecated
 // attribute values still be used will work as expected.
 func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interface{} {
-	processedAttrs := attrs
+	processedAttrs := make(map[string]interface{}, len(attrs))
+	for k, v := range attrs {
+		processedAttrs[k] = v
+	}
 	// The tools url has changed so ensure that both old and new values are in the config so that
 	// upgrades work. "agent-metadata-url" is the old attribute name.
 	if oldToolsURL, ok := attrs[ToolsMetadataURLKey]; ok && oldToolsURL.(string) != "" {
@@ -714,6 +735,26 @@ func (c *Config) NumaCtlPreference() bool {
 		return numa.(bool)
 	}
 	return DefaultNumaControlPolicy
+}
+
+// PreventDestroyEnvironment returns if destroy-environment
+// should be blocked from proceeding, thus preventing the operation.
+func (c *Config) PreventDestroyEnvironment() bool {
+	if attrValue, ok := c.defined[PreventDestroyEnvironmentKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventDestroyEnvironment
+}
+
+// PreventRemoveObject returns if remove-object
+// should be blocked from proceeding, thus preventing the operation.
+// Object in this context is a juju artifact: either a machine,
+// a service, a unit or a relation.
+func (c *Config) PreventRemoveObject() bool {
+	if attrValue, ok := c.defined[PreventRemoveObjectKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventRemoveObject
 }
 
 // RsyslogCACert returns the certificate of the CA that signed the
@@ -1096,6 +1137,8 @@ var fields = schema.Fields{
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
 	SetNumaControlPolicyKey:      schema.Bool(),
+	PreventDestroyEnvironmentKey: schema.Bool(),
+	PreventRemoveObjectKey:       schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1137,6 +1180,8 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
+	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1200,6 +1245,8 @@ func allDefaults() schema.Defaults {
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
+		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
+		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

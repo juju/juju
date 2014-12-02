@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/watcher"
@@ -107,10 +106,10 @@ func (d *Deployer) changed(unitName string) error {
 	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
-	var life juju.Life
+	var life params.Life
 	unit, err := d.st.Unit(unitTag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-		life = juju.Dead
+		life = params.Dead
 	} else if err != nil {
 		return err
 	} else {
@@ -119,7 +118,7 @@ func (d *Deployer) changed(unitName string) error {
 	// Deployed units must be removed if they're Dead, or if the deployer
 	// is no longer responsible for them.
 	if d.deployed.Contains(unitName) {
-		if life == juju.Dead {
+		if life == params.Dead {
 			if err := d.recall(unitName); err != nil {
 				return err
 			}
@@ -130,7 +129,7 @@ func (d *Deployer) changed(unitName string) error {
 	// yet deployed, we should remove it immediately rather than undergo the hassle
 	// of deploying a unit agent purely so it can set itself to Dead.
 	if !d.deployed.Contains(unitName) {
-		if life == juju.Alive {
+		if life == params.Alive {
 			return d.deploy(unit)
 		} else if unit != nil {
 			return d.remove(unit)
@@ -181,7 +180,7 @@ func (d *Deployer) remove(unit *apideployer.Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unitName) {
 		panic("must not remove a deployed unit")
-	} else if unit.Life() == juju.Alive {
+	} else if unit.Life() == params.Alive {
 		panic("must not remove an Alive unit")
 	}
 	logger.Infof("removing unit %q", unitName)

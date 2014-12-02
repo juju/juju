@@ -5,6 +5,7 @@ package keyupdater_test
 
 import (
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -38,21 +39,21 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	// Create machines to work with
 	var err error
 	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.unrelatedMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a state server
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
 	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsStateServer(c *gc.C) {
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
 }
 
@@ -67,15 +68,15 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.keyupdater.WatchAuthorisedKeys(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
 func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keys}, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envConfig.AuthorizedKeys(), gc.Equals, keys)
 }
 
@@ -88,7 +89,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 		},
 	}
 	results, err := s.keyupdater.WatchAuthorisedKeys(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
@@ -115,7 +116,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
 	// Not an error to request nothing, dumb, but not an error.
 	results, err := s.keyupdater.AuthorisedKeys(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
@@ -130,7 +131,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 		},
 	}
 	results, err := s.keyupdater.AuthorisedKeys(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{"key1", "key2"}},

@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -44,16 +45,16 @@ func (s *TerminationWorkerSuite) TestStartStop(c *gc.C) {
 	w := terminationworker.NewWorker()
 	w.Kill()
 	err := w.Wait()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *TerminationWorkerSuite) TestSignal(c *gc.C) {
 	w := terminationworker.NewWorker()
 	proc, err := os.FindProcess(os.Getpid())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer proc.Release()
 	err = proc.Signal(terminationworker.TerminationSignal)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = w.Wait()
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }

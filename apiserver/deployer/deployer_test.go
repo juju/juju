@@ -54,35 +54,35 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
 	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.principal0, err = s.service0.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal0.AssignToMachine(s.machine1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.principal1, err = s.service0.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.principal1.AssignToMachine(s.machine0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	relUnit0, err := rel.Unit(s.principal0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit0.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.subordinate0, err = s.State.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
@@ -101,7 +101,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.deployer = deployer
 }
 
@@ -123,7 +123,7 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.deployer.WatchUnits(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(result.Results[0].Changes)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -155,7 +155,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 		},
 	}
 	results, err := s.deployer.SetPasswords(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
@@ -165,19 +165,19 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 		},
 	})
 	err = s.principal0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	changed := s.principal0.PasswordValid("xxx-12345678901234567890")
-	c.Assert(changed, gc.Equals, true)
+	c.Assert(changed, jc.IsTrue)
 	err = s.subordinate0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	changed = s.subordinate0.PasswordValid("zzz-12345678901234567890")
-	c.Assert(changed, gc.Equals, true)
+	c.Assert(changed, jc.IsTrue)
 
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -186,7 +186,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{apiservertesting.ErrUnauthorized},
@@ -196,12 +196,12 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 
 func (s *deployerSuite) TestLife(c *gc.C) {
 	err := s.subordinate0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Dead)
 	err = s.principal0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -211,7 +211,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 		{Tag: "unit-fake-42"},
 	}}
 	result, err := s.deployer.Life(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "alive"},
@@ -223,9 +223,9 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -234,7 +234,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 			{Tag: "unit-logging-0"},
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.ErrUnauthorized},
@@ -254,7 +254,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 		{Tag: "unit-fake-42"},
 	}}
 	result, err := s.deployer.Remove(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
@@ -265,24 +265,24 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	})
 
 	err = s.principal0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.principal0.Life(), gc.Equals, state.Alive)
 	err = s.subordinate0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Alive)
 
 	// Now make the subordinate dead and try again.
 	err = s.subordinate0.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Dead)
 
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "unit-logging-0"}},
 	}
 	result, err = s.deployer.Remove(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	})
@@ -292,7 +292,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 
 	// Make sure the subordinate is detected as removed.
 	result, err = s.deployer.Remove(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{apiservertesting.ErrUnauthorized}},
 	})
@@ -300,13 +300,13 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 	err := s.machine0.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	addresses, err := s.State.Addresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.deployer.StateAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: addresses,
 	})
@@ -319,10 +319,10 @@ func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	}}}
 
 	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.deployer.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
 	})

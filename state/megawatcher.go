@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -29,7 +28,7 @@ type backingMachine machineDoc
 func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.MachineInfo{
 		Id:                       m.Id,
-		Life:                     juju.Life(m.Life.String()),
+		Life:                     multiwatcher.Life(m.Life.String()),
 		Series:                   m.Series,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
 		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
@@ -45,7 +44,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interfa
 		if err != nil {
 			return err
 		}
-		info.Status = juju.Status(sdoc.Status)
+		info.Status = multiwatcher.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status and
@@ -104,7 +103,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 		if err != nil {
 			return err
 		}
-		info.Status = juju.Status(sdoc.Status)
+		info.Status = multiwatcher.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -161,7 +160,7 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
 		OwnerTag:    svc.fixOwnerTag(env),
-		Life:        juju.Life(svc.Life.String()),
+		Life:        multiwatcher.Life(svc.Life.String()),
 		MinUnits:    svc.MinUnits,
 		Subordinate: svc.Subordinate,
 	}
@@ -292,13 +291,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 		return nil
 	case *multiwatcher.UnitInfo:
 		newInfo := *info
-		newInfo.Status = juju.Status(s.Status)
+		newInfo.Status = multiwatcher.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		newInfo.Status = juju.Status(s.Status)
+		newInfo.Status = multiwatcher.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo

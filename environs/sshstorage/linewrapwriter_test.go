@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/sshstorage"
@@ -70,7 +71,7 @@ func (*wrapWriterSuite) TestLineWrapWriter(c *gc.C) {
 		c.Assert(w, gc.NotNil)
 		for _, input := range t.input {
 			n, err := w.Write([]byte(input))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(n, gc.Equals, len(input))
 		}
 		c.Assert(buf.String(), gc.Equals, t.expected)

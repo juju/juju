@@ -11,11 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -62,7 +62,7 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 			"SHARED_STORAGE_DIR":  sharedStorageDir,
 		},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.config = initialConfig
 	c.Assert(s.config.Write(), gc.IsNil)
 
@@ -77,12 +77,12 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 		"root-dir": rootDir,
 	})
 	err = s.State.UpdateEnvironConfig(newCfg, nil, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := envConfig.AllAttrs()
 
 	namespace, _ := allAttrs["namespace"].(string)
@@ -96,13 +96,13 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	expectedLogDir := filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
-	expectedJobs := []juju.MachineJob{juju.JobManageEnviron}
+	expectedJobs := []multiwatcher.MachineJob{multiwatcher.JobManageEnviron}
 	tag := s.ctx.AgentConfig().Tag()
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(expectedDataDir, tag)
 	agentConfig, err := agent.ReadConfig(configFilePath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(agentConfig.DataDir(), gc.Equals, expectedDataDir)
 	c.Assert(agentConfig.LogDir(), gc.Equals, expectedLogDir)
@@ -117,7 +117,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 
 func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := envConfig.AllAttrs()
 
 	namespace, _ := allAttrs["namespace"].(string)
@@ -128,13 +128,13 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	rootDir, _ := allAttrs["root-dir"].(string)
 	expectedSharedStorageDir := filepath.Join(rootDir, "shared-storage")
 	_, err = os.Lstat(expectedSharedStorageDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	tag := s.ctx.AgentConfig().Tag()
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(agent.DefaultDataDir, tag)
 	agentConfig, err := agent.ReadConfig(configFilePath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultDataDir)
 	c.Assert(agentConfig.LogDir(), gc.Equals, agent.DefaultLogDir)
@@ -148,9 +148,9 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {
 	s.primeConfig(c, s.State, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
 }
 
@@ -158,32 +158,32 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateNonLocalEnvNotDone(c *
 	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return false })
 	s.primeConfig(c, s.State, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigNotProcessed(c)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateWithoutStateConnectionNotDone(c *gc.C) {
 	s.primeConfig(c, nil, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigNotProcessed(c)
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestIdempotent(c *gc.C) {
 	s.primeConfig(c, s.State, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
 
 	err = upgrades.MigrateLocalProviderAgentConfig(s.ctx)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.config.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
 }

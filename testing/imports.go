@@ -5,6 +5,7 @@ package testing
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -15,6 +16,6 @@ const jujuPkgPrefix = "github.com/juju/juju/"
 // common prefix "github.com/juju/juju/" leaving just the short names.
 func FindJujuCoreImports(c *gc.C, packageName string) []string {
 	imps, err := testing.FindImports(packageName, jujuPkgPrefix)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return imps
 }

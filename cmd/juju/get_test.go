@@ -7,6 +7,7 @@ import (
 	"bytes"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	goyaml "gopkg.in/yaml.v1"
@@ -65,7 +66,7 @@ func (s *GetSuite) TestGetConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", sch)
 	err := svc.UpdateConfigSettings(charm.Settings{"title": "Nearly There"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
 		code := cmd.Main(envcmd.Wrap(&GetCommand{}), ctx, []string{t.service})
@@ -75,14 +76,14 @@ func (s *GetSuite) TestGetConfig(c *gc.C) {
 		// map[interface{}]interface{} vs map[string]interface{}. This is
 		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		expected := make(map[string]interface{})
 		err = goyaml.Unmarshal(buf, &expected)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actual, gc.DeepEquals, expected)
 	}
 }

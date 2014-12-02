@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/parallel"
 	gc "gopkg.in/check.v1"
 
@@ -36,10 +37,10 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
 	server, err := net.Dial("tcp", serverAddr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer server.Close()
 	listener, err := net.Listen("tcp", "localhost:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 	go func() {
 		for {
@@ -57,13 +58,13 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	// listenAddress contains the actual IP address, but APIHostPorts
 	// is going to report localhost, so just find the port
 	_, port, err := net.SplitHostPort(listenerAddress)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	portNum, err := strconv.Atoi(port)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
 	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
 	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	c.Assert(st.Addr(), gc.Equals, expectedHostPort)
 }
@@ -73,10 +74,10 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	info := s.APIInfo(c)
 	serverAddr := info.Addrs[0]
 	server, err := net.Dial("tcp", serverAddr)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer server.Close()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 	go func() {
 		for {
@@ -93,7 +94,7 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	proxyAddr := listener.Addr().String()
 	info.Addrs = []string{proxyAddr}
 	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	c.Assert(st.Addr(), gc.Equals, proxyAddr)
 
@@ -102,14 +103,14 @@ func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	info.Addrs = []string{proxyAddr, serverAddr}
 	listener.Close()
 	st, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	c.Assert(st.Addr(), gc.Equals, serverAddr)
 }
 
 func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer listener.Close()
 	go func() {
 		for {
@@ -130,7 +131,7 @@ func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	info := s.APIInfo(c)
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// TODO(jam): 2014-06-05 http://pad.lv/1326802
 	// we want to test this eventually, but for now s.APIInfo uses
 	// conn.StateInfo() which doesn't know about EnvironTag.
@@ -144,13 +145,13 @@ func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	// Now set it to the right tag, and we should succeed.
 	info.EnvironTag = env.EnvironTag()
 	st, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 	// Backwards compatibility, we should succeed if we do not set an
 	// environ tag
 	info.EnvironTag = names.NewEnvironTag("")
 	st, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 }
 
@@ -165,14 +166,14 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 
 func (*websocketSuite) TestSetUpWebsocketConfig(c *gc.C) {
 	conf, err := api.SetUpWebsocket("0.1.2.3:1234", "", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/")
 	c.Check(conf.Origin.String(), gc.Equals, "http://localhost/")
 }
 
 func (*websocketSuite) TestSetUpWebsocketConfigHandlesEnvironUUID(c *gc.C) {
 	conf, err := api.SetUpWebsocket("0.1.2.3:1234", "dead-beef-1234", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/environment/dead-beef-1234/api")
 	c.Check(conf.Origin.String(), gc.Equals, "http://localhost/")
 }

@@ -6,9 +6,9 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -71,16 +71,16 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	s := common.NewStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{"unit-x-0", juju.StatusStarted, "bar", nil},
-			{"unit-x-1", juju.StatusStopped, "", nil},
-			{"unit-x-2", juju.StatusPending, "not really", nil},
-			{"unit-x-3", juju.StatusStopped, "", nil},
-			{"unit-x-4", juju.StatusError, "blarg", nil},
-			{"unit-x-5", juju.StatusStarted, "42", nil},
+			{"unit-x-0", params.StatusStarted, "bar", nil},
+			{"unit-x-1", params.StatusStopped, "", nil},
+			{"unit-x-2", params.StatusPending, "not really", nil},
+			{"unit-x-3", params.StatusStopped, "", nil},
+			{"unit-x-4", params.StatusError, "blarg", nil},
+			{"unit-x-5", params.StatusStarted, "42", nil},
 		},
 	}
 	result, err := s.SetStatus(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},
@@ -118,7 +118,7 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 	}
 	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	result, err := s.SetStatus(params.SetStatus{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }
 
@@ -156,7 +156,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 		},
 	}
 	result, err := s.UpdateStatus(args)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 fails"}},

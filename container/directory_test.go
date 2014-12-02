@@ -32,29 +32,29 @@ func (s *DirectorySuite) SetUpTest(c *gc.C) {
 
 func (*DirectorySuite) TestNewContainerDir(c *gc.C) {
 	dir, err := container.NewDirectory("testing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir, jc.IsDirectory)
 }
 
 func (s *DirectorySuite) TestRemoveContainerDir(c *gc.C) {
 	dir, err := container.NewDirectory("testing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = container.RemoveDirectory("testing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Join(s.removedDir, "testing"), jc.IsDirectory)
 }
 
 func (s *DirectorySuite) TestRemoveContainerDirWithClash(c *gc.C) {
 	dir, err := container.NewDirectory("testing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	clash := filepath.Join(s.removedDir, "testing")
 	err = os.MkdirAll(clash, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = container.RemoveDirectory("testing")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir, jc.DoesNotExist)
 	c.Assert(filepath.Join(s.removedDir, "testing.1"), jc.IsDirectory)
 }

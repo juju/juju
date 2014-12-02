@@ -136,6 +136,16 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"version"},
 		code:    0,
 		out:     version.Current.String() + "\n",
+	}, {
+		summary: "check block command registered properly",
+		args:    []string{"block"},
+		code:    0,
+		out:     "error: must specify one of [destroy-environment | remove-object] to block\n",
+	}, {
+		summary: "check unblock command registered properly",
+		args:    []string{"unblock"},
+		code:    0,
+		out:     "error: must specify one of [destroy-environment | remove-object] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -155,10 +165,10 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 		c.Logf("test %d: %v", i, test)
 		badrun(c, 0, test...)
 		content, err := ioutil.ReadFile(logpath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
 		err = os.Remove(logpath)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -171,6 +181,7 @@ var commandNames = []string{
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"backups",
+	"block",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
@@ -210,6 +221,7 @@ var commandNames = []string{
 	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
+	"unblock",
 	"unexpose",
 	"unset",
 	"unset-env", // alias for unset-environment

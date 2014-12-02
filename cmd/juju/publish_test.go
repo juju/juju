@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -32,7 +33,7 @@ var _ = gc.Suite(&PublishSuite{})
 
 func touch(c *gc.C, filename string) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	f.Close()
 }
 
@@ -41,14 +42,14 @@ func addMeta(c *gc.C, branch *bzr.Branch, meta string) {
 		meta = "name: wordpress\nsummary: Some summary\ndescription: Some description.\n"
 	}
 	f, err := os.Create(branch.Join("metadata.yaml"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = f.Write([]byte(meta))
 	f.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = branch.Add("metadata.yaml")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = branch.Commit("Added metadata.yaml.")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *PublishSuite) runPublish(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -83,7 +84,7 @@ func (s *PublishSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	s.branch = bzr.New(s.dir)
 	err := s.branch.Init()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *PublishSuite) TearDownTest(c *gc.C) {
@@ -127,7 +128,7 @@ func (s *PublishSuite) TestNoPushLocation(c *gc.C) {
 func (s *PublishSuite) TestUnknownPushLocation(c *gc.C) {
 	addMeta(c, s.branch, "")
 	err := s.branch.Push(&bzr.PushAttr{Location: c.MkDir() + "/foo", Remember: true})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runPublish(c)
 	c.Assert(err, gc.ErrorMatches, `cannot infer charm URL from branch location: ".*/foo"`)
 }
@@ -149,7 +150,7 @@ func (s *PublishSuite) TestInferURL(c *gc.C) {
 	})
 
 	_, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"precise/wordpress"}, s.dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Fatal("shouldn't get here; location closure didn't run?")
 }
 
@@ -170,12 +171,12 @@ func (s *PublishSuite) TestPreExistingPublished(c *gc.C) {
 
 	// Pretend the store has seen the digest before, and it has succeeded.
 	digest, err := s.branch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	body := `{"cs:precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := s.runPublish(c, "cs:precise/wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:precise/wordpress-42\n")
 
 	req := gitjujutesting.Server.WaitRequest()
@@ -191,7 +192,7 @@ func (s *PublishSuite) TestPreExistingPublishedEdge(c *gc.C) {
 	// on the second request the tip has changed and matches the digest we're
 	// looking for, in which case we have the answer already.
 	digest, err := s.branch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var body string
 	body = `{"cs:precise/wordpress": {"errors": ["entry not found"]}}`
 	gitjujutesting.Server.Response(200, nil, []byte(body))
@@ -199,7 +200,7 @@ func (s *PublishSuite) TestPreExistingPublishedEdge(c *gc.C) {
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := s.runPublish(c, "cs:precise/wordpress")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:precise/wordpress-42\n")
 
 	req := gitjujutesting.Server.WaitRequest()
@@ -216,7 +217,7 @@ func (s *PublishSuite) TestPreExistingPublishError(c *gc.C) {
 
 	// Pretend the store has seen the digest before, and it has failed.
 	digest, err := s.branch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	body := `{"cs:precise/wordpress": {"kind": "publish-error", "digest": %q, "errors": ["an error"]}}`
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
@@ -232,11 +233,11 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 	addMeta(c, s.branch, "")
 
 	digest, err := s.branch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	pushBranch := bzr.New(c.MkDir())
 	err = pushBranch.Init()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := &PublishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
@@ -264,12 +265,12 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:~user/precise/wordpress-42\n")
 
 	// Ensure the branch was actually pushed.
 	pushDigest, err := pushBranch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pushDigest, gc.Equals, digest)
 
 	// And that all the requests were sent with the proper data.
@@ -290,11 +291,11 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 	addMeta(c, s.branch, "")
 
 	digest, err := s.branch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	pushBranch := bzr.New(c.MkDir())
 	err = pushBranch.Init()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := &PublishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
@@ -320,12 +321,12 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:~user/precise/wordpress-42\n")
 
 	// Ensure the branch was actually pushed.
 	pushDigest, err := pushBranch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pushDigest, gc.Equals, digest)
 
 	// And that all the requests were sent with the proper data.
@@ -346,11 +347,11 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 	addMeta(c, s.branch, "")
 
 	digest, err := s.branch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	pushBranch := bzr.New(c.MkDir())
 	err = pushBranch.Init()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := &PublishCommand{}
 	cmd.ChangePushLocation(func(location string) string {
@@ -380,7 +381,7 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 
 	// Ensure the branch was actually pushed.
 	pushDigest, err := pushBranch.RevisionId()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pushDigest, gc.Equals, digest)
 
 	// And that all the requests were sent with the proper data.

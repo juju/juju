@@ -24,7 +24,7 @@ func (a *API) List(args params.BackupsListArgs) (params.BackupsListResult, error
 	result.List = make([]params.BackupsMetadataResult, len(metaList))
 	for i, meta := range metaList {
 		var resultItem params.BackupsMetadataResult
-		resultItem.UpdateFromMetadata(&meta)
+		resultItem.UpdateFromMetadata(meta)
 		result.List[i] = resultItem
 	}
 

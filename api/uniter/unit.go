@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -20,7 +19,7 @@ import (
 type Unit struct {
 	st   *State
 	tag  names.UnitTag
-	life juju.Life
+	life params.Life
 }
 
 // Tag returns the unit's tag.
@@ -39,7 +38,7 @@ func (u *Unit) String() string {
 }
 
 // Life returns the unit's lifecycle value.
-func (u *Unit) Life() juju.Life {
+func (u *Unit) Life() params.Life {
 	return u.life
 }
 
@@ -54,7 +53,7 @@ func (u *Unit) Refresh() error {
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status juju.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
@@ -517,15 +516,15 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
-// WatchActions returns a StringsWatcher for observing the ids of Actions
-// added to the Unit.  The initial event will contain the ids of any Actions
-// pending at the time the Watcher is made.
-func (u *Unit) WatchActions() (watcher.StringsWatcher, error) {
+// WatchActionNotifications returns a StringsWatcher for observing the
+// ids of Actions added to the Unit. The initial event will contain the
+// ids of any Actions pending at the time the Watcher is made.
+func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("WatchActions", args, &results)
+	err := u.st.facade.FacadeCall("WatchActionNotifications", args, &results)
 	if err != nil {
 		return nil, err
 	}

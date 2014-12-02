@@ -46,7 +46,7 @@ func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.owner = names.NewLocalUserTag("upgrade-admin")
 	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) TearDownTest(c *gc.C) {
@@ -83,12 +83,12 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 		},
 	}
 	err := s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = MigrateUserLastConnectionToLastLogin(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	user, err := s.state.User(names.NewLocalUserTag(userId))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*user.LastLogin(), gc.Equals, now)
 
 	// check to see if _id_ field is removed
@@ -96,51 +96,51 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	users, closer := s.state.getCollection("users")
 	defer closer()
 	err = users.Find(bson.D{{"_id", userId}}).One(&userMap)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bobTag := stateBob.UserTag()
 
 	_, err = s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.ErrorMatches, `environment user "bob@local" not found`)
 
 	err = AddStateUsersAsEnvironUsers(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	admin, err := s.state.EnvironmentUser(s.owner)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
 	bob, err := s.state.EnvironmentUser(bobTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bobTag := stateBob.UserTag()
 
 	err = AddStateUsersAsEnvironUsers(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = AddStateUsersAsEnvironUsers(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	admin, err := s.state.EnvironmentUser(s.owner)
 	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
 	bob, err := s.state.EnvironmentUser(bobTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	info, err := s.state.StateServerInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	tag := info.EnvironmentTag
 
 	// force remove the uuid.
@@ -153,34 +153,34 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 		}}},
 	}}
 	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
 	stateServers, closer := s.state.getCollection(stateServersC)
 	defer closer()
 	var doc stateServersDoc
 	err = stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doc.EnvUUID, gc.Equals, "")
 
 	// Run the upgrade step
 	err = AddEnvironmentUUIDToStateServerDoc(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it is there now
 	info, err = s.state.StateServerInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.EnvironmentTag, gc.Equals, tag)
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C) {
 	info, err := s.state.StateServerInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	tag := info.EnvironmentTag
 
 	err = AddEnvironmentUUIDToStateServerDoc(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info, err = s.state.StateServerInfo()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.EnvironmentTag, gc.Equals, tag)
 }
 
@@ -192,20 +192,20 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 
 	bundleSHA256 := "dummy-1-sha256"
 	dummyCharm, err := s.state.AddCharm(ch, curl, "", bundleSHA256)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	SetCharmBundleURL(c, s.state, curl, "http://anywhere.com")
 	dummyCharm, err = s.state.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummyCharm.BundleURL(), gc.NotNil)
 	c.Assert(dummyCharm.BundleURL().String(), gc.Equals, "http://anywhere.com")
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
 
 	storagePaths := map[*charm.URL]string{curl: "/some/where"}
 	err = AddCharmStoragePaths(s.state, storagePaths)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	dummyCharm, err = s.state.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummyCharm.BundleURL(), gc.IsNil)
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
 }
@@ -790,15 +790,40 @@ func (s *upgradesSuite) TestAddEnvUUIDToRelationScopes(c *gc.C) {
 	var newDoc relationScopeDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
 	c.Assert(newDoc.Key, gc.Equals, "r#0#peer#foo/0")
-	c.Assert(newDoc.Departing, gc.Equals, false)
+	c.Assert(newDoc.Departing, jc.IsFalse)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)
 	c.Assert(newDoc.Key, gc.Equals, "r#1#provider#bar/0")
-	c.Assert(newDoc.Departing, gc.Equals, true)
+	c.Assert(newDoc.Departing, jc.IsTrue)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatus(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMeterStatus, meterStatusC,
+		bson.M{
+			"_id":  "u#foo/0",
+			"code": MeterGreen,
+		},
+		bson.M{
+			"_id":  "u#bar/0",
+			"code": MeterRed,
+		},
+	)
+	defer closer()
+
+	var newDoc meterStatusDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterGreen)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Code, gc.Equals, MeterRed)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMeterStatusIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMeterStatus, meterStatusC)
 }
 
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
@@ -825,7 +850,7 @@ func (s *upgradesSuite) checkEnvUUID(
 	}
 
 	err := upgradeStep(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// For each old document check that _id has been migrated and that
 	// env-uuid has been added correctly.
@@ -842,13 +867,13 @@ func (s *upgradesSuite) checkEnvUUID(
 		}
 
 		err = coll.FindId(id).One(&d)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(d["env-uuid"], gc.Equals, envTag)
 
 		ids = append(ids, id)
 	}
 	count, err := coll.Find(nil).Count()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return coll, closer, ids, count
 }
 
@@ -872,15 +897,15 @@ func (s *upgradesSuite) checkEnvUUIDIdempotent(
 	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
 
 	err := upgradeStep(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = upgradeStep(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	coll, closer := s.state.getCollection(collName)
 	defer closer()
 	err = coll.Find(nil).All(&docs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return docs
 }
 
@@ -892,12 +917,12 @@ func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M)
 		Insert: legacyDoc,
 	}}
 	err := s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, doc interface{}) {
 	err := coll.FindId(id).One(doc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
@@ -908,7 +933,7 @@ func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
 
 	bundleSHA256 := "dummy-1-sha256"
 	dummyCharm, err := s.state.AddCharm(ch, curl, "", bundleSHA256)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	curl2 := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()+1),
@@ -922,13 +947,13 @@ func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
 
 	// The charm entry for "curl" should not have been touched.
 	dummyCharm, err = s.state.Charm(curl)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
 }
 
 func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 	env, err := s.state.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// force remove the server-uuid and owner
 	ops := []txn.Op{{
@@ -940,23 +965,23 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 		}}},
 	}}
 	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
 	environments, closer := s.state.getCollection(environmentsC)
 	defer closer()
 
 	var envDoc environmentDoc
 	err = environments.FindId(env.UUID()).One(&envDoc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(envDoc.ServerUUID, gc.Equals, "")
 	c.Assert(envDoc.Owner, gc.Equals, "")
 
 	// Run the upgrade step
 	err = SetOwnerAndServerUUIDForEnvironment(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it is there now
 	env, err = s.state.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
 	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }
@@ -964,13 +989,13 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironmentIdempotent(c *gc.C) {
 	// Run the upgrade step
 	err := SetOwnerAndServerUUIDForEnvironment(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Run the upgrade step gagain
 	err = SetOwnerAndServerUUIDForEnvironment(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Check as expected
 	env, err := s.state.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
 	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }
@@ -984,7 +1009,7 @@ func openLegacyPort(c *gc.C, unit *Unit, number int, proto string) {
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
 	err := unit.st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func openLegacyRange(c *gc.C, unit *Unit, from, to int, proto string) {
@@ -1017,7 +1042,7 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 	}...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Add the charm, services and units, assign to machines.
 	services := make([]*Service, 3)
@@ -1025,10 +1050,10 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	networks := []string{network.DefaultPublic}
 	charm := AddTestingCharm(c, s.state, "wordpress")
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
 	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i := range services {
 		name := fmt.Sprintf("wp%d", i)
@@ -1039,18 +1064,18 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 		units[i] = make([]*Unit, numUnits)
 		for j := 0; j < numUnits; j++ {
 			unit, err := services[i].AddUnit()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			switch {
 			case j == 0:
 				// The first unit of each service goes to a machine
 				// with the same index as the service.
 				err = unit.AssignToMachine(machines[i])
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			case j == 1 && i >= 1:
 				// Co-locate the second unit of each service. Leave
 				// units[2][2] unassigned.
 				err = unit.AssignToMachine(machines[i-1])
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			}
 			units[i][j] = unit
 		}
@@ -1084,13 +1109,13 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	// - 100-110/tcp (simulate a pre-existing range for units[2][1],
 	//   without opening the ports on the unit itself)
 	portRange, err := NewPortRange(units[2][1].Name(), 100, 110, "tcp")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	portsMachine2, err := GetOrCreatePorts(
 		s.state, machines[2].Id(), network.DefaultPublic,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = portsMachine2.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	//
 	// units[0][0] (on machines[0]):
 	// - no ports opened
@@ -1192,7 +1217,7 @@ func (s *upgradesSuite) assertInitialMachinePorts(c *gc.C, machines []*Machine, 
 			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 			c.Assert(ports, gc.IsNil)
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			allRanges := ports.AllPortRanges()
 			c.Assert(allRanges, jc.DeepEquals, map[network.PortRange]string{
 				s.newRange(100, 110, "tcp"): units[2][1].Name(),
@@ -1205,7 +1230,7 @@ func (s *upgradesSuite) assertUnitPortsPostMigration(c *gc.C, units map[int][]*U
 	for _, serviceUnits := range units {
 		for _, unit := range serviceUnits {
 			err := unit.Refresh()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			if unit.Name() == units[2][2].Name() {
 				// Only units[2][2] will have ports on its doc, as
 				// it's not assigned to a machine.
@@ -1223,7 +1248,7 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 	for i := range machines {
 		c.Assert(machines[i].Refresh(), gc.IsNil)
 		allMachinePorts, err := machines[i].AllPorts()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		for _, ports := range allMachinePorts {
 			allPortRanges := ports.AllPortRanges()
 			switch i {
@@ -1292,7 +1317,7 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 	s.assertInitialMachinePorts(c, machines, units)
 
 	err := MigrateUnitPortsToOpenedPorts(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there are no ports on the migrated units' documents,
 	// except for units[2][2].
@@ -1310,7 +1335,7 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	s.assertInitialMachinePorts(c, machines, units)
 
 	err := MigrateUnitPortsToOpenedPorts(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure there are no ports on the migrated units' documents,
 	// except for units[2][2].
@@ -1321,7 +1346,7 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 
 	// Migrate and check again, should work fine.
 	err = MigrateUnitPortsToOpenedPorts(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitPortsPostMigration(c, units)
 	s.assertFinalMachinePorts(c, machines, units)
 }
@@ -1332,17 +1357,17 @@ func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
 	units := make([]*Unit, 9)
 	charm := AddTestingCharm(c, s.state, "wordpress")
 	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ownerTag := stateOwner.UserTag()
 	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	for i := 0; i < 3; i++ {
 		svc := AddTestingService(c, s.state, fmt.Sprintf("service%d", i), charm, ownerTag)
 
 		for j := 0; j < 3; j++ {
 			name, err := svc.newUnitName()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			docID := s.state.docID(name)
 			udoc := &unitDoc{
 				DocID:     docID,
@@ -1367,9 +1392,9 @@ func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
 					Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 				}}
 			err = s.state.runTransaction(ops)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			units[i*3+j], err = s.state.Unit(name)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 	return units
@@ -1386,22 +1411,22 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 
 	// run meter status upgrade
 	err := CreateUnitMeterStatus(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// assert the units do not have meter status documents
 	for _, unit := range units {
 		code, info, err := unit.GetMeterStatus()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(code, gc.Equals, "NOT SET")
 		c.Assert(info, gc.Equals, "")
 	}
 
 	// run migration again to make sure it's idempotent
 	err = CreateUnitMeterStatus(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		code, info, err := unit.GetMeterStatus()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(code, gc.Equals, "NOT SET")
 		c.Assert(info, gc.Equals, "")
 	}
@@ -1413,7 +1438,7 @@ func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceData(c *gc.C) {
 	s.instanceIdSetUp(c, machineID, instID)
 
 	err := MigrateMachineInstanceIdToInstanceData(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.instanceIdAssertMigration(c, machineID, instID)
 }
@@ -1424,10 +1449,10 @@ func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceDataIdempotent(c *
 	s.instanceIdSetUp(c, machineID, instID)
 
 	err := MigrateMachineInstanceIdToInstanceData(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = MigrateMachineInstanceIdToInstanceData(s.state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.instanceIdAssertMigration(c, machineID, instID)
 }
@@ -1455,7 +1480,7 @@ func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instan
 		},
 	}
 	err := s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, instID instance.Id) {
@@ -1464,7 +1489,7 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 	insts, closer := s.state.getCollection(instanceDataC)
 	defer closer()
 	err := insts.FindId(machineID).One(&instanceMap)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceMap["instanceid"], gc.Equals, string(instID))
 
 	// check to see if instanceid field is removed
@@ -1472,7 +1497,7 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 	machines, closer := s.state.getCollection(machinesC)
 	defer closer()
 	err = machines.FindId(machineID).One(&machineMap)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := machineMap["instanceid"]
 	c.Assert(keyExists, jc.IsFalse)
 }
@@ -1481,17 +1506,17 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 func (s *upgradesSuite) setUpJobManageNetworking(c *gc.C, provider string, manual bool) {
 	// Set provider type.
 	settings, err := readSettings(s.state, environGlobalKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	settings.Set("type", provider)
 	_, err = settings.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Add machines.
 	machines, err := s.state.AddMachines([]MachineTemplate{
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 		{Series: "quantal", Jobs: []MachineJob{JobHostUnits}},
 	}...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ops := []txn.Op{}
 	if manual {
 		mdoc := machines[2].doc
@@ -1503,14 +1528,14 @@ func (s *upgradesSuite) setUpJobManageNetworking(c *gc.C, provider string, manua
 	}
 	// Run transaction.
 	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // checkJobManageNetworking tests if the machine withe the given id has the
 // JobManageNetworking if hasJob shows that it should.
 func (s *upgradesSuite) checkJobManageNetworking(c *gc.C, id string, hasJob bool) {
 	machine, err := s.state.Machine(id)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	jobs := machine.Jobs()
 	foundJob := false
 	for _, job := range jobs {
@@ -1526,14 +1551,14 @@ func (s *upgradesSuite) checkJobManageNetworking(c *gc.C, id string, hasJob bool
 func (s *upgradesSuite) tearDownJobManageNetworking(c *gc.C) {
 	// Remove machines.
 	machines, err := s.state.AllMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, machine := range machines {
 		err = machine.ForceDestroy()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = machine.EnsureDead()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = machine.Remove()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Reset machine sequence.
 	query := s.state.db.C(sequenceC).FindId(s.state.docID("machine"))
@@ -1543,7 +1568,7 @@ func (s *upgradesSuite) tearDownJobManageNetworking(c *gc.C) {
 	}
 	result := &sequenceDoc{}
 	_, err = query.Apply(set, result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
@@ -1618,7 +1643,7 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 		s.setUpJobManageNetworking(c, test.provider, test.manual)
 
 		err := MigrateJobManageNetworking(s.state)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		s.checkJobManageNetworking(c, "0", test.hasJob[0])
 		s.checkJobManageNetworking(c, "1", test.hasJob[1])

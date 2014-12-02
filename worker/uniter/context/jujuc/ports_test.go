@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
@@ -71,7 +72,7 @@ func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, cmdString(t.cmd[0]))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, gc.Equals, 0)
@@ -105,7 +106,7 @@ func (s *PortsSuite) TestBadArgs(c *gc.C) {
 		for _, t := range badPortsTests {
 			hctx := s.GetHookContext(c, -1, "")
 			com, err := jujuc.NewCommand(hctx, cmdString(name))
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = testing.InitCommand(com, t.args)
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -115,7 +116,7 @@ func (s *PortsSuite) TestBadArgs(c *gc.C) {
 func (s *PortsSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	open, err := jujuc.NewCommand(hctx, cmdString("open-port"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	flags := testing.NewFlagSet()
 	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
 usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
@@ -125,7 +126,7 @@ The port range will only be open while the service is exposed.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
 usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
 purpose: ensure a port or range is always closed
@@ -146,7 +147,7 @@ func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 	for _, t := range portsFormatDeprectaionTests {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, cmdString(name))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
 		c.Assert(code, gc.Equals, 0)

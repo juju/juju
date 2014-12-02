@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 const (
@@ -677,13 +677,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (*envi
 	vhd := env.newOSDisk(sourceImageName)
 	// If we're creating machine-0, we'll want to expose port 22.
 	// All other machines get an auto-generated public port for SSH.
-	stateServer := false
-	for _, job := range args.MachineConfig.Jobs {
-		if job == juju.JobManageEnviron {
-			stateServer = true
-			break
-		}
-	}
+	stateServer := multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...)
 	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {
@@ -1001,12 +995,18 @@ func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotImplementedf("AllocateAddress")
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (*azureEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("ReleaseAddress")
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the Azure provider yet.
-func (*azureEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*azureEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

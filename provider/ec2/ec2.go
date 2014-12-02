@@ -16,7 +16,6 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -714,7 +714,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	device, diskSize := getDiskSize(args.Constraints)
+	blockDeviceMappings, err := getBlockDeviceMappings(args.Constraints)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot create block device mappings")
+	}
+	rootDiskSize := uint64(blockDeviceMappings[0].VolumeSize) * 1024
+
 	for _, availZone := range availabilityZones {
 		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
 			AvailZone:           availZone,
@@ -724,7 +729,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 			UserData:            userData,
 			InstanceType:        spec.InstanceType.Name,
 			SecurityGroups:      groups,
-			BlockDeviceMappings: []ec2.BlockDeviceMapping{device},
+			BlockDeviceMappings: blockDeviceMappings,
 		})
 		if isZoneConstrainedError(err) {
 			logger.Infof("%q is constrained, trying another availability zone", availZone)
@@ -745,7 +750,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
-	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -756,7 +761,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Mem:      &spec.InstanceType.Mem,
 		CpuCores: &spec.InstanceType.CpuCores,
 		CpuPower: spec.InstanceType.CpuPower,
-		RootDisk: &diskSize,
+		RootDisk: &rootDiskSize,
 		// Tags currently not supported by EC2
 	}
 	return &environs.StartInstanceResult{
@@ -790,29 +795,54 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 // minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
 const minDiskSize uint64 = 8 * 1024
 
-// getDiskSize translates a RootDisk constraint (or lackthereof) into a
-// BlockDeviceMapping request for EC2.  megs is the size in megabytes of
-// the disk that was requested.
-func getDiskSize(cons constraints.Value) (dvc ec2.BlockDeviceMapping, megs uint64) {
-	diskSize := minDiskSize
-
+// getBlockDeviceMappings translates a StartInstanceParams into
+// BlockDeviceMappings.
+//
+// The first entry is always the root disk mapping, instance stores
+// (ephemeral disks) last.
+func getBlockDeviceMappings(cons constraints.Value) ([]ec2.BlockDeviceMapping, error) {
+	rootDiskSize := minDiskSize
 	if cons.RootDisk != nil {
 		if *cons.RootDisk >= minDiskSize {
-			diskSize = *cons.RootDisk
+			rootDiskSize = *cons.RootDisk
 		} else {
-			logger.Infof("Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
-				*cons.RootDisk, minDiskSize)
+			logger.Infof(
+				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
+				*cons.RootDisk,
+				minDiskSize,
+			)
 		}
 	}
 
-	// AWS's volume size is in gigabytes, root-disk is in megabytes,
-	// so round up to the nearest gigabyte.
-	volsize := int64((diskSize + 1023) / 1024)
-	return ec2.BlockDeviceMapping{
-			DeviceName: "/dev/sda1",
-			VolumeSize: volsize,
-		},
-		uint64(volsize * 1024)
+	// The first block device is for the root disk.
+	blockDeviceMappings := []ec2.BlockDeviceMapping{{
+		DeviceName: "/dev/sda1",
+		VolumeSize: int64(roundVolumeSize(rootDiskSize)),
+	}}
+
+	// Not all machines have this many instance stores.
+	// Instances will be started with as many of the
+	// instance stores as they can support.
+	blockDeviceMappings = append(blockDeviceMappings, []ec2.BlockDeviceMapping{{
+		VirtualName: "ephemeral0",
+		DeviceName:  "/dev/sdb",
+	}, {
+		VirtualName: "ephemeral1",
+		DeviceName:  "/dev/sdc",
+	}, {
+		VirtualName: "ephemeral2",
+		DeviceName:  "/dev/sdd",
+	}, {
+		VirtualName: "ephemeral3",
+		DeviceName:  "/dev/sde",
+	}}...)
+
+	return blockDeviceMappings, nil
+}
+
+// AWS expects GiB, we work in MiB; round up to nearest G.
+func roundVolumeSize(m uint64) uint64 {
+	return (m + 1023) / 1024
 }
 
 // groupInfoByName returns information on the security group
@@ -940,12 +970,7 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, nil
 }
 
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented by the
-// EC2 provider yet.
-func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
-	ec2Inst := e.ec2()
-
+func (e *environ) fetchNetworkInterfaceId(ec2Inst *ec2.EC2, instId instance.Id) (string, error) {
 	var err error
 	var instancesResp *ec2.InstancesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -957,19 +982,31 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
 		// the ec2 api
-		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+		return "", err
 	}
 
 	if len(instancesResp.Reservations) == 0 {
-		return errors.New("unexpected AWS response: instance not found")
+		return "", errors.New("unexpected AWS response: instance not found")
 	}
 	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return errors.New("unexpected AWS response: reservation not found")
+		return "", errors.New("unexpected AWS response: reservation not found")
 	}
 	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
-		return errors.New("unexpected AWS response: network interface not found")
+		return "", errors.New("unexpected AWS response: network interface not found")
 	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
+	return networkInterfaceId, nil
+}
+
+// AllocateAddress requests an address to be allocated for the
+// given instance on the given network. This is not implemented by the
+// EC2 provider yet.
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	if err != nil {
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+	}
 	for a := shortAttempt.Start(); a.Next(); {
 		err = AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
 		if err == nil {
@@ -992,12 +1029,33 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	return nil
 }
 
-// ListNetworks returns basic information about all networks known
+// ReleaseAddress releases a specific address previously allocated with
+// AllocateAddress.
+func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+	networkInterfaceId, err := e.fetchNetworkInterfaceId(ec2Inst, instId)
+	if err != nil {
+		return errors.Annotatef(err, "failed to unassign IP address %q to instance %q", addr, instId)
+	}
+	for a := shortAttempt.Start(); a.Next(); {
+		_, err = ec2Inst.UnassignPrivateIPAddresses(networkInterfaceId, []string{addr.Value})
+		if err == nil {
+			break
+		}
+
+	}
+	if err != nil {
+		return errors.Annotatef(err, "failed to unassign IP address %q for instance %q", addr, instId)
+	}
+	return nil
+}
+
+// Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the EC2 provider yet.
-func (*environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("ListNetworks")
+func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("Subnets")
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

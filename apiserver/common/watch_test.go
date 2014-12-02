@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -74,7 +75,7 @@ func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
 	}}
 	result, err := a.Watch(entities)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
@@ -110,6 +111,6 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		getCanWatch,
 	)
 	result, err := a.Watch(params.Entities{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

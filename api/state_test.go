@@ -6,6 +6,7 @@ package api_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -46,7 +47,7 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (*api.State, string, string) {
 	info.Tag = nil
 	info.Password = ""
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return apistate, tag.String(), password
 }
 
@@ -67,7 +68,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	badServer := []network.HostPort{badValue}
 	s.State.SetAPIHostPorts([][]network.HostPort{badServer})
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	hostports := apistate.APIHostPorts()
 	c.Check(hostports, gc.DeepEquals, [][]network.HostPort{serverhostports, badServer})
@@ -75,7 +76,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 
 func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
 	// We haven't called Login yet, so the EnvironTag shouldn't be set.
@@ -83,10 +84,10 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `"" is not a valid tag`)
 	c.Check(envTag.String(), gc.Equals, "environment-")
 	err = apistate.Login(tag, password, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, EnvironTag should be updated correctly.
 	envTag, err = apistate.EnvironTag()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(envTag, gc.Equals, env.EnvironTag())
 }
 
@@ -96,7 +97,7 @@ func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	// We haven't called Login yet, so the Facade Versions should be empty
 	c.Check(apistate.AllFacadeVersions(), gc.HasLen, 0)
 	err := apistate.Login(tag, password, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, AllFacadeVersions should be updated.
 	allVersions := apistate.AllFacadeVersions()
 	c.Check(allVersions, gc.Not(gc.HasLen), 0)
@@ -154,7 +155,7 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	current := [][]network.HostPort{badServer, serverExtra}
 	s.State.SetAPIHostPorts(current)
 	apistate, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer apistate.Close()
 	hostports := apistate.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,

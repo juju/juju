@@ -11,6 +11,7 @@ import (
 	"sort"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -57,7 +58,7 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Context {
 	if relid != -1 {
 		_, found := s.rels[relid]
-		c.Assert(found, gc.Equals, true)
+		c.Assert(found, jc.IsTrue)
 	}
 	return &Context{
 		relid:  relid,
@@ -68,13 +69,13 @@ func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Contex
 
 func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{}) {
 	node, err := ru.Settings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, k := range node.Keys() {
 		node.Delete(k)
 	}
 	node.Update(settings)
 	_, err = node.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type Context struct {

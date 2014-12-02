@@ -147,7 +147,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
 }
@@ -175,7 +175,7 @@ func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 		s.HookCommandOutput(&lxc.FsCommandOutput, []byte(test.output), nil)
 		value, err := lxc.ContainerDirFilesystem()
 		if test.errorMatch == "" {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Check(value, gc.Equals, test.expected)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
@@ -194,7 +194,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 		params["use-aufs"] = "true"
 	}
 	manager, err := lxc.NewContainerManager(params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
 
@@ -203,7 +203,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
 
@@ -214,7 +214,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	name := string(instance.Id())
 	// Check our container config files.
 	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, name, "lxc.conf"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
 
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
@@ -222,7 +222,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 
 	x := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &x)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var scripts []string
 	for _, s := range x["runcmd"].([]interface{}) {
@@ -241,11 +241,11 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	expectedLinkLocation := filepath.Join(s.RestartDir, name+".conf")
 	expectedTarget := filepath.Join(s.LxcDir, name, "config")
 	linkInfo, err := os.Lstat(expectedLinkLocation)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(linkInfo.Mode()&os.ModeSymlink, gc.Equals, os.ModeSymlink)
 
 	location, err := symlink.Read(expectedLinkLocation)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(location, gc.Equals, expectedTarget)
 }
 
@@ -352,7 +352,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		true,
 		true,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
 	s.AssertEvent(c, <-s.events, mock.Created, name)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
@@ -360,7 +360,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 lxc.network.type = veth
 lxc.network.link = nic42
@@ -407,7 +407,7 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
 	c.Assert(string(config), jc.Contains, mountLine)
 	c.Assert(autostartLink, jc.IsSymlink)
@@ -424,7 +424,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 	// DestroyContainer stops and then destroys the container, putting it
 	// into "unknown" state.
 	err := manager.DestroyContainer(instance.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
 }
 
@@ -433,7 +433,7 @@ func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	err := manager.DestroyContainer(instance.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	name := string(instance.Id())
 	// Check that the container dir is no longer in the container dir
@@ -449,10 +449,10 @@ func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
 	name := string(instance.Id())
 	targetDir := filepath.Join(s.RemovedDir, name)
 	err := os.MkdirAll(targetDir, 0755)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = manager.DestroyContainer(instance.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the container dir is no longer in the container dir
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
@@ -478,11 +478,11 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	bar2 := containertesting.CreateContainer(c, bar, "1/lxc/1")
 
 	result, err := foo.ListContainers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, result, foo1, foo2, foo3)
 
 	result, err = bar.ListContainers()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, result, bar1, bar2)
 }
 
@@ -495,14 +495,14 @@ func (s *LxcSuite) TestCreateContainerAutostarts(c *gc.C) {
 
 func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	name := string(instance.Id())
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 lxc.network.type = veth
 lxc.network.link = nic42
@@ -518,19 +518,19 @@ func (s *LxcSuite) TestDestroyContainerRemovesAutostartLink(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err := manager.DestroyContainer(instance.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.SymlinkDoesNotExist)
 }
 
 func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 	err := os.Remove(s.RestartDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err = manager.DestroyContainer(instance.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type NetworkSuite struct {
@@ -595,7 +595,7 @@ func (s *LxcSuite) TestIsLXCSupportedOnHost(c *gc.C) {
 
 	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
 	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsTrue)
 
 }
@@ -608,7 +608,7 @@ func (s *LxcSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
 
 	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
 	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
 
 }
@@ -637,6 +637,6 @@ func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
 		s.PatchValue(lxc.RuntimeGOOS, "windows")
 	}
 	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supports, jc.IsFalse)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
@@ -31,9 +30,9 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.unit, err = svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 
 	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
@@ -47,15 +46,15 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
-	c.Assert(m.Life(), gc.Equals, juju.Alive)
+	c.Assert(m.Life(), gc.Equals, params.Alive)
 	c.Assert(m.Jobs(), gc.HasLen, 0)
 
 	err = s.unit.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))

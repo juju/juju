@@ -5,12 +5,13 @@ package main
 
 import (
 	"bufio"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -19,11 +20,12 @@ import (
 	"github.com/juju/juju/juju"
 )
 
-var NoEnvironmentError = errors.New("no environment specified")
-var DoubleEnvironmentError = errors.New("you cannot supply both -e and the envname as a positional argument")
+var NoEnvironmentError = stderrors.New("no environment specified")
+var DoubleEnvironmentError = stderrors.New("you cannot supply both -e and the envname as a positional argument")
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
+	BlockableCommand
 	cmd.CommandBase
 	envName   string
 	assumeYes bool
@@ -95,7 +97,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
-			return errors.New("environment destruction aborted")
+			return stderrors.New("environment destruction aborted")
 		}
 	}
 	// If --force is supplied, then don't attempt to use the API.
@@ -103,32 +105,45 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	// API server is inaccessible or faulty.
 	if !c.force {
 		defer func() {
-			if result == nil {
-				return
-			}
-			logger.Errorf(`failed to destroy environment %q
-        
-If the environment is unusable, then you may run
-
-    juju destroy-environment --force
-
-to forcefully destroy the environment. Upon doing so, review
-your environment provider console for any resources that need
-to be cleaned up.
-
-`, c.envName)
+			result = c.ensureUserFriendlyErrorLog(result)
 		}()
 		apiclient, err := juju.NewAPIClientFromName(c.envName)
 		if err != nil {
-			return fmt.Errorf("cannot connect to API: %v", err)
+			return errors.Annotate(err, "cannot connect to API")
 		}
 		defer apiclient.Close()
 		err = apiclient.DestroyEnvironment()
-		if err != nil && !params.IsCodeNotImplemented(err) {
-			return fmt.Errorf("destroying environment: %v", err)
+		if cmdErr := processDestroyError(err); cmdErr != nil {
+			return cmdErr
 		}
 	}
 	return environs.Destroy(environ, store)
+}
+
+// processDestroyError determines how to format error message based on its code.
+// Note that CodeNotImplemented errors have not be propogated in previous implementation.
+// This behaviour was preserved.
+func processDestroyError(err error) error {
+	if err == nil || params.IsCodeNotImplemented(err) {
+		return nil
+	}
+	if params.IsCodeOperationBlocked(err) {
+		return err
+	}
+	return errors.Annotate(err, "destroying environment")
+}
+
+// ensureUserFriendlyErrorLog ensures that error will be logged and displayed
+// in a user-friendly manner with readable and digestable error message.
+func (c *DestroyEnvironmentCommand) ensureUserFriendlyErrorLog(err error) error {
+	if err == nil {
+		return nil
+	}
+	if params.IsCodeOperationBlocked(err) {
+		return c.processBlockedError(err, BlockDestroy)
+	}
+	logger.Errorf(stdFailureMsg, c.envName)
+	return err
 }
 
 var destroyEnvMsg = `
@@ -136,3 +151,15 @@ WARNING! this command will destroy the %q environment (type: %s)
 This includes all machines, services, data and other resources.
 
 Continue [y/N]? `[1:]
+
+var stdFailureMsg = `failed to destroy environment %q
+
+If the environment is unusable, then you may run
+
+    juju destroy-environment --force
+
+to forcefully destroy the environment. Upon doing so, review
+your environment provider console for any resources that need
+to be cleaned up. Using force will also by-pass destroy-envrionment block.
+
+`

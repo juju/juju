@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -113,7 +114,7 @@ func (s *RelationListSuite) TestRelationList(c *gc.C) {
 		setMembers(hctx.rels[0], t.members0)
 		setMembers(hctx.rels[1], t.members1)
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Logf(bufferString(ctx.Stderr))
@@ -143,7 +144,7 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
--r  (= %s)
+-r, --relation  (= %s)
     specify a relation by id
 %s`[1:]
 
@@ -156,7 +157,7 @@ options:
 		c.Logf("test relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-list"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)

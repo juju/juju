@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -29,7 +28,7 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.apiRelation, err = s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *relationSuite) TearDownTest(c *gc.C) {
@@ -46,37 +45,37 @@ func (s *relationSuite) TestIdAndTag(c *gc.C) {
 }
 
 func (s *relationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Alive)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 
 	// EnterScope with mysqlUnit, so the relation will be set to dying
 	// when destroyed later.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = myRelUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
 	// Destroy it - should set it to dying.
 	err = s.stateRelation.Destroy()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Alive)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
 
 	err = s.apiRelation.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Dying)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.apiRelation.Life(), gc.Equals, juju.Dying)
+	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *relationSuite) TestEndpoint(c *gc.C) {
 	apiEndpoint, err := s.apiRelation.Endpoint()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiEndpoint, gc.DeepEquals, &uniter.Endpoint{
 		charm.Relation{
 			Name:      "db",
@@ -94,9 +93,9 @@ func (s *relationSuite) TestUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unit is nil")
 
 	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiRelUnit, err := s.apiRelation.Unit(apiUnit)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiRelUnit, gc.NotNil)
 	// We just ensure we get the correct type, more tests
 	// are done in relationunit_test.go.
@@ -105,7 +104,7 @@ func (s *relationSuite) TestUnit(c *gc.C) {
 
 func (s *relationSuite) TestRelationById(c *gc.C) {
 	apiRel, err := s.uniter.RelationById(s.stateRelation.Id())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiRel, gc.DeepEquals, s.apiRelation)
 
 	// Add a relation to mysql service, which cannot be retrived.

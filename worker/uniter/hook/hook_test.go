@@ -4,6 +4,7 @@
 package hook_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
@@ -40,7 +41,7 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.Action},
 		`action id "" cannot be parsed as an action tag`,
 	},
-	{hook.Info{Kind: hooks.Action, ActionId: "wordpress/0_a_1"}, ""},
+	{hook.Info{Kind: hooks.Action, ActionId: "badadded-0123-4567-89ab-cdef01234567"}, ""},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},
 	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x"}, ""},
@@ -54,7 +55,7 @@ func (s *InfoSuite) TestValidate(c *gc.C) {
 		c.Logf("test %d", i)
 		err := t.info.Validate()
 		if t.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
