@@ -30,6 +30,10 @@ from utility import (
     )
 
 
+QUICK = 'quick'
+FULL = 'full'
+
+
 class MultiIndustrialTest:
     """Run IndustrialTests until desired number of results are achieved.
 
@@ -41,13 +45,13 @@ class MultiIndustrialTest:
 
     @classmethod
     def from_args(cls, args):
-        if args.quick:
-            stages = [BootstrapAttempt, DeployManyAttempt,
-                      DestroyEnvironmentAttempt]
-        else:
-            stages = [BootstrapAttempt, DeployManyAttempt,
-                      BackupRestoreAttempt, EnsureAvailabilityAttempt,
-                      DestroyEnvironmentAttempt]
+        stages = {
+            QUICK: [BootstrapAttempt, DeployManyAttempt,
+                    DestroyEnvironmentAttempt],
+            FULL: [BootstrapAttempt, DeployManyAttempt,
+                   BackupRestoreAttempt, EnsureAvailabilityAttempt,
+                   DestroyEnvironmentAttempt]
+        }[args.suite]
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
                    args.new_agent_url)
@@ -488,9 +492,9 @@ def parse_args(args=None):
     parser = ArgumentParser()
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
+    parser.add_argument('suite', choices=[QUICK, FULL])
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
-    parser.add_argument('--quick', action='store_true')
     parser.add_argument('--new-agent-url')
     return parser.parse_args(args)
 
