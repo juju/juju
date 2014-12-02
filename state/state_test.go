@@ -1265,17 +1265,24 @@ func (s *StateSuite) TestAddIPAddress(c *gc.C) {
 	checkAddress(ipAddr)
 }
 
-func (s *StateSuite) TestAddIPAddressErrors(c *gc.C) {
+func (s *StateSuite) TestAddIPAddressInvalid(c *gc.C) {
 	addr := network.Address{Value: "foo"}
 	_, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*invalid IP address.*")
+}
 
+func (s *StateSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
 	// check adding it twice is an error the second time
-	addr = network.NewAddress("192.168.1.0", network.ScopePublic)
-	_, err = s.State.AddIPAddress(addr, "foobar")
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	_, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddIPAddress(addr, "foobar")
 	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+}
+
+func (s *StateSuite) TestIPAddressNotFound(c *gc.C) {
+	_, err := s.State.IPAddress("192.168.1.0")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *StateSuite) TestAddSubnet(c *gc.C) {
