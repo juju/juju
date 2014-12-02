@@ -44,14 +44,14 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
 	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
-	err = m0.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", nil)
+	inst, _, zone := testing.AssertStartInstance(c, s.Environ, m0.Id())
+	err = m0.SetProvisioned(inst.Id(), "fake_nonce", zone, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ = testing.AssertStartInstance(c, s.Environ, m1.Id())
-	err = m1.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", nil)
+	inst, _, zone = testing.AssertStartInstance(c, s.Environ, m1.Id())
+	err = m1.SetProvisioned(inst.Id(), "fake_nonce", zone, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{

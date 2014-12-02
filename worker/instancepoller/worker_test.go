@@ -155,17 +155,19 @@ func machinesSatisfy(c *gc.C, machines []*state.Machine, f func(i int, m *state.
 func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Instance) {
 	var machines []*state.Machine
 	var insts []instance.Instance
+	var zones []string
 	for i := 0; i < 10; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		machines = append(machines, m)
-		inst, _ := testing.AssertStartInstance(c, s.Environ, m.Id())
+		inst, _, zone := testing.AssertStartInstance(c, s.Environ, m.Id())
 		insts = append(insts, inst)
+		zones = append(zones, zone)
 	}
 	// Associate the odd-numbered machines with an instance.
 	for i := 1; i < len(machines); i += 2 {
 		m := machines[i]
-		err := m.SetProvisioned(insts[i].Id(), "nonce", "a_zone", nil)
+		err := m.SetProvisioned(insts[i].Id(), "nonce", zones[i], nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Associate the first half of the instances with an address and status.

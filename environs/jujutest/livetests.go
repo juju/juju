@@ -178,7 +178,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.BootstrapOnce(c)
 
-	inst, _ := jujutesting.AssertStartInstance(c, t.Env, "0")
+	inst, _, _ := jujutesting.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
 
@@ -231,14 +231,14 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.BootstrapOnce(c)
 
-	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
+	inst1, _, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := inst1.Ports("1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
+	inst2, _, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
 	c.Assert(inst2, gc.NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -336,13 +336,13 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
+	inst1, _, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := t.Env.Ports()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
+	inst2, _, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)

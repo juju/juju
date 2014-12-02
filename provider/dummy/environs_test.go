@@ -117,6 +117,18 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ 
 	return e
 }
 
+func (s *suite) TestAvailabilityZone(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, true)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	inst, _, zone := jujutesting.AssertStartInstance(c, e, "0")
+	c.Assert(inst, gc.NotNil)
+	c.Check(zone, gc.Equals, "")
+}
+
 func (s *suite) TestAllocateAddress(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {
@@ -124,7 +136,7 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -150,7 +162,7 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -196,7 +208,7 @@ func (s *suite) TestPreferIPv6On(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,7 +222,7 @@ func (s *suite) TestPreferIPv6Off(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
