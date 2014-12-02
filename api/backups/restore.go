@@ -25,7 +25,7 @@ var (
 	RestoreMachineKey = "0"
 	// RestoreStrategy is the attempt strategy for api server calls re-attempts in case
 	// the server is upgrading.
-	RestoreStrategy   = utils.AttemptStrategy{
+	RestoreStrategy = utils.AttemptStrategy{
 		Delay: 10 * time.Second,
 		Min:   10,
 	}
