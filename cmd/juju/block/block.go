@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
@@ -47,7 +48,7 @@ var (
 func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
 	client, err := getBlockClientAPI(p)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 	attrs := map[string]interface{}{config.BlockKeyPrefix + p.operation: block}
@@ -57,7 +58,7 @@ func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
 // assignValidOperation verifies that supplied operation is supported.
 func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("must specify one of [%v] to %v", blockArgsFmt, cmd)
+		return errors.Trace(errors.Errorf("must specify one of [%v] to %v", blockArgsFmt, cmd))
 	}
 	var err error
 	p.operation, err = p.obtainValidArgument(args[0])
@@ -73,7 +74,7 @@ func (p *ProtectionCommand) obtainValidArgument(arg string) (string, error) {
 			return strings.ToLower(arg), nil
 		}
 	}
-	return "", fmt.Errorf("%q is not a valid argument: use one of [%v]", arg, blockArgsFmt)
+	return "", errors.Trace(errors.Errorf("%q is not a valid argument: use one of [%v]", arg, blockArgsFmt))
 }
 
 // BlockCommand blocks specified operation.
