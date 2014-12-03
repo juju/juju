@@ -358,14 +358,12 @@ func addStorageMetadata(dbWrap *storageDBWrapper, doc *storageMetaDoc) (string, 
 // juju/errors.IsNotFound() is returned.
 func setStorageStoredTime(dbWrap *storageDBWrapper, id string, stored time.Time) error {
 	op := dbWrap.txnOpUpdate(id, bson.DocElem{"stored", metadocTimeToUnix(stored)})
-
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			return errors.NotFoundf("backup metadata %q", id)
 		}
 		return errors.Annotate(err, "while running transaction")
 	}
-
 	return nil
 }
 
