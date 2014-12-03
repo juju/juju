@@ -173,6 +173,13 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 
 // AddKeys adds new authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return params.ErrorResults{}, common.ErrOperationBlocked
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Keys)),
 	}
@@ -252,6 +259,13 @@ func runSSHKeyImport(keyIds []string) []importedSSHKey {
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return params.ErrorResults{}, common.ErrOperationBlocked
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Keys)),
 	}
@@ -323,6 +337,13 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return params.ErrorResults{}, common.ErrOperationBlocked
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Keys)),
 	}
