@@ -726,6 +726,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),
+			Tag:     names.NewMachineTag("0"),
 			DataDir: DataDir,
 			LogDir:  LogDir,
 		})
