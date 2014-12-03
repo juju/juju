@@ -7,11 +7,10 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"launchpad.net/gwacl"
-
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
