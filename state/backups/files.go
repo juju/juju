@@ -98,6 +98,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 	} else {
 		backupFiles = append(backupFiles, allmachines)
 	}
+	// TODO(ericsnow) It might not be machine 0...
 	machine0 := filepath.Join(rootDir, paths.LogsDir, machine0Log)
 	if _, err := os.Stat(machine0); err != nil {
 		if !os.IsNotExist(err) {
