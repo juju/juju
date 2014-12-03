@@ -26,6 +26,7 @@ from industrial_test import (
     EnsureAvailabilityAttempt,
     FULL,
     IndustrialTest,
+    make_substrate,
     maybe_write_json,
     MultiIndustrialTest,
     parse_args,
@@ -1200,3 +1201,29 @@ class TestMaybeWriteJson(TestCase):
                   "b": "c"
                 }""")
             self.assertEqual(temp_file.read(), expected)
+
+
+class TestMakeSubstrate(TestCase):
+
+    def test_make_substrate_no_support(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
+                               '', '')
+        self.assertIs(make_substrate(client, []), None)
+
+    def test_make_substrate_no_requirements(self):
+        client = EnvJujuClient(get_aws_env(), '', '')
+        self.assertIs(type(make_substrate(client, [])), AWSAccount)
+
+    def test_make_substrate_unsatisifed_requirements(self):
+        client = EnvJujuClient(get_aws_env(), '', '')
+        self.assertIs(make_substrate(client, ['foo']), None)
+        self.assertIs(make_substrate(client, ['iter_security_groups', 'foo']),
+                      None)
+
+    def test_make_substrate_satisfied_requirements(self):
+        client = EnvJujuClient(get_aws_env(), '', '')
+        self.assertIs(type(make_substrate(client, ['iter_security_groups'])),
+                      AWSAccount)
+        self.assertIs(type(make_substrate(client, [
+            'iter_security_groups', 'iter_instance_security_groups'])),
+            AWSAccount)

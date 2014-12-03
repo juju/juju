@@ -21,7 +21,7 @@ from jujupy import (
     uniquify_local,
     )
 from substrate import (
-    make_substrate,
+    make_substrate as real_make_substrate,
     terminate_instances,
     )
 from utility import (
@@ -336,6 +336,21 @@ class BootstrapAttempt(StageAttempt):
         return True
 
 
+def make_substrate(client, required_attrs):
+    """Make a substrate for the client with the required attributes.
+
+    If the substrate cannot be made, or does not have the required attributes,
+    return None.  Otherwise, return the substrate.
+    """
+    substrate = real_make_substrate(client.env.config)
+    if substrate is None:
+        return None
+    for attr in required_attrs:
+        if getattr(substrate, attr, None) is None:
+            return None
+    return substrate
+
+
 class DestroyEnvironmentAttempt(SteppedStageAttempt):
     """Implementation of a destroy-environment stage."""
 
@@ -347,7 +362,8 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
 
     @classmethod
     def get_security_groups(cls, client):
-        substrate = make_substrate(client.env.config)
+        substrate = make_substrate(
+            client, ['iter_instance_security_groups'])
         if substrate is None:
             return
         status = client.get_status()
@@ -357,7 +373,8 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
 
     @classmethod
     def check_security_groups(cls, client, env_groups):
-        substrate = make_substrate(client.env.config)
+        substrate = make_substrate(
+            client, ['iter_instance_security_groups'])
         if substrate is None:
             return
         for x in until_timeout(30):
