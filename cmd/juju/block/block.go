@@ -1,5 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package block
 
 import (
@@ -24,12 +25,12 @@ type ProtectionCommand struct {
 }
 
 // BlockClientAPI defines the client API methods that the protection command uses.
-type BlockClientAPI interface {
+type ClientAPI interface {
 	Close() error
 	EnvironmentSet(config map[string]interface{}) error
 }
 
-var getBlockClientAPI = func(p *ProtectionCommand) (BlockClientAPI, error) {
+var getBlockClientAPI = func(p *ProtectionCommand) (ClientAPI, error) {
 	return p.NewAPIClient()
 }
 
@@ -40,11 +41,11 @@ var (
 	// but are rather juju command groupings.
 	blockArgs = []string{"destroy-environment", "remove-object", "all-changes"}
 
-	// Formatted representation of block command valid arguments
+	// Formatted representation of block command valid arguments.
 	blockArgsFmt = fmt.Sprintf(strings.Join(blockArgs, " | "))
 )
 
-// setBlockEnvironmentVariable sets desired environment variable to given value
+// setBlockEnvironmentVariable sets desired environment variable to given value.
 func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
 	client, err := getBlockClientAPI(p)
 	if err != nil {
@@ -67,7 +68,7 @@ func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) erro
 
 // obtainValidArgument returns polished argument:
 // it checks that the argument is a supported operation and
-// forces it into lower case for consistency
+// forces it into lower case for consistency.
 func (p *ProtectionCommand) obtainValidArgument(arg string) (string, error) {
 	for _, valid := range blockArgs {
 		if strings.EqualFold(valid, arg) {
@@ -151,6 +152,8 @@ See Also:
 
 `
 
+// Info provides information about command.
+// Satisfying Command interface.
 func (c *BlockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "block",
@@ -160,19 +163,32 @@ func (c *BlockCommand) Info() *cmd.Info {
 	}
 }
 
+// Init initializes the command.
+// Satisfying Command interface.
 func (c *BlockCommand) Init(args []string) error {
 	return c.assignValidOperation("block", args)
 }
 
+// Run blocks commands from running successfully.
+// Satisfying Command interface.
 func (c *BlockCommand) Run(_ *cmd.Context) error {
 	return c.setBlockEnvironmentVariable(true)
 }
 
+// Block describes block type
 type Block int8
 
 const (
+	// BlockDestroy describes the block that
+	// blocks destroy- commands
 	BlockDestroy Block = iota
+
+	// BlockRemove describes the block that
+	// blocks remove- commands
 	BlockRemove
+
+	// BlockChange describes the block that
+	// blocks change commands
 	BlockChange
 )
 
@@ -182,6 +198,8 @@ var blockedMessages = map[Block]string{
 	BlockChange:  changeMsg,
 }
 
+// ProcessBlockedError ensure that correct and user-friendly message is
+// displayed to the user based on the block type.
 func ProcessBlockedError(err error, block Block, env string) error {
 	if params.IsCodeOperationBlocked(err) {
 		logger.Errorf(blockedMessages[block], env)
@@ -194,7 +212,8 @@ func ProcessBlockedError(err error, block Block, env string) error {
 }
 
 var removeMsg = `
-All operations that remove (or delete or terminate) machines, services, units or relations have been blocked for environment %q.
+All operations that remove (or delete or terminate) machines, services, units or
+relations have been blocked for environment %q.
 To unblock removal, run
 
     juju unblock remove-object

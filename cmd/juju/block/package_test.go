@@ -30,7 +30,7 @@ func (s *ProtectionCommandSuite) assertErrorMatches(c *gc.C, err error, expected
 func (s *ProtectionCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.mockClient = &mockClient{}
-	s.PatchValue(block.BlockClientGetter, func(p *block.ProtectionCommand) (block.BlockClientAPI, error) {
+	s.PatchValue(block.ClientGetter, func(p *block.ProtectionCommand) (block.ClientAPI, error) {
 		return s.mockClient, nil
 	})
 }

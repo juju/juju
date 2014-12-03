@@ -151,7 +151,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 }
 
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
-	//Setup environment
+	// Setup environment
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": true}, nil, nil)
@@ -161,7 +161,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
-	//Setup environment
+	// Setup environment
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-remove-object": true}, nil, nil)
@@ -171,7 +171,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
-	//Setup environment
+	// Setup environment
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)

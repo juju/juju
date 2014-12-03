@@ -60,36 +60,8 @@ func (s *runSuite) blockAllChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *runSuite) TestBlockRemoteParamsForMachinePopulates(c *gc.C) {
-	machine := s.addMachine(c)
-
-	// block all changes
-	s.blockAllChanges(c)
-	result := client.RemoteParamsForMachine(machine, "command", time.Minute)
-	c.Assert(result.Command, gc.Equals, "command")
-	c.Assert(result.Timeout, gc.Equals, time.Minute)
-	c.Assert(result.MachineId, gc.Equals, machine.Id())
-	// Now an empty host isn't particularly useful, but the machine doesn't
-	// have an address to use.
-	c.Assert(machine.Addresses(), gc.HasLen, 0)
-	c.Assert(result.Host, gc.Equals, "")
-}
-
 func (s *runSuite) TestRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
 	machine := s.addMachineWithAddress(c, "10.3.2.1")
-
-	result := client.RemoteParamsForMachine(machine, "command", time.Minute)
-	c.Assert(result.Command, gc.Equals, "command")
-	c.Assert(result.Timeout, gc.Equals, time.Minute)
-	c.Assert(result.MachineId, gc.Equals, machine.Id())
-	c.Assert(result.Host, gc.Equals, "ubuntu@10.3.2.1")
-}
-
-func (s *runSuite) TestBlockRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
-	machine := s.addMachineWithAddress(c, "10.3.2.1")
-
-	// block all changes
-	s.blockAllChanges(c)
 
 	result := client.RemoteParamsForMachine(machine, "command", time.Minute)
 	c.Assert(result.Command, gc.Equals, "command")
@@ -223,26 +195,6 @@ func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 	c.Assert(result.Error, gc.Equals, "missing host address")
 }
 
-func (s *runSuite) TestBlockParallelExecuteErrorsOnBlankHost(c *gc.C) {
-	s.mockSSH(c, echoInputShowArgs)
-
-	params := []*client.RemoteExec{
-		&client.RemoteExec{
-			ExecParams: ssh.ExecParams{
-				Command: "foo",
-				Timeout: testing.LongWait,
-			},
-		},
-	}
-
-	// block all changes
-	s.blockAllChanges(c)
-	runResults := client.ParallelExecute("/some/dir", params)
-	c.Assert(runResults.Results, gc.HasLen, 1)
-	result := runResults.Results[0]
-	c.Assert(result.Error, gc.Equals, "missing host address")
-}
-
 func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
@@ -256,28 +208,6 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 		},
 	}
 
-	runResults := client.ParallelExecute("/some/dir", params)
-	c.Assert(runResults.Results, gc.HasLen, 1)
-	result := runResults.Results[0]
-	c.Assert(result.Error, gc.Equals, "")
-	c.Assert(string(result.Stderr), jc.Contains, "-i /some/dir/system-identity")
-}
-
-func (s *runSuite) TestBlockParallelExecuteAddsIdentity(c *gc.C) {
-	s.mockSSH(c, echoInputShowArgs)
-
-	params := []*client.RemoteExec{
-		&client.RemoteExec{
-			ExecParams: ssh.ExecParams{
-				Host:    "localhost",
-				Command: "foo",
-				Timeout: testing.LongWait,
-			},
-		},
-	}
-
-	// block all changes
-	s.blockAllChanges(c)
 	runResults := client.ParallelExecute("/some/dir", params)
 	c.Assert(runResults.Results, gc.HasLen, 1)
 	result := runResults.Results[0]
@@ -300,31 +230,6 @@ func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 		},
 	}
 
-	runResults := client.ParallelExecute("/some/dir", params)
-	c.Assert(runResults.Results, gc.HasLen, 1)
-	result := runResults.Results[0]
-	c.Assert(result.Error, gc.Equals, "")
-	c.Assert(result.MachineId, gc.Equals, "machine-id")
-	c.Assert(result.UnitId, gc.Equals, "unit-id")
-}
-
-func (s *runSuite) TestBlockParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
-	s.mockSSH(c, echoInputShowArgs)
-
-	params := []*client.RemoteExec{
-		&client.RemoteExec{
-			ExecParams: ssh.ExecParams{
-				Host:    "localhost",
-				Command: "foo",
-				Timeout: testing.LongWait,
-			},
-			MachineId: "machine-id",
-			UnitId:    "unit-id",
-		},
-	}
-
-	// block all changes
-	s.blockAllChanges(c)
 	runResults := client.ParallelExecute("/some/dir", params)
 	c.Assert(runResults.Results, gc.HasLen, 1)
 	result := runResults.Results[0]

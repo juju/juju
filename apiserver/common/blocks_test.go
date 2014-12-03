@@ -34,16 +34,16 @@ func (s *blocksSuite) TestBlockllOperations(c *gc.C) {
 }
 
 func (s *blocksSuite) TestBlockOperationErrorDestroy(c *gc.C) {
-	//prevent destroy-environment
+	// prevent destroy-environment
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", true)
 	c.Assert(common.IsOperationBlocked(common.DestroyOperation, s.getTestCfg(c)), jc.IsTrue)
 
-	//prevent remove-object
+	// prevent remove-object
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	c.Assert(common.IsOperationBlocked(common.DestroyOperation, s.getTestCfg(c)), jc.IsTrue)
 
-	//prevent all-changes
+	// prevent all-changes
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
 	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
@@ -51,16 +51,16 @@ func (s *blocksSuite) TestBlockOperationErrorDestroy(c *gc.C) {
 }
 
 func (s *blocksSuite) TestBlockOperationErrorRemove(c *gc.C) {
-	//prevent destroy-environment
+	// prevent destroy-environment
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", true)
 	c.Assert(common.IsOperationBlocked(common.RemoveOperation, s.getTestCfg(c)), jc.IsFalse)
 
-	//prevent remove-object
+	// prevent remove-object
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	c.Assert(common.IsOperationBlocked(common.RemoveOperation, s.getTestCfg(c)), jc.IsTrue)
 
-	//prevent all-changes
+	// prevent all-changes
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
 	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
@@ -68,16 +68,16 @@ func (s *blocksSuite) TestBlockOperationErrorRemove(c *gc.C) {
 }
 
 func (s *blocksSuite) TestBlockOperationErrorChange(c *gc.C) {
-	//prevent destroy-environment
+	// prevent destroy-environment
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", true)
 	c.Assert(common.IsOperationBlocked(common.ChangeOperation, s.getTestCfg(c)), jc.IsFalse)
 
-	//prevent remove-object
+	// prevent remove-object
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
 	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
 	c.Assert(common.IsOperationBlocked(common.ChangeOperation, s.getTestCfg(c)), jc.IsFalse)
 
-	//prevent all-changes
+	// prevent all-changes
 	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
 	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
