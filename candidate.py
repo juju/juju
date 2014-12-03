@@ -43,6 +43,7 @@ def find_publish_revision_number(br_number, limit=20):
 
 
 def prepare_dir(dir_path, dry_run=False, verbose=False):
+    """Create to clean a direcory."""
     if os.path.isdir(dir_path):
         if verbose:
             print('Cleaning %s' % dir_path)
@@ -78,6 +79,7 @@ def update_candidate(branch, path, br_number,
 
 
 def get_artifact_dirs(path):
+    """List the directories that contain artifacts."""
     dirs = []
     for name in os.listdir(path):
         artifacts_path = os.path.join(path, name)
@@ -87,6 +89,7 @@ def get_artifact_dirs(path):
 
 
 def get_package(artifacts_path, version):
+    """Return the path to the expected juju-core package for the localhost."""
     release = subprocess.check_output(['lsb_release', '-sr']).strip()
     arch = subprocess.check_output(['dpkg', '--print-architecture']).strip()
     package_name = 'juju-core_{}-0ubuntu1~{}.1~juju1_{}.deb'.format(
@@ -96,6 +99,15 @@ def get_package(artifacts_path, version):
 
 
 def extract_candidates(path, dry_run=False, verbose=False):
+    """Extract all the candidate juju binaries for the local machine.
+
+    Each candicate will be extracted to a directory named after the branch
+    the artifacts (packages) were made from. Thus the package that matches
+    the localhost's series and architecture in the master-artifacts/ directory
+    will be extracted to a sibling directory named "master/" The buildvars.json
+    data will be copied to the top of "master" to provide information about
+    the origin of the binaries.
+    """
     for dir_name in get_artifact_dirs(path):
         artifacts_path = os.path.join(path, dir_name)
         buildvars_path = os.path.join(artifacts_path, 'buildvars.json')
@@ -119,6 +131,7 @@ def extract_candidates(path, dry_run=False, verbose=False):
 
 
 def get_scripts(juju_release_tools=None):
+    """Return a tuple paths to the assemble_script and publish_scripts."""
     assemble_script = 'assemble-streams.bash'
     publish_script = 'publish-public-tools.bash'
     if juju_release_tools:
@@ -130,6 +143,7 @@ def get_scripts(juju_release_tools=None):
 
 
 def run_command(command, dry_run=False, verbose=False):
+    """Optionally xecute a command and maybe print the output."""
     if verbose:
         print('Executing: %s' % command)
     if not dry_run:
@@ -140,25 +154,26 @@ def run_command(command, dry_run=False, verbose=False):
 
 def publish_candidates(path, streams_path,
                        juju_release_tools=None, dry_run=False, verbose=False):
-        with temp_dir() as debs_path:
-            for dir_name in get_artifact_dirs(path):
-                artifacts_path = os.path.join(path, dir_name)
-                for deb_name in os.listdir(artifacts_path):
-                    deb_path = os.path.join(artifacts_path, deb_name)
-                    print('Copying %s' % deb_path)
-                    new_path = os.path.join(debs_path, deb_name)
-                    shutil.copyfile(deb_path, new_path)
-            assemble_script, publish_script = get_scripts(juju_release_tools)
-            # XXX sinzui 2014-12-01: IGNORE uses the local juju, but when
-            # testing juju's that change generate-tools, we may need to use
-            # the highest version.
-            command = [
-                assemble_script, '-t',  debs_path, 'weekly', 'IGNORE',
-                streams_path]
-            run_command(command, dry_run=dry_run, verbose=verbose)
-        juju_dist_path = os.path.join(streams_path, 'juju-dist')
-        command = [publish_script,  'weekly', juju_dist_path, 'cpc']
+    """Assemble and publish weekly streams from the candidates."""
+    with temp_dir() as debs_path:
+        for dir_name in get_artifact_dirs(path):
+            artifacts_path = os.path.join(path, dir_name)
+            for deb_name in os.listdir(artifacts_path):
+                deb_path = os.path.join(artifacts_path, deb_name)
+                print('Copying %s' % deb_path)
+                new_path = os.path.join(debs_path, deb_name)
+                shutil.copyfile(deb_path, new_path)
+        assemble_script, publish_script = get_scripts(juju_release_tools)
+        # XXX sinzui 2014-12-01: IGNORE uses the local juju, but when
+        # testing juju's that change generate-tools, we may need to use
+        # the highest version.
+        command = [
+            assemble_script, '-t',  debs_path, 'weekly', 'IGNORE',
+            streams_path]
         run_command(command, dry_run=dry_run, verbose=verbose)
+    juju_dist_path = os.path.join(streams_path, 'juju-dist')
+    command = [publish_script,  'weekly', juju_dist_path, 'cpc']
+    run_command(command, dry_run=dry_run, verbose=verbose)
 
 
 def parse_args(args=None):
