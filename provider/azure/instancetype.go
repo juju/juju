@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
@@ -20,7 +21,9 @@ import (
 const defaultMem = 1 * gwacl.GB
 
 var (
-	roleSizeCost = gwacl.RoleSizeCost
+	roleSizeCost          = gwacl.RoleSizeCost
+	getAvailableRoleSizes = (*azureEnviron).getAvailableRoleSizes
+	getVirtualNetwork     = (*azureEnviron).getVirtualNetwork
 )
 
 // If you specify no constraints at all, you're going to get the smallest
@@ -115,6 +118,32 @@ func newInstanceType(roleSize gwacl.RoleSize, region string) (instances.Instance
 // listInstanceTypes describes the available instance types based on a
 // description in gwacl's terms.
 func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
+	// Not all locations are made equal: some role sizes are only available
+	// in some locations.
+	availableRoleSizes, err := getAvailableRoleSizes(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We must restrict D and G series instances in old environments
+	// where the virtual network is tied to an affinity group.
+	//
+	// A5-A9 are potentially limited too, but we were not previously
+	// restricting them. Users will not run into problems unless they
+	// explicitly request more memory, CPU, etc.
+	vnet, err := getVirtualNetwork(env)
+	if err != nil && errors.IsNotFound(err) {
+		// Virtual network doesn't exist yet; we'll create it with a
+		// location, so we're not limited.
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get virtual network details to filter instance types")
+	}
+	isLimitedRoleSize := func(name string) bool {
+		// Only D and G series role sizes begin with "Standard_".
+		return vnet != nil && vnet.AffinityGroup != "" && strings.HasPrefix(name, "Standard_")
+	}
+	limitedTypes := make(set.Strings)
+
 	region := env.getSnapshot().ecfg.location()
 	arches, err := env.SupportedArchitectures()
 	if err != nil {
@@ -122,10 +151,19 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 	}
 	types := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
 	for _, roleSize := range gwacl.RoleSizes {
+		if !availableRoleSizes.Contains(roleSize.Name) {
+			logger.Debugf("role size %q is unavailable in location %q", roleSize.Name, region)
+			continue
+		}
 		// TODO(axw) 2014-06-23 #1324666
 		// Support basic instance types. We need to not default
 		// to them as they do not support load balancing.
 		if strings.HasPrefix(roleSize.Name, "Basic_") {
+			logger.Debugf("role size %q is unsupported", roleSize.Name)
+			continue
+		}
+		if isLimitedRoleSize(roleSize.Name) {
+			limitedTypes.Add(roleSize.Name)
 			continue
 		}
 		instanceType, err := newInstanceType(roleSize, region)
@@ -137,7 +175,23 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 	for i := range types {
 		types[i].Arches = arches
 	}
+	if len(limitedTypes) > 0 {
+		logger.Warningf(
+			"virtual network %q has an affinity group: disabling instance types %s",
+			vnet.Name, limitedTypes.SortedValues(),
+		)
+	}
 	return types, nil
+}
+
+// isLimitedRoleSize reports whether the named role size is limited to some
+// physical hosts only.
+func isLimitedRoleSize(name string) bool {
+	switch name {
+	case "ExtraSmall", "Small", "Medium", "Large", "ExtraLarge":
+		return false
+	}
+	return true
 }
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
