@@ -185,9 +185,9 @@ func isLimitedRoleSize(name string) bool {
 		return false
 	case "A5", "A6", "A7", "A8", "A9":
 		// We never used to filter out A5-A9 role sizes, so leave them in
-		// case users have relying on them. It is *possible* that A-series role
-		// sizes are available, but we cannot automatically use them as they
-		// *may* not be.
+		// case users have been relying on them. It is *possible* that A-series
+		// role sizes are available, but we cannot automatically use them as
+		// they *may* not be.
 		return false
 	}
 	return true
