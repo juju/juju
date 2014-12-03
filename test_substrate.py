@@ -20,6 +20,7 @@ from jujupy import SimpleEnvironment
 from substrate import (
     AWSAccount,
     get_libvirt_domstate,
+    JoyentAccount,
     OpenStackAccount,
     make_substrate,
     start_libvirt_domain,
@@ -97,6 +98,12 @@ class TestTerminateInstances(TestCase):
         self.assertEqual(cc_mock.call_count, 0)
         self.assertEqual(out_mock.write.mock_calls, [
             call('No instances to delete.'), call('\n')])
+
+    def test_terminate_joyent(self):
+        with patch('substrate.JoyentAccount.terminate_instances') as ti_mock:
+            terminate_instances(
+                SimpleEnvironment('foo', get_joyent_config()), ['ab', 'cd'])
+        ti_mock.assert_called_once_with(['ab', 'cd'])
 
     def test_terminate_uknown(self):
         env = SimpleEnvironment('foo', {'type': 'unknown'})
@@ -389,6 +396,45 @@ class TestOpenstackAccount(TestCase):
         self.assertEqual(list(result), [('foo-id', 'foo'), ('bar-id', 'bar')])
 
 
+def get_joyent_config():
+    return {
+        'type': 'joyent',
+        'sdc-url': 'http://example.org/sdc',
+        'manta-user': 'user@manta.org',
+        'manta-key-id': 'key-id@manta.org',
+        }
+
+
+class TestJoyentAccount(TestCase):
+
+    def test_from_config(self):
+        account = JoyentAccount.from_config(get_joyent_config())
+        self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
+        self.assertEqual(account.client.account, 'user@manta.org')
+        self.assertEqual(account.client.key_id, 'key-id@manta.org')
+
+    def test_terminate_instances(self):
+        client = Mock()
+        account = JoyentAccount(client)
+        client._list_machines.return_value = {'state': 'stopped'}
+        account.terminate_instances(['asdf'])
+        client.stop_machine.assert_called_once_with('asdf')
+        client._list_machines.assert_called_once_with('asdf')
+        client.delete_machine.assert_called_once_with('asdf')
+
+    def test_terminate_instances_waits_for_stopped(self):
+        client = Mock()
+        account = JoyentAccount(client)
+        machines = iter([{'state': 'foo'}, {'state': 'bar'},
+                         {'state': 'stopped'}])
+        client._list_machines.side_effect = lambda x: machines.next()
+        with patch('substrate.sleep'):
+            account.terminate_instances(['asdf'])
+        client.stop_machine.assert_called_once_with('asdf')
+        self.assertEqual(client._list_machines.call_count, 3)
+        client.delete_machine.assert_called_once_with('asdf')
+
+
 class TestMakeSubstrate(TestCase):
 
     def test_make_substrate_aws(self):
@@ -411,6 +457,13 @@ class TestMakeSubstrate(TestCase):
         self.assertEqual(account._tenant_name, 'baz')
         self.assertEqual(account._auth_url, 'qux')
         self.assertEqual(account._region_name, 'quxx')
+
+    def test_make_substrate_joyent(self):
+        config = get_joyent_config()
+        account = make_substrate(config)
+        self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
+        self.assertEqual(account.client.account, 'user@manta.org')
+        self.assertEqual(account.client.key_id, 'key-id@manta.org')
 
     def test_make_substrate_other(self):
         config = get_os_config()
