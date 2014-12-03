@@ -5,6 +5,7 @@ from unittest import TestCase
 from candidate import (
     find_publish_revision_number,
     get_artifact_dirs,
+    get_package,
     prepare_dir,
     update_candidate,
 )
@@ -106,3 +107,22 @@ class CandidateTestCase(TestCase):
             dirs = get_artifact_dirs(base_dir)
         self.assertEqual(
             ['1.21-artifacts', 'master-artifacts'], sorted(dirs))
+
+    def test_get_package(self):
+        def subprocessor(*args, **kwargs):
+            command = args[0]
+            if 'lsb_release' in command:
+                return '14.04'
+            elif 'dpkg' in command:
+                return 'amd64'
+
+        with patch('subprocess.check_output',
+                   side_effect=subprocessor) as co_mock:
+            name = get_package('foo', '1.2.3')
+        self.assertEqual(
+            'foo/juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb', name)
+        self.assertEqual(2, co_mock.call_count)
+        output, args, kwargs = co_mock.mock_calls[0]
+        self.assertEqual((['lsb_release', '-sr'], ), args)
+        output, args, kwargs = co_mock.mock_calls[1]
+        self.assertEqual((['dpkg', '--print-architecture'], ), args)
