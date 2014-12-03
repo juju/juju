@@ -17,11 +17,19 @@ import (
 type AddressState string
 
 const (
-	AddressStateUnknown    AddressState = ""
-	AddressStateAllocated  AddressState = "allocated"
+	// AddressStateUnknown is the initial state an IP address is created with
+	AddressStateUnknown AddressState = ""
+
+	// AddressStateAllocated means that the IP address has successfully
+	// been allocated by the provider and is now in use.
+	AddressStateAllocated AddressState = "allocated"
+
+	// AddressStateUnavailable means that allocating the address with the
+	// provider failed, presumably because it is already in use.
 	AddressStateUnvailable AddressState = "unavailable"
 )
 
+// IPAddress represents the state of an IP address.
 type IPAddress struct {
 	st  *State
 	doc ipaddressDoc
