@@ -1270,7 +1270,7 @@ func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress 
 	return nil, errors.Trace(err)
 }
 
-// IPAddress returns an existing IP address from the state
+// IPAddress returns an existing IP address from the state.
 func (st *State) IPAddress(value string) (*IPAddress, error) {
 	addresses, closer := st.getCollection(ipaddressesC)
 	defer closer()

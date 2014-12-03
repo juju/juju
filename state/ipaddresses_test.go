@@ -35,7 +35,7 @@ func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 
-	checkAddress := func(ipAddr *state.IPAddress) {
+	assertAddress := func(ipAddr *state.IPAddress) {
 		c.Assert(ipAddr.Value(), gc.Equals, "192.168.1.0")
 		c.Assert(ipAddr.SubnetId(), gc.Equals, "foobar")
 		c.Assert(ipAddr.Type(), gc.Equals, addr.Type)
