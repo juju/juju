@@ -480,24 +480,28 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
 
 
-class BackupRestoreAttempt(StageAttempt):
+class BackupRestoreAttempt(SteppedStageAttempt):
 
-    title = 'Back-up / restore'
+    @staticmethod
+    def get_test_info():
+        return {'back-up-restore': {'title': 'Back-up / restore'}}
 
-    test_id = 'back-up-restore'
-
-    def _operation(self, client):
+    def iter_steps(cls, client):
+        results = {'test_id': 'back-up-restore'}
+        yield results
         backup_file = client.backup()
         status = client.get_status()
         instance_id = status.get_instance_id('0')
         host = get_machine_dns_name(client, 0)
         terminate_instances(client.env, [instance_id])
+        yield results
         wait_for_state_server_to_shutdown(host, client, instance_id)
+        yield results
         client.juju('restore', (backup_file,))
-
-    def _result(self, client):
+        yield results
         client.wait_for_started()
-        return True
+        results['result'] = True
+        yield results
 
 
 suites = {

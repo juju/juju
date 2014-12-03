@@ -1133,7 +1133,12 @@ class TestDeployManyAttempt(TestCase):
 
 class TestBackupRestoreAttempt(TestCase):
 
-    def test__operation(self):
+    def test_get_test_info(self):
+        self.assertEqual(
+            BackupRestoreAttempt.get_test_info(),
+            {'back-up-restore': {'title': 'Back-up / restore'}})
+
+    def test_iter_steps(self):
         br_attempt = BackupRestoreAttempt()
         client = FakeEnvJujuClient()
         client.env = get_aws_env()
@@ -1151,23 +1156,28 @@ class TestBackupRestoreAttempt(TestCase):
                         }}
                     })
             self.assertEqual([], args)
+        iterator = iter_steps_validate_info(self, br_attempt, client)
+        self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         with patch('subprocess.check_output',
                    side_effect=check_output) as co_mock:
             with patch('subprocess.check_call') as cc_mock:
                 with patch('sys.stdout'):
-                    br_attempt._operation(client)
+                    self.assertEqual(
+                        iterator.next(),
+                        {'test_id': 'back-up-restore'})
         assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
+        self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
+        with patch('subprocess.check_call') as cc_mock:
+            with patch('sys.stdout'):
+                self.assertEqual(iterator.next(),
+                                 {'test_id': 'back-up-restore'})
         assert_juju_call(
             self, cc_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',
-                os.path.abspath('juju-backup-24.tgz')), 1)
-
-    def test__result(self):
-        br_attempt = BackupRestoreAttempt()
-        client = FakeEnvJujuClient()
+                os.path.abspath('juju-backup-24.tgz')))
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
@@ -1175,9 +1185,10 @@ class TestBackupRestoreAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=output) as co_mock:
-            br_attempt._result(client)
+            self.assertEqual(iterator.next(),
+                             {'test_id': 'back-up-restore', 'result': True})
         assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'steve'), assign_stderr=True)
+            'juju', '--show-log', 'status', '-e', 'baz'), assign_stderr=True)
 
 
 class TestMaybeWriteJson(TestCase):
