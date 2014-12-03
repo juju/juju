@@ -5,30 +5,17 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 )
 
 type SubnetSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(SubnetSuite{})
-
-func (s *SubnetSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
-		validator := constraints.NewValidator()
-		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-		validator.RegisterUnsupported([]string{constraints.CpuPower})
-		return validator, nil
-	}
-}
+var _ = gc.Suite(&SubnetSuite{})
 
 func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 	subnetInfo := state.SubnetInfo{
@@ -42,7 +29,7 @@ func (s *SubnetSuite) TestAddSubnet(c *gc.C) {
 
 	assertSubnet := func(subnet *state.Subnet) {
 		c.Assert(subnet.ProviderId(), gc.Equals, "foo")
-		c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24o")
+		c.Assert(subnet.CIDR(), gc.Equals, "192.168.1.0/24")
 		c.Assert(subnet.VLANTag(), gc.Equals, 79)
 		c.Assert(subnet.AllocatableIPLow(), gc.Equals, "192.168.1.0")
 		c.Assert(subnet.AllocatableIPHigh(), gc.Equals, "192.168.1.1")

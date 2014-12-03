@@ -5,13 +5,10 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 )
 
 type IPAddressSuite struct {
@@ -19,16 +16,6 @@ type IPAddressSuite struct {
 }
 
 var _ = gc.Suite(&IPAddressSuite{})
-
-func (s *IPAddressSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
-		validator := constraints.NewValidator()
-		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
-		validator.RegisterUnsupported([]string{constraints.CpuPower})
-		return validator, nil
-	}
-}
 
 func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
