@@ -94,6 +94,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
+		logger.Errorf("skipping missing file %q", allmachines)
 	} else {
 		backupFiles = append(backupFiles, allmachines)
 	}
@@ -102,6 +103,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
+		logger.Errorf("skipping missing file %q", machine0)
 	} else {
 		backupFiles = append(backupFiles, machine0)
 	}
@@ -112,6 +114,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
+		logger.Errorf("skipping missing file %q", nonce)
 	} else {
 		backupFiles = append(backupFiles, nonce)
 	}
@@ -122,6 +125,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
+		logger.Errorf("skipping missing dir %q", SSHDir)
 	} else {
 		backupFiles = append(backupFiles, filepath.Join(SSHDir, authKeysFile))
 	}
