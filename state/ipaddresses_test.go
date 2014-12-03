@@ -61,12 +61,12 @@ func (s *IPAddressSuite) TestAddIPAddressAlreadyExists(c *gc.C) {
 	_, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddIPAddress(addr, "foobar")
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsAlreadyExists)
 }
 
 func (s *IPAddressSuite) TestIPAddressNotFound(c *gc.C) {
 	_, err := s.State.IPAddress("192.168.1.0")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *IPAddressSuite) TestIPAddressRemove(c *gc.C) {
@@ -78,7 +78,7 @@ func (s *IPAddressSuite) TestIPAddressRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.IPAddress("192.168.1.0")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *IPAddressSuite) TestIPAddressSetState(c *gc.C) {
