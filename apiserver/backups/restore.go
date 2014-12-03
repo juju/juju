@@ -27,7 +27,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 
 	addr := network.SelectInternalAddress(machine.Addresses(), false)
 	if addr == "" {
-		return errors.Errorf("machine %q has no internal address", machine)
+		return errors.Errorf("machine %q has no internal address", machine.Id())
 	}
 
 	// Signal to current state and api server that restore will begin

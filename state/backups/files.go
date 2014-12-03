@@ -114,8 +114,8 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 // replaceableFolders for testing purposes
 var replaceableFolders = replaceableFoldersFunc
 
-// replaceableFoldersFunc will return a map with the files/folders that need to
-// be replaces so they can be deleted prior to a restore.
+// replaceableFoldersFunc will return a map with the folders that need to
+// be replace so they can be deleted prior to a restore.
 func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 	replaceables := map[string]os.FileMode{}
 
@@ -149,6 +149,7 @@ func PrepareMachineForRestore() error {
 	for k := range replaceFolders {
 		keys = append(keys, k)
 	}
+	// sort to avoid trying to create subfolders before folders.
 	sort.Strings(keys)
 	for _, toBeRecreated := range keys {
 		fmode := replaceFolders[toBeRecreated]

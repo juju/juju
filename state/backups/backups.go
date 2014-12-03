@@ -110,6 +110,7 @@ type Backups interface {
 
 	// Remove deletes the backup from storage.
 	Remove(id string) error
+
 	// Restore updates juju's state to the contents of the backup archive.
 	Restore(string, string, instance.Id) error
 }
@@ -276,7 +277,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 		return errors.Annotate(err, "cannot write new agent configuration")
 	}
 
-	// Restore backed up mongo
+	// Restore mongodb from backup
 	if err := PlaceNewMongo(workspace.DBDumpDir, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
 	}

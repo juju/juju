@@ -43,7 +43,7 @@ func prepareRestore(newClient ClientConnection) error {
 	// users try to perform actions that are going to be overwritten
 	// by restore.
 	for a := RestoreStrategy.Start(); a.Next(); {
-		logger.Debugf("Will attemt to call 'PrepareRestore'")
+		logger.Debugf("Will attempt to call 'PrepareRestore'")
 		prepareClient, prepareClientCloser, err := newClient()
 		if err != nil {
 			return errors.Trace(err)
@@ -60,7 +60,7 @@ func prepareRestore(newClient ClientConnection) error {
 	return errors.Annotatef(err, "could not start restore process: %v", rErr)
 }
 
-// RestoreReader performs a restore with a backup file as an imput.
+// RestoreReader performs a restore with a backup file as an input.
 func (c *Client) RestoreReader(backupFile io.Reader, newClient ClientConnection) error {
 	if err := prepareRestore(newClient); err != nil {
 		errors.Trace(err)
@@ -85,7 +85,7 @@ func (c *Client) Restore(backupId string, newClient ClientConnection) error {
 	return c.restore(backupId, newClient)
 }
 
-// restore is responsable for finishing a restore after a placeholder
+// restore is responsible for finishing a restore after a placeholder
 // machine has been bootstraped, it receives the name of a local backup file
 // or the id of one in the server and will return error on failure.
 func (c *Client) restore(backupId string, newClient ClientConnection) error {
