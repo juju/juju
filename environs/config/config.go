@@ -80,6 +80,10 @@ const (
 	// if user specifically requests it. Otherwise, let it run.
 	// Object here is a juju artifact - machine, service, unit or relation.
 	DefaultPreventRemoveObject = false
+
+	// Only prevent all-changes from running
+	// if user specifically requests it. Otherwise, let them run.
+	DefaultPreventAllChanges = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -134,6 +138,9 @@ const (
 
 	// PreventRemoveObjectKey stores the value for this setting
 	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
+
+	// PreventAllChangesKey stores the value for this setting
+	PreventAllChangesKey = BlockKeyPrefix + "all-changes"
 
 	//
 	// Deprecated Settings Attributes
@@ -757,6 +764,16 @@ func (c *Config) PreventRemoveObject() bool {
 	return DefaultPreventRemoveObject
 }
 
+// PreventAllChanges returns if all-changes
+// should be blocked from proceeding, thus preventing the operation.
+// Changes in this context are any alterations to current environment.
+func (c *Config) PreventAllChanges() bool {
+	if attrValue, ok := c.defined[PreventAllChangesKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventAllChanges
+}
+
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
@@ -1139,6 +1156,7 @@ var fields = schema.Fields{
 	SetNumaControlPolicyKey:      schema.Bool(),
 	PreventDestroyEnvironmentKey: schema.Bool(),
 	PreventRemoveObjectKey:       schema.Bool(),
+	PreventAllChangesKey:         schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1182,6 +1200,7 @@ var alwaysOptional = schema.Defaults{
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
+	PreventAllChangesKey:         DefaultPreventAllChanges,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1247,6 +1266,7 @@ func allDefaults() schema.Defaults {
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
+		PreventAllChangesKey:         DefaultPreventAllChanges,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

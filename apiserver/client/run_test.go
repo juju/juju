@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -51,8 +52,44 @@ func (s *runSuite) TestRemoteParamsForMachinePopulates(c *gc.C) {
 	c.Assert(result.Host, gc.Equals, "")
 }
 
+// blockAllChanges blocks all operations that could change environment -
+// setting block-all-changes to true.
+// Asserts that no errors were encountered.
+func (s *runSuite) blockAllChanges(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *runSuite) TestBlockRemoteParamsForMachinePopulates(c *gc.C) {
+	machine := s.addMachine(c)
+
+	// block all changes
+	s.blockAllChanges(c)
+	result := client.RemoteParamsForMachine(machine, "command", time.Minute)
+	c.Assert(result.Command, gc.Equals, "command")
+	c.Assert(result.Timeout, gc.Equals, time.Minute)
+	c.Assert(result.MachineId, gc.Equals, machine.Id())
+	// Now an empty host isn't particularly useful, but the machine doesn't
+	// have an address to use.
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+	c.Assert(result.Host, gc.Equals, "")
+}
+
 func (s *runSuite) TestRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
 	machine := s.addMachineWithAddress(c, "10.3.2.1")
+
+	result := client.RemoteParamsForMachine(machine, "command", time.Minute)
+	c.Assert(result.Command, gc.Equals, "command")
+	c.Assert(result.Timeout, gc.Equals, time.Minute)
+	c.Assert(result.MachineId, gc.Equals, machine.Id())
+	c.Assert(result.Host, gc.Equals, "ubuntu@10.3.2.1")
+}
+
+func (s *runSuite) TestBlockRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
+	machine := s.addMachineWithAddress(c, "10.3.2.1")
+
+	// block all changes
+	s.blockAllChanges(c)
 
 	result := client.RemoteParamsForMachine(machine, "command", time.Minute)
 	c.Assert(result.Command, gc.Equals, "command")
@@ -186,6 +223,26 @@ func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 	c.Assert(result.Error, gc.Equals, "missing host address")
 }
 
+func (s *runSuite) TestBlockParallelExecuteErrorsOnBlankHost(c *gc.C) {
+	s.mockSSH(c, echoInputShowArgs)
+
+	params := []*client.RemoteExec{
+		&client.RemoteExec{
+			ExecParams: ssh.ExecParams{
+				Command: "foo",
+				Timeout: testing.LongWait,
+			},
+		},
+	}
+
+	// block all changes
+	s.blockAllChanges(c)
+	runResults := client.ParallelExecute("/some/dir", params)
+	c.Assert(runResults.Results, gc.HasLen, 1)
+	result := runResults.Results[0]
+	c.Assert(result.Error, gc.Equals, "missing host address")
+}
+
 func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
@@ -199,6 +256,28 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 		},
 	}
 
+	runResults := client.ParallelExecute("/some/dir", params)
+	c.Assert(runResults.Results, gc.HasLen, 1)
+	result := runResults.Results[0]
+	c.Assert(result.Error, gc.Equals, "")
+	c.Assert(string(result.Stderr), jc.Contains, "-i /some/dir/system-identity")
+}
+
+func (s *runSuite) TestBlockParallelExecuteAddsIdentity(c *gc.C) {
+	s.mockSSH(c, echoInputShowArgs)
+
+	params := []*client.RemoteExec{
+		&client.RemoteExec{
+			ExecParams: ssh.ExecParams{
+				Host:    "localhost",
+				Command: "foo",
+				Timeout: testing.LongWait,
+			},
+		},
+	}
+
+	// block all changes
+	s.blockAllChanges(c)
 	runResults := client.ParallelExecute("/some/dir", params)
 	c.Assert(runResults.Results, gc.HasLen, 1)
 	result := runResults.Results[0]
@@ -221,6 +300,31 @@ func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 		},
 	}
 
+	runResults := client.ParallelExecute("/some/dir", params)
+	c.Assert(runResults.Results, gc.HasLen, 1)
+	result := runResults.Results[0]
+	c.Assert(result.Error, gc.Equals, "")
+	c.Assert(result.MachineId, gc.Equals, "machine-id")
+	c.Assert(result.UnitId, gc.Equals, "unit-id")
+}
+
+func (s *runSuite) TestBlockParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
+	s.mockSSH(c, echoInputShowArgs)
+
+	params := []*client.RemoteExec{
+		&client.RemoteExec{
+			ExecParams: ssh.ExecParams{
+				Host:    "localhost",
+				Command: "foo",
+				Timeout: testing.LongWait,
+			},
+			MachineId: "machine-id",
+			UnitId:    "unit-id",
+		},
+	}
+
+	// block all changes
+	s.blockAllChanges(c)
 	runResults := client.ParallelExecute("/some/dir", params)
 	c.Assert(runResults.Results, gc.HasLen, 1)
 	result := runResults.Results[0]
@@ -255,6 +359,21 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	}
 
 	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
+	// Make three machines.
+	s.addMachineWithAddress(c, "10.3.2.1")
+	s.addMachineWithAddress(c, "10.3.2.2")
+	s.addMachineWithAddress(c, "10.3.2.3")
+
+	s.mockSSH(c, echoInput)
+
+	// block all changes
+	s.blockAllChanges(c)
+	client := s.APIState.Client()
+	_, err := client.RunOnAllMachines("hostname", testing.LongWait)
+	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
@@ -301,6 +420,36 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	}
 
 	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
+	// Make three machines.
+	s.addMachineWithAddress(c, "10.3.2.1")
+
+	charm := s.AddTestingCharm(c, "dummy")
+	owner := s.Factory.MakeUser(c, nil).Tag()
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addUnit(c, magic)
+	s.addUnit(c, magic)
+
+	s.mockSSH(c, echoInput)
+
+	// hmm... this seems to be going through the api client, and from there
+	// through to the apiserver implementation. Not ideal, but it is how the
+	// other client tests are written.
+	client := s.APIState.Client()
+
+	// block all changes
+	s.blockAllChanges(c)
+	_, err = client.Run(
+		params.RunParams{
+			Commands: "hostname",
+			Timeout:  testing.LongWait,
+			Machines: []string{"0"},
+			Services: []string{"magic"},
+		})
+	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 var echoInputShowArgs = `#!/bin/bash

@@ -6,7 +6,9 @@ package main
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
@@ -149,6 +151,38 @@ func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
 		err := runAddRelation(c, t.args...)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
+		}
+	}
+}
+
+func (s *AddRelationSuite) TestBlockAddRelation(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "wordpress")
+	err := runDeploy(c, "local:wordpress", "wp")
+	c.Assert(err, jc.ErrorIsNil)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "mysql")
+	err = runDeploy(c, "local:mysql", "ms")
+	c.Assert(err, jc.ErrorIsNil)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
+	err = runDeploy(c, "local:riak", "rk")
+	c.Assert(err, jc.ErrorIsNil)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
+	err = runDeploy(c, "local:logging", "lg")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+
+	for i, t := range addRelationTests {
+		c.Logf("test %d: %v", i, t.args)
+		err := runAddRelation(c, t.args...)
+		if len(t.args) == 2 {
+			// Only worry about Run being blocked.
+			// For len(t.args) != 2, an Init will fail
+			c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+			// msg is logged
+			stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+			c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 		}
 	}
 }

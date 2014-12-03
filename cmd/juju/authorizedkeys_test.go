@@ -172,12 +172,39 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 	s.assertEnvironKeys(c, key1, key2)
 }
 
+func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorizedKeys(c, key1)
+
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	context, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), key2, "invalid-key")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot add key "invalid-key".*\n`)
+	s.assertEnvironKeys(c, key1, key2)
+}
+
 func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	context, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), "--user", "fred", key2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "")
+	s.assertEnvironKeys(c, key1, key2)
+}
+
+func (s *AddKeySuite) TestBlockAddKeyNonDefaultUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorizedKeys(c, key1)
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
+
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), "--user", "fred", key2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "")
@@ -202,12 +229,41 @@ func (s *DeleteKeySuite) TestDeleteKeys(c *gc.C) {
 	s.assertEnvironKeys(c, key1)
 }
 
+func (s *DeleteKeySuite) TestBlockDeleteKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	s.setAuthorizedKeys(c, key1, key2)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	context, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
+		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot delete key id "invalid-key".*\n`)
+	s.assertEnvironKeys(c, key1)
+}
+
 func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
+	context, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
+		"--user", "fred", sshtesting.ValidKeyTwo.Fingerprint)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "")
+	s.assertEnvironKeys(c, key1)
+}
+
+func (s *DeleteKeySuite) TestBlockDeleteKeyNonDefaultUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	s.setAuthorizedKeys(c, key1, key2)
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
 		"--user", "fred", sshtesting.ValidKeyTwo.Fingerprint)
 	c.Assert(err, jc.ErrorIsNil)
@@ -236,11 +292,36 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
 }
 
+func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorizedKeys(c, key1)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "lp:validuser", "invalid-key")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot import key id "invalid-key".*\n`)
+	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
+}
+
 func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
+	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "--user", "fred", "lp:validuser")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(coretesting.Stderr(context), gc.Equals, "")
+	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
+}
+
+func (s *ImportKeySuite) TestBlockImportKeyNonDefaultUser(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorizedKeys(c, key1)
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "--user", "fred", "lp:validuser")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Equals, "")

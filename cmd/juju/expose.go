@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // ExposeCommand is responsible exposing services.
@@ -48,5 +49,5 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return client.ServiceExpose(c.ServiceName)
+	return block.ProcessBlockedError(client.ServiceExpose(c.ServiceName), block.BlockChange, c.ConnectionName())
 }
