@@ -718,6 +718,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
+				tag := agentConfig.Tag()
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 
@@ -729,6 +730,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
+					Tag:       tag,
 					DataDir:   dataDir,
 					LogDir:    logDir,
 					Validator: a.limitLogins,
