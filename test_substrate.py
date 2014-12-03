@@ -434,6 +434,16 @@ class TestJoyentAccount(TestCase):
         self.assertEqual(client._list_machines.call_count, 3)
         client.delete_machine.assert_called_once_with('asdf')
 
+    def test_terminate_instances_stop_failure(self):
+        client = Mock()
+        account = JoyentAccount(client)
+        client._list_machines.return_value = {'state': 'foo'}
+        with patch('substrate.sleep'):
+            with patch('substrate.until_timeout', return_value=[]):
+                with self.assertRaisesRegexp(
+                        Exception, 'Instance did not stop: asdf'):
+                    account.terminate_instances(['asdf'])
+
 
 class TestMakeSubstrate(TestCase):
 
