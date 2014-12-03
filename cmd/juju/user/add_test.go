@@ -6,6 +6,7 @@ package user_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
@@ -138,6 +140,16 @@ func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplayname(c *gc.C) {
 	s.AssertJENVContents(c, context.AbsPath("foobar.jenv"))
 }
 
+func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
+	// Block operation
+	s.mockAPI.blocked = true
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--generate")
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,9 +198,17 @@ type mockAddUserAPI struct {
 
 	shareFailMsg string
 	sharedUsers  []names.UserTag
+	blocked      bool
 }
 
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, error) {
+	if m.blocked {
+		return names.UserTag{}, &params.Error{
+			Code:    params.CodeOperationBlocked,
+			Message: "The operation has been blocked.",
+		}
+	}
+
 	m.username = username
 	m.displayname = displayname
 	m.password = password

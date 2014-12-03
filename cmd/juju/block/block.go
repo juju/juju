@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
@@ -187,7 +186,10 @@ func ProcessBlockedError(err error, block Block, env string) error {
 		logger.Errorf(blockedMessages[block], env)
 		return cmd.ErrSilent
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 var removeMsg = `
