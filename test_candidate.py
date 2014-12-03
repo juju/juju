@@ -1,8 +1,10 @@
+import json
 from mock import patch
 import os
 from unittest import TestCase
 
 from candidate import (
+    extract_candidates,
     find_publish_revision_number,
     get_artifact_dirs,
     get_package,
@@ -126,3 +128,29 @@ class CandidateTestCase(TestCase):
         self.assertEqual((['lsb_release', '-sr'], ), args)
         output, args, kwargs = co_mock.mock_calls[1]
         self.assertEqual((['dpkg', '--print-architecture'], ), args)
+
+    def test_extract_candidates(self):
+        with temp_dir() as base_dir:
+            artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
+            os.makedirs(artifacts_dir_path)
+            buildvars_path = os.path.join(artifacts_dir_path, 'buildvars.json')
+            with open(buildvars_path, 'w') as bv:
+                json.dump(dict(version='1.2.3'), bv)
+            master_dir_path = os.path.join(base_dir, 'master')
+            package_path = os.path.join(master_dir_path, 'foo.deb')
+            with patch('candidate.prepare_dir') as pd_mock:
+                with patch('candidate.get_package',
+                           return_value=package_path) as gp_mock:
+                    with patch('subprocess.check_call') as cc_mock:
+                        with patch('shutil.copyfile') as sc_mock:
+                            extract_candidates(base_dir)
+        args, kwargs = pd_mock.call_args
+        self.assertEqual((master_dir_path, False, False), args)
+        args, kwargs = gp_mock.call_args
+        self.assertEqual((artifacts_dir_path, '1.2.3'), args)
+        args, kwargs = cc_mock.call_args
+        self.assertEqual(
+            (['dpkg', '-x', package_path, master_dir_path], ), args)
+        args, kwargs = sc_mock.call_args
+        copied_path = os.path.join(master_dir_path, 'buildvars.json')
+        self.assertEqual((buildvars_path, copied_path), args)

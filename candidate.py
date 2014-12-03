@@ -114,7 +114,8 @@ def extract_candidates(path, dry_run=False, verbose=False):
         if verbose:
             print('Copying %s to %s' % (buildvars_path, candidate_path))
         if not dry_run:
-            shutil.copyfile(buildvars_path, candidate_path)
+            new_path = os.path.join(candidate_path, 'buildvars.json')
+            shutil.copyfile(buildvars_path, new_path)
 
 
 def get_scripts(juju_release_tools=None):
