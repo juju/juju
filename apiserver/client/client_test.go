@@ -4119,68 +4119,6 @@ func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
 	}
 }
 
-func (s *serverSuite) TestBlockllOperations(c *gc.C) {
-	c.Assert(client.BlockOperation(s.client, client.DestroyOperation), jc.ErrorIsNil)
-	c.Assert(client.BlockOperation(s.client, client.RemoveOperation), jc.ErrorIsNil)
-	c.Assert(client.BlockOperation(s.client, client.ChangeOperation), jc.ErrorIsNil)
-}
-
-func (s *serverSuite) updateBlockConfig(c *gc.C, key string, value bool) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serverSuite) TestBlockOperationErrorDestroy(c *gc.C) {
-	//prevent destroy-environment
-	s.updateBlockConfig(c, "block-destroy-environment", true)
-	c.Assert(client.BlockOperation(s.client, client.DestroyOperation), gc.Equals, common.ErrOperationBlocked)
-
-	//prevent remove-object
-	s.updateBlockConfig(c, "block-destroy-environment", false)
-	s.updateBlockConfig(c, "block-remove-object", true)
-	c.Assert(client.BlockOperation(s.client, client.DestroyOperation), gc.Equals, common.ErrOperationBlocked)
-
-	//prevent all-changes
-	s.updateBlockConfig(c, "block-destroy-environment", false)
-	s.updateBlockConfig(c, "block-remove-object", false)
-	s.updateBlockConfig(c, "block-all-changes", true)
-	c.Assert(client.BlockOperation(s.client, client.DestroyOperation), gc.Equals, common.ErrOperationBlocked)
-}
-
-func (s *serverSuite) TestBlockOperationErrorRemove(c *gc.C) {
-	//prevent destroy-environment
-	s.updateBlockConfig(c, "block-destroy-environment", true)
-	c.Assert(client.BlockOperation(s.client, client.RemoveOperation), jc.ErrorIsNil)
-
-	//prevent remove-object
-	s.updateBlockConfig(c, "block-destroy-environment", false)
-	s.updateBlockConfig(c, "block-remove-object", true)
-	c.Assert(client.BlockOperation(s.client, client.RemoveOperation), gc.Equals, common.ErrOperationBlocked)
-
-	//prevent all-changes
-	s.updateBlockConfig(c, "block-destroy-environment", false)
-	s.updateBlockConfig(c, "block-remove-object", false)
-	s.updateBlockConfig(c, "block-all-changes", true)
-	c.Assert(client.BlockOperation(s.client, client.RemoveOperation), gc.Equals, common.ErrOperationBlocked)
-}
-
-func (s *serverSuite) TestBlockOperationErrorChange(c *gc.C) {
-	//prevent destroy-environment
-	s.updateBlockConfig(c, "block-destroy-environment", true)
-	c.Assert(client.BlockOperation(s.client, client.ChangeOperation), jc.ErrorIsNil)
-
-	//prevent remove-object
-	s.updateBlockConfig(c, "block-destroy-environment", false)
-	s.updateBlockConfig(c, "block-remove-object", true)
-	c.Assert(client.BlockOperation(s.client, client.ChangeOperation), jc.ErrorIsNil)
-
-	//prevent all-changes
-	s.updateBlockConfig(c, "block-destroy-environment", false)
-	s.updateBlockConfig(c, "block-remove-object", false)
-	s.updateBlockConfig(c, "block-all-changes", true)
-	c.Assert(client.BlockOperation(s.client, client.ChangeOperation), gc.Equals, common.ErrOperationBlocked)
-}
-
 func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
 	s.AddTestingService(c, "dummy-service", s.AddTestingCharm(c, "dummy"))
 	// block remove-objects

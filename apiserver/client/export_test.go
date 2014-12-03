@@ -24,7 +24,4 @@ var (
 	MakeMachineStatus = makeMachineStatus
 )
 
-//Client exports
-var BlockOperation = (*Client).blockOperation
-
 type MachineAndContainers machineAndContainers

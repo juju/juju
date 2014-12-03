@@ -71,6 +71,14 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	result := params.AddUserResults{
 		Results: make([]params.AddUserResult, len(args.Users)),
 	}
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return result, common.ErrOperationBlocked
+	}
+
 	if len(args.Users) == 0 {
 		return result, nil
 	}
@@ -111,12 +119,26 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is consided a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return params.ErrorResults{}, common.ErrOperationBlocked
+	}
 	return api.enableUserImpl(users, "enable", (*state.User).Enable)
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is consided a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return params.ErrorResults{}, common.ErrOperationBlocked
+	}
 	return api.enableUserImpl(users, "disable", (*state.User).Disable)
 }
 
@@ -215,6 +237,13 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	cfg, err := api.state.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
+		return result, common.ErrOperationBlocked
 	}
 	if len(args.Changes) == 0 {
 		return result, nil
