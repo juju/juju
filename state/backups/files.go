@@ -10,7 +10,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO(ericsnow) Pull these from authoritative sources (see
+// TODO(ericsnow) lp-1392876
+// Pull these from authoritative sources (see
 // github.com/juju/juju/juju/paths, etc.):
 const (
 	dataDir        = "/var/lib/juju"
@@ -29,8 +30,9 @@ const (
 	sshIdentFile   = "system-identity"
 	nonceFile      = "nonce.txt"
 	allMachinesLog = "all-machines.log"
-	machine0Log    = "machine-0.log"
-	authKeysFile   = "authorized_keys"
+	// TODO(ericsnow) It might not be machine 0...
+	machine0Log  = "machine-0.log"
+	authKeysFile = "authorized_keys"
 
 	dbStartupConf = "juju-db.conf"
 	dbPEM         = "server.pem"
