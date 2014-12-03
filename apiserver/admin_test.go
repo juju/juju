@@ -26,6 +26,10 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
+var _ apiserver.CredentialChecker = (*apiserver.LocalCredentialChecker)(nil)
+
+var _ apiserver.CredentialChecker = (*apiserver.RemoteCredentialChecker)(nil)
+
 type baseLoginSuite struct {
 	jujutesting.JujuConnSuite
 	setAdminApi func(*apiserver.Server)

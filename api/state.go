@@ -31,7 +31,7 @@ import (
 )
 
 // Login authenticates as the entity with the given name and password.
-// Subsequent requests on the state will act as that entity.  This
+// Subsequent requests on the state will act as that entity. This
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
@@ -40,7 +40,7 @@ func (st *State) Login(tag, password, nonce string) error {
 		// TODO (cmars): remove fallback once we can drop v0 compatibility
 		return st.loginV0(tag, password, nonce)
 	}
-	return err
+	return errors.Trace(err)
 }
 
 func (st *State) loginV1(tag, password, nonce string) error {
@@ -64,7 +64,7 @@ func (st *State) loginV1(tag, password, nonce string) error {
 		},
 	}, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
@@ -84,17 +84,13 @@ func (st *State) loginV1(tag, password, nonce string) error {
 		facades = result.LoginResultV1.Facades
 	}
 
-	err = st.setLoginResult(tag, environTag, servers, facades)
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.Trace(st.setLoginResult(tag, environTag, servers, facades))
 }
 
 func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	authtag, err := names.ParseTag(tag)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	st.authTag = authtag
 	st.environTag = environTag
@@ -104,7 +100,7 @@ func (st *State) setLoginResult(tag, environTag string, servers [][]network.Host
 		if clerr := st.Close(); clerr != nil {
 			err = errors.Annotatef(err, "error closing state: %v", clerr)
 		}
-		return err
+		return errors.Trace(err)
 	}
 	st.hostPorts = hostPorts
 
@@ -123,10 +119,10 @@ func (st *State) loginV0(tag, password, nonce string) error {
 		Nonce:    nonce,
 	}, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -161,11 +157,11 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	}
 	host, portString, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	port, err := strconv.Atoi(portString)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	hostPort := network.HostPort{
 		Address: network.NewAddress(host, network.ScopeUnknown),
@@ -174,6 +170,17 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	result := make([][]network.HostPort, 0, len(servers)+1)
 	result = append(result, []network.HostPort{hostPort})
 	result = append(result, servers...)
+	return result, nil
+}
+
+// RemoteLogin begins a login handshake, returning a ReauthRequest for
+// the client to satisfy with a follow-up Login request.
+func (st *State) RemoteLogin() (params.ReauthRequest, error) {
+	var result params.ReauthRequest
+	err := st.APICall("Admin", 1, "", "RemoteLogin", nil, &result)
+	if err != nil {
+		return params.ReauthRequest{}, errors.Trace(err)
+	}
 	return result, nil
 }
 

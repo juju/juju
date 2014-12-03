@@ -356,10 +356,17 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
 		adminApis := make(map[int]interface{})
+		var lastErr error
 		for apiVersion, factory := range srv.adminApiFactories {
-			adminApis[apiVersion] = factory(srv, h, reqNotifier)
+			adminApis[apiVersion], err = factory(srv, h, reqNotifier)
+			if err != nil {
+				conn.Serve(&errRoot{err}, serverError)
+				lastErr = err
+			}
 		}
-		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		if lastErr == nil {
+			conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
+		}
 	}
 	conn.Start()
 	select {

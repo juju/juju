@@ -21,6 +21,7 @@ import (
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
+	"gopkg.in/macaroon-bakery.v0/bakery"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -128,6 +129,24 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
+
+	TargetKeyPair    *bakery.KeyPair   `bson:"target-key-pair"`
+	IdentityProvider *IdentityProvider `bson:"identity-provider"`
+}
+
+// IdentityProvider holds information about a remote identity provider
+// that the Juju server trusts to make inbound API connections.
+type IdentityProvider struct {
+	PublicKey bakery.PublicKey `bson:"public-key"`
+	Location  string           `bson:"location"`
+}
+
+// PublicKeyForLocation implements the bakery.PublicKeyLocator interface.
+func (p *IdentityProvider) PublicKeyForLocation(loc string) (*bakery.PublicKey, error) {
+	if p != nil && loc == p.Location {
+		return &p.PublicKey, nil
+	}
+	return nil, errors.Errorf("no public key found for %q", loc)
 }
 
 // ForEnviron returns a connection to mongo for the specified environment. The

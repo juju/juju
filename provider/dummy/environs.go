@@ -637,37 +637,37 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	series = config.PreferredSeries(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, errors.Trace(err)
 	}
 	arch = availableTools.Arches()[0]
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
-		return "", "", nil, err
+		return "", "", nil, errors.Trace(err)
 	}
 	network.InitializeFromConfig(e.Config())
 	password := e.Config().AdminSecret()
 	if password == "" {
-		return "", "", nil, fmt.Errorf("admin-secret is required for bootstrap")
+		return "", "", nil, errors.Errorf("admin-secret is required for bootstrap")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return "", "", nil, fmt.Errorf("no CA certificate in environment configuration")
+		return "", "", nil, errors.Errorf("no CA certificate in environment configuration")
 	}
 
 	logger.Infof("would pick tools from %s", availableTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
-		return "", "", nil, fmt.Errorf("cannot make bootstrap config: %v", err)
+		return "", "", nil, errors.Errorf("cannot make bootstrap config: %v", err)
 	}
 
 	estate, err := e.state()
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, errors.Trace(err)
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return "", "", nil, fmt.Errorf("environment is already bootstrapped")
+		return "", "", nil, errors.Errorf("environment is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
@@ -722,6 +722,24 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// here is fine.
 		logger.Debugf("setting password for %q to %q", owner.Name(), password)
 		owner.SetPassword(password)
+
+		stInfo := state.StateServingInfo{
+			APIPort:    estate.apiListener.Addr().(*net.TCPAddr).Port,
+			Cert:       testing.ServerCert,
+			PrivateKey: testing.ServerKey,
+		}
+		_, mongoPort, err := net.SplitHostPort(st.MongoSession().LiveServers()[0])
+		if err != nil {
+			return "", "", nil, errors.Trace(err)
+		}
+		stInfo.StatePort, err = strconv.Atoi(mongoPort)
+		if err != nil {
+			return "", "", nil, errors.Trace(err)
+		}
+		err = st.SetStateServingInfo(stInfo)
+		if err != nil {
+			return "", "", nil, errors.Trace(err)
+		}
 
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),

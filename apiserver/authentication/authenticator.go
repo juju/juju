@@ -4,9 +4,13 @@
 package authentication
 
 import (
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.authentication")
 
 // FindEntityAuthenticator looks up the authenticator for the entity identified tag.
 func FindEntityAuthenticator(entity state.Entity) (EntityAuthenticator, error) {

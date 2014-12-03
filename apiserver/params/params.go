@@ -631,10 +631,6 @@ type LoginResultV1 struct {
 	// This is the initial environment created when bootstrapping juju.
 	ServerTag string `json:"server-tag"`
 
-	// ReauthRequest can be used to relay any further authentication handshaking
-	// required on the part of the client to complete the Login, if any.
-	ReauthRequest *ReauthRequest `json:"reauth-request,omitempty"`
-
 	// UserInfo describes the authenticated user, if any.
 	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
 

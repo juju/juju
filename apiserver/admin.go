@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v0/bakery"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/state/presence"
 )
 
-type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error)
 
 // adminApiV0 implements the API that a client first sees when connecting to
 // the API. We start serving a different API once the user has logged in.
@@ -41,7 +42,7 @@ type adminV0 struct {
 	*admin
 }
 
-func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error) {
 	return &adminApiV0{
 		admin: &adminV0{
 			&admin{
@@ -50,7 +51,7 @@ func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 				reqNotifier: reqNotifier,
 			},
 		},
-	}
+	}, nil
 }
 
 // Admin returns an object that provides API access to methods that can be
@@ -78,9 +79,9 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 		AuthTag:     c.AuthTag,
 		Credentials: c.Password,
 		Nonce:       c.Nonce,
-	})
+	}, newLocalCredentialChecker(a.srv.state))
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	resultV0 := params.LoginResult{
@@ -94,7 +95,7 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 	return resultV0, nil
 }
 
-func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
+func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
 	a.mu.Lock()
@@ -120,23 +121,25 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 	}
 
-	var isUser bool
-	if kind, err := names.TagKind(req.AuthTag); err != nil || kind != names.UserTagKind {
-		// Users are not rate limited, all other entities are
+	authKind, err := names.TagKind(req.AuthTag)
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+
+	// Users are not rate limited, all other entities are
+	if authKind != names.UserTagKind {
 		if !a.srv.limiter.Acquire() {
 			logger.Debugf("rate limiting, try again later")
 			return fail, common.ErrTryAgain
 		}
 		defer a.srv.limiter.Release()
-	} else {
-		isUser = true
 	}
 
-	entity, err := doCheckCreds(a.srv.state, req)
+	entity, err := checker.Check(req)
 	if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
@@ -145,10 +148,8 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 			// transitory and potentially confusing errors from failed
 			// logins with a more helpful one.
 			return fail, MaintenanceNoLoginError
-		} else {
-			return fail, err
 		}
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	a.root.entity = entity
 
@@ -161,12 +162,12 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	a.loggedIn = true
 
 	if err := startPingerIfAgent(a.root, entity); err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
 	// Send back user info if user
-	if isUser {
+	if authKind == names.UserTagKind {
 		lastConnection := getAndUpdateLastLoginForEntity(entity)
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
@@ -177,13 +178,13 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
 	environ, err := a.root.state.Environment()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
@@ -215,14 +216,33 @@ func (a *admin) maintenanceInProgress() bool {
 	return a.srv.validator(req) != nil
 }
 
-var doCheckCreds = checkCreds
+// CredentialChecker checks login request credentials.
+type CredentialChecker interface {
 
-func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) {
+	// Check returns the resolved login entity if credentials are valid,
+	// an error if they are invalid.
+	Check(params.LoginRequest) (state.Entity, error)
+}
+
+// LocalCredentialChecker checks login credentials for local identities.
+type LocalCredentialChecker struct {
+	st *state.State
+}
+
+var newLocalCredentialChecker = NewLocalCredentialChecker
+
+// NewLocalCredentialChecker creates a new local CredentialChecker instance.
+func NewLocalCredentialChecker(st *state.State) CredentialChecker {
+	return &LocalCredentialChecker{st: st}
+}
+
+// Check implements the CredentialChecker interface.
+func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
 	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	entity, err := st.FindEntity(tag)
+	entity, err := c.st.FindEntity(tag)
 	if errors.IsNotFound(err) {
 		// We return the same error when an entity does not exist as for a bad
 		// password, so that we don't allow unauthenticated users to find
@@ -236,22 +256,47 @@ func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) 
 
 	authenticator, err := authentication.FindEntityAuthenticator(entity)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
-		logger.Debugf("bad credentials")
 		return nil, err
 	}
 
 	// For user logins, ensure the user is allowed to access the environment.
 	if user, ok := entity.Tag().(names.UserTag); ok {
-		_, err := st.EnvironmentUser(user)
+		_, err := c.st.EnvironmentUser(user)
 		if err != nil {
 			return nil, errors.Wrap(err, common.ErrBadCreds)
 		}
 	}
 
+	return entity, nil
+}
+
+// RemoteCredentialChecker checks login credentials for remote identities.
+type RemoteCredentialChecker struct {
+	st  *state.State
+	srv *bakery.Service
+}
+
+var newRemoteCredentialChecker = NewRemoteCredentialChecker
+
+// NewRemoteCredentialChecker creates a new remote CredentialChecker instance.
+func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) CredentialChecker {
+	return &RemoteCredentialChecker{st: st, srv: srv}
+}
+
+// Check implements the CredentialChecker interface.
+func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
+	authenticator := authentication.NewRemoteAuthenticator(c.srv)
+	entity, err := authenticator.Authenticate(req.Credentials)
+	if err != nil {
+		return nil, err
+	}
+	if req.AuthTag != entity.Tag().String() {
+		return nil, errors.New("invalid user")
+	}
 	return entity, nil
 }
 
@@ -285,7 +330,7 @@ type machinePinger struct {
 // connection closing time to properly stop the wrapped pinger.
 func (p *machinePinger) Stop() error {
 	if err := p.Pinger.Stop(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return p.Pinger.Kill()
 }
@@ -302,7 +347,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 
 	pinger, err := agentPresencer.SetAgentPresence()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	root.getResources().Register(&machinePinger{pinger})
@@ -314,7 +359,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
 	err = root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -328,5 +373,5 @@ type errRoot struct {
 
 // Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
 func (r *errRoot) Admin(id string) (*adminV0, error) {
-	return nil, r.err
+	return nil, errors.Trace(r.err)
 }

@@ -6,12 +6,12 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -82,9 +82,12 @@ type Info struct {
 	CACert string
 
 	// Tag holds the name of the entity that is connecting.
-	// If this is nil, and the password are empty, no login attempt will be made.
-	// (this is to allow tests to access the API to check that operations
-	// fail when not logged in).
+	// If this is nil, the password are empty AND there is no ReauthHandler, no
+	// login attempt will be made (this is to allow tests to access the API to
+	// check that operations fail when not logged in).
+	//
+	// TODO (cmars): Would adding a test-only connect method to export_test.go
+	// be more appropriate?
 	Tag names.Tag
 
 	// Password holds the password for the administrator or connecting entity.
@@ -97,6 +100,15 @@ type Info struct {
 	// EnvironTag holds the environ tag for the environment we are
 	// trying to connect to.
 	EnvironTag names.EnvironTag
+}
+
+// ReauthHandler obtains follow-up credentials for responding to a
+// ReauthRequest challenge response.
+type ReauthHandler interface {
+
+	// HandleReauth returns the user name and credential to use for
+	// reauthenticating with a subsequent Login request.
+	HandleReauth(*params.ReauthRequest) (string, string, error)
 }
 
 // DialOpts holds configuration parameters that control the
@@ -113,6 +125,10 @@ type DialOpts struct {
 	// RetryDelay is the amount of time to wait between
 	// unsucssful connection attempts.
 	RetryDelay time.Duration
+
+	// ReauthHandler negotiates a LoginResult ReauthRequest by logging in again
+	// with the requested follow-up credentials.
+	ReauthHandler ReauthHandler
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -125,14 +141,22 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+func warnError(err error) {
+	if err != nil {
+		logger.Warningf("%v", err)
+	}
+}
+
+// Open connects to a state server with the given client credentials,
+// attributes and options.
 func Open(info *Info, opts DialOpts) (*State, error) {
 	if len(info.Addrs) == 0 {
-		return nil, fmt.Errorf("no API addresses to connect to")
+		return nil, errors.New("no API addresses to connect to")
 	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	pool.AddCert(xcert)
 
@@ -159,7 +183,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		select {
 		case <-time.After(opts.DialAddressInterval):
@@ -169,7 +193,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	try.Close()
 	result, err := try.Result()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
@@ -187,10 +211,38 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		password: info.Password,
 		certPool: pool,
 	}
-	if info.Tag != nil || info.Password != "" {
-		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
-			conn.Close()
+	if info.Tag == nil && info.Password == "" && opts.ReauthHandler != nil {
+		err = func() (err error) {
+			defer func() {
+				if err != nil {
+					warnError(errors.Trace(conn.Close()))
+				}
+			}()
+			reauth, err := st.RemoteLogin()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			user, creds, err := opts.ReauthHandler.HandleReauth(&reauth)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !names.IsValidUser(user) {
+				return errors.Errorf("not a valid user: %q", user)
+			}
+			err = st.Login(names.NewUserTag(user).String(), creds, "")
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		}()
+		if err != nil {
 			return nil, err
+		}
+	} else if info.Tag != nil || info.Password != "" {
+		err := st.Login(info.Tag.String(), info.Password, info.Nonce)
+		if err != nil {
+			warnError(errors.Trace(conn.Close()))
+			return nil, errors.Trace(err)
 		}
 	}
 	st.broken = make(chan struct{})
@@ -258,7 +310,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, fmt.Errorf("unable to connect to %q", cfg.Location)
+				return nil, errors.Errorf("unable to connect to %q", cfg.Location)
 			}
 		}
 		panic("unreachable")
@@ -278,6 +330,8 @@ func (s *State) heartbeatMonitor() {
 	}
 }
 
+// Ping informs the API server that the client is still alive and it should
+// keep the connection open.
 func (s *State) Ping() error {
 	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
