@@ -25,7 +25,8 @@ const (
 	AddressStateAllocated AddressState = "allocated"
 
 	// AddressStateUnavailable means that allocating the address with the
-	// provider failed, presumably because it is already in use.
+	// provider failed. We shouldn't use this address, nor should we
+	// attempt to allocate it again in the future.
 	AddressStateUnvailable AddressState = "unavailable"
 )
 
@@ -69,6 +70,11 @@ func (i *IPAddress) InterfaceId() string {
 // Value returns the IP address.
 func (i *IPAddress) Value() string {
 	return i.doc.Value
+}
+
+// Address returns the network.Address represent the IP address
+func (i *IPAddress) Address() network.Address {
+	return network.NewAddress(i.doc.Value, i.doc.Scope)
 }
 
 // Type returns the type of the IP address. The IP address will have a type of

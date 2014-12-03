@@ -130,3 +130,11 @@ func (s *IPAddressSuite) TestIPAddressSetInterfaceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(freshCopy.InterfaceId(), gc.Equals, "wobble")
 }
+
+func (s *IPAddressSuite) TestIPAddressAddress(c *gc.C) {
+	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
+	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Address(), gc.Equals, addr)
+
+}
