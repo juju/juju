@@ -681,7 +681,9 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 
 // setupNetworks prepares a []network.Info for the given instance. Any
 // networks in networksToDisable will be configured as disabled on the
-// machine. The interface name discovered as primary is also returned.
+// machine. Any disabled network interfaces (as discovered from the
+// lshw output for the node) will stay disabled. The interface name
+// discovered as primary is also returned.
 func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.Info, string, error) {
 	// Get the instance network interfaces first.
 	interfaces, primaryIface, err := environ.getInstanceNetworkInterfaces(inst)
@@ -716,7 +718,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 					VLANTag:       netw.VLANTag,
 					ProviderId:    network.Id(netw.Name),
 					NetworkName:   netw.Name,
-					Disabled:      disabled,
+					Disabled:      disabled || ifinfo.Disabled,
 				})
 			}
 		}
@@ -1369,6 +1371,7 @@ func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance)
 type ifaceInfo struct {
 	DeviceIndex   int
 	InterfaceName string
+	Disabled      bool
 }
 
 // extractInterfaces parses the XML output of lswh and extracts all
@@ -1377,6 +1380,7 @@ type ifaceInfo struct {
 func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]ifaceInfo, string, error) {
 	type Node struct {
 		Id          string `xml:"id,attr"`
+		Disabled    bool   `xml:"disabled,attr,omitempty"`
 		Description string `xml:"description"`
 		Serial      string `xml:"serial"`
 		LogicalName string `xml:"logicalname"`
@@ -1406,14 +1410,19 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]iface
 						return errors.Annotatef(err, "lshw output for node %q has invalid ID suffix for %q", inst.Id(), node.Id)
 					}
 				}
-				if index == 0 && primaryIface == "" {
+				if primaryIface == "" && !node.Disabled {
 					primaryIface = node.LogicalName
 					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)
 				}
 				interfaces[node.Serial] = ifaceInfo{
 					DeviceIndex:   index,
 					InterfaceName: node.LogicalName,
+					Disabled:      node.Disabled,
 				}
+				if node.Disabled {
+					logger.Debugf("node %q skipping disabled network interface %q", inst.Id(), node.LogicalName)
+				}
+
 			}
 			if err := processNodes(node.Children); err != nil {
 				return err

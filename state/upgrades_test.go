@@ -24,6 +24,7 @@ import (
 )
 
 type upgradesSuite struct {
+	gitjujutesting.CleanupSuite
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
 	state *State
@@ -33,9 +34,11 @@ type upgradesSuite struct {
 func (s *upgradesSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.CleanupSuite.SetUpSuite(c)
 }
 
 func (s *upgradesSuite) TearDownSuite(c *gc.C) {
+	s.CleanupSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
@@ -43,6 +46,7 @@ func (s *upgradesSuite) TearDownSuite(c *gc.C) {
 func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.CleanupSuite.SetUpTest(c)
 	var err error
 	s.owner = names.NewLocalUserTag("upgrade-admin")
 	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
@@ -53,6 +57,7 @@ func (s *upgradesSuite) TearDownTest(c *gc.C) {
 	if s.state != nil {
 		s.state.Close()
 	}
+	s.CleanupSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -1419,7 +1424,7 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 // to accommodate pre 1.22 schema during multihop upgrades. It returns a func
 // which restores original behaviour.
 func (s *upgradesSuite) patchPortOptFuncs() {
-	gitjujutesting.PatchValue(
+	s.PatchValue(
 		&GetPorts,
 		func(st *State, machineId, networkName string) (*Ports, error) {
 			openedPorts, closer := st.getCollection(openedPortsC)
@@ -1441,7 +1446,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 			return &Ports{st, doc, false}, nil
 		})
 
-	gitjujutesting.PatchValue(
+	s.PatchValue(
 		&GetOrCreatePorts,
 		func(st *State, machineId, networkName string) (*Ports, error) {
 			ports, err := GetPorts(st, machineId, networkName)
@@ -1461,7 +1466,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 			return ports, nil
 		})
 
-	gitjujutesting.PatchValue(
+	s.PatchValue(
 		&addPortsDocOps,
 		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
 			pDoc.Ports = ports
@@ -1477,7 +1482,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 			}}, nil
 		})
 
-	gitjujutesting.PatchValue(
+	s.PatchValue(
 		&updatePortsDocOps,
 		func(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
 			return []txn.Op{{
@@ -1497,7 +1502,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 		},
 	)
 
-	gitjujutesting.PatchValue(
+	s.PatchValue(
 		&setPortsDocOps,
 		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
 			return []txn.Op{{
