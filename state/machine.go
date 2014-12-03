@@ -789,9 +789,9 @@ func (m *Machine) AvailabilityZone() (string, error) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	return instData.AvailZone, err
+	return instData.AvailZone, errors.Trace(err)
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -898,7 +898,7 @@ func (m *Machine) SetInstanceInfo(
 			// Ignore already existing networks.
 			continue
 		} else if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	for _, iface := range interfaces {
@@ -907,7 +907,7 @@ func (m *Machine) SetInstanceInfo(
 			// Ignore already existing network interfaces.
 			continue
 		} else if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return m.SetProvisioned(id, nonce, availabilityZone, characteristics)
