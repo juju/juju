@@ -24,6 +24,9 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 type API struct {
 	st    *state.State
 	paths *backups.Paths
+
+	// machineID is the ID of the machine where the API server is running.
+	machineID string
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -33,7 +36,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	}
 
 	// Get the backup paths.
-	values, err := extractResourceValues(resources, "dataDir", "logDir")
+	values, err := extractResourceValues(resources, "dataDir", "logDir", "machineID")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -44,8 +47,9 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 
 	// Build the API.
 	b := API{
-		st:    st,
-		paths: &paths,
+		st:        st,
+		paths:     &paths,
+		machineID: values["machineID"],
 	}
 	return &b, nil
 }
