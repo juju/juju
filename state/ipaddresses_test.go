@@ -123,7 +123,7 @@ func (s *IPAddressSuite) TestIPAddressAllocateTo(c *gc.C) {
 
 	// allocating should now fail
 	err = ipAddr.AllocateTo("wobble", "wibble")
-	c.Assert(err, gc.ErrorMatches, `cannot allocate IP address .* to machine "wobble" interface "wibble"`)
+	c.Assert(err, gc.ErrorMatches, `cannot allocate IP address .* to machine "wobble", interface "wibble".*`)
 }
 
 func (s *IPAddressSuite) TestIPAddressAddress(c *gc.C) {
