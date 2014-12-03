@@ -10,6 +10,7 @@ from candidate import (
     get_package,
     get_scripts,
     prepare_dir,
+    publish_candidates,
     run_command,
     update_candidate,
 )
@@ -214,3 +215,53 @@ class CandidateTestCase(TestCase):
         with patch('subprocess.check_output') as co_mock:
             run_command(['foo', 'bar'], dry_run=True, verbose=True)
             self.assertEqual(0, co_mock.call_count)
+
+    def test_publish_candidates(self):
+        with temp_dir() as base_dir:
+            artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
+            os.makedirs(artifacts_dir_path)
+            package_path = os.path.join(
+                artifacts_dir_path,
+                'juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb')
+            with open(package_path, 'w') as pf:
+                pf.write('testing')
+            with patch('shutil.copyfile') as cf_mock:
+                with patch('candidate.run_command') as rc_mock:
+                    publish_candidates(base_dir, '~/streams',
+                                       juju_release_tools='../')
+        self.assertEqual(1, cf_mock.call_count)
+        output, args, kwargs = cf_mock.mock_calls[0]
+        self.assertEqual(package_path, args[0])
+        actual_path = args[1].replace(args[1][5:14], 'foo')
+        expected_path = os.path.join(
+            '/tmp', 'foo', 'juju-core_1.2.3-0ubuntu1~14.04.1~juju1_amd64.deb')
+        self.assertEqual(expected_path, actual_path)
+        self.assertEqual(2, rc_mock.call_count)
+        output, args, kwargs = rc_mock.mock_calls[0]
+        normalised_args = list(args[0])
+        self.assertTrue(normalised_args[2].startswith('/tmp/'))
+        normalised_args[2] = '/tmp/foo'
+        self.assertEqual(
+            ['../assemble-streams.bash', '-t', '/tmp/foo', 'weekly',
+             'IGNORE', '~/streams'],
+            normalised_args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        output, args, kwargs = rc_mock.mock_calls[1]
+        self.assertEqual(
+            (['../publish-public-tools.bash', 'weekly', '~/streams/juju-dist',
+              'cpc'],),
+            args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+
+    def test_publish_candidates_with_dry_run(self):
+        with temp_dir() as base_dir:
+            artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
+            os.makedirs(artifacts_dir_path)
+            with patch('candidate.run_command') as rc_mock:
+                publish_candidates(base_dir, '~/streams',
+                                   juju_release_tools='../')
+        self.assertEqual(2, rc_mock.call_count)
+        output, args, kwargs = rc_mock.mock_calls[0]
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        output, args, kwargs = rc_mock.mock_calls[1]
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)

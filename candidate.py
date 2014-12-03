@@ -160,7 +160,8 @@ def publish_candidates(path, streams_path,
             artifacts_path = os.path.join(path, dir_name)
             for deb_name in os.listdir(artifacts_path):
                 deb_path = os.path.join(artifacts_path, deb_name)
-                print('Copying %s' % deb_path)
+                if verbose:
+                    print('Copying %s' % deb_path)
                 new_path = os.path.join(debs_path, deb_name)
                 shutil.copyfile(deb_path, new_path)
         assemble_script, publish_script = get_scripts(juju_release_tools)
