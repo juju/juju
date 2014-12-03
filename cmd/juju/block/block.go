@@ -226,10 +226,3 @@ To remove the block run
     juju unblock destroy-environment
 
 `
-var changeMsg = `
-All operations that change environment have been blocked for environment %q.
-To unblock changes, run
-
-    juju unblock all-changes
-
-`
