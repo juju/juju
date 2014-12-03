@@ -27,10 +27,13 @@ func (s *filesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.root = c.MkDir()
+}
 
-	// Prep the fake FS.
+// createFiles preps the fake FS. The files are all created relative to
+// the given root.
+func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID string) {
 	mkdir := func(path string) string {
-		dirname := filepath.Join(s.root, path)
+		dirname := filepath.Join(root, path)
 		os.MkdirAll(dirname, 0777)
 		return dirname
 	}
@@ -41,22 +44,22 @@ func (s *filesSuite) SetUpTest(c *gc.C) {
 		file.Close()
 	}
 
-	dirname := mkdir("/var/lib/juju")
+	dirname := mkdir(paths.DataDir)
 	touch(dirname, "system-identity")
 	touch(dirname, "nonce.txt")
 	touch(dirname, "server.pem")
 	touch(dirname, "shared-secret")
-	mkdir("/var/lib/juju/tools")
+	mkdir(filepath.Join(paths.DataDir, "tools"))
 
-	dirname = mkdir("/var/lib/juju/agents")
-	touch(dirname, "machine-0.conf")
+	dirname = mkdir(filepath.Join(paths.DataDir, "agents"))
+	touch(dirname, "machine-"+machineID+".conf")
 
-	dirname = mkdir("/var/log/juju")
+	dirname = mkdir(paths.LogsDir)
 	touch(dirname, "all-machines.log")
-	touch(dirname, "machine-0.log")
+	touch(dirname, "machine-"+machineID+".log")
 
 	dirname = mkdir("/etc/init")
-	touch(dirname, "jujud-machine-0.conf")
+	touch(dirname, "jujud-machine-"+machineID+".conf")
 	touch(dirname, "juju-db.conf")
 
 	dirname = mkdir("/etc/rsyslog.d")
@@ -95,12 +98,14 @@ func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
 	}
 }
 
-func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
+func (s *filesSuite) TestGetFilesToBackUpMachine0(c *gc.C) {
 	paths := backups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
 	}
-	files, err := backups.GetFilesToBackUp(s.root, &paths)
+	s.createFiles(c, paths, s.root, "0")
+
+	files, err := backups.GetFilesToBackUp(s.root, &paths, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
@@ -121,7 +126,41 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 	s.checkSameStrings(c, files, expected)
 }
 
+func (s *filesSuite) TestGetFilesToBackUpMachine10(c *gc.C) {
+	paths := backups.Paths{
+		DataDir: "/var/lib/juju",
+		LogsDir: "/var/log/juju",
+	}
+	s.createFiles(c, paths, s.root, "10")
+
+	files, err := backups.GetFilesToBackUp(s.root, &paths, "10")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []string{
+		filepath.Join(s.root, "/etc/init/juju-db.conf"),
+		filepath.Join(s.root, "/etc/init/jujud-machine-10.conf"),
+		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
+		filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-10.conf"),
+		filepath.Join(s.root, "/var/lib/juju/nonce.txt"),
+		filepath.Join(s.root, "/var/lib/juju/server.pem"),
+		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
+		filepath.Join(s.root, "/var/lib/juju/system-identity"),
+		filepath.Join(s.root, "/var/lib/juju/tools"),
+		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
+		filepath.Join(s.root, "/var/log/juju/machine-10.log"),
+	}
+	c.Check(files, jc.SameContents, expected)
+	s.checkSameStrings(c, files, expected)
+}
+
 func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
+	paths := backups.Paths{
+		DataDir: "/var/lib/juju",
+		LogsDir: "/var/log/juju",
+	}
+	s.createFiles(c, paths, s.root, "0")
+
 	missing := []string{
 		"/var/lib/juju/nonce.txt",
 		"/home/ubuntu/.ssh/authorized_keys",
@@ -133,11 +172,7 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	paths := backups.Paths{
-		DataDir: "/var/lib/juju",
-		LogsDir: "/var/log/juju",
-	}
-	files, err := backups.GetFilesToBackUp(s.root, &paths)
+	files, err := backups.GetFilesToBackUp(s.root, &paths, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := []string{
