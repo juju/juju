@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // AddRelationCommand adds a relation between two service endpoints.
@@ -40,5 +41,5 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 	}
 	defer client.Close()
 	_, err = client.AddRelation(c.Endpoints...)
-	return err
+	return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 }

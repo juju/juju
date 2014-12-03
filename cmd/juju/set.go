@@ -16,6 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // SetCommand updates the configuration of a service.
@@ -83,7 +84,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		return api.ServiceSetYAML(c.ServiceName, string(b))
+		return block.ProcessBlockedError(api.ServiceSetYAML(c.ServiceName, string(b)), block.BlockChange, c.ConnectionName())
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
@@ -129,7 +130,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return api.ServiceSet(c.ServiceName, settings)
+	return block.ProcessBlockedError(api.ServiceSet(c.ServiceName, settings), block.BlockChange, c.ConnectionName())
 }
 
 // readValue reads the value of an option out of the named file.

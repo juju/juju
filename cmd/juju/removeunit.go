@@ -8,11 +8,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // RemoveUnitCommand is responsible for destroying service units.
 type RemoveUnitCommand struct {
-	BlockableCommand
+	envcmd.EnvCommandBase
 	UnitNames []string
 }
 
@@ -46,5 +49,5 @@ func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return c.processBlockedError(client.DestroyServiceUnits(c.UnitNames...), BlockRemove)
+	return block.ProcessBlockedError(client.DestroyServiceUnits(c.UnitNames...), block.BlockRemove, c.ConnectionName())
 }
