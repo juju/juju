@@ -11,6 +11,9 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// AddressState represents the states an IP address can be in. They are created
+// in an unknown state and then either become allocated or unavailable if
+// allocation fails.
 type AddressState string
 
 const (
