@@ -59,6 +59,7 @@ func (c *DeleteKeysCommand) Run(context *cmd.Context) error {
 	results, err := client.DeleteKeys(c.user, c.keyIds...)
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
+		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 	}
 	for i, result := range results {
 		if result.Error != nil {
