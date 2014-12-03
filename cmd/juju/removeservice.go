@@ -8,11 +8,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // RemoveServiceCommand causes an existing service to be destroyed.
 type RemoveServiceCommand struct {
-	BlockableCommand
+	envcmd.EnvCommandBase
 	ServiceName string
 }
 
@@ -43,5 +46,5 @@ func (c *RemoveServiceCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return c.processBlockedError(client.ServiceDestroy(c.ServiceName), BlockRemove)
+	return block.ProcessBlockedError(client.ServiceDestroy(c.ServiceName), block.BlockRemove, c.ConnectionName())
 }

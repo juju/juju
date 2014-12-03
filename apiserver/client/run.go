@@ -83,6 +83,9 @@ func (c *Client) getDataDir() string {
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.RunResults{}, err
+	}
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
 		return results, err
@@ -120,6 +123,9 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
 func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.RunResults{}, err
+	}
 	machines, err := c.api.state.AllMachines()
 	if err != nil {
 		return params.RunResults{}, err

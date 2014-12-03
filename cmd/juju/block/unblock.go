@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package block
 
 import "github.com/juju/cmd"
 
@@ -26,10 +26,43 @@ destroy-environment includes command:
     destroy-environment
 
 remove-object includes termination commands:
+    destroy-environment
     remove-machine
     remove-service
     remove-unit
     remove-relation
+
+all-changes includes all alteration commands
+    add-machine
+    add-relation
+    add-unit
+    authorised-keys add
+    authorised-keys delete
+    authorised-keys import
+    deploy
+    destroy-environment
+    ensure-availability
+    expose
+    publish
+    remove-machine
+    remove-relation
+    remove-service
+    remove-unit
+    resolved
+    retry-provisioning
+    run
+    set
+    set-constraints
+    set-env
+    unexpose
+    unset
+    unset-env
+    upgrade-charm
+    upgrade-juju
+    user add
+    user change-password
+    user disable
+    user enable
 
 
 Examples:
@@ -39,6 +72,8 @@ Examples:
    To allow the machines, services, units and relations to be removed:
    juju unblock remove-object
 
+   To allow changes to the environment:
+   juju unblock all-changes
 
 See Also:
    juju help block

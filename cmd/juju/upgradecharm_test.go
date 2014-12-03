@@ -8,17 +8,19 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 )
 
 type UpgradeCharmErrorsSuite struct {
@@ -143,6 +145,16 @@ func (s *UpgradeCharmSuccessSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	s.assertLocalRevision(c, 7, s.path)
 }
 
+func (s *UpgradeCharmSuccessSuite) TestBlockUpgradeCharm(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	err := runUpgradeCharm(c, "riak")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	dir, err := charm.ReadCharmDir(s.path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,7 +184,37 @@ func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *gc.C) {
 	s.assertLocalRevision(c, 7, s.path)
 }
 
+func (s *UpgradeCharmSuccessSuite) TestBlockUpgradesWithBundle(c *gc.C) {
+	dir, err := charm.ReadCharmDir(s.path)
+	c.Assert(err, jc.ErrorIsNil)
+	dir.SetRevision(42)
+	buf := &bytes.Buffer{}
+	err = dir.ArchiveTo(buf)
+	c.Assert(err, jc.ErrorIsNil)
+	bundlePath := path.Join(s.SeriesPath, "riak.charm")
+	err = ioutil.WriteFile(bundlePath, buf.Bytes(), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	err = runUpgradeCharm(c, "riak")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *gc.C) {
+	err := runUpgradeCharm(c, "riak", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpgraded(c, 8, true)
+	// Local revision is not changed.
+	s.assertLocalRevision(c, 7, s.path)
+}
+
+func (s *UpgradeCharmSuccessSuite) TestBlockForcedUpgrade(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	err := runUpgradeCharm(c, "riak", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUpgraded(c, 8, true)

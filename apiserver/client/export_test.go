@@ -25,8 +25,6 @@ var (
 )
 
 //Client exports
-var (
-	BlockOperation = blockedOperationError
-)
+var BlockOperation = (*Client).blockOperation
 
 type MachineAndContainers machineAndContainers

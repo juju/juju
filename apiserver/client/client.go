@@ -86,6 +86,9 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 // (Deprecated) Use NewServiceSetForClientAPI instead, to preserve values set to
 // an empty string, and use ServiceUnset to unset values.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -110,6 +113,9 @@ func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 
 // ServiceUnset implements the server side of Client.ServiceUnset.
 func (c *Client) ServiceUnset(p params.ServiceUnset) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -123,6 +129,9 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
 func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -130,11 +139,13 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
-// blockedOperationError determines what error to throw up.
+// blockOperation determines if operation is blocked and
+// what error to generate.
 // If err is not nil, it is returned wrapped in Server Error.
 // If block is true, a "blocked operation" error is thrown up.
 // Otherwise, proceed as before
-func blockedOperationError(blocked bool, err error) error {
+func (c *Client) blockOperation(operation Operation) error {
+	blocked, err := c.isOperationBlocked(operation)
 	if err != nil {
 		return common.ServerError(err)
 	}
@@ -164,6 +175,9 @@ func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.S
 
 // Resolved implements the server side of Client.Resolved.
 func (c *Client) Resolved(p params.Resolved) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	unit, err := c.api.state.Unit(p.UnitName)
 	if err != nil {
 		return err
@@ -230,6 +244,9 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -240,6 +257,9 @@ func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -266,6 +286,9 @@ func networkTagsToNames(tags []string) ([]string, error) {
 // before calling ServiceDeploy, although for backward compatibility
 // this is not necessary until 1.16 support is removed.
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
@@ -343,6 +366,11 @@ func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 // minimum number of units, settings and constraints.
 // All parameters in params.ServiceUpdate except the service name are optional.
 func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
+	if !args.ForceCharmUrl {
+		if err := c.blockOperation(ChangeOperation); err != nil {
+			return err
+		}
+	}
 	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -466,6 +494,12 @@ func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings m
 
 // ServiceSetCharm sets the charm for a given service.
 func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
+	// when forced, don't block
+	if !args.Force {
+		if err := c.blockOperation(ChangeOperation); err != nil {
+			return err
+		}
+	}
 	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -497,6 +531,9 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.AddServiceUnitsResults{}, err
+	}
 	units, err := addServiceUnits(c.api.state, args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
@@ -510,7 +547,7 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+	if err := c.blockOperation(RemoveOperation); err != nil {
 		//no need to iterate over all units if the operation is blocked
 		return err
 	}
@@ -537,7 +574,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 
 // ServiceDestroy destroys a given service.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
-	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+	if err := c.blockOperation(RemoveOperation); err != nil {
 		return err
 	}
 	svc, err := c.api.state.Service(args.ServiceName)
@@ -568,6 +605,9 @@ func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, erro
 
 // SetServiceConstraints sets the constraints for a given service.
 func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -577,11 +617,17 @@ func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 
 // SetEnvironmentConstraints sets the constraints for the environment.
 func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	return c.api.state.SetEnvironConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.AddRelationResults{}, err
+	}
 	inEps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, err
@@ -603,7 +649,7 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+	if err := c.blockOperation(RemoveOperation); err != nil {
 		return err
 	}
 	eps, err := c.api.state.InferEndpoints(args.Endpoints...)
@@ -624,6 +670,9 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 
 // AddMachinesV2 adds new machines with the supplied parameters.
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.AddMachinesResults{}, err
+	}
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
@@ -789,7 +838,7 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 			continue
 		default:
 			{
-				if err = blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
+				if err = c.blockOperation(RemoveOperation); err != nil {
 					// no need to iterate over all machines, if the operation is blocked
 					return err
 				}
@@ -803,18 +852,53 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 	return destroyErr("machines", args.MachineNames, errs)
 }
 
-// isRemoveObjectBlocked determines whether remove object
-// operation should proceed, where object is any juju artifact
-//  such as machine, service, unit or relation.
-// We examine whether prevent-remove-object set to true.
-// If the command must be blocked, an error is thrown up,
-// effectively blocking remove operation.
-func (c *Client) isRemoveObjectBlocked() (bool, error) {
+type Operation int8
+
+const (
+	// Operation that destroys an environment
+	DestroyOperation Operation = iota
+
+	// Operation that removes machine, service, unit or relation
+	RemoveOperation
+
+	ChangeOperation
+)
+
+// isOperationBlocked determines if the operation should proceed
+// based on configuration parameters that prevent destroy, remove or change
+// operations.
+//
+//              prevent-destroy-on    prevent-remove-on    prevent-change-on
+// destroy-op        yes                  yes                 yes
+// remove-op         no                   yes                 yes
+// change-op         no                   no                  yes
+//
+//
+// If configuration cannot be retrieved, the method assumes the worst
+// and blocks operation.
+func (c *Client) isOperationBlocked(operation Operation) (bool, error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return true, err
 	}
-	return cfg.PreventRemoveObject(), nil
+
+	allChanges := cfg.PreventAllChanges()
+	// If all changes are blocked, requesting operation makes no difference
+	if allChanges {
+		return true, nil
+	}
+
+	allRemoves := cfg.PreventRemoveObject()
+	// This only matters for Destroy and Remove operations
+	if allRemoves && operation != ChangeOperation {
+		return true, nil
+	}
+
+	allDestroys := cfg.PreventDestroyEnvironment()
+	if allDestroys && operation == DestroyOperation {
+		return true, nil
+	}
+	return false, nil
 }
 
 // CharmInfo returns information about the requested charm.
@@ -998,6 +1082,16 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 // EnvironmentSet implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		// if trying to change value for block-changes, let it go
+		if v, present := args.Config[config.PreventAllChangesKey]; !present {
+			return err
+		} else if block, ok := v.(bool); ok && block {
+			// still want to block changes
+			return err
+		}
+		// else if block is false, we want to unblock changes
+	}
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
 		if v, found := updateAttrs["agent-version"]; found {
@@ -1019,6 +1113,9 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 // EnvironmentUnset implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
@@ -1027,12 +1124,18 @@ func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 
 // SetEnvironAgentVersion sets the environment agent version.
 func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	return c.api.state.SetEnvironAgentVersion(args.Version)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (c *Client) AbortCurrentUpgrade() error {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return err
+	}
 	return c.api.state.AbortCurrentUpgrade()
 }
 
@@ -1194,6 +1297,9 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.ErrorResults{}, err
+	}
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
 		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
@@ -1215,6 +1321,9 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 // DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
 // This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
+	if err := c.blockOperation(ChangeOperation); err != nil {
+		return params.StateServersChangeResults{}, err
+	}
 	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
 	for i, stateServersSpec := range args.Specs {
 		result, err := highavailability.EnsureAvailabilitySingle(c.api.state, stateServersSpec)
