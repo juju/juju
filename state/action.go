@@ -278,8 +278,9 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
 	for iter.Next(&doc) {
 		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
-		if names.IsValidAction(doc.Id) {
-			results = append(results, names.NewActionTag(st.localID(doc.Id)))
+		localID := st.localID(doc.Id)
+		if names.IsValidAction(localID) {
+			results = append(results, names.NewActionTag(localID))
 		}
 	}
 	actionLogger.Tracef("FindActionTagsByPrefix() %q found %+v", prefix, results)

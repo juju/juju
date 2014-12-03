@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -143,6 +144,7 @@ func (s *actionSuite) TestActions(c *gc.C) {
 
 func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	// arrange
+	loggo.GetLogger("juju.state.action").SetLogLevel(loggo.TRACE)
 	// TODO(jcw4) inject the UUID and test multiple similiar ids
 	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}}}}
 	r, err := s.action.Enqueue(arg)
