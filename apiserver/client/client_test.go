@@ -734,7 +734,6 @@ func (s *serverSuite) TestBlockDestroyClientServerUnset(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title": "foobar",
 	})
-
 }
 
 func (s *serverSuite) TestBlockRemoveClientServerUnset(c *gc.C) {
@@ -765,7 +764,6 @@ func (s *serverSuite) TestBlockRemoveClientServerUnset(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title": "foobar",
 	})
-
 }
 
 func (s *serverSuite) TestBlockChangesClientServerUnset(c *gc.C) {
@@ -3021,13 +3019,13 @@ func (s *clientSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
 	err = s.APIState.Client().EnvironmentSet(args)
 	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
 
-	//Make sure just mentioning variable does not unblock env
+	// Make sure just mentioning variable does not unblock env
 	// Need right value to unblock properly
 	args[config.PreventAllChangesKey] = true
 	err = s.APIState.Client().EnvironmentSet(args)
 	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
 
-	//But make sure that can unblock block-changes with right value
+	// But make sure that can unblock block-changes with right value
 	args[config.PreventAllChangesKey] = false
 	err = s.APIState.Client().EnvironmentSet(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3040,7 +3038,6 @@ func (s *clientSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
 	value, found = envConfig.AllAttrs()[config.PreventAllChangesKey]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, jc.IsFalse)
-
 }
 
 func (s *clientSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
@@ -4183,7 +4180,7 @@ func (s *clientSuite) TestBlockDestoryDestroyMachines(c *gc.C) {
 }
 
 func (s *clientSuite) TestAnyBlockForceDestroyMachines(c *gc.C) {
-	//force bypasses all blocks
+	// force bypasses all blocks
 	s.blockAllChanges(c)
 	s.blockDestroyEnvironment(c)
 	s.blockRemoveObject(c)
