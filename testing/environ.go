@@ -147,8 +147,8 @@ func (s *FakeJujuHomeSuite) TearDownTest(c *gc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
-//AssertConfigParameterUpdated updates environment parameter and
-// asserts that no errors were encountered
+// AssertConfigParameterUpdated updates environment parameter and
+// asserts that no errors were encountered.
 func (s *FakeJujuHomeSuite) AssertConfigParameterUpdated(c *gc.C, key, value string) {
 	s.PatchEnvironment(key, value)
 }

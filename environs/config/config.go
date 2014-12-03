@@ -69,18 +69,22 @@ const (
 	// obtain this information from the system.
 	fallbackLtsSeries string = "trusty"
 
+	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
 	DefaultNumaControlPolicy = false
 
+	// DefaultPreventDestroyEnvironment should not be used by default.
 	// Only prevent destroy-environment from running
 	// if user specifically requests it. Otherwise, let it run.
 	DefaultPreventDestroyEnvironment = false
 
+	// DefaultPreventRemoveObject should not be used by default.
 	// Only prevent remove-object from running
 	// if user specifically requests it. Otherwise, let it run.
 	// Object here is a juju artifact - machine, service, unit or relation.
 	DefaultPreventRemoveObject = false
 
+	// DefaultPreventAllChanges should not be used by default.
 	// Only prevent all-changes from running
 	// if user specifically requests it. Otherwise, let them run.
 	DefaultPreventAllChanges = false

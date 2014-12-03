@@ -4,5 +4,5 @@
 package block
 
 var (
-	BlockClientGetter = &getBlockClientAPI
+	ClientGetter = &getBlockClientAPI
 )
