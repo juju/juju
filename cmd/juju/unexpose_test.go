@@ -4,6 +4,9 @@
 package main
 
 import (
+	"strings"
+
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -49,4 +52,20 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 
 	err = runUnexpose(c, "nonexistent-service")
 	c.Assert(err, gc.ErrorMatches, `service "nonexistent-service" not found`)
+}
+
+func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "some-service-name")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/dummy-1")
+	s.AssertService(c, "some-service-name", curl, 1, 0)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	err = runExpose(c, "some-service-name")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }

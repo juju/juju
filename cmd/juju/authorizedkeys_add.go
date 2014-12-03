@@ -6,9 +6,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 var addKeysDoc = `
@@ -54,7 +56,7 @@ func (c *AddKeysCommand) Run(context *cmd.Context) error {
 
 	results, err := client.AddKeys(c.user, c.sshKeys...)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 	}
 	for i, result := range results {
 		if result.Error != nil {

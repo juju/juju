@@ -6,9 +6,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 var importKeysDoc = `
@@ -55,7 +57,7 @@ func (c *ImportKeysCommand) Run(context *cmd.Context) error {
 
 	results, err := client.ImportKeys(c.user, c.sshKeyIds...)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 	}
 	for i, result := range results {
 		if result.Error != nil {

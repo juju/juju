@@ -6,6 +6,7 @@ package main
 import (
 	"strings"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -45,7 +46,7 @@ var resolvedMachineTests = []struct {
 	},
 }
 
-func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
+func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 	m, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobManageEnviron},
@@ -78,5 +79,37 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 			c.Check(info, gc.Equals, "broken")
 			c.Check(data["transient"], jc.IsTrue)
 		}
+	}
+}
+
+func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
+	m, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobManageEnviron},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetStatus(state.StatusError, "broken", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	for i, t := range resolvedMachineTests {
+		c.Logf("test %d: %v", i, t.args)
+		_, err := testing.RunCommand(c, envcmd.Wrap(&RetryProvisioningCommand{}), t.args...)
+		if t.err != "" {
+			c.Check(err, gc.ErrorMatches, t.err)
+			continue
+		} else {
+			c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+			// msg is logged
+			stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+			c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+		}
+
 	}
 }

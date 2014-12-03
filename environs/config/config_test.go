@@ -392,6 +392,22 @@ var configTests = []configTest{
 			"block-remove-object": false,
 		},
 	}, {
+		about:       "block-all-changes on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"block-all-changes": true,
+		},
+	}, {
+		about:       "block-all-changes off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"block-all-changest": false,
+		},
+	}, {
 		about:       "Invalid prefer-ipv6 flag",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1315,6 +1331,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["set-numa-control-policy"] = false
 	attrs["block-destroy-environment"] = false
 	attrs["block-remove-object"] = false
+	attrs["block-all-changes"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

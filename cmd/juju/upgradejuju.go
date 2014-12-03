@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	coretools "github.com/juju/juju/tools"
@@ -196,7 +197,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return errors.New(message)
 			}
 			if err := client.AbortCurrentUpgrade(); err != nil {
-				return err
+				return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 			}
 		}
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
@@ -207,7 +208,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 					"upgrade-juju command with the --reset-previous-upgrade flag.", err,
 				)
 			} else {
-				return err
+				return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 			}
 		}
 		logger.Infof("started upgrade to %s", context.chosen)

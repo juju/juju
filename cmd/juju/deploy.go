@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
@@ -179,7 +180,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 	}
 
 	if c.BumpRevision {
@@ -250,7 +251,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.Constraints,
 			c.ToMachineSpec)
 	}
-	return err
+	return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 }
 
 // addCharmViaAPI calls the appropriate client API calls to add the

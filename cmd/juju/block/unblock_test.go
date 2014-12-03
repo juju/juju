@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package block_test
 
 import (
 	"strings"
@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
@@ -21,7 +22,7 @@ type UnblockCommandSuite struct {
 var _ = gc.Suite(&UnblockCommandSuite{})
 
 func runUnblockCommand(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UnblockCommand{}), args...)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&block.UnblockCommand{}), args...)
 	return err
 }
 

@@ -6,9 +6,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 var deleteKeysDoc = `
@@ -56,7 +58,7 @@ func (c *DeleteKeysCommand) Run(context *cmd.Context) error {
 
 	results, err := client.DeleteKeys(c.user, c.keyIds...)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 	}
 	for i, result := range results {
 		if result.Error != nil {

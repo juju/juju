@@ -1,7 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-
-package main
+package block
 
 import (
 	"fmt"
@@ -12,7 +11,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/loggo"
 )
+
+var logger = loggo.GetLogger("juju.cmd.juju.block")
 
 // ProtectionCommand is a super for environment protection commands that block/unblock operations.
 type ProtectionCommand struct {
@@ -36,7 +38,7 @@ var (
 	// supplied to the command.
 	// These operations do not necessarily correspond to juju commands
 	// but are rather juju command groupings.
-	blockArgs = []string{"destroy-environment", "remove-object"}
+	blockArgs = []string{"destroy-environment", "remove-object", "all-changes"}
 
 	// Formatted representation of block command valid arguments
 	blockArgsFmt = fmt.Sprintf(strings.Join(blockArgs, " | "))
@@ -96,11 +98,43 @@ destroy-environment includes command:
     destroy-environment
 
 remove-object includes termination commands:
+    destroy-environment
     remove-machine
     remove-service
     remove-unit
     remove-relation
 
+all-changes includes all alteration commands
+    add-machine
+    add-relation
+    add-unit
+    authorised-keys add
+    authorised-keys delete
+    authorised-keys import
+    deploy
+    destroy-environment
+    ensure-availability
+    expose
+    publish
+    remove-machine
+    remove-relation
+    remove-service
+    remove-unit
+    resolved
+    retry-provisioning
+    run
+    set
+    set-constraints
+    set-env
+    unexpose
+    unset
+    unset-env
+    upgrade-charm
+    upgrade-juju
+    user add
+    user change-password
+    user disable
+    user enable
 
 Examples:
    To prevent the environment from being destroyed:
@@ -108,6 +142,9 @@ Examples:
 
    To prevent the machines, services, units and relations from being removed:
    juju block remove-object
+
+   To prevent changes to the environment:
+   juju block all-changes
 
 See Also:
    juju help unblock
@@ -136,20 +173,18 @@ type Block int8
 const (
 	BlockDestroy Block = iota
 	BlockRemove
+	BlockChange
 )
 
 var blockedMessages = map[Block]string{
 	BlockDestroy: destroyMsg,
 	BlockRemove:  removeMsg,
+	BlockChange:  changeMsg,
 }
 
-type BlockableCommand struct {
-	envcmd.EnvCommandBase
-}
-
-func (c *BlockableCommand) processBlockedError(err error, block Block) error {
+func ProcessBlockedError(err error, block Block, env string) error {
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf(blockedMessages[block], c.ConnectionName())
+		logger.Errorf(blockedMessages[block], env)
 		return cmd.ErrSilent
 	}
 	return err
@@ -167,5 +202,12 @@ destroy-environment operation has been blocked for environment %q.
 To remove the block run
 
     juju unblock destroy-environment
+
+`
+var changeMsg = `
+All operations that change environment have been blocked for environment %q.
+To unblock changes, run
+
+    juju unblock all-changes
 
 `
