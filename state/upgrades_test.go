@@ -1686,7 +1686,7 @@ func (s *upgradesSuite) TestAddAvailabilityZoneToInstanceData(c *gc.C) {
 
 func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
 	ops := []txn.Op{
-		txn.Op{
+		{
 			C:      machinesC,
 			Id:     machineID,
 			Assert: txn.DocMissing,
@@ -1695,7 +1695,7 @@ func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
 				"instanceid": instID,
 			},
 		},
-		txn.Op{
+		{
 			C:      instanceDataC,
 			Id:     machineID,
 			Assert: txn.DocMissing,
