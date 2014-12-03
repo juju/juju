@@ -37,7 +37,7 @@ func (s *uploadSuite) TestSuccess(c *gc.C) {
 	meta.Stored = time.Time{}
 
 	id, err := s.client.Upload(archive, meta)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(id, gc.Equals, "<a new backup ID>")
 }

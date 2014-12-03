@@ -37,7 +37,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	if err := os.Remove(s.filename); err != nil {
 		if !os.IsNotExist(err) {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 		}
 	}
 
@@ -46,7 +46,7 @@ func (s *uploadSuite) TearDownTest(c *gc.C) {
 
 func (s *uploadSuite) createArchive(c *gc.C) {
 	archive, err := os.Create(s.filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer archive.Close()
 
 	compressed := gzip.NewWriter(archive)
@@ -65,15 +65,15 @@ func (s *uploadSuite) createArchive(c *gc.C) {
 			Size: int64(len(file.Body)),
 		}
 		err := tarball.WriteHeader(hdr)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		_, err = tarball.Write([]byte(file.Body))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func (s *uploadSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "upload", "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := s.subcommand.Info()
 	expected := "(?sm)usage: juju backups upload [options] " + info.Args + "$.*"
@@ -90,7 +90,7 @@ func (s *uploadSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	out := MetaResultString
 	s.checkStd(c, ctx, out, "")
