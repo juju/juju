@@ -4,6 +4,7 @@ from unittest import TestCase
 
 from candidate import (
     find_publish_revision_number,
+    get_artifact_dirs,
     prepare_dir,
     update_candidate,
 )
@@ -95,3 +96,13 @@ class CandidateTestCase(TestCase):
              '~/candidate/1.21-artifacts'),
             args)
         self.assertEqual(options, kwargs)
+
+    def test_get_artifact_dirs(self):
+        with temp_dir() as base_dir:
+            os.makedirs(os.path.join(base_dir, 'master'))
+            os.makedirs(os.path.join(base_dir, 'master-artifacts'))
+            os.makedirs(os.path.join(base_dir, '1.21-artifacts'))
+            os.makedirs(os.path.join(base_dir, 'subdir'))
+            dirs = get_artifact_dirs(base_dir)
+        self.assertEqual(
+            ['1.21-artifacts', 'master-artifacts'], sorted(dirs))
