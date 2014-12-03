@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
@@ -271,4 +272,14 @@ func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
 	output := run(c, badSock, "bill", 1, "remote")
 	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
 	c.Assert(output, gc.Matches, err)
+}
+
+func (s *MainSuite) TestJujuImports(c *gc.C) {
+	// Since the feature flags for Juju are handled by an init block
+	// in juju/osenv, we need to make sure that the jujud package actually
+	// imports it, albiet indirectly.
+	packages := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd/jujud")
+	imports := set.NewStrings(packages...)
+	required := "juju/osenv"
+	c.Assert(imports.Contains(required), jc.IsTrue)
 }

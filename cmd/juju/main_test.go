@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/juju/utils/set"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -375,4 +376,14 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 			)
 		}
 	}
+}
+
+func (s *MainSuite) TestJujuImports(c *gc.C) {
+	// Since the feature flags for Juju are handled by an init block
+	// in juju/osenv, we need to make sure that the juju package actually
+	// imports it, albiet indirectly.
+	packages := testing.FindJujuCoreImports(c, "github.com/juju/juju/cmd/juju")
+	imports := set.NewStrings(packages...)
+	required := "juju/osenv"
+	c.Assert(imports.Contains(required), jc.IsTrue)
 }

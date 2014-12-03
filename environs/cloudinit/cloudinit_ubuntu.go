@@ -16,11 +16,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/proxy"
 
 	agenttool "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service/upstart"
 )
 
@@ -317,8 +319,12 @@ func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {
 	w.conf.AddScripts(fmt.Sprintf("ln -s %v %s", w.mcfg.Tools.Version, shquote(toolsDir)))
 
 	name := w.mcfg.MachineAgentServiceName
+	envVars := map[string]string{}
+	if envVar := featureflag.AsEnvironmentValue(); envVar != "" {
+		envVars[osenv.JujuFeatureFlagEnvKey] = envVar
+	}
 	conf := upstart.MachineAgentUpstartService(
-		name, toolsDir, w.mcfg.DataDir, w.mcfg.LogDir, tag, w.mcfg.MachineId, nil)
+		name, toolsDir, w.mcfg.DataDir, w.mcfg.LogDir, tag, w.mcfg.MachineId, envVars)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
