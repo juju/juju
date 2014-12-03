@@ -46,7 +46,7 @@ type format_1_18Serialization struct {
 
 	PreferIPv6 bool `yaml:"prefer-ipv6,omitempty"`
 
-	// Only state server machines have these next items
+	// Only state server machines have these next items set.
 	StateServerCert string `yaml:",omitempty"`
 	StateServerKey  string `yaml:",omitempty"`
 	CAPrivateKey    string `yaml:",omitempty"`

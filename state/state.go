@@ -123,6 +123,8 @@ type State struct {
 type StateServingInfo struct {
 	APIPort      int
 	StatePort    int
+	Cert         string
+	PrivateKey   string
 	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
@@ -1895,7 +1897,8 @@ func (st *State) StateServingInfo() (StateServingInfo, error) {
 
 // SetStateServingInfo stores information needed for running a state server
 func (st *State) SetStateServingInfo(info StateServingInfo) error {
-	if info.StatePort == 0 || info.APIPort == 0 {
+	if info.StatePort == 0 || info.APIPort == 0 ||
+		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
 	if info.CAPrivateKey == "" {

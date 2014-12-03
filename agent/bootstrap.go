@@ -115,6 +115,8 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 	return state.StateServingInfo{
 		APIPort:        i.APIPort,
 		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
 		CAPrivateKey:   i.CAPrivateKey,
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,

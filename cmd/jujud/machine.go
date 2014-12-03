@@ -413,12 +413,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, fmt.Errorf("cannot get state serving info: %v", err)
 			}
-			// The server certificate is not stored in state, so grab
-			// a copy from our current config and update the data from
-			// state with it.
-			currentInfo, _ := agentConfig.StateServingInfo()
-			info.Cert = currentInfo.Cert
-			info.PrivateKey = currentInfo.PrivateKey
 			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(info)
 				return nil
@@ -974,6 +968,8 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 	return state.StateServingInfo{
 		APIPort:        i.APIPort,
 		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
 		CAPrivateKey:   i.CAPrivateKey,
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,
