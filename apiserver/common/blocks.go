@@ -1,19 +1,13 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package common
 
 import "github.com/juju/juju/environs/config"
 
-// isOperationBlocked determines if the operation should proceed
+// IsOperationBlocked determines if the operation should proceed
 // based on configuration parameters that prevent destroy, remove or change
 // operations.
-//
-//              prevent-destroy-on    prevent-remove-on    prevent-change-on
-// destroy-op        yes                  yes                 yes
-// remove-op         no                   yes                 yes
-// change-op         no                   no                  yes
-//
-//
-// If configuration cannot be retrieved, the method assumes the worst
-// and blocks operation.
 func IsOperationBlocked(operation Operation, cfg *config.Config) bool {
 	allChanges := cfg.PreventAllChanges()
 	// If all changes are blocked, requesting operation makes no difference
@@ -34,16 +28,19 @@ func IsOperationBlocked(operation Operation, cfg *config.Config) bool {
 	return false
 }
 
+// Operation specifies operation type for enum benefit.
+// Operation type may be relevant for a group of commands.
 type Operation int8
 
 const (
-	// Operation that destroys an environment
+	// DestroyOperation type groups commands that destroy environment.
 	DestroyOperation Operation = iota
 
-	// Operation that removes machine, service, unit or relation
+	// RemoveOperation type groups commands
+	// that removes machine, service, unit or relation.
 	RemoveOperation
 
-	// Operation that changes environments -
-	// all adds, modifies, removes, etc
+	// ChangeOperation type groups commands that change environments -
+	// all adds, modifies, removes, etc.
 	ChangeOperation
 )

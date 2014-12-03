@@ -79,6 +79,8 @@ See Also:
    juju help block
 `
 
+// Info provides information about command.
+// Satisfying Command interface.
 func (c *UnblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
@@ -88,10 +90,14 @@ func (c *UnblockCommand) Info() *cmd.Info {
 	}
 }
 
+// Init initializes the command.
+// Satisfying Command interface.
 func (c *UnblockCommand) Init(args []string) error {
 	return c.assignValidOperation("unblock", args)
 }
 
+// Run unblocks previously blocked commands.
+// Satisfying Command interface.
 func (c *UnblockCommand) Run(_ *cmd.Context) error {
 	return c.setBlockEnvironmentVariable(false)
 }
