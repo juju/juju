@@ -120,3 +120,38 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
 }
+
+func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
+	missing := []string{
+		"/var/lib/juju/nonce.txt",
+		"/home/ubuntu/.ssh/authorized_keys",
+		"/var/log/juju/all-machines.log",
+		"/var/log/juju/machine-0.log",
+	}
+	for _, filename := range missing {
+		err := os.Remove(filepath.Join(s.root, filename))
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	paths := backups.Paths{
+		DataDir: "/var/lib/juju",
+		LogsDir: "/var/log/juju",
+	}
+	files, err := backups.GetFilesToBackUp(s.root, &paths)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := []string{
+		filepath.Join(s.root, "/etc/init/juju-db.conf"),
+		filepath.Join(s.root, "/etc/init/jujud-machine-0.conf"),
+		filepath.Join(s.root, "/etc/rsyslog.d/spam-juju.conf"),
+		filepath.Join(s.root, "/var/lib/juju/agents/machine-0.conf"),
+		filepath.Join(s.root, "/var/lib/juju/server.pem"),
+		filepath.Join(s.root, "/var/lib/juju/shared-secret"),
+		filepath.Join(s.root, "/var/lib/juju/system-identity"),
+		filepath.Join(s.root, "/var/lib/juju/tools"),
+	}
+	// This got re-created.
+	expected = append(expected, filepath.Join(s.root, "/home/ubuntu/.ssh/authorized_keys"))
+	c.Check(files, jc.SameContents, expected)
+	s.checkSameStrings(c, files, expected)
+}
