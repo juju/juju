@@ -88,7 +88,7 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 func (c *Client) ServiceSet(p params.ServiceSet) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -119,7 +119,7 @@ func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -139,7 +139,7 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -173,7 +173,7 @@ func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.S
 func (c *Client) Resolved(p params.Resolved) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -246,7 +246,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -263,7 +263,7 @@ func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -296,7 +296,7 @@ func networkTagsToNames(tags []string) ([]string, error) {
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -514,7 +514,7 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if !args.Force {
 		cfg, err := c.api.state.EnvironConfig()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 			return common.ErrOperationBlocked
@@ -573,7 +573,7 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.RemoveOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -603,7 +603,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.RemoveOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -638,7 +638,7 @@ func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, erro
 func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -654,7 +654,7 @@ func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -694,7 +694,7 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.RemoveOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -1090,7 +1090,7 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		// if trying to change value for block-changes, we would want to let it go.
@@ -1125,7 +1125,7 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -1140,7 +1140,7 @@ func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked
@@ -1153,7 +1153,7 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 func (c *Client) AbortCurrentUpgrade() error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return common.ErrOperationBlocked

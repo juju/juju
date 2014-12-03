@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -18,7 +20,7 @@ import (
 func (c *Client) DestroyEnvironment() error {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.DestroyOperation, cfg) {
 		return common.ErrOperationBlocked
