@@ -373,13 +373,12 @@ type agentConfig struct {
 	StatePort   string
 }
 
-func extractMachineID(archive io.Reader) (string, error) {
+func extractMachineID(archive *os.File) (string, error) {
 	paths := backups.NewCanonicalArchivePaths()
 
 	gzr, err := gzip.NewReader(archive)
 	if err != nil {
-		file := archive.(*os.File)
-		return "", errors.Annotate(err, fmt.Sprintf("cannot unzip %q", file.Name()))
+		return "", errors.Annotate(err, fmt.Sprintf("cannot unzip %q", archive.Name()))
 	}
 	defer gzr.Close()
 
