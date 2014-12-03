@@ -4,10 +4,11 @@
 package state
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 )
 
 type AddressState string

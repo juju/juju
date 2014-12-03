@@ -4,15 +4,14 @@
 package state_test
 
 import (
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-
-	"github.com/juju/errors"
-
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type IPAddressSuite struct {
