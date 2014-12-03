@@ -125,22 +125,14 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// We must restrict D and G series instances in old environments
-	// where the virtual network is tied to an affinity group.
-	//
-	// A5-A9 are potentially limited too, but we were not previously
-	// restricting them. Users will not run into problems unless they
-	// explicitly request more memory, CPU, etc.
+	// If the virtual network is tied to an affinity group, then the
+	// role sizes that are useable are limited.
 	vnet, err := getVirtualNetwork(env)
 	if err != nil && errors.IsNotFound(err) {
 		// Virtual network doesn't exist yet; we'll create it with a
 		// location, so we're not limited.
 	} else if err != nil {
 		return nil, errors.Annotate(err, "cannot get virtual network details to filter instance types")
-	}
-	isLimitedRoleSize := func(name string) bool {
-		// Only D and G series role sizes begin with "Standard_".
-		return vnet != nil && vnet.AffinityGroup != "" && strings.HasPrefix(name, "Standard_")
 	}
 	limitedTypes := make(set.Strings)
 
@@ -162,7 +154,7 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 			logger.Debugf("role size %q is unsupported", roleSize.Name)
 			continue
 		}
-		if isLimitedRoleSize(roleSize.Name) {
+		if vnet != nil && vnet.AffinityGroup != "" && isLimitedRoleSize(roleSize.Name) {
 			limitedTypes.Add(roleSize.Name)
 			continue
 		}
@@ -189,6 +181,13 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 func isLimitedRoleSize(name string) bool {
 	switch name {
 	case "ExtraSmall", "Small", "Medium", "Large", "ExtraLarge":
+		// At the time of writing, only the original role sizes are not limited.
+		return false
+	case "A5", "A6", "A7", "A8", "A9":
+		// We never used to filter out A5-A9 role sizes, so leave them in
+		// case users have relying on them. It is *possible* that A-series role
+		// sizes are available, but we cannot automatically use them as they
+		// *may* not be.
 		return false
 	}
 	return true

@@ -231,7 +231,6 @@ func (env *azureEnviron) getVirtualNetworkName() string {
 // getVirtualNetwork returns the virtual network used by all the VMs in this
 // environment.
 func (env *azureEnviron) getVirtualNetwork() (*gwacl.VirtualNetworkSite, error) {
-	vnetName := env.getVirtualNetworkName()
 	snap := env.getSnapshot()
 	if snap.vnet != nil {
 		return snap.vnet, nil
@@ -241,6 +240,7 @@ func (env *azureEnviron) getVirtualNetwork() (*gwacl.VirtualNetworkSite, error) 
 		return nil, errors.Annotate(err, "error getting network configuration")
 	}
 	var vnet *gwacl.VirtualNetworkSite
+	vnetName := env.getVirtualNetworkName()
 	if cfg != nil && cfg.VirtualNetworkSites != nil {
 		for _, site := range *cfg.VirtualNetworkSites {
 			if site.Name == vnetName {
