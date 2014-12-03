@@ -77,6 +77,13 @@ class CandidateTestCase(TestCase):
             self.assertTrue(os.path.isdir(candidate_dir_path))
             self.assertEqual([], os.listdir(candidate_dir_path))
 
+    def test_prepare_dir_with_dry_run(self):
+        with temp_dir() as base_dir:
+            os.makedirs(os.path.join(base_dir, 'candidate'))
+            candidate_dir_path = os.path.join(base_dir, 'candidate', 'master')
+            prepare_dir(candidate_dir_path, dry_run=True, verbose=True)
+            self.assertFalse(os.path.isdir(candidate_dir_path))
+
     def test_update_candidate(self):
         with patch('candidate.prepare_dir') as pd_mock:
             with patch('candidate.find_publish_revision_number',
@@ -100,6 +107,19 @@ class CandidateTestCase(TestCase):
             ('publish-revision', 5678, 'juju-core*',
              '~/candidate/1.21-artifacts'),
             args)
+        self.assertEqual(options, kwargs)
+
+    def test_update_candidate_with_dry_run(self):
+        with patch('candidate.prepare_dir') as pd_mock:
+            with patch('candidate.find_publish_revision_number',
+                       return_value=5678):
+                with patch('candidate.get_artifacts') as ga_mock:
+                    update_candidate('gitbr:1.21:gh', '~/candidate', '1234',
+                                     dry_run=True, verbose=True)
+        args, kwargs = pd_mock.call_args
+        self.assertEqual(('~/candidate/1.21-artifacts', True, True), args)
+        args, kwargs = ga_mock.call_args
+        options = {'verbose': True, 'dry_run': True}
         self.assertEqual(options, kwargs)
 
     def test_get_artifact_dirs(self):
