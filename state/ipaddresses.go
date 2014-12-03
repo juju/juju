@@ -4,10 +4,10 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/network"
 )
 
@@ -125,7 +125,7 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 // AllocateTo sets the machine ID and interface ID of the IP address. It will
 // fail if the state is not AddressStateUnknown.
 func (i *IPAddress) AllocateTo(machineId string, interfaceId string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %v to machine ID %q interface ID %q", i, machineId, interfaceId)
+	defer errors.DeferredAnnotatef(&err, "cannot allocate IP address %v to machine %q interface %q", i, machineId, interfaceId)
 
 	ops := []txn.Op{{
 		C:      ipaddressesC,

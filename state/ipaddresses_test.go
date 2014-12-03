@@ -4,10 +4,10 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -123,7 +123,7 @@ func (s *IPAddressSuite) TestIPAddressAllocateTo(c *gc.C) {
 
 	// allocating should now fail
 	err = ipAddr.AllocateTo("wobble", "wibble")
-	c.Assert(err, gc.ErrorMatches, "cannot allocate IP address.*")
+	c.Assert(err, gc.ErrorMatches, `cannot allocate IP address .* to machine "wobble" interface "wibble"`)
 }
 
 func (s *IPAddressSuite) TestIPAddressAddress(c *gc.C) {
