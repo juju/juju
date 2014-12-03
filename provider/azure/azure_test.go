@@ -6,7 +6,9 @@ package azure
 import (
 	stdtesting "testing"
 
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/gwacl"
 
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
@@ -37,6 +39,17 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
+		return &gwacl.VirtualNetworkSite{Name: "vnet", Location: "West US"}, nil
+	})
+
+	available := make(set.Strings)
+	for _, rs := range gwacl.RoleSizes {
+		available.Add(rs.Name)
+	}
+	s.PatchValue(&getAvailableRoleSizes, func(*azureEnviron) (set.Strings, error) {
+		return available, nil
+	})
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
