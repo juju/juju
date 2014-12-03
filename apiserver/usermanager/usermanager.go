@@ -235,15 +235,15 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 
 // SetPassword changes the stored password for the specified users.
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
-	}
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return result, err
+		return params.ErrorResults{}, err
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return result, common.ErrOperationBlocked
+		return params.ErrorResults{}, common.ErrOperationBlocked
+	}
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 	if len(args.Changes) == 0 {
 		return result, nil
