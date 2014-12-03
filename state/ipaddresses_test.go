@@ -117,6 +117,13 @@ func (s *IPAddressSuite) TestIPAddressAllocateTo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(freshCopy.MachineId(), gc.Equals, "wibble")
 	c.Assert(freshCopy.InterfaceId(), gc.Equals, "wobble")
+
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// allocating should now fail
+	err = ipAddr.AllocateTo("wobble", "wibble")
+	c.Assert(err, gc.ErrorMatches, "cannot allocate IP address.*")
 }
 
 func (s *IPAddressSuite) TestIPAddressAddress(c *gc.C) {
