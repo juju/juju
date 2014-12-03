@@ -42,12 +42,12 @@ func (s *IPAddressSuite) TestAddIPAddress(c *gc.C) {
 		c.Assert(ipAddr.Scope(), gc.Equals, network.ScopePublic)
 		c.Assert(ipAddr.State(), gc.Equals, state.AddressStateUnknown)
 	}
-	checkAddress(ipAddr)
+	assertAddress(ipAddr)
 
 	// verify the address was stored in the state
 	ipAddr, err = s.State.IPAddress("192.168.1.0")
 	c.Assert(err, jc.ErrorIsNil)
-	checkAddress(ipAddr)
+	assertAddress(ipAddr)
 }
 
 func (s *IPAddressSuite) TestAddIPAddressInvalid(c *gc.C) {
