@@ -8,6 +8,7 @@ from candidate import (
     find_publish_revision_number,
     get_artifact_dirs,
     get_package,
+    get_scripts,
     prepare_dir,
     update_candidate,
 )
@@ -154,3 +155,11 @@ class CandidateTestCase(TestCase):
         args, kwargs = sc_mock.call_args
         copied_path = os.path.join(master_dir_path, 'buildvars.json')
         self.assertEqual((buildvars_path, copied_path), args)
+
+    def test_get_scripts(self):
+        assemble_script, publish_script = get_scripts()
+        self.assertEqual('assemble-streams.bash', assemble_script)
+        self.assertEqual('publish-public-tools.bash', publish_script)
+        assemble_script, publish_script = get_scripts('../foo/')
+        self.assertEqual('../foo/assemble-streams.bash', assemble_script)
+        self.assertEqual('../foo/publish-public-tools.bash', publish_script)
