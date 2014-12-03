@@ -122,26 +122,17 @@ func (i *IPAddress) SetState(newState AddressState) (err error) {
 	return i.st.runTransaction(ops)
 }
 
-// SetMachineId sets the ID of the machine the address is associated with
-func (i *IPAddress) SetMachineId(machineId string) (err error) {
+// AllocateTo sets the machine ID and interface ID of the IP address. It will
+// fail if the state is not AddressStateUnknown.
+func (i *IPAddress) AllocateTo(machineId string, interfaceId string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to machine ID %q", i, machineId)
 
 	ops := []txn.Op{{
 		C:      ipaddressesC,
 		Id:     i.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"machineid", machineId}}}},
+		Assert: bson.D{{"state", ""}},
+		Update: bson.D{{"$set", bson.D{{"machineid", machineId}, {"interfaceid", interfaceId}}}},
 	}}
-	return i.st.runTransaction(ops)
-}
 
-// SetInterfaceId sets the ID of the network interface the address is associated with
-func (i *IPAddress) SetInterfaceId(interfaceId string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set IP address %v to interface ID %q", i, interfaceId)
-
-	ops := []txn.Op{{
-		C:      ipaddressesC,
-		Id:     i.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"interfaceid", interfaceId}}}},
-	}}
 	return i.st.runTransaction(ops)
 }

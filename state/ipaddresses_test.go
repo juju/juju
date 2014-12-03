@@ -103,31 +103,19 @@ func (s *IPAddressSuite) TestIPAddressSetState(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot set IP address .* to state "".*`)
 }
 
-func (s *IPAddressSuite) TestIPAddressSetMachineId(c *gc.C) {
+func (s *IPAddressSuite) TestIPAddressAllocateTo(c *gc.C) {
 	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
 	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.MachineId(), gc.Equals, "")
+	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
 
-	err = ipAddr.SetMachineId("wibble")
+	err = ipAddr.AllocateTo("wibble", "wobble")
 	c.Assert(err, jc.ErrorIsNil)
 
 	freshCopy, err := s.State.IPAddress("192.168.1.0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(freshCopy.MachineId(), gc.Equals, "wibble")
-}
-
-func (s *IPAddressSuite) TestIPAddressSetInterfaceId(c *gc.C) {
-	addr := network.NewAddress("192.168.1.0", network.ScopePublic)
-	ipAddr, err := s.State.AddIPAddress(addr, "foobar")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.InterfaceId(), gc.Equals, "")
-
-	err = ipAddr.SetInterfaceId("wobble")
-	c.Assert(err, jc.ErrorIsNil)
-
-	freshCopy, err := s.State.IPAddress("192.168.1.0")
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(freshCopy.InterfaceId(), gc.Equals, "wobble")
 }
 
