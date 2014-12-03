@@ -270,8 +270,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Insert expected values...
 	servingInfo := state.StateServingInfo{
-		PrivateKey:   testing.ServerKey,
-		Cert:         testing.ServerCert,
 		CAPrivateKey: testing.CAKey,
 		SharedSecret: "really, really secret",
 		APIPort:      4321,

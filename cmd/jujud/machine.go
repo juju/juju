@@ -413,6 +413,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, fmt.Errorf("cannot get state serving info: %v", err)
 			}
+			// The server certificate is not stored in state, so grab
+			// a copy from our current config and update the data from
+			// state with it.
+			currentInfo, _ := agentConfig.StateServingInfo()
+			info.Cert = currentInfo.Cert
+			info.PrivateKey = currentInfo.PrivateKey
 			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(info)
 				return nil
@@ -707,9 +713,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
 				// agent, potentially enabling human intervention to fix
-				// the agent's configuration file. In the future, we may retrieve
-				// the state server certificate and key from the state, and
-				// this should then change.
+				// the agent's configuration file.
 				info, ok := agentConfig.StateServingInfo()
 				if !ok {
 					return nil, &fatalError{"StateServingInfo not available and we need it"}
@@ -737,18 +741,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			runner.StartWorker("apiserver", apiserverWorker)
-			var stateServingSetter certupdater.StateServingInfoSetter = func(info *state.StateServingInfo) error {
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
-					paramsInfo := params.StateServingInfo{
-						Cert:           info.Cert,
-						PrivateKey:     info.PrivateKey,
-						CAPrivateKey:   info.CAPrivateKey,
-						StatePort:      info.StatePort,
-						APIPort:        info.APIPort,
-						SharedSecret:   info.SharedSecret,
-						SystemIdentity: info.SystemIdentity,
-					}
-					config.SetStateServingInfo(paramsInfo)
+					config.SetStateServingInfo(info)
 					logger.Debugf("stop api server worker")
 					runner.StopWorker("apiserver")
 					logger.Debugf("start new apiserver worker with new certificate")
@@ -756,7 +751,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, st, stateServingSetter), nil
+				return newCertificateUpdater(m, agentConfig, st, stateServingSetter), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -979,8 +974,6 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 	return state.StateServingInfo{
 		APIPort:        i.APIPort,
 		StatePort:      i.StatePort,
-		Cert:           i.Cert,
-		PrivateKey:     i.PrivateKey,
 		CAPrivateKey:   i.CAPrivateKey,
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,

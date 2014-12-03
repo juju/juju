@@ -3544,10 +3544,10 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	data := state.StateServingInfo{
-		APIPort:      69,
-		StatePort:    80,
-		Cert:         "Some cert",
-		PrivateKey:   "Some key",
+		APIPort:   69,
+		StatePort: 80,
+		//		Cert:         "Some cert",
+		//		PrivateKey:   "Some key",
 		SharedSecret: "Some Keyfile",
 	}
 	err = s.State.SetStateServingInfo(data)
@@ -3561,16 +3561,14 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 var setStateServingInfoWithInvalidInfoTests = []func(info *state.StateServingInfo){
 	func(info *state.StateServingInfo) { info.APIPort = 0 },
 	func(info *state.StateServingInfo) { info.StatePort = 0 },
-	func(info *state.StateServingInfo) { info.Cert = "" },
-	func(info *state.StateServingInfo) { info.PrivateKey = "" },
+	//	func(info *state.StateServingInfo) { info.Cert = "" },
+	//	func(info *state.StateServingInfo) { info.PrivateKey = "" },
 }
 
 func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
 	origData := state.StateServingInfo{
 		APIPort:      69,
 		StatePort:    80,
-		Cert:         "Some cert",
-		PrivateKey:   "Some key",
 		SharedSecret: "Some Keyfile",
 	}
 	for i, test := range setStateServingInfoWithInvalidInfoTests {

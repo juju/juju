@@ -146,8 +146,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
-		Cert:           testing.ServerCert,
-		PrivateKey:     testing.ServerKey,
 		CAPrivateKey:   testing.CAKey,
 		SharedSecret:   "abc123",
 		SystemIdentity: "def456",

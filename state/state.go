@@ -123,8 +123,6 @@ type State struct {
 type StateServingInfo struct {
 	APIPort      int
 	StatePort    int
-	Cert         string
-	PrivateKey   string
 	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
@@ -1897,23 +1895,7 @@ func (st *State) StateServingInfo() (StateServingInfo, error) {
 
 // SetStateServingInfo stores information needed for running a state server
 func (st *State) SetStateServingInfo(info StateServingInfo) error {
-	return st.setStateServingInfoWithAssert(info, nil)
-}
-
-var CertificateConsistencyError = errors.New("cannot write consistent new certificate")
-
-// SetStateServingInfo stores information needed for running a state server
-func (st *State) UpdateServerCertificate(info StateServingInfo, oldCert string) error {
-	err := st.setStateServingInfoWithAssert(info, bson.D{{"cert", oldCert}})
-	if errors.Cause(err) == txn.ErrAborted {
-		return CertificateConsistencyError
-	}
-	return err
-}
-
-func (st *State) setStateServingInfoWithAssert(info StateServingInfo, assert interface{}) error {
-	if info.StatePort == 0 || info.APIPort == 0 ||
-		info.Cert == "" || info.PrivateKey == "" {
+	if info.StatePort == 0 || info.APIPort == 0 {
 		return errors.Errorf("incomplete state serving info set in state")
 	}
 	if info.CAPrivateKey == "" {
@@ -1927,7 +1909,6 @@ func (st *State) setStateServingInfoWithAssert(info StateServingInfo, assert int
 	ops := []txn.Op{{
 		C:      stateServersC,
 		Id:     stateServingInfoKey,
-		Assert: assert,
 		Update: bson.D{{"$set", info}},
 	}}
 	if err := st.runTransaction(ops); err != nil {

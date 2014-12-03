@@ -87,8 +87,6 @@ func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 	f.info = state.StateServingInfo{
 		APIPort:        args.APIPort,
 		StatePort:      args.StatePort,
-		Cert:           args.Cert,
-		PrivateKey:     args.PrivateKey,
 		CAPrivateKey:   args.CAPrivateKey,
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,

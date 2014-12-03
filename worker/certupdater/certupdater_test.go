@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -68,72 +69,54 @@ func (m *mockMachine) Addresses() (addresses []network.Address) {
 	}}
 }
 
-type mockEnviron struct {
-	serverCertUpdater func(info state.StateServingInfo, oldCert string) error
+type mockStateServingGetter struct{}
+
+func (g *mockStateServingGetter) StateServingInfo() (params.StateServingInfo, bool) {
+	return params.StateServingInfo{
+		Cert:         coretesting.ServerCert,
+		PrivateKey:   coretesting.ServerKey,
+		CAPrivateKey: coretesting.CAKey,
+		StatePort:    123,
+		APIPort:      456,
+	}, true
 }
 
-func (e *mockEnviron) StateServingInfo() (state.StateServingInfo, error) {
-	return state.StateServingInfo{
-		Cert:           coretesting.ServerCert,
-		PrivateKey:     coretesting.ServerKey,
-		CAPrivateKey:   coretesting.CAKey,
-		StatePort:      123,
-		APIPort:        456,
-		SharedSecret:   "secret",
-		SystemIdentity: "identity",
-	}, nil
+type mockConfigGetter struct{}
 
-}
-
-func (e *mockEnviron) EnvironConfig() (*config.Config, error) {
+func (g *mockConfigGetter) EnvironConfig() (*config.Config, error) {
 	return config.New(config.NoDefaults, coretesting.FakeConfig())
 
 }
 
-func (e *mockEnviron) UpdateServerCertificate(info state.StateServingInfo, oldCert string) error {
-	if e.serverCertUpdater != nil {
-		return e.serverCertUpdater(info, oldCert)
-	}
-	return nil
-}
-
 func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
-	setter := func(info *state.StateServingInfo) error {
+	setter := func(info params.StateServingInfo) error {
 		return nil
 	}
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockEnviron{}, setter,
+		&mockMachine{changes}, &mockStateServingGetter{}, &mockConfigGetter{}, setter,
 	)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
-func checkNewCertificate(c *gc.C, newCert string) bool {
-	srvCert, err := cert.ParseCert(newCert)
-	c.Assert(err, jc.ErrorIsNil)
-	sanIPs := make([]string, len(srvCert.IPAddresses))
-	for i, ip := range srvCert.IPAddresses {
-		sanIPs[i] = ip.String()
-	}
-	if len(sanIPs) != 1 || sanIPs[0] != "0.1.2.3" {
-		c.Errorf("unexpected SAN value in new certificate: %v", sanIPs)
-		return false
-	}
-	return true
-}
-
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info *state.StateServingInfo) error {
-		if checkNewCertificate(c, info.Cert) {
+	setter := func(info params.StateServingInfo) error {
+		srvCert, err := cert.ParseCert(info.Cert)
+		c.Assert(err, jc.ErrorIsNil)
+		sanIPs := make([]string, len(srvCert.IPAddresses))
+		for i, ip := range srvCert.IPAddresses {
+			sanIPs[i] = ip.String()
+		}
+		if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
 			close(updated)
 		}
 		return nil
 	}
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockEnviron{}, setter,
+		&mockMachine{changes}, &mockStateServingGetter{}, &mockConfigGetter{}, setter,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -141,77 +124,33 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	changes <- struct{}{}
 	// Certificate should be updated with the address value.
 	select {
+	case <-updated:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for certificate to be updated")
-	case <-updated:
 	}
 }
 
-func (s *CertUpdaterSuite) TestCertUpdated(c *gc.C) {
-	updated := make(chan struct{})
-	setter := func(info *state.StateServingInfo) error {
-		return nil
-	}
-	certUpdater := func(info state.StateServingInfo, oldCert string) error {
-		if checkNewCertificate(c, info.Cert) {
-			c.Assert(oldCert, gc.Equals, coretesting.ServerCert)
-			// Only certificate should have been updated.
-			expectedInfo := state.StateServingInfo{
-				CAPrivateKey:   coretesting.CAKey,
-				StatePort:      123,
-				APIPort:        456,
-				SharedSecret:   "secret",
-				SystemIdentity: "identity",
-			}
-			info.Cert = ""
-			info.PrivateKey = ""
-			c.Assert(info, jc.DeepEquals, expectedInfo)
-			close(updated)
-		}
-		return nil
-	}
-	changes := make(chan struct{})
-	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockEnviron{certUpdater}, setter,
-	)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
+type mockStateServingGetterNoCAKey struct{}
 
-	changes <- struct{}{}
-	// Certificate should be updated with the address value.
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for certificate to be updated")
-	case <-updated:
-	}
-}
-
-type mockEnvironNoCAKey struct {
-	mockEnviron
-}
-
-func (e *mockEnvironNoCAKey) StateServingInfo() (state.StateServingInfo, error) {
-	return state.StateServingInfo{
-		Cert:           coretesting.ServerCert,
-		PrivateKey:     coretesting.ServerKey,
-		CAPrivateKey:   coretesting.CAKey,
-		StatePort:      123,
-		APIPort:        456,
-		SharedSecret:   "secret",
-		SystemIdentity: "identity",
-	}, nil
+func (g *mockStateServingGetterNoCAKey) StateServingInfo() (params.StateServingInfo, bool) {
+	return params.StateServingInfo{
+		Cert:       coretesting.ServerCert,
+		PrivateKey: coretesting.ServerKey,
+		StatePort:  123,
+		APIPort:    456,
+	}, true
 
 }
 
 func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	updated := make(chan struct{})
-	setter := func(info *state.StateServingInfo) error {
+	setter := func(info params.StateServingInfo) error {
 		close(updated)
 		return nil
 	}
 	changes := make(chan struct{})
 	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockEnvironNoCAKey{}, setter,
+		&mockMachine{changes}, &mockStateServingGetterNoCAKey{}, &mockConfigGetter{}, setter,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -221,6 +160,6 @@ func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 	select {
 	case <-time.After(coretesting.ShortWait):
 	case <-updated:
-		c.Fatalf("set state serving ingo unexpectedly called")
+		c.Fatalf("set state serving info unexpectedly called")
 	}
 }

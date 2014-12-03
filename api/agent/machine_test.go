@@ -38,15 +38,11 @@ func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 
 	ssi := state.StateServingInfo{
-		PrivateKey:   "some key",
-		Cert:         "Some cert",
 		SharedSecret: "really, really secret",
 		APIPort:      33,
 		StatePort:    44,
 	}
 	expected := params.StateServingInfo{
-		PrivateKey:   ssi.PrivateKey,
-		Cert:         ssi.Cert,
 		SharedSecret: ssi.SharedSecret,
 		APIPort:      ssi.APIPort,
 		StatePort:    ssi.StatePort,
