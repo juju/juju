@@ -7,7 +7,10 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"launchpad.net/gwacl"
+
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -54,6 +57,17 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "test:")
 	s.PatchValue(&signedImageDataOnly, false)
+	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
+		return &gwacl.VirtualNetworkSite{Name: "vnet", Location: "West US"}, nil
+	})
+
+	available := make(set.Strings)
+	for _, rs := range gwacl.RoleSizes {
+		available.Add(rs.Name)
+	}
+	s.PatchValue(&getAvailableRoleSizes, func(*azureEnviron) (set.Strings, error) {
+		return available, nil
+	})
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
