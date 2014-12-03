@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -125,7 +126,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 
 	tag, err := client.AddUser(c.User, c.DisplayName, c.Password)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
 	}
 	// Until we have multiple environments stored in a state server
 	// it makes no sense at all to create a user and not have that user
