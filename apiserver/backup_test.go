@@ -184,11 +184,6 @@ type backupsUploadSuite struct {
 
 var _ = gc.Suite(&backupsUploadSuite{})
 
-func (s *backupsUploadSuite) newBody(c *gc.C) *bytes.Buffer {
-
-	return bytes.NewBufferString("")
-}
-
 func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 	s.fake.Meta = backups.NewMetadata()
 	s.fake.Meta.SetID("<a new backup ID>")
