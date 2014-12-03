@@ -33,29 +33,13 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	}
 
 	// Get the backup paths.
-
-	dataDirRes := resources.Get("dataDir")
-	dataDir, ok := dataDirRes.(common.StringResource)
-	if !ok {
-		if dataDirRes == nil {
-			dataDir = ""
-		} else {
-			return nil, errors.Errorf("invalid dataDir resource: %v", dataDirRes)
-		}
+	values, err := extractResourceValues(resources, "dataDir", "logDir")
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	logDirRes := resources.Get("logDir")
-	logDir, ok := logDirRes.(common.StringResource)
-	if !ok {
-		if logDirRes != nil {
-			return nil, errors.Errorf("invalid logDir resource: %v", logDirRes)
-		}
-		logDir = ""
-	}
-
 	paths := backups.Paths{
-		DataDir: dataDir.String(),
-		LogsDir: logDir.String(),
+		DataDir: values["dataDir"],
+		LogsDir: values["logDir"],
 	}
 
 	// Build the API.
@@ -64,6 +48,23 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		paths: &paths,
 	}
 	return &b, nil
+}
+
+func extractResourceValues(resources *common.Resources, keys ...string) (map[string]string, error) {
+	resourceValues := make(map[string]string)
+	for _, key := range keys {
+		res := resources.Get(key)
+		strRes, ok := res.(common.StringResource)
+		if !ok {
+			if res == nil {
+				strRes = ""
+			} else {
+				return nil, errors.Errorf("invalid %s resource: %v", key, res)
+			}
+		}
+		resourceValues[key] = strRes.String()
+	}
+	return resourceValues, nil
 }
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
