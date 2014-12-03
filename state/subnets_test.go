@@ -169,7 +169,7 @@ func (s *SubnetSuite) TestSubnetRemoveKillsAddresses(c *gc.C) {
 	_, err = s.State.IPAddress("192.168.1.0")
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.IPAddress("192.168.1.1")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SubnetSuite) TestRefresh(c *gc.C) {
