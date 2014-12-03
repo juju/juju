@@ -7,6 +7,7 @@ from candidate import (
     extract_candidates,
     find_publish_revision_number,
     get_artifact_dirs,
+    get_build_parameters,
     get_package,
     get_scripts,
     prepare_dir,
@@ -19,6 +20,33 @@ from utility import temp_dir
 
 class CandidateTestCase(TestCase):
 
+    def test_get_build_parameters(self):
+        build_data = {
+            "actions": [
+                {
+                    "parameters": [
+                        {
+                            "name": "revision_build",
+                            "value": "2138"
+                        }
+                    ]
+                },
+                {
+                    "causes": [
+                        {
+                            "shortDescription": "Started by user admin",
+                            "userName": "admin"
+                        }
+                    ]
+                },
+                {},
+                {}
+            ],
+            "number": 1256
+        }
+        parameters = get_build_parameters(build_data)
+        self.assertEqual('2138', parameters['revision_build'])
+
     @staticmethod
     def make_publish_revision_build_data(*args, **kwargs):
         if kwargs['build'] == 'lastSuccessfulBuild':
@@ -27,7 +55,9 @@ class CandidateTestCase(TestCase):
             number = kwargs['build']
         return {
             'number': number,
-            'description': 'Revision build: %s' % number,
+            'actions': [{'parameters': [{
+                'name': 'revision-build', 'value': str(number)}
+            ]}],
         }
 
     def test_find_publish_revision_number(self):

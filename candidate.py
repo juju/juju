@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Manage the success juju revision testing candiates."""
+"""Manage the blessed juju revision testing candiates."""
 
 from __future__ import print_function
 
@@ -23,9 +23,20 @@ BUILD_REVISION = 'build-revision'
 PUBLISH_REVISION = 'publish-revision'
 
 
+def get_build_parameters(build_data):
+    parameters = {}
+    action_list = build_data['actions']
+    for acts in action_list:
+        for key in acts.keys():
+            if key == 'parameters':
+                for act in acts[key]:
+                    parameters[act['name']] = act['value']
+            break
+    return parameters
+
+
 def find_publish_revision_number(br_number, limit=20):
     """Return the publish-revsion number paired with build-revision number."""
-    description = 'Revision build: %s' % br_number
     found_number = None
     job_number = 'lastSuccessfulBuild'
     for i in range(limit):
@@ -35,7 +46,8 @@ def find_publish_revision_number(br_number, limit=20):
             return None
         # Ensure we have the real job number (an int), not an alias.
         job_number = build_data['number']
-        if build_data['description'] == description:
+        parameters = get_build_parameters(build_data)
+        if parameters['revision-build'] == str(br_number):
             found_number = job_number
             break
         job_number = job_number - 1
