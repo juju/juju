@@ -4,8 +4,7 @@
 package testing
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -64,7 +63,7 @@ func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.
 			return addresses, nil
 		}
 	}
-	return nil, fmt.Errorf("timed out trying to get addresses for %v", instId)
+	return nil, errors.Errorf("timed out trying to get addresses for %v", instId)
 }
 
 // AssertStartInstance is a test helper function that starts an instance with a
@@ -156,7 +155,7 @@ func StartInstanceWithParams(
 	series := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, nil, nil, "", fmt.Errorf("missing agent version in environment config")
+		return nil, nil, nil, "", errors.New("missing agent version in environment config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
@@ -167,7 +166,7 @@ func StartInstanceWithParams(
 	}
 	possibleTools, err := tools.FindTools(env, -1, -1, filter)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, nil, nil, "", errors.Trace(err)
 	}
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
@@ -182,14 +181,14 @@ func StartInstanceWithParams(
 		apiInfo,
 	)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, nil, nil, "", errors.Trace(err)
 	}
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig
 	// TODO(axw) refactor these test helpers to return StartInstanceResult
 	result, err := env.StartInstance(params)
 	if err != nil {
-		return nil, nil, nil, "", err
+		return nil, nil, nil, "", errors.Trace(err)
 	}
 	return result.Instance, result.Hardware, result.NetworkInfo, result.AvailabilityZone, nil
 }
