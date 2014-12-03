@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
@@ -85,7 +86,7 @@ func (c *Client) getDataDir() string {
 func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return params.RunResults{}, err
+		return params.RunResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.RunResults{}, common.ErrOperationBlocked
@@ -129,7 +130,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return params.RunResults{}, err
+		return params.RunResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.RunResults{}, common.ErrOperationBlocked
