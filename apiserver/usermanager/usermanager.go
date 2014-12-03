@@ -73,7 +73,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	}
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return result, common.ErrOperationBlocked
@@ -121,7 +121,7 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.ErrorResults{}, common.ErrOperationBlocked
@@ -134,7 +134,7 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.ErrorResults{}, common.ErrOperationBlocked
@@ -237,7 +237,7 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.ErrorResults{}, common.ErrOperationBlocked

@@ -175,7 +175,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.ErrorResults{}, common.ErrOperationBlocked
@@ -261,7 +261,7 @@ func runSSHKeyImport(keyIds []string) []importedSSHKey {
 func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.ErrorResults{}, common.ErrOperationBlocked
@@ -339,7 +339,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
 		return params.ErrorResults{}, common.ErrOperationBlocked
