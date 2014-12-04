@@ -83,7 +83,7 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 
 func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
 	dbNames, err := session.DatabaseNames()
-	if err == io.EOF {
+	if errors.Cause(err) == io.EOF {
 		// The connection dropped (probably) so try again.
 		session.Refresh()
 		dbNames, err = session.DatabaseNames()
