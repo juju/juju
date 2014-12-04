@@ -27,14 +27,14 @@ type UploadCommand struct {
 	Filename string
 	// ShowMeta indicates that the uploaded metadata should be printed.
 	ShowMeta bool
-	// Quiet indicates that the stored metadata should not be dumped.
+	// Quiet indicates that the new backup ID should not be printed.
 	Quiet bool
 }
 
 // SetFlags implements Command.SetFlags.
 func (c *UploadCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.ShowMeta, "show-uploaded", false, "show the uploaded metadata")
-	f.BoolVar(&c.Quiet, "quiet", false, "do not print the stored metadata")
+	f.BoolVar(&c.ShowMeta, "verbose", false, "show the uploaded metadata")
+	f.BoolVar(&c.Quiet, "quiet", false, "do not print the new backup ID")
 }
 
 // Info implements Command.Info.
