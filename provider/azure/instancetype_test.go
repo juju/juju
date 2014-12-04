@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
@@ -216,7 +215,7 @@ func (s *instanceTypeSuite) TestListInstanceTypesAGVNetRoleSizeFiltering(c *gc.C
 			continue
 		}
 		instanceType, err := newInstanceType(roleSize, "West US")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, gc.IsNil)
 		instanceType.Arches = []string{"amd64"}
 		expectation = append(expectation, instanceType)
 	}
@@ -226,7 +225,7 @@ func (s *instanceTypeSuite) TestListInstanceTypesAGVNetRoleSizeFiltering(c *gc.C
 	})
 	env := s.setupEnvWithDummyMetadata(c)
 	types, err := listInstanceTypes(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(types, gc.DeepEquals, expectation)
 }
 
@@ -240,7 +239,7 @@ func (s *instanceTypeSuite) TestListInstanceTypesNoVNetNoRoleSizeFiltering(c *gc
 			continue
 		}
 		instanceType, err := newInstanceType(roleSize, "West US")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, gc.IsNil)
 		instanceType.Arches = []string{"amd64"}
 		expectation = append(expectation, instanceType)
 	}
@@ -250,7 +249,7 @@ func (s *instanceTypeSuite) TestListInstanceTypesNoVNetNoRoleSizeFiltering(c *gc
 	})
 	env := s.setupEnvWithDummyMetadata(c)
 	types, err := listInstanceTypes(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(types, gc.DeepEquals, expectation)
 }
 
@@ -269,14 +268,14 @@ func (s *instanceTypeSuite) TestListInstanceTypesLocationFiltering(c *gc.C) {
 			continue
 		}
 		instanceType, err := newInstanceType(roleSize, "West US")
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, gc.IsNil)
 		instanceType.Arches = []string{"amd64"}
 		expectation = append(expectation, instanceType)
 	}
 
 	env := s.setupEnvWithDummyMetadata(c)
 	types, err := listInstanceTypes(env)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(types, gc.DeepEquals, expectation)
 }
 

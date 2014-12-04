@@ -213,12 +213,12 @@ func (env *azureEnviron) getAvailableRoleSizes() (_ set.Strings, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get available role sizes")
 
 	snap := env.getSnapshot()
-	if snap.availableRoleSizes != nil {
+	if !snap.availableRoleSizes.IsEmpty() {
 		return snap.availableRoleSizes, nil
 	}
 	locations, err := snap.api.ListLocations()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot list locations")
+		return set.Strings{}, errors.Annotate(err, "cannot list locations")
 	}
 	var available set.Strings
 	for _, location := range locations {
@@ -226,13 +226,13 @@ func (env *azureEnviron) getAvailableRoleSizes() (_ set.Strings, err error) {
 			continue
 		}
 		if location.ComputeCapabilities == nil {
-			return nil, errors.Annotate(err, "cannot determine compute capabilities")
+			return set.Strings{}, errors.Annotate(err, "cannot determine compute capabilities")
 		}
 		available = set.NewStrings(location.ComputeCapabilities.VirtualMachineRoleSizes...)
 		break
 	}
-	if available == nil {
-		return nil, errors.NotFoundf("location %q", snap.ecfg.location())
+	if available.IsEmpty() {
+		return set.Strings{}, errors.NotFoundf("location %q", snap.ecfg.location())
 	}
 	env.Lock()
 	env.availableRoleSizes = available
@@ -427,7 +427,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 
 	// If the location changed, reset the available role sizes.
 	if location != oldLocation {
-		env.availableRoleSizes = nil
+		env.availableRoleSizes = set.Strings{}
 	}
 
 	return nil

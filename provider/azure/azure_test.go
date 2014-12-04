@@ -43,7 +43,7 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 		return &gwacl.VirtualNetworkSite{Name: "vnet", Location: "West US"}, nil
 	})
 
-	available := make(set.Strings)
+	available := set.NewStrings()
 	for _, rs := range gwacl.RoleSizes {
 		available.Add(rs.Name)
 	}
