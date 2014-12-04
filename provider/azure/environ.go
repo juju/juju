@@ -210,13 +210,24 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 // getAvailableRoleSizes returns the role sizes available for the configured
 // location.
 func (env *azureEnviron) getAvailableRoleSizes() (_ set.Strings, err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot get available role sizes")
+	defer func() {
+		if err != nil {
+			err = errors.Annotate(err, "cannot get available role sizes")
+		}
+	}()
 
 	snap := env.getSnapshot()
 	if !snap.availableRoleSizes.IsEmpty() {
 		return snap.availableRoleSizes, nil
 	}
-	locations, err := snap.api.ListLocations()
+
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return set.Strings{}, err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	locations, err := azure.ListLocations()
 	if err != nil {
 		return set.Strings{}, errors.Annotate(err, "cannot list locations")
 	}
@@ -253,7 +264,12 @@ func (env *azureEnviron) getVirtualNetwork() (*gwacl.VirtualNetworkSite, error) 
 	if snap.vnet != nil {
 		return snap.vnet, nil
 	}
-	cfg, err := env.api.GetNetworkConfiguration()
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(azure)
+	cfg, err := azure.GetNetworkConfiguration()
 	if err != nil {
 		return nil, errors.Annotate(err, "error getting network configuration")
 	}
@@ -426,7 +442,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	env.storageAccountKey = ""
 
 	// If the location changed, reset the available role sizes.
-	if location != oldLocation {
+	if ecfg.location() != oldLocation {
 		env.availableRoleSizes = set.Strings{}
 	}
 
