@@ -426,12 +426,28 @@ type MemberStatus struct {
 	Ping time.Duration `bson:"pingMS"`
 }
 
+func isConnectionNotAvailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Cause(err) == io.EOF {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection refused") {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection is shut down") {
+		return true
+	}
+	return false
+}
+
 // IsReady checks on the status of all members in the replicaset
 // associated with the provided session. If any member is not ready or
 // if the connection dropped then the result is false.
 func IsReady(session *mgo.Session) (bool, error) {
 	status, err := getCurrentStatus(session)
-	if errors.Cause(err) == io.EOF {
+	if isConnectionNotAvailable(err) {
 		// The connection dropped...
 		logger.Errorf("DB connection dropped so reconnecting")
 		session.Refresh()
