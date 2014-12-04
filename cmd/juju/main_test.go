@@ -4,7 +4,6 @@
 package main
 
 import (
-	"github.com/juju/utils/set"
 	"io/ioutil"
 	"os"
 	"path/filepath"
