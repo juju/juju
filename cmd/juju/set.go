@@ -84,7 +84,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		return block.ProcessBlockedError(api.ServiceSetYAML(c.ServiceName, string(b)), block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(api.ServiceSetYAML(c.ServiceName, string(b)), block.BlockChange)
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
@@ -130,7 +130,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return block.ProcessBlockedError(api.ServiceSet(c.ServiceName, settings), block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(api.ServiceSet(c.ServiceName, settings), block.BlockChange)
 }
 
 // readValue reads the value of an option out of the named file.

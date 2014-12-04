@@ -137,7 +137,7 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	}
 
 	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
-	return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 const (

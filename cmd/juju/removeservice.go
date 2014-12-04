@@ -46,5 +46,5 @@ func (c *RemoveServiceCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.ServiceDestroy(c.ServiceName), block.BlockRemove, c.ConnectionName())
+	return block.ProcessBlockedError(client.ServiceDestroy(c.ServiceName), block.BlockRemove)
 }

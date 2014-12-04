@@ -101,9 +101,9 @@ destroy-environment includes command:
 remove-object includes termination commands:
     destroy-environment
     remove-machine
+    remove-relation
     remove-service
     remove-unit
-    remove-relation
 
 all-changes includes all alteration commands
     add-machine
@@ -114,9 +114,7 @@ all-changes includes all alteration commands
     authorised-keys import
     deploy
     destroy-environment
-    ensure-availability
     expose
-    publish
     remove-machine
     remove-relation
     remove-service
@@ -198,11 +196,11 @@ var blockedMessages = map[Block]string{
 	BlockChange:  changeMsg,
 }
 
-// ProcessBlockedError ensure that correct and user-friendly message is
+// ProcessBlockedError ensures that correct and user-friendly message is
 // displayed to the user based on the block type.
-func ProcessBlockedError(err error, block Block, env string) error {
+func ProcessBlockedError(err error, block Block) error {
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf(blockedMessages[block], env)
+		logger.Errorf(blockedMessages[block])
 		return cmd.ErrSilent
 	}
 	if err != nil {
@@ -213,16 +211,23 @@ func ProcessBlockedError(err error, block Block, env string) error {
 
 var removeMsg = `
 All operations that remove (or delete or terminate) machines, services, units or
-relations have been blocked for environment %q.
+relations have been blocked for the current environment.
 To unblock removal, run
 
     juju unblock remove-object
 
 `
 var destroyMsg = `
-destroy-environment operation has been blocked for environment %q.
+destroy-environment operation has been blocked for the current environment.
 To remove the block run
 
     juju unblock destroy-environment
+
+`
+var changeMsg = `
+All operations that change environment have been blocked for the current environment.
+To unblock changes, run
+
+    juju unblock all-changes
 
 `

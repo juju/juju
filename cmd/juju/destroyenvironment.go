@@ -142,7 +142,7 @@ func (c *DestroyEnvironmentCommand) ensureUserFriendlyErrorLog(err error) error 
 		return nil
 	}
 	if params.IsCodeOperationBlocked(err) {
-		return block.ProcessBlockedError(err, block.BlockDestroy, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockDestroy)
 	}
 	logger.Errorf(stdFailureMsg, c.envName)
 	return err
