@@ -10,6 +10,7 @@ import socket
 import sys
 from time import sleep
 from tempfile import mkdtemp
+import xml.etree.ElementTree as ET
 
 
 @contextmanager
@@ -118,6 +119,11 @@ def builds_for_revision(job, revision_build, jenkins):
                 build_info['result'] == 'SUCCESS'):
             result.append(build_info)
     return result
+
+
+def get_auth_token(root, job):
+    tree = ET.parse(os.path.join(root, 'jobs', job, 'config.xml'))
+    return tree.getroot().find('authToken').text
 
 
 def check_free_disk_space(path, required, purpose):
