@@ -9,13 +9,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/utils"
+	jujuUtils "github.com/juju/juju/utils"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -26,7 +28,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommand = utils.RunCommand
+var runCommand = jujuUtils.RunCommand
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -84,14 +86,31 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 }
 
 func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
-	dbNames, err := session.DatabaseNames()
-	if errors.Cause(err) == io.EOF {
-		// The connection dropped (probably) so try again.
-		session.Refresh()
+	namesAttempt := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Min:   10,
+	}
+	var (
+		dbNames []string
+		err     error
+	)
+	for a := namesAttempt.Start(); a.Next(); {
 		dbNames, err = session.DatabaseNames()
+		if errors.Cause(err) == io.EOF {
+			// The connection dropped (probably due to HA) so try again.
+			logger.Errorf("DB connection dropped; re-connecting and trying again...")
+			session.Refresh()
+			continue
+		}
+		if err != nil {
+			// Fail for any other reason.
+			return nil, errors.Annotate(err, "unable to get DB names")
+		}
+		// No errors to stop retrying.
+		break
 	}
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to get DB names")
+		return nil, errors.Annotate(err, "could not connect after 10 retries")
 	}
 
 	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
