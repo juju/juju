@@ -4,6 +4,6 @@
 package backups
 
 var (
-	NewBackups  = &newBackups
-	OpenSession = &openSession
+	NewBackups = &newBackups
+	HAEnabled  = &haEnabled
 )
