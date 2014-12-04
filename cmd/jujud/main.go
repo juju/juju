@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	featureflag.SetFlagsFromEnvironment(JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var jujudDoc = `

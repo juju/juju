@@ -23,7 +23,7 @@ import (
 )
 
 func init() {
-	featureflag.SetFlagsFromEnvironment(JujuFeatureFlagEnvKey)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju")

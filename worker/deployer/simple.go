@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/juju/names"
-	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
