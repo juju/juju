@@ -57,6 +57,8 @@ type DBSession interface {
 // NewDBInfo returns the information needed by backups to dump
 // the database.
 func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
+	// TODO(ericsnow) lp-1399043
+	// The type conversion here implies the approach needs adjusting.
 	if mgoSession, ok := session.(*mgo.Session); ok {
 		mgoSession = mgoSession.Copy()
 		defer mgoSession.Close()
