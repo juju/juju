@@ -319,12 +319,8 @@ func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {
 	w.conf.AddScripts(fmt.Sprintf("ln -s %v %s", w.mcfg.Tools.Version, shquote(toolsDir)))
 
 	name := w.mcfg.MachineAgentServiceName
-	envVars := map[string]string{}
-	if envVar := featureflag.AsEnvironmentValue(); envVar != "" {
-		envVars[osenv.JujuFeatureFlagEnvKey] = envVar
-	}
 	conf := upstart.MachineAgentUpstartService(
-		name, toolsDir, w.mcfg.DataDir, w.mcfg.LogDir, tag, w.mcfg.MachineId, envVars)
+		name, toolsDir, w.mcfg.DataDir, w.mcfg.LogDir, tag, w.mcfg.MachineId, osenv.FeatureFlags())
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)

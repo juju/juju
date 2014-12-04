@@ -149,9 +149,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	envVars := map[string]string{
 		osenv.JujuContainerTypeEnvKey: containerType,
 	}
-	if envVar := featureflag.AsEnvironmentValue(); envVar != "" {
-		envVars[osenv.JujuFeatureFlagEnvKey] = envVar
-	}
+	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
 	sconf := common.Conf{
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,

@@ -18,6 +18,24 @@ const (
 	JujuContainerTypeEnvKey = "JUJU_CONTAINER_TYPE"
 )
 
-func init() {
-	featureflag.SetFlagsFromEnvironment(JujuFeatureFlagEnvKey)
+// FeatureFlags returns a map that can be merged with os.Environ.
+func FeatureFlags() map[string]string {
+	result := make(map[string]string)
+	if envVar := featureflag.AsEnvironmentValue(); envVar != "" {
+		result[JujuFeatureFlagEnvKey] = envVar
+	}
+	return result
+}
+
+// MergeEnvironment will return the current environment updated with
+// all the values from newValues.  If current is nil, a new map is
+// created.  If current is not nil, it is mutated.
+func MergeEnvironment(current, newValues map[string]string) map[string]string {
+	if current == nil {
+		current = make(map[string]string)
+	}
+	for key, value := range newValues {
+		current[key] = value
+	}
+	return current
 }

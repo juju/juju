@@ -7,6 +7,7 @@ package osenv_test
 import (
 	"runtime"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -40,4 +41,23 @@ func (s *varsSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
 	} else {
 		c.Assert(osenv.JujuHomeDir(), gc.Equals, osenv.JujuHomeLinux())
 	}
+}
+
+func (s *varsSuite) TestMergeEnvironment(c *gc.C) {
+	c.Check(osenv.MergeEnvironment(nil, nil), gc.HasLen, 0)
+	initial := map[string]string{"a": "foo", "b": "bar"}
+	newValues := map[string]string{"a": "baz", "c": "omg"}
+	expected := map[string]string{"a": "baz", "c": "omg"}
+
+	created := osenv.MergeEnvironment(nil, newValues)
+	c.Check(created, jc.DeepEquals, expected)
+	// Show that the map returned isn't the one passed in.
+	newValues["d"] = "another"
+	c.Check(created, jc.DeepEquals, expected)
+
+	created = osenv.MergeEnvironment(initial, newValues)
+	expected = map[string]string{"a": "baz", "b": "bar", "c": "omg", "d": "another"}
+	// The returned value is the inital map.
+	c.Check(created, jc.DeepEquals, expected)
+	c.Check(initial, jc.DeepEquals, expected)
 }

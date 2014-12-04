@@ -15,16 +15,22 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
+
+func init() {
+	featureflag.SetFlagsFromEnvironment(JujuFeatureFlagEnvKey)
+}
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments
