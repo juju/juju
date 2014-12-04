@@ -16,13 +16,8 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	backupsMethods, closer := newBackups(a.st)
 	defer closer.Close()
 
-	dbInfo, err := func() (*backups.DBInfo, error) {
-		mgoInfo := a.st.MongoConnectionInfo()
-		session := a.st.MongoSession().Copy()
-		defer session.Close()
-		dbInfo, err := backups.NewDBInfo(mgoInfo, session)
-		return dbInfo, errors.Trace(err)
-	}()
+	mgoInfo := a.st.MongoConnectionInfo()
+	dbInfo, err := backups.NewDBInfo(mgoInfo, a.st.MongoSession())
 	if err != nil {
 		return p, err
 	}

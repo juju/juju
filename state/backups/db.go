@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/utils"
@@ -49,11 +51,17 @@ var ignoredDatabases = set.NewStrings(
 
 type DBSession interface {
 	DatabaseNames() ([]string, error)
+	Refresh()
 }
 
 // NewDBInfo returns the information needed by backups to dump
 // the database.
 func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
+	if mgoSession, ok := session.(*mgo.Session); ok {
+		mgoSession = mgoSession.Copy()
+		defer mgoSession.Close()
+	}
+
 	targets, err := getBackupTargetDatabases(session)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -77,7 +85,7 @@ func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
 	dbNames, err := session.DatabaseNames()
 	if err == io.EOF {
 		// The connection dropped (probably) so try again.
-		session = session.Refresh()
+		session.Refresh()
 		dbNames, err = session.DatabaseNames()
 	}
 	if err != nil {
