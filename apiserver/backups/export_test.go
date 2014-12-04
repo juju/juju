@@ -5,5 +5,5 @@ package backups
 
 var (
 	NewBackups = &newBackups
-	HAEnabled  = &haEnabled
+	IsReady    = &isReady
 )

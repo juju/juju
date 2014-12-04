@@ -11,9 +11,7 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-var haEnabled = func() bool {
-	return true
-}
+var isReady = replicaset.IsReady
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
@@ -24,15 +22,13 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	session := a.st.MongoSession().Copy()
 	defer session.Close()
 
-	if haEnabled() {
-		// Don't go if HA isn't ready.
-		ready, err := replicaset.IsReady(session)
-		if err != nil {
-			return p, errors.Trace(err)
-		}
-		if !ready {
-			return p, errors.New("HA not ready; try again later")
-		}
+	// Don't go if HA isn't ready.
+	ready, err := isReady(session)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
+	if !ready {
+		return p, errors.New("HA not ready; try again later")
 	}
 
 	mgoInfo := a.st.MongoConnectionInfo()
