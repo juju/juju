@@ -72,7 +72,10 @@ func (s *State) SendHTTPRequest(path string, args interface{}) (*http.Request, *
 
 // SendHTTPRequestReader sends a PUT request using the HTTP client derived
 // from State. The provided io.Reader and associated JSON metadata are
-// attached to the request body as multi-part data.
+// attached to the request body as multi-part data. The name parameter
+// identifies the attached data's part in the multi-part data. That name
+// doesn't have any semantic significance in juju, so the provided value
+// is strictly informational.
 func (s *State) SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
 	req, err := s.NewHTTPRequest("PUT", path)
 	if err != nil {
