@@ -113,7 +113,10 @@ func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.Back
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	archive.Seek(0, os.SEEK_SET)
+	_, err = archive.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	meta, err := ad.Metadata()
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -144,7 +147,10 @@ func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.Back
 			meta.Finished = fileMeta.Finished
 		}
 	}
-	archive.Seek(0, os.SEEK_SET)
+	_, err = archive.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	// Pack the metadata into a result.
 	var metaResult params.BackupsMetadataResult
