@@ -62,7 +62,6 @@ all-changes includes all alteration commands
     user disable
     user enable
 
-
 Examples:
    To allow the environment to be destroyed:
    juju unblock destroy-environment
