@@ -441,6 +441,19 @@ func (s *MongoSuite) TestWaitUntilReady(c *gc.C) {
 	c.Assert(isReadyCalled, jc.IsTrue)
 }
 
+func (s *MongoSuite) TestWaitUntilReadyTimeout(c *gc.C) {
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		return false, nil
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 10)
+	c.Assert(err, gc.ErrorMatches, "timed out after 10 seconds")
+}
+
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	session := s.root.MustDial()
 	defer session.Close()
