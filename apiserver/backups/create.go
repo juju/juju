@@ -19,7 +19,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	mgoInfo := a.st.MongoConnectionInfo()
 	dbInfo, err := backups.NewDBInfo(mgoInfo, a.st.MongoSession())
 	if err != nil {
-		return p, err
+		return p, errors.Trace(err)
 	}
 
 	meta, err := backups.NewMetadataState(a.st, a.machineID)
