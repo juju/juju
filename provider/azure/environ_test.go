@@ -1664,7 +1664,7 @@ func (s *environSuite) TestGetVirtualNetwork(c *gc.C) {
 		},
 	}
 	body, err := networkConfig.Serialize()
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		// Return existing configuration.
 		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
@@ -1673,7 +1673,7 @@ func (s *environSuite) TestGetVirtualNetwork(c *gc.C) {
 
 	for i := 0; i < 2; i++ {
 		vnet, err := env.getVirtualNetwork()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(err, gc.IsNil)
 		c.Assert(vnet, gc.NotNil)
 		c.Assert(vnet.Name, gc.Equals, env.getVirtualNetworkName())
 	}

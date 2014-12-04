@@ -134,7 +134,7 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 	} else if err != nil {
 		return nil, errors.Annotate(err, "cannot get virtual network details to filter instance types")
 	}
-	limitedTypes := make(set.Strings)
+	limitedTypes := set.NewStrings()
 
 	region := env.getSnapshot().ecfg.location()
 	arches, err := env.SupportedArchitectures()
@@ -167,7 +167,7 @@ func listInstanceTypes(env *azureEnviron) ([]instances.InstanceType, error) {
 	for i := range types {
 		types[i].Arches = arches
 	}
-	if len(limitedTypes) > 0 {
+	if !limitedTypes.IsEmpty() {
 		logger.Warningf(
 			"virtual network %q has an affinity group: disabling instance types %s",
 			vnet.Name, limitedTypes.SortedValues(),
