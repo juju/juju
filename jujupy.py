@@ -23,6 +23,7 @@ from jujuconfig import (
     )
 from utility import (
     check_free_disk_space,
+    pause,
     print_now,
     scoped_environ,
     temp_dir,
@@ -296,6 +297,11 @@ class EnvJujuClient:
                 states.setdefault(status, []).append(machine)
             if states.keys() == [desired_state]:
                 if len(states.get(desired_state, [])) >= 3:
+                    # XXX sinzui 2014-12-04: bug 1399277 happens because
+                    # juju claims HA is ready when the monogo replica sets
+                    # are not. Juju is not fully usable. The replica set
+                    # lag might be 5 minutes.
+                    pause(300)
                     return
             reporter.update(states)
         else:

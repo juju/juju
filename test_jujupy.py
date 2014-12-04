@@ -69,6 +69,11 @@ class TestErroredUnit(TestCase):
 
 class TestEnvJujuClient(TestCase):
 
+    def setUp(self):
+        patcher = patch('jujupy.pause')
+        self.addCleanup(patcher.stop)
+        self.pause_mock = patcher.start()
+
     def test_get_version(self):
         value = ' 5.6 \n'
         with patch('subprocess.check_output', return_value=value) as vsn:
