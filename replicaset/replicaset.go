@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -423,6 +425,54 @@ type MemberStatus struct {
 	// between the remote member and the local instance.  It is zero for the
 	// member that the session is connected to.
 	Ping time.Duration `bson:"pingMS"`
+}
+
+// IsReady checks on the status of all members in the replicaset
+// associated with the provided session. If any member is not ready or
+// if the connection dropped then the result is false.
+func IsReady(session *mgo.Session) (bool, error) {
+	status, err := getCurrentStatus(session)
+	if errors.Cause(err) == io.EOF {
+		// The connection dropped...
+		logger.Errorf("DB connection dropped so reconnecting")
+		session.Refresh()
+		return false, nil
+	}
+	if err != nil {
+		// Fail for any other reason.
+		return false, errors.Trace(err)
+	}
+	// Check the members.
+	for _, member := range status.Members {
+		if !member.Healthy {
+			// At least one member isn't up yet.
+			logger.Errorf("not all members ready")
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// WaitUntilReady waits until all members of the replicaset are ready.
+// It will retry every 10 seconds until the timeout is reached. Dropped
+// connections will trigger a reconnect.
+func WaitUntilReady(session *mgo.Session, timeout int) error {
+	attempts := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Min:   timeout / 10,
+	}
+	var err error
+	ready := false
+	for a := attempts.Start(); !ready && a.Next(); {
+		ready, err = IsReady(session)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if !ready {
+		return errors.Errorf("timed out after %d seconds", timeout)
+	}
+	return nil
 }
 
 // MemberState represents the state of a replica set member.
