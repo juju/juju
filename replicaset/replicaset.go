@@ -448,7 +448,8 @@ func isConnectionNotAvailable(err error) bool {
 func IsReady(session *mgo.Session) (bool, error) {
 	status, err := getCurrentStatus(session)
 	if isConnectionNotAvailable(err) {
-		logger.Errorf("detected dropped DB connection")
+		logger.Errorf("detected dropped DB connection; reconnecting...")
+		session.Refresh()
 		return false, nil
 	}
 	if err != nil {
