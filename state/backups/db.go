@@ -4,20 +4,16 @@
 package backups
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
-	jujuUtils "github.com/juju/juju/utils"
+	"github.com/juju/juju/utils"
 )
 
 // db is a surrogate for the proverbial DB layer abstraction that we
@@ -28,7 +24,7 @@ import (
 // low-level details publicly.  Thus the backups implementation remains
 // oblivious to the underlying DB implementation.
 
-var runCommand = jujuUtils.RunCommand
+var runCommand = utils.RunCommand
 
 // DBInfo wraps all the DB-specific information backups needs to dump
 // the database. This includes a simplification of the information in
@@ -53,19 +49,11 @@ var ignoredDatabases = set.NewStrings(
 
 type DBSession interface {
 	DatabaseNames() ([]string, error)
-	Refresh()
 }
 
 // NewDBInfo returns the information needed by backups to dump
 // the database.
 func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
-	// TODO(ericsnow) lp-1399043
-	// The type conversion here implies the approach needs adjusting.
-	if mgoSession, ok := session.(*mgo.Session); ok {
-		mgoSession = mgoSession.Copy()
-		defer mgoSession.Close()
-	}
-
 	targets, err := getBackupTargetDatabases(session)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -86,31 +74,9 @@ func NewDBInfo(mgoInfo *mongo.MongoInfo, session DBSession) (*DBInfo, error) {
 }
 
 func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
-	namesAttempt := utils.AttemptStrategy{
-		Delay: 10 * time.Second,
-		Min:   10,
-	}
-	var (
-		dbNames []string
-		err     error
-	)
-	for a := namesAttempt.Start(); a.Next(); {
-		dbNames, err = session.DatabaseNames()
-		if errors.Cause(err) == io.EOF {
-			// The connection dropped (probably due to HA) so try again.
-			logger.Errorf("DB connection dropped; re-connecting and trying again...")
-			session.Refresh()
-			continue
-		}
-		if err != nil {
-			// Fail for any other reason.
-			return nil, errors.Annotate(err, "unable to get DB names")
-		}
-		// No errors to stop retrying.
-		break
-	}
+	dbNames, err := session.DatabaseNames()
 	if err != nil {
-		return nil, errors.Annotate(err, "could not connect after 10 retries")
+		return nil, errors.Annotate(err, "unable to get DB names")
 	}
 
 	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)

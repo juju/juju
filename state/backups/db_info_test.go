@@ -27,9 +27,6 @@ func (f *fakeSession) DatabaseNames() ([]string, error) {
 	return f.dbNames, nil
 }
 
-func (f *fakeSession) Refresh() {
-}
-
 func (s *dbInfoSuite) TestNewDBInfoOkay(c *gc.C) {
 	session := fakeSession{}
 
