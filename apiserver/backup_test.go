@@ -82,7 +82,7 @@ func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
-func (s *backupsSuite) TestRequiresGETOrPUT(c *gc.C) {
+func (s *backupsSuite) TestInvalidHTTPMethods(c *gc.C) {
 	url := s.backupURL(c)
 	for _, method := range []string{"POST", "DELETE", "OPTIONS"} {
 		c.Log("testing HTTP method: " + method)
