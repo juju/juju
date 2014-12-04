@@ -22,6 +22,8 @@ def find_candidates(root_dir):
     candidates_path = os.path.join(root_dir, 'candidate')
     a_week_ago = time() - timedelta(days=7).total_seconds()
     for candidate_dir in os.listdir(candidates_path):
+        if candidate_dir.endswith('-artifacts'):
+            continue
         candidate_path = os.path.join(candidates_path, candidate_dir)
         buildvars = os.path.join(candidate_path, 'buildvars.json')
         try:
