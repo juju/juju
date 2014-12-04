@@ -503,7 +503,20 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azNoDefaultSubnetErr = &amzec2.Error{
+	Code:    "InvalidInput",
+	Message: "No default subnet for availability zone: ''us-east-1e''.",
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azNoDefaultSubnetErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
@@ -519,14 +532,26 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	var azArgs []string
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
-		return nil, azConstrainedErr
+		return nil, runInstancesError
 	})
 	_, _, _, err = testing.StartInstance(env, "1")
-	c.Assert(err, gc.ErrorMatches, `cannot run instances: The requested Availability Zone is currently constrained etc\. \(Unsupported\)`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"cannot run instances: %s \\(%s\\)",
+		regexp.QuoteMeta(runInstancesError.Message),
+		runInstancesError.Code,
+	))
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azNoDefaultSubnetErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
@@ -546,7 +571,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
-			return nil, azConstrainedErr
+			return nil, runInstancesError
 		}
 		return realRunInstances(e, ri)
 	})
