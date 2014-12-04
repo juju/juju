@@ -425,6 +425,22 @@ func (s *MongoSuite) TestIsReadyError(c *gc.C) {
 	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
+func (s *MongoSuite) TestWaitUntilReady(c *gc.C) {
+	var isReadyCalled bool
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		isReadyCalled = true
+		return true, nil
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isReadyCalled, jc.IsTrue)
+}
+
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 	session := s.root.MustDial()
 	defer session.Close()
