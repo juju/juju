@@ -45,6 +45,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateError(c *gc.C) {
+	s.setBackups(c, nil, "failed!")
 	s.PatchValue(backups.IsReady,
 		func(*mgo.Session) (bool, error) { return true, nil },
 	)
