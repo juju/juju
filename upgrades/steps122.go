@@ -63,6 +63,12 @@ func stateStepsFor122() []Step {
 				return state.AddEnvUUIDToConstraints(context.State())
 			},
 		}, &upgradeStep{
+			description: "prepend the environment UUID to the ID of all meterStatus docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToMeterStatus(context.State())
+			},
+		}, &upgradeStep{
 			description: "prepend the environment UUID to the ID of all openPorts docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
