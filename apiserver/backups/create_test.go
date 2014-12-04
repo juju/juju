@@ -13,8 +13,8 @@ import (
 )
 
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {
-	s.PatchValue(backups.IsReady,
-		func(*mgo.Session) (bool, error) { return true, nil },
+	s.PatchValue(backups.WaitUntilReady,
+		func(*mgo.Session, int) error { return nil },
 	)
 	s.setBackups(c, s.meta, "")
 	var args params.BackupsCreateArgs
@@ -27,8 +27,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateNotes(c *gc.C) {
-	s.PatchValue(backups.IsReady,
-		func(*mgo.Session) (bool, error) { return true, nil },
+	s.PatchValue(backups.WaitUntilReady,
+		func(*mgo.Session, int) error { return nil },
 	)
 	s.meta.Notes = "this backup is important"
 	s.setBackups(c, s.meta, "")
@@ -46,8 +46,8 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 
 func (s *backupsSuite) TestCreateError(c *gc.C) {
 	s.setBackups(c, nil, "failed!")
-	s.PatchValue(backups.IsReady,
-		func(*mgo.Session) (bool, error) { return true, nil },
+	s.PatchValue(backups.WaitUntilReady,
+		func(*mgo.Session, int) error { return nil },
 	)
 	var args params.BackupsCreateArgs
 	_, err := s.api.Create(args)
