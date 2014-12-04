@@ -50,7 +50,7 @@ func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	return req, errors.Trace(err)
 }
 
-// SendHTTPRequest sends a request using the HTTP client derived from State.
+// SendHTTPRequest sends a GET request using the HTTP client derived from State.
 func (s *State) SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error) {
 	req, err := s.NewHTTPRequest("GET", path)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *State) SendHTTPRequest(path string, args interface{}) (*http.Request, *
 	return req, resp, nil
 }
 
-// SendHTTPRequestReader sends a request using the HTTP client derived
+// SendHTTPRequestReader sends a PUT request using the HTTP client derived
 // from State. The provided io.Reader and associated JSON metadata are
 // attached to the request body as multi-part data.
 func (s *State) SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
