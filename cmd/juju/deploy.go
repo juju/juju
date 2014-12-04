@@ -180,7 +180,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 
 	curl, err = addCharmViaAPI(client, ctx, curl, repo)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	if c.BumpRevision {
@@ -251,7 +251,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			c.Constraints,
 			c.ToMachineSpec)
 	}
-	return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 // addCharmViaAPI calls the appropriate client API calls to add the

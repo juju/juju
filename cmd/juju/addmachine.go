@@ -234,7 +234,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
 	}
 	if params.IsCodeOperationBlocked(err) {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	if err != nil {
 		return errors.Trace(err)

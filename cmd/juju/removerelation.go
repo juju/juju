@@ -41,5 +41,5 @@ func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.DestroyRelation(c.Endpoints...), block.BlockRemove, c.ConnectionName())
+	return block.ProcessBlockedError(client.DestroyRelation(c.Endpoints...), block.BlockRemove)
 }

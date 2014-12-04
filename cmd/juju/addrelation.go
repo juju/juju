@@ -41,5 +41,5 @@ func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 	}
 	defer client.Close()
 	_, err = client.AddRelation(c.Endpoints...)
-	return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(err, block.BlockChange)
 }

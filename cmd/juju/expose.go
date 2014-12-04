@@ -49,5 +49,5 @@ func (c *ExposeCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return block.ProcessBlockedError(client.ServiceExpose(c.ServiceName), block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(client.ServiceExpose(c.ServiceName), block.BlockChange)
 }

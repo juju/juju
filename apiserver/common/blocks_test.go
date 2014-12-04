@@ -4,82 +4,121 @@
 package common_test
 
 import (
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
 type blocksSuite struct {
-	testing.JujuConnSuite
-}
-
-func (s *blocksSuite) getTestCfg(c *gc.C) *config.Config {
-	cfg, err := s.BackingState.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
+	testing.FakeJujuHomeSuite
+	destroy, remove, change bool
+	cfg                     *config.Config
 }
 
 var _ = gc.Suite(&blocksSuite{})
 
-func (s *blocksSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+func (s *blocksSuite) TearDownTest(c *gc.C) {
+	s.destroy, s.remove, s.change = false, false, false
 }
 
-func (s *blocksSuite) TestBlockllOperations(c *gc.C) {
-	c.Assert(common.IsOperationBlocked(common.DestroyOperation, s.getTestCfg(c)), jc.IsFalse)
-	c.Assert(common.IsOperationBlocked(common.RemoveOperation, s.getTestCfg(c)), jc.IsFalse)
-	c.Assert(common.IsOperationBlocked(common.ChangeOperation, s.getTestCfg(c)), jc.IsFalse)
+func (s *blocksSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	cfg, err := config.New(
+		config.UseDefaults,
+		map[string]interface{}{
+			"name": "block-env",
+			"type": "any-type",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.cfg = cfg
+}
+
+func (s *blocksSuite) TestOperationsUnblockedByDefault(c *gc.C) {
+	s.assertDestroyOperationBlocked(c, false)
+	s.assertRemoveOperationBlocked(c, false)
+	s.assertChangeOperationBlocked(c, false)
 }
 
 func (s *blocksSuite) TestBlockOperationErrorDestroy(c *gc.C) {
 	// prevent destroy-environment
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", true)
-	c.Assert(common.IsOperationBlocked(common.DestroyOperation, s.getTestCfg(c)), jc.IsTrue)
+	s.blockDestroys(c)
+	s.assertDestroyOperationBlocked(c, true)
 
 	// prevent remove-object
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
-	c.Assert(common.IsOperationBlocked(common.DestroyOperation, s.getTestCfg(c)), jc.IsTrue)
+	s.blockRemoves(c)
+	s.assertDestroyOperationBlocked(c, true)
 
 	// prevent all-changes
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-	c.Assert(common.IsOperationBlocked(common.DestroyOperation, s.getTestCfg(c)), jc.IsTrue)
+	s.blockAllChanges(c)
+	s.assertDestroyOperationBlocked(c, true)
 }
 
 func (s *blocksSuite) TestBlockOperationErrorRemove(c *gc.C) {
 	// prevent destroy-environment
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", true)
-	c.Assert(common.IsOperationBlocked(common.RemoveOperation, s.getTestCfg(c)), jc.IsFalse)
+	s.blockDestroys(c)
+	s.assertRemoveOperationBlocked(c, false)
 
 	// prevent remove-object
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
-	c.Assert(common.IsOperationBlocked(common.RemoveOperation, s.getTestCfg(c)), jc.IsTrue)
+	s.blockRemoves(c)
+	s.assertRemoveOperationBlocked(c, true)
 
 	// prevent all-changes
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-	c.Assert(common.IsOperationBlocked(common.RemoveOperation, s.getTestCfg(c)), jc.IsTrue)
+	s.blockAllChanges(c)
+	s.assertRemoveOperationBlocked(c, true)
 }
 
 func (s *blocksSuite) TestBlockOperationErrorChange(c *gc.C) {
 	// prevent destroy-environment
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", true)
-	c.Assert(common.IsOperationBlocked(common.ChangeOperation, s.getTestCfg(c)), jc.IsFalse)
+	s.blockDestroys(c)
+	s.assertChangeOperationBlocked(c, false)
 
 	// prevent remove-object
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
-	s.AssertConfigParameterUpdated(c, "block-remove-object", true)
-	c.Assert(common.IsOperationBlocked(common.ChangeOperation, s.getTestCfg(c)), jc.IsFalse)
+	s.blockRemoves(c)
+	s.assertChangeOperationBlocked(c, false)
 
 	// prevent all-changes
-	s.AssertConfigParameterUpdated(c, "block-destroy-environment", false)
-	s.AssertConfigParameterUpdated(c, "block-remove-object", false)
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-	c.Assert(common.IsOperationBlocked(common.ChangeOperation, s.getTestCfg(c)), jc.IsTrue)
+	s.blockAllChanges(c)
+	s.assertChangeOperationBlocked(c, true)
+}
+
+func (s *blocksSuite) blockDestroys(c *gc.C) {
+	s.destroy, s.remove, s.change = true, false, false
+}
+
+func (s *blocksSuite) blockRemoves(c *gc.C) {
+	s.remove, s.destroy, s.change = true, false, false
+}
+
+func (s *blocksSuite) blockAllChanges(c *gc.C) {
+	s.change, s.destroy, s.remove = true, false, false
+}
+
+func (s *blocksSuite) assertDestroyOperationBlocked(c *gc.C, value bool) {
+	s.assertOperationBlocked(c, common.DestroyOperation, value)
+}
+
+func (s *blocksSuite) assertRemoveOperationBlocked(c *gc.C, value bool) {
+	s.assertOperationBlocked(c, common.RemoveOperation, value)
+}
+
+func (s *blocksSuite) assertChangeOperationBlocked(c *gc.C, value bool) {
+	s.assertOperationBlocked(c, common.ChangeOperation, value)
+}
+
+func (s *blocksSuite) assertOperationBlocked(c *gc.C, operation common.Operation, value bool) {
+	c.Assert(common.IsOperationBlocked(operation, s.getCurrentConfig(c)), gc.Equals, value)
+}
+
+func (s *blocksSuite) getCurrentConfig(c *gc.C) *config.Config {
+	cfg, err := s.cfg.Apply(map[string]interface{}{
+		"block-destroy-environment": s.destroy,
+		"block-remove-object":       s.remove,
+		"block-all-changes":         s.change,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
 }

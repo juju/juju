@@ -51,7 +51,7 @@ func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
 
 	results, err := client.RetryProvisioning(c.Machines...)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {

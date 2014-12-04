@@ -197,7 +197,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 				return errors.New(message)
 			}
 			if err := client.AbortCurrentUpgrade(); err != nil {
-				return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
@@ -208,7 +208,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 					"upgrade-juju command with the --reset-previous-upgrade flag.", err,
 				)
 			} else {
-				return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+				return block.ProcessBlockedError(err, block.BlockChange)
 			}
 		}
 		logger.Infof("started upgrade to %s", context.chosen)
