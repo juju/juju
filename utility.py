@@ -54,6 +54,7 @@ class until_timeout:
 
 
 def pause(seconds):
+    print_now('Sleeping for %d seconds.' % seconds)
     sleep(seconds)
 
 
