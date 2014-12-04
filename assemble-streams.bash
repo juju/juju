@@ -661,7 +661,7 @@ if [[ $GET_RELEASED_TOOL == "true" ]]; then
 fi
 retract_tools
 init_tools_maybe
-if [[ $RELEASE != "IGNORE" ]]; then
+if [[ $IS_LOCAL == "true" || $RELEASE != "IGNORE" ]]; then
     retrieve_packages
     if [[ $PURPOSE == "released" ]]; then
         copy_proposed_to_release
