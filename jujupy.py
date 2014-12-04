@@ -327,7 +327,7 @@ class EnvJujuClient:
         environ['JUJU_ENV'] = self.env.environment
         output = subprocess.check_output(['juju', 'backup'], env=environ)
         print_now(output)
-        backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.tgz)')
+        backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.(t|tar.)gz)')
         match = backup_file_pattern.search(output)
         if match is None:
             raise Exception("The backup file was not found in output: %s" %
