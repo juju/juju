@@ -56,7 +56,7 @@ class CandidateTestCase(TestCase):
         return {
             'number': number,
             'actions': [{'parameters': [{
-                'name': 'revision-build', 'value': str(number)}
+                'name': 'revision_build', 'value': str(number)}
             ]}],
         }
 
