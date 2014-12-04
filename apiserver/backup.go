@@ -62,7 +62,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 		defer archive.Close()
 
-		err = h.sendFile(archive, meta.Checksum(), apihttp.DIGEST_SHA, resp)
+		err = h.sendFile(archive, meta.Checksum(), apihttp.DigestSHA, resp)
 		if err != nil {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return

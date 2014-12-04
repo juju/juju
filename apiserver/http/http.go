@@ -8,5 +8,6 @@ package http
 type DigestAlgorithm string
 
 const (
-	DIGEST_SHA DigestAlgorithm = "SHA"
+	// DigestSHA is the HTTP digest algorithm value used in juju's HTTP code.
+	DigestSHA DigestAlgorithm = "SHA"
 )

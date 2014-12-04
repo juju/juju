@@ -156,7 +156,7 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 	meta := s.fake.Meta
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DIGEST_SHA)+"="+meta.Checksum())
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DigestSHA)+"="+meta.Checksum())
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 }
 
