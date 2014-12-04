@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -66,7 +67,7 @@ func (s *authHttpSuite) authRequest(c *gc.C, method, uri, contentType string, bo
 }
 
 func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string) (*http.Response, error) {
-	contentType := "application/octet-stream"
+	contentType := apihttp.CTypeRaw
 	if asZip {
 		contentType = s.archiveContentType
 	}
@@ -82,7 +83,7 @@ func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path stri
 }
 
 func (s *authHttpSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, "application/json")
+	body := assertResponse(c, resp, expCode, apihttp.CTypeJSON)
 	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
 }
 
@@ -479,7 +480,7 @@ func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	expectedFiles := manifest.SortedValues()
 	s.assertGetFileListResponse(c, resp, expectedFiles)
 	ctype := resp.Header.Get("content-type")
-	c.Assert(ctype, gc.Equals, "application/json")
+	c.Assert(ctype, gc.Equals, apihttp.CTypeJSON)
 }
 
 func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
@@ -524,7 +525,7 @@ func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
 }
 
 func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {
-	body := assertResponse(c, resp, http.StatusOK, "application/json")
+	body := assertResponse(c, resp, http.StatusOK, apihttp.CTypeJSON)
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.CharmURL, gc.Equals, expCharmURL)
@@ -536,7 +537,7 @@ func (s *charmsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBod
 }
 
 func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, expFiles []string) {
-	body := assertResponse(c, resp, http.StatusOK, "application/json")
+	body := assertResponse(c, resp, http.StatusOK, apihttp.CTypeJSON)
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)

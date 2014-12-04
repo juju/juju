@@ -26,6 +26,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/client"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -87,7 +88,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // sendJSON sends a JSON-encoded response to the client.
 func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.CharmsResponse) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", apihttp.CTypeJSON)
 	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {

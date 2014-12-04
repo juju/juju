@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apiserverhttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -22,7 +23,7 @@ var _ = gc.Suite(&downloadSuite{})
 
 func (s *downloadSuite) setSuccess(c *gc.C, data string) {
 	body := []byte(data)
-	s.setResponse(c, http.StatusOK, body, "application/octet-stream")
+	s.setResponse(c, http.StatusOK, body, apiserverhttp.CTypeRaw)
 }
 
 func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {

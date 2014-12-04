@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	httptesting "github.com/juju/juju/api/http/testing"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	apiserverhttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	stbackups "github.com/juju/juju/state/backups"
@@ -92,7 +93,7 @@ func (s *httpSuite) setJSONSuccess(c *gc.C, result interface{}) {
 	data, err := json.Marshal(result)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.setResponse(c, status, data, "application/json")
+	s.setResponse(c, status, data, apiserverhttp.CTypeJSON)
 }
 
 func (s *httpSuite) setFailure(c *gc.C, msg string, status int) {
@@ -102,7 +103,7 @@ func (s *httpSuite) setFailure(c *gc.C, msg string, status int) {
 	data, err := json.Marshal(&failure)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.setResponse(c, status, data, "application/json")
+	s.setResponse(c, status, data, apiserverhttp.CTypeJSON)
 }
 
 func (s *httpSuite) setError(c *gc.C, msg string, status int) {
@@ -111,5 +112,5 @@ func (s *httpSuite) setError(c *gc.C, msg string, status int) {
 	}
 
 	data := []byte(msg)
-	s.setResponse(c, status, data, "application/octet-stream")
+	s.setResponse(c, status, data, apiserverhttp.CTypeRaw)
 }

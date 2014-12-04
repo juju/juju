@@ -53,7 +53,7 @@ func (s *baseBackupsSuite) backupURL(c *gc.C) string {
 
 func (s *baseBackupsSuite) checkErrorResponse(c *gc.C, resp *http.Response, statusCode int, msg string) {
 	c.Check(resp.StatusCode, gc.Equals, statusCode)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeJSON)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +135,7 @@ func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 	s.fake.Archive = ioutil.NopCloser(archive)
 	s.body = archive.Bytes()
 
-	ctype := "application/json"
+	ctype := apihttp.CTypeJSON
 	body := s.newBody(c, meta.ID())
 	resp, err := s.authRequest(c, "GET", s.backupURL(c), ctype, body)
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +157,7 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
 	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DigestSHA)+"="+meta.Checksum())
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeRaw)
 }
 
 func (s *backupsDownloadSuite) TestBody(c *gc.C) {
@@ -196,7 +196,7 @@ func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
 	metaResult := apiserverbackups.ResultFromMetadata(s.meta)
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
-	header.Set("Content-Type", "application/json")
+	header.Set("Content-Type", apihttp.CTypeJSON)
 	part, err := writer.CreatePart(header)
 	c.Assert(err, jc.ErrorIsNil)
 	err = json.NewEncoder(part).Encode(metaResult)
@@ -230,7 +230,7 @@ func (s *backupsUploadSuite) TestResponse(c *gc.C) {
 	defer resp.Body.Close()
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTypeJSON)
 }
 
 func (s *backupsUploadSuite) TestBody(c *gc.C) {

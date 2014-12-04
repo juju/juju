@@ -20,7 +20,7 @@ func ExtractJSONResult(resp *http.Response, result interface{}) error {
 	// or not the subsequent read fails.
 	defer resp.Body.Close()
 
-	if resp.Header.Get("Content-Type") != "application/json" {
+	if resp.Header.Get("Content-Type") != CTypeJSON {
 		return errors.Errorf(`expected "application/json" content type, got %q`, resp.Header.Get("Content-Type"))
 	}
 
@@ -45,7 +45,7 @@ func ExtractAPIError(resp *http.Response) (*params.Error, error) {
 	}
 
 	var failure params.Error
-	if resp.Header.Get("Content-Type") == "application/json" {
+	if resp.Header.Get("Content-Type") == CTypeJSON {
 		if err := json.Unmarshal(body, &failure); err != nil {
 			return nil, errors.Annotate(err, "while unserializing the error")
 		}

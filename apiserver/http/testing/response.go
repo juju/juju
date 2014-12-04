@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -50,7 +51,7 @@ func NewErrorResponse(statusCode int, msg string) *HTTPResponse {
 func NewFailureResponse(failure *params.Error) *HTTPResponse {
 	resp := NewHTTPResponse()
 	resp.StatusCode = http.StatusInternalServerError
-	resp.Header.Set("Content-Type", "application/json")
+	resp.Header.Set("Content-Type", apihttp.CTypeJSON)
 	if err := json.NewEncoder(&resp.Buffer).Encode(failure); err != nil {
 		panic(fmt.Sprintf("could not JSON-encode failure: %v", err))
 	}

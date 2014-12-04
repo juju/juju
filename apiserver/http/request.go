@@ -39,7 +39,7 @@ func SetRequestArgs(req *http.Request, args interface{}) error {
 		return errors.Annotate(err, "while serializing args")
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", CTypeJSON)
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	return nil
 }
@@ -64,7 +64,7 @@ func AttachToRequest(req *http.Request, attached io.Reader, meta interface{}, na
 	// Set the metadata part.
 	header := make(textproto.MIMEHeader)
 	header.Set("Content-Disposition", `form-data; name="metadata"`)
-	header.Set("Content-Type", "application/json")
+	header.Set("Content-Type", CTypeJSON)
 	part, err := writer.CreatePart(header)
 	if err != nil {
 		return errors.Trace(err)
@@ -107,7 +107,7 @@ func ExtractRequestAttachment(req *http.Request, metaResult interface{}) (io.Rea
 		return nil, errors.Trace(err)
 	}
 
-	if err := checkContentType(part.Header, "application/json"); err != nil {
+	if err := checkContentType(part.Header, CTypeJSON); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := json.NewDecoder(part).Decode(metaResult); err != nil {
@@ -122,7 +122,7 @@ func ExtractRequestAttachment(req *http.Request, metaResult interface{}) (io.Rea
 		}
 		return nil, errors.Trace(err)
 	}
-	if err := checkContentType(part.Header, "application/octet-stream"); err != nil {
+	if err := checkContentType(part.Header, CTypeRaw); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// We're not going to worry about verifying that the file matches the
