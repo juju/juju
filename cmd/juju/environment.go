@@ -145,7 +145,7 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-	return block.ProcessBlockedError(client.EnvironmentSet(c.values), block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(client.EnvironmentSet(c.values), block.BlockChange)
 }
 
 // UnsetEnvironment
@@ -202,5 +202,5 @@ func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-	return block.ProcessBlockedError(client.EnvironmentUnset(c.keys...), block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(client.EnvironmentUnset(c.keys...), block.BlockChange)
 }

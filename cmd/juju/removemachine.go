@@ -71,5 +71,5 @@ func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
 	if c.Force {
 		return apiclient.ForceDestroyMachines(c.MachineIds...)
 	}
-	return block.ProcessBlockedError(apiclient.DestroyMachines(c.MachineIds...), block.BlockRemove, c.ConnectionName())
+	return block.ProcessBlockedError(apiclient.DestroyMachines(c.MachineIds...), block.BlockRemove)
 }

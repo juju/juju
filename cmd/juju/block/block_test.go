@@ -68,9 +68,9 @@ func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
 
 func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType block.Block, expectedError error, expectedWarning string) {
 	if tstError != nil {
-		c.Assert(block.ProcessBlockedError(tstError, blockType, "trial"), gc.Equals, expectedError)
+		c.Assert(block.ProcessBlockedError(tstError, blockType), gc.Equals, expectedError)
 	} else {
-		c.Assert(block.ProcessBlockedError(tstError, blockType, "trial"), jc.ErrorIsNil)
+		c.Assert(block.ProcessBlockedError(tstError, blockType), jc.ErrorIsNil)
 	}
 	// warning displayed
 	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)

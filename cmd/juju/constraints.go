@@ -147,5 +147,5 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 	} else {
 		err = apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 	}
-	return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(err, block.BlockChange)
 }

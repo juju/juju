@@ -57,7 +57,7 @@ func (c *ImportKeysCommand) Run(context *cmd.Context) error {
 
 	results, err := client.ImportKeys(c.user, c.sshKeyIds...)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {

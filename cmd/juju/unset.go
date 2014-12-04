@@ -54,5 +54,5 @@ func (c *UnsetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
-	return block.ProcessBlockedError(apiclient.ServiceUnset(c.ServiceName, c.Options), block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(apiclient.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
 }

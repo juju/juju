@@ -126,7 +126,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 
 	tag, err := client.AddUser(c.User, c.DisplayName, c.Password)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	// Until we have multiple environments stored in a state server
 	// it makes no sense at all to create a user and not have that user

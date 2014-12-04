@@ -162,8 +162,8 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange, c.ConnectionName())
+	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
 }

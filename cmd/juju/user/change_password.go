@@ -138,7 +138,7 @@ func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
 	creds.Password = c.Password
 	err = client.SetPassword(creds.User, c.Password)
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	if c.User != "" {

@@ -28,9 +28,9 @@ destroy-environment includes command:
 remove-object includes termination commands:
     destroy-environment
     remove-machine
+    remove-relation
     remove-service
     remove-unit
-    remove-relation
 
 all-changes includes all alteration commands
     add-machine
@@ -41,9 +41,7 @@ all-changes includes all alteration commands
     authorised-keys import
     deploy
     destroy-environment
-    ensure-availability
     expose
-    publish
     remove-machine
     remove-relation
     remove-service
@@ -63,7 +61,6 @@ all-changes includes all alteration commands
     user change-password
     user disable
     user enable
-
 
 Examples:
    To allow the environment to be destroyed:

@@ -194,7 +194,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if err != nil {
-		return block.ProcessBlockedError(err, block.BlockChange, c.ConnectionName())
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	// If we are just dealing with one result, AND we are using the smart
