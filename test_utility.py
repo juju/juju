@@ -3,11 +3,16 @@ from datetime import (
     timedelta,
     )
 from contextlib import contextmanager
+import os
 from unittest import TestCase
 
 from mock import patch
 
-from utility import until_timeout
+from utility import (
+    get_auth_token,
+    temp_dir,
+    until_timeout,
+    )
 
 
 class TestUntilTimeout(TestCase):
@@ -53,3 +58,15 @@ class TestUntilTimeout(TestCase):
         now_iter = iter([now, now, now + timedelta(10)])
         with patch('utility.until_timeout.now', side_effect=now_iter.next):
             self.assertEqual(list(until_timeout(10, now - timedelta(10))), [])
+
+
+class TestGetAuthToken(TestCase):
+
+    def test_get_auth_token(self):
+        with temp_dir() as root:
+            job_dir = os.path.join(root, 'jobs', 'job-name')
+            os.makedirs(job_dir)
+            job_config = os.path.join(job_dir, 'config.xml')
+            with open(job_config, 'w') as config:
+                config.write("<config><authToken>foo</authToken></config>")
+            self.assertEqual(get_auth_token(root, 'job-name'), 'foo')
