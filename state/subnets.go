@@ -209,3 +209,9 @@ func (s *Subnet) Refresh() error {
 	}
 	return nil
 }
+
+// PickNewAddress returns a new IPAddress that isn't in use for the subnet.
+// The address starts with AddressStateUnknown, for later allocation.
+func (s *Subnet) PickNewAddress() (*IPAddress, error) {
+	return nil, nil
+}
