@@ -84,6 +84,13 @@ type azureEnviron struct {
 	// private storage.  This is automatically queried from Azure on
 	// startup.
 	storageAccountKey string
+
+	// vnet describes the configured virtual network.
+	vnet *gwacl.VirtualNetworkSite
+
+	// availableRoleSizes is the role sizes available in the configured
+	// location. This will be reset whenever the location configuration changes.
+	availableRoleSizes set.Strings
 }
 
 // azureEnviron implements Environ and HasRegion.
@@ -169,6 +176,12 @@ func (env *azureEnviron) getAffinityGroupName() string {
 	return env.getEnvPrefix() + "ag"
 }
 
+// getLocation gets the configured Location for the environment.
+func (env *azureEnviron) getLocation() string {
+	snap := env.getSnapshot()
+	return snap.ecfg.location()
+}
+
 func (env *azureEnviron) createAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
@@ -194,18 +207,94 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 		Name: affinityGroupName})
 }
 
+// getAvailableRoleSizes returns the role sizes available for the configured
+// location.
+func (env *azureEnviron) getAvailableRoleSizes() (_ set.Strings, err error) {
+	defer func() {
+		if err != nil {
+			err = errors.Annotate(err, "cannot get available role sizes")
+		}
+	}()
+
+	snap := env.getSnapshot()
+	if !snap.availableRoleSizes.IsEmpty() {
+		return snap.availableRoleSizes, nil
+	}
+
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return set.Strings{}, err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	locations, err := azure.ListLocations()
+	if err != nil {
+		return set.Strings{}, errors.Annotate(err, "cannot list locations")
+	}
+	var available set.Strings
+	for _, location := range locations {
+		if location.Name != snap.ecfg.location() {
+			continue
+		}
+		if location.ComputeCapabilities == nil {
+			return set.Strings{}, errors.Annotate(err, "cannot determine compute capabilities")
+		}
+		available = set.NewStrings(location.ComputeCapabilities.VirtualMachineRoleSizes...)
+		break
+	}
+	if available.IsEmpty() {
+		return set.Strings{}, errors.NotFoundf("location %q", snap.ecfg.location())
+	}
+	env.Lock()
+	env.availableRoleSizes = available
+	env.Unlock()
+	return available, nil
+}
+
 // getVirtualNetworkName returns the name of the virtual network used by all
 // the VMs in this environment.
 func (env *azureEnviron) getVirtualNetworkName() string {
 	return env.getEnvPrefix() + "vnet"
 }
 
+// getVirtualNetwork returns the virtual network used by all the VMs in this
+// environment.
+func (env *azureEnviron) getVirtualNetwork() (*gwacl.VirtualNetworkSite, error) {
+	snap := env.getSnapshot()
+	if snap.vnet != nil {
+		return snap.vnet, nil
+	}
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(azure)
+	cfg, err := azure.GetNetworkConfiguration()
+	if err != nil {
+		return nil, errors.Annotate(err, "error getting network configuration")
+	}
+	var vnet *gwacl.VirtualNetworkSite
+	vnetName := env.getVirtualNetworkName()
+	if cfg != nil && cfg.VirtualNetworkSites != nil {
+		for _, site := range *cfg.VirtualNetworkSites {
+			if site.Name == vnetName {
+				vnet = &site
+				break
+			}
+		}
+	}
+	if vnet == nil {
+		return nil, errors.NotFoundf("virtual network %q", vnetName)
+	}
+	env.Lock()
+	env.vnet = vnet
+	env.Unlock()
+	return vnet, nil
+}
+
+// createVirtualNetwork creates a virtual network for the environment.
 func (env *azureEnviron) createVirtualNetwork() error {
-	// Note: the Azure documentation recommends to use
-	// Location when creating virtual network sites.
-	// We have historically used Affinity Group, and
-	// have observed intermittent issues when switching.
-	// http://msdn.microsoft.com/en-us/library/azure/jj157100.aspx
+	snap := env.getSnapshot()
 	vnetName := env.getVirtualNetworkName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
@@ -213,13 +302,19 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	}
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
-		Name:          vnetName,
-		AffinityGroup: env.getAffinityGroupName(),
+		Name:     vnetName,
+		Location: snap.ecfg.location(),
 		AddressSpacePrefixes: []string{
 			networkDefinition,
 		},
 	}
-	return azure.AddVirtualNetworkSite(&virtualNetwork)
+	if err := azure.AddVirtualNetworkSite(&virtualNetwork); err != nil {
+		return errors.Trace(err)
+	}
+	env.Lock()
+	env.vnet = &virtualNetwork
+	env.Unlock()
+	return nil
 }
 
 // deleteVnetAttempt is an AttemptyStrategy for use
@@ -320,6 +415,11 @@ func (env *azureEnviron) Config() *config.Config {
 
 // SetConfig is specified in the Environ interface.
 func (env *azureEnviron) SetConfig(cfg *config.Config) error {
+	var oldLocation string
+	if snap := env.getSnapshot(); snap.ecfg != nil {
+		oldLocation = snap.ecfg.location()
+	}
+
 	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
 	if err != nil {
 		return err
@@ -340,6 +440,11 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	// Reset storage account key.  Even if we had one before, it may not
 	// be appropriate for the new config.
 	env.storageAccountKey = ""
+
+	// If the location changed, reset the available role sizes.
+	if ecfg.location() != oldLocation {
+		env.availableRoleSizes = set.Strings{}
+	}
 
 	return nil
 }
@@ -377,7 +482,7 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix, affinityGroupName, lab
 		createdService, err = attemptCreateService(azure, prefix, affinityGroupName, label)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("could not create hosted service: %v", err)
+		return nil, errors.Annotate(err, "could not create hosted service")
 	}
 	if createdService == nil {
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
@@ -550,7 +655,7 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 			env.getVirtualNetworkName(),
 		)
 		if err := azure.AddDeployment(deployment, service.ServiceName); err != nil {
-			return nil, err
+			return nil, errors.Annotate(err, "error creating VM deployment")
 		}
 		service.Deployments = append(service.Deployments, *deployment)
 	} else {
