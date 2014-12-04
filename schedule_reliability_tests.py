@@ -36,7 +36,7 @@ def find_candidates(root_dir):
 
 
 def build_job(root, job_name, candidates):
-    parameters = {'suite': 'density'}
+    parameters = {'suite': 'density', 'attempts': '10'}
     jenkins = Jenkins('http://localhost:8080')
     for candidate in candidates:
         parameters['new_juju_dir'] = candidate
