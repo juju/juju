@@ -50,7 +50,7 @@ func (c *UploadCommand) Info() *cmd.Info {
 // Init implements Command.Init.
 func (c *UploadCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing filename")
+		return errors.New("backup filename not specified")
 	}
 	filename, args := args[0], args[1:]
 	if err := cmd.CheckEmpty(args); err != nil {
