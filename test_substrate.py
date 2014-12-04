@@ -24,6 +24,7 @@ from substrate import (
     OpenStackAccount,
     make_substrate,
     start_libvirt_domain,
+    StillProvisioning,
     stop_libvirt_domain,
     terminate_instances,
     verify_libvirt_domain,
@@ -419,7 +420,8 @@ class TestJoyentAccount(TestCase):
         client._list_machines.return_value = {'state': 'stopped'}
         account.terminate_instances(['asdf'])
         client.stop_machine.assert_called_once_with('asdf')
-        client._list_machines.assert_called_once_with('asdf')
+        self.assertEqual(client._list_machines.mock_calls,
+                         [call('asdf'), call('asdf')])
         client.delete_machine.assert_called_once_with('asdf')
 
     def test_terminate_instances_waits_for_stopped(self):
@@ -443,6 +445,20 @@ class TestJoyentAccount(TestCase):
                 with self.assertRaisesRegexp(
                         Exception, 'Instance did not stop: asdf'):
                     account.terminate_instances(['asdf'])
+
+    def test_terminate_instances_still_provisioning(self):
+        client = Mock()
+        account = JoyentAccount(client)
+        machines = {
+            'a': {'state': 'stopped'},
+            'b': {'state': 'provisioning'},
+            'c': {'state': 'provisioning'},
+            }
+        client._list_machines.side_effect = machines.get
+        with self.assertRaises(StillProvisioning) as exc:
+            account.terminate_instances(['b', 'c', 'a'])
+        self.assertEqual(exc.exception.instance_ids, ['b', 'c'])
+        client.delete_machine.assert_called_once_with('a')
 
 
 class TestMakeSubstrate(TestCase):

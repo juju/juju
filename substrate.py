@@ -26,6 +26,15 @@ LIBVIRT_DOMAIN_RUNNING = 'running'
 LIBVIRT_DOMAIN_SHUT_OFF = 'shut off'
 
 
+class StillProvisioning(Exception):
+    """Attempted to terminate instances still provisioning."""
+
+    def __init__(self, instance_ids):
+        super(StillProvisioning, self).__init__(
+            'Still provisioning: {}'.format(', '.join(instance_ids)))
+        self.instance_ids = instance_ids
+
+
 def terminate_instances(env, instance_ids):
     provider_type = env.config.get('type')
     environ = dict(os.environ)
@@ -227,20 +236,29 @@ class OpenStackAccount:
 
 
 class JoyentAccount:
+    """Represent a Joyent account."""
 
     def __init__(self, client):
         self.client = client
 
     @classmethod
     def from_config(cls, config):
-        """Create an OpenStackAccount from a juju environment dict."""
+        """Create a JoyentAccount from a juju environment dict."""
         from joyent import Client
         return cls(Client(config['sdc-url'], config['manta-user'],
                           config['manta-key-id']))
 
     def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        provisioning = []
         for instance_id in instance_ids:
+            machine_info = self.client._list_machines(instance_id)
+            if machine_info['state'] == 'provisioning':
+                provisioning.append(instance_id)
+                continue
             self._terminate_instance(instance_id)
+        if len(provisioning) > 0:
+            raise StillProvisioning(provisioning)
 
     def _terminate_instance(self, machine_id):
         logging.info('Stopping instance {}'.format(machine_id))
