@@ -5,4 +5,5 @@ package backups
 
 var (
 	NewBackups = &newBackups
+	IsReady    = &isReady
 )

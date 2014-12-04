@@ -2,9 +2,11 @@ package replicaset
 
 import (
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -311,6 +313,116 @@ func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
 	hp, err := MasterHostPort(session)
 	c.Assert(err, gc.Equals, ErrMasterNotConfigured)
 	c.Assert(hp, gc.Equals, "")
+}
+
+func (s *MongoSuite) TestIsReadyOne(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{Members: []MemberStatus{{
+				Id:      1,
+				Healthy: true,
+			}}}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestIsReadyMultiple(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{}
+			for i := 1; i < 5; i++ {
+				member := MemberStatus{Id: i + 1, Healthy: true}
+				status.Members = append(status.Members, member)
+			}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestIsReadyNotOne(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{Members: []MemberStatus{{
+				Id:      1,
+				Healthy: false,
+			}}}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyNotPartial(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{Members: []MemberStatus{{
+				Id:      1,
+				Healthy: true,
+			},
+				{
+					Id:      2,
+					Healthy: false,
+				},
+				{
+					Id:      3,
+					Healthy: true,
+				}}}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) { return nil, io.EOF },
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyError(c *gc.C) {
+	failure := errors.New("failed!")
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) { return nil, failure },
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	_, err := IsReady(session)
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {

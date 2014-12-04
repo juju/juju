@@ -65,6 +65,7 @@ func TestingInitialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy 
 
 type StateSuite struct {
 	ConnSuite
+	OtherState *state.State
 }
 
 var _ = gc.Suite(&StateSuite{})
@@ -77,6 +78,17 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+	s.OtherState = s.factory.MakeEnvironment(c, nil)
+}
+
+func (s *StateSuite) TearDownTest(c *gc.C) {
+	if s.OtherState != nil {
+		s.OtherState.Close()
+	}
+	if s.State != nil {
+		s.State.Close()
+	}
+	s.ConnSuite.TearDownTest(c)
 }
 
 func (s *StateSuite) TestDocID(c *gc.C) {
@@ -2708,6 +2720,59 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
+}
+
+func (s *StateSuite) TestWatchTwoEnvironments(c *gc.C) {
+	for i, test := range []struct {
+		about                 string
+		getWatcher            func(*state.State) state.StringsWatcher
+		assertIsolatedChanges func(statetesting.StringsWatcherC, statetesting.StringsWatcherC)
+	}{
+		{
+			about: "Add and destroy a machine in both environments",
+			getWatcher: func(st *state.State) state.StringsWatcher {
+				return st.WatchEnvironMachines()
+			},
+			assertIsolatedChanges: func(wc1 statetesting.StringsWatcherC, wc2 statetesting.StringsWatcherC) {
+				machine, err := wc1.State.AddMachine("quantal", state.JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("0")
+				wc1.AssertNoChange()
+
+				err = machine.Destroy()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("0")
+				wc1.AssertNoChange()
+
+				err = machine.EnsureDead()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("0")
+				wc1.AssertNoChange()
+			},
+		},
+	} {
+		c.Logf("Test %d: %s", i, test.about)
+		st1 := s.State
+		st2 := s.OtherState
+		w1 := test.getWatcher(st1)
+		defer statetesting.AssertStop(c, w1)
+		w2 := test.getWatcher(st2)
+		defer statetesting.AssertStop(c, w2)
+		wc1 := statetesting.NewStringsWatcherC(c, st1, w1)
+		wc2 := statetesting.NewStringsWatcherC(c, st2, w2)
+		for _, wc := range []statetesting.StringsWatcherC{wc1, wc2} {
+			wc.AssertChange()
+			wc.AssertNoChange()
+		}
+
+		c.Logf("Making changes to environment %s", wc1.State.EnvironUUID())
+		test.assertIsolatedChanges(wc1, wc2)
+		c.Logf("Making changes to environment %s", wc2.State.EnvironUUID())
+		test.assertIsolatedChanges(wc2, wc1)
+	}
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {

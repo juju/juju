@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -44,8 +45,9 @@ var _ = gc.Suite(&storeManagerStateSuite{})
 type storeManagerStateSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	State *State
-	owner names.UserTag
+	State      *State
+	OtherState *State
+	owner      names.UserTag
 }
 
 func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
@@ -65,11 +67,15 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+	s.OtherState = s.newState(c)
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
 	if s.State != nil {
 		s.State.Close()
+	}
+	if s.OtherState != nil {
+		s.OtherState.Close()
 	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -1099,6 +1105,56 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ErrStopped.Error())
 }
 
+func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
+	for i, test := range []struct {
+		about                 string
+		assertIsolatedChanges func(*State, *Multiwatcher, *Multiwatcher)
+	}{
+		{
+			about: "Add a machine in both environments",
+			assertIsolatedChanges: func(st *State, w1 *Multiwatcher, w2 *Multiwatcher) {
+				m0, err := st.AddMachine("trusty", JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m0.Id(), gc.Equals, "0")
+				s.AssertNoChange(c, w2)
+				s.AssertChange(c, w1)
+			},
+		},
+	} {
+		c.Logf("Test %d: %s", i, test.about)
+		st1 := s.State
+		st2 := s.OtherState
+
+		b1 := newAllWatcherStateBacking(st1)
+		b2 := newAllWatcherStateBacking(st2)
+		aw1 := newStoreManager(b1)
+		defer aw1.Stop()
+		aw2 := newStoreManager(b2)
+		defer aw2.Stop()
+		w1 := NewMultiwatcher(aw1)
+		w2 := NewMultiwatcher(aw2)
+
+		c.Logf("Making changes to environment %s", st1.EnvironUUID())
+		test.assertIsolatedChanges(st1, w1, w2)
+		c.Logf("Making changes to environment %s", st2.EnvironUUID())
+		test.assertIsolatedChanges(st2, w2, w1)
+	}
+}
+
+func (s *storeManagerStateSuite) newState(c *gc.C) *State {
+	origEnv, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": "testenv",
+		"uuid": uuid.String(),
+	})
+	_, st, err := s.State.NewEnvironment(cfg, origEnv.Owner())
+	c.Assert(err, jc.ErrorIsNil)
+	return st
+}
+
 type entityInfoSlice []multiwatcher.EntityInfo
 
 func (s entityInfoSlice) Len() int      { return len(s) }
@@ -1117,6 +1173,22 @@ func (s entityInfoSlice) Less(i, j int) bool {
 }
 
 var errTimeout = errors.New("no change received in sufficient time")
+
+func (s *storeManagerStateSuite) AssertNoChange(c *gc.C, w *Multiwatcher) {
+	s.State.StartSync()
+	s.OtherState.StartSync()
+	d, err := getNext(c, w, testing.ShortWait)
+	c.Assert(err, gc.ErrorMatches, "no change received in sufficient time")
+	c.Assert(d, gc.IsNil)
+}
+
+func (s *storeManagerStateSuite) AssertChange(c *gc.C, w *Multiwatcher) {
+	s.State.StartSync()
+	s.OtherState.StartSync()
+	d, err := getNext(c, w, testing.ShortWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d, gc.NotNil)
+}
 
 func getNext(c *gc.C, w *Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
 	var deltas []multiwatcher.Delta
