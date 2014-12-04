@@ -904,9 +904,9 @@ func (env *azureEnviron) hostedServices() ([]gwacl.HostedServiceDescriptor, erro
 	envPrefix := env.getEnvPrefix()
 	// Drop the trailing "-".
 	filterPrefix := envPrefix[0 : len(envPrefix)-1]
-	var prefixMatch = regexp.MustCompile(
-		fmt.Sprintf("^%s-[^-]*$", filterPrefix),
-	)
+
+	// Now filter the services.
+	prefixMatch := regexp.MustCompile("^" + filterPrefix + "-[^-]*$")
 	for _, service := range services {
 		if prefixMatch.Match([]byte(service.ServiceName)) {
 			filteredServices = append(filteredServices, service)
