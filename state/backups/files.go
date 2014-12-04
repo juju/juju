@@ -10,7 +10,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO(ericsnow) Pull these from authoritative sources (see
+// TODO(ericsnow) lp-1392876
+// Pull these from authoritative sources (see
 // github.com/juju/juju/juju/paths, etc.):
 const (
 	dataDir        = "/var/lib/juju"
@@ -29,8 +30,9 @@ const (
 	sshIdentFile   = "system-identity"
 	nonceFile      = "nonce.txt"
 	allMachinesLog = "all-machines.log"
-	machine0Log    = "machine-0.log"
-	authKeysFile   = "authorized_keys"
+	// TODO(ericsnow) It might not be machine 0...
+	machine0Log  = "machine-0.log"
+	authKeysFile = "authorized_keys"
 
 	dbStartupConf = "juju-db.conf"
 	dbPEM         = "server.pem"
@@ -76,8 +78,6 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
-		filepath.Join(rootDir, paths.LogsDir, allMachinesLog),
-		filepath.Join(rootDir, paths.LogsDir, machine0Log),
 
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
@@ -87,12 +87,35 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 	backupFiles = append(backupFiles, initConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
 
+	// Handle logs (might not exist).
+	// TODO(ericsnow) We should consider dropping these entirely.
+	allmachines := filepath.Join(rootDir, paths.LogsDir, allMachinesLog)
+	if _, err := os.Stat(allmachines); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+		logger.Errorf("skipping missing file %q", allmachines)
+	} else {
+		backupFiles = append(backupFiles, allmachines)
+	}
+	// TODO(ericsnow) It might not be machine 0...
+	machine0 := filepath.Join(rootDir, paths.LogsDir, machine0Log)
+	if _, err := os.Stat(machine0); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+		logger.Errorf("skipping missing file %q", machine0)
+	} else {
+		backupFiles = append(backupFiles, machine0)
+	}
+
 	// Handle nonce.txt (might not exist).
 	nonce := filepath.Join(rootDir, paths.DataDir, nonceFile)
 	if _, err := os.Stat(nonce); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
+		logger.Errorf("skipping missing file %q", nonce)
 	} else {
 		backupFiles = append(backupFiles, nonce)
 	}
@@ -103,6 +126,7 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
+		logger.Errorf("skipping missing dir %q", SSHDir)
 	} else {
 		backupFiles = append(backupFiles, filepath.Join(SSHDir, authKeysFile))
 	}
