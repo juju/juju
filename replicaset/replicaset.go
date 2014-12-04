@@ -434,7 +434,7 @@ type MemberStatus struct {
 // if the connection dropped then the result is false.
 func IsReady(session *mgo.Session) (bool, error) {
 	status, err := getCurrentStatus(session)
-	if errors.Cause(err) == io.EOF {
+	if errors.Cause(err) == io.EOF || (err != nil && strings.Contains(err.Error(), "connection refused")) {
 		// The connection dropped...
 		logger.Errorf("DB connection dropped so reconnecting")
 		session.Refresh()
