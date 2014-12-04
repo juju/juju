@@ -259,8 +259,9 @@ class CandidateTestCase(TestCase):
                 pf.write('testing')
             with patch('shutil.copyfile') as cf_mock:
                 with patch('candidate.run_command') as rc_mock:
-                    publish_candidates(base_dir, '~/streams',
-                                       juju_release_tools='../')
+                    with patch('candidate.extract_candidates') as ec_mock:
+                        publish_candidates(base_dir, '~/streams',
+                                           juju_release_tools='../')
         self.assertEqual(1, cf_mock.call_count)
         output, args, kwargs = cf_mock.mock_calls[0]
         self.assertEqual(package_path, args[0])
@@ -284,16 +285,24 @@ class CandidateTestCase(TestCase):
               'cpc'],),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        args, kwargs = ec_mock.call_args
+        self.assertEqual((base_dir, ), args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
 
     def test_publish_candidates_with_dry_run(self):
         with temp_dir() as base_dir:
             artifacts_dir_path = os.path.join(base_dir, 'master-artifacts')
             os.makedirs(artifacts_dir_path)
             with patch('candidate.run_command') as rc_mock:
-                publish_candidates(base_dir, '~/streams',
-                                   juju_release_tools='../')
+                with patch('candidate.extract_candidates') as ec_mock:
+                    publish_candidates(
+                        base_dir, '~/streams', juju_release_tools='../',
+                        dry_run=True,  verbose=True)
         self.assertEqual(2, rc_mock.call_count)
         output, args, kwargs = rc_mock.mock_calls[0]
-        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        self.assertEqual({'dry_run': True, 'verbose': True}, kwargs)
         output, args, kwargs = rc_mock.mock_calls[1]
-        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        self.assertEqual({'dry_run': True, 'verbose': True}, kwargs)
+        args, kwargs = ec_mock.call_args
+        self.assertEqual((base_dir, ), args)
+        self.assertEqual({'dry_run': True, 'verbose': True}, kwargs)

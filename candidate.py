@@ -187,6 +187,7 @@ def publish_candidates(path, streams_path,
     juju_dist_path = os.path.join(streams_path, 'juju-dist')
     command = [publish_script,  'weekly', juju_dist_path, 'cpc']
     run_command(command, dry_run=dry_run, verbose=verbose)
+    extract_candidates(path, dry_run=dry_run, verbose=verbose)
 
 
 def parse_args(args=None):
