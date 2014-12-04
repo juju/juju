@@ -5,6 +5,8 @@ package state
 
 import (
 	"net"
+	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
@@ -213,5 +215,36 @@ func (s *Subnet) Refresh() error {
 // PickNewAddress returns a new IPAddress that isn't in use for the subnet.
 // The address starts with AddressStateUnknown, for later allocation.
 func (s *Subnet) PickNewAddress() (*IPAddress, error) {
+	high := s.doc.AllocatableIPHigh
+	low := s.doc.AllocatableIPLow
+	if low == "" || high == "" {
+		return nil, errors.New("No avilable IP addresses")
+	}
+
+	// convert low and high to decimals (dottedQuadToNum) as the bounds
+	// find all addresses for this subnetand  convert them to decimals
+	// pick a new random decimal between the low and high bounds that
+	// doesn't match an existing one (first checking that number of
+	// addresses in use is less than the difference between low and high -
+	// i.e. we haven't exhausted all addresses)
+	// convert it back to a dotted-quad and create a new IPAddress from it
+	// return it!
 	return nil, nil
+}
+
+func dottedQuadToNum(addr string) (int, error) {
+	nums := strings.Split(addr, ".")
+	hexes := []string{}
+	for _, value := range nums {
+		intVal, err := strconv.ParseInt(value, 10, 32)
+		if err != nil {
+			return 0, err
+		}
+		// XXX need zero padding to two characters
+		hexVal := strconv.FormatInt(intVal, 16)
+		hexes = append(hexes, hexVal)
+	}
+	hex := strings.Join(hexes, "")
+	result, _ := strconv.ParseInt(hex, 16, 32)
+	return int(result), nil
 }
