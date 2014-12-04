@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -451,28 +450,6 @@ func IsReady(session *mgo.Session) (bool, error) {
 		}
 	}
 	return true, nil
-}
-
-// WaitUntilReady waits until all members of the replicaset are ready.
-// It will retry every 10 seconds until the timeout is reached. Dropped
-// connections will trigger a reconnect.
-func WaitUntilReady(session *mgo.Session, timeout int) error {
-	attempts := utils.AttemptStrategy{
-		Delay: 10 * time.Second,
-		Min:   timeout / 10,
-	}
-	var err error
-	ready := false
-	for a := attempts.Start(); !ready && a.Next(); {
-		ready, err = IsReady(session)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if !ready {
-		return errors.Errorf("timed out after %d seconds", timeout)
-	}
-	return nil
 }
 
 // MemberState represents the state of a replica set member.
