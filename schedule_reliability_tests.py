@@ -47,7 +47,8 @@ def build_job(root, job_name, candidates):
 def main():
     args = get_args()
     candidates = list(find_candidates(args.root_dir))
-    for job in ['industrial-test']:
+    for job in ['industrial-test', 'industrial-test-aws',
+                'industrial-test-joyent']:
         build_job(args.root_dir, job, candidates)
 
 
