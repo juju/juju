@@ -47,7 +47,6 @@ def find_publish_revision_number(br_number, limit=20):
         # Ensure we have the real job number (an int), not an alias.
         job_number = build_data['number']
         parameters = get_build_parameters(build_data)
-        import pdb; pdb.set_trace()
         if parameters['revision_build'] == str(br_number):
             found_number = job_number
             break
