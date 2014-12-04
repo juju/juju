@@ -113,7 +113,7 @@ def get_package(artifacts_path, version):
 def extract_candidates(path, dry_run=False, verbose=False):
     """Extract all the candidate juju binaries for the local machine.
 
-    Each candicate will be extracted to a directory named after the branch
+    Each candidate will be extracted to a directory named after the branch
     the artifacts (packages) were made from. Thus the package that matches
     the localhost's series and architecture in the master-artifacts/ directory
     will be extracted to a sibling directory named "master/" The buildvars.json
