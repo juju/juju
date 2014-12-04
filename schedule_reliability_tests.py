@@ -40,8 +40,8 @@ def build_job(root, job_name, candidates):
     jenkins = Jenkins('http://localhost:8080')
     for candidate in candidates:
         parameters['new_juju_dir'] = candidate
-        token = get_auth_token(root, 'compatibility-control')
-        jenkins.build_job('compatibility-control', parameters, token=token)
+        token = get_auth_token(root, job_name)
+        jenkins.build_job(job_name, parameters, token=token)
 
 
 def main():
