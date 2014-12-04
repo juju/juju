@@ -3,7 +3,11 @@ __metaclass__ = type
 import logging
 import os
 import subprocess
+import sys
 from time import sleep
+
+sys.path.insert(
+    0, os.path.realpath(os.path.join(__file__, '../../juju-release-tools')))
 
 from boto import ec2
 from boto.exception import EC2ResponseError
@@ -22,6 +26,15 @@ LIBVIRT_DOMAIN_RUNNING = 'running'
 LIBVIRT_DOMAIN_SHUT_OFF = 'shut off'
 
 
+class StillProvisioning(Exception):
+    """Attempted to terminate instances still provisioning."""
+
+    def __init__(self, instance_ids):
+        super(StillProvisioning, self).__init__(
+            'Still provisioning: {}'.format(', '.join(instance_ids)))
+        self.instance_ids = instance_ids
+
+
 def terminate_instances(env, instance_ids):
     provider_type = env.config.get('type')
     environ = dict(os.environ)
@@ -32,8 +45,11 @@ def terminate_instances(env, instance_ids):
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
     else:
-        raise ValueError(
-            "This test does not support the %s provider" % provider_type)
+        substrate = make_substrate(env.config)
+        if substrate is None:
+            raise ValueError(
+                "This test does not support the %s provider" % provider_type)
+        return substrate.terminate_instances(instance_ids)
     if len(instance_ids) == 0:
         print_now("No instances to delete.")
         return
@@ -219,6 +235,45 @@ class OpenStackAccount:
                 if v in group_names)
 
 
+class JoyentAccount:
+    """Represent a Joyent account."""
+
+    def __init__(self, client):
+        self.client = client
+
+    @classmethod
+    def from_config(cls, config):
+        """Create a JoyentAccount from a juju environment dict."""
+        from joyent import Client
+        return cls(Client(config['sdc-url'], config['manta-user'],
+                          config['manta-key-id']))
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances."""
+        provisioning = []
+        for instance_id in instance_ids:
+            machine_info = self.client._list_machines(instance_id)
+            if machine_info['state'] == 'provisioning':
+                provisioning.append(instance_id)
+                continue
+            self._terminate_instance(instance_id)
+        if len(provisioning) > 0:
+            raise StillProvisioning(provisioning)
+
+    def _terminate_instance(self, machine_id):
+        logging.info('Stopping instance {}'.format(machine_id))
+        self.client.stop_machine(machine_id)
+        for ignored in until_timeout(30):
+            stopping_machine = self.client._list_machines(machine_id)
+            if stopping_machine['state'] == 'stopped':
+                break
+            sleep(3)
+        else:
+            raise Exception('Instance did not stop: {}'.format(machine_id))
+        logging.info('Terminating instance {}'.format(machine_id))
+        self.client.delete_machine(machine_id)
+
+
 def make_substrate(config):
     """Return an Account for the config's substrate.
 
@@ -227,6 +282,7 @@ def make_substrate(config):
     substrate_factory = {
         'ec2': AWSAccount.from_config,
         'openstack': OpenStackAccount.from_config,
+        'joyent': JoyentAccount.from_config,
         }
     return substrate_factory.get(config['type'], lambda x: None)(config)
 

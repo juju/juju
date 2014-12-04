@@ -17,6 +17,7 @@ from mock import (
 import yaml
 
 from industrial_test import (
+    BACKUP,
     BackupRestoreAttempt,
     BootstrapAttempt,
     DENSITY,
@@ -25,6 +26,7 @@ from industrial_test import (
     EnsureAvailabilityAttempt,
     FULL,
     IndustrialTest,
+    make_substrate,
     maybe_write_json,
     MultiIndustrialTest,
     parse_args,
@@ -117,6 +119,8 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.suite, QUICK)
         args = parse_args(['rai', 'new-juju', DENSITY])
         self.assertEqual(args.suite, DENSITY)
+        args = parse_args(['rai', 'new-juju', BACKUP])
+        self.assertEqual(args.suite, BACKUP)
         with parse_error(self) as stderr:
             args = parse_args(['rai', 'new-juju', 'foo'])
         self.assertRegexpMatches(
@@ -198,6 +202,14 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DeployManyAttempt,
+                         DestroyEnvironmentAttempt])
+
+    def test_backup_suite(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         suite=BACKUP, new_agent_url=None)
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(
+            mit.stages, [BootstrapAttempt, BackupRestoreAttempt,
                          DestroyEnvironmentAttempt])
 
     def test_from_args_new_agent_url(self):
@@ -1121,7 +1133,12 @@ class TestDeployManyAttempt(TestCase):
 
 class TestBackupRestoreAttempt(TestCase):
 
-    def test__operation(self):
+    def test_get_test_info(self):
+        self.assertEqual(
+            BackupRestoreAttempt.get_test_info(),
+            {'back-up-restore': {'title': 'Back-up / restore'}})
+
+    def test_iter_steps(self):
         br_attempt = BackupRestoreAttempt()
         client = FakeEnvJujuClient()
         client.env = get_aws_env()
@@ -1139,23 +1156,28 @@ class TestBackupRestoreAttempt(TestCase):
                         }}
                     })
             self.assertEqual([], args)
+        iterator = iter_steps_validate_info(self, br_attempt, client)
+        self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         with patch('subprocess.check_output',
                    side_effect=check_output) as co_mock:
             with patch('subprocess.check_call') as cc_mock:
                 with patch('sys.stdout'):
-                    br_attempt._operation(client)
+                    self.assertEqual(
+                        iterator.next(),
+                        {'test_id': 'back-up-restore'})
         assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
         self.assertEqual(
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
+        self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
+        with patch('subprocess.check_call') as cc_mock:
+            with patch('sys.stdout'):
+                self.assertEqual(iterator.next(),
+                                 {'test_id': 'back-up-restore'})
         assert_juju_call(
             self, cc_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',
-                os.path.abspath('juju-backup-24.tgz')), 1)
-
-    def test__result(self):
-        br_attempt = BackupRestoreAttempt()
-        client = FakeEnvJujuClient()
+                os.path.abspath('juju-backup-24.tgz')))
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
@@ -1163,9 +1185,10 @@ class TestBackupRestoreAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=output) as co_mock:
-            br_attempt._result(client)
+            self.assertEqual(iterator.next(),
+                             {'test_id': 'back-up-restore', 'result': True})
         assert_juju_call(self, co_mock, client, (
-            'juju', '--show-log', 'status', '-e', 'steve'), assign_stderr=True)
+            'juju', '--show-log', 'status', '-e', 'baz'), assign_stderr=True)
 
 
 class TestMaybeWriteJson(TestCase):
@@ -1189,3 +1212,29 @@ class TestMaybeWriteJson(TestCase):
                   "b": "c"
                 }""")
             self.assertEqual(temp_file.read(), expected)
+
+
+class TestMakeSubstrate(TestCase):
+
+    def test_make_substrate_no_support(self):
+        client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
+                               '', '')
+        self.assertIs(make_substrate(client, []), None)
+
+    def test_make_substrate_no_requirements(self):
+        client = EnvJujuClient(get_aws_env(), '', '')
+        self.assertIs(type(make_substrate(client, [])), AWSAccount)
+
+    def test_make_substrate_unsatisifed_requirements(self):
+        client = EnvJujuClient(get_aws_env(), '', '')
+        self.assertIs(make_substrate(client, ['foo']), None)
+        self.assertIs(make_substrate(client, ['iter_security_groups', 'foo']),
+                      None)
+
+    def test_make_substrate_satisfied_requirements(self):
+        client = EnvJujuClient(get_aws_env(), '', '')
+        self.assertIs(type(make_substrate(client, ['iter_security_groups'])),
+                      AWSAccount)
+        self.assertIs(type(make_substrate(client, [
+            'iter_security_groups', 'iter_instance_security_groups'])),
+            AWSAccount)

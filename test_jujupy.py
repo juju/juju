@@ -573,7 +573,7 @@ class TestEnvJujuClient(TestCase):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
         with patch('subprocess.check_output',
-                   return_value='foojuju-backup-123-456.tar.gzbar') as co_mock:
+                   return_value='foojuju-backup-123-456.tar.gzbar'):
             with patch('sys.stdout'):
                 backup_file = client.backup()
         self.assertEqual(
