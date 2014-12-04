@@ -571,7 +571,7 @@ func AddEnvUUIDToOpenPorts(st *State) error {
 		b["network-name"] = parts[networkNamePart]
 		return nil
 	}
-	return addEnvUUIDToEntityCollection(st, openedPortsC, setOldID("port-id"), setNewFields)
+	return addEnvUUIDToEntityCollection(st, openedPortsC, setNewFields)
 }
 
 // AddEnvUUIDToAnnotations prepends the environment UUID to the ID of
