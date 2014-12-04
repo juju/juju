@@ -931,6 +931,11 @@ class TestDestroyEnvironmentAttempt(TestCase):
 
 class TestEnsureAvailabilityAttempt(TestCase):
 
+    def setUp(self):
+        patcher = patch('jujupy.pause')
+        self.addCleanup(patcher.stop)
+        self.pause_mock = patcher.start()
+
     def test__operation(self):
         client = FakeEnvJujuClient()
         ensure_av = EnsureAvailabilityAttempt()

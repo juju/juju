@@ -53,6 +53,10 @@ class until_timeout:
         return remaining
 
 
+def pause(seconds):
+    sleep(seconds)
+
+
 def wait_for_port(host, port, closed=False, timeout=30):
     for remaining in until_timeout(timeout):
         conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

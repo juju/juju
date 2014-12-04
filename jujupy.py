@@ -10,7 +10,6 @@ from itertools import chain
 import logging
 import os
 import re
-import sleep
 import subprocess
 import sys
 import tempfile
@@ -24,6 +23,7 @@ from jujuconfig import (
     )
 from utility import (
     check_free_disk_space,
+    pause,
     print_now,
     scoped_environ,
     temp_dir,
@@ -301,7 +301,7 @@ class EnvJujuClient:
                     # juju claims HA is ready when the monogo replica sets
                     # are not. Juju is not fully usable. The replica set
                     # lag might be 5 minutes.
-                    sleep(5)
+                    pause(300)
                     return
             reporter.update(states)
         else:
