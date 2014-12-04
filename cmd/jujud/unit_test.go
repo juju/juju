@@ -14,11 +14,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	apienvironment "github.com/juju/juju/api/environment"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -27,6 +30,7 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 )
@@ -334,4 +338,45 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *UnitSuite) TestProxyUpdater(c *gc.C) {
+	// Make sure there are some proxy settings to write.
+	expectSettings := proxy.Settings{
+		Http:  "http proxy",
+		Https: "https proxy",
+		Ftp:   "ftp proxy",
+	}
+	updateAttrs := config.ProxyConfigMap(expectSettings)
+	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Patch out the actual worker func.
+	started := make(chan struct{})
+	mockNew := func(api *apienvironment.Facade, writeSystemFiles bool) worker.Worker {
+		// Direct check of the behaviour flag.
+		c.Check(writeSystemFiles, jc.IsFalse)
+		// Indirect check that we get a functional API.
+		conf, err := api.EnvironConfig()
+		if c.Check(err, jc.ErrorIsNil) {
+			actualSettings := conf.ProxySettings()
+			c.Check(actualSettings, jc.DeepEquals, expectSettings)
+		}
+		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
+			close(started)
+			return nil
+		})
+	}
+	s.agentSuite.PatchValue(&proxyupdater.New, mockNew)
+
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("proxyupdater not started")
+	case <-started:
+	}
 }
