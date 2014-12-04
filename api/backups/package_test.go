@@ -4,20 +4,14 @@
 package backups_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
 	httptesting "github.com/juju/juju/api/http/testing"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
-	apiserverhttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	stbackups "github.com/juju/juju/state/backups"
@@ -72,45 +66,45 @@ func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataR
 
 type httpSuite struct {
 	baseSuite
-	httpClient httptesting.FakeClient
+	httptesting.APIHTTPClientSuite
+}
+
+func (s *httpSuite) SetUpSuite(c *gc.C) {
+	s.baseSuite.SetUpSuite(c)
+	s.APIHTTPClientSuite.SetUpSuite(c)
+}
+
+func (s *httpSuite) TearDownSuite(c *gc.C) {
+	s.APIHTTPClientSuite.TearDownSuite(c)
+	s.baseSuite.TearDownSuite(c)
+}
+
+func (s *httpSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	s.APIHTTPClientSuite.SetUpTest(c)
+}
+
+func (s *httpSuite) TearDownTest(c *gc.C) {
+	s.APIHTTPClientSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 func (s *httpSuite) setResponse(c *gc.C, status int, data []byte, ctype string) {
-	resp := http.Response{
-		StatusCode: status,
-		Header:     make(http.Header),
-	}
-
-	resp.Header.Set("Content-Type", ctype)
-	resp.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	s.httpClient.Response = &resp
-	backups.SetHTTP(s.client, &s.httpClient)
+	s.APIHTTPClientSuite.SetResponse(c, status, data, ctype)
+	backups.SetHTTP(s.client, &s.FakeClient)
 }
 
 func (s *httpSuite) setJSONSuccess(c *gc.C, result interface{}) {
-	status := http.StatusOK
-	data, err := json.Marshal(result)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.setResponse(c, status, data, apiserverhttp.CTypeJSON)
+	s.APIHTTPClientSuite.SetJSONSuccess(c, result)
+	backups.SetHTTP(s.client, &s.FakeClient)
 }
 
 func (s *httpSuite) setFailure(c *gc.C, msg string, status int) {
-	failure := params.Error{
-		Message: msg,
-	}
-	data, err := json.Marshal(&failure)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.setResponse(c, status, data, apiserverhttp.CTypeJSON)
+	s.APIHTTPClientSuite.SetFailure(c, msg, status)
+	backups.SetHTTP(s.client, &s.FakeClient)
 }
 
 func (s *httpSuite) setError(c *gc.C, msg string, status int) {
-	if status < 0 {
-		status = http.StatusInternalServerError
-	}
-
-	data := []byte(msg)
-	s.setResponse(c, status, data, apiserverhttp.CTypeRaw)
+	s.APIHTTPClientSuite.SetError(c, msg, status)
+	backups.SetHTTP(s.client, &s.FakeClient)
 }

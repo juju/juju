@@ -46,8 +46,7 @@ func (s *uploadSuite) TestFunctional(c *gc.C) {
 	data := "<compressed archive data>"
 	archive := ioutil.NopCloser(bytes.NewBufferString(data))
 
-	var meta params.BackupsMetadataResult
-	meta.UpdateFromMetadata(s.Meta)
+	meta := apiserverbackups.ResultFromMetadata(s.Meta)
 	meta.ID = ""
 	meta.Stored = time.Time{}
 
