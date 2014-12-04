@@ -902,11 +902,11 @@ func (env *azureEnviron) hostedServices() ([]gwacl.HostedServiceDescriptor, erro
 	// We must be careful not to include services where the environment name
 	// is a substring of another name. ie we mustn't allow "azure" to match "azure-1".
 	envPrefix := env.getEnvPrefix()
-	// Drop the trailing "-".
-	filterPrefix := envPrefix[0 : len(envPrefix)-1]
+	// Just in case.
+	filterPrefix := regexp.QuoteMeta(envPrefix)
 
 	// Now filter the services.
-	prefixMatch := regexp.MustCompile("^" + filterPrefix + "-[^-]*$")
+	prefixMatch := regexp.MustCompile("^" + filterPrefix + "[^-]*$")
 	for _, service := range services {
 		if prefixMatch.Match([]byte(service.ServiceName)) {
 			filteredServices = append(filteredServices, service)
