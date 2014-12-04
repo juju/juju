@@ -3,9 +3,9 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 import os
-import xml.etree.ElementTree as ET
 
 from jenkins import Jenkins
+from utility import get_auth_token
 
 
 def get_args():
@@ -44,9 +44,7 @@ def calculate_jobs(root):
 
 def build_jobs(root, jobs):
     jenkins = Jenkins('http://localhost:8080')
-    tree = ET.parse(os.path.join(root,
-                                 'jobs/compatibility-control/config.xml'))
-    token = tree.getroot().find('authToken').text
+    token = get_auth_token(root, 'compatibility-control')
     for job in jobs:
         jenkins.build_job('compatibility-control', job, token=token)
 
