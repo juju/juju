@@ -4,6 +4,7 @@ import os
 from unittest import TestCase
 
 from candidate import (
+    download_candidate_files,
     extract_candidates,
     find_publish_revision_number,
     get_artifact_dirs,
@@ -13,7 +14,6 @@ from candidate import (
     prepare_dir,
     publish_candidates,
     run_command,
-    update_candidate,
 )
 from utility import temp_dir
 
@@ -115,12 +115,13 @@ class CandidateTestCase(TestCase):
             prepare_dir(candidate_dir_path, dry_run=True, verbose=True)
             self.assertFalse(os.path.isdir(candidate_dir_path))
 
-    def test_update_candidate(self):
+    def test_download_candidate_files(self):
         with patch('candidate.prepare_dir') as pd_mock:
             with patch('candidate.find_publish_revision_number',
                        return_value=5678) as fprn_mock:
                 with patch('candidate.get_artifacts') as ga_mock:
-                    update_candidate('gitbr:1.21:gh', '~/candidate', '1234')
+                    download_candidate_files(
+                        'gitbr:1.21:gh', '~/candidate', '1234')
         args, kwargs = pd_mock.call_args
         self.assertEqual(('~/candidate/1.21-artifacts', False, False), args)
         args, kwargs = fprn_mock.call_args
@@ -140,13 +141,14 @@ class CandidateTestCase(TestCase):
             args)
         self.assertEqual(options, kwargs)
 
-    def test_update_candidate_with_dry_run(self):
+    def test_download_candidate_files_with_dry_run(self):
         with patch('candidate.prepare_dir') as pd_mock:
             with patch('candidate.find_publish_revision_number',
                        return_value=5678):
                 with patch('candidate.get_artifacts') as ga_mock:
-                    update_candidate('gitbr:1.21:gh', '~/candidate', '1234',
-                                     dry_run=True, verbose=True)
+                    download_candidate_files(
+                        'gitbr:1.21:gh', '~/candidate', '1234',
+                        dry_run=True, verbose=True)
         args, kwargs = pd_mock.call_args
         self.assertEqual(('~/candidate/1.21-artifacts', True, True), args)
         args, kwargs = ga_mock.call_args

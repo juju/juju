@@ -68,8 +68,8 @@ def prepare_dir(dir_path, dry_run=False, verbose=False):
         os.makedirs(dir_path)
 
 
-def update_candidate(branch, path, br_number,
-                     pr_number=None, dry_run=False, verbose=False):
+def download_candidate_files(branch, path, br_number,
+                             pr_number=None, dry_run=False, verbose=False):
     """Download the files from the build-revision and publish-revision jobs.
 
     The buildvars.json for the specific build-revision number is downloaded.
@@ -199,8 +199,9 @@ def parse_args(args=None):
         '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
-    # ./candidate update -b 1234 master ~/candidate
-    parser_update = subparsers.add_parser('update', help='Update candidate')
+    # ./candidate download -b 1234 master ~/candidate
+    parser_update = subparsers.add_parser(
+        'download', help='deownload a candidate')
     parser_update.add_argument(
         '-b', '--br-number', default='lastSuccessfulBuild',
         help="The specific build-revision number.")
@@ -235,8 +236,8 @@ def main(argv):
     """Manage successful Juju CI candiates."""
     args = parse_args(argv)
     try:
-        if args.command == 'update':
-            update_candidate(
+        if args.command == 'download':
+            download_candidate_files(
                 args.branch, args.path, args.br_number, args.pr_number,
                 dry_run=args.dry_run, verbose=args.verbose)
         elif args.command == 'extract':
