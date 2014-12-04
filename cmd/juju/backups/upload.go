@@ -42,7 +42,7 @@ func (c *UploadCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "upload",
 		Args:    "<filename>",
-		Purpose: "push an archive file",
+		Purpose: "store a backup archive file remotely in juju",
 		Doc:     uploadDoc,
 	}
 }
