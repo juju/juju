@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -41,6 +42,8 @@ const (
 var logger = loggo.GetLogger("juju.replicaset")
 
 var getCurrentStatus = CurrentStatus
+
+var isReady = IsReady
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -450,6 +453,28 @@ func IsReady(session *mgo.Session) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// WaitUntilReady waits until all members of the replicaset are ready.
+// It will retry every 10 seconds until the timeout is reached. Dropped
+// connections will trigger a reconnect.
+func WaitUntilReady(session *mgo.Session, timeout int) error {
+	attempts := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Min:   timeout / 10,
+	}
+	var err error
+	ready := false
+	for a := attempts.Start(); !ready && a.Next(); {
+		ready, err = isReady(session)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if !ready {
+		return errors.Errorf("timed out after %d seconds", timeout)
+	}
+	return nil
 }
 
 // MemberState represents the state of a replica set member.
