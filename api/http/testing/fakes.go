@@ -96,6 +96,6 @@ func (f *FakeClient) CheckCalledReader(c *gc.C, path string, attached io.Reader,
 	c.Check(f.calls, gc.DeepEquals, calls)
 	c.Check(f.pathArg, gc.Equals, path)
 	c.Check(f.attachedArg, gc.Equals, attached)
-	c.Check(f.metaArg, gc.Equals, meta)
+	c.Check(f.metaArg, gc.DeepEquals, meta)
 	c.Check(f.nameArg, gc.Equals, name)
 }
