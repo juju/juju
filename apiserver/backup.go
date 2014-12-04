@@ -48,56 +48,65 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "GET":
 		logger.Infof("handling backups download request")
-		args, err := h.parseGETArgs(req)
+		id, err := h.download(backups, resp, req)
 		if err != nil {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return
 		}
-		logger.Infof("backups download request for %q", args.ID)
-
-		meta, archive, err := backups.Get(args.ID)
-		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
-			return
-		}
-		defer archive.Close()
-
-		err = h.sendFile(archive, meta.Checksum(), apihttp.DigestSHA, resp)
-		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
-			return
-		}
-		logger.Infof("backups download request successful for %q", args.ID)
+		logger.Infof("backups download request successful for %q", id)
 	case "PUT":
-		// Since we want to stream the archive in we cannot simply use
-		// mime/multipart directly.
-		defer req.Body.Close()
 		logger.Infof("handling backups upload request")
-
-		var metaResult params.BackupsMetadataResult
-		archive, err := apihttp.ExtractRequestAttachment(req, &metaResult)
+		id, err := h.upload(backups, resp, req)
 		if err != nil {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return
 		}
-
-		if err := validateBackupMetadataResult(metaResult); err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
-			return
-		}
-
-		meta := apiserverbackups.MetadataFromResult(metaResult)
-		id, err := backups.Add(archive, meta)
-		if err != nil {
-			h.sendError(resp, http.StatusInternalServerError, err.Error())
-			return
-		}
-
-		h.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
 		logger.Infof("backups upload request successful for %q", id)
 	default:
 		h.sendError(resp, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", req.Method))
 	}
+}
+
+func (h *backupHandler) download(backups backups.Backups, resp http.ResponseWriter, req *http.Request) (string, error) {
+	args, err := h.parseGETArgs(req)
+	if err != nil {
+		return "", err
+	}
+	logger.Infof("backups download request for %q", args.ID)
+
+	meta, archive, err := backups.Get(args.ID)
+	if err != nil {
+		return "", err
+	}
+	defer archive.Close()
+
+	err = h.sendFile(archive, meta.Checksum(), apihttp.DigestSHA, resp)
+	return args.ID, err
+}
+
+func (h *backupHandler) upload(backups backups.Backups, resp http.ResponseWriter, req *http.Request) (string, error) {
+	// Since we want to stream the archive in we cannot simply use
+	// mime/multipart directly.
+	defer req.Body.Close()
+
+	var metaResult params.BackupsMetadataResult
+	archive, err := apihttp.ExtractRequestAttachment(req, &metaResult)
+	if err != nil {
+		return "", err
+	}
+
+	if err := validateBackupMetadataResult(metaResult); err != nil {
+		return "", err
+	}
+
+	meta := apiserverbackups.MetadataFromResult(metaResult)
+	id, err := backups.Add(archive, meta)
+	if err != nil {
+		return "", err
+	}
+
+	h.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
+	return id, nil
 }
 
 func validateBackupMetadataResult(metaResult params.BackupsMetadataResult) error {
