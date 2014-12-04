@@ -6,11 +6,30 @@ package backups_test
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
+func (s *backupsSuite) patchSession(c *gc.C) {
+	inst := coretesting.NewServerReplSet(c)
+	s.AddCleanup(func(*gc.C) { inst.Destroy() })
+
+	session := inst.MustDialDirect()
+	s.AddCleanup(func(*gc.C) { session.Close() })
+
+	s.PatchValue(backups.OpenSession,
+		func(*state.State) *mgo.Session {
+			return session
+		},
+	)
+}
+
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {
+	s.patchSession(c)
 	s.setBackups(c, s.meta, "")
 	var args params.BackupsCreateArgs
 	result, err := s.api.Create(args)
@@ -22,6 +41,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateNotes(c *gc.C) {
+	s.patchSession(c)
 	s.meta.Notes = "this backup is important"
 	s.setBackups(c, s.meta, "")
 	args := params.BackupsCreateArgs{

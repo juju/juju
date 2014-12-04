@@ -5,10 +5,17 @@ package backups
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
+
+var openSession = func(st *state.State) *mgo.Session {
+	return st.MongoSession().Copy()
+}
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
@@ -16,8 +23,20 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	backupsMethods, closer := newBackups(a.st)
 	defer closer.Close()
 
+	session := openSession(a.st)
+	defer session.Close()
+
+	// Don't go if HA isn't ready.
+	ready, err := replicaset.IsReady(session)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
+	if !ready {
+		return p, errors.New("HA not ready; try again later")
+	}
+
 	mgoInfo := a.st.MongoConnectionInfo()
-	dbInfo, err := backups.NewDBInfo(mgoInfo, a.st.MongoSession())
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
