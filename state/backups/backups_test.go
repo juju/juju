@@ -76,7 +76,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.PatchValue(backups.RunCreate, testCreate)
 
 	rootDir := "<was never set>"
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
 		rootDir = root
 		return []string{"<some file>"}, nil
 	})
@@ -133,7 +133,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
 		return nil, errors.New("failed!")
 	})
 
@@ -141,7 +141,7 @@ func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
 		return []string{}, nil
 	})
 	s.PatchValue(backups.RunCreate, backups.NewTestCreateFailure("failed!"))
@@ -150,7 +150,7 @@ func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
@@ -161,7 +161,7 @@ func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths, oldmachine string) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)

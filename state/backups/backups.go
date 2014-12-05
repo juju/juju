@@ -143,7 +143,7 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
 	}
 
 	// Create the archive.
-	filesToBackUp, err := getFilesToBackUp("", paths)
+	filesToBackUp, err := getFilesToBackUp("", paths, meta.Origin.Machine)
 	if err != nil {
 		return errors.Annotate(err, "while listing files to back up")
 	}
