@@ -138,6 +138,9 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 func (c *CreateCommand) download(ctx *cmd.Context, id string, filename string) error {
 	fmt.Fprintln(ctx.Stdout, "downloading to "+filename)
 
+	// There is at least anecdotal evidence that we cannot use an API
+	// client for more than a single request. So we use a new client
+	// for download.
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
