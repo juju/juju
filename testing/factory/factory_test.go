@@ -465,7 +465,6 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 	c.Assert(saved.Metrics()[0].Key, gc.Equals, metric.Metrics()[0].Key)
 	c.Assert(saved.Metrics()[0].Value, gc.Equals, metric.Metrics()[0].Value)
 	c.Assert(saved.Metrics()[0].Time.Equal(metric.Metrics()[0].Time), jc.IsTrue)
-	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("creds"))
 }
 
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
@@ -477,7 +476,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 		Unit:    unit,
 		Time:    &now,
 		Sent:    true,
-		Metrics: []state.Metric{state.Metric{"pings", "1", now, []byte("somecreds")}},
+		Metrics: []state.Metric{state.Metric{"pings", "1", now}},
 	})
 	c.Assert(metric, gc.NotNil)
 
@@ -493,7 +492,6 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.Metrics()[0].Key, gc.Equals, "pings")
 	c.Assert(saved.Metrics()[0].Value, gc.Equals, "1")
 	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
-	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("somecreds"))
 }
 
 func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
