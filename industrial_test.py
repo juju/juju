@@ -47,10 +47,20 @@ class MultiIndustrialTest:
 
     @classmethod
     def from_args(cls, args):
-        stages = list(suites[args.suite])
+        config = SimpleEnvironment.from_config(args.env).config
+        stages = cls.get_stages(args.suite, config)
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
                    args.new_agent_url)
+
+    @staticmethod
+    def get_stages(suite, config):
+        stages = list(suites[suite])
+        if config.get('type') == 'maas':
+            stages = [
+                DeployManyFactory(2, 2) if s is DeployManyAttempt else s
+                for s in stages]
+        return stages
 
     def __init__(self, env, new_juju_path, stages, attempt_count=2,
                  max_attempts=1, new_agent_url=None):
@@ -433,6 +443,12 @@ class DeployManyAttempt(SteppedStageAttempt):
         self.host_count = host_count
         self.container_count = container_count
 
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        return (self.host_count, self.container_count) == (
+            other.host_count, other.container_count)
+
     def iter_steps(self, client):
         results = {'test_id': 'add-machine-many'}
         yield results
@@ -478,6 +494,33 @@ class DeployManyAttempt(SteppedStageAttempt):
         client.wait_for_started(start=timeout_start)
         results['result'] = True
         yield results
+
+
+class DeployManyFactory:
+    """Factory delivering pre-configured DeployManyAttempts.
+
+    :ivar host_count: The number of hosts the DeployManyAttempts should
+        attempt to deploy.
+    :ivar container_count: The number of containers the DeployManyAttempts
+        should attempt to deploy.
+    """
+
+    def __init__(self, host_count, container_count):
+        self.host_count = host_count
+        self.container_count = container_count
+
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        return (self.host_count, self.container_count) == (
+            other.host_count, other.container_count)
+
+    @staticmethod
+    def get_test_info():
+        return DeployManyAttempt.get_test_info()
+
+    def __call__(self):
+        return DeployManyAttempt(self.host_count, self.container_count)
 
 
 class BackupRestoreAttempt(SteppedStageAttempt):
