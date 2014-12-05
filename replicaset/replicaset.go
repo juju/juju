@@ -465,6 +465,8 @@ func isConnectionNotAvailable(err error) bool {
 	if err == nil {
 		return false
 	}
+	// mgo returns io.EOF from session operations when the connection
+	// has been dropped.
 	if errors.Cause(err) == io.EOF {
 		return true
 	}
