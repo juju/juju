@@ -317,7 +317,7 @@ class Client:
             with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
                 json.dump(list(current_stuck_ids), stuck_file)
 
-    def delete_old_machines(self, contact_mail_address):
+    def delete_old_machines(self, old_age, contact_mail_address):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
         for proc in procs.splitlines():
             command = proc.split()
@@ -335,7 +335,7 @@ class Client:
             created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
             age = now - created
             print(age)
-            if age > timedelta(hours=OLD_MACHINE_AGE):
+            if age > timedelta(hours=old_age):
                 machine_id = machine['id']
                 if machine['state'] == 'provisioning':
                     current_stuck.append(machine)
@@ -382,9 +382,11 @@ def parse_args(args=None):
         'delete-old-machines',
         help='Delete machines older than %d hours' % OLD_MACHINE_AGE)
     parser_delete_old_machine.add_argument(
-        "-c", "--contact-mail-address", dest="contact_mail_address",
-        help="Email address used in the Joyent support form",
-        default=os.environ.get("CONTACT_MAIL_ADDRESS"))
+        '-o', '--old-age', default=OLD_MACHINE_AGE,
+        help='Set old machine age to n hours.')
+    parser_delete_old_machine.add_argument(
+        "contact-mail-address",
+        help="Email address used in the Joyent support form")
     parser_list_tags = subparsers.add_parser(
         'list-tags', help='List tags of running machines')
     parser_list_tags.add_argument('machine_id', help='The machine id.')
@@ -404,7 +406,7 @@ def main(argv):
     elif args.command == 'list-tags':
         client.list_machine_tags(args.machine_id)
     elif args.command == 'delete-old-machines':
-        client.delete_old_machines(args.contact_mail_address)
+        client.delete_old_machines(args.old_age, args.contact_mail_address)
     else:
         print("action not understood.")
 
