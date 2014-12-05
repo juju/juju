@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -40,7 +41,10 @@ const (
 
 var logger = loggo.GetLogger("juju.replicaset")
 
-var getCurrentStatus = CurrentStatus
+var (
+	getCurrentStatus = CurrentStatus
+	isReady          = IsReady
+)
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -427,11 +431,11 @@ type MemberStatus struct {
 }
 
 // IsReady checks on the status of all members in the replicaset
-// associated with the provided session. If any member is not ready or
-// if the connection dropped then the result is false.
+// associated with the provided session. If we can connect and the majority of
+// members are ready then the result is true.
 func IsReady(session *mgo.Session) (bool, error) {
 	status, err := getCurrentStatus(session)
-	if errors.Cause(err) == io.EOF {
+	if isConnectionNotAvailable(err) {
 		// The connection dropped...
 		logger.Errorf("DB connection dropped so reconnecting")
 		session.Refresh()
@@ -441,15 +445,58 @@ func IsReady(session *mgo.Session) (bool, error) {
 		// Fail for any other reason.
 		return false, errors.Trace(err)
 	}
+
+	majority := (len(status.Members) / 2) + 1
+	healthy := 0
 	// Check the members.
 	for _, member := range status.Members {
-		if !member.Healthy {
-			// At least one member isn't up yet.
-			logger.Errorf("not all members ready")
-			return false, nil
+		if member.Healthy {
+			healthy += 1
 		}
 	}
+	if healthy < majority {
+		logger.Errorf("not enough members ready")
+		return false, nil
+	}
 	return true, nil
+}
+
+func isConnectionNotAvailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Cause(err) == io.EOF {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection refused") {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection is shut down") {
+		return true
+	}
+	return false
+}
+
+// WaitUntilReady waits until all members of the replicaset are ready.
+// It will retry every 10 seconds until the timeout is reached. Dropped
+// connections will trigger a reconnect.
+func WaitUntilReady(session *mgo.Session, timeout int) error {
+	attempts := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Total: time.Duration(timeout) * time.Second,
+	}
+	var err error
+	ready := false
+	for a := attempts.Start(); !ready && a.Next(); {
+		ready, err = isReady(session)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if !ready {
+		return errors.Errorf("timed out after %d seconds", timeout)
+	}
+	return nil
 }
 
 // MemberState represents the state of a replica set member.

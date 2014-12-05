@@ -373,7 +373,7 @@ func (s *MongoSuite) TestIsReadyNotOne(c *gc.C) {
 	c.Check(ready, jc.IsFalse)
 }
 
-func (s *MongoSuite) TestIsReadyNotPartial(c *gc.C) {
+func (s *MongoSuite) TestIsReadyMinority(c *gc.C) {
 	s.PatchValue(&getCurrentStatus,
 		func(session *mgo.Session) (*Status, error) {
 			status := &Status{Members: []MemberStatus{{
@@ -386,7 +386,7 @@ func (s *MongoSuite) TestIsReadyNotPartial(c *gc.C) {
 				},
 				{
 					Id:      3,
-					Healthy: true,
+					Healthy: false,
 				}}}
 			return status, nil
 		},
@@ -413,6 +413,31 @@ func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
 	c.Check(ready, jc.IsFalse)
 }
 
+func (s *MongoSuite) TestIsReadyConnectionRefused(c *gc.C) {
+	failure := errors.New("connection refused")
+	s.PatchValue(&getCurrentStatus, func(session *mgo.Session) (*Status, error) { return nil, failure })
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionShutDown(c *gc.C) {
+	failure := errors.New("connection is shut down")
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) { return nil, failure },
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ready, jc.IsFalse)
+}
+
 func (s *MongoSuite) TestIsReadyError(c *gc.C) {
 	failure := errors.New("failed!")
 	s.PatchValue(&getCurrentStatus,
@@ -423,6 +448,48 @@ func (s *MongoSuite) TestIsReadyError(c *gc.C) {
 
 	_, err := IsReady(session)
 	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *MongoSuite) TestWaitUntilReady(c *gc.C) {
+	var isReadyCalled bool
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		isReadyCalled = true
+		return true, nil
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isReadyCalled, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestWaitUntilReadyTimeout(c *gc.C) {
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		return false, nil
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 0)
+	c.Assert(err, gc.ErrorMatches, "timed out after 0 seconds")
+}
+
+func (s *MongoSuite) TestWaitUntilReadyError(c *gc.C) {
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		return false, errors.New("foobar")
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 0)
+	c.Assert(err, gc.ErrorMatches, "foobar")
 }
 
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
