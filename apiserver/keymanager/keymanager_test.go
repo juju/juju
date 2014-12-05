@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -151,7 +152,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	_, err := s.keymanager.AddKeys(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -238,7 +239,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	_, err := s.keymanager.DeleteKeys(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	s.assertEnvironKeys(c, initialKeys)
 }
 
@@ -332,6 +333,6 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	_, err := s.keymanager.ImportKeys(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	s.assertEnvironKeys(c, initialKeys)
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
@@ -278,7 +279,7 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	s.blockAllChanges(c)
 	client := s.APIState.Client()
 	_, err := client.RunOnAllMachines("hostname", testing.LongWait)
-	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
@@ -354,7 +355,7 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 			Machines: []string{"0"},
 			Services: []string{"magic"},
 		})
-	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 var echoInputShowArgs = `#!/bin/bash
