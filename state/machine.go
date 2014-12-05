@@ -791,7 +791,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return instData.AvailZone, errors.Trace(err)
+	return instData.AvailZone, nil
 }
 
 // Units returns all the units that have been assigned to the machine.
