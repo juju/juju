@@ -400,9 +400,9 @@ func (s *MongoSuite) TestIsReadyMinority(c *gc.C) {
 	c.Check(ready, jc.IsFalse)
 }
 
-func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
+func (s *MongoSuite) checkConnectionFailure(c *gc.C, failure error) {
 	s.PatchValue(&getCurrentStatus,
-		func(session *mgo.Session) (*Status, error) { return nil, io.EOF },
+		func(session *mgo.Session) (*Status, error) { return nil, failure },
 	)
 	session := s.root.MustDial()
 	defer session.Close()
@@ -411,6 +411,10 @@ func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
+	s.checkConnectionFailure(c, io.EOF)
 }
 
 func (s *MongoSuite) TestIsReadyError(c *gc.C) {
