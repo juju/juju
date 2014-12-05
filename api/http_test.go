@@ -61,7 +61,7 @@ func (s *httpSuite) TestNewHTTPClientValidatesCert(c *gc.C) {
 }
 
 func (s *httpSuite) TestSendHTTPRequestSuccess(c *gc.C) {
-	req, resp, err := s.APIState.SendHTTPRequest("GET", "somefacade", nil)
+	req, resp, err := s.APIState.SendHTTPRequest("somefacade", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.Fake.CheckCalled(c, req, resp)

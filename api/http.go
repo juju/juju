@@ -5,6 +5,7 @@ package api
 
 import (
 	"crypto/tls"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -49,9 +50,9 @@ func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	return req, errors.Trace(err)
 }
 
-// SendHTTPRequest sends a request using the HTTP client derived from State.
-func (s *State) SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error) {
-	req, err := s.NewHTTPRequest(method, path)
+// SendHTTPRequest sends a GET request using the HTTP client derived from State.
+func (s *State) SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error) {
+	req, err := s.NewHTTPRequest("GET", path)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -59,6 +60,30 @@ func (s *State) SendHTTPRequest(method, path string, args interface{}) (*http.Re
 	err = apiserverhttp.SetRequestArgs(req, args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "while setting request body")
+	}
+
+	httpclient := newHTTPClient(s)
+	resp, err := httpclient.Do(req)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while sending HTTP request")
+	}
+	return req, resp, nil
+}
+
+// SendHTTPRequestReader sends a PUT request using the HTTP client derived
+// from State. The provided io.Reader and associated JSON metadata are
+// attached to the request body as multi-part data. The name parameter
+// identifies the attached data's part in the multi-part data. That name
+// doesn't have any semantic significance in juju, so the provided value
+// is strictly informational.
+func (s *State) SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
+	req, err := s.NewHTTPRequest("PUT", path)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if err := apiserverhttp.AttachToRequest(req, attached, meta, name); err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	httpclient := newHTTPClient(s)

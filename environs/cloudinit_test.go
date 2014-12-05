@@ -157,6 +157,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
 	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
+	c.Check(mcfg.StateServingInfo.CAPrivateKey, gc.Equals, oldAttrs["ca-private-key"])
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
@@ -229,10 +230,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	if bootstrap {
 		cfg.Bootstrap = true
 		cfg.StateServingInfo = &params.StateServingInfo{
-			StatePort:  envConfig.StatePort(),
-			APIPort:    envConfig.APIPort(),
-			Cert:       testing.ServerCert,
-			PrivateKey: testing.ServerKey,
+			StatePort:    envConfig.StatePort(),
+			APIPort:      envConfig.APIPort(),
+			Cert:         testing.ServerCert,
+			PrivateKey:   testing.ServerKey,
+			CAPrivateKey: testing.CAKey,
 		}
 	}
 	script1 := "script1"

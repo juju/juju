@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -355,7 +356,7 @@ func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid strin
 }
 
 func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
-	body := assertResponse(c, resp, http.StatusOK, "application/json")
+	body := assertResponse(c, resp, http.StatusOK, apihttp.CTypeJSON)
 	toolsResult := jsonToolsResponse(c, body)
 	c.Check(toolsResult.Error, gc.IsNil)
 	c.Check(toolsResult.Tools, gc.DeepEquals, agentTools)
@@ -367,7 +368,7 @@ func (s *toolsSuite) assertGetFileResponse(c *gc.C, resp *http.Response, expBody
 }
 
 func (s *toolsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, "application/json")
+	body := assertResponse(c, resp, expCode, apihttp.CTypeJSON)
 	err := jsonToolsResponse(c, body).Error
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, expError)

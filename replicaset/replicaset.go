@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/juju/errors"
@@ -461,18 +462,28 @@ func IsReady(session *mgo.Session) (bool, error) {
 	return true, nil
 }
 
+var connectionErrors = []syscall.Errno{
+	syscall.ECONNABORTED, // "software caused connection abort"
+	syscall.ECONNREFUSED, // "connection refused"
+	syscall.ECONNRESET,   // "connection reset by peer"
+	syscall.ENETRESET,    // "network dropped connection on reset"
+	syscall.ETIMEDOUT,    // "connection timed out"
+}
+
 func isConnectionNotAvailable(err error) bool {
 	if err == nil {
 		return false
 	}
+	// mgo returns io.EOF from session operations when the connection
+	// has been dropped.
 	if errors.Cause(err) == io.EOF {
 		return true
 	}
-	if strings.Contains(err.Error(), "connection refused") {
-		return true
-	}
-	if strings.Contains(err.Error(), "connection is shut down") {
-		return true
+	// An errno may be returned so we check the connection-related ones.
+	for _, errno := range connectionErrors {
+		if errors.Cause(err) == errno {
+			return true
+		}
 	}
 	return false
 }

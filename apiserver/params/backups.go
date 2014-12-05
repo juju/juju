@@ -28,6 +28,12 @@ type BackupsDownloadArgs struct {
 	ID string
 }
 
+// BackupsUploadArgs holds the args for the API Upload method.
+type BackupsUploadArgs struct {
+	Data     []byte
+	Metadata BackupsMetadataResult
+}
+
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
 	ID string
@@ -36,6 +42,11 @@ type BackupsRemoveArgs struct {
 // BackupsListResult holds the list of all stored backups.
 type BackupsListResult struct {
 	List []BackupsMetadataResult
+}
+
+// BackupsListResult holds the list of all stored backups.
+type BackupsUploadResult struct {
+	ID string
 }
 
 // BackupsMetadataResult holds the metadata for a backup as returned by
