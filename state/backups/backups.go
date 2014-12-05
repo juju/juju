@@ -310,10 +310,6 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 
 	// update all agents known to the new state server.
 	// TODO(perrito666): We should never stop process because of this.
-	// It is too late to go back and errors in a couple of agents have
-	// better chance of being fixed by the user, if we were to fail
-	// we risk an inconsistent state server because of one unresponsive
-	// agent, we should nevertheless return the err info to the user.
 	// updateAllMachines will not return errors for individual
 	// agent update failures
 	machines, err := st.AllMachines()

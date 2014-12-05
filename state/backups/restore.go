@@ -82,7 +82,11 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 	}
 	defer session.Close()
 	// TODO(perrito666): Take the Machine id from an autoritative source
-	if err := session.DB("juju").C("machines").Update(bson.M{"machineid": "0"}, bson.M{"$set": bson.M{"instanceid": string(newInstId)}}); err != nil {
+	err = session.DB("juju").C("machines").Update(
+		bson.M{"machineid": "0"},
+		bson.M{"$set": bson.M{"instanceid": string(newInstId)}},
+	)
+	if err != nil {
 		return errors.Annotate(err, "cannot update machine 0 instance information")
 	}
 	return nil
@@ -105,7 +109,7 @@ func newStateConnection(agentConf agent.Config) (*state.State, error) {
 	for a := attempt.Start(); a.Next(); {
 		st, err = state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 		if err == nil {
-			break
+			return st, nil
 		}
 		logger.Errorf("cannot open state, retrying: %v", err)
 	}
@@ -114,6 +118,10 @@ func newStateConnection(agentConf agent.Config) (*state.State, error) {
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
+// It is too late to go back and errors in a couple of agents have
+// better chance of being fixed by the user, if we were to fail
+// we risk an inconsistent state server because of one unresponsive
+// agent, we should nevertheless return the err info to the user.
 func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 	pendingMachineCount := 0
 	done := make(chan error)
