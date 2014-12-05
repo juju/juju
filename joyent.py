@@ -334,7 +334,7 @@ class Client:
             created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
             age = now - created
             print(age)
-            if age > timedelta(hours=1):
+            if age > timedelta(hours=12):
                 machine_id = machine['id']
                 if machine['state'] == 'provisioning':
                     current_stuck.append(machine)
