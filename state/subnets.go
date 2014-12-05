@@ -6,9 +6,11 @@ package state
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/network"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -250,21 +252,40 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 		}
 		allocated[value] = true
 	}
+
+	// Check that the number of addresses in use is less than the
+	// difference between low and high - i.e. we haven't exhausted all
+	// possible addresses.
 	if int(highDecimal-lowDecimal)+1 >= len(allocated) {
 		return nil, errors.New("IP addresses exhausted")
 	}
 
 	// pick a new random decimal between the low and high bounds that
-	// doesn't match an existing one (first checking that number of
-	// addresses in use is less than the difference between low and high -
-	// i.e. we haven't exhausted all addresses)
-	// convert it back to a dotted-quad and create a new IPAddress from it
-	// return it!
-	return nil, nil
+	// doesn't match an existing one
+	newDecimal := pickAddress(lowDecimal, highDecimal, allocated)
+
+	// convert it back to a dotted-quad
+	newIP := decimalToIP(newDecimal)
+	newAddr := network.Address{Value: newIP}
+
+	// and create a new IPAddress from it and return it
+	return s.st.AddIPAddress(newAddr, s.ID())
 }
 
 func pickAddress(low, high uint32, allocated map[uint32]bool) uint32 {
-	return uint32(32)
+	bounds := uint32(high - low)
+	if bounds == 0 {
+		// we've already checked that there is a free IP address, so this must
+		// be it!
+		return low
+	}
+	for {
+		inBounds := rand.Int63n(int64(bounds))
+		value := uint32(inBounds) + low
+		if _, ok := allocated[value]; !ok {
+			return value
+		}
+	}
 }
 
 func decimalToIP(addr uint32) string {
