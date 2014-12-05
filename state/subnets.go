@@ -275,8 +275,8 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 func pickAddress(low, high uint32, allocated map[uint32]bool) uint32 {
 	bounds := uint32(high - low)
 	if bounds == 0 {
-		// we've already checked that there is a free IP address, so this must
-		// be it!
+		// we've already checked that there is a free IP address, so
+		// this must be it!
 		return low
 	}
 	for {
