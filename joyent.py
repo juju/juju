@@ -36,6 +36,7 @@ echo -n "date:" {0} |
     tr -d '\n'
 """
 
+OLD_MACHINE_AGE = 12
 
 JOYENT_PROCS = "ps ax -eo pid,etime,command | grep joyent | grep juju"
 STUCK_MACHINES_PATH = os.path.join(
@@ -334,7 +335,7 @@ class Client:
             created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
             age = now - created
             print(age)
-            if age > timedelta(hours=12):
+            if age > timedelta(hours=OLD_MACHINE_AGE):
                 machine_id = machine['id']
                 if machine['state'] == 'provisioning':
                     current_stuck.append(machine)
@@ -375,13 +376,18 @@ def parse_args(args=None):
         "-k", "--key-id", dest="key_id",
         help="SSH key fingerprint.  Environment: MANTA_KEY_ID=FINGERPRINT",
         default=os.environ.get("MANTA_KEY_ID"))
-    parser.add_argument(
+    subparsers = parser.add_subparsers(help='sub-command help', dest="command")
+    subparsers.add_parser('list-machines', help='List running machines')
+    parser_delete_old_machine = subparsers.add_parser(
+        'delete-old-machines',
+        help='Delete machines older than %d' % OLD_MACHINE_AGE)
+    parser_delete_old_machine.add_argument(
         "-c", "--contact-mail-address", dest="contact_mail_address",
         help="Email address used in the Joyent support form",
         default=os.environ.get("CONTACT_MAIL_ADDRESS"))
-    parser.add_argument('action', help='The action to perform.')
-    parser.add_argument(
-        'machine_id', help='The machine id.', nargs="?", default=None)
+    parser_list_tags = subparsers.add_parser(
+        'list-tags', help='List tags of running machines')
+    parser_list_tags.add_argument('machine_id', help='The machine id.')
     return parser.parse_args()
 
 
@@ -393,11 +399,11 @@ def main(argv):
     client = Client(
         args.sdc_url, args.account, args.key_id,
         dry_run=args.dry_run, verbose=args.verbose)
-    if args.action == 'list-machines':
+    if args.command == 'list-machines':
         client.list_machines()
-    elif args.action == 'list-tags':
+    elif args.command == 'list-tags':
         client.list_machine_tags(args.machine_id)
-    elif args.action == 'delete-old-machines':
+    elif args.command == 'delete-old-machines':
         client.delete_old_machines(args.contact_mail_address)
     else:
         print("action not understood.")
