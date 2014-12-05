@@ -23,6 +23,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -46,7 +48,7 @@ var (
 
 type BootstrapCommand struct {
 	cmd.CommandBase
-	AgentConf
+	agentcmd.AgentConf
 	EnvConfig        map[string]interface{}
 	Constraints      constraints.Value
 	Hardware         instance.HardwareCharacteristics
@@ -76,10 +78,10 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
-		return requiredError("env-config")
+		return util.RequiredError("env-config")
 	}
 	if c.InstanceId == "" {
-		return requiredError("instance-id")
+		return util.RequiredError("instance-id")
 	}
 	if !names.IsValidUser(c.AdminUsername) {
 		return errors.Errorf("%q is not a valid username", c.AdminUsername)
@@ -306,7 +308,7 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	if err != nil {
 		return err
 	}
-	err = ensureMongoServer(ensureServerParams)
+	err = util.EnsureMongoServer(ensureServerParams)
 	if err != nil {
 		return err
 	}

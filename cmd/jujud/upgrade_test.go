@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -62,7 +64,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Capture all apt commands.
 	s.aptCmds = nil
-	aptCmds := s.agentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	aptCmds := s.AgentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
 			s.aptCmds = append(s.aptCmds, cmd)
@@ -79,7 +81,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Allow tests to make the API connection appear to be dead.
 	s.connectionDead = false
-	s.PatchValue(&connectionIsDead, func(pinger) bool {
+	s.PatchValue(&cmdutil.ConnectionIsDead, func(loggo.Logger, cmdutil.Pinger) bool {
 		return s.connectionDead
 	})
 
@@ -929,7 +931,7 @@ func (a *fakeUpgradingMachineAgent) CurrentConfig() agent.Config {
 	return a.config
 }
 
-func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *fakeUpgradingMachineAgent) ChangeConfig(mutate agentcmd.AgentConfigMutator) error {
 	return mutate(a.config)
 }
 

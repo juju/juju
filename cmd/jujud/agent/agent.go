@@ -1,53 +1,40 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
-	"fmt"
-	"io"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
-	apideployer "github.com/juju/juju/api/deployer"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/rsyslog"
-	"github.com/juju/juju/worker/upgrader"
 )
 
 var (
-	apiOpen = api.Open
+	ApiOpen = api.Open
 
-	DataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
-
-	checkProvisionedStrategy = utils.AttemptStrategy{
+	CheckProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
-)
 
-// requiredError is useful when complaining about missing command-line options.
-func requiredError(name string) error {
-	return fmt.Errorf("--%s option must be set", name)
-}
+	logger = loggo.GetLogger("juju.cmd.jujud")
+)
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
@@ -64,12 +51,12 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", DataDir, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", util.DataDir, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
-		return requiredError("data-dir")
+		return util.RequiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -115,35 +102,6 @@ func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 	})
 }
 
-func importance(err error) int {
-	switch {
-	case err == nil:
-		return 0
-	default:
-		return 1
-	case isUpgraded(err):
-		return 2
-	case err == worker.ErrRebootMachine:
-		return 3
-	case err == worker.ErrShutdownMachine:
-		return 3
-	case err == worker.ErrTerminateAgent:
-		return 4
-	}
-}
-
-// moreImportant returns whether err0 is
-// more important than err1 - that is, whether
-// we should act on err0 in preference to err1.
-func moreImportant(err0, err1 error) bool {
-	return importance(err0) > importance(err1)
-}
-
-func isUpgraded(err error) bool {
-	_, ok := err.(*upgrader.UpgradeReadyError)
-	return ok
-}
-
 type Agent interface {
 	Tag() names.Tag
 	ChangeConfig(AgentConfigMutator) error
@@ -157,52 +115,6 @@ type AgentState interface {
 	SetAgentVersion(v version.Binary) error
 	Tag() string
 	Life() state.Life
-}
-
-type fatalError struct {
-	Err string
-}
-
-func (e *fatalError) Error() string {
-	return e.Err
-}
-
-func isFatal(err error) bool {
-	switch err {
-	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
-		return true
-	}
-	if isUpgraded(err) {
-		return true
-	}
-	_, ok := err.(*fatalError)
-	return ok
-}
-
-type pinger interface {
-	Ping() error
-}
-
-// connectionIsFatal returns a function suitable for passing
-// as the isFatal argument to worker.NewRunner,
-// that diagnoses an error as fatal if the connection
-// has failed or if the error is otherwise fatal.
-func connectionIsFatal(conn pinger) func(err error) bool {
-	return func(err error) bool {
-		if isFatal(err) {
-			return true
-		}
-		return connectionIsDead(conn)
-	}
-}
-
-// connectionIsDead returns true if the given pinger fails to ping.
-var connectionIsDead = func(conn pinger) bool {
-	if err := conn.Ping(); err != nil {
-		logger.Infof("error pinging %T: %v", conn, err)
-		return true
-	}
-	return false
 }
 
 // isleep waits for the given duration or until it receives a value on
@@ -227,14 +139,14 @@ type configChanger func(c *agent.Config)
 // returns the opened state and the api entity with
 // the given tag. The given changeConfig function is
 // called if the password changes to set the password.
-func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.Entity, resultErr error) {
+func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.Entity, resultErr error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
 	// then the worker that's calling this cannot
 	// be interrupted.
 	info := agentConfig.APIInfo()
-	st, err := apiOpen(info, api.DialOpts{})
+	st, err := ApiOpen(info, api.DialOpts{})
 	usedOldPassword := false
 	if params.IsCodeUnauthorized(err) {
 		// We've perhaps used the wrong password, so
@@ -243,13 +155,13 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		info = &infoCopy
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
-		st, err = apiOpen(info, api.DialOpts{})
+		st, err = ApiOpen(info, api.DialOpts{})
 	}
 	// The provisioner may take some time to record the agent's
 	// machine instance ID, so wait until it does so.
 	if params.IsCodeNotProvisioned(err) {
-		for a := checkProvisionedStrategy.Start(); a.Next(); {
-			st, err = apiOpen(info, api.DialOpts{})
+		for a := CheckProvisionedStrategy.Start(); a.Next(); {
+			st, err = ApiOpen(info, api.DialOpts{})
 			if !params.IsCodeNotProvisioned(err) {
 				break
 			}
@@ -306,84 +218,11 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 
 		st.Close()
 		info.Password = newPassword
-		st, err = apiOpen(info, api.DialOpts{})
+		st, err = ApiOpen(info, api.DialOpts{})
 		if err != nil {
 			return nil, nil, err
 		}
 	}
 
 	return st, entity, nil
-}
-
-// agentDone processes the error returned by
-// an exiting agent.
-func agentDone(err error) error {
-	switch err {
-	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
-		err = nil
-	}
-	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
-		if err := ug.ChangeAgentTools(); err != nil {
-			// Return and let upstart deal with the restart.
-			err = errors.Annotate(err, "cannot change agent tools")
-			logger.Infof(err.Error())
-			return err
-		}
-	}
-	return err
-}
-
-type closeWorker struct {
-	worker worker.Worker
-	closer io.Closer
-}
-
-// newCloseWorker returns a task that wraps the given task,
-// closing the given closer when it finishes.
-func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
-	return &closeWorker{
-		worker: worker,
-		closer: closer,
-	}
-}
-
-func (c *closeWorker) Kill() {
-	c.worker.Kill()
-}
-
-func (c *closeWorker) Wait() error {
-	err := c.worker.Wait()
-	if err := c.closer.Close(); err != nil {
-		logger.Errorf("closeWorker: close error: %v", err)
-	}
-	return err
-}
-
-// newDeployContext gives the tests the opportunity to create a deployer.Context
-// that can be used for testing so as to avoid (1) deploying units to the system
-// running the tests and (2) get access to the *State used internally, so that
-// tests can be run without waiting for the 5s watcher refresh time to which we would
-// otherwise be restricted.
-var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
-	return deployer.NewSimpleContext(agentConfig, st)
-}
-
-// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
-// based on the specified configuration parameters.
-var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
-	tag := agentConfig.Tag()
-	namespace := agentConfig.Value(agent.Namespace)
-	addrs, err := agentConfig.APIAddresses()
-	if err != nil {
-		return nil, err
-	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
-}
-
-// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
-// hook execution lock. Other workers may also use this lock if they
-// require isolation from hook execution.
-func hookExecutionLock(dataDir string) (*fslock.Lock, error) {
-	lockDir := filepath.Join(dataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution")
 }

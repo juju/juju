@@ -28,10 +28,14 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/reboot"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
@@ -73,6 +77,9 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/utils/fslock"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"io"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -91,7 +98,6 @@ var (
 
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
-	ensureMongoServer        = mongo.EnsureServer
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
@@ -151,7 +157,7 @@ func (a *MachineAgent) IsRestoreRunning() bool {
 type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
-	AgentConf
+	agentcmd.AgentConf
 	MachineId            string
 	previousAgentVersion version.Number
 	runner               worker.Runner
@@ -164,6 +170,8 @@ type MachineAgent struct {
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
+
+	logToStdErr bool
 }
 
 // Info returns usage information for the command.
@@ -177,6 +185,7 @@ func (a *MachineAgent) Info() *cmd.Info {
 func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 	a.AgentConf.AddFlags(f)
 	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
+	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "whether to log to standard error instead of log files")
 }
 
 // Init initializes the command for running.
@@ -187,7 +196,7 @@ func (a *MachineAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = newRunner(isFatal, moreImportant)
+	a.runner = newRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
 
@@ -223,8 +232,20 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 	agentConfig := a.CurrentConfig()
-	if err := setupLogging(agentConfig); err != nil {
-		return err
+
+	if !a.logToStdErr {
+
+		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
+
+		log := &lumberjack.Logger{
+			Filename:   filename,
+			MaxSize:    300, // megabytes
+			MaxBackups: 2,
+		}
+
+		if err := cmdutil.SwitchProcessToRollingLogs(log); err != nil {
+			return err
+		}
 	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 
@@ -256,7 +277,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		logger.Infof("Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
-	err = agentDone(err)
+	err = cmdutil.AgentDone(logger, err)
 	a.tomb.Kill(err)
 	return err
 }
@@ -267,7 +288,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := openAPIState(agentCfg, a)
+	st, _, err := agentcmd.OpenAPIState(agentCfg, a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -289,7 +310,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	return worker.ErrRebootMachine
 }
 
-func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
+func (a *MachineAgent) ChangeConfig(mutate agentcmd.AgentConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
 	if err != nil {
@@ -384,7 +405,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
-	st, entity, err := openAPIState(agentConfig, a)
+	st, entity, err := agentcmd.OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +445,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 
 	rsyslogMode := rsyslog.RsyslogModeForwarding
-	runner := newRunner(connectionIsFatal(st), moreImportant)
+	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
 		if job == multiwatcher.JobManageEnviron {
@@ -471,7 +492,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		lock, err := hookExecutionLock(DataDir)
+		lock, err := hookExecutionLock(cmdutil.DataDir)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -668,7 +689,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	registerSimplestreamsDataSource(st.Storage())
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
-	runner := newRunner(connectionIsFatal(st), moreImportant)
+	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 	singularRunner, err := newSingularRunner(runner, singularStateConn)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
@@ -710,13 +731,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// this should then change.
 				info, ok := agentConfig.StateServingInfo()
 				if !ok {
-					return nil, &fatalError{"StateServingInfo not available and we need it"}
+					return nil, &cmdutil.FatalError{"StateServingInfo not available and we need it"}
 				}
 				cert := []byte(info.Cert)
 				key := []byte(info.PrivateKey)
 
 				if len(cert) == 0 || len(key) == 0 {
-					return nil, &fatalError{"configuration does not have state server cert/key"}
+					return nil, &cmdutil.FatalError{"configuration does not have state server cert/key"}
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
@@ -916,7 +937,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := ensureMongoServer(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	if !shouldInitiateMongoServer {
@@ -1156,4 +1177,59 @@ func (c singularStateConn) Ping() error {
 
 func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
 	return metricsmanager.NewClient(st)
+}
+
+// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
+// hook execution lock. Other workers may also use this lock if they
+// require isolation from hook execution.
+func hookExecutionLock(dataDir string) (*fslock.Lock, error) {
+	lockDir := filepath.Join(dataDir, "locks")
+	return fslock.NewLock(lockDir, "uniter-hook-execution")
+}
+
+// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
+// based on the specified configuration parameters.
+var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	tag := agentConfig.Tag()
+	namespace := agentConfig.Value(agent.Namespace)
+	addrs, err := agentConfig.APIAddresses()
+	if err != nil {
+		return nil, err
+	}
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
+}
+
+// newDeployContext gives the tests the opportunity to create a deployer.Context
+// that can be used for testing so as to avoid (1) deploying units to the system
+// running the tests and (2) get access to the *State used internally, so that
+// tests can be run without waiting for the 5s watcher refresh time to which we would
+// otherwise be restricted.
+var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
+	return deployer.NewSimpleContext(agentConfig, st)
+}
+
+type closeWorker struct {
+	worker worker.Worker
+	closer io.Closer
+}
+
+// newCloseWorker returns a task that wraps the given task,
+// closing the given closer when it finishes.
+func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
+	return &closeWorker{
+		worker: worker,
+		closer: closer,
+	}
+}
+
+func (c *closeWorker) Kill() {
+	c.worker.Kill()
+}
+
+func (c *closeWorker) Wait() error {
+	err := c.worker.Wait()
+	if err := c.closer.Close(); err != nil {
+		logger.Errorf("closeWorker: close error: %v", err)
+	}
+	return err
 }

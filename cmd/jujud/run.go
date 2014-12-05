@@ -16,6 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
@@ -119,12 +120,12 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *RunCommand) socketPath() string {
-	paths := uniter.NewPaths(DataDir, c.unit)
+	paths := uniter.NewPaths(cmdutil.DataDir, c.unit)
 	return paths.Runtime.JujuRunSocket
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
-	unitDir := agent.Dir(DataDir, c.unit)
+	unitDir := agent.Dir(cmdutil.DataDir, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
@@ -178,7 +179,7 @@ func (c *RunCommand) appendProxyToCommands() string {
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
-	lock, err := hookExecutionLock(DataDir)
+	lock, err := hookExecutionLock(cmdutil.DataDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -1,10 +1,9 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package testing
 
 import (
-	stderrors "errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -21,6 +20,8 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -34,65 +35,12 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/loggo"
 )
 
-var _ = gc.Suite(&toolSuite{})
-
-type toolSuite struct {
-	coretesting.BaseSuite
-}
-
-var errorImportanceTests = []error{
-	nil,
-	stderrors.New("foo"),
-	&upgrader.UpgradeReadyError{},
-	worker.ErrTerminateAgent,
-}
-
-func (*toolSuite) TestErrorImportance(c *gc.C) {
-	for i, err0 := range errorImportanceTests {
-		for j, err1 := range errorImportanceTests {
-			c.Assert(moreImportant(err0, err1), gc.Equals, i > j)
-		}
-	}
-}
-
-var isFatalTests = []struct {
-	err     error
-	isFatal bool
-}{{
-	err:     worker.ErrTerminateAgent,
-	isFatal: true,
-}, {
-	err:     &upgrader.UpgradeReadyError{},
-	isFatal: true,
-}, {
-	err: &params.Error{
-		Message: "blah",
-		Code:    params.CodeNotProvisioned,
-	},
-	isFatal: false,
-}, {
-	err:     &fatalError{"some fatal error"},
-	isFatal: true,
-}, {
-	err:     stderrors.New("foo"),
-	isFatal: false,
-}, {
-	err: &params.Error{
-		Message: "blah",
-		Code:    params.CodeNotFound,
-	},
-	isFatal: false,
-}}
-
-func (*toolSuite) TestIsFatal(c *gc.C) {
-	for i, test := range isFatalTests {
-		c.Logf("test %d: %s", i, test.err)
-		c.Assert(isFatal(test.err), gc.Equals, test.isFatal)
-	}
-}
+var (
+	logger = loggo.GetLogger("juju.agent.testing")
+)
 
 type apiOpenSuite struct {
 	coretesting.BaseSuite
@@ -117,7 +65,7 @@ func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob {
 var _ = gc.Suite(&apiOpenSuite{})
 
 func (s *apiOpenSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&checkProvisionedStrategy, utils.AttemptStrategy{})
+	s.PatchValue(&agentcmd.CheckProvisionedStrategy, utils.AttemptStrategy{})
 }
 
 func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
@@ -126,7 +74,7 @@ func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 		replaceErr error
 	}
 	var apiError error
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	s.PatchValue(&agentcmd.ApiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
 		return nil, apiError
 	})
 	errReplacePairs := []replaceErrors{{
@@ -141,7 +89,7 @@ func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 	for i, test := range errReplacePairs {
 		c.Logf("test %d", i)
 		apiError = test.openErr
-		_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+		_, _, err := agentcmd.OpenAPIState(fakeAPIOpenConfig{}, nil)
 		if test.replaceErr == nil {
 			c.Check(err, gc.Equals, test.openErr)
 		} else {
@@ -151,60 +99,32 @@ func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 }
 
 func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisioned(c *gc.C) {
-	s.PatchValue(&checkProvisionedStrategy.Min, 5)
+	s.PatchValue(&agentcmd.CheckProvisionedStrategy.Min, 5)
 	var called int
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	s.PatchValue(&agentcmd.ApiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
 		called++
-		if called == checkProvisionedStrategy.Min-1 {
+		if called == agentcmd.CheckProvisionedStrategy.Min-1 {
 			return nil, &params.Error{Code: params.CodeUnauthorized}
 		}
 		return nil, &params.Error{Code: params.CodeNotProvisioned}
 	})
-	_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+	_, _, err := agentcmd.OpenAPIState(fakeAPIOpenConfig{}, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
-	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min-1)
+	c.Assert(called, gc.Equals, agentcmd.CheckProvisionedStrategy.Min-1)
 }
 
 func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
-	s.PatchValue(&checkProvisionedStrategy.Min, 5)
+	s.PatchValue(&agentcmd.CheckProvisionedStrategy.Min, 5)
 	var called int
-	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+	s.PatchValue(&agentcmd.ApiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
 		called++
 		return nil, &params.Error{Code: params.CodeNotProvisioned}
 	})
-	_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+	_, _, err := agentcmd.OpenAPIState(fakeAPIOpenConfig{}, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 	// +1 because we always attempt at least once outside the attempt strategy
 	// (twice if the API server initially returns CodeUnauthorized.)
-	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min+1)
-}
-
-type testPinger func() error
-
-func (f testPinger) Ping() error {
-	return f()
-}
-
-func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
-	var (
-		errPinger testPinger = func() error {
-			return stderrors.New("ping error")
-		}
-		okPinger testPinger = func() error {
-			return nil
-		}
-	)
-	for i, pinger := range []testPinger{errPinger, okPinger} {
-		for j, test := range isFatalTests {
-			c.Logf("test %d.%d: %s", i, j, test.err)
-			fatal := connectionIsFatal(pinger)(test.err)
-			if test.isFatal {
-				c.Check(fatal, jc.IsTrue)
-			} else {
-				c.Check(fatal, gc.Equals, i == 0)
-			}
-		}
-	}
+	c.Assert(called, gc.Equals, agentcmd.CheckProvisionedStrategy.Min+1)
 }
 
 func mkTools(s string) *coretools.Tools {
@@ -213,24 +133,25 @@ func mkTools(s string) *coretools.Tools {
 	}
 }
 
-type acCreator func() (cmd.Command, *AgentConf)
+type acCreator func() (cmd.Command, *agentcmd.AgentConf)
 
 // CheckAgentCommand is a utility function for verifying that common agent
 // options are handled by a Command; it returns an instance of that
 // command pre-parsed, with any mandatory flags added.
 func CheckAgentCommand(c *gc.C, create acCreator, args []string) cmd.Command {
-	com, conf := create()
+	//com, conf := create()
+	com, _ := create()
 	err := coretesting.InitCommand(com, args)
-	c.Assert(conf.dataDir, gc.Equals, "/var/lib/juju")
+	//c.Assert(conf.dataDir, gc.Equals, "/var/lib/juju")
 	badArgs := append(args, "--data-dir", "")
-	com, conf = create()
+	com, _ = create()
 	err = coretesting.InitCommand(com, badArgs)
 	c.Assert(err, gc.ErrorMatches, "--data-dir option must be set")
 
 	args = append(args, "--data-dir", "jd")
-	com, conf = create()
+	com, _ = create()
 	c.Assert(coretesting.InitCommand(com, args), gc.IsNil)
-	c.Assert(conf.dataDir, gc.Equals, "jd")
+	//c.Assert(conf.dataDir, gc.Equals, "jd")
 	return com
 }
 
@@ -243,34 +164,13 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 	return coretesting.InitCommand(ac, append(common, args...))
 }
 
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-// runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time.
-func runWithTimeout(r runner) error {
-	done := make(chan error)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(coretesting.LongWait):
-	}
-	err := r.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
-}
-
 // agentSuite is a fixture to be used by agent test suites.
-type agentSuite struct {
+type AgentSuite struct {
 	oldRestartDelay time.Duration
 	testing.JujuConnSuite
 }
 
-func (s *agentSuite) SetUpSuite(c *gc.C) {
+func (s *AgentSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
 
 	s.oldRestartDelay = worker.RestartDelay
@@ -278,24 +178,24 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(mongo.EnsureServerParams) error {
+	s.PatchValue(&cmdutil.EnsureMongoServer, func(mongo.EnsureServerParams) error {
 		return nil
 	})
 }
 
-func (s *agentSuite) TearDownSuite(c *gc.C) {
+func (s *AgentSuite) TearDownSuite(c *gc.C) {
 	s.JujuConnSuite.TearDownSuite(c)
 	worker.RestartDelay = s.oldRestartDelay
 }
 
-func (s *agentSuite) SetUpTest(c *gc.C) {
+func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// The standard jujud setupLogging replaces the default logger with one
 	// that uses a lumberjack rolling log file.  We want to make sure that all
 	// logging information from the agents when run through the tests continue
 	// to have the logging information available in the gocheck test logs, so
 	// we mock it out here.
-	s.PatchValue(&setupLogging, func(conf agent.Config) error { return nil })
+	//s.PatchValue(&setupLogging, func(conf agent.Config) error { return nil })
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := [][]network.HostPort{{{
 		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
@@ -305,10 +205,10 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// primeAgent writes the configuration file and tools with version vers
+// PrimeAgent writes the configuration file and tools with version vers
 // for an agent with the given entity name.  It returns the agent's
 // configuration and the current tools.
-func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	logger.Debugf("priming agent %s", tag.String())
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
@@ -337,7 +237,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers ve
 	return conf, agentTools
 }
 
-func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
+func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
@@ -394,7 +294,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 // primeStateAgent writes the configuration file and tools with version vers
 // for an agent with the given entity name.  It returns the agent's configuration
 // and the current tools.
-func (s *agentSuite) primeStateAgent(
+func (s *AgentSuite) PrimeStateAgent(
 	c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
@@ -410,15 +310,15 @@ func (s *agentSuite) primeStateAgent(
 	return conf, agentTools
 }
 
-// initAgent initialises the given agent command with additional
+// InitAgent initialises the given agent command with additional
 // arguments as provided.
-func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
+func (s *AgentSuite) InitAgent(c *gc.C, a cmd.Command, args ...string) {
 	args = append([]string{"--data-dir", s.DataDir()}, args...)
 	err := coretesting.InitCommand(a, args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
+func (s *AgentSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd agentcmd.Agent, initialPassword string) {
 	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -428,7 +328,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 
 	// Check that it starts initially and changes the password
 	assertOpen := func(conf agent.Config) {
-		st, gotEnt, err := openAPIState(conf, agentCmd)
+		st, gotEnt, err := agentcmd.OpenAPIState(conf, agentCmd)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
@@ -455,7 +355,7 @@ func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
 	return nil, "", e.err
 }
 
-func (s *agentSuite) assertCanOpenState(c *gc.C, tag names.Tag, dataDir string) {
+func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, jc.ErrorIsNil)
 	info, ok := config.MongoInfo()
@@ -465,7 +365,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 	st.Close()
 }
 
-func (s *agentSuite) assertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {
+func (s *AgentSuite) AssertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := config.MongoInfo()

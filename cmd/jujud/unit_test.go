@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -33,28 +35,28 @@ import (
 
 type UnitSuite struct {
 	coretesting.GitSuite
-	agentSuite
+	agenttesting.AgentSuite
 }
 
 var _ = gc.Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpSuite(c *gc.C) {
 	s.GitSuite.SetUpSuite(c)
-	s.agentSuite.SetUpSuite(c)
+	s.AgentSuite.SetUpSuite(c)
 }
 
 func (s *UnitSuite) TearDownSuite(c *gc.C) {
-	s.agentSuite.TearDownSuite(c)
+	s.AgentSuite.TearDownSuite(c)
 	s.GitSuite.TearDownSuite(c)
 }
 
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
-	s.agentSuite.SetUpTest(c)
+	s.AgentSuite.SetUpTest(c)
 }
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
-	s.agentSuite.TearDownTest(c)
+	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
 
@@ -76,30 +78,30 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
+	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	a := &UnitAgent{}
-	s.initAgent(c, a, "--unit-name", unit.Name())
+	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, *AgentConf) {
+	create := func() (cmd.Command, *agentcmd.AgentConf) {
 		a := &UnitAgent{}
 		return a, &a.AgentConf
 	}
-	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
+	uc := agenttesting.CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
 	c.Assert(uc.(*UnitAgent).UnitName, gc.Equals, "w0rd-pre55/1")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
 	uc := &UnitAgent{}
-	err := ParseAgentCommand(uc, []string{})
+	err := agenttesting.ParseAgentCommand(uc, []string{})
 	c.Assert(err, gc.ErrorMatches, "--unit-name option must be set")
 }
 
@@ -111,14 +113,14 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		err := ParseAgentCommand(&UnitAgent{}, args)
+		err := agenttesting.ParseAgentCommand(&UnitAgent{}, args)
 		c.Assert(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 	uc := &UnitAgent{}
-	err := ParseAgentCommand(uc, []string{"--unit-name", "wordpress/1", "thundering typhoons"})
+	err := agenttesting.ParseAgentCommand(uc, []string{"--unit-name", "wordpress/1", "thundering typhoons"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
@@ -220,12 +222,12 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
-	s.testOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
+	s.AgentSuite.RunTestOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.agentSuite.primeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
-	_, _, err := openAPIState(conf, nil)
+	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
+	_, _, err := agentcmd.OpenAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -237,7 +239,7 @@ func (f *fakeUnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(f.unitName)
 }
 
-func (f *fakeUnitAgent) ChangeConfig(AgentConfigMutator) error {
+func (f *fakeUnitAgent) ChangeConfig(agentcmd.AgentConfigMutator) error {
 	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 
@@ -245,7 +247,7 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	_, unit, conf, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
+	_, _, err = agentcmd.OpenAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -258,7 +260,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	waitForUnitStarted(s.State, unit, c)
 
-	s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }
 
 func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {

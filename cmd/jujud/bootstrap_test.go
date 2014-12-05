@@ -27,6 +27,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -102,7 +103,7 @@ func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error 
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 
 	storageDir := c.MkDir()

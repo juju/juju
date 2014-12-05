@@ -15,9 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
-	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
@@ -189,18 +187,18 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 //
 // NOTE: do not use this in the bootstrap agent, or
 // if you do, change the bootstrap error reporting.
-func setupAgentLogging(conf agent.Config) error {
-	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
+// func setupAgentLoggingFoo(conf agent.Config) error {
+// 	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
 
-	log := &lumberjack.Logger{
-		Filename:   filename,
-		MaxSize:    300, // megabytes
-		MaxBackups: 2,
-	}
+// 	log := &lumberjack.Logger{
+// 		Filename:   filename,
+// 		MaxSize:    300, // megabytes
+// 		MaxBackups: 2,
+// 	}
 
-	writer := loggo.NewSimpleWriter(log, &loggo.DefaultFormatter{})
-	_, err := loggo.ReplaceDefaultWriter(writer)
-	return err
-}
+// 	writer := loggo.NewSimpleWriter(log, &loggo.DefaultFormatter{})
+// 	_, err := loggo.ReplaceDefaultWriter(writer)
+// 	return err
+// }
 
-var setupLogging = setupAgentLogging
+//var setupLoggingFoo = setupAgentLoggingFoo
