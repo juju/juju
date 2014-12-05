@@ -24,6 +24,10 @@ var (
 	AgentMatchesFilter    = agentMatchesFilter
 )
 
+func ApiHandlerWithEntity(entity state.Entity) *apiHandler {
+	return &apiHandler{entity: entity}
+}
+
 const LoginRateLimit = loginRateLimit
 
 // DelayLogins changes how the Login code works so that logins won't proceed

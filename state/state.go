@@ -78,6 +78,9 @@ const (
 	rebootC       = "reboot"
 	blockDevicesC = "blockdevices"
 
+	// leaseC is used to store lease tokens
+	leaseC = "lease"
+
 	// sequenceC is used to generate unique identifiers.
 	sequenceC = "sequence"
 
@@ -101,6 +104,8 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	// TODO(katco-): As state gets broken up, remove this.
+	*LeasePersistor
 	// transactionRunner is normally nil, which means that a new one
 	// will be created for each operation, ensuring a fresh mgo.Session
 	// is used. However, for tests, a value may be assigned and this will
