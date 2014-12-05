@@ -108,3 +108,21 @@ func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
 
 	return result
 }
+
+// MetadataFromResult returns a new Metadata based on the result. The ID
+// of the metadata is not set. Call meta.SetID() if that is desired.
+// Likewise with Stored and meta.SetStored().
+func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
+	meta := backups.NewMetadata()
+	meta.Started = result.Started
+	if !result.Finished.IsZero() {
+		meta.Finished = &result.Finished
+	}
+	meta.Origin.Environment = result.Environment
+	meta.Origin.Machine = result.Machine
+	meta.Origin.Hostname = result.Hostname
+	meta.Origin.Version = result.Version
+	meta.Notes = result.Notes
+	meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
+	return meta
+}

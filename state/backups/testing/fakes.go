@@ -35,6 +35,8 @@ type FakeBackups struct {
 	DBInfoArg *backups.DBInfo
 	// MetaArg holds the backup metadata that was passed in.
 	MetaArg *backups.Metadata
+	// ArchiveArg holds the backup archive that was passed in.
+	ArchiveArg io.Reader
 }
 
 var _ backups.Backups = (*FakeBackups)(nil)
@@ -53,6 +55,18 @@ func (b *FakeBackups) Create(meta *backups.Metadata, paths *backups.Paths, dbInf
 	}
 
 	return b.Error
+}
+
+// Add stores the backup and returns its new ID.
+func (b *FakeBackups) Add(archive io.Reader, meta *backups.Metadata) (string, error) {
+	b.Calls = append(b.Calls, "Add")
+	b.ArchiveArg = archive
+	b.MetaArg = meta
+	id := ""
+	if b.Meta != nil {
+		id = b.Meta.ID()
+	}
+	return id, b.Error
 }
 
 // Get returns the metadata and archive file associated with the ID.
