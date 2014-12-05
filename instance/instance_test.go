@@ -218,13 +218,30 @@ var parseHardwareTests = []struct {
 		err:     `bad "root-disk" characteristic: already set`,
 	},
 
+	// "availability-zone" in detail.
+	{
+		summary: "set availability-zone empty",
+		args:    []string{"availability-zone="},
+	}, {
+		summary: "set availability-zone non-empty",
+		args:    []string{"availability-zone=a_zone"},
+	}, {
+		summary: "double set availability-zone together",
+		args:    []string{"availability-zone=a_zone availability-zone=a_zone"},
+		err:     `bad "availability-zone" characteristic: already set`,
+	}, {
+		summary: "double set availability-zone separately",
+		args:    []string{"availability-zone=a_zone", "availability-zone="},
+		err:     `bad "availability-zone" characteristic: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
+		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 availability-zone=a_zone"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf"},
+		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone"},
 	},
 }
 
