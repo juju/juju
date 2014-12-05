@@ -400,33 +400,7 @@ func (s *MongoSuite) TestIsReadyMinority(c *gc.C) {
 	c.Check(ready, jc.IsFalse)
 }
 
-func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
-	s.PatchValue(&getCurrentStatus,
-		func(session *mgo.Session) (*Status, error) { return nil, io.EOF },
-	)
-	session := s.root.MustDial()
-	defer session.Close()
-
-	ready, err := IsReady(session)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(ready, jc.IsFalse)
-}
-
-func (s *MongoSuite) TestIsReadyConnectionRefused(c *gc.C) {
-	failure := errors.New("connection refused")
-	s.PatchValue(&getCurrentStatus, func(session *mgo.Session) (*Status, error) { return nil, failure })
-	session := s.root.MustDial()
-	defer session.Close()
-
-	ready, err := IsReady(session)
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(ready, jc.IsFalse)
-}
-
-func (s *MongoSuite) TestIsReadyConnectionShutDown(c *gc.C) {
-	failure := errors.New("connection is shut down")
+func (s *MongoSuite) checkConnectionFailure(c *gc.C, failure error) {
 	s.PatchValue(&getCurrentStatus,
 		func(session *mgo.Session) (*Status, error) { return nil, failure },
 	)
@@ -435,7 +409,19 @@ func (s *MongoSuite) TestIsReadyConnectionShutDown(c *gc.C) {
 
 	ready, err := IsReady(session)
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
+	s.checkConnectionFailure(c, io.EOF)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionFailedWithErrno(c *gc.C) {
+	for _, errno := range connectionErrors {
+		c.Logf("Checking errno %#v (%v)", errno, errno)
+		s.checkConnectionFailure(c, errno)
+	}
 }
 
 func (s *MongoSuite) TestIsReadyError(c *gc.C) {
