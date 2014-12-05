@@ -82,7 +82,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	result, err := s.usermanager.AddUser(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	c.Assert(result.Results, gc.HasLen, 1)
 	//check that user is not created
 	foobarTag := names.NewLocalUserTag("foobar")
@@ -167,7 +167,7 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	_, err := s.usermanager.DisableUser(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,7 +233,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	_, err := s.usermanager.EnableUser(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -420,7 +420,7 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	_, err := s.usermanager.SetPassword(args)
 	// Check that the call is blocked
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

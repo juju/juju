@@ -33,6 +33,7 @@ type UserManager interface {
 type UserManagerAPI struct {
 	state      *state.State
 	authorizer common.Authorizer
+	check      *common.BlockChecker
 }
 
 var _ UserManager = (*UserManagerAPI)(nil)
@@ -49,6 +50,7 @@ func NewUserManagerAPI(
 	return &UserManagerAPI{
 		state:      st,
 		authorizer: authorizer,
+		check:      common.NewBlockChecker(st),
 	}, nil
 }
 
@@ -71,12 +73,8 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	result := params.AddUserResults{
 		Results: make([]params.AddUserResult, len(args.Users)),
 	}
-	cfg, err := api.state.EnvironConfig()
-	if err != nil {
+	if err := api.check.ChangeAllowed(); err != nil {
 		return result, errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return result, common.ErrOperationBlocked
 	}
 
 	if len(args.Users) == 0 {
@@ -119,12 +117,8 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is consided a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
-	cfg, err := api.state.EnvironConfig()
-	if err != nil {
+	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return params.ErrorResults{}, common.ErrOperationBlocked
 	}
 	return api.enableUserImpl(users, "enable", (*state.User).Enable)
 }
@@ -132,12 +126,8 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is consided a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
-	cfg, err := api.state.EnvironConfig()
-	if err != nil {
+	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return params.ErrorResults{}, common.ErrOperationBlocked
 	}
 	return api.enableUserImpl(users, "disable", (*state.User).Disable)
 }
@@ -235,12 +225,8 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 
 // SetPassword changes the stored password for the specified users.
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
-	cfg, err := api.state.EnvironConfig()
-	if err != nil {
+	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return params.ErrorResults{}, common.ErrOperationBlocked
 	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),

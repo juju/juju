@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -18,12 +17,8 @@ import (
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the environment.
 func (c *Client) DestroyEnvironment() error {
-	cfg, err := c.api.state.EnvironConfig()
-	if err != nil {
+	if err := c.check.DestroyAllowed(); err != nil {
 		return errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.DestroyOperation, cfg) {
-		return common.ErrOperationBlocked
 	}
 	// TODO(axw) 2013-08-30 bug 1218688
 	//

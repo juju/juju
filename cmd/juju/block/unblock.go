@@ -3,64 +3,20 @@
 
 package block
 
-import "github.com/juju/cmd"
+import (
+	"fmt"
+
+	"github.com/juju/cmd"
+)
 
 // UnblockCommand removes the block from desired operation.
 type UnblockCommand struct {
 	ProtectionCommand
 }
 
-var unblockDoc = `
-
-Juju allows to safeguard deployed environments from unintentional damage by preventing
-execution of operations that could alter environment.
-
-This is done by blocking certain operations from successful execution. Blocked operations
-must be manually unblocked to proceed.
-
-Some comands offer a --force option that can be used to bypass a block.
-
-Commands that can be unblocked are grouped based on logical operations as follows:
-
-destroy-environment includes command:
-    destroy-environment
-
-remove-object includes termination commands:
-    destroy-environment
-    remove-machine
-    remove-relation
-    remove-service
-    remove-unit
-
-all-changes includes all alteration commands
-    add-machine
-    add-relation
-    add-unit
-    authorised-keys add
-    authorised-keys delete
-    authorised-keys import
-    deploy
-    destroy-environment
-    expose
-    remove-machine
-    remove-relation
-    remove-service
-    remove-unit
-    resolved
-    retry-provisioning
-    run
-    set
-    set-constraints
-    set-env
-    unexpose
-    unset
-    unset-env
-    upgrade-charm
-    upgrade-juju
-    user add
-    user change-password
-    user disable
-    user enable
+var (
+	// unblockDocEnding unblock doc ending
+	unblockDocEnding = `
 
 Examples:
    To allow the environment to be destroyed:
@@ -75,6 +31,9 @@ Examples:
 See Also:
    juju help block
 `
+	// blockDoc formatted block doc
+	unblockDoc = fmt.Sprintf(blockBaseDoc, "unblocked", unblockDocEnding)
+)
 
 // Info provides information about command.
 // Satisfying Command interface.

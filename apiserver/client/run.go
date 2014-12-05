@@ -84,12 +84,8 @@ func (c *Client) getDataDir() string {
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
-	cfg, err := c.api.state.EnvironConfig()
-	if err != nil {
+	if err := c.check.ChangeAllowed(); err != nil {
 		return params.RunResults{}, errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return params.RunResults{}, common.ErrOperationBlocked
 	}
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
@@ -128,12 +124,8 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
 func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, error) {
-	cfg, err := c.api.state.EnvironConfig()
-	if err != nil {
+	if err := c.check.ChangeAllowed(); err != nil {
 		return params.RunResults{}, errors.Trace(err)
-	}
-	if common.IsOperationBlocked(common.ChangeOperation, cfg) {
-		return params.RunResults{}, common.ErrOperationBlocked
 	}
 	machines, err := c.api.state.AllMachines()
 	if err != nil {

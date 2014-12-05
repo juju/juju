@@ -308,7 +308,7 @@ func (s *serverSuite) assertSetEnvironAgentVersionBlocked(c *gc.C, blocked bool)
 	}
 	err := s.client.SetEnvironAgentVersion(args)
 	if blocked {
-		c.Assert(err, gc.Equals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.Equals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		envConfig, err := s.State.EnvironConfig()
@@ -365,7 +365,7 @@ func (s *serverSuite) assertAbortCurrentUpgradeBlocked(c *gc.C, blocked bool) {
 	err := s.client.AbortCurrentUpgrade()
 
 	if blocked {
-		c.Assert(err, gc.Equals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.Equals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		isUpgrading, err := s.State.IsUpgrading()
@@ -506,7 +506,7 @@ func (s *serverSuite) assertServiceSetBlocked(c *gc.C, blocked bool, dummy *stat
 			"title":    "foobar",
 			"username": validSetTestValue}})
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		settings, err := dummy.ConfigSettings()
@@ -584,7 +584,7 @@ func (s *serverSuite) assertServerUnsetBlocked(c *gc.C, blocked bool, dummy *sta
 		Options:     []string{"username"},
 	})
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		settings, err := dummy.ConfigSettings()
@@ -637,7 +637,7 @@ func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 func (s *clientSuite) assertServiceSetYAMLBlocked(c *gc.C, blocked bool, dummy *state.Service) {
 	err := s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: foobar\n  username: user name\n")
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		settings, err := dummy.ConfigSettings()
@@ -729,7 +729,7 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 func (s *clientSuite) assertAddServiceUnitsBlocked(c *gc.C, blocked bool) {
 	units, err := s.APIState.Client().AddServiceUnits("dummy", 3, "")
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(units, gc.DeepEquals, []string{"dummy/0", "dummy/1", "dummy/2"})
@@ -1017,7 +1017,7 @@ func (s *clientSuite) assertServiceExposeBlocked(c *gc.C, blocked bool) {
 		c.Logf("test %d. %s", i, t.about)
 		err := s.APIState.Client().ServiceExpose(t.service)
 		if blocked {
-			c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+			c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 		} else {
 			if t.err != "" {
 				c.Assert(err, gc.ErrorMatches, t.err)
@@ -1108,7 +1108,7 @@ func (s *clientSuite) setupServiceUnexpose(c *gc.C) *state.Service {
 func (s *clientSuite) assertServiceUnexposeBlocked(c *gc.C, blocked bool, svc *state.Service) {
 	err := s.APIState.Client().ServiceUnexpose("dummy-service")
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		svc.Refresh()
@@ -1301,7 +1301,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, blocked bool, u *state.Unit) {
 	err := s.APIState.Client().Resolved("wordpress/0", true)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		// Freshen the unit's state.
@@ -1390,7 +1390,7 @@ func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, blocked bo
 		[]string{"network-net1", "network-net2"},
 	)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
@@ -1466,7 +1466,7 @@ func (s *clientSuite) assertServiceDeployPrincipalBlocked(c *gc.C, blocked bool,
 		curl.String(), "service", 3, "", mem4g, "",
 	)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
@@ -1656,7 +1656,7 @@ func (s *clientSuite) TestBlockChangeServiceUpdate(c *gc.C) {
 		ForceCharmUrl: false,
 	}
 	err := s.APIState.Client().ServiceUpdate(args)
-	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
@@ -1902,7 +1902,7 @@ func (s *clientSuite) assertServiceSetCharmBlocked(c *gc.C, blocked bool, force 
 		"service", "cs:precise/wordpress-3", force,
 	)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		// Ensure that the charm is not marked as forced.
@@ -2067,7 +2067,7 @@ func (s *clientSuite) TestBlockChangesAddRelation(c *gc.C) {
 	s.setUpScenario(c)
 	s.blockAllChanges(c)
 	_, err := s.APIState.Client().AddRelation([]string{"wordpress", "mysql"}...)
-	c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 func (s *clientSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
@@ -2252,7 +2252,7 @@ func (s *clientSuite) setupSetServiceConstraints(c *gc.C) (*state.Service, const
 func (s *clientSuite) assertSetServiceConstraints(c *gc.C, blocked bool, service *state.Service, cons constraints.Value) {
 	err := s.APIState.Client().SetServiceConstraints("dummy", cons)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		// Ensure the constraints have been correctly updated.
@@ -2314,7 +2314,7 @@ func (s *clientSuite) assertSetEnvironmentConstraintsBlocked(c *gc.C, blocked bo
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().SetEnvironmentConstraints(cons)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		// Ensure the constraints have been correctly updated.
@@ -2496,7 +2496,7 @@ func (s *clientSuite) setupEnvironmentSet(c *gc.C) {
 func (s *clientSuite) assertEnvironmentSetBlocked(c *gc.C, blocked bool, args map[string]interface{}) {
 	err := s.APIState.Client().EnvironmentSet(args)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		envConfig, err := s.State.EnvironConfig()
@@ -2600,7 +2600,7 @@ func (s *clientSuite) setupEnvironmentUnset(c *gc.C) {
 func (s *clientSuite) assertEnvironmentUnsetBlocked(c *gc.C, blocked bool) {
 	err := s.APIState.Client().EnvironmentUnset("abc")
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		envConfig, err := s.State.EnvironConfig()
@@ -2703,7 +2703,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, blocked bool) {
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(len(machines), gc.Equals, 3)
@@ -3372,7 +3372,7 @@ func (s *clientSuite) setupRetryProvisioning(c *gc.C) *state.Machine {
 func (s *clientSuite) assertRetryProvisioningBlocked(c *gc.C, blocked bool, machine *state.Machine) {
 	_, err := s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	if blocked {
-		c.Assert(err, gc.DeepEquals, common.ErrOperationBlocked)
+		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 		status, info, data, err := machine.Status()
@@ -3477,7 +3477,7 @@ func (s *serverSuite) TestBlockServiceDestroy(c *gc.C) {
 	for i, t := range serviceDestroyTests {
 		c.Logf("test %d. %s", i, t.about)
 		err := s.APIState.Client().ServiceDestroy(t.service)
-		c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+		c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 		// Tests may have invalid service names.
 		service, err := s.State.Service(t.service)
 		if err == nil {
@@ -3508,7 +3508,7 @@ func (s *clientSuite) assertBlockedErrorAndLiveliness(c *gc.C, err error,
 	living2 state.Living,
 	living3 state.Living,
 	living4 state.Living) {
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, living1, state.Alive)
 	assertLife(c, living2, state.Alive)
 	assertLife(c, living3, state.Alive)
@@ -3655,13 +3655,13 @@ func (s *clientSuite) TestBlockRemoveDestroySubordinateUnits(c *gc.C) {
 	s.blockRemoveObject(c)
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, rel, state.Alive)
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 	assertLife(c, rel, state.Alive)
@@ -3686,13 +3686,13 @@ func (s *clientSuite) TestBlockChangesDestroySubordinateUnits(c *gc.C) {
 	s.blockAllChanges(c)
 	// Try to destroy the subordinate alone; check it fails.
 	err = s.APIState.Client().DestroyServiceUnits("logging/0")
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, rel, state.Alive)
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 
 	err = s.APIState.Client().DestroyServiceUnits("wordpress/0", "logging/0")
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, wordpress0, state.Alive)
 	assertLife(c, logging0, state.Alive)
 	assertLife(c, rel, state.Alive)
@@ -3729,7 +3729,7 @@ func (s *clientSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	// block remove-objects
 	s.blockRemoveObject(c)
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, relation, state.Alive)
 }
 
@@ -3738,7 +3738,7 @@ func (s *clientSuite) TestBlockChangeDestroyRelation(c *gc.C) {
 	relation := s.setupRelationScenario(c, endpoints)
 	s.blockAllChanges(c)
 	err := s.APIState.Client().DestroyRelation(endpoints...)
-	c.Assert(err, gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
 	assertLife(c, relation, state.Alive)
 }
 

@@ -9,10 +9,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.block")
@@ -35,55 +36,17 @@ var getBlockClientAPI = func(p *ProtectionCommand) (ClientAPI, error) {
 }
 
 var (
-	// This variable has all valid operations that can be
+	// blockArgs has all valid operations that can be
 	// supplied to the command.
 	// These operations do not necessarily correspond to juju commands
 	// but are rather juju command groupings.
 	blockArgs = []string{"destroy-environment", "remove-object", "all-changes"}
 
-	// Formatted representation of block command valid arguments.
+	// blockArgsFmt has formatted representation of block command valid arguments.
 	blockArgsFmt = fmt.Sprintf(strings.Join(blockArgs, " | "))
-)
 
-// setBlockEnvironmentVariable sets desired environment variable to given value.
-func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
-	client, err := getBlockClientAPI(p)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer client.Close()
-	attrs := map[string]interface{}{config.BlockKeyPrefix + p.operation: block}
-	return client.EnvironmentSet(attrs)
-}
-
-// assignValidOperation verifies that supplied operation is supported.
-func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) error {
-	if len(args) != 1 {
-		return errors.Trace(errors.Errorf("must specify one of [%v] to %v", blockArgsFmt, cmd))
-	}
-	var err error
-	p.operation, err = p.obtainValidArgument(args[0])
-	return err
-}
-
-// obtainValidArgument returns polished argument:
-// it checks that the argument is a supported operation and
-// forces it into lower case for consistency.
-func (p *ProtectionCommand) obtainValidArgument(arg string) (string, error) {
-	for _, valid := range blockArgs {
-		if strings.EqualFold(valid, arg) {
-			return strings.ToLower(arg), nil
-		}
-	}
-	return "", errors.Trace(errors.Errorf("%q is not a valid argument: use one of [%v]", arg, blockArgsFmt))
-}
-
-// BlockCommand blocks specified operation.
-type BlockCommand struct {
-	ProtectionCommand
-}
-
-var blockDoc = `
+	// blockBaseDoc common block doc
+	blockBaseDoc = `
 
 Juju allows to safeguard deployed environments from unintentional damage by preventing
 execution of operations that could alter environment.
@@ -93,7 +56,7 @@ must be manually unblocked to proceed.
 
 Some comands offer a --force option that can be used to bypass a block.
 
-Commands that can be blocked are grouped based on logical operations as follows:
+Commands that can be %s are grouped based on logical operations as follows:
 
 destroy-environment includes command:
     destroy-environment
@@ -134,6 +97,51 @@ all-changes includes all alteration commands
     user change-password
     user disable
     user enable
+    %s
+`
+)
+
+// setBlockEnvironmentVariable sets desired environment variable to given value.
+func (p *ProtectionCommand) setBlockEnvironmentVariable(block bool) error {
+	client, err := getBlockClientAPI(p)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+	attrs := map[string]interface{}{config.BlockKeyPrefix + p.operation: block}
+	return client.EnvironmentSet(attrs)
+}
+
+// assignValidOperation verifies that supplied operation is supported.
+func (p *ProtectionCommand) assignValidOperation(cmd string, args []string) error {
+	if len(args) != 1 {
+		return errors.Trace(errors.Errorf("must specify one of [%v] to %v", blockArgsFmt, cmd))
+	}
+	var err error
+	p.operation, err = p.obtainValidArgument(args[0])
+	return err
+}
+
+// obtainValidArgument returns polished argument:
+// it checks that the argument is a supported operation and
+// forces it into lower case for consistency.
+func (p *ProtectionCommand) obtainValidArgument(arg string) (string, error) {
+	for _, valid := range blockArgs {
+		if strings.EqualFold(valid, arg) {
+			return strings.ToLower(arg), nil
+		}
+	}
+	return "", errors.Trace(errors.Errorf("%q is not a valid argument: use one of [%v]", arg, blockArgsFmt))
+}
+
+// BlockCommand blocks specified operation.
+type BlockCommand struct {
+	ProtectionCommand
+}
+
+var (
+	// blockDocEnding - ending of block doc
+	blockDocEnding = `
 
 Examples:
    To prevent the environment from being destroyed:
@@ -149,6 +157,9 @@ See Also:
    juju help unblock
 
 `
+	// blockDoc formatted block doc
+	blockDoc = fmt.Sprintf(blockBaseDoc, "blocked", blockDocEnding)
+)
 
 // Info provides information about command.
 // Satisfying Command interface.
