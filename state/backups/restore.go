@@ -57,7 +57,7 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 	dialOpts := mongo.DialOpts{Direct: true}
 	ssi, ok := conf.StateServingInfo()
 	if !ok {
-		errors.Errorf("cannot get state serving info to dial")
+		return nil, errors.Errorf("cannot get state serving info to dial")
 	}
 	info := mongo.Info{
 		Addrs:  []string{fmt.Sprintf("%s:%d", privateAddr, ssi.StatePort)},

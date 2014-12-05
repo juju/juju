@@ -230,13 +230,13 @@ func (b *backups) Remove(id string) error {
 func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id) error {
 	// TODO(perrito666) when upload is properly coded files will be added
 	// to the backups index and this method can just leave.
-	backupFile, err := backupFile(backupId, b)
+	backupReader, err := backupFile(backupId, b)
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain a backup")
 	}
-	defer backupFile.Close()
+	defer backupReader.Close()
 
-	workspace, err := NewArchiveWorkspaceReader(backupFile)
+	workspace, err := NewArchiveWorkspaceReader(backupReader)
 	if err != nil {
 		return errors.Annotate(err, "cannot unpack backup file")
 	}
@@ -267,10 +267,11 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 		return errors.Errorf("cannot determine state serving info")
 	}
 
-	APIHostPort := network.HostPort{Address: network.Address{
-		Value: privateAddress,
-		Type:  network.DeriveAddressType(privateAddress),
-	},
+	APIHostPort := network.HostPort{
+		Address: network.Address{
+			Value: privateAddress,
+			Type:  network.DeriveAddressType(privateAddress),
+		},
 		Port: ssi.APIPort}
 	agentConfig.SetAPIHostPorts([][]network.HostPort{{APIHostPort}})
 	if err := agentConfig.Write(); err != nil {
@@ -278,7 +279,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	}
 
 	// Restore mongodb from backup
-	if err := PlaceNewMongo(workspace.DBDumpDir, version); err != nil {
+	if err := placeNewMongo(workspace.DBDumpDir, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
 	}
 
@@ -308,12 +309,12 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	defer st.Close()
 
 	// update all agents known to the new state server.
-	// TODO(perrito666): We should never stop process because of this
-	// it is too late to go back and errors in a couple of agents have
-	// better chance of being fixed by the user, if we where to fail
+	// TODO(perrito666): We should never stop process because of this.
+	// It is too late to go back and errors in a couple of agents have
+	// better chance of being fixed by the user, if we were to fail
 	// we risk an inconsistent state server because of one unresponsive
 	// agent, we should nevertheless return the err info to the user.
-	// for this updateAllMachines will not return errors for individual
+	// updateAllMachines will not return errors for individual
 	// agent update failures
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -323,7 +324,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 		return errors.Annotate(err, "cannot update agents")
 	}
 
-	rInfo, err := st.EnsureRestoreInfo()
+	info, err := st.EnsureRestoreInfo()
 
 	if err != nil {
 		return errors.Trace(err)
@@ -331,7 +332,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 
 	// Mark restoreInfo as Finished so upon restart of the apiserver
 	// the client can reconnect and determine if we where succesful.
-	err = rInfo.SetStatus(state.RestoreFinished)
+	err = info.SetStatus(state.RestoreFinished)
 
 	return errors.Annotate(err, "failed to set status to finished")
 }

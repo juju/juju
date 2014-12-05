@@ -248,9 +248,9 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	}
 }
 
-// PlaceNewMongo tries to use mongorestore to replace an existing
+// placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
-func PlaceNewMongo(newMongoDumpPath string, ver version.Number) error {
+func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
 	mongoRestore, err := mongorestorePath()
 	if err != nil {
 		return errors.Annotate(err, "mongorestore not available")
