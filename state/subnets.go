@@ -240,7 +240,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	var doc struct {
 		Value string
 	}
-	allocated := []uint32{}
+	allocated := make(map[uint32]bool)
 	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
 	for iter.Next(&doc) {
 		// skip invalid values? Can't happen anyway as we validate.
@@ -248,7 +248,10 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 		if err != nil {
 			continue
 		}
-		allocated = append(allocated, value)
+		allocated[value] = true
+	}
+	if int(highDecimal-lowDecimal)+1 >= len(allocated) {
+		return nil, errors.New("IP addresses exhausted")
 	}
 
 	// pick a new random decimal between the low and high bounds that
@@ -258,6 +261,10 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	// convert it back to a dotted-quad and create a new IPAddress from it
 	// return it!
 	return nil, nil
+}
+
+func pickAddress(low, high uint32, allocated map[uint32]bool) uint32 {
+	return uint32(32)
 }
 
 func decimalToIP(addr uint32) string {
