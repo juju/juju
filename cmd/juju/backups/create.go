@@ -138,6 +138,7 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 func (c *CreateCommand) download(ctx *cmd.Context, id string, filename string) error {
 	fmt.Fprintln(ctx.Stdout, "downloading to "+filename)
 
+	// TODO(ericsnow) lp-1399722 This needs further investigation:
 	// There is at least anecdotal evidence that we cannot use an API
 	// client for more than a single request. So we use a new client
 	// for download.
