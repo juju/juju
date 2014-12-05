@@ -451,7 +451,7 @@ func (s *MongoSuite) TestWaitUntilReadyTimeout(c *gc.C) {
 	defer session.Close()
 
 	err := WaitUntilReady(session, 0)
-	c.Assert(err, gc.ErrorMatches, "timed out after 1 seconds")
+	c.Assert(err, gc.ErrorMatches, "timed out after 0 seconds")
 }
 
 func (s *MongoSuite) TestWaitUntilReadyError(c *gc.C) {
