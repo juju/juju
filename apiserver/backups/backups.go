@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -78,4 +79,32 @@ func extractResourceValue(resources *common.Resources, key string) (string, erro
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
 	stor := backups.NewStorage(st)
 	return backups.NewBackups(stor), stor
+}
+
+// ResultFromMetadata updates the result with the information in the
+// metadata value.
+func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
+	var result params.BackupsMetadataResult
+
+	result.ID = meta.ID()
+
+	result.Checksum = meta.Checksum()
+	result.ChecksumFormat = meta.ChecksumFormat()
+	result.Size = meta.Size()
+	if meta.Stored() != nil {
+		result.Stored = *(meta.Stored())
+	}
+
+	result.Started = meta.Started
+	if meta.Finished != nil {
+		result.Finished = *meta.Finished
+	}
+	result.Notes = meta.Notes
+
+	result.Environment = meta.Origin.Environment
+	result.Machine = meta.Origin.Machine
+	result.Hostname = meta.Origin.Hostname
+	result.Version = meta.Origin.Version
+
+	return result
 }
