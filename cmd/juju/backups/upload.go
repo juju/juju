@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/backups"
 )
@@ -108,7 +109,7 @@ func (c *UploadCommand) getStoredMetadata(id string) (*params.BackupsMetadataRes
 	// for download.
 	client, err := c.NewAPIClient()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -168,8 +169,7 @@ func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.Back
 	}
 
 	// Pack the metadata into a result.
-	var metaResult params.BackupsMetadataResult
-	metaResult.UpdateFromMetadata(meta)
+	metaResult := apiserverbackups.ResultFromMetadata(meta)
 
 	return archive, &metaResult, nil
 }
