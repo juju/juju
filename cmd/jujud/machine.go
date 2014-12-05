@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -701,6 +702,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcher(st)
+			})
+			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
+				workerLoop := lease.WorkerLoop(st)
+				return worker.NewSimpleWorker(workerLoop), nil
 			})
 			apiserverWorker := func() (worker.Worker, error) {
 				agentConfig = a.CurrentConfig()
