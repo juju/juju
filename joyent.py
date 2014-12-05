@@ -317,7 +317,8 @@ class Client:
             alive = command.pop(0)
             if len(alive) > 5 and int(alive.split(':')[0]) > 0:
                 # the pid has an hours column and the value is greater than 1.
-                print("Pid {} is {} old. Ending {}".format(pid, alive, command))
+                print(
+                    "Pid {} is {} old. Ending {}".format(pid, alive, command))
                 subprocess.check_output(['kill', '-9', pid])
         machines = self._list_machines()
         now = datetime.utcnow()
@@ -345,7 +346,8 @@ class Client:
         self.request_deletion(current_stuck, contact_mail_address)
 
 
-def main():
+def parse_args(args=None):
+    """Return the argument parser for this program."""
     parser = ArgumentParser('Query and manage joyent.')
     parser.add_argument(
         '-v', '--verbose', action="store_true", help='Increse verbosity.')
@@ -368,7 +370,11 @@ def main():
     parser.add_argument('action', help='The action to perform.')
     parser.add_argument(
         'machine_id', help='The machine id.', nargs="?", default=None)
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+def main(argv):
+    args = parse_args(argv)
     if not args.sdc_url:
         print('SDC_URL must be sourced into the environment.')
         sys.exit(1)
@@ -385,4 +391,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(sys.argv[1:]))
