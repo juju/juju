@@ -208,9 +208,13 @@ func (u *User) LastLogin() *time.Time {
 }
 
 // nowToTheSecond returns the current time in UTC to the nearest second.
-func nowToTheSecond() time.Time {
-	return time.Now().Round(time.Second).UTC()
-}
+// We use this for a time source that is not more precise than we can
+// handle. When serializing time in and out of mongo, we lose enough
+// precision that it's misleading to store any more than precision to
+// the second.
+// TODO(jcw4) time dependencies should be injectable, not just internal
+// to package.
+var nowToTheSecond = func() time.Time { return time.Now().Round(time.Second).UTC() }
 
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
