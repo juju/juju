@@ -92,13 +92,28 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Pull the stored metadata.
-	stored, err := client.Info(id)
+	stored, err := c.getStoredMetadata(id)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	c.dumpMetadata(ctx, stored)
 	return nil
+}
+
+func (c *UploadCommand) getStoredMetadata(id string) (*params.BackupsMetadataResult, error) {
+	// TODO(ericsnow) lp-1399722 This should be addressed.
+	// There is at least anecdotal evidence that we cannot use an API
+	// client for more than a single request. So we use a new client
+	// for download.
+	client, err := c.NewAPIClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+
+	stored, err := client.Info(id)
+	return stored, errors.Trace(err)
 }
 
 func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.BackupsMetadataResult, error) {
