@@ -470,9 +470,6 @@ func isConnectionNotAvailable(err error) bool {
 	if errors.Cause(err) == io.EOF {
 		return true
 	}
-	if strings.Contains(err.Error(), "connection is shut down") {
-		return true
-	}
 	return false
 }
 
