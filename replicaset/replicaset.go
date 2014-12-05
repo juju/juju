@@ -41,9 +41,10 @@ const (
 
 var logger = loggo.GetLogger("juju.replicaset")
 
-var getCurrentStatus = CurrentStatus
-
-var isReady = IsReady
+var (
+	getCurrentStatus = CurrentStatus
+	isReady          = IsReady
+)
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -434,7 +435,7 @@ type MemberStatus struct {
 // members are ready then the result is true.
 func IsReady(session *mgo.Session) (bool, error) {
 	status, err := getCurrentStatus(session)
-	if errors.Cause(err) == io.EOF || (err != nil && strings.Contains(err.Error(), "connection refused")) {
+	if isConnectionNotAvailable(err) {
 		// The connection dropped...
 		logger.Errorf("DB connection dropped so reconnecting")
 		session.Refresh()
@@ -458,6 +459,22 @@ func IsReady(session *mgo.Session) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func isConnectionNotAvailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Cause(err) == io.EOF {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection refused") {
+		return true
+	}
+	if strings.Contains(err.Error(), "connection is shut down") {
+		return true
+	}
+	return false
 }
 
 // WaitUntilReady waits until all members of the replicaset are ready.
