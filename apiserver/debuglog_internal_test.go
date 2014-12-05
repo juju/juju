@@ -207,10 +207,10 @@ func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, back
 	dir := c.MkDir()
 	logPath := filepath.Join(dir, "logfile.txt")
 	logFile, err := os.Create(logPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer logFile.Close()
 	logFileReader, err := os.Open(logPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer logFileReader.Close()
 
 	logFile.WriteString(`line 1
@@ -223,7 +223,7 @@ line 3
 		maxLines:     maxLines,
 	}
 	err = stream.positionLogFile(logFileReader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
 	writer := &chanWriter{make(chan []byte)}
 	stream.start(logFileReader, writer)
@@ -251,7 +251,7 @@ line 3
 
 	err = stream.tomb.Wait()
 	if errMatch == "" {
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, gc.ErrorMatches, errMatch)
 	}
@@ -309,7 +309,7 @@ func assertStreamParams(c *gc.C, obtained, expected *logStream) {
 
 func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 	obtained, err := newLogStream(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertStreamParams(c, obtained, &logStream{})
 
 	values := url.Values{
@@ -334,7 +334,7 @@ func (s *debugInternalSuite) TestNewLogStream(c *gc.C) {
 		fromTheStart:  true,
 	}
 	obtained, err = newLogStream(values)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertStreamParams(c, obtained, expected)
 
 	_, err = newLogStream(url.Values{"maxLines": []string{"foo"}})

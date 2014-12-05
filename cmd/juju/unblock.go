@@ -3,12 +3,7 @@
 
 package main
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/juju/cmd"
-)
+import "github.com/juju/cmd"
 
 // UnblockCommand removes the block from desired operation.
 type UnblockCommand struct {
@@ -23,13 +18,27 @@ execution of operations that could alter environment.
 This is done by blocking certain operations from successful execution. Blocked operations
 must be manually unblocked to proceed.
 
-Operations that can be unblocked are
+Some comands offer a --force option that can be used to bypass a block.
 
-destroy environment
+Commands that can be unblocked are grouped based on logical operations as follows:
+
+destroy-environment includes command:
+    destroy-environment
+
+remove-object includes termination commands:
+    remove-machine
+    remove-service
+    remove-unit
+    remove-relation
 
 
 Examples:
-   juju unblock destroy-environment      (unblocks destroy environment)
+   To allow the environment to be destroyed:
+   juju unblock destroy-environment
+
+   To allow the machines, services, units and relations to be removed:
+   juju unblock remove-object
+
 
 See Also:
    juju help block
@@ -38,7 +47,7 @@ See Also:
 func (c *UnblockCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "unblock",
-		Args:    fmt.Sprintf(strings.Join(blockArgs, " | ")),
+		Args:    blockArgsFmt,
 		Purpose: "unblock an operation that would alter a running environment",
 		Doc:     unblockDoc,
 	}

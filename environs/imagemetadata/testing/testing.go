@@ -9,6 +9,7 @@ import (
 	"path"
 	"sort"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -21,7 +22,7 @@ import (
 // ParseMetadataFromDir loads ImageMetadata from the specified directory.
 func ParseMetadataFromDir(c *gc.C, metadataDir string) []*imagemetadata.ImageMetadata {
 	stor, err := filestorage.NewFileStorageReader(metadataDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return ParseMetadataFromStorage(c, stor)
 }
 
@@ -39,7 +40,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 
 	imageIndexMetadata := indexRef.Indexes["com.ubuntu.cloud:custom"]
@@ -48,15 +49,15 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 	// Read the products file contents.
 	r, err := stor.Get(path.Join("images", imageIndexMetadata.ProductsFilePath))
 	defer r.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	data, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Parse the products file metadata.
 	url, err := source.URL(imageIndexMetadata.ProductsFilePath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, imagemetadata.ImageMetadata{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Collate the metadata.
 	imageMetadataMap := make(map[string]*imagemetadata.ImageMetadata)

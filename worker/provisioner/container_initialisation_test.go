@@ -66,7 +66,7 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
 	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.initLock = initLock
 }
 
@@ -79,9 +79,9 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg := s.AgentConfigForTag(c, tag)
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
@@ -102,7 +102,7 @@ func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctyp
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, host.Id(), ctype)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// the host machine agent should not attempt to create the container
 	s.checkNoOperations(c)
@@ -145,11 +145,11 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 			Jobs:        []state.MachineJob{state.JobHostUnits},
 			Constraints: s.defaultConstraints,
 		})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetAgentVersion(version.Current)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
 }
@@ -158,7 +158,7 @@ func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
 	pr := s.st.Provisioner()
 	expect := func(expect string) {
 		cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cfg[container.ConfigName], gc.Equals, expect)
 	}
 	expect("juju")
@@ -180,11 +180,11 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.createContainer(c, m, ctype)
 
 	cmd := <-s.aptCmdChan
@@ -215,19 +215,19 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.RemoveAll(s.initLockDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
 	runner.Kill()
 	err = runner.Wait()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = handler.SetUp()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = handler.Handle([]string{"0/lxc/0"})
 	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
 

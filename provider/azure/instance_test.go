@@ -36,7 +36,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 	s.role = &s.deployment.RoleList[0]
 	s.role.RoleName = "role-one"
 	inst, err := s.env.getInstance(s.service, s.role.RoleName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst, gc.FitsTypeOf, &azureInstance{})
 	s.instance = inst.(*azureInstance)
 }
@@ -89,7 +89,7 @@ func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
 
 func serialize(c *gc.C, object gwacl.AzureObject) []byte {
 	xml, err := object.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return []byte(xml)
 }
 
@@ -161,7 +161,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	}
 
 	addrs, err := s.instance.Addresses()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(addrs, jc.SameContents, expected)
 }
 
@@ -174,7 +174,7 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 	err := s.instance.OpenPorts("machine-id", []network.PortRange{
 		{79, 79, "tcp"}, {587, 587, "tcp"}, {9, 9, "udp"},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
@@ -185,7 +185,7 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 	// ports requested.
 	role := &gwacl.PersistentVMRole{}
 	err = role.Deserialize((*record)[1].Payload)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(
 		*configSetNetwork((*gwacl.Role)(role)).InputEndpoints,
 		gc.DeepEquals,
@@ -256,7 +256,7 @@ func (s *instanceSuite) TestClosePorts(c *gc.C) {
 		record := gwacl.PatchManagementAPIResponses(responses)
 
 		err := s.instance.ClosePorts("machine-id", test.removePorts)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		assertPortChangeConversation(c, *record, []expectedRequest{
 			{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
 			{"PUT", ".*/deployments/deployment-one/roles/role-one"}, // UpdateRole
@@ -266,7 +266,7 @@ func (s *instanceSuite) TestClosePorts(c *gc.C) {
 		// configuration.
 		roleOne := &gwacl.PersistentVMRole{}
 		err = roleOne.Deserialize((*record)[1].Payload)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		endpoints := configSetNetwork((*gwacl.Role)(roleOne)).InputEndpoints
 		if len(test.outputPorts) == 0 {
 			c.Check(endpoints, gc.IsNil)
@@ -359,7 +359,7 @@ func (s *instanceSuite) testPorts(c *gc.C, maskStateServerPorts bool) {
 	record := gwacl.PatchManagementAPIResponses(responses)
 	s.instance.maskStateServerPorts = maskStateServerPorts
 	ports, err := s.instance.Ports("machine-id")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
 	})

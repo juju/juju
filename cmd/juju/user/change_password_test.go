@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -110,7 +111,7 @@ func (s *ChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
 
 func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserChangePassword())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
 	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
 	expected := `
@@ -123,7 +124,7 @@ type password again:
 
 func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
 	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
 	c.Assert(s.mockAPI.password, gc.HasLen, 24)
@@ -161,7 +162,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
 	// The checks for user existence and admin rights are tested
 	// at the apiserver level.
 	context, err := testing.RunCommand(c, newUserChangePassword(), "other")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
 	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
 	filename := context.AbsPath("other.jenv")
@@ -180,7 +181,7 @@ func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
 	// at the apiserver level.
 	filename := filepath.Join(c.MkDir(), "test.jenv")
 	context, err := testing.RunCommand(c, newUserChangePassword(), "other", "-o", filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "other")
 	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
 	expected := `

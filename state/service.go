@@ -31,21 +31,22 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver/params.
 type serviceDoc struct {
-	DocID         string `bson:"_id"`
-	Name          string `bson:"name"`
-	EnvUUID       string `bson:"env-uuid"`
-	Series        string
-	Subordinate   bool
-	CharmURL      *charm.URL
-	ForceCharm    bool
-	Life          Life
-	UnitSeq       int
-	UnitCount     int
-	RelationCount int
-	Exposed       bool
-	MinUnits      int
-	OwnerTag      string
-	TxnRevno      int64 `bson:"txn-revno"`
+	DocID             string     `bson:"_id"`
+	Name              string     `bson:"name"`
+	EnvUUID           string     `bson:"env-uuid"`
+	Series            string     `bson:"series"`
+	Subordinate       bool       `bson:"subordinate"`
+	CharmURL          *charm.URL `bson:"charmurl"`
+	ForceCharm        bool       `bson:forcecharm"`
+	Life              Life       `bson:"life"`
+	UnitSeq           int        `bson:"unitseq"`
+	UnitCount         int        `bson:"unitcount"`
+	RelationCount     int        `bson:"relationcount"`
+	Exposed           bool       `bson:"exposed"`
+	MinUnits          int        `bson:"minunits"`
+	OwnerTag          string     `bson:"ownertag"`
+	TxnRevno          int64      `bson:"txn-revno"`
+	MetricCredentials []byte     `bson:"metric-credentials"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -857,6 +858,43 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 // be present on machines hosting this service's units.
 func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
+}
+
+// MetricCredentials returns any metric credentials associated with this service.
+func (s *Service) MetricCredentials() []byte {
+	return s.doc.MetricCredentials
+}
+
+// SetMetricCredentials updates the metric credentials associated with this service.
+func (s *Service) SetMetricCredentials(b []byte) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			//notDead, err := isNotDead(s.st.db, servicesC, s.doc.DocID)
+			notDead, err := isNotDead(s.st.db, servicesC, s.st.docID(s.doc.DocID))
+			if err != nil {
+				return nil, errors.Trace(err)
+			} else if !notDead {
+				return nil, ErrDead
+			}
+		}
+		ops := []txn.Op{
+			{
+				C:      servicesC,
+				Id:     s.doc.DocID,
+				Assert: isAliveDoc,
+				Update: bson.M{"$set": bson.M{"metric-credentials": b}},
+			},
+		}
+		return ops, nil
+	}
+	if err := s.st.run(buildTxn); err != nil {
+		if err == ErrDead {
+			return errors.New("cannot update metric credentials: service not found or dead")
+		}
+		return errors.Annotatef(err, "cannot update metric credentials")
+	}
+	s.doc.MetricCredentials = b
+	return nil
 }
 
 // settingsIncRefOp returns an operation that increments the ref count

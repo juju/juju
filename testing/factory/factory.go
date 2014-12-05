@@ -139,20 +139,20 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	}
 	if params.Creator == nil {
 		env, err := factory.st.Environment()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		params.Creator = env.Owner()
 	}
 	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if !params.NoEnvUser {
 		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Disabled {
 		err := user.Disable()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return user
 }
@@ -175,7 +175,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	}
 	createdByUserTag := params.CreatedBy.(names.UserTag)
 	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return envUser
 }
 
@@ -198,7 +198,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 	if params.Password == "" {
 		var err error
 		params.Password, err = utils.RandomPassword()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return params
 }
@@ -226,7 +226,7 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 		parentId,
 		instance.LXC,
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return m
 }
 
@@ -237,11 +237,11 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(params.Password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
@@ -275,7 +275,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := factory.UniqueString("bundlesha")
 	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return charm
 }
 
@@ -298,7 +298,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	}
 	_ = params.Creator.(names.UserTag)
 	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
 
@@ -316,13 +316,13 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 		params.Service = factory.MakeService(c, nil)
 	}
 	unit, err := params.Service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(params.Machine)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if params.SetCharmURL {
 		serviceCharmURL, _ := params.Service.CharmURL()
 		err = unit.SetCharmURL(serviceCharmURL)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return unit
 }
@@ -344,14 +344,14 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{"pings", strconv.Itoa(factory.UniqueInteger()), *params.Time, []byte("creds")}}
+		params.Metrics = []state.Metric{{"pings", strconv.Itoa(factory.UniqueInteger()), *params.Time}}
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	if params.Sent {
 		err := metric.SetSent()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return metric
 }
@@ -370,7 +370,7 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 			}),
 		})
 		e1, err := s1.Endpoint("server")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		s2 := factory.MakeService(c, &ServiceParams{
 			Charm: factory.MakeCharm(c, &CharmParams{
@@ -378,13 +378,13 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 			}),
 		})
 		e2, err := s2.Endpoint("db")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		params.Endpoints = []state.Endpoint{e1, e2}
 	}
 
 	relation, err := factory.st.AddRelation(params.Endpoints...)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return relation
 }
@@ -404,17 +404,17 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Environment()
-		c.Assert(err, jc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
 
 	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
 	})
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
-	c.Assert(err, jc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return st
 }

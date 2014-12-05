@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
@@ -272,7 +273,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
 		images, resolveInfo, err := imagemetadata.Fetch(
 			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint, s.RequireSigned)
-		if !c.Check(err, gc.IsNil) {
+		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
 		for _, testImage := range t.images {
@@ -300,7 +301,7 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	for _, stream := range []string{"", "released"} {
 		imageConstraint.Stream = stream
 		ids, err := imageConstraint.ProductIds()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
 	}
 }
@@ -312,7 +313,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 		Stream: "daily",
 	})
 	ids, err := imageConstraint.ProductIds()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
 }
 
@@ -323,7 +324,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 		Stream: "daily",
 	})
 	ids, err := imageConstraint.ProductIds()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
@@ -353,7 +354,7 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 	r := bytes.NewReader([]byte(rawUnsignedIndex))
 	signedData, err := simplestreams.Encode(
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/index.sjson"] = string(signedData)
 
 	// Replace the image id in the unsigned data with a different one so we can test that the right
@@ -363,7 +364,7 @@ func (s *signedSuite) SetUpSuite(c *gc.C) {
 	r = bytes.NewReader([]byte(rawUnsignedProduct))
 	signedData, err = simplestreams.Encode(
 		r, sstesting.SignedMetadataPrivateKey, sstesting.PrivateKeyPassphrase)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	imageData["/signed/streams/v1/image_metadata.sjson"] = string(signedData)
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
 		imageData, map[string]int{"signedtest://unauth": http.StatusUnauthorized})
@@ -383,7 +384,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 		Arches:    []string{"amd64"},
 	})
 	images, resolveInfo, err := imagemetadata.Fetch([]simplestreams.DataSource{signedSource}, imageConstraint, true)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(images), gc.Equals, 1)
 	c.Assert(images[0].Id, gc.Equals, "ami-123456")
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{

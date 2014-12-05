@@ -47,7 +47,7 @@ func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Check(err, gc.IsNil)
+			c.Check(err, jc.ErrorIsNil)
 			c.Assert(got, gc.Equals, t.want)
 		}
 	}

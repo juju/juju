@@ -6,6 +6,7 @@ package instances
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -357,7 +358,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata(
 			[]byte(jsonImagesContent),
 			simplestreams.NewURLDataSource("test", "some-url", utils.VerifySSLHostnames), cons)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {
 			im := *imageMetadata
@@ -378,7 +379,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		} else {
-			if !c.Check(err, gc.IsNil) {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 			c.Check(spec.Image.Id, gc.Equals, t.imageId)

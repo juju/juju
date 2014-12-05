@@ -174,7 +174,7 @@ func (s *HookQueueSuite) TestAliveHookQueue(c *gc.C) {
 		}
 		expect{}.check(c, in, out)
 		q.Stop()
-		c.Assert(ruw.stopped, gc.Equals, true)
+		c.Assert(ruw.stopped, jc.IsTrue)
 	}
 }
 

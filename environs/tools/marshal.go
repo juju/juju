@@ -23,34 +23,39 @@ func ToolsContentId(stream string) string {
 
 // ProductMetadataPath returns the tools product metadata path for the given stream.
 func ProductMetadataPath(stream string) string {
-	return fmt.Sprintf("streams/v1/com.ubuntu.juju:%s:tools.json", stream)
+	return fmt.Sprintf("streams/v1/com.ubuntu.juju-%s-tools.json", stream)
 }
 
 // MarshalToolsMetadataJSON marshals tools metadata to index and products JSON.
 // updated is the time at which the JSON file was updated.
-func MarshalToolsMetadataJSON(metadata map[string][]*ToolsMetadata, updated time.Time) (index []byte, products map[string][]byte, err error) {
-	if index, err = MarshalToolsMetadataIndexJSON(metadata, updated); err != nil {
-		return nil, nil, err
+func MarshalToolsMetadataJSON(metadata map[string][]*ToolsMetadata, updated time.Time) (index, legacyIndex []byte, products map[string][]byte, err error) {
+	if index, legacyIndex, err = marshalToolsMetadataIndexJSON(metadata, updated); err != nil {
+		return nil, nil, nil, err
 	}
 	if products, err = MarshalToolsMetadataProductsJSON(metadata, updated); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return index, products, err
+	return index, legacyIndex, products, err
 }
 
-// MarshalToolsMetadataIndexJSON marshals tools metadata to index JSON.
+// marshalToolsMetadataIndexJSON marshals tools metadata to index JSON.
 // updated is the time at which the JSON file was updated.
-func MarshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, updated time.Time) (out []byte, err error) {
+func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, updated time.Time) (out, outlegacy []byte, err error) {
 	var indices simplestreams.Indices
 	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = simplestreams.IndexFormat
 	indices.Indexes = make(map[string]*simplestreams.IndexMetadata, len(streamMetadata))
+
+	var indicesLegacy simplestreams.Indices
+	indicesLegacy.Updated = updated.Format(time.RFC1123Z)
+	indicesLegacy.Format = simplestreams.IndexFormat
+
 	for stream, metadata := range streamMetadata {
 		productIds := make([]string, len(metadata))
 		for i, t := range metadata {
 			productIds[i], err = t.productId()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		indexMetadata := &simplestreams.IndexMetadata{
@@ -61,8 +66,20 @@ func MarshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 			ProductIds:       set.NewStrings(productIds...).SortedValues(),
 		}
 		indices.Indexes[ToolsContentId(stream)] = indexMetadata
+		if stream == ReleasedStream {
+			indicesLegacy.Indexes = make(map[string]*simplestreams.IndexMetadata, 1)
+			indicesLegacy.Indexes[ToolsContentId(stream)] = indexMetadata
+		}
 	}
-	return json.MarshalIndent(&indices, "", "    ")
+	out, err = json.MarshalIndent(&indices, "", "    ")
+	if len(indicesLegacy.Indexes) == 0 {
+		return out, nil, err
+	}
+	outlegacy, err = json.MarshalIndent(&indicesLegacy, "", "    ")
+	if err != nil {
+		return nil, nil, err
+	}
+	return out, outlegacy, nil
 }
 
 // MarshalToolsMetadataProductsJSON marshals tools metadata to products JSON.

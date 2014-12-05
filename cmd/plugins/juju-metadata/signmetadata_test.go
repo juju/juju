@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/simplestreams"
@@ -48,21 +49,21 @@ func makeFileNames(topLevel string) []string {
 
 func setupJsonFiles(c *gc.C, topLevel string) {
 	err := os.MkdirAll(filepath.Join(topLevel, "subdir1", "subdir2"), 0700)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	content := []byte("hello world")
 	filenames := makeFileNames(topLevel)
 	for _, filename := range filenames {
 		err = ioutil.WriteFile(filename, content, 0644)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func assertSignedFile(c *gc.C, filename string) {
 	r, err := os.Open(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()
 	data, err := simplestreams.DecodeCheckSignature(r, sstesting.SignedMetadataPublicKey)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "hello world\n")
 }
 
@@ -78,7 +79,7 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 	topLevel := c.MkDir()
 	keyfile := filepath.Join(topLevel, "privatekey.asc")
 	err := ioutil.WriteFile(keyfile, []byte(sstesting.SignedMetadataPrivateKey), 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	setupJsonFiles(c, topLevel)
 
 	ctx := coretesting.Context(c)

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -24,6 +25,9 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 type API struct {
 	st    *state.State
 	paths *backups.Paths
+
+	// machineID is the ID of the machine where the API server is running.
+	machineID string
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -33,40 +37,74 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	}
 
 	// Get the backup paths.
-
-	dataDirRes := resources.Get("dataDir")
-	dataDir, ok := dataDirRes.(common.StringResource)
-	if !ok {
-		if dataDirRes == nil {
-			dataDir = ""
-		} else {
-			return nil, errors.Errorf("invalid dataDir resource: %v", dataDirRes)
-		}
+	dataDir, err := extractResourceValue(resources, "dataDir")
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	logDirRes := resources.Get("logDir")
-	logDir, ok := logDirRes.(common.StringResource)
-	if !ok {
-		if logDirRes != nil {
-			return nil, errors.Errorf("invalid logDir resource: %v", logDirRes)
-		}
-		logDir = ""
+	logsDir, err := extractResourceValue(resources, "logDir")
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-
 	paths := backups.Paths{
-		DataDir: dataDir.String(),
-		LogsDir: logDir.String(),
+		DataDir: dataDir,
+		LogsDir: logsDir,
 	}
 
 	// Build the API.
+	machineID, err := extractResourceValue(resources, "machineID")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	b := API{
-		st:    st,
-		paths: &paths,
+		st:        st,
+		paths:     &paths,
+		machineID: machineID,
 	}
 	return &b, nil
+}
+
+func extractResourceValue(resources *common.Resources, key string) (string, error) {
+	res := resources.Get(key)
+	strRes, ok := res.(common.StringResource)
+	if !ok {
+		if res == nil {
+			strRes = ""
+		} else {
+			return "", errors.Errorf("invalid %s resource: %v", key, res)
+		}
+	}
+	return strRes.String(), nil
 }
 
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
 	stor := backups.NewStorage(st)
 	return backups.NewBackups(stor), stor
+}
+
+// ResultFromMetadata updates the result with the information in the
+// metadata value.
+func ResultFromMetadata(meta *backups.Metadata) params.BackupsMetadataResult {
+	var result params.BackupsMetadataResult
+
+	result.ID = meta.ID()
+
+	result.Checksum = meta.Checksum()
+	result.ChecksumFormat = meta.ChecksumFormat()
+	result.Size = meta.Size()
+	if meta.Stored() != nil {
+		result.Stored = *(meta.Stored())
+	}
+
+	result.Started = meta.Started
+	if meta.Finished != nil {
+		result.Finished = *meta.Finished
+	}
+	result.Notes = meta.Notes
+
+	result.Environment = meta.Origin.Environment
+	result.Machine = meta.Origin.Machine
+	result.Hostname = meta.Origin.Hostname
+	result.Version = meta.Origin.Version
+
+	return result
 }

@@ -29,9 +29,9 @@ var _ = gc.Suite(&format_1_16Suite{})
 
 func (s *format_1_16Suite) TestMissingAttributes(c *gc.C) {
 	logDir, err := paths.LogDir(version.Current.Series)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	realDataDir, err := paths.DataDir(version.Current.Series)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	realDataDir = filepath.FromSlash(realDataDir)
 	logPath := filepath.Join(logDir, "juju")
@@ -40,13 +40,13 @@ func (s *format_1_16Suite) TestMissingAttributes(c *gc.C) {
 	dataDir := c.MkDir()
 	formatPath := filepath.Join(dataDir, legacyFormatFilename)
 	err = utils.AtomicWriteFile(formatPath, []byte(legacyFormatFileContents), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 
 	err = utils.AtomicWriteFile(configPath, []byte(configDataWithoutNewAttributes), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 	configLogDir := filepath.FromSlash(readConfig.LogDir())
 	configDataDir := filepath.FromSlash(readConfig.DataDir())
@@ -63,14 +63,14 @@ func (*format_1_16Suite) TestStatePortParsed(c *gc.C) {
 	dataDir := c.MkDir()
 	formatPath := filepath.Join(dataDir, legacyFormatFilename)
 	err := utils.AtomicWriteFile(formatPath, []byte(legacyFormatFileContents), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err = utils.AtomicWriteFile(configPath, []byte(stateMachineConfigData), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	readConfig, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info, available := readConfig.StateServingInfo()
-	c.Assert(available, gc.Equals, true)
+	c.Assert(available, jc.IsTrue)
 	c.Assert(info.StatePort, gc.Equals, 37017)
 }
 
@@ -78,17 +78,17 @@ func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
 	dataDir := c.MkDir()
 	formatPath := filepath.Join(dataDir, legacyFormatFilename)
 	err := utils.AtomicWriteFile(formatPath, []byte(legacyFormatFileContents), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	configPath := filepath.Join(dataDir, agentConfigFilename)
 	err = utils.AtomicWriteFile(configPath, []byte(agentConfig1_16Contents), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	config, err := ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, gc.NotNil)
 	// Test we wrote a currently valid config.
 	config, err = ReadConfig(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, gc.NotNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.16.0"))
 	c.Assert(config.Jobs(), gc.HasLen, 0)
@@ -97,7 +97,7 @@ func (*format_1_16Suite) TestReadConfReadsLegacyFormatAndWritesNew(c *gc.C) {
 	assertFileNotExist(c, formatPath)
 	// And new contents were written.
 	data, err := ioutil.ReadFile(configPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Not(gc.Equals), agentConfig1_16Contents)
 }
 

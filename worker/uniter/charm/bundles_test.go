@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -56,22 +57,22 @@ func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	charm := s.AddTestingCharm(c, "wordpress")
 	service := s.AddTestingService(c, "wordpress", charm)
 	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	c.Assert(s.st, gc.NotNil)
 	s.uniter, err = s.st.Uniter()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
 }
 
 func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 	err := s.st.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.JujuConnSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 }
@@ -81,26 +82,31 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm, []b
 	storagePath := "dummy-1"
 	bunpath := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
 	bun, err := corecharm.ReadCharmArchive(bunpath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	bundata, hash := readHash(c, bunpath)
 	sch, err := s.State.AddCharm(bun, curl, storagePath, hash)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	apiCharm, err := s.uniter.Charm(sch.URL())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
-	surl, err := url.Parse(s.URL("/some/charm.bundle"))
-	c.Assert(err, gc.IsNil)
-	mock := &mockArchiveURLCharm{apiCharm, surl}
+	surlBad, err := url.Parse(s.URL("/some/charm.bundle?bad"))
+	c.Assert(err, jc.ErrorIsNil)
+	surlGood, err := url.Parse(s.URL("/some/charm.bundle?good"))
+	c.Assert(err, jc.ErrorIsNil)
+	mock := &mockArchiveURLCharm{
+		apiCharm,
+		[]*url.URL{surlBad, surlGood},
+	}
 	return mock, sch, bundata
 }
 
 type mockArchiveURLCharm struct {
 	charm.BundleInfo
-	archiveURL *url.URL
+	archiveURLs []*url.URL
 }
 
-func (i *mockArchiveURLCharm) ArchiveURL() *url.URL {
-	return i.archiveURL
+func (i *mockArchiveURLCharm) ArchiveURLs() ([]*url.URL, error) {
+	return i.archiveURLs, nil
 }
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
@@ -117,30 +123,32 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	// Try to get the charm when the content doesn't match.
 	gitjujutesting.Server.Response(200, nil, []byte("roflcopter"))
+	archiveURLs, err := apiCharm.ArchiveURLs()
+	c.Assert(err, gc.IsNil)
 	_, err = d.Read(apiCharm, nil)
-	archiveURL := apiCharm.ArchiveURL()
-	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, archiveURL)
+	prefix := regexp.QuoteMeta(fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, archiveURLs))
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.
-	gitjujutesting.Server.Response(404, nil, nil)
+	gitjujutesting.Server.Responses(2, 404, nil, nil)
 	_, err = d.Read(apiCharm, nil)
 	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
 
 	// Get a charm whose bundle exists and whose content matches.
+	gitjujutesting.Server.Response(404, nil, nil)
 	gitjujutesting.Server.Response(200, nil, bundata)
 	ch, err := d.Read(apiCharm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 
 	// Get the same charm again, without preparing a response from the server.
 	ch, err = d.Read(apiCharm, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 
 	// Abort a download.
 	err = os.RemoveAll(bunsdir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	abort := make(chan struct{})
 	done := make(chan bool)
 	go func() {
@@ -160,7 +168,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 func readHash(c *gc.C, path string) ([]byte, string) {
 	data, err := ioutil.ReadFile(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hash := sha256.New()
 	hash.Write(data)
 	return data, hex.EncodeToString(hash.Sum(nil))

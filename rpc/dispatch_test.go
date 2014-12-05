@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 
 	"code.google.com/p/go.net/websocket"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc"
@@ -57,19 +58,19 @@ func (s *dispatchSuite) TestWSWithParams(c *gc.C) {
 func (s *dispatchSuite) request(c *gc.C, req string) string {
 	url := fmt.Sprintf("ws://%s/rpc", s.serverAddr)
 	ws, err := websocket.Dial(url, "", "http://localhost")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	reqdata := []byte(req)
 	_, err = ws.Write(reqdata)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	var resp = make([]byte, 512)
 	n, err := ws.Read(resp)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	resp = resp[0:n]
 
 	err = ws.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	return string(resp)
 }

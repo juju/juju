@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -39,8 +40,8 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
-	c.Assert(utf8.ValidString(validSetTestValue), gc.Equals, true)
-	c.Assert(utf8.ValidString(invalidSetTestValue), gc.Equals, false)
+	c.Assert(utf8.ValidString(validSetTestValue), jc.IsTrue)
+	c.Assert(utf8.ValidString(invalidSetTestValue), jc.IsFalse)
 	setupValueFile(c, s.dir, "valid.txt", validSetTestValue)
 	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
@@ -127,7 +128,7 @@ func assertSetSuccess(c *gc.C, dir string, svc *state.Service, args []string, ex
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 	settings, err := svc.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
 }
 
@@ -154,7 +155,7 @@ func setupValueFile(c *gc.C, dir, filename, value string) string {
 	path := ctx.AbsPath(filename)
 	content := []byte(value)
 	err := ioutil.WriteFile(path, content, 0666)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return path
 }
 
@@ -164,7 +165,7 @@ func setupBigFile(c *gc.C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("big.txt")
 	file, err := os.Create(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer file.Close()
 	chunk := make([]byte, 1024)
 	for i := 0; i < cap(chunk); i++ {
@@ -172,7 +173,7 @@ func setupBigFile(c *gc.C, dir string) string {
 	}
 	for i := 0; i < 6000; i++ {
 		_, err = file.Write(chunk)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return path
 }
@@ -184,6 +185,6 @@ func setupConfigFile(c *gc.C, dir string) string {
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
 	err := ioutil.WriteFile(path, content, 0666)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return path
 }

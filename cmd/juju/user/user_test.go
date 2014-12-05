@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/user"
@@ -34,7 +35,7 @@ var expectedUserCommmandNames = []string{
 func (s *UserCommandSuite) TestHelp(c *gc.C) {
 	// Check the help output
 	ctx, err := testing.RunCommand(c, user.NewSuperCommand(), "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that we have registered all the sub commands by
 	// inspecting the help output.
@@ -70,7 +71,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Password: "password",
 	})
 	err := info.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(user.ReadPassword, func() (string, error) {
 		return "sekrit", nil
 	})

@@ -2,9 +2,11 @@ package replicaset
 
 import (
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -28,7 +30,7 @@ type MongoSuite struct {
 func newServer(c *gc.C) *gitjujutesting.MgoInstance {
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", rsName}}
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	session, err := inst.DialDirect()
 	if err != nil {
@@ -66,7 +68,7 @@ func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string)
 
 	mode := session.Mode()
 	err := Initiate(session, addr, rsName, initialTags)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure we haven't messed with the session's mode
 	c.Assert(session.Mode(), gc.Equals, mode)
@@ -79,7 +81,7 @@ func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string)
 	session.SetMode(mgo.Strong, false)
 
 	mems, err := CurrentMembers(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
 	// now add some data so we get a more real-life test
@@ -133,7 +135,7 @@ func loadData(session *mgo.Session, c *gc.C) {
 		}
 
 		err := session.DB("testing").C(fmt.Sprintf("data%d", col)).Insert(foos)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
@@ -149,7 +151,7 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 		c.Logf("%s failed: %v", desc, err)
 	}
 	c.Logf("%s: %d attempts in %s", desc, attemptCount, time.Since(start))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
@@ -284,8 +286,8 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	}
 
 	res, err := IsMaster(session)
-	c.Assert(err, gc.IsNil)
-	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(closeEnough(res.LocalTime, time.Now()), jc.IsTrue)
 	res.LocalTime = time.Time{}
 	c.Check(*res, jc.DeepEquals, expected)
 }
@@ -298,19 +300,196 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 	result, err := MasterHostPort(session)
 
 	c.Logf("TestMasterHostPort expected: %v, got: %v", expected, result)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expected)
 }
 
 func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer inst.Destroy()
 	session := inst.MustDial()
 	hp, err := MasterHostPort(session)
 	c.Assert(err, gc.Equals, ErrMasterNotConfigured)
 	c.Assert(hp, gc.Equals, "")
+}
+
+func (s *MongoSuite) TestIsReadyOne(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{Members: []MemberStatus{{
+				Id:      1,
+				Healthy: true,
+			}}}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestIsReadyMultiple(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{}
+			for i := 1; i < 5; i++ {
+				member := MemberStatus{Id: i + 1, Healthy: true}
+				status.Members = append(status.Members, member)
+			}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestIsReadyNotOne(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{Members: []MemberStatus{{
+				Id:      1,
+				Healthy: false,
+			}}}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyMinority(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) {
+			status := &Status{Members: []MemberStatus{{
+				Id:      1,
+				Healthy: true,
+			},
+				{
+					Id:      2,
+					Healthy: false,
+				},
+				{
+					Id:      3,
+					Healthy: false,
+				}}}
+			return status, nil
+		},
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) { return nil, io.EOF },
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionRefused(c *gc.C) {
+	failure := errors.New("connection refused")
+	s.PatchValue(&getCurrentStatus, func(session *mgo.Session) (*Status, error) { return nil, failure })
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyConnectionShutDown(c *gc.C) {
+	failure := errors.New("connection is shut down")
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) { return nil, failure },
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	ready, err := IsReady(session)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(ready, jc.IsFalse)
+}
+
+func (s *MongoSuite) TestIsReadyError(c *gc.C) {
+	failure := errors.New("failed!")
+	s.PatchValue(&getCurrentStatus,
+		func(session *mgo.Session) (*Status, error) { return nil, failure },
+	)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	_, err := IsReady(session)
+	c.Check(errors.Cause(err), gc.Equals, failure)
+}
+
+func (s *MongoSuite) TestWaitUntilReady(c *gc.C) {
+	var isReadyCalled bool
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		isReadyCalled = true
+		return true, nil
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 10)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isReadyCalled, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestWaitUntilReadyTimeout(c *gc.C) {
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		return false, nil
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 0)
+	c.Assert(err, gc.ErrorMatches, "timed out after 0 seconds")
+}
+
+func (s *MongoSuite) TestWaitUntilReadyError(c *gc.C) {
+	mockIsReady := func(session *mgo.Session) (bool, error) {
+		return false, errors.New("foobar")
+	}
+
+	s.PatchValue(&isReady, mockIsReady)
+	session := s.root.MustDial()
+	defer session.Close()
+
+	err := WaitUntilReady(session, 0)
+	c.Assert(err, gc.ErrorMatches, "foobar")
 }
 
 func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
@@ -334,7 +513,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := &Status{
 		Name: rsName,
@@ -434,17 +613,17 @@ func (s *MongoIPV6Suite) TestAddressFixing(c *gc.C) {
 	defer session.Close()
 
 	status, err := CurrentStatus(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(status.Members), jc.DeepEquals, 1)
 	c.Check(status.Members[0].Address, gc.Equals, ipv6GetAddr(root))
 
 	cfg, err := CurrentConfig(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(cfg.Members), jc.DeepEquals, 1)
 	c.Check(cfg.Members[0].Address, gc.Equals, ipv6GetAddr(root))
 
 	result, err := IsMaster(session)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Address, gc.Equals, ipv6GetAddr(root))
 	c.Check(result.PrimaryAddress, gc.Equals, ipv6GetAddr(root))
 	c.Check(result.Addresses, jc.DeepEquals, []string{ipv6GetAddr(root)})

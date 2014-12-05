@@ -17,6 +17,10 @@ import (
 
 var actionLogger = loggo.GetLogger("juju.state.action")
 
+// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
+// facilitate patching.
+var NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
+
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
 
@@ -103,11 +107,6 @@ func (a *Action) Id() string {
 	return a.st.localID(a.doc.DocId)
 }
 
-// NotificationId returns the Id used in the notification watcher.
-func (a *Action) NotificationId() string {
-	return ensureActionMarker(a.Receiver()) + a.Id()
-}
-
 // Receiver returns the Name of the ActionReceiver for which this action
 // is enqueued.  Usually this is a Unit Name().
 func (a *Action) Receiver() string {
@@ -150,8 +149,7 @@ func (a *Action) Completed() time.Time {
 // ValidateTag should be called before calls to Tag() or ActionTag(). It verifies
 // that the Action can produce a valid Tag.
 func (a *Action) ValidateTag() bool {
-	_, ok := names.ParseActionTagFromParts(a.Receiver(), a.Id())
-	return ok
+	return names.IsValidAction(a.Id())
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
@@ -163,7 +161,7 @@ func (a *Action) Tag() names.Tag {
 // ActionTag returns an ActionTag constructed from this action's
 // Prefix and Sequence.
 func (a *Action) ActionTag() names.ActionTag {
-	return names.JoinActionTag(a.Receiver(), a.Id())
+	return names.NewActionTag(a.Id())
 }
 
 // ActionResults is a data transfer object that holds the key Action
@@ -208,7 +206,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 // an names.ActionTag
 func newActionTagFromNotification(doc actionNotificationDoc) names.ActionTag {
 	actionLogger.Debugf("newActionTagFromNotification doc: '%#v'", doc)
-	return names.JoinActionTag(doc.Receiver, doc.ActionID)
+	return names.NewActionTag(doc.ActionID)
 }
 
 // newAction builds an Action for the given State and actionDoc.
@@ -222,7 +220,7 @@ func newAction(st *State, adoc actionDoc) *Action {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	actionId, err := utils.NewUUID()
+	actionId, err := NewUUID()
 	if err != nil {
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
@@ -246,8 +244,9 @@ func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameter
 
 var ensureActionMarker = ensureSuffixFn(actionMarker)
 
-// Action returns an Action by Id.
+// Action returns an Action by Id, which is a UUID.
 func (st *State) Action(id string) (*Action, error) {
+	actionLogger.Tracef("Action() %q", id)
 	actions, closer := st.getCollection(actionsC)
 	defer closer()
 
@@ -259,22 +258,50 @@ func (st *State) Action(id string) (*Action, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get action %q", id)
 	}
-
+	actionLogger.Tracef("Action() %q found %+v", id, doc)
 	return newAction(st, doc), nil
 }
 
 // ActionByTag returns an Action given an ActionTag.
 func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
-	return st.Action(tag.Suffix())
+	return st.Action(tag.Id())
 }
 
-func (st *State) addAction(ar ActionReceiver, actionName string, payload map[string]interface{}) (*Action, error) {
-	receiverCollectionName, receiverId, err := st.tagToCollectionAndId(ar.Tag())
+// FindActionTagsByPrefix finds Actions with ids that share the supplied prefix, and
+// returns a list of corresponding ActionTags.
+func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
+	actionLogger.Tracef("FindActionTagsByPrefix() %q", prefix)
+	var results []names.ActionTag
+	var doc struct {
+		Id string `bson:"_id"`
+	}
+
+	actions, closer := st.getCollection(actionsC)
+	defer closer()
+
+	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
+	for iter.Next(&doc) {
+		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
+		if names.IsValidAction(doc.Id) {
+			results = append(results, names.NewActionTag(st.localID(doc.Id)))
+		}
+	}
+	actionLogger.Tracef("FindActionTagsByPrefix() %q found %+v", prefix, results)
+	return results
+}
+
+// EnqueueAction
+func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (*Action, error) {
+	if len(actionName) == 0 {
+		return nil, errors.New("action name required")
+	}
+
+	receiverCollectionName, receiverId, err := st.tagToCollectionAndId(receiver)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	doc, ndoc, err := newActionDoc(st, ar.Tag(), actionName, payload)
+	doc, ndoc, err := newActionDoc(st, receiver, actionName, payload)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

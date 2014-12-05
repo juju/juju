@@ -55,7 +55,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		if state.IsNotProvisionedError(err) {
 			isProvisioned = false
 		} else {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		return reflect.DeepEqual(m.Addresses(), s.addressesForIndex(index)) && (!isProvisioned || status == expectedStatus)
 	}
@@ -88,7 +88,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	for i := 0; i < len(insts)/2; i += 2 {
 		m := machines[i]
 		err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
 		dummy.SetInstanceStatus(insts[i], "running")
 	}
@@ -119,7 +119,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		if i%2 == 0 {
 			m := machines[i]
 			err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
 		dummy.SetInstanceStatus(insts[i], "running")
@@ -144,7 +144,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 func machinesSatisfy(c *gc.C, machines []*state.Machine, f func(i int, m *state.Machine) bool) bool {
 	for i, m := range machines {
 		err := m.Refresh()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		if !f(i, m) {
 			return false
 		}
@@ -157,7 +157,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 	var insts []instance.Instance
 	for i := 0; i < 10; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		machines = append(machines, m)
 		inst, _ := testing.AssertStartInstance(c, s.Environ, m.Id())
 		insts = append(insts, inst)
@@ -166,7 +166,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 	for i := 1; i < len(machines); i += 2 {
 		m := machines[i]
 		err := m.SetProvisioned(insts[i].Id(), "nonce", nil)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	// Associate the first half of the instances with an address and status.
 	for i := 0; i < len(machines)/2; i++ {

@@ -1937,7 +1937,8 @@ func (w *idPrefixWatcher) initial() ([]string, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filterFn == nil || w.filterFn(doc.DocId) {
-			ids = append(ids, w.st.localID(doc.DocId))
+			actionId := actionNotificationIdToActionId(w.st.localID(doc.DocId))
+			ids = append(ids, actionId)
 		}
 	}
 	return ids, iter.Close()
@@ -1956,10 +1957,11 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error 
 		switch id := id.(type) {
 		case string:
 			localId := st.localID(id)
-			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
+			actionId := actionNotificationIdToActionId(localId)
+			chIx, idAlreadyInChangeset := indexOf(actionId, *changes)
 			if idExists {
 				if !idAlreadyInChangeset {
-					*changes = append(*changes, localId)
+					*changes = append(*changes, actionId)
 				}
 			} else {
 				if idAlreadyInChangeset {
@@ -1972,6 +1974,14 @@ func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error 
 		}
 	}
 	return nil
+}
+
+func actionNotificationIdToActionId(id string) string {
+	ix := strings.Index(id, actionMarker)
+	if ix == -1 {
+		return id
+	}
+	return id[ix+len(actionMarker):]
 }
 
 func indexOf(find string, in []string) (int, bool) {

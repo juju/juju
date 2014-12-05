@@ -70,9 +70,9 @@ func makeEnviron(c *gc.C) *azureEnviron {
 // makeEnvironWithConfig creates a fake azureEnviron with the specified configuration.
 func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// Prevent the test from trying to query for a storage-account key.
 	env.storageAccountKey = "fake-storage-account-key"
 	return env
@@ -136,7 +136,7 @@ func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
 func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
 		[]byte(listXML),
 		http.StatusOK,
@@ -149,7 +149,7 @@ func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescrip
 // to the API request used to get the properties of a Service.
 func getAzureServiceResponse(c *gc.C, service gwacl.HostedService) gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 }
 
@@ -169,7 +169,7 @@ func prepareInstancesResponses(c *gc.C, prefix string, services ...*gwacl.Hosted
 			continue
 		}
 		serviceXML, err := service.Serialize()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		serviceGetResponse := gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 		responses = append(responses, serviceGetResponse)
 	}
@@ -184,7 +184,7 @@ func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedSe
 func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	a, err := env.SupportedArchitectures()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
@@ -196,7 +196,7 @@ func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	result, err := env.SupportAddressAllocation("")
 	c.Assert(result, jc.IsFalse)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
@@ -212,14 +212,16 @@ func (*environSuite) TestGetContainerName(c *gc.C) {
 
 func (suite *environSuite) TestAllInstances(c *gc.C) {
 	env := makeEnviron(c)
-	prefix := env.getEnvPrefix()
-	service1 := makeLegacyDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
-	service3 := makeDeployment(env, "not"+prefix+"service3")
+	name := env.Config().Name()
+	service1 := makeLegacyDeployment(env, "juju-"+name+"-service1")
+	service2 := makeDeployment(env, "juju-"+name+"-service2")
+	service3 := makeDeployment(env, "notjuju-"+name+"-service3")
+	service4 := makeDeployment(env, "juju-"+name+"-1-service3")
 
-	requests := patchInstancesResponses(c, prefix, service1, service2, service3)
+	prefix := env.getEnvPrefix()
+	requests := patchInstancesResponses(c, prefix, service1, service2, service3, service4)
 	instances, err := env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(instances), gc.Equals, 3)
 	c.Check(instances[0].Id(), gc.Equals, instance.Id(prefix+"service1"))
 	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
@@ -237,7 +239,7 @@ func (suite *environSuite) TestInstancesReturnsFilteredList(c *gc.C) {
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	instId := instance.Id(prefix + "service-" + role1Name)
 	instances, err := env.Instances([]instance.Id{instId})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(instances), gc.Equals, 1)
 	c.Check(instances[0].Id(), gc.Equals, instId)
 	c.Check(len(*requests), gc.Equals, 2)
@@ -284,11 +286,11 @@ func (*environSuite) TestStorage(c *gc.C) {
 	env := makeEnviron(c)
 	baseStorage := env.Storage()
 	storage, ok := baseStorage.(*azureStorage)
-	c.Check(ok, gc.Equals, true)
+	c.Check(ok, jc.IsTrue)
 	c.Assert(storage, gc.NotNil)
 	c.Check(storage.storageContext.getContainer(), gc.Equals, env.getContainerName())
 	context, err := storage.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(context.Account, gc.Equals, env.ecfg.storageAccountName())
 	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
 }
@@ -297,13 +299,13 @@ func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 	env := makeEnviron(c)
 	keysInAzure := gwacl.StorageAccountKeys{Primary: "a-key"}
 	azureResponse, err := xml.Marshal(keysInAzure)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	requests := gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
 
 	returnedKey, err := env.queryStorageAccountKey()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(returnedKey, gc.Equals, keysInAzure.Primary)
 	c.Assert(*requests, gc.HasLen, 1)
@@ -313,7 +315,7 @@ func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 func (*environSuite) TestGetStorageContextCreatesStorageContext(c *gc.C) {
 	env := makeEnviron(c)
 	stor, err := env.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stor, gc.NotNil)
 	c.Check(stor.Account, gc.Equals, env.ecfg.storageAccountName())
 	c.Check(stor.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
@@ -324,7 +326,7 @@ func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *gc.C) {
 	env.storageAccountKey = "my-key"
 
 	stor, err := env.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(stor.Key, gc.Equals, "my-key")
 }
@@ -334,13 +336,13 @@ func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc
 	env.storageAccountKey = ""
 	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
 	azureResponse, err := xml.Marshal(keysInAzure)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
 
 	stor, err := env.getStorageContext()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(stor.Key, gc.Equals, keysInAzure.Primary)
 	c.Check(env.storageAccountKey, gc.Equals, keysInAzure.Primary)
@@ -350,7 +352,7 @@ func (*environSuite) TestGetStorageContextFailsIfNoKeyAvailable(c *gc.C) {
 	env := makeEnviron(c)
 	env.storageAccountKey = ""
 	azureResponse, err := xml.Marshal(gwacl.StorageAccountKeys{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
@@ -365,13 +367,13 @@ func (*environSuite) TestUpdateStorageAccountKeyGetsFreshKey(c *gc.C) {
 	env := makeEnviron(c)
 	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
 	azureResponse, err := xml.Marshal(keysInAzure)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
 
 	key, err := env.updateStorageAccountKey(env.getSnapshot())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(key, gc.Equals, keysInAzure.Primary)
 	c.Check(env.storageAccountKey, gc.Equals, keysInAzure.Primary)
@@ -396,7 +398,7 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 	env.storageAccountKey = ""
 	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
 	azureResponse, err := xml.Marshal(keysInAzure)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
@@ -419,7 +421,7 @@ func (*environSuite) TestSetConfigValidates(c *gc.C) {
 	// This config is not valid.  It lacks essential information.
 	delete(attrs, "management-subscription-id")
 	badCfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.SetConfig(badCfg)
 
@@ -440,10 +442,10 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "feisty"
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.SetConfig(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(config.PreferredSeries(env.ecfg.Config), gc.Equals, "feisty")
 }
@@ -451,7 +453,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 func (*environSuite) TestSetConfigLocksEnviron(c *gc.C) {
 	env := makeEnviron(c)
 	cfg, err := config.New(config.NoDefaults, makeAzureConfigMap(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	coretesting.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
 }
@@ -465,7 +467,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "new-name"
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.SetConfig(cfg)
 
@@ -483,10 +485,10 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "other"
 	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = env.SetConfig(cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
@@ -517,7 +519,7 @@ func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
 	patchInstancesResponses(c, prefix, service1, service2)
 
 	instances, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2})
 }
 
@@ -533,12 +535,12 @@ func (s *environSuite) TestStateServerInstancesOnlyLegacy(c *gc.C) {
 		env.Storage(),
 		&common.BootstrapState{StateInstances: []instance.Id{instId}},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	patchInstancesResponses(c, prefix, service1, service2)
 
 	instances, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, jc.SameContents, []instance.Id{instId})
 }
 
@@ -561,12 +563,12 @@ func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
 		env.Storage(),
 		&common.BootstrapState{StateInstances: []instance.Id{instId1}},
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	patchInstancesResponses(c, prefix, service1, service2, service3, service4)
 
 	instances, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2, instId3})
 }
 
@@ -576,7 +578,7 @@ func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
 func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.CreateHostedService {
 	body := gwacl.CreateHostedService{}
 	err := xml.Unmarshal(request.Payload, &body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return &body
 }
 
@@ -584,7 +586,7 @@ func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.Creat
 // from the GetHostedServiceProperties request URL.
 func getHostedServicePropertiesServiceName(c *gc.C, request *gwacl.X509Request) string {
 	url, err := url.Parse(request.URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return path.Base(url.Path)
 }
 
@@ -594,7 +596,7 @@ func makeNonAvailabilityResponse(c *gc.C) []byte {
 	errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
 		Result: "false",
 		Reason: "he's a very naughty boy"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return errorBody
 }
 
@@ -603,7 +605,7 @@ func makeNonAvailabilityResponse(c *gc.C) []byte {
 func makeAvailabilityResponse(c *gc.C) []byte {
 	errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
 		Result: "true"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return errorBody
 }
 
@@ -617,10 +619,10 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := attemptCreateService(azure, prefix, affinityGroup, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 2)
 	body := parseCreateServiceRequest(c, (*requests)[1])
@@ -637,10 +639,10 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) 
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := attemptCreateService(azure, "service", "affinity-group", "")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(service, gc.IsNil)
 }
 
@@ -651,7 +653,7 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *gc.C) {
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = attemptCreateService(azure, "service", "affinity-group", "")
 	c.Assert(err, gc.NotNil)
@@ -672,10 +674,10 @@ func (*environSuite) TestNewHostedServiceCreatesService(c *gc.C) {
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := newHostedService(azure, prefix, affinityGroup, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 3)
 	body := parseCreateServiceRequest(c, (*requests)[1])
@@ -705,10 +707,10 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	service, err := newHostedService(azure, "service", "affinity-group", "")
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 5)
 	// How many names have been attempted, and how often?
@@ -743,7 +745,7 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) 
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = newHostedService(azure, "service", "affinity-group", "")
 	c.Assert(err, gc.NotNil)
@@ -754,7 +756,7 @@ func buildGetServicePropertiesResponses(c *gc.C, services ...*gwacl.HostedServic
 	responses := make([]gwacl.DispatcherResponse, len(services))
 	for i, service := range services {
 		serviceXML, err := service.Serialize()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		responses[i] = gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 	}
 	return responses
@@ -808,13 +810,13 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	service2 := makeDeployment(env, prefix+service2Name)
 
 	inst1, err := env.getInstance(service1, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	role2Name := service2.Deployments[0].RoleList[0].RoleName
 	inst2, err := env.getInstance(service2, role2Name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	role3Name := service2.Deployments[0].RoleList[1].RoleName
 	inst3, err := env.getInstance(service2, role3Name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	responses := buildGetServicePropertiesResponses(c, service1)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
@@ -822,7 +824,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	err = env.StopInstances(inst1.Id(), inst2.Id(), inst3.Id())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// One GET and DELETE per service
 	// (GetHostedServiceProperties and DeleteHostedService).
@@ -839,13 +841,13 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service, role1Name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	responses := buildGetServicePropertiesResponses(c, service)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	err = env.StopInstances(inst1.Id())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// One GET for the service, and one DELETE for the role.
 	// The service isn't deleted because it has two roles,
@@ -862,10 +864,10 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	service2 := makeDeployment(env, prefix+"service2")
 	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service1, service1Role1Name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
 	inst2, err := env.getInstance(service2, service2Role1Name)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	responses := buildGetServicePropertiesResponses(c, service1)
 	// Failed to delete one of the services. This will cause StopInstances to stop
@@ -884,7 +886,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	env := makeEnviron(c)
 	err := env.StopInstances()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 // getVnetCleanupResponse returns the response
@@ -896,7 +898,7 @@ func getVnetCleanupResponse(c *gc.C) gwacl.DispatcherResponse {
 		VirtualNetworkSites: nil,
 	}
 	body, err := existingConfig.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil)
 }
 
@@ -906,7 +908,7 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 
 	// Populate storage.
 	err := env.Storage().Put("anything", strings.NewReader(""), 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -917,7 +919,7 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	c.Check(err, gc.NotNil)
 
 	files, err := storage.List(env.Storage(), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(files, gc.DeepEquals, []string{"anything"})
 }
 
@@ -926,17 +928,17 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	s.setDummyStorage(c, env)
 	// Populate storage.
 	err := env.Storage().Put("anything", strings.NewReader(""), 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	responses := getAzureServiceListResponse(c)
 	responses = append(responses, getVnetCleanupResponse(c))
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteAffinityGroup
 	gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	files, err := storage.List(env.Storage(), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(files, gc.HasLen, 0)
 }
 
@@ -952,7 +954,7 @@ func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C)
 		},
 	}
 	body, err := existingConfig.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cleanupResponses := []gwacl.DispatcherResponse{
 		// Return existing configuration.
 		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
@@ -965,17 +967,17 @@ func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	c.Assert(*requests, gc.HasLen, 4)
 	// One request to get the network configuration.
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
-	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 	// One request to upload the new version of the network configuration.
 	putRequest := (*requests)[2]
 	c.Check(putRequest.Method, gc.Equals, "PUT")
-	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), jc.IsTrue)
 	// One request to delete the Affinity Group.
 	agRequest := (*requests)[3]
 	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
@@ -996,12 +998,12 @@ func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err := env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(*requests, gc.HasLen, 3)
 
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
-	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 
 	deleteRequest := (*requests)[2]
 	c.Check(deleteRequest.Method, gc.Equals, "DELETE")
@@ -1020,7 +1022,7 @@ func (s *environSuite) TestDestroyDoesNotFailIfAffinityGroupDeletionFails(c *gc.
 		},
 	}
 	body, err := existingConfig.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cleanupResponses := []gwacl.DispatcherResponse{
 		// Return existing configuration.
 		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
@@ -1033,15 +1035,15 @@ func (s *environSuite) TestDestroyDoesNotFailIfAffinityGroupDeletionFails(c *gc.
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(*requests, gc.HasLen, 4)
 
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
-	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 	putRequest := (*requests)[2]
 	c.Check(putRequest.Method, gc.Equals, "PUT")
-	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), gc.Equals, true)
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), jc.IsTrue)
 }
 
 var emptyListResponse = `
@@ -1070,19 +1072,22 @@ func assertOneRequestMatches(c *gc.C, requests []*gwacl.X509Request, method stri
 func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	prefix := env.getEnvPrefix()
-	service1 := makeDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
+	name := env.Config().Name()
+	service1 := makeDeployment(env, "juju-"+name+"-service1")
+	service2 := makeDeployment(env, "juju-"+name+"-service2")
+	service3 := makeDeployment(env, "juju-"+name+"-1-service3")
 
 	// The call to AllInstances() will return only one service (service1).
-	responses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor)
+	responses := getAzureServiceListResponse(
+		c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor, service3.HostedServiceDescriptor,
+	)
 	responses = append(responses, buildStatusOKResponses(c, 2)...) // DeleteHostedService
 	responses = append(responses, getVnetCleanupResponse(c))
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteAffinityGroup
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err := env.Destroy()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	// One request to get the list of all the environment's instances.
 	// One delete request per destroyed service, and two additional
@@ -1102,7 +1107,7 @@ func (s *environSuite) TestGetInstance(c *gc.C) {
 	// for legacy instances. This will cause getInstance to get the
 	// one and only role (or error if there is more than one).
 	inst1, err := env.getInstance(service1, "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst1.Id(), gc.Equals, instance.Id("service1"))
 	c.Assert(inst1, gc.FitsTypeOf, &azureInstance{})
 	c.Check(inst1.(*azureInstance).environ, gc.Equals, env)
@@ -1112,7 +1117,7 @@ func (s *environSuite) TestGetInstance(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `expected one role for "service1", got 2`)
 
 	inst2, err := env.getInstance(service2, service2.Deployments[0].RoleList[0].RoleName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(inst2.Id(), gc.Equals, instance.Id("service1-"+service2.Deployments[0].RoleList[0].RoleName))
 }
 
@@ -1125,14 +1130,14 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 
 	role1 := &service1.Deployments[0].RoleList[0]
 	inst1, err := env.getInstance(service1, role1.RoleName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst1.(*azureInstance).maskStateServerPorts, jc.IsTrue)
 	role2 := &service2.Deployments[0].RoleList[0]
 	inst2, err := env.getInstance(service2, role2.RoleName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	role3 := &service3.Deployments[0].RoleList[0]
 	inst3, err := env.getInstance(service3, role3.RoleName)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Only role2 should report opened state server ports via the Ports method.
 	dummyRole := *role1
@@ -1146,7 +1151,7 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 		responses := preparePortChangeConversation(c, &dummyRole)
 		gwacl.PatchManagementAPIResponses(responses)
 		ports, err := inst.Ports("")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		portmap := make(map[network.PortRange]bool)
 		for _, portRange := range ports {
 			portmap[portRange] = true
@@ -1170,7 +1175,7 @@ func (*environSuite) TestNewOSVirtualDisk(c *gc.C) {
 	vhd := env.newOSDisk(sourceImageName)
 
 	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	storageAccount := env.ecfg.storageAccountName()
 	c.Check(mediaLinkUrl.Host, gc.Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
 	c.Check(vhd.SourceImageName, gc.Equals, sourceImageName)
@@ -1184,7 +1189,7 @@ func mapInputEndpointsByPort(c *gc.C, endpoints []gwacl.InputEndpoint) map[int]g
 	mapping := make(map[int]gwacl.InputEndpoint)
 	for _, endpoint := range endpoints {
 		_, have := mapping[endpoint.Port]
-		c.Assert(have, gc.Equals, false)
+		c.Assert(have, jc.IsFalse)
 		mapping[endpoint.Port] = endpoint
 	}
 	return mapping
@@ -1221,14 +1226,14 @@ func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
 
 	// The network config contains an endpoint for ssh communication.
 	sshEndpoint, ok := endpoints[22]
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Check(sshEndpoint.LocalPort, gc.Equals, 22)
 	c.Check(sshEndpoint.Protocol, gc.Equals, "tcp")
 
 	if stateServer {
 		// There should be an endpoint for the API port.
 		apiEndpoint, ok := endpoints[env.Config().APIPort()]
-		c.Assert(ok, gc.Equals, true)
+		c.Assert(ok, jc.IsTrue)
 		c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
 		c.Check(apiEndpoint.Protocol, gc.Equals, "tcp")
 	}
@@ -1238,7 +1243,7 @@ func (*environSuite) TestProviderReturnsAzureEnvironProvider(c *gc.C) {
 	prov := makeEnviron(c).Provider()
 	c.Assert(prov, gc.NotNil)
 	azprov, ok := prov.(azureEnvironProvider)
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 	c.Check(azprov, gc.NotNil)
 }
 
@@ -1258,7 +1263,7 @@ func (*environSuite) TestCreateVirtualNetwork(c *gc.C) {
 	request := (*requests)[1]
 	body := gwacl.NetworkConfiguration{}
 	err := xml.Unmarshal(request.Payload, &body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	networkConf := (*body.VirtualNetworkSites)[0]
 	c.Check(networkConf.Name, gc.Equals, env.getVirtualNetworkName())
 	c.Check(networkConf.AffinityGroup, gc.Equals, env.getAffinityGroupName())
@@ -1275,7 +1280,7 @@ func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
 		},
 	}
 	body, err := existingConfig.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	responses := []gwacl.DispatcherResponse{
 		// Return existing configuration.
 		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
@@ -1295,7 +1300,7 @@ func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
 	c.Check(putRequest.Method, gc.Equals, "PUT")
 	newConfig := gwacl.NetworkConfiguration{}
 	err = xml.Unmarshal(putRequest.Payload, &newConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// The new configuration has no VirtualNetworkSites.
 	c.Check(newConfig.VirtualNetworkSites, gc.IsNil)
 }
@@ -1323,7 +1328,7 @@ func (*environSuite) TestCreateAffinityGroup(c *gc.C) {
 	request := (*requests)[0]
 	body := gwacl.CreateAffinityGroup{}
 	err := xml.Unmarshal(request.Payload, &body)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(body.Name, gc.Equals, env.getAffinityGroupName())
 	// This is a testing antipattern, the expected data comes from
 	// config defaults.  Fix it sometime.
@@ -1371,7 +1376,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 		Series:      coretesting.FakeDefaultSeries,
 		Constraints: cons,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(instanceType.Name, gc.Equals, aim.Name)
 	c.Check(image, gc.Equals, forcedImage)
@@ -1408,7 +1413,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(
 		Series:      coretesting.FakeDefaultSeries,
 		Constraints: cons,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instanceType.Name, gc.Equals, aim.Name)
 	c.Assert(image, gc.Equals, "image-id")
 }
@@ -1434,10 +1439,10 @@ func (*environSuite) TestExtractStorageKeyReturnsBlankIfNoneSet(c *gc.C) {
 
 func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
 	rc, _, err := source.Fetch(filename)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	retrieved, err := ioutil.ReadAll(rc)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
@@ -1445,7 +1450,7 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	sources, err := tools.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, gc.HasLen, 0)
 }
 
@@ -1461,7 +1466,7 @@ func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
 	attrs["availability-sets-enabled"] = false
 	env = environs.Environ(makeEnvironWithConfig(c, attrs))
 	err = env.SupportsUnitPlacement()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type startInstanceSuite struct {
@@ -1490,7 +1495,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Tag:      machineTag,
 	}
 	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
 			c, s.env.storage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), envtesting.V120p...,
@@ -1516,7 +1521,7 @@ func (s *startInstanceSuite) startInstance(c *gc.C) (serviceName string, stateSe
 	})
 	defer restore()
 	result, err := s.env.StartInstance(s.params)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(result, gc.NotNil)
 	c.Assert(result.Hardware, gc.NotNil)
@@ -1589,17 +1594,17 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
 }
 
 func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
@@ -1611,18 +1616,18 @@ func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 func (s *environSuite) TestConstraintsMerge(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	validator, err := env.ConstraintsValidator()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
 	consB := constraints.MustParse("instance-type=ExtraSmall")
 	cons, err := validator.Merge(consA, consB)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=ExtraSmall"))
 }
 
 func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.UploadFakeTools(c, stor, "released", "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 
@@ -1639,7 +1644,7 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 		VirtualNetworkSites: &sites,
 	}
 	body, err := existingConfig.Serialize()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	responses = append(responses, gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil)) // GET network
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))    // conflict creating AG
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))          // DELETE AG

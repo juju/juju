@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -29,7 +30,7 @@ var _ = gc.Suite(&APIAddressUpdaterSuite{})
 func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	err := s.State.SetAPIHostPorts(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type apiAddressSetter struct {
@@ -55,7 +56,7 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 		1234,
 	)}
 	err := s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
@@ -92,7 +93,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 		c.Assert(servers, gc.HasLen, 0)
 	}
 	err := s.State.SetAPIHostPorts(updatedServers)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.BackingState.StartSync()
 	select {
 	case <-time.After(coretesting.LongWait):

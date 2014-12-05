@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/juju"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -372,12 +373,49 @@ type agentConfig struct {
 	StatePort   string
 }
 
+func extractMachineID(archive *os.File) (string, error) {
+	paths := backups.NewCanonicalArchivePaths()
+
+	gzr, err := gzip.NewReader(archive)
+	if err != nil {
+		return "", errors.Annotate(err, fmt.Sprintf("cannot unzip %q", archive.Name()))
+	}
+	defer gzr.Close()
+
+	metaFile, err := findFileInTar(gzr, paths.MetadataFile)
+	if errors.IsNotFound(err) {
+		// Older archives don't have a metadata file and always have machine-0.
+		return "0", nil
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	meta, err := backups.NewMetadataJSONReader(metaFile)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return meta.Origin.Machine, nil
+}
+
 func extractConfig(backupFile string) (agentConfig, error) {
 	f, err := os.Open(backupFile)
 	if err != nil {
 		return agentConfig{}, err
 	}
 	defer f.Close()
+
+	// Extract the machine tag.
+	machineID, err := extractMachineID(f)
+	if err != nil {
+		return agentConfig{}, err
+	}
+	_, err = f.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return agentConfig{}, err
+	}
+	tag := names.NewMachineTag(machineID)
+
+	// Extract the config file.
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
 		return agentConfig{}, errors.Annotate(err, fmt.Sprintf("cannot unzip %q", backupFile))
@@ -387,10 +425,14 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	if err != nil {
 		return agentConfig{}, err
 	}
-	agentConf, err := findFileInTar(outerTar, "var/lib/juju/agents/machine-0/agent.conf")
+	// TODO(ericsnowcurrently) This should come from an authoritative source.
+	const confFilename = "var/lib/juju/agents/%s/agent.conf"
+	agentConf, err := findFileInTar(outerTar, fmt.Sprintf(confFilename, tag))
 	if err != nil {
 		return agentConfig{}, err
 	}
+
+	// Extract the config data.
 	data, err := ioutil.ReadAll(agentConf)
 	if err != nil {
 		return agentConfig{}, errors.Annotate(err, "failed to read agent config file")
@@ -438,8 +480,11 @@ func findFileInTar(r io.Reader, name string) (io.Reader, error) {
 	tarr := tar.NewReader(r)
 	for {
 		hdr, err := tarr.Next()
+		if err == io.EOF {
+			return nil, errors.NotFoundf(name)
+		}
 		if err != nil {
-			return nil, errors.Annotate(err, fmt.Sprintf("%q not found", name))
+			return nil, errors.Annotatef(err, "while looking for %q", name)
 		}
 		if path.Clean(hdr.Name) == name {
 			return tarr, nil

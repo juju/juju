@@ -4,9 +4,11 @@
 package backups_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -25,9 +27,7 @@ func (s *listSuite) TestList(c *gc.C) {
 
 			if result, ok := resp.(*params.BackupsListResult); ok {
 				result.List = make([]params.BackupsMetadataResult, 1)
-				var resultItem params.BackupsMetadataResult
-				resultItem.UpdateFromMetadata(s.Meta)
-				result.List[0] = resultItem
+				result.List[0] = apiserverbackups.ResultFromMetadata(s.Meta)
 			} else {
 				c.Fatalf("wrong output structure")
 			}
@@ -37,7 +37,7 @@ func (s *listSuite) TestList(c *gc.C) {
 	defer cleanup()
 
 	result, err := s.client.List()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result.List, gc.HasLen, 1)
 	resultItem := result.List[0]

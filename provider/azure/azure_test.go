@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -67,7 +68,7 @@ func (s *providerSuite) makeTestMetadata(c *gc.C, series, location string, im []
 	}
 
 	seriesVersion, err := version.SeriesVersion(series)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, im := range im {
 		im.Version = seriesVersion
 		im.RegionName = cloudSpec.Region
@@ -77,7 +78,7 @@ func (s *providerSuite) makeTestMetadata(c *gc.C, series, location string, im []
 	index, products, err := imagemetadata.MarshalImageMetadataJSON(
 		im, []simplestreams.CloudSpec{cloudSpec}, time.Now(),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	files := map[string]string{
 		"/streams/v1/index.json":                string(index),
 		"/" + imagemetadata.ProductMetadataPath: string(products),

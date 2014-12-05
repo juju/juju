@@ -41,7 +41,7 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 		`"Hostname":"myhost",` +
 		`"Version":"1.21-alpha3"` +
 		`}` + "\n"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	files := []bt.File{
 		{
@@ -68,7 +68,7 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	archiveFile, err := bt.NewArchive(meta, files, dump)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.archiveFile = archiveFile
 	s.meta = meta
@@ -76,7 +76,7 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 
 func (s *workspaceSuite) TestNewArchiveWorkspaceReader(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
 
 	c.Check(ws.RootDir, gc.Not(gc.Equals), "")
@@ -84,10 +84,10 @@ func (s *workspaceSuite) TestNewArchiveWorkspaceReader(c *gc.C) {
 
 func (s *workspaceSuite) TestClose(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = ws.Close()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(ws.RootDir)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
@@ -95,39 +95,39 @@ func (s *workspaceSuite) TestClose(c *gc.C) {
 
 func (s *workspaceSuite) TestUnpackFilesBundle(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
 
 	targetDir := c.MkDir()
 	err = ws.UnpackFilesBundle(targetDir)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(targetDir + "/var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = os.Stat(targetDir + "/var/lib/juju/system-identity")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *workspaceSuite) TestOpenBundledFile(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
 
 	file, err := ws.OpenBundledFile("var/lib/juju/system-identity")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := ioutil.ReadAll(file)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, "<an ssh key goes here>")
 }
 
 func (s *workspaceSuite) TestMetadata(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
 
 	meta, err := ws.Metadata()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(meta, jc.DeepEquals, s.meta)
 }

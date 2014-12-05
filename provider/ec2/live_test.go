@@ -115,11 +115,11 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	c.Assert(hc.CpuPower, gc.NotNil)
 	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, inst.Id())
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
 	insts, err := t.Env.Instances([]instance.Id{inst.Id()})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(insts), gc.Equals, 1)
 
 	ec2inst := ec2.InstanceEC2(insts[0])
@@ -144,7 +144,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	t.BootstrapOnce(c)
 	allInsts, err := t.Env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
 	bootstrapInstId := allInsts[0].Id()
 
@@ -180,7 +180,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 				SourceIPs: []string{"3.4.5.6/32"},
 			},
 		})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
 	defer t.Env.StopInstances(inst0.Id())
@@ -193,7 +193,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	defer t.Env.StopInstances(inst1.Id())
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(groupsResp.Groups, gc.HasLen, len(groups))
 
 	// For each group, check that it exists and record its id.
@@ -230,7 +230,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{string(inst0.Id()), string(inst1.Id())}, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Reservations, gc.HasLen, 2)
 	for _, r := range resp.Reservations {
 		c.Assert(r.Instances, gc.HasLen, 1)
@@ -259,10 +259,10 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 		return ids
 	}
 	insts, err := t.Env.Instances(instIds)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
 	allInsts, err = t.Env.AllInstances()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	// ignore the bootstrap instance
 	for i, inst := range allInsts {
 		if inst.Id() == bootstrapInstId {
@@ -280,15 +280,15 @@ func (t *LiveTests) TestDestroy(c *gc.C) {
 	t.PrepareOnce(c)
 	s := t.Env.(environs.EnvironStorage).Storage()
 	err := s.Put("foo", strings.NewReader("foo"), 3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.Put("bar", strings.NewReader("bar"), 3)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
 	names, err := storage.List(s, "")
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(names) >= 2, gc.Equals, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(names) >= 2, jc.IsTrue)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
@@ -351,7 +351,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
 
 	err := t.Env.StopInstances(inst0.Id(), inst1.Id(), inst2.Id())
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	var insts []instance.Instance
 
@@ -389,13 +389,13 @@ func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	// the PutBucket again.
 
 	err := s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Remove("test-object")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = ec2.DeleteBucket(s)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Put("test-object", strings.NewReader("test"), 4)
 	c.Assert(err, gc.ErrorMatches, ".*The specified bucket does not exist")
@@ -414,12 +414,12 @@ func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.Securi
 
 	// Found duplicate group, so revoke its permissions and return it.
 	gresp, err := ec2conn.SecurityGroups(amzec2.SecurityGroupNames(name), nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	gi := gresp.Groups[0]
 	if len(gi.IPPerms) > 0 {
 		_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}
 	return gi.SecurityGroup
 }

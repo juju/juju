@@ -46,7 +46,7 @@ func (s *environMachinesWatcherSuite) TestWatchEnvironMachines(c *gc.C) {
 		authorizer,
 	)
 	result, err := e.WatchEnvironMachines()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{"1", []string{"foo"}, nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
 }

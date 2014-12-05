@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
@@ -75,7 +76,7 @@ func (s *DirectiveSuite) TestParseDirectiveTrailingData(c *gc.C) {
 
 func (*DirectiveSuite) testParse(c *gc.C, s string, expect *storage.Directive) {
 	d, err := storage.ParseDirective(s)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(d, gc.DeepEquals, expect)
 }
 

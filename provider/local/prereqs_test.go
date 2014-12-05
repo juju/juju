@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
@@ -54,12 +55,12 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "Ubuntu")
 	err := ioutil.WriteFile(filepath.Join(s.tmpdir, "lsb_release"), []byte(lsbrelease), 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// symlink $temp/dpkg-query to /bin/true, to
 	// simulate package installation query responses.
 	err = symlink.New("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&isPackageInstalled, apt.IsPackageInstalled)
 }
 
@@ -90,16 +91,16 @@ func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "(.|\n)*apt-get install(.|\n)*")
 
 	err = ioutil.WriteFile(lxclsPath, nil, 0777)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = VerifyPrerequisites(instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *prereqsSuite) TestJujuLocalPrereq(c *gc.C) {
 	err := os.Remove(filepath.Join(s.tmpdir, "dpkg-query"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = symlink.New("/bin/false", filepath.Join(s.tmpdir, "dpkg-query"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*juju-local must be installed to enable the local provider(.|\n)*")

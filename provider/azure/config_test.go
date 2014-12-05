@@ -65,10 +65,10 @@ func makeAzureConfigMap(c *gc.C) map[string]interface{} {
 // up at the end of the test calling this method.
 func createTempFile(c *gc.C, content []byte) string {
 	file, err := ioutil.TempFile(c.MkDir(), "")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, content, 0644)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return filename
 }
 
@@ -76,9 +76,9 @@ func (*configSuite) TestValidateAcceptsNilOldConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	result, err := provider.Validate(config, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Name(), gc.Equals, attrs["name"])
 }
 
@@ -86,23 +86,23 @@ func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
 	oldConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	result, err := provider.Validate(newConfig, oldConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Name(), gc.Equals, attrs["name"])
 }
 
 func (*configSuite) TestValidateChecksConfigChanges(c *gc.C) {
 	provider := azureEnvironProvider{}
 	oldConfig, err := config.New(config.NoDefaults, makeConfigMap(nil))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	newAttrs := makeConfigMap(map[string]interface{}{
 		"name": "different-name",
 	})
 	newConfig, err := config.New(config.NoDefaults, newAttrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.Validate(newConfig, oldConfig)
 	c.Check(err, gc.NotNil)
 }
@@ -125,9 +125,9 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	azConfig, err := provider.newConfig(config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(azConfig.Name(), gc.Equals, attrs["name"])
 	c.Check(azConfig.location(), gc.Equals, location)
 	c.Check(azConfig.managementSubscriptionId(), gc.Equals, managementSubscriptionId)
@@ -144,7 +144,7 @@ func (*configSuite) TestValidateVerifiesCertFileContents(c *gc.C) {
 	attrs["management-certificate-path"] = certFile
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.newConfig(newConfig)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("invalid management-certificate-path: %q is not a PEM encoded certificate file", regexp.QuoteMeta(certFile)))
 }
@@ -154,7 +154,7 @@ func (*configSuite) TestValidateVerifiesCertContents(c *gc.C) {
 	attrs["management-certificate"] = "definitely not PEM"
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.newConfig(newConfig)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("invalid management-certificate: not a PEM encoded certificate"))
 }
@@ -166,9 +166,9 @@ func (*configSuite) TestValidateReadsCertFile(c *gc.C) {
 	attrs["management-certificate-path"] = certFile
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	azConfig, err := provider.newConfig(newConfig)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(azConfig.managementCertificate(), gc.Equals, testCert)
 }
 
@@ -179,7 +179,7 @@ func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
 	attrs["management-certificate-path"] = nonExistingCertPath
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
 }
@@ -189,7 +189,7 @@ func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 	attrs["location"] = ""
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*environment has no location.*")
 }
@@ -197,18 +197,18 @@ func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 func (*configSuite) TestBoilerplateConfigReturnsAzureConfig(c *gc.C) {
 	provider := azureEnvironProvider{}
 	boilerPlateConfig := provider.BoilerplateConfig()
-	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), gc.Equals, true)
+	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), jc.IsTrue)
 }
 
 func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["management-certificate"] = testCert
 	config, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	provider := azureEnvironProvider{}
 	secretAttrs, err := provider.SecretAttrs(config)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectedAttrs := map[string]string{
 		"management-certificate": testCert,
@@ -221,9 +221,9 @@ func (*configSuite) TestEmptyImageStream1dot16Compat(c *gc.C) {
 	attrs["image-stream"] = ""
 	provider := azureEnvironProvider{}
 	cfg, err := config.New(config.UseDefaults, attrs)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.Validate(cfg, nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
@@ -242,9 +242,9 @@ func (s *configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
 			}
 		}
 		cfg, err := config.New(config.UseDefaults, attrs)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		env, err := azureEnvironProvider{}.Prepare(envtesting.BootstrapContext(c), cfg)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		azureEnv := env.(*azureEnviron)
 		c.Assert(azureEnv.ecfg.availabilitySetsEnabled(), checker)
 	}
@@ -255,11 +255,11 @@ func (s *configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
 		return nil
 	})
 	cfg, err := config.New(config.UseDefaults, makeAzureConfigMap(c))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	env, err := azureEnvironProvider{}.Prepare(envtesting.BootstrapContext(c), cfg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = env.Config().Apply(map[string]interface{}{"availability-sets-enabled": false})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.ErrorMatches, "cannot change availability-sets-enabled")
 }

@@ -25,7 +25,7 @@ func (s *ListSourceSuite) TestNoUpdates(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "HookSource does not accept updates")
 
 	err = source.Stop()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 }
 
 func (s *ListSourceSuite) TestQueue(c *gc.C) {

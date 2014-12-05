@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -25,7 +26,7 @@ func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, 
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
 	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	for _, t := range []struct {
 		args  []string
 		level loggo.Level
@@ -50,7 +51,7 @@ func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, 
 		},
 	} {
 		writer.Clear()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		args := append(t.args, msg1, msg2)
 		code := cmd.Main(com, &cmd.Context{}, args)
@@ -67,7 +68,7 @@ func (s *JujuLogSuite) TestBadges(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	_, err := loggo.ReplaceDefaultWriter(tw)
 	loggo.GetLogger("unit").SetLogLevel(loggo.TRACE)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hctx := s.GetHookContext(c, -1, "")
 	assertLogs(c, hctx, tw, "u/0", "")
 	hctx = s.GetHookContext(c, 1, "u/1")
@@ -77,7 +78,7 @@ func (s *JujuLogSuite) TestBadges(c *gc.C) {
 func newJujuLogCommand(c *gc.C) cmd.Command {
 	ctx := &Context{}
 	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return com
 }
 
@@ -105,6 +106,6 @@ func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {
 func (s *JujuLogSuite) TestLogDeprecation(c *gc.C) {
 	com := newJujuLogCommand(c)
 	ctx, err := testing.RunCommand(c, com, "--format", "foo", "msg")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")
 }

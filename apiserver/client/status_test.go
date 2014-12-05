@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
@@ -20,7 +21,7 @@ var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
 
@@ -31,7 +32,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
 	client := s.APIState.Client()
 	status, err := client.Status(nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.EnvironmentName, gc.Equals, "dummyenv")
 	c.Check(status.Services, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
@@ -48,10 +49,10 @@ func (s *statusSuite) TestLegacyStatus(c *gc.C) {
 	machine := s.addMachine(c)
 	instanceId := "i-fakeinstance"
 	err := machine.SetProvisioned(instance.Id(instanceId), "fakenonce", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	client := s.APIState.Client()
 	status, err := client.LegacyStatus()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Machines, gc.HasLen, 1)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {

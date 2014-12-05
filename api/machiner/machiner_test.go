@@ -41,9 +41,9 @@ var _ = gc.Suite(&machinerSuite{})
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetAddresses(network.NewAddress("10.0.0.1", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the machiner API facade.
@@ -60,25 +60,25 @@ func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 
 	machine1 := names.NewMachineTag("1")
 	machine, err = s.machiner.Machine(machine1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Tag(), gc.Equals, machine1)
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err := s.machine.Status()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
 	err = machine.SetStatus(params.StatusStarted, "blah", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.machine.Status()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
@@ -88,23 +88,23 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 
 	err = machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 
 	err = s.machine.Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -115,21 +115,21 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 
 func (s *machinerSuite) TestRefresh(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
 	err = machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
 	err = machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Dead)
 }
 
 func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	addr := s.machine.Addresses()
 	c.Assert(addr, gc.HasLen, 0)
@@ -140,20 +140,20 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 		network.NewAddress("8.8.8.8", network.ScopeUnknown),
 	}
 	err = machine.SetMachineAddresses(addresses)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, addresses)
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
 	w, err := machine.Watch()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 
@@ -163,12 +163,12 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
 	err = machine.SetStatus(params.StatusStarted, "not really", nil)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Make the machine dead and check it's detected.
 	err = machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	statetesting.AssertStop(c, w)

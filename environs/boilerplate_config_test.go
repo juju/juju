@@ -6,6 +6,7 @@ package environs_test
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
@@ -24,7 +25,7 @@ func (*BoilerplateConfigSuite) TestBoilerPlateGeneration(c *gc.C) {
 	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	boilerplate_text := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvironsBytes([]byte(boilerplate_text))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (*BoilerplateConfigSuite) TestBoilerPlateAliases(c *gc.C) {

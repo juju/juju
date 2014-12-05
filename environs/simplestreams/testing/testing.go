@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/jujutest"
@@ -555,7 +556,7 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURL
 	var obtainedURLs = make([]string, len(baseURLs))
 	for i, source := range obtained {
 		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		obtainedURLs[i] = url
 	}
 	c.Assert(obtainedURLs, gc.DeepEquals, baseURLs)
@@ -632,10 +633,10 @@ func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(indexRef.Format, gc.Equals, Index_v1)
 	c.Assert(indexRef.Source, gc.Equals, s.Source)
-	c.Assert(len(indexRef.Indexes) > 0, gc.Equals, true)
+	c.Assert(len(indexRef.Indexes) > 0, jc.IsTrue)
 }
 
 func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
@@ -655,15 +656,15 @@ func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathExists(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(path, gc.Not(gc.Equals), "")
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"bad", "spec"},
 		Series:    []string{"precise"},
@@ -674,7 +675,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidCloudSpec(c *gc.
 
 func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *gc.C) {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	ic := NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: s.ValidConstraint.Params().CloudSpec,
 		Series:    []string{"precise"},
@@ -687,11 +688,11 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 
 func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *gc.C) *simplestreams.CloudMetadata {
 	indexRef, err := s.GetIndexRef(Index_v1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	metadata, err := indexRef.GetCloudMetadataWithFormat(s.ValidConstraint, Product_v1, s.RequireSigned)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata.Format, gc.Equals, Product_v1)
-	c.Assert(len(metadata.Products) > 0, gc.Equals, true)
+	c.Assert(len(metadata.Products) > 0, jc.IsTrue)
 	return metadata
 }
 

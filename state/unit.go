@@ -1544,7 +1544,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	return u.st.addAction(u, name, payload)
+	return u.st.EnqueueAction(u.Tag(), name, payload)
 }
 
 // CancelAction removes a pending Action from the queue for this
@@ -1653,5 +1653,9 @@ func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, er
 	if !ok {
 		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics)
+	service, err := u.Service()
+	if err != nil {
+		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
+	}
+	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
 }

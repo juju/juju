@@ -6,8 +6,13 @@ package main
 import (
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
@@ -59,7 +64,7 @@ func runBlockCommand(c *gc.C, args ...string) error {
 
 func (s *BlockCommandSuite) runBlockTestAndCompare(c *gc.C, operation string, expectedValue bool) {
 	err := runBlockCommand(c, operation)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectedOp := config.BlockKeyPrefix + strings.ToLower(operation)
 	expectedCfg := map[string]interface{}{expectedOp: expectedValue}
@@ -92,4 +97,36 @@ func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperationUpperCase(c *gc.
 
 func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
 	s.runBlockTestAndCompare(c, "destroy-environment", true)
+}
+
+type BlockableRemoveCommandSuite struct {
+	testing.FakeJujuHomeSuite
+}
+
+var _ = gc.Suite(&BlockableRemoveCommandSuite{})
+
+func (s *BlockableRemoveCommandSuite) processErrorTest(c *gc.C, tstError error, block Block, expectedError error, expectedWarning string) {
+	testCmd := BlockableCommand{}
+	if tstError != nil {
+		c.Assert(testCmd.processBlockedError(tstError, block), gc.Equals, expectedError)
+	} else {
+		c.Assert(testCmd.processBlockedError(tstError, block), jc.ErrorIsNil)
+	}
+	// warning displayed
+	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Assert(logOutputText, gc.Matches, expectedWarning)
+}
+
+func (s *BlockableRemoveCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
+	s.processErrorTest(c, common.ErrOperationBlocked, BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
+	s.processErrorTest(c, common.ErrOperationBlocked, BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
+}
+
+func (s *BlockableRemoveCommandSuite) TestProcessErrNil(c *gc.C) {
+	s.processErrorTest(c, nil, BlockDestroy, nil, "")
+}
+
+func (s *BlockableRemoveCommandSuite) TestProcessErrAny(c *gc.C) {
+	err := errors.New("Test error Processing")
+	s.processErrorTest(c, err, BlockDestroy, err, "")
 }

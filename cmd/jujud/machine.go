@@ -244,13 +244,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("termination", func() (worker.Worker, error) {
 		return terminationworker.NewWorker(), nil
 	})
-	a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
-		inner := func(stopch <-chan struct{}) error {
-			agentConfig := a.CurrentConfig()
-			return agent.WriteSystemIdentityFile(agentConfig)
-		}
-		return worker.NewSimpleWorker(inner), nil
-	})
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
@@ -565,6 +558,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "metricmanagerworker", func() (worker.Worker, error) {
 				return metricworker.NewMetricsManager(getMetricAPI(st))
 			})
+			a.startWorkerAfterUpgrade(a.runner, "identity-file-writer", func() (worker.Worker, error) {
+				inner := func(<-chan struct{}) error {
+					agentConfig := a.CurrentConfig()
+					return agent.WriteSystemIdentityFile(agentConfig)
+				}
+				return worker.NewSimpleWorker(inner), nil
+			})
 		case multiwatcher.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
@@ -723,6 +723,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
+				tag := agentConfig.Tag()
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 
@@ -734,6 +735,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
+					Tag:       tag,
 					DataDir:   dataDir,
 					LogDir:    logDir,
 					Validator: a.limitLogins,

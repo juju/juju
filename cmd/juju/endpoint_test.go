@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -22,7 +23,7 @@ var _ = gc.Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpoint(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&EndpointCommand{}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	output := string(ctx.Stdout.(*bytes.Buffer).Bytes())
 	info := s.APIInfo(c)
@@ -32,11 +33,11 @@ func (s *EndpointSuite) TestEndpoint(c *gc.C) {
 func (s *EndpointSuite) TestMultipleEndpoints(c *gc.C) {
 	// Run command once to create store in test.
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&EndpointCommand{}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
 	s.setAPIAddresses(c, info.Addrs[0], "0.1.2.3:17070", "0.2.3.4:17070")
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&EndpointCommand{}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	output := string(ctx.Stdout.(*bytes.Buffer).Bytes())
 	c.Assert(output, gc.Equals, fmt.Sprintf("%s\n", info.Addrs[0]))
@@ -45,11 +46,11 @@ func (s *EndpointSuite) TestMultipleEndpoints(c *gc.C) {
 func (s *EndpointSuite) TestNoEndpoints(c *gc.C) {
 	// Run command once to create store in test.
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&EndpointCommand{}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info := s.APIInfo(c)
 	s.setAPIAddresses(c)
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&EndpointCommand{}))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	output := string(ctx.Stdout.(*bytes.Buffer).Bytes())
 	c.Assert(output, gc.Equals, fmt.Sprintf("%s\n", info.Addrs[0]))
@@ -59,12 +60,12 @@ func (s *EndpointSuite) TestNoEndpoints(c *gc.C) {
 // passed ones.
 func (s *EndpointSuite) setAPIAddresses(c *gc.C, addresses ...string) {
 	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	info, err := s.ConfigStore.ReadInfo(env.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	endpoint := info.APIEndpoint()
 	endpoint.Addresses = addresses
 	info.SetAPIEndpoint(endpoint)
 	err = info.Write()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }

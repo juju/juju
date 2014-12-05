@@ -75,6 +75,11 @@ const (
 	// Only prevent destroy-environment from running
 	// if user specifically requests it. Otherwise, let it run.
 	DefaultPreventDestroyEnvironment = false
+
+	// Only prevent remove-object from running
+	// if user specifically requests it. Otherwise, let it run.
+	// Object here is a juju artifact - machine, service, unit or relation.
+	DefaultPreventRemoveObject = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -126,6 +131,9 @@ const (
 
 	// PreventDestroyEnvironmentKey stores the value for this setting
 	PreventDestroyEnvironmentKey = BlockKeyPrefix + "destroy-environment"
+
+	// PreventRemoveObjectKey stores the value for this setting
+	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
 
 	//
 	// Deprecated Settings Attributes
@@ -738,6 +746,17 @@ func (c *Config) PreventDestroyEnvironment() bool {
 	return DefaultPreventDestroyEnvironment
 }
 
+// PreventRemoveObject returns if remove-object
+// should be blocked from proceeding, thus preventing the operation.
+// Object in this context is a juju artifact: either a machine,
+// a service, a unit or a relation.
+func (c *Config) PreventRemoveObject() bool {
+	if attrValue, ok := c.defined[PreventRemoveObjectKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventRemoveObject
+}
+
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
@@ -1119,6 +1138,7 @@ var fields = schema.Fields{
 	"disable-network-management": schema.Bool(),
 	SetNumaControlPolicyKey:      schema.Bool(),
 	PreventDestroyEnvironmentKey: schema.Bool(),
+	PreventRemoveObjectKey:       schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1161,6 +1181,7 @@ var alwaysOptional = schema.Defaults{
 	AgentStreamKey:               schema.Omit,
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
+	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1225,6 +1246,7 @@ func allDefaults() schema.Defaults {
 		"disable-network-management": false,
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
+		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

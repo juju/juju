@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"io/ioutil"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -19,9 +21,8 @@ func (s *backupsSuite) TestInfoOkay(c *gc.C) {
 		ID: "some-id",
 	}
 	result, err := s.api.Info(args)
-	c.Assert(err, gc.IsNil)
-	expected := params.BackupsMetadataResult{}
-	expected.UpdateFromMetadata(s.meta)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := backups.ResultFromMetadata(s.meta)
 
 	c.Check(result, gc.DeepEquals, expected)
 }
@@ -32,9 +33,8 @@ func (s *backupsSuite) TestInfoMissingFile(c *gc.C) {
 		ID: "some-id",
 	}
 	result, err := s.api.Info(args)
-	c.Assert(err, gc.IsNil)
-	expected := params.BackupsMetadataResult{}
-	expected.UpdateFromMetadata(s.meta)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := backups.ResultFromMetadata(s.meta)
 
 	c.Check(result, gc.DeepEquals, expected)
 }

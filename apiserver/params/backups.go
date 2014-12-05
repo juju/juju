@@ -6,7 +6,6 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
 
@@ -56,28 +55,4 @@ type BackupsMetadataResult struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
-}
-
-// UpdateFromMetadata updates the result with the information in the
-// metadata value.
-func (r *BackupsMetadataResult) UpdateFromMetadata(meta *backups.Metadata) {
-	r.ID = meta.ID()
-
-	r.Checksum = meta.Checksum()
-	r.ChecksumFormat = meta.ChecksumFormat()
-	r.Size = meta.Size()
-	if meta.Stored() != nil {
-		r.Stored = *(meta.Stored())
-	}
-
-	r.Started = meta.Started
-	if meta.Finished != nil {
-		r.Finished = *meta.Finished
-	}
-	r.Notes = meta.Notes
-
-	r.Environment = meta.Origin.Environment
-	r.Machine = meta.Origin.Machine
-	r.Hostname = meta.Origin.Hostname
-	r.Version = meta.Origin.Version
 }

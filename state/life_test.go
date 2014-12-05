@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
@@ -95,7 +96,7 @@ func (l *unitLife) id() (coll string, id interface{}) {
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	unit, err := s.svc.AddUnit()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit
 	return l.unit
@@ -113,7 +114,7 @@ func (l *machineLife) id() (coll string, id interface{}) {
 func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	var err error
 	l.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return l.machine
 }
 
@@ -124,14 +125,14 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 	err := coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = living.Refresh()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", dbinitial},
 	}}})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
@@ -144,20 +145,20 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			switch v.desired {
 			case state.Dying:
 				err := living.Destroy()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			case state.Dead:
 				err := living.EnsureDead()
-				c.Assert(err, gc.IsNil)
+				c.Assert(err, jc.ErrorIsNil)
 			default:
 				panic("desired lifecycle can only be dying or dead")
 			}
 			err := living.Refresh()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(living.Life(), gc.Equals, v.dbfinal)
 			err = living.EnsureDead()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			err = living.Remove()
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
 }
@@ -195,7 +196,7 @@ func runLifeChecks(c *gc.C, obj lifer, expectErr string, checks []func() error) 
 		c.Logf("check %d when %v", i, obj.Life())
 		err := check()
 		if expectErr == noErr {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 		} else {
 			c.Assert(err, gc.ErrorMatches, expectErr)
 		}
@@ -208,9 +209,9 @@ func runLifeChecks(c *gc.C, obj lifer, expectErr string, checks []func() error) 
 func testWhenDying(c *gc.C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
 	err := obj.Destroy()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
 	err = obj.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	runLifeChecks(c, obj, deadErr, checks)
 }

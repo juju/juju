@@ -72,11 +72,11 @@ func (s *networkerSuite) setUpNetworks(c *gc.C) {
 func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")
 	s.machineIfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
@@ -106,7 +106,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		Disabled:      true,
 	}}
 	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 }
@@ -119,7 +119,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	}
 	var err error
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.containerIfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		InterfaceName: "eth0",
@@ -139,10 +139,10 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
 		s.containerIfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.nestedContainerIfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		InterfaceName: "eth0",
@@ -151,7 +151,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 	}}
 	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
 		s.nestedContainerIfaces)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *networkerSuite) SetUpTest(c *gc.C) {
@@ -244,15 +244,15 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 	}}
 
 	results, err := s.networker.MachineNetworkInfo(names.NewMachineTag("0"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
 
 	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
 
 	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0/lxc/0"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }
 
@@ -266,7 +266,7 @@ func (s *networkerSuite) TestWatchInterfacesPermissionDenied(c *gc.C) {
 func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	// Read dynamically generated document Ids.
 	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces, gc.HasLen, 5)
 
 	// Start network interface watcher.
@@ -277,27 +277,27 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 
 	// Disable the first interface.
 	err = ifaces[0].Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Disable the first interface again, should not report.
 	err = ifaces[0].Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Enable the first interface.
 	err = ifaces[0].Enable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Enable the first interface again, should not report.
 	err = ifaces[0].Enable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Remove the network interface.
 	err = ifaces[0].Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Add the new interface.
@@ -306,7 +306,7 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 		InterfaceName: "eth3",
 		NetworkName:   "net2",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Add the new interface on the container, should not report.
@@ -315,22 +315,22 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 		InterfaceName: "eth3",
 		NetworkName:   "net2",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Read dynamically generated document Ids.
 	containerIfaces, err := s.container.NetworkInterfaces()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(containerIfaces, gc.HasLen, 4)
 
 	// Disable the first interface on the second machine, should not report.
 	err = containerIfaces[0].Disable()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Remove the network interface on the second machine, should not report.
 	err = containerIfaces[0].Remove()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Stop watcher; check Changes chan closed.

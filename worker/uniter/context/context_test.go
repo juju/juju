@@ -28,7 +28,7 @@ func (s *InterfaceSuite) GetContext(
 	c *gc.C, relId int, remoteName string,
 ) jujuc.Context {
 	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return s.HookContextSuite.getHookContext(
 		c, uuid.String(), relId, remoteName, noProxies,
 	)
@@ -78,7 +78,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	// Change remote state.
 	err := s.machine.SetAddresses(
 		network.NewAddress("blah.testing.invalid", network.ScopePublic))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is unchanged.
 	pr, ok = ctx.PrivateAddress()
@@ -92,18 +92,18 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	settings, err := ctx.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
 	err = s.service.UpdateConfigSettings(charm.Settings{
 		"blog-title": "Something Else",
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Local view is not changed.
 	settings, err = ctx.ConfigSettings()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
@@ -165,9 +165,9 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
 		hctx := context.GetStubActionContext(t.initial)
 		err := hctx.UpdateActionResults(t.keys, t.value)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		actionData, err := hctx.ActionData()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(actionData.ResultsMap, jc.DeepEquals, t.expected)
 	}
 }
@@ -176,9 +176,9 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionFailed()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(actionData.ActionFailed, jc.IsTrue)
 }
 
@@ -186,9 +186,9 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionMessage("because reasons")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
 }
 
@@ -197,7 +197,7 @@ func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 		Commands: "trap 'exit 0' SIGTERM; while true;do sleep 1;done",
 	}
 	err := command.Run()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	p := command.Process()
 	s.AddCleanup(func(c *gc.C) { p.Kill() })
 	return p
@@ -208,11 +208,11 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 	p := s.startProcess(c)
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	err = syscall.Kill(p.Pid, syscall.SIGTERM)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = p.Wait()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
 }
@@ -223,10 +223,10 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 	ctx.SetProcess(p)
 	go func() {
 		_, err := p.Wait()
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 	}()
 	err := ctx.RequestReboot(jujuc.RebootNow)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
 }

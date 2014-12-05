@@ -27,19 +27,19 @@ type datasourceSuite struct {
 func (s *datasourceSuite) TestFetch(c *gc.C) {
 	ds := simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)
 	rc, url, err := ds.Fetch("streams/v1/tools_metadata.json")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, gc.Equals, "test:/streams/v1/tools_metadata.json")
 	data, err := ioutil.ReadAll(rc)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, imagemetadata.ImageMetadata{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(cloudMetadata.Products), jc.GreaterThan, 0)
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
 	ds := simplestreams.NewURLDataSource("test", "foo", utils.VerifySSLHostnames)
 	url, err := ds.URL("bar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "foo/bar")
 }
 
@@ -67,7 +67,7 @@ func (s *datasourceHTTPSSuite) TearDownTest(c *gc.C) {
 func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 	ds := simplestreams.NewURLDataSource("test", s.Server.URL, utils.VerifySSLHostnames)
 	url, err := ds.URL("bar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, s.Server.URL+"/bar")
 	reader, _, err := ds.Fetch("bar")
 	// The underlying failure is a x509: certificate signed by unknown authority
@@ -79,14 +79,14 @@ func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	ds := simplestreams.NewURLDataSource("test", s.Server.URL, utils.NoVerifySSLHostnames)
 	url, err := ds.URL("bar")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, s.Server.URL+"/bar")
 	reader, _, err := ds.Fetch("bar")
 	// The underlying failure is a x509: certificate signed by unknown authority
 	// However, the urlDataSource abstraction hides that as a simple NotFound
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 	byteContent, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(byteContent), gc.Equals, "Greetings!\n")
 }

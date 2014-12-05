@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/backups"
@@ -28,7 +29,7 @@ func (s *removeSuite) SetUpTest(c *gc.C) {
 
 func (s *removeSuite) TestHelp(c *gc.C) {
 	ctx, err := testing.RunCommand(c, s.command, "remove", "--help")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	info := s.subcommand.Info()
 	expected := "(?sm)usage: juju backups remove [options] " + info.Args + "$.*"
@@ -45,7 +46,7 @@ func (s *removeSuite) TestOkay(c *gc.C) {
 	s.subcommand.ID = "spam"
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
-	c.Check(err, gc.IsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	out := "successfully removed: spam\n"
 	s.checkStd(c, ctx, out, "")

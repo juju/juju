@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -30,7 +31,7 @@ func (s *RelationSetSuite) TestHelp(c *gc.C) {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
 		c.Assert(code, gc.Equals, 0)
@@ -41,7 +42,7 @@ purpose: set relation settings
 options:
 --format (= "")
     deprecated format flag
--r  (= %s)
+-r, --relation  (= %s)
     specify a relation by id
 `[1:], t.expect))
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -154,10 +155,10 @@ func (s *RelationSetSuite) TestInit(c *gc.C) {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.ctxrelid, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		err = testing.InitCommand(com, t.args)
 		if t.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			rset := com.(*jujuc.RelationSetCommand)
 			c.Assert(rset.RelationId, gc.Equals, t.relid)
 			settings := t.settings
@@ -200,13 +201,13 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 
 		// Run the command.
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
 		rset.Settings = t.change
 		ctx := testing.Context(c)
 		err = com.Run(ctx)
-		c.Assert(err, gc.IsNil)
+		c.Assert(err, jc.ErrorIsNil)
 
 		// Check changes.
 		c.Assert(hctx.rels[0].units["u/0"], gc.DeepEquals, pristine)
@@ -221,7 +222,7 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	// The rel= is needed to make this a valid command.
 	ctx, err := testing.RunCommand(c, com, "--format", "foo", "rel=")
 
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"relation-set\"")
 }

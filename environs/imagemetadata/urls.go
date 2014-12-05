@@ -5,10 +5,9 @@ package imagemetadata
 
 import (
 	"fmt"
-	"net/url"
-	"strings"
 
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/utils"
 )
 
 // ImageMetadataURL returns a valid image metadata URL constructed from source.
@@ -26,18 +25,6 @@ func ImageMetadataURL(source, stream string) (string, error) {
 		}
 		source = fmt.Sprintf("%s/%s", source, cloudImagesPath)
 	}
-	// If source is a raw directory, we need to append the file:// prefix
-	// so it can be used as a URL.
-	defaultURL := source
-	u, err := url.Parse(source)
-	if err != nil {
-		return "", fmt.Errorf("invalid default image metadata URL %s: %v", defaultURL, err)
-	}
-	if u.Scheme == "" {
-		defaultURL = "file://" + defaultURL
-		if !strings.HasSuffix(defaultURL, "/"+storage.BaseImagesPath) {
-			defaultURL = fmt.Sprintf("%s/%s", defaultURL, storage.BaseImagesPath)
-		}
-	}
-	return defaultURL, nil
+
+	return utils.GetURL(source, storage.BaseImagesPath)
 }

@@ -83,7 +83,7 @@ func (s *ServerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
 	srv, err := jujuc.NewServer(factory, s.sockPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(srv, gc.NotNil)
 	s.server = srv
 	s.err = make(chan error)
@@ -100,7 +100,7 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 
 func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
 	client, err := rpc.Dial("unix", s.sockPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer client.Close()
 	err = client.Call("Jujuc.Main", req, &resp)
 	return resp, err
@@ -111,12 +111,12 @@ func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	resp, err := s.Call(c, jujuc.Request{
 		"validCtx", dir, "remote", []string{"--value", "something"},
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, 0)
 	c.Assert(string(resp.Stdout), gc.Equals, "eye of newt\n")
 	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
 	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "something")
 }
 
@@ -130,14 +130,14 @@ func (s *ServerSuite) TestLocks(c *gc.C) {
 			resp, err := s.Call(c, jujuc.Request{
 				"validCtx", dir, "remote", []string{"--slow"},
 			})
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(resp.Code, gc.Equals, 0)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 	t1 := time.Now()
-	c.Assert(t0.Add(4*testing.ShortWait).Before(t1), gc.Equals, true)
+	c.Assert(t0.Add(4*testing.ShortWait).Before(t1), jc.IsTrue)
 }
 
 func (s *ServerSuite) TestBadCommandName(c *gc.C) {
@@ -165,7 +165,7 @@ func (s *ServerSuite) TestBadContextId(c *gc.C) {
 
 func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.ExecResponse {
 	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:]})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.Code, gc.Equals, code)
 	return resp
 }
@@ -213,7 +213,7 @@ func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.
-			c.Assert(err, gc.IsNil)
+			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(com.Info().Name, gc.Equals, t.name)
 		} else {
 			c.Assert(com, gc.IsNil)
