@@ -786,7 +786,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 func (m *Machine) AvailabilityZone() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		err = NotProvisionedError(m.Id())
+		return "", errors.Trace(NotProvisionedError(m.Id()))
 	}
 	if err != nil {
 		return "", errors.Trace(err)
