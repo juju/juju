@@ -4,9 +4,9 @@
 package state
 
 import (
+	"encoding/binary"
+	"fmt"
 	"net"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
@@ -222,7 +222,35 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	}
 
 	// convert low and high to decimals (dottedQuadToNum) as the bounds
-	// find all addresses for this subnetand  convert them to decimals
+	lowDecimal, err := ipToDecimal(low)
+	if err != nil {
+		// these addresses are validated so should never happen
+		return nil, errors.Errorf("invalid AllocatableIPLow %q", low)
+	}
+	highDecimal, err := ipToDecimal(high)
+	if err != nil {
+		// these addresses are validated so should never happen
+		return nil, errors.Errorf("invalid AllocatableIPHigh %q", high)
+	}
+	// find all addresses for this subnet and convert them to decimals
+	addresses, closer := s.st.getCollection(ipaddressesC)
+	defer closer()
+
+	id := s.ID()
+	var doc struct {
+		Value string
+	}
+	allocated := []uint32{}
+	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
+	for iter.Next(&doc) {
+		// skip invalid values? Can't happen anyway as we validate.
+		value, err := ipToDecimal(doc.Value)
+		if err != nil {
+			continue
+		}
+		allocated = append(allocated, value)
+	}
+
 	// pick a new random decimal between the low and high bounds that
 	// doesn't match an existing one (first checking that number of
 	// addresses in use is less than the difference between low and high -
@@ -232,19 +260,16 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	return nil, nil
 }
 
-func dottedQuadToNum(addr string) (int, error) {
-	nums := strings.Split(addr, ".")
-	hexes := []string{}
-	for _, value := range nums {
-		intVal, err := strconv.ParseInt(value, 10, 32)
-		if err != nil {
-			return 0, err
-		}
-		// XXX need zero padding to two characters
-		hexVal := strconv.FormatInt(intVal, 16)
-		hexes = append(hexes, hexVal)
+func decimalToIP(addr uint32) string {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, addr)
+	return net.IP(bytes).String()
+}
+
+func ipToDecimal(ipv4Addr string) (uint32, error) {
+	ip := net.ParseIP(ipv4Addr).To4()
+	if ip == nil {
+		return 0, fmt.Errorf("%q is not a valid IPv4 Address.", ipv4Addr)
 	}
-	hex := strings.Join(hexes, "")
-	result, _ := strconv.ParseInt(hex, 16, 32)
-	return int(result), nil
+	return binary.BigEndian.Uint32([]byte(ip)), nil
 }
