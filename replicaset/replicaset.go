@@ -430,8 +430,8 @@ type MemberStatus struct {
 }
 
 // IsReady checks on the status of all members in the replicaset
-// associated with the provided session. If any member is not ready or
-// if the connection dropped then the result is false.
+// associated with the provided session. If we can connect and the majority of
+// members are ready then the result is true.
 func IsReady(session *mgo.Session) (bool, error) {
 	status, err := getCurrentStatus(session)
 	if errors.Cause(err) == io.EOF || (err != nil && strings.Contains(err.Error(), "connection refused")) {
@@ -444,13 +444,18 @@ func IsReady(session *mgo.Session) (bool, error) {
 		// Fail for any other reason.
 		return false, errors.Trace(err)
 	}
+
+	majority := (len(status.Members) / 2) + 1
+	healthy := 0
 	// Check the members.
 	for _, member := range status.Members {
-		if !member.Healthy {
-			// At least one member isn't up yet.
-			logger.Errorf("not all members ready")
-			return false, nil
+		if member.Healthy {
+			healthy += 1
 		}
+	}
+	if healthy < majority {
+		logger.Errorf("not enough members ready")
+		return false, nil
 	}
 	return true, nil
 }

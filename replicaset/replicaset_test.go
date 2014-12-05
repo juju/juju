@@ -373,7 +373,7 @@ func (s *MongoSuite) TestIsReadyNotOne(c *gc.C) {
 	c.Check(ready, jc.IsFalse)
 }
 
-func (s *MongoSuite) TestIsReadyNotPartial(c *gc.C) {
+func (s *MongoSuite) TestIsReadyMinority(c *gc.C) {
 	s.PatchValue(&getCurrentStatus,
 		func(session *mgo.Session) (*Status, error) {
 			status := &Status{Members: []MemberStatus{{
@@ -386,7 +386,7 @@ func (s *MongoSuite) TestIsReadyNotPartial(c *gc.C) {
 				},
 				{
 					Id:      3,
-					Healthy: true,
+					Healthy: false,
 				}}}
 			return status, nil
 		},
