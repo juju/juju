@@ -461,7 +461,7 @@ func IsReady(session *mgo.Session) (bool, error) {
 func WaitUntilReady(session *mgo.Session, timeout int) error {
 	attempts := utils.AttemptStrategy{
 		Delay: 10 * time.Second,
-		Min:   timeout / 10,
+		Total: time.Duration(timeout) * time.Second,
 	}
 	var err error
 	ready := false

@@ -450,7 +450,7 @@ func (s *MongoSuite) TestWaitUntilReadyTimeout(c *gc.C) {
 	session := s.root.MustDial()
 	defer session.Close()
 
-	err := WaitUntilReady(session, 1)
+	err := WaitUntilReady(session, 0)
 	c.Assert(err, gc.ErrorMatches, "timed out after 1 seconds")
 }
 
@@ -463,7 +463,7 @@ func (s *MongoSuite) TestWaitUntilReadyError(c *gc.C) {
 	session := s.root.MustDial()
 	defer session.Close()
 
-	err := WaitUntilReady(session, 1)
+	err := WaitUntilReady(session, 0)
 	c.Assert(err, gc.ErrorMatches, "foobar")
 }
 
