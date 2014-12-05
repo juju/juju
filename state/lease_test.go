@@ -4,7 +4,6 @@
 package state
 
 import (
-	"testing"
 	"time"
 
 	gc "gopkg.in/check.v1"
@@ -12,10 +11,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/lease"
-	//"labix.org/v2/mgo"
 )
-
-func Test(t *testing.T) { gc.TestingT(t) }
 
 const (
 	testCollectionName = "test collection"
