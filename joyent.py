@@ -380,7 +380,7 @@ def parse_args(args=None):
     subparsers.add_parser('list-machines', help='List running machines')
     parser_delete_old_machine = subparsers.add_parser(
         'delete-old-machines',
-        help='Delete machines older than %d' % OLD_MACHINE_AGE)
+        help='Delete machines older than %d hours' % OLD_MACHINE_AGE)
     parser_delete_old_machine.add_argument(
         "-c", "--contact-mail-address", dest="contact_mail_address",
         help="Email address used in the Joyent support form",
