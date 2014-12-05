@@ -133,13 +133,14 @@ class Client:
     """
 
     def __init__(self, sdc_url, account, key_id,
-                 user_agent=USER_AGENT, verbose=False):
+                 user_agent=USER_AGENT, dry_run=False, verbose=False):
         if sdc_url.endswith('/'):
             sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
         self.account = account
         self.key_id = key_id
         self.user_agent = user_agent
+        self.dry_run = dry_run
         self.verbose = verbose
 
     def make_request_headers(self, headers=None):
@@ -221,15 +222,19 @@ class Client:
     def stop_machine(self, machine_id):
         path = '/machines/{}?action=stop'.format(machine_id)
         print("Stopping machine {}".format(machine_id))
-        headers, content = self._request(path, method='POST')
+        if not self.dry_run:
+            headers, content = self._request(path, method='POST')
 
     def delete_machine(self, machine_id):
         path = '/machines/{}'.format(machine_id)
         print("Deleting machine {}".format(machine_id))
-        headers, content = self._request(path, method='DELETE')
+        if not self.dry_run:
+            headers, content = self._request(path, method='DELETE')
 
     def send_stuck_machine_support_request(
             self, machine_id, machine_address, contact_mail_address):
+        if self.dry_run:
+            return
         session = Session()
         req = Request('GET', SUPPORT_HOST + 'anonymous_requests/new')
         resp = session.send(session.prepare_request(req))
@@ -301,13 +306,15 @@ class Client:
                 machine_address = machine.get('primaryIp')
                 if not machine_address:
                     machine_address = 'n/a'
-                self.send_stuck_machine_support_request(
-                    machine_id, machine_address, contact_mail_address)
+                if not self.dry_run:
+                    self.send_stuck_machine_support_request(
+                        machine_id, machine_address, contact_mail_address)
         stuck_machines_dir = os.path.split(STUCK_MACHINES_PATH)[0]
-        if not os.path.exists(stuck_machines_dir):
-            os.makedirs(stuck_machines_dir)
-        with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
-            json.dump(list(current_stuck_ids), stuck_file)
+        if not self.dry_run:
+            if not os.path.exists(stuck_machines_dir):
+                os.makedirs(stuck_machines_dir)
+            with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
+                json.dump(list(current_stuck_ids), stuck_file)
 
     def delete_old_machines(self, contact_mail_address):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
@@ -333,22 +340,27 @@ class Client:
                     current_stuck.append(machine)
                     continue
                 print("Machine {} is {} old".format(machine_id, age))
-                self.stop_machine(machine_id)
-                while True:
-                    print(".", end="")
-                    sys.stdout.flush()
-                    sleep(3)
-                    stopping_machine = self._list_machines(machine_id)
-                    if stopping_machine['state'] == 'stopped':
-                        break
-                print("stopped")
-                self.delete_machine(machine_id)
-        self.request_deletion(current_stuck, contact_mail_address)
+                if not self.dry_run:
+                    self.stop_machine(machine_id)
+                    while True:
+                        print(".", end="")
+                        sys.stdout.flush()
+                        sleep(3)
+                        stopping_machine = self._list_machines(machine_id)
+                        if stopping_machine['state'] == 'stopped':
+                            break
+                    print("stopped")
+                    self.delete_machine(machine_id)
+        if not self.dry_run:
+            self.request_deletion(current_stuck, contact_mail_address)
 
 
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser('Query and manage joyent.')
+    parser.add_argument(
+        '-d', '--dry-run', action='store_true', default=False,
+        help='Do not make changes.')
     parser.add_argument(
         '-v', '--verbose', action="store_true", help='Increse verbosity.')
     parser.add_argument(
@@ -379,7 +391,8 @@ def main(argv):
         print('SDC_URL must be sourced into the environment.')
         sys.exit(1)
     client = Client(
-        args.sdc_url, args.account, args.key_id, verbose=args.verbose)
+        args.sdc_url, args.account, args.key_id,
+        dry_run=args.dry_run, verbose=args.verbose)
     if args.action == 'list-machines':
         client.list_machines()
     elif args.action == 'list-tags':
