@@ -417,6 +417,13 @@ func (s *MongoSuite) TestIsReadyConnectionDropped(c *gc.C) {
 	s.checkConnectionFailure(c, io.EOF)
 }
 
+func (s *MongoSuite) TestIsReadyConnectionFailedWithErrno(c *gc.C) {
+	for _, errno := range connectionErrors {
+		c.Logf("Checking errno %#v (%v)", errno, errno)
+		s.checkConnectionFailure(c, errno)
+	}
+}
+
 func (s *MongoSuite) TestIsReadyError(c *gc.C) {
 	failure := errors.New("failed!")
 	s.PatchValue(&getCurrentStatus,
