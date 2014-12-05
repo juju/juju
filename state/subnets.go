@@ -234,6 +234,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 		// these addresses are validated so should never happen
 		return nil, errors.Errorf("invalid AllocatableIPHigh %q", high)
 	}
+
 	// find all addresses for this subnet and convert them to decimals
 	addresses, closer := s.st.getCollection(ipaddressesC)
 	defer closer()
@@ -266,6 +267,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 
 	// convert it back to a dotted-quad
 	newIP := decimalToIP(newDecimal)
+	// XXX what should the Scope of the new address be?
 	newAddr := network.Address{Value: newIP}
 
 	// and create a new IPAddress from it and return it
