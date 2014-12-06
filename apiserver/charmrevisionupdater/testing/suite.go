@@ -72,6 +72,7 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 // AddCharmWithRevision adds a charm with the specified revision to state.
