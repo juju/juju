@@ -6,6 +6,7 @@ package main
 import (
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -76,6 +77,18 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
 	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/unknown-123`)
+}
+
+func (s *DeploySuite) TestBlockDeploy(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "local:dummy", "some-service-name")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {

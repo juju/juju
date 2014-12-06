@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -136,6 +137,25 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 	s.assertEnvironKeys(c, append(initialKeys, newKey))
 }
 
+func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2, "bad key"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
+	args := params.ModifyUserSSHKeys{
+		User: s.AdminUserTag(c).Name(),
+		Keys: []string{key2, newKey, "invalid-key"},
+	}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := s.keymanager.AddKeys(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.assertEnvironKeys(c, initialKeys)
+}
+
 func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.EnvironManager = true
@@ -203,6 +223,24 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 		},
 	})
 	s.assertEnvironKeys(c, []string{"bad key", key1})
+}
+
+func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2, "bad key"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: s.AdminUserTag(c).Name(),
+		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
+	}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := s.keymanager.DeleteKeys(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.assertEnvironKeys(c, initialKeys)
 }
 
 func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
@@ -277,4 +315,24 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 		},
 	})
 	s.assertEnvironKeys(c, append(initialKeys, key3))
+}
+
+func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
+	s.PatchValue(&keymanager.RunSSHImportId, keymanagertesting.FakeImport)
+
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key
+	initialKeys := []string{key1, key2, "bad key"}
+	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
+
+	args := params.ModifyUserSSHKeys{
+		User: s.AdminUserTag(c).Name(),
+		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
+	}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := s.keymanager.ImportKeys(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	s.assertEnvironKeys(c, initialKeys)
 }
