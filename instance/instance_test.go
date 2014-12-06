@@ -250,13 +250,17 @@ func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		hwc, err := instance.ParseHardware(t.args...)
 		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
+			if !c.Check(err, jc.ErrorIsNil) {
+				continue
+			}
 		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		cons1, err := instance.ParseHardware(hwc.String())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cons1, gc.DeepEquals, hwc)
+		if !c.Check(err, jc.ErrorIsNil) {
+			continue
+		}
+		c.Check(cons1, gc.DeepEquals, hwc)
 	}
 }
