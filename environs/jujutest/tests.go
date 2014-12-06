@@ -88,7 +88,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(insts, gc.HasLen, 0)
 
-	inst0, hc, _ := testing.AssertStartInstance(c, e, "0")
+	inst0, hc := testing.AssertStartInstance(c, e, "0")
 	c.Assert(inst0, gc.NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -96,7 +96,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(hc.Mem, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 
-	inst1, _, _ := testing.AssertStartInstance(c, e, "1")
+	inst1, _ := testing.AssertStartInstance(c, e, "1")
 	c.Assert(inst1, gc.NotNil)
 	id1 := inst1.Id()
 

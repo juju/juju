@@ -328,7 +328,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _ := testing.AssertStartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -361,7 +361,7 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _ := testing.AssertStartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -374,7 +374,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _, _, err := testing.StartInstance(env, "100")
+	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "No networks exist with label .*")
 }
@@ -387,7 +387,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _, _, err := testing.StartInstance(env, "100")
+	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
 		"caused by: "+
@@ -432,7 +432,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
-	inst, _, _ := testing.AssertStartInstance(c, env, instanceName)
+	inst, _ := testing.AssertStartInstance(c, env, instanceName)
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
@@ -463,7 +463,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceName := "100"
-	inst, _, _ := testing.AssertStartInstance(c, env, instanceName)
+	inst, _ := testing.AssertStartInstance(c, env, instanceName)
 	name := env.Config().Name()
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
@@ -554,7 +554,7 @@ var instanceGathering = []struct {
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
 	// goose's test service always returns ACTIVE state.
-	inst, _, _ := testing.AssertStartInstance(c, env, "100")
+	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
 	err := env.StopInstances(inst.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -569,8 +569,8 @@ func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst0, _, _ := testing.AssertStartInstance(c, env, "100")
-	inst1, _, _ := testing.AssertStartInstance(c, env, "101")
+	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	defer func() {
 		err := env.StopInstances(inst0.Id(), inst1.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -592,9 +592,9 @@ func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool
 	env, err := environs.New(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	inst0, _, _ := testing.AssertStartInstance(c, env, "100")
+	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
-	inst1, _, _ := testing.AssertStartInstance(c, env, "101")
+	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	id1 := inst1.Id()
 	defer func() {
 		err := env.StopInstances(inst0.Id(), inst1.Id())
@@ -653,7 +653,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _, _ := testing.AssertStartInstance(c, env, "100")
+	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
 		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -678,7 +678,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst, _, _ := testing.AssertStartInstance(c, env, "100")
+	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
 		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -709,8 +709,8 @@ func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	stateInst1, _, _ := testing.AssertStartInstance(c, env, "100")
-	stateInst2, _, _ := testing.AssertStartInstance(c, env, "101")
+	stateInst1, _ := testing.AssertStartInstance(c, env, "100")
+	stateInst2, _ := testing.AssertStartInstance(c, env, "101")
 	defer func() {
 		err := env.StopInstances(stateInst1.Id(), stateInst2.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1335,30 +1335,29 @@ func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 // TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
-	inst, zone, err := t.testStartInstanceAvailZone(c, "test-available")
+	inst, err := t.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
-	c.Check(zone, gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
-	_, _, err := t.testStartInstanceAvailZone(c, "test-unavailable")
+	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
-	_, _, err := t.testStartInstanceAvailZone(c, "test-unknown")
+	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
-func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, string, error) {
+func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, zone, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	return inst, zone, err
+	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	return inst, err
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -1445,7 +1444,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, _, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -1459,7 +1458,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(jujuerrors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
@@ -1469,7 +1468,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, _, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
 }
 
@@ -1480,9 +1479,8 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
-	inst, _, zone := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
-	c.Check(zone, gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
@@ -1525,9 +1523,8 @@ func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	inst, _, zone := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
-	c.Check(zone, gc.Equals, "az3")
 }
 
 func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
@@ -1563,7 +1560,7 @@ func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
 		},
 	)
 	defer cleanup()
-	_, _, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err = testing.StartInstance(env, "1")
 	errString := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(errString, gc.Matches, ".*Some unknown error.*")
 }
@@ -1579,7 +1576,6 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// Instance will be created without an availability zone specified.
-	inst, _, zone := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
-	c.Check(zone, gc.Equals, "")
 }

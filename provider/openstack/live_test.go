@@ -227,7 +227,7 @@ func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault 
 	// Bootstrap and start an instance.
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _ := jujutesting.AssertStartInstance(c, env, "100")
+	inst, _ := jujutesting.AssertStartInstance(c, env, "100")
 	// Check whether the instance has the default security group assigned.
 	novaClient := openstack.GetNovaClient(env)
 	groups, err := novaClient.GetServerSecurityGroups(string(inst.Id()))

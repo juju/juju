@@ -124,9 +124,9 @@ func (s *suite) TestAvailabilityZone(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _, zone := jujutesting.AssertStartInstance(c, e, "0")
+	inst, hwc := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
-	c.Check(zone, gc.Equals, "")
+	c.Check(hwc.AvailabilityZone, gc.IsNil)
 }
 
 func (s *suite) TestAllocateAddress(c *gc.C) {
@@ -136,7 +136,7 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -162,7 +162,7 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -208,7 +208,7 @@ func (s *suite) TestPreferIPv6On(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,7 +222,7 @@ func (s *suite) TestPreferIPv6Off(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	inst, _, _ := jujutesting.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)

@@ -126,7 +126,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit,
 
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc, _ := testing.AssertStartInstance(c, s.Environ, m.Id())
+	inst, hc := testing.AssertStartInstance(c, s.Environ, m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst

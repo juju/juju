@@ -242,7 +242,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	})
 
 	// check that a new instance will be started with a machine agent
-	inst1, hc, _ := testing.AssertStartInstance(c, env, "1")
+	inst1, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -287,7 +287,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
@@ -296,7 +296,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, hc, _ := testing.AssertStartInstance(c, env, "1")
+	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
@@ -304,30 +304,29 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
-	inst, zone, err := t.testStartInstanceAvailZone(c, "test-available")
+	inst, err := t.testStartInstanceAvailZone(c, "test-available")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
-	c.Check(zone, gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
-	_, _, err := t.testStartInstanceAvailZone(c, "test-impaired")
+	_, err := t.testStartInstanceAvailZone(c, "test-impaired")
 	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is impaired`)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
-	_, _, err := t.testStartInstanceAvailZone(c, "test-unknown")
+	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
-func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, string, error) {
+func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, zone, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	return inst, zone, err
+	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	return inst, err
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -422,7 +421,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, _, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -436,7 +435,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
 	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
-	_, _, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(errors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
@@ -446,7 +445,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, _, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
@@ -457,7 +456,7 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
-	inst, _, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
 }
 
@@ -509,7 +508,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, run
 		azArgs = append(azArgs, ri.AvailZone)
 		return nil, runInstancesError
 	})
-	_, _, _, _, err = testing.StartInstance(env, "1")
+	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		"cannot run instances: %s \\(%s\\)",
 		regexp.QuoteMeta(runInstancesError.Message),
@@ -553,17 +552,17 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		}
 		return realRunInstances(e, ri)
 	})
-	inst, _, zone := testing.AssertStartInstance(c, env, "1")
+	inst, hwc := testing.AssertStartInstance(c, env, "1")
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
-	c.Check(zone, gc.Equals, "az2")
+	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _, _ := testing.AssertStartInstance(c, env, "1")
+	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, jc.ErrorIsNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, jc.ErrorIsNil)

@@ -71,11 +71,11 @@ func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.
 func AssertStartInstance(
 	c *gc.C, env environs.Environ, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, string,
+	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, zone, err := StartInstance(env, machineId)
+	inst, hc, _, err := StartInstance(env, machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	return inst, hc, zone
+	return inst, hc
 }
 
 // StartInstance is a test helper function that starts an instance with a plausible
@@ -83,7 +83,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, string, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
 }
@@ -96,7 +96,7 @@ func AssertStartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, _, err := StartInstanceWithConstraints(env, machineId, cons)
+	inst, hc, _, err := StartInstanceWithConstraints(env, machineId, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
 }
@@ -107,7 +107,7 @@ func AssertStartInstanceWithConstraints(
 func StartInstanceWithConstraints(
 	env environs.Environ, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, string, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil)
 }
@@ -121,7 +121,7 @@ func AssertStartInstanceWithNetworks(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
-	inst, hc, _, _, err := StartInstanceWithConstraintsAndNetworks(
+	inst, hc, _, err := StartInstanceWithConstraintsAndNetworks(
 		env, machineId, cons, networks)
 	c.Assert(err, jc.ErrorIsNil)
 	return inst, hc
@@ -134,7 +134,7 @@ func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
 	networks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, string, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	params := environs.StartInstanceParams{Constraints: cons}
 	return StartInstanceWithParams(
@@ -150,12 +150,12 @@ func StartInstanceWithParams(
 	params environs.StartInstanceParams,
 	networks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, string, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	series := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, nil, nil, "", errors.New("missing agent version in environment config")
+		return nil, nil, nil, errors.New("missing agent version in environment config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
@@ -166,7 +166,7 @@ func StartInstanceWithParams(
 	}
 	possibleTools, err := tools.FindTools(env, -1, -1, filter)
 	if err != nil {
-		return nil, nil, nil, "", errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
@@ -181,18 +181,14 @@ func StartInstanceWithParams(
 		apiInfo,
 	)
 	if err != nil {
-		return nil, nil, nil, "", errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig
 	// TODO(axw) refactor these test helpers to return StartInstanceResult
 	result, err := env.StartInstance(params)
 	if err != nil {
-		return nil, nil, nil, "", errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
-	var zone string
-	if result.Hardware != nil && result.Hardware.AvailabilityZone != nil {
-		zone = *result.Hardware.AvailabilityZone
-	}
-	return result.Instance, result.Hardware, result.NetworkInfo, zone, nil
+	return result.Instance, result.Hardware, result.NetworkInfo, nil
 }
