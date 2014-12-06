@@ -804,13 +804,14 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 }
 
 func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
+	zone := "a_zone"
 	hwc := &instance.HardwareCharacteristics{
-		AvailabilityZone: "a_zone",
+		AvailabilityZone: &zone,
 	}
 	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
 	c.Assert(err, jc.ErrorIsNil)
 
-	zone, err := s.machine.AvailabilityZone()
+	zone, err = s.machine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(zone, gc.Equals, "a_zone")
 	m, err := s.State.Machine(s.machine.Id())
