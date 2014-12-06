@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -114,7 +115,7 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Hostnames: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
-	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", dir+"/environments/someenv.jenv"))
+	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", filepath.Join(dir, "environments", "someenv.jenv")))
 	c.Assert(info.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{
 		"secret": "blah",
 		"arble":  "bletch",
@@ -141,8 +142,11 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	err = os.Chmod(storePath(dir, ""), 0555)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = info.Write()
-	c.Assert(err, gc.ErrorMatches, ".* permission denied")
+	// Cannot use permissions properly on windows for now
+	if runtime.GOOS != "windows" {
+		err = info.Write()
+		c.Assert(err, gc.ErrorMatches, ".* permission denied")
+	}
 
 	// Make the directory writable again so that gocheck can clean it up.
 	err = os.Chmod(storePath(dir, ""), 0777)
@@ -150,6 +154,9 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 }
 
 func (*diskStoreSuite) TestRenameFails(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: the way the error is checked doesn't work on windows")
+	}
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, jc.ErrorIsNil)
