@@ -10,10 +10,8 @@ import (
 )
 
 type runCommands struct {
-	commands       string
-	relationId     int
-	remoteUnitName string
-	sendResponse   CommandResponseFunc
+	args         CommandArgs
+	sendResponse CommandResponseFunc
 
 	callbacks     Callbacks
 	runnerFactory runner.Factory
@@ -24,12 +22,12 @@ type runCommands struct {
 // String is part of the Operation interface.
 func (rc *runCommands) String() string {
 	suffix := ""
-	if rc.relationId != -1 {
+	if rc.args.RelationId != -1 {
 		infix := ""
-		if rc.remoteUnitName != "" {
-			infix = "; " + rc.remoteUnitName
+		if rc.args.RemoteUnitName != "" {
+			infix = "; " + rc.args.RemoteUnitName
 		}
-		suffix = fmt.Sprintf(" (%d%s)", rc.relationId, infix)
+		suffix = fmt.Sprintf(" (%d%s)", rc.args.RelationId, infix)
 	}
 	return "run commands" + suffix
 }
@@ -37,7 +35,11 @@ func (rc *runCommands) String() string {
 // Prepare ensures the commands can be run. It never returns a state change.
 // Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(state State) (*State, error) {
-	rnr, err := rc.runnerFactory.NewRunner(rc.relationId, rc.remoteUnitName)
+	rnr, err := rc.runnerFactory.NewCommandRunner(runner.CommandInfo{
+		RelationId:      rc.args.RelationId,
+		RemoteUnitName:  rc.args.RemoteUnitName,
+		ForceRemoteUnit: rc.args.ForceRemoteUnit,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +57,7 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	response, err := rc.runner.RunCommands(rc.commands)
+	response, err := rc.runner.RunCommands(rc.args.Commands)
 	switch err {
 	case runner.ErrRequeueAndReboot:
 		logger.Warningf("cannot requeue external commands")

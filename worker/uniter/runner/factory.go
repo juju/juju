@@ -18,15 +18,24 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
+type CommandInfo struct {
+	// RelationId is the relation context to execute the commands in.
+	RelationId int
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteUnitName string
+	// ForceRemoteUnit skips unit inference and existence validation.
+	ForceRemoteUnit bool
+}
+
 // Factory represents a long-lived object that can create execution contexts
 // relevant to a specific unit. In its current state, it is somewhat bizarre
 // and inconsistent; its main value is as an evolutionary step towards a better
 // division of responsibilities across worker/uniter and its subpackages.
 type Factory interface {
 
-	// NewRunner returns an execution context suitable for running an
-	// arbitrary script.
-	NewRunner(relationId int, remoteUnitName string) (Runner, error)
+	// NewCommandRunner returns an execution context suitable for running
+	// an arbitrary script.
+	NewCommandRunner(commandInfo CommandInfo) (Runner, error)
 
 	// NewHookRunner returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
@@ -105,23 +114,15 @@ type factory struct {
 	rand *rand.Rand
 }
 
-// NewRunner exists to satisfy the Factory interface.
-func (f *factory) NewRunner(relationId int, remoteUnitName string) (Runner, error) {
+// NewCommandRunner exists to satisfy the Factory interface.
+func (f *factory) NewCommandRunner(commandInfo CommandInfo) (Runner, error) {
 	ctx, err := f.coreContext()
-
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if relationId >= 0 {
-		ctx.relationId = relationId
-		ctx.remoteUnitName = remoteUnitName
-		_, found := ctx.relations[relationId]
-		if !found {
-			return nil, errors.Errorf("unknown relation id: %v", ctx.relationId)
-		}
-	}
-
+	relationId, remoteUnitName, err := inferRemoteUnit(ctx.relations, commandInfo)
+	ctx.relationId = relationId
+	ctx.remoteUnitName = remoteUnitName
 	ctx.id = f.newId("run-commands")
 	runner := NewRunner(ctx, f.paths)
 	return runner, nil
@@ -314,4 +315,52 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 	return nil
+}
+
+func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, string, error) {
+	relationId := info.RelationId
+	hasRelation := relationId != -1
+	remoteUnit := info.RemoteUnitName
+	hasRemoteUnit := remoteUnit != ""
+
+	// Check baseline sanity of remote unit, if supplied.
+	if hasRemoteUnit {
+		if !names.IsValidUnit(remoteUnit) {
+			return -1, "", errors.Errorf(`invalid remote unit: %s`, remoteUnit)
+		} else if !hasRelation {
+			return -1, "", errors.Errorf("remote unit provided without a relation: %s", remoteUnit)
+		}
+	}
+
+	// Check sanity of relation, if supplied, otherwise easy early return.
+	if !hasRelation {
+		return relationId, remoteUnit, nil
+	}
+	rctx, found := rctxs[relationId]
+	if !found {
+		return -1, "", errors.Errorf("unable to find relation id: %d", relationId)
+	}
+
+	// Past basic sanity checks; if forced, accept what we're given.
+	if info.ForceRemoteUnit {
+		return relationId, remoteUnit, nil
+	}
+
+	// Infer an appropriate remote unit if we can.
+	possibles := rctx.UnitNames()
+	if len(possibles) == 0 {
+		return -1, "", errors.Errorf("cannot infer remote unit in relation %d", relationId)
+	}
+	if remoteUnit == "" {
+		if len(possibles) == 1 {
+			return relationId, possibles[0], nil
+		}
+		return -1, "", errors.Errorf("ambiguous remote unit; possibilities are %+v", possibles)
+	}
+	for _, possible := range possibles {
+		if remoteUnit == possible {
+			return relationId, remoteUnit, nil
+		}
+	}
+	return -1, "", errors.Errorf("unknown remote unit %s; possibilities are %+v", remoteUnit, possibles)
 }
