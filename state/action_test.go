@@ -4,12 +4,15 @@
 package state_test
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -87,6 +90,14 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	now := state.NowToTheSecond()
 	c.Check(action.Enqueued(), jc.TimeBetween(before, now))
 	c.Check(action.Enqueued(), jc.TimeBetween(before, later))
+}
+
+func (s *ActionSuite) TestAddActionRequiresName(c *gc.C) {
+	name := ""
+
+	// verify can not add an Action without a name
+	_, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
+	c.Assert(err, gc.ErrorMatches, "action name required")
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -249,6 +260,36 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	actions, err := unit.PendingActions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions), gc.Equals, 0)
+}
+
+func (s *ActionSuite) TestFindActionTagsByPrefix(c *gc.C) {
+	prefix := "feedbeef"
+	uuidMock := uuidMockHelper{}
+	uuidMock.SetPrefixMask(prefix)
+	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
+
+	actions := []struct {
+		Name       string
+		Parameters map[string]interface{}
+	}{
+		{Name: "action-1", Parameters: map[string]interface{}{}},
+		{Name: "fake", Parameters: map[string]interface{}{"yeah": true, "take": nil}},
+		{Name: "action-9", Parameters: map[string]interface{}{"district": 9}},
+		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
+	}
+
+	for _, action := range actions {
+		_, err := s.State.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		c.Assert(err, gc.Equals, nil)
+	}
+
+	tags := s.State.FindActionTagsByPrefix(prefix)
+
+	c.Assert(len(tags), gc.Equals, len(actions))
+	for i, tag := range tags {
+		c.Logf("check %q against %d:%q", prefix, i, tag)
+		c.Check(tag.Id()[:len(prefix)], gc.Equals, prefix)
+	}
 }
 
 func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
@@ -620,3 +661,56 @@ func (r mockAR) Actions() ([]*state.Action, error)                 { return nil,
 func (r mockAR) CompletedActions() ([]*state.Action, error)        { return nil, nil }
 func (r mockAR) PendingActions() ([]*state.Action, error)          { return nil, nil }
 func (r mockAR) Tag() names.Tag                                    { return names.NewUnitTag(r.id) }
+
+// TestMock verifies the mock UUID generator works as expected.
+func (s *ActionSuite) TestMock(c *gc.C) {
+	prefix := "abbadead"
+	uuidMock := uuidMockHelper{}
+	uuidMock.SetPrefixMask(prefix)
+	s.PatchValue(&state.NewUUID, uuidMock.NewUUID)
+	for i := 0; i < 10; i++ {
+		uuid, err := state.NewUUID()
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(uuid.String()[:len(prefix)], gc.Equals, prefix)
+	}
+}
+
+type uuidGenFn func() (utils.UUID, error)
+type uuidMockHelper struct {
+	original   uuidGenFn
+	prefixMask []byte
+}
+
+func (h *uuidMockHelper) SetPrefixMask(prefix string) error {
+	prefix = strings.Replace(prefix, "-", "", 4)
+	mask, err := hex.DecodeString(prefix)
+	if err != nil {
+		return err
+	}
+	if len(mask) > 16 {
+		return errors.Errorf("prefix mask longer than uuid %q", prefix)
+	}
+	h.prefixMask = mask
+	return nil
+}
+
+func (h *uuidMockHelper) NewUUID() (utils.UUID, error) {
+	uuidGenFn := h.original
+	if uuidGenFn == nil {
+		uuidGenFn = utils.NewUUID
+	}
+	uuid, err := uuidGenFn()
+	if err != nil {
+		return uuid, errors.Trace(err)
+	}
+	return h.mask(uuid), nil
+}
+
+func (h *uuidMockHelper) mask(uuid utils.UUID) utils.UUID {
+	if len(h.prefixMask) > 0 {
+		for i, b := range h.prefixMask {
+			uuid[i] = b
+		}
+	}
+	return uuid
+}

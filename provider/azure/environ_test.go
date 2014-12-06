@@ -212,12 +212,14 @@ func (*environSuite) TestGetContainerName(c *gc.C) {
 
 func (suite *environSuite) TestAllInstances(c *gc.C) {
 	env := makeEnviron(c)
-	prefix := env.getEnvPrefix()
-	service1 := makeLegacyDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
-	service3 := makeDeployment(env, "not"+prefix+"service3")
+	name := env.Config().Name()
+	service1 := makeLegacyDeployment(env, "juju-"+name+"-service1")
+	service2 := makeDeployment(env, "juju-"+name+"-service2")
+	service3 := makeDeployment(env, "notjuju-"+name+"-service3")
+	service4 := makeDeployment(env, "juju-"+name+"-1-service3")
 
-	requests := patchInstancesResponses(c, prefix, service1, service2, service3)
+	prefix := env.getEnvPrefix()
+	requests := patchInstancesResponses(c, prefix, service1, service2, service3, service4)
 	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(instances), gc.Equals, 3)
@@ -1070,12 +1072,15 @@ func assertOneRequestMatches(c *gc.C, requests []*gwacl.X509Request, method stri
 func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	prefix := env.getEnvPrefix()
-	service1 := makeDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
+	name := env.Config().Name()
+	service1 := makeDeployment(env, "juju-"+name+"-service1")
+	service2 := makeDeployment(env, "juju-"+name+"-service2")
+	service3 := makeDeployment(env, "juju-"+name+"-1-service3")
 
 	// The call to AllInstances() will return only one service (service1).
-	responses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor)
+	responses := getAzureServiceListResponse(
+		c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor, service3.HostedServiceDescriptor,
+	)
 	responses = append(responses, buildStatusOKResponses(c, 2)...) // DeleteHostedService
 	responses = append(responses, getVnetCleanupResponse(c))
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteAffinityGroup

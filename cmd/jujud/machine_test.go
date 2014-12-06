@@ -34,6 +34,7 @@ import (
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cert"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -57,6 +58,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
@@ -175,7 +177,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 	// Add a machine and ensure it is provisioned.
 	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
-	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), gc.IsNil)
+	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), jc.ErrorIsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
 	// codepath is exercised.
@@ -277,7 +279,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	}()
 	err := a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(<-done, gc.IsNil)
+	c.Assert(<-done, jc.ErrorIsNil)
 	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
 }
 
@@ -309,7 +311,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 		done <- a.Run(nil)
 	}()
 	defer func() {
-		c.Check(a.Stop(), gc.IsNil)
+		c.Check(a.Stop(), jc.ErrorIsNil)
 	}()
 	// Wait for configuration to be finished
 	<-a.WorkersStarted()
@@ -333,8 +335,8 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	a := s.newAgent(c, m)
 	ctx, reset := patchDeployContext(c, s.BackingState)
 	defer reset()
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// check that unassigned units don't trigger any deployments.
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -501,7 +503,7 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
+		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 	select {
 	case <-started:
@@ -520,7 +522,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
+		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 
 	// Add one unit to a service;
@@ -565,7 +567,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
+		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 	select {
 	case <-started:
@@ -588,7 +590,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
+		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
 	// Wait for configuration to be finished
 	<-a.WorkersStarted()
@@ -597,17 +599,17 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("we failed to call UseMultipleCPUs()")
 	}
-	c.Check(a.Stop(), gc.IsNil)
+	c.Check(a.Stop(), jc.ErrorIsNil)
 	// However, an agent that just JobHostUnits doesn't call UseMultipleCPUs
 	m2, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a2 := s.newAgent(c, m2)
 	defer a2.Stop()
 	go func() {
-		c.Check(a2.Run(nil), gc.IsNil)
+		c.Check(a2.Run(nil), jc.ErrorIsNil)
 	}()
 	// Wait until all the workers have been started, and then kill everything
 	<-a2.workersStarted
-	c.Check(a2.Stop(), gc.IsNil)
+	c.Check(a2.Stop(), jc.ErrorIsNil)
 	select {
 	case <-calledChan:
 		c.Errorf("we should not have called UseMultipleCPUs()")
@@ -775,8 +777,8 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 	vers.Minor = version.Current.Minor + 1
 	m, _, _ := s.primeAgent(c, vers, job)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	timeout := time.After(coretesting.LongWait)
 	for done := false; !done; {
@@ -878,8 +880,8 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Update the keys in the environment.
 	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
@@ -1042,8 +1044,8 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Update the API addresses.
 	updatedServers := [][]network.HostPort{network.AddressesWithPort(
@@ -1068,8 +1070,8 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	started := make(chan struct{})
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
@@ -1095,8 +1097,8 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Wait for state to be updated.
 	s.BackingState.StartSync()
@@ -1109,6 +1111,88 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for block devices to be recorded")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
+	started := make(chan struct{})
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+		certupdater.StateServingInfoSetter,
+	) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for worker to be started.
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for certificate update worker to start")
+	}
+}
+
+func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
+	started := make(chan struct{})
+	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
+		certupdater.StateServingInfoSetter,
+	) worker.Worker {
+		close(started)
+		return worker.NewNoOpWorker()
+	}
+	s.PatchValue(&newCertificateUpdater, newUpdater)
+
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Ensure the worker is not started.
+	select {
+	case <-started:
+		c.Fatalf("certificate update worker unexpectedly started")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
+	// Set up the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+
+	// Set up check that certificate has been updated.
+	updated := make(chan struct{})
+	go func() {
+		for {
+			stateInfo, _ := a.CurrentConfig().StateServingInfo()
+			srvCert, err := cert.ParseCert(stateInfo.Cert)
+			c.Assert(err, jc.ErrorIsNil)
+			sanIPs := make([]string, len(srvCert.IPAddresses))
+			for i, ip := range srvCert.IPAddresses {
+				sanIPs[i] = ip.String()
+			}
+			if len(sanIPs) == 1 && sanIPs[0] == "0.1.2.3" {
+				close(updated)
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}()
+
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+	// Wait for certificate to be updated.
+	select {
+	case <-updated:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for certificate to be updated")
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
@@ -1222,8 +1306,8 @@ func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	c.Check(a.IsRestorePreparing(), jc.IsFalse)
 	c.Check(a.IsRestoreRunning(), jc.IsFalse)
 	err := a.PrepareRestore()
@@ -1238,8 +1322,8 @@ func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	c.Check(a.IsRestorePreparing(), jc.IsFalse)
 	c.Check(a.IsRestoreRunning(), jc.IsFalse)
 	err := a.PrepareRestore()
@@ -1256,8 +1340,8 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 	c.Check(a.IsRestorePreparing(), jc.IsFalse)
 	c.Check(a.IsRestoreRunning(), jc.IsFalse)
 	err := a.BeginRestore()
@@ -1303,9 +1387,9 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 
 	a := s.newAgent(c, m)
 	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
+		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	checkRevision := func() bool {
 		curl := charm.MustParseURL("cs:quantal/mysql")

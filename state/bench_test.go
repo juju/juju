@@ -72,10 +72,9 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	metrics := make([]state.Metric, metricsPerBatch)
 	for i, _ := range metrics {
 		metrics[i] = state.Metric{
-			Key:         "metricKey",
-			Value:       "keyValue",
-			Time:        now,
-			Credentials: []byte("creds"),
+			Key:   "metricKey",
+			Value: "keyValue",
+			Time:  now,
 		}
 	}
 	charm := s.AddTestingCharm(c, "wordpress")

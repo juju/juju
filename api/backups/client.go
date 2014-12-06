@@ -4,14 +4,24 @@
 package backups
 
 import (
+	"io"
 	"net/http"
 	"strings"
+
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/base"
 )
 
+var logger = loggo.GetLogger("juju.api.backups")
+
+// httpClient represents the methods of api.State (see api/http.go)
+// needed by backups for direct HTTP requests.
 type httpClient interface {
-	SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error)
+	// SendHTTPRequest sends an HTTP GET request relative to the client.
+	SendHTTPRequest(path string, args interface{}) (*http.Request, *http.Response, error)
+	// SendHTTPRequestReader sends an HTTP PUT request relative to the client.
+	SendHTTPRequestReader(path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error)
 }
 
 type apiState interface {

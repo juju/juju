@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -30,9 +31,8 @@ const (
 	sshIdentFile   = "system-identity"
 	nonceFile      = "nonce.txt"
 	allMachinesLog = "all-machines.log"
-	// TODO(ericsnow) It might not be machine 0...
-	machine0Log  = "machine-0.log"
-	authKeysFile = "authorized_keys"
+	machineLog     = "machine-%s.log"
+	authKeysFile   = "authorized_keys"
 
 	dbStartupConf = "juju-db.conf"
 	dbPEM         = "server.pem"
@@ -47,7 +47,7 @@ type Paths struct {
 
 // GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
-func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
+func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string, error) {
 	var glob string
 
 	glob = filepath.Join(rootDir, startupDir, machinesConfs)
@@ -99,14 +99,14 @@ func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
 		backupFiles = append(backupFiles, allmachines)
 	}
 	// TODO(ericsnow) It might not be machine 0...
-	machine0 := filepath.Join(rootDir, paths.LogsDir, machine0Log)
-	if _, err := os.Stat(machine0); err != nil {
+	machinelog := filepath.Join(rootDir, paths.LogsDir, fmt.Sprintf(machineLog, oldmachine))
+	if _, err := os.Stat(machinelog); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, errors.Trace(err)
 		}
-		logger.Errorf("skipping missing file %q", machine0)
+		logger.Errorf("skipping missing file %q", machinelog)
 	} else {
-		backupFiles = append(backupFiles, machine0)
+		backupFiles = append(backupFiles, machinelog)
 	}
 
 	// Handle nonce.txt (might not exist).

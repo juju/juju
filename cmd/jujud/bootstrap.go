@@ -266,6 +266,7 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		StatePort:      si.StatePort,
 		Cert:           si.Cert,
 		PrivateKey:     si.PrivateKey,
+		CAPrivateKey:   si.CAPrivateKey,
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 

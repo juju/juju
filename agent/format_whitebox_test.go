@@ -87,10 +87,11 @@ func (*formatSuite) TestRead(c *gc.C) {
 
 func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 	servingInfo := params.StateServingInfo{
-		Cert:       "some special cert",
-		PrivateKey: "a special key",
-		StatePort:  12345,
-		APIPort:    23456,
+		Cert:         "some special cert",
+		PrivateKey:   "a special key",
+		CAPrivateKey: "ca special key",
+		StatePort:    12345,
+		APIPort:      23456,
 	}
 	params := agentParams
 	params.DataDir = c.MkDir()

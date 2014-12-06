@@ -280,10 +280,11 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 			CACert:            stateInfo.CACert,
 		},
 		params.StateServingInfo{
-			Cert:       coretesting.ServerCert,
-			PrivateKey: coretesting.ServerKey,
-			StatePort:  gitjujutesting.MgoServer.Port(),
-			APIPort:    port,
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    gitjujutesting.MgoServer.Port(),
+			APIPort:      port,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)

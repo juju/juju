@@ -688,6 +688,7 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 			Cert:      []byte(coretesting.ServerCert),
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,
+			Tag:       names.NewMachineTag("0"),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

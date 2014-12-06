@@ -889,16 +889,41 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	return nil
 }
 
+// hostedServices returns all services for this environment.
+func (env *azureEnviron) hostedServices() ([]gwacl.HostedServiceDescriptor, error) {
+	snap := env.getSnapshot()
+	services, err := snap.api.ListHostedServices()
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredServices []gwacl.HostedServiceDescriptor
+	// Service names are prefixed with the environment name, followed by "-".
+	// We must be careful not to include services where the environment name
+	// is a substring of another name. ie we mustn't allow "azure" to match "azure-1".
+	envPrefix := env.getEnvPrefix()
+	// Just in case.
+	filterPrefix := regexp.QuoteMeta(envPrefix)
+
+	// Now filter the services.
+	prefixMatch := regexp.MustCompile("^" + filterPrefix + "[^-]*$")
+	for _, service := range services {
+		if prefixMatch.Match([]byte(service.ServiceName)) {
+			filteredServices = append(filteredServices, service)
+		}
+	}
+	return filteredServices, nil
+}
+
 // destroyAllServices destroys all Cloud Services and deployments contained.
 // This is needed to clean up broken environments, in which there are cloud
 // services with no deployments.
 func (env *azureEnviron) destroyAllServices() error {
-	snap := env.getSnapshot()
-	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
-	services, err := snap.api.ListPrefixedHostedServices(request)
+	services, err := env.hostedServices()
 	if err != nil {
 		return err
 	}
+	snap := env.getSnapshot()
 	for _, service := range services {
 		if err := snap.api.DeleteHostedService(service.ServiceName); err != nil {
 			return err
@@ -1016,8 +1041,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	// Acquire management API object.
 	snap := env.getSnapshot()
 
-	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
-	serviceDescriptors, err := snap.api.ListPrefixedHostedServices(request)
+	serviceDescriptors, err := env.hostedServices()
 	if err != nil {
 		return nil, err
 	}

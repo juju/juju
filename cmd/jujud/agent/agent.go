@@ -102,6 +102,14 @@ func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 	})
 }
 
+// SetStateServingInfo satisfies worker/certupdater/SetStateServingInfo.
+func (a *AgentConf) SetStateServingInfo(info params.StateServingInfo) error {
+	return a.ChangeConfig(func(c agent.ConfigSetter) error {
+		c.SetStateServingInfo(info)
+		return nil
+	})
+}
+
 type Agent interface {
 	Tag() names.Tag
 	ChangeConfig(AgentConfigMutator) error

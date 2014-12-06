@@ -7,8 +7,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/backups"
 )
+
+var waitUntilReady = replicaset.WaitUntilReady
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
@@ -16,18 +19,22 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	backupsMethods, closer := newBackups(a.st)
 	defer closer.Close()
 
+	session := a.st.MongoSession().Copy()
+	defer session.Close()
+
+	// Don't go if HA isn't ready.
+	err = waitUntilReady(session, 60)
+	if err != nil {
+		return p, errors.Annotatef(err, "HA not ready; try again later")
+	}
+
 	mgoInfo := a.st.MongoConnectionInfo()
-	dbInfo, err := backups.NewDBInfo(mgoInfo, a.st.MongoSession())
+	dbInfo, err := backups.NewDBInfo(mgoInfo, session)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) lp-1389362
-	// The machine ID needs to be introspected from the API server, likely
-	// through a Resource.
-	const machineID = "0"
-
-	meta, err := backups.NewMetadataState(a.st, machineID)
+	meta, err := backups.NewMetadataState(a.st, a.machineID)
 	if err != nil {
 		return p, errors.Trace(err)
 	}
@@ -38,7 +45,5 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 		return p, errors.Trace(err)
 	}
 
-	p.UpdateFromMetadata(meta)
-
-	return p, nil
+	return ResultFromMetadata(meta), nil
 }

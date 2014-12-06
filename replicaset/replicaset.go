@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -39,7 +42,10 @@ const (
 
 var logger = loggo.GetLogger("juju.replicaset")
 
-var getCurrentStatus = CurrentStatus
+var (
+	getCurrentStatus = CurrentStatus
+	isReady          = IsReady
+)
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -423,6 +429,85 @@ type MemberStatus struct {
 	// between the remote member and the local instance.  It is zero for the
 	// member that the session is connected to.
 	Ping time.Duration `bson:"pingMS"`
+}
+
+// IsReady checks on the status of all members in the replicaset
+// associated with the provided session. If we can connect and the majority of
+// members are ready then the result is true.
+func IsReady(session *mgo.Session) (bool, error) {
+	status, err := getCurrentStatus(session)
+	if isConnectionNotAvailable(err) {
+		// The connection dropped...
+		logger.Errorf("DB connection dropped so reconnecting")
+		session.Refresh()
+		return false, nil
+	}
+	if err != nil {
+		// Fail for any other reason.
+		return false, errors.Trace(err)
+	}
+
+	majority := (len(status.Members) / 2) + 1
+	healthy := 0
+	// Check the members.
+	for _, member := range status.Members {
+		if member.Healthy {
+			healthy += 1
+		}
+	}
+	if healthy < majority {
+		logger.Errorf("not enough members ready")
+		return false, nil
+	}
+	return true, nil
+}
+
+var connectionErrors = []syscall.Errno{
+	syscall.ECONNABORTED, // "software caused connection abort"
+	syscall.ECONNREFUSED, // "connection refused"
+	syscall.ECONNRESET,   // "connection reset by peer"
+	syscall.ENETRESET,    // "network dropped connection on reset"
+	syscall.ETIMEDOUT,    // "connection timed out"
+}
+
+func isConnectionNotAvailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	// mgo returns io.EOF from session operations when the connection
+	// has been dropped.
+	if errors.Cause(err) == io.EOF {
+		return true
+	}
+	// An errno may be returned so we check the connection-related ones.
+	for _, errno := range connectionErrors {
+		if errors.Cause(err) == errno {
+			return true
+		}
+	}
+	return false
+}
+
+// WaitUntilReady waits until all members of the replicaset are ready.
+// It will retry every 10 seconds until the timeout is reached. Dropped
+// connections will trigger a reconnect.
+func WaitUntilReady(session *mgo.Session, timeout int) error {
+	attempts := utils.AttemptStrategy{
+		Delay: 10 * time.Second,
+		Total: time.Duration(timeout) * time.Second,
+	}
+	var err error
+	ready := false
+	for a := attempts.Start(); !ready && a.Next(); {
+		ready, err = isReady(session)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if !ready {
+		return errors.Errorf("timed out after %d seconds", timeout)
+	}
+	return nil
 }
 
 // MemberState represents the state of a replica set member.
