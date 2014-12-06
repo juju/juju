@@ -364,7 +364,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.machines[4].SetProvisioned("i-am", "fake_nonce", "a_zone", &hwChars)
+	err = s.machines[4].SetProvisioned("i-am", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.MachinesWithTransientErrors()
@@ -612,7 +612,7 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned := func(id string) {
 		m, err := s.State.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "nonce", "a_zone", nil)
+		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -873,7 +873,7 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", "a_zone", &hwChars)
+	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetProvisioned{Machines: []params.MachineSetProvisioned{
@@ -919,7 +919,7 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", "a_zone", &hwChars, nil, nil)
+	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	networks := []params.Network{{
@@ -1069,10 +1069,10 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
 	// Provision 2 machines first.
-	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", "a_zone", nil)
+	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", "a_zone", &hwChars)
+	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

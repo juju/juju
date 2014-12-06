@@ -66,7 +66,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ct.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ct.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
+	err = s.ct.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open api as container

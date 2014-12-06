@@ -38,7 +38,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := s.AddTestingCharm(c, "riak")

@@ -339,7 +339,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", "a_zone", nil)
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
@@ -366,7 +366,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 			err = m.SetConstraints(constraints.MustParse("mem=1G"))
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", "a_zone", nil)
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		setDefaultPassword(c, m)
 		setDefaultStatus(c, m)

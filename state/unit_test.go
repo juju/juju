@@ -180,7 +180,7 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce", "a_zone", nil)
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAddresses(network.Address{
 		Type:  network.IPv4Address,
@@ -913,7 +913,7 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("i-malive", "fake_nonce", "a_zone", nil)
+	err = machine.SetProvisioned("i-malive", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

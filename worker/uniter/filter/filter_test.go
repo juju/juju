@@ -53,7 +53,7 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.machine, err = s.State.Machine(mid)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetProvisioned("i-exist", "fake_nonce", "a_zone", nil)
+	err = s.machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.APILogin(c, s.unit)
 }

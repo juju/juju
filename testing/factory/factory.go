@@ -65,7 +65,6 @@ type MachineParams struct {
 	Password        string
 	Nonce           string
 	InstanceId      instance.Id
-	AvailZone       string
 	Characteristics *instance.HardwareCharacteristics
 }
 
@@ -239,7 +238,7 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.AvailZone, params.Characteristics)
+	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)

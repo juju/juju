@@ -144,10 +144,10 @@ func (s *firewallerBaseSuite) testInstanceId(
 	},
 ) {
 	// Provision 2 machines first.
-	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", "a_zone", nil)
+	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", "a_zone", &hwChars)
+	err = s.machines[1].SetProvisioned("i-am-not", "fake_nonce", &hwChars)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{

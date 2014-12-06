@@ -37,7 +37,6 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 		err = machine.SetProvisioned(
 			instance.Id(fmt.Sprintf("instance-%s", machineId)),
 			fmt.Sprintf("nonce-%s", machineId),
-			"a_zone",
 			nil,
 		)
 		c.Assert(err, jc.ErrorIsNil)

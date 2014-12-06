@@ -91,7 +91,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// TODO(dfc) instance.Id should take a TAG!
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", "a_zone", nil)
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,7 +183,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Annotations: pairs,
 		})
 
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", "a_zone", nil)
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetStatus(StatusError, m.Tag().String(), nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -329,7 +329,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("trusty", JobManageEnviron)
 			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetProvisioned("i-0", "bootstrap_nonce", "a_zone", nil)
+			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC})
 			c.Assert(err, jc.ErrorIsNil)
@@ -1011,7 +1011,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	err = m0.SetProvisioned("i-0", "bootstrap_nonce", "a_zone", hc)
+	err = m0.SetProvisioned("i-0", "bootstrap_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m1.Destroy()

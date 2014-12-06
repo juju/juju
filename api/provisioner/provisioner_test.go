@@ -62,7 +62,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", "a_zone", nil, nil, nil)
+	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)

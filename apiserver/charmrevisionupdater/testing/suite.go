@@ -70,7 +70,7 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 	cons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	inst, hc := jujutesting.AssertStartInstanceWithConstraints(c, s.jcSuite.Environ, m.Id(), cons)
-	err = m.SetProvisioned(inst.Id(), "fake_nonce", "a_zone", hc)
+	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

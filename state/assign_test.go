@@ -926,7 +926,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		if t.hardwareCharacteristics != "none" {
 			hc := instance.MustParseHardware(t.hardwareCharacteristics)
-			err = m.SetProvisioned("inst-id", "fake_nonce", "a_zone", &hc)
+			err = m.SetProvisioned("inst-id", "fake_nonce", &hc)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 

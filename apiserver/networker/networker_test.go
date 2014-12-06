@@ -102,7 +102,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		IsVirtual:     false,
 		Disabled:      true,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", "a_zone", &hwChars, s.networks, s.machineIfaces)
+	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -132,7 +132,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 		IsVirtual:     true,
 	}}
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err = s.container.SetInstanceInfo("i-container", "fake_nonce", "a_zone", &hwChars, s.networks[:2],
+	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
 		s.containerIfaces)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -143,7 +143,7 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 		InterfaceName: "eth0",
 		NetworkName:   "net1",
 	}}
-	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", "a_zone", &hwChars, s.networks[:1],
+	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
 		s.nestedContainerIfaces)
 	c.Assert(err, jc.ErrorIsNil)
 }

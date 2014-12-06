@@ -241,7 +241,7 @@ func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
 		{Index: 2, MTU: 1500, Name: "eth0", Flags: net.FlagUp},
 	}
 
-	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", "a_zone", nil, s.stateNetworks, lxcInterfaces)
+	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.stateNetworks, lxcInterfaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Login to the API as the machine agent of lxcMachine.
@@ -349,7 +349,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		NetworkName:   "net2",
 		IsVirtual:     false,
 	}}
-	err = s.stateMachine.SetInstanceInfo("i-am", "fake_nonce", "a_zone", nil, s.stateNetworks, s.stateInterfaces)
+	err = s.stateMachine.SetInstanceInfo("i-am", "fake_nonce", nil, s.stateNetworks, s.stateInterfaces)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiState = s.OpenAPIAsMachine(c, s.stateMachine.Tag(), password, "fake_nonce")
 	c.Assert(s.apiState, gc.NotNil)

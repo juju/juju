@@ -58,7 +58,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -125,7 +125,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,7 +172,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	}
 	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,7 +222,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// Create a new machine to verify "agent alive" behavior.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned("foo", "fake_nonce", "a_zone", nil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

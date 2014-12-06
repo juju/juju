@@ -48,7 +48,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 func (s *statusSuite) TestLegacyStatus(c *gc.C) {
 	machine := s.addMachine(c)
 	instanceId := "i-fakeinstance"
-	err := machine.SetProvisioned(instance.Id(instanceId), "fakenonce", "a_zone", nil)
+	err := machine.SetProvisioned(instance.Id(instanceId), "fakenonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	client := s.APIState.Client()
 	status, err := client.LegacyStatus()

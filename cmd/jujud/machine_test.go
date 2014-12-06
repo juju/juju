@@ -151,8 +151,8 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md, zone := jujutesting.AssertStartInstance(c, s.Environ, machineId)
-	err = m.SetProvisioned(inst.Id(), agent.BootstrapNonce, zone, md)
+	inst, md, _ := jujutesting.AssertStartInstance(c, s.Environ, machineId)
+	err = m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
