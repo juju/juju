@@ -877,12 +877,12 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetProvisioned{Machines: []params.MachineSetProvisioned{
-		{Tag: s.machines[0].Tag().String(), InstanceId: "i-was", Nonce: "fake_nonce", AvailZone: "a_zone", Characteristics: nil},
-		{Tag: s.machines[1].Tag().String(), InstanceId: "i-will", Nonce: "fake_nonce", AvailZone: "a_zone", Characteristics: &hwChars},
-		{Tag: s.machines[2].Tag().String(), InstanceId: "i-am-too", Nonce: "fake", AvailZone: "a_zone", Characteristics: nil},
-		{Tag: "machine-42", InstanceId: "", Nonce: "", AvailZone: "", Characteristics: nil},
-		{Tag: "unit-foo-0", InstanceId: "", Nonce: "", AvailZone: "", Characteristics: nil},
-		{Tag: "service-bar", InstanceId: "", Nonce: "", AvailZone: "", Characteristics: nil},
+		{Tag: s.machines[0].Tag().String(), InstanceId: "i-was", Nonce: "fake_nonce", Characteristics: nil},
+		{Tag: s.machines[1].Tag().String(), InstanceId: "i-will", Nonce: "fake_nonce", Characteristics: &hwChars},
+		{Tag: s.machines[2].Tag().String(), InstanceId: "i-am-too", Nonce: "fake", Characteristics: nil},
+		{Tag: "machine-42", InstanceId: "", Nonce: "", Characteristics: nil},
+		{Tag: "unit-foo-0", InstanceId: "", Nonce: "", Characteristics: nil},
+		{Tag: "service-bar", InstanceId: "", Nonce: "", Characteristics: nil},
 	}}
 	result, err := s.provisioner.SetProvisioned(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -979,12 +979,10 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		Tag:        s.machines[0].Tag().String(),
 		InstanceId: "i-was",
 		Nonce:      "fake_nonce",
-		AvailZone:  "a_zone",
 	}, {
 		Tag:             s.machines[1].Tag().String(),
 		InstanceId:      "i-will",
 		Nonce:           "fake_nonce",
-		AvailZone:       "a_zone",
 		Characteristics: &hwChars,
 		Networks:        networks,
 		Interfaces:      ifaces,
@@ -992,7 +990,6 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		Tag:             s.machines[2].Tag().String(),
 		InstanceId:      "i-am-too",
 		Nonce:           "fake",
-		AvailZone:       "a_zone",
 		Characteristics: nil,
 		Networks:        networks,
 		Interfaces:      ifaces,

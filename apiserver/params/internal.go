@@ -337,7 +337,6 @@ type MachineSetProvisioned struct {
 	Tag             string
 	InstanceId      instance.Id
 	Nonce           string
-	AvailZone       string
 	Characteristics *instance.HardwareCharacteristics
 }
 
@@ -395,7 +394,6 @@ type InstanceInfo struct {
 	Tag             string
 	InstanceId      instance.Id
 	Nonce           string
-	AvailZone       string
 	Characteristics *instance.HardwareCharacteristics
 	Networks        []Network
 	Interfaces      []NetworkInterface

@@ -181,7 +181,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 // metadata, networks and interfaces for this machine. Once set, the
 // instance id cannot be changed.
 func (m *Machine) SetInstanceInfo(
-	id instance.Id, nonce, availabilityZone string, characteristics *instance.HardwareCharacteristics,
+	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
 	networks []params.Network, interfaces []params.NetworkInterface,
 ) error {
 	var result params.ErrorResults
@@ -190,7 +190,6 @@ func (m *Machine) SetInstanceInfo(
 			Tag:             m.tag.String(),
 			InstanceId:      id,
 			Nonce:           nonce,
-			AvailZone:       availabilityZone,
 			Characteristics: characteristics,
 			Networks:        networks,
 			Interfaces:      interfaces,

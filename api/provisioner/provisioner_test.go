@@ -282,7 +282,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 		IsVirtual:     false,
 	}}
 
-	err = apiMachine.SetInstanceInfo("i-will", "fake_nonce", "a_zone", &hwChars, networks, ifaces)
+	err = apiMachine.SetInstanceInfo("i-will", "fake_nonce", &hwChars, networks, ifaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceId, err = apiMachine.InstanceId()
@@ -290,7 +290,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-will"))
 
 	// Try it again - should fail.
-	err = apiMachine.SetInstanceInfo("i-wont", "fake", "a_zone", nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-wont", "fake", nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `aborted instance "i-wont": cannot set instance data for machine "1": already set`)
 
 	// Now try to get machine 0's instance id.
@@ -366,7 +366,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	err = apiMachine.SetInstanceInfo("i-d", "fake", "a_zone", nil, nil, nil)
+	err = apiMachine.SetInstanceInfo("i-d", "fake", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	instances, err = apiMachine.DistributionGroup()
 	c.Assert(err, jc.ErrorIsNil)
