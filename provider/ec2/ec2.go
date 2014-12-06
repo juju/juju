@@ -763,11 +763,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		CpuPower: spec.InstanceType.CpuPower,
 		RootDisk: &rootDiskSize,
 		// Tags currently not supported by EC2
+		AvailabilityZone: &inst.Instance.AvailZone,
 	}
 	return &environs.StartInstanceResult{
-		Instance:         inst,
-		Hardware:         &hc,
-		AvailabilityZone: inst.Instance.AvailZone,
+		Instance: inst,
+		Hardware: &hc,
 	}, nil
 }
 

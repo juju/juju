@@ -629,7 +629,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 			networks, interfaces, err = networkParamsToStateParams(arg.Networks, arg.Interfaces)
 			if err == nil {
 				err = machine.SetInstanceInfo(
-					arg.InstanceId, arg.Nonce, arg.AvailZone, arg.Characteristics,
+					arg.InstanceId, arg.Nonce, *arg.Characteristics.AvailabilityZone, arg.Characteristics,
 					networks, interfaces)
 			}
 			if err != nil {

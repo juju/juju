@@ -190,5 +190,5 @@ func StartInstanceWithParams(
 	if err != nil {
 		return nil, nil, nil, "", errors.Trace(err)
 	}
-	return result.Instance, result.Hardware, result.NetworkInfo, result.AvailabilityZone, nil
+	return result.Instance, result.Hardware, result.NetworkInfo, *result.Hardware.AvailabilityZone, nil
 }

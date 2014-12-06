@@ -1460,7 +1460,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	}
 	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, _, err = testing.StartInstance(env, "1")
-	c.Assert(err, gc.Equals, mock.err)
+	c.Assert(jujuerrors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
 	dgErr := fmt.Errorf("DistributionGroup failed")
@@ -1470,7 +1470,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		},
 	}
 	_, _, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
-	c.Assert(err, gc.Equals, dgErr)
+	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {

@@ -876,10 +876,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	return &environs.StartInstanceResult{
-		Instance:         inst,
-		Hardware:         hc,
-		NetworkInfo:      networkInfo,
-		AvailabilityZone: inst.zone(),
+		Instance:    inst,
+		Hardware:    hc,
+		NetworkInfo: networkInfo,
 	}, nil
 }
 
