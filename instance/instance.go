@@ -239,7 +239,9 @@ func (hc *HardwareCharacteristics) setAvailabilityZone(str string) error {
 	if hc.AvailabilityZone != nil {
 		return fmt.Errorf("already set")
 	}
-	hc.AvailabilityZone = &str
+	if str != "" {
+		hc.AvailabilityZone = &str
+	}
 	return nil
 }
 
