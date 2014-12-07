@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -246,15 +246,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := context.NewFactory(
-		u.st, unitTag, u.getRelationInfos, u.getCharm,
+	runnerFactory, err := runner.NewFactory(
+		u.st, unitTag, u.getRelationInfos, u.paths,
 	)
 	if err != nil {
 		return err
 	}
 	u.operationFactory = operation.NewFactory(
 		u.deployer,
-		contextFactory,
+		runnerFactory,
 		&operationCallbacks{u},
 		u.tomb.Dying(),
 	)
@@ -296,20 +296,12 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
-	relationInfos := map[int]*context.RelationInfo{}
+func (u *Uniter) getRelationInfos() map[int]*runner.RelationInfo {
+	relationInfos := map[int]*runner.RelationInfo{}
 	for id, r := range u.relationers {
 		relationInfos[id] = r.ContextInfo()
 	}
 	return relationInfos
-}
-
-func (u *Uniter) getCharm() (corecharm.Charm, error) {
-	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
-	if err != nil {
-		return nil, err
-	}
-	return ch, nil
 }
 
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
@@ -343,7 +335,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // initializeMetricsCollector enables the periodic collect-metrics hook
 // for charms that declare metrics.
 func (u *Uniter) initializeMetricsCollector() error {
-	charm, err := u.getCharm()
+	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}

@@ -10,9 +10,9 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type MockGetArchiveInfo struct {
@@ -48,13 +48,6 @@ func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bundle
 
 func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
-}
-
-func NewPrepareDeploySuccessCallbacks() *DeployCallbacks {
-	return &DeployCallbacks{
-		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
-		MockSetCurrentCharm: &MockSetCurrentCharm{},
-	}
 }
 
 type MockBundleInfo struct {
@@ -123,21 +116,10 @@ func (mock *MockAcquireExecutionLock) Call(message string) (func(), error) {
 	return func() { mock.didUnlock = true }, nil
 }
 
-type MockGetRunner struct {
-	gotContext *context.Context
-	runner     *MockRunner
-}
-
-func (mock *MockGetRunner) Call(ctx context.Context) context.Runner {
-	mock.gotContext = &ctx
-	return mock.runner
-}
-
 type RunActionCallbacks struct {
 	operation.Callbacks
 	*MockFailAction
 	*MockAcquireExecutionLock
-	*MockGetRunner
 }
 
 func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
@@ -148,22 +130,13 @@ func (cb *RunActionCallbacks) AcquireExecutionLock(message string) (func(), erro
 	return cb.MockAcquireExecutionLock.Call(message)
 }
 
-func (cb *RunActionCallbacks) GetRunner(ctx context.Context) context.Runner {
-	return cb.MockGetRunner.Call(ctx)
-}
-
 type RunCommandsCallbacks struct {
 	operation.Callbacks
 	*MockAcquireExecutionLock
-	*MockGetRunner
 }
 
 func (cb *RunCommandsCallbacks) AcquireExecutionLock(message string) (func(), error) {
 	return cb.MockAcquireExecutionLock.Call(message)
-}
-
-func (cb *RunCommandsCallbacks) GetRunner(ctx context.Context) context.Runner {
-	return cb.MockGetRunner.Call(ctx)
 }
 
 type MockPrepareHook struct {
@@ -188,10 +161,10 @@ func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) 
 
 type MockNotify struct {
 	gotName    *string
-	gotContext *context.Context
+	gotContext *runner.Context
 }
 
-func (mock *MockNotify) Call(hookName string, ctx context.Context) {
+func (mock *MockNotify) Call(hookName string, ctx runner.Context) {
 	mock.gotName = &hookName
 	mock.gotContext = &ctx
 }
@@ -199,7 +172,6 @@ func (mock *MockNotify) Call(hookName string, ctx context.Context) {
 type ExecuteHookCallbacks struct {
 	*PrepareHookCallbacks
 	*MockAcquireExecutionLock
-	*MockGetRunner
 	MockNotifyHookCompleted *MockNotify
 	MockNotifyHookFailed    *MockNotify
 }
@@ -208,15 +180,11 @@ func (cb *ExecuteHookCallbacks) AcquireExecutionLock(message string) (func(), er
 	return cb.MockAcquireExecutionLock.Call(message)
 }
 
-func (cb *ExecuteHookCallbacks) GetRunner(ctx context.Context) context.Runner {
-	return cb.MockGetRunner.Call(ctx)
-}
-
-func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx context.Context) {
+func (cb *ExecuteHookCallbacks) NotifyHookCompleted(hookName string, ctx runner.Context) {
 	cb.MockNotifyHookCompleted.Call(hookName, ctx)
 }
 
-func (cb *ExecuteHookCallbacks) NotifyHookFailed(hookName string, ctx context.Context) {
+func (cb *ExecuteHookCallbacks) NotifyHookFailed(hookName string, ctx runner.Context) {
 	cb.MockNotifyHookFailed.Call(hookName, ctx)
 }
 
@@ -239,65 +207,65 @@ func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 	return cb.MockCommitHook.Call(hookInfo)
 }
 
-type MockNewActionContext struct {
+type MockNewActionRunner struct {
 	gotActionId *string
-	context     context.Context
+	runner      *MockRunner
 	err         error
 }
 
-func (mock *MockNewActionContext) Call(actionId string) (context.Context, error) {
+func (mock *MockNewActionRunner) Call(actionId string) (runner.Runner, error) {
 	mock.gotActionId = &actionId
-	return mock.context, mock.err
+	return mock.runner, mock.err
 }
 
-type MockNewHookContext struct {
+type MockNewHookRunner struct {
 	gotHook *hook.Info
-	context context.Context
+	runner  *MockRunner
 	err     error
 }
 
-func (mock *MockNewHookContext) Call(hookInfo hook.Info) (context.Context, error) {
+func (mock *MockNewHookRunner) Call(hookInfo hook.Info) (runner.Runner, error) {
 	mock.gotHook = &hookInfo
-	return mock.context, mock.err
+	return mock.runner, mock.err
 }
 
-type MockNewRunContext struct {
+type MockNewRunner struct {
 	gotRelationId     *int
 	gotRemoteUnitName *string
-	context           context.Context
+	runner            *MockRunner
 	err               error
 }
 
-func (mock *MockNewRunContext) Call(relationId int, remoteUnitName string) (context.Context, error) {
+func (mock *MockNewRunner) Call(relationId int, remoteUnitName string) (runner.Runner, error) {
 	mock.gotRelationId = &relationId
 	mock.gotRemoteUnitName = &remoteUnitName
-	return mock.context, mock.err
+	return mock.runner, mock.err
 }
 
-type MockContextFactory struct {
-	*MockNewActionContext
-	*MockNewHookContext
-	*MockNewRunContext
+type MockRunnerFactory struct {
+	*MockNewActionRunner
+	*MockNewHookRunner
+	*MockNewRunner
 }
 
-func (f *MockContextFactory) NewActionContext(actionId string) (context.Context, error) {
-	return f.MockNewActionContext.Call(actionId)
+func (f *MockRunnerFactory) NewActionRunner(actionId string) (runner.Runner, error) {
+	return f.MockNewActionRunner.Call(actionId)
 }
 
-func (f *MockContextFactory) NewHookContext(hookInfo hook.Info) (context.Context, error) {
-	return f.MockNewHookContext.Call(hookInfo)
+func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
+	return f.MockNewHookRunner.Call(hookInfo)
 }
 
-func (f *MockContextFactory) NewRunContext(relationId int, remoteUnitName string) (context.Context, error) {
-	return f.MockNewRunContext.Call(relationId, remoteUnitName)
+func (f *MockRunnerFactory) NewRunner(relationId int, remoteUnitName string) (runner.Runner, error) {
+	return f.MockNewRunner.Call(relationId, remoteUnitName)
 }
 
 type MockContext struct {
-	context.Context
-	actionData *context.ActionData
+	runner.Context
+	actionData *runner.ActionData
 }
 
-func (mock *MockContext) ActionData() (*context.ActionData, error) {
+func (mock *MockContext) ActionData() (*runner.ActionData, error) {
 	if mock.actionData == nil {
 		return nil, errors.New("not an action context")
 	}
@@ -339,6 +307,11 @@ type MockRunner struct {
 	*MockRunAction
 	*MockRunCommands
 	*MockRunHook
+	context runner.Context
+}
+
+func (r *MockRunner) Context() runner.Context {
+	return r.context
 }
 
 func (r *MockRunner) RunAction(actionName string) error {
@@ -353,50 +326,55 @@ func (r *MockRunner) RunHook(hookName string) error {
 	return r.MockRunHook.Call(hookName)
 }
 
-func NewActionRunnerGetter(err error) *MockGetRunner {
-	return &MockGetRunner{
-		runner: &MockRunner{
-			MockRunAction: &MockRunAction{err: err},
-		},
+func NewDeployCallbacks() *DeployCallbacks {
+	return &DeployCallbacks{
+		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockSetCurrentCharm: &MockSetCurrentCharm{},
 	}
 }
 
-func NewCommandsRunnerGetter(response *utilexec.ExecResponse, err error) *MockGetRunner {
-	return &MockGetRunner{
-		runner: &MockRunner{
-			MockRunCommands: &MockRunCommands{response: response, err: err},
-		},
-	}
-}
-
-func NewHookRunnerGetter(err error) *MockGetRunner {
-	return &MockGetRunner{
-		runner: &MockRunner{
-			MockRunHook: &MockRunHook{err: err},
-		},
-	}
-}
-
-func NewPrepareHookSuccessFixture() (*PrepareHookCallbacks, *MockContextFactory) {
-	return &PrepareHookCallbacks{
-			MockPrepareHook: &MockPrepareHook{nil, "some-hook-name", nil},
-		}, &MockContextFactory{
-			MockNewHookContext: &MockNewHookContext{nil, &MockContext{}, nil},
-		}
-}
-
-func NewDeployExecuteSuccessFixture() (*DeployCallbacks, *MockDeployer) {
-	return NewPrepareDeploySuccessCallbacks(), &MockDeployer{
+func NewMockDeployer() *MockDeployer {
+	return &MockDeployer{
 		MockStage:  &MockStage{},
 		MockDeploy: &MockDeploy{},
 	}
 }
 
-func NewRunActionSuccessContextFactory() *MockContextFactory {
-	return &MockContextFactory{
-		MockNewActionContext: &MockNewActionContext{
-			context: &MockContext{
-				actionData: &context.ActionData{ActionName: "some-action-name"},
+func NewPrepareHookCallbacks() *PrepareHookCallbacks {
+	return &PrepareHookCallbacks{
+		MockPrepareHook: &MockPrepareHook{nil, "some-hook-name", nil},
+	}
+}
+
+func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
+	return &MockRunnerFactory{
+		MockNewActionRunner: &MockNewActionRunner{
+			runner: &MockRunner{
+				MockRunAction: &MockRunAction{err: runErr},
+				context: &MockContext{
+					actionData: &runner.ActionData{ActionName: "some-action-name"},
+				},
+			},
+		},
+	}
+}
+
+func NewRunCommandsRunnerFactory(runResponse *utilexec.ExecResponse, runErr error) *MockRunnerFactory {
+	return &MockRunnerFactory{
+		MockNewRunner: &MockNewRunner{
+			runner: &MockRunner{
+				MockRunCommands: &MockRunCommands{response: runResponse, err: runErr},
+			},
+		},
+	}
+}
+
+func NewRunHookRunnerFactory(runErr error) *MockRunnerFactory {
+	return &MockRunnerFactory{
+		MockNewHookRunner: &MockNewHookRunner{
+			runner: &MockRunner{
+				MockRunHook: &MockRunHook{err: runErr},
+				context:     &MockContext{},
 			},
 		},
 	}
