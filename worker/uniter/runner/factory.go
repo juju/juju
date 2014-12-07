@@ -121,6 +121,9 @@ func (f *factory) NewCommandRunner(commandInfo CommandInfo) (Runner, error) {
 		return nil, errors.Trace(err)
 	}
 	relationId, remoteUnitName, err := inferRemoteUnit(ctx.relations, commandInfo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	ctx.relationId = relationId
 	ctx.remoteUnitName = remoteUnitName
 	ctx.id = f.newId("run-commands")
@@ -338,7 +341,7 @@ func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, str
 	}
 	rctx, found := rctxs[relationId]
 	if !found {
-		return -1, "", errors.Errorf("unable to find relation id: %d", relationId)
+		return -1, "", errors.Errorf("unknown relation id: %d", relationId)
 	}
 
 	// Past basic sanity checks; if forced, accept what we're given.
@@ -348,11 +351,11 @@ func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, str
 
 	// Infer an appropriate remote unit if we can.
 	possibles := rctx.UnitNames()
-	if len(possibles) == 0 {
-		return -1, "", errors.Errorf("cannot infer remote unit in relation %d", relationId)
-	}
 	if remoteUnit == "" {
-		if len(possibles) == 1 {
+		switch len(possibles) {
+		case 0:
+			return -1, "", errors.Errorf("cannot infer remote unit in empty relation %d", relationId)
+		case 1:
 			return relationId, possibles[0], nil
 		}
 		return -1, "", errors.Errorf("ambiguous remote unit; possibilities are %+v", possibles)
