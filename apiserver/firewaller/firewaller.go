@@ -232,12 +232,7 @@ func (f *FirewallerAPI) GetMachineActiveNetworks(args params.Entities) (params.S
 			continue
 		}
 		for _, port := range ports {
-			networkName, err := port.NetworkName()
-			if err != nil {
-				result.Results[i].Error = common.ServerError(err)
-				break
-			}
-			networkTag := names.NewNetworkTag(networkName).String()
+			networkTag := names.NewNetworkTag(port.NetworkName()).String()
 			result.Results[i].Result = append(result.Results[i].Result, networkTag)
 		}
 	}
