@@ -352,6 +352,18 @@ func (*suite) TestMigrate(c *gc.C) {
 	}
 }
 
+func stateServingInfo() params.StateServingInfo {
+	return params.StateServingInfo{
+		Cert:           "cert",
+		PrivateKey:     "key",
+		CAPrivateKey:   "ca key",
+		StatePort:      69,
+		APIPort:        47,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
+	}
+}
+
 func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
@@ -370,32 +382,36 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		},
 		checkErr: "state server key not found in configuration",
 	}, {
-		about: "missing state port",
+		about: "missing ca cert key",
 		servingInfo: params.StateServingInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
+		},
+		checkErr: "ca cert key not found in configuration",
+	}, {
+		about: "missing state port",
+		servingInfo: params.StateServingInfo{
+			Cert:         "server cert",
+			PrivateKey:   "server key",
+			CAPrivateKey: "ca key",
 		},
 		checkErr: "state port not found in configuration",
 	}, {
 		about: "params api port",
 		servingInfo: params.StateServingInfo{
-			Cert:       "server cert",
-			PrivateKey: "server key",
-			StatePort:  69,
+			Cert:         "server cert",
+			PrivateKey:   "server key",
+			CAPrivateKey: "ca key",
+			StatePort:    69,
 		},
 		checkErr: "api port not found in configuration",
 	}}
 	for _, test := range agentConfigTests {
 		tests = append(tests, testStruct{
-			about:  test.about,
-			params: test.params,
-			servingInfo: params.StateServingInfo{
-				Cert:       "server cert",
-				PrivateKey: "server key",
-				StatePort:  3171,
-				APIPort:    300,
-			},
-			checkErr: test.checkErr,
+			about:       test.about,
+			params:      test.params,
+			servingInfo: stateServingInfo(),
+			checkErr:    test.checkErr,
 		})
 	}
 
@@ -438,14 +454,7 @@ func (*suite) TestAttributes(c *gc.C) {
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
-	servingInfo := params.StateServingInfo{
-		Cert:           "old cert",
-		PrivateKey:     "old key",
-		StatePort:      69,
-		APIPort:        47,
-		SharedSecret:   "shared",
-		SystemIdentity: "identity",
-	}
+	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attributeParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	gotInfo, ok := conf.StateServingInfo()
@@ -456,6 +465,7 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 		StatePort:      169,
 		Cert:           "new cert",
 		PrivateKey:     "new key",
+		CAPrivateKey:   "new ca key",
 		SharedSecret:   "new shared",
 		SystemIdentity: "new identity",
 	}
@@ -501,21 +511,14 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
-	servingInfo := params.StateServingInfo{
-		Cert:           "old cert",
-		PrivateKey:     "old key",
-		StatePort:      69,
-		APIPort:        1492,
-		SharedSecret:   "shared",
-		SystemIdentity: "identity",
-	}
+	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo := conf.APIInfo()
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
 	for _, eachApiAddress := range apiinfo.Addrs {
-		if eachApiAddress == "localhost:1492" {
+		if eachApiAddress == "localhost:47" {
 			localhostAddressFound = true
 			break
 		}
@@ -526,25 +529,18 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *gc.C) {
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
-	servingInfo := params.StateServingInfo{
-		Cert:           "old cert",
-		PrivateKey:     "old key",
-		StatePort:      69,
-		APIPort:        1492,
-		SharedSecret:   "shared",
-		SystemIdentity: "identity",
-	}
+	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo := conf.APIInfo()
 	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
 	localhostAddressFound := false
 	for _, eachApiAddress := range apiinfo.Addrs {
-		if eachApiAddress == "[::1]:1492" {
+		if eachApiAddress == "[::1]:47" {
 			localhostAddressFound = true
 			break
 		}
-		c.Check(eachApiAddress, gc.Not(gc.Equals), "localhost:1492")
+		c.Check(eachApiAddress, gc.Not(gc.Equals), "localhost:47")
 	}
 	c.Assert(localhostAddressFound, jc.IsTrue)
 }
@@ -552,14 +548,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *g
 func (*suite) TestMongoInfoHonorsPreferIPv6(c *gc.C) {
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
-	servingInfo := params.StateServingInfo{
-		Cert:           "old cert",
-		PrivateKey:     "old key",
-		StatePort:      69,
-		APIPort:        1492,
-		SharedSecret:   "shared",
-		SystemIdentity: "identity",
-	}
+	servingInfo := stateServingInfo()
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	mongoInfo, ok := conf.MongoInfo()
@@ -594,14 +583,8 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C
 
 func (*suite) TestSetPassword(c *gc.C) {
 	attrParams := attributeParams
-	servingInfo := params.StateServingInfo{
-		Cert:           "old cert",
-		PrivateKey:     "old key",
-		StatePort:      1234,
-		APIPort:        1235,
-		SharedSecret:   "shared",
-		SystemIdentity: "identity",
-	}
+	servingInfo := stateServingInfo()
+	servingInfo.APIPort = 1235
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, jc.ErrorIsNil)
 

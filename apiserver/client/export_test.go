@@ -24,9 +24,4 @@ var (
 	MakeMachineStatus = makeMachineStatus
 )
 
-//Client exports
-var (
-	BlockOperation = blockedOperationError
-)
-
 type MachineAndContainers machineAndContainers

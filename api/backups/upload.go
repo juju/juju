@@ -5,25 +5,39 @@ package backups
 
 import (
 	"io"
+	"net/http"
+	"time"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/utils/ssh"
+	apihttp "github.com/juju/juju/apiserver/http"
+	"github.com/juju/juju/apiserver/params"
 )
 
-var sshUpload = func(host, filename string, archive io.Reader) error {
-	// We assume the proper SSH keys are already in place.
-	return ssh.CopyReader(host, filename, archive, nil)
-}
+// Upload sends the backup archive to remote storage.
+func (c *Client) Upload(archive io.Reader, meta params.BackupsMetadataResult) (string, error) {
+	// Empty out some of the metadata.
+	meta.ID = ""
+	meta.Stored = time.Time{}
 
-// Upload sends the backup archive to the server where it is stored.
-// The ID by which the stored archive can be found is returned.
-func (c *Client) Upload(archive io.Reader) (string, error) {
-	// TODO(ericsnow) bug #1392473
-	// As a temporary solution for restore we are using an SSH-based
-	// upload implementation.  This will be replaced by an HTTP-based
-	// solution.
-	id, err := backups.SimpleUpload(c.publicAddress, archive, sshUpload)
-	return id, errors.Trace(err)
+	// Send the request.
+	_, resp, err := c.http.SendHTTPRequestReader("backups", archive, &meta, "juju-backup.tar.gz")
+	if err != nil {
+		return "", errors.Annotate(err, "while sending HTTP request")
+	}
+
+	// Handle the response.
+	if resp.StatusCode == http.StatusOK {
+		var result params.BackupsMetadataResult
+		if err := apihttp.ExtractJSONResult(resp, &result); err != nil {
+			return "", errors.Annotate(err, "while extracting result")
+		}
+		return result.ID, nil
+	} else {
+		failure, err := apihttp.ExtractAPIError(resp)
+		if err != nil {
+			return "", errors.Annotate(err, "while extracting failure")
+		}
+		return "", errors.Trace(failure)
+	}
 }

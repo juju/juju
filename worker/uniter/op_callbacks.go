@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // operationCallbacks implements operation.Callbacks, and exists entirely to
@@ -44,11 +44,6 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 	return func() { opc.u.hookLock.Unlock() }, nil
 }
 
-// AcquireExecutionLock is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) GetRunner(ctx context.Context) context.Runner {
-	return context.NewRunner(ctx, opc.u.paths)
-}
-
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	if hi.Kind.IsRelation() {
@@ -73,7 +68,7 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	return nil
 }
 
-func notifyHook(hook string, ctx context.Context, method func(string)) {
+func notifyHook(hook string, ctx runner.Context, method func(string)) {
 	if r, ok := ctx.HookRelation(); ok {
 		remote, _ := ctx.RemoteUnitName()
 		if remote != "" {
@@ -85,14 +80,14 @@ func notifyHook(hook string, ctx context.Context, method func(string)) {
 }
 
 // NotifyHookCompleted is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) NotifyHookCompleted(hook string, ctx context.Context) {
+func (opc *operationCallbacks) NotifyHookCompleted(hook string, ctx runner.Context) {
 	if opc.u.observer != nil {
 		notifyHook(hook, ctx, opc.u.observer.HookCompleted)
 	}
 }
 
 // NotifyHookFailed is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) NotifyHookFailed(hook string, ctx context.Context) {
+func (opc *operationCallbacks) NotifyHookFailed(hook string, ctx runner.Context) {
 	if opc.u.observer != nil {
 		notifyHook(hook, ctx, opc.u.observer.HookFailed)
 	}

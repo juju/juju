@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -43,6 +44,13 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *AddMachineSuite) TestBlockAddMachine(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := runAddMachine(c)
+	s.assertBlockedOperation(c, err)
 }
 
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
@@ -135,6 +143,42 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 		machine := fmt.Sprintf("%d/%s/0", i, ctype)
 		c.Assert(testing.Stderr(context), gc.Equals, "created container "+machine+"\n")
 		s._assertAddContainer(c, strconv.Itoa(i), machine, ctype)
+	}
+}
+
+func (s *AddMachineSuite) TestBlockAddContainerToNewMachine(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	for i, ctype := range instance.ContainerTypes {
+		c.Logf("test %d: %s", i, ctype)
+		_, err := runAddMachine(c, string(ctype))
+		s.assertBlockedOperation(c, err)
+	}
+}
+
+func (s *AddMachineSuite) assertBlockedOperation(c *gc.C, err error) {
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
+func (s *AddMachineSuite) TestBlockAddContainerToExistingMachine(c *gc.C) {
+	context, err := runAddMachine(c)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
+	for i, container := range instance.ContainerTypes {
+		machineNum := strconv.Itoa(i + 1)
+		context, err = runAddMachine(c)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(testing.Stderr(context), gc.Equals, "created machine "+machineNum+"\n")
+
+		// Block operation
+		s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+		_, err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
+		s.assertBlockedOperation(c, err)
+		// Unblock operation
+		s.AssertConfigParameterUpdated(c, "block-all-changes", false)
 	}
 }
 

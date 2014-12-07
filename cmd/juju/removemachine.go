@@ -9,11 +9,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // RemoveMachineCommand causes an existing machine to be destroyed.
 type RemoveMachineCommand struct {
-	BlockableCommand
+	envcmd.EnvCommandBase
 	MachineIds []string
 	Force      bool
 }
@@ -68,5 +71,5 @@ func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
 	if c.Force {
 		return apiclient.ForceDestroyMachines(c.MachineIds...)
 	}
-	return c.processBlockedError(apiclient.DestroyMachines(c.MachineIds...), BlockRemove)
+	return block.ProcessBlockedError(apiclient.DestroyMachines(c.MachineIds...), block.BlockRemove)
 }

@@ -199,8 +199,8 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 // checkRelationId verifies that the relationId
 // given by the user is of a valid syntax, it does
 // not check that the relationId is a valid one. This
-// is done by the NewRunContext method that is part of
-// the worker/uniter/context/factory package.
+// is done by the NewRunner method that is part of
+// the worker/uniter/runner/factory package.
 func checkRelationId(value string) (int, error) {
 	if len(value) == 0 {
 		return -1, nil

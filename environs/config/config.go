@@ -69,17 +69,25 @@ const (
 	// obtain this information from the system.
 	fallbackLtsSeries string = "trusty"
 
+	// DefaultNumaControlPolicy should not be used by default.
 	// Only use numactl if user specifically requests it
 	DefaultNumaControlPolicy = false
 
+	// DefaultPreventDestroyEnvironment should not be used by default.
 	// Only prevent destroy-environment from running
 	// if user specifically requests it. Otherwise, let it run.
 	DefaultPreventDestroyEnvironment = false
 
+	// DefaultPreventRemoveObject should not be used by default.
 	// Only prevent remove-object from running
 	// if user specifically requests it. Otherwise, let it run.
 	// Object here is a juju artifact - machine, service, unit or relation.
 	DefaultPreventRemoveObject = false
+
+	// DefaultPreventAllChanges should not be used by default.
+	// Only prevent all-changes from running
+	// if user specifically requests it. Otherwise, let them run.
+	DefaultPreventAllChanges = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -134,6 +142,9 @@ const (
 
 	// PreventRemoveObjectKey stores the value for this setting
 	PreventRemoveObjectKey = BlockKeyPrefix + "remove-object"
+
+	// PreventAllChangesKey stores the value for this setting
+	PreventAllChangesKey = BlockKeyPrefix + "all-changes"
 
 	//
 	// Deprecated Settings Attributes
@@ -757,6 +768,16 @@ func (c *Config) PreventRemoveObject() bool {
 	return DefaultPreventRemoveObject
 }
 
+// PreventAllChanges returns if all-changes
+// should be blocked from proceeding, thus preventing the operation.
+// Changes in this context are any alterations to current environment.
+func (c *Config) PreventAllChanges() bool {
+	if attrValue, ok := c.defined[PreventAllChangesKey]; ok {
+		return attrValue.(bool)
+	}
+	return DefaultPreventAllChanges
+}
+
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
@@ -1139,6 +1160,7 @@ var fields = schema.Fields{
 	SetNumaControlPolicyKey:      schema.Bool(),
 	PreventDestroyEnvironmentKey: schema.Bool(),
 	PreventRemoveObjectKey:       schema.Bool(),
+	PreventAllChangesKey:         schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1182,6 +1204,7 @@ var alwaysOptional = schema.Defaults{
 	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 	PreventRemoveObjectKey:       DefaultPreventRemoveObject,
+	PreventAllChangesKey:         DefaultPreventAllChanges,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1247,6 +1270,7 @@ func allDefaults() schema.Defaults {
 		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 		PreventDestroyEnvironmentKey: DefaultPreventDestroyEnvironment,
 		PreventRemoveObjectKey:       DefaultPreventRemoveObject,
+		PreventAllChangesKey:         DefaultPreventAllChanges,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -1325,8 +1349,8 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 }
 
 // GenerateStateServerCertAndKey makes sure that the config has a CACert and
-// CAPrivateKey, generates and retruns new certificate and key.
-func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
+// CAPrivateKey, generates and returns new certificate and key.
+func (cfg *Config) GenerateStateServerCertAndKey(hostAddresses []string) (string, string, error) {
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
 		return "", "", fmt.Errorf("environment configuration has no ca-cert")
@@ -1335,8 +1359,7 @@ func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
 	if !hasCAKey {
 		return "", "", fmt.Errorf("environment configuration has no ca-private-key")
 	}
-	var noHostnames []string
-	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
+	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), hostAddresses)
 }
 
 // SpecializeCharmRepo customizes a repository for a given configuration.

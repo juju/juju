@@ -1653,5 +1653,9 @@ func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, er
 	if !ok {
 		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics)
+	service, err := u.Service()
+	if err != nil {
+		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
+	}
+	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
 }

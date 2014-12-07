@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // RetryProvisioningCommand updates machines' error status to tell
@@ -50,7 +51,7 @@ func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
 
 	results, err := client.RetryProvisioning(c.Machines...)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	for i, result := range results {
 		if result.Error != nil {

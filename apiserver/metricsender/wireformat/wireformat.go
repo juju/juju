@@ -14,20 +14,20 @@ import (
 // MetricBatch is a batch of metrics that will be sent to
 // the metric collector
 type MetricBatch struct {
-	UUID     string    `json:"uuid"`
-	EnvUUID  string    `json:"env-uuid"`
-	UnitName string    `json:"unit-name"`
-	CharmUrl string    `json:"charm-url"`
-	Created  time.Time `json:"created"`
-	Metrics  []Metric  `json:"metrics"`
+	UUID        string    `json:"uuid"`
+	EnvUUID     string    `json:"env-uuid"`
+	UnitName    string    `json:"unit-name"`
+	CharmUrl    string    `json:"charm-url"`
+	Created     time.Time `json:"created"`
+	Metrics     []Metric  `json:"metrics"`
+	Credentials []byte    `json:"credentials"`
 }
 
 // Metric represents a single Metric.
 type Metric struct {
-	Key         string    `json:"key"`
-	Value       string    `json:"value"`
-	Time        time.Time `json:"time"`
-	Credentials []byte    `json:"credentials"`
+	Key   string    `json:"key"`
+	Value string    `json:"value"`
+	Time  time.Time `json:"time"`
 }
 
 // ToWire converts the state.MetricBatch into a type
@@ -36,19 +36,19 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 	metrics := make([]Metric, len(mb.Metrics()))
 	for i, m := range mb.Metrics() {
 		metrics[i] = Metric{
-			Key:         m.Key,
-			Value:       m.Value,
-			Time:        m.Time.UTC(),
-			Credentials: m.Credentials,
+			Key:   m.Key,
+			Value: m.Value,
+			Time:  m.Time.UTC(),
 		}
 	}
 	return &MetricBatch{
-		UUID:     mb.UUID(),
-		EnvUUID:  mb.EnvUUID(),
-		UnitName: mb.Unit(),
-		CharmUrl: mb.CharmURL(),
-		Created:  mb.Created().UTC(),
-		Metrics:  metrics,
+		UUID:        mb.UUID(),
+		EnvUUID:     mb.EnvUUID(),
+		UnitName:    mb.Unit(),
+		CharmUrl:    mb.CharmURL(),
+		Created:     mb.Created().UTC(),
+		Metrics:     metrics,
+		Credentials: mb.Credentials(),
 	}
 }
 

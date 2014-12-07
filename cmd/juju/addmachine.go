@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -231,6 +232,9 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 				"falling back to 1.18 compatibility mode",
 		)
 		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+	}
+	if params.IsCodeOperationBlocked(err) {
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	if err != nil {
 		return errors.Trace(err)

@@ -272,6 +272,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	servingInfo := state.StateServingInfo{
 		PrivateKey:   testing.ServerKey,
 		Cert:         testing.ServerCert,
+		CAPrivateKey: testing.CAKey,
 		SharedSecret: "really, really secret",
 		APIPort:      4321,
 		StatePort:    1234,

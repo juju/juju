@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
@@ -52,5 +53,5 @@ func (c *ResolvedCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	return client.Resolved(c.UnitName, c.Retry)
+	return block.ProcessBlockedError(client.Resolved(c.UnitName, c.Retry), block.BlockChange)
 }
