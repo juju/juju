@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/version"
 )
 
@@ -36,7 +37,7 @@ func init() {
 var (
 	logger = loggo.GetLogger("juju.apiserver.client")
 
-	stateStorage = (*state.State).Storage
+	newStateStorage = storage.NewStorage
 )
 
 type API struct {
@@ -1158,7 +1159,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 // StoreCharmArchive stores a charm archive in environment storage.
 func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
-	storage := stateStorage(st)
+	storage := newStateStorage(st.EnvironUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")

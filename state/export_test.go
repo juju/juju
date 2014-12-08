@@ -27,7 +27,6 @@ const (
 )
 
 var (
-	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 	MachineIdLessThan     = machineIdLessThan
 	NewAddress            = newAddress
