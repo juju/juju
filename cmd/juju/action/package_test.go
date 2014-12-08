@@ -110,6 +110,8 @@ type fakeAPIClient struct {
 	apiErr             error
 }
 
+var _ action.APIClient = (*fakeAPIClient)(nil)
+
 func (c *fakeAPIClient) Close() error {
 	return nil
 }

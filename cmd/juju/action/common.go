@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/apiserver/params"
@@ -119,4 +120,23 @@ func tabbedString(inputs [][]string, sep string) (string, error) {
 	w.Flush()
 
 	return b.String(), nil
+}
+
+// getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and
+// also populates a slice of strings for the params.Entity.Tag that are not a valid
+// names.ActionTag.
+func getActionTags(entities []params.Entity) (good []names.ActionTag, bad []string) {
+	for _, entity := range entities {
+		if tag, err := entityToActionTag(entity); err != nil {
+			bad = append(bad, entity.Tag)
+		} else {
+			good = append(good, tag)
+		}
+	}
+	return
+}
+
+// entityToActionTag converts the params.Entity type to a names.ActionTag
+func entityToActionTag(entity params.Entity) (names.ActionTag, error) {
+	return names.ParseActionTag(entity.Tag)
 }
