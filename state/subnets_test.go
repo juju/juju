@@ -198,3 +198,19 @@ func (s *SubnetSuite) TestPickNewAddressNoAddresses(c *gc.C) {
 	_, err = subnet.PickNewAddress()
 	c.Assert(err, gc.ErrorMatches, "No available IP addresses")
 }
+
+func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.0",
+	}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
+	_, err = s.State.AddIPAddress(addr, subnet.ID())
+
+	_, err = subnet.PickNewAddress()
+	c.Assert(err, gc.ErrorMatches, "IP addresses exhausted")
+}
