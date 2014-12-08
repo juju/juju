@@ -199,30 +199,27 @@ func (s *SubnetSuite) TestPickNewAddressNoAddresses(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "No available IP addresses")
 }
 
-func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
+func (s *SubnetSuite) getSubnetForAddressPicking(c *gc.C, allocatableHigh string) *state.Subnet {
 	subnetInfo := state.SubnetInfo{
 		CIDR:              "192.168.1.0/24",
 		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.0",
+		AllocatableIPHigh: allocatableHigh,
 	}
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-
+	return subnet
+}
+func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
+	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
 	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
-	_, err = s.State.AddIPAddress(addr, subnet.ID())
+	_, err := s.State.AddIPAddress(addr, subnet.ID())
 
 	_, err = subnet.PickNewAddress()
 	c.Assert(err, gc.ErrorMatches, "IP addresses exhausted")
 }
 
 func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.0",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
 
 	addr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,15 +227,10 @@ func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestPickNewAddress(c *gc.C) {
-	subnetInfo := state.SubnetInfo{
-		CIDR:              "192.168.1.0/24",
-		AllocatableIPLow:  "192.168.1.0",
-		AllocatableIPHigh: "192.168.1.1",
-	}
-	subnet, err := s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	subnet := s.getSubnetForAddressPicking(c, "192.168.1.1")
+
 	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
-	_, err = s.State.AddIPAddress(addr, subnet.ID())
+	_, err := s.State.AddIPAddress(addr, subnet.ID())
 
 	ipAddr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
