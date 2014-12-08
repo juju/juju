@@ -220,7 +220,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	high := s.doc.AllocatableIPHigh
 	low := s.doc.AllocatableIPLow
 	if low == "" || high == "" {
-		return nil, errors.New("No avilable IP addresses")
+		return nil, errors.New("No available IP addresses")
 	}
 
 	// convert low and high to decimals (dottedQuadToNum) as the bounds
