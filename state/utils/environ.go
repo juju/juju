@@ -10,7 +10,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// GetEnvironment returns the Provider associated with the environment.
+// GetEnvironment returns the environs.Environ ("provider") associated
+// with the environment.
 func GetEnvironment(st *state.State) (environs.Environ, error) {
 	envcfg, err := st.EnvironConfig()
 	if err != nil {
