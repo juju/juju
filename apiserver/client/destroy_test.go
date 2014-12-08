@@ -150,24 +150,32 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 	}
 }
 
-func (s *destroyEnvironmentSuite) checkDestroyEnvironment(c *gc.C, blocked bool) {
-	//Setup environment
+func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
+	// Setup environment
 	s.setUpInstances(c)
 	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": blocked}, nil, nil)
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": true}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.APIState.Client().DestroyEnvironment()
-	if blocked {
-		c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
 
-func (s *destroyEnvironmentSuite) TestDestroyLockedEnvironment(c *gc.C) {
-	s.checkDestroyEnvironment(c, true)
+func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
+	// Setup environment
+	s.setUpInstances(c)
+	// lock environment: can't destroy locked environment
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-remove-object": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().DestroyEnvironment()
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
 
-func (s *destroyEnvironmentSuite) TestDestroyUnlockedEnvironment(c *gc.C) {
-	s.checkDestroyEnvironment(c, false)
+func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
+	// Setup environment
+	s.setUpInstances(c)
+	// lock environment: can't destroy locked environment
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.APIState.Client().DestroyEnvironment()
+	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }

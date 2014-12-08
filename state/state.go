@@ -80,6 +80,9 @@ const (
 	rebootC       = "reboot"
 	blockDevicesC = "blockdevices"
 
+	// leaseC is used to store lease tokens
+	leaseC = "lease"
+
 	// sequenceC is used to generate unique identifiers.
 	sequenceC = "sequence"
 
@@ -103,6 +106,8 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	// TODO(katco-): As state gets broken up, remove this.
+	*LeasePersistor
 	// transactionRunner is normally nil, which means that a new one
 	// will be created for each operation, ensuring a fresh mgo.Session
 	// is used. However, for tests, a value may be assigned and this will
@@ -123,10 +128,11 @@ type State struct {
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
 type StateServingInfo struct {
-	APIPort    int
-	StatePort  int
-	Cert       string
-	PrivateKey string
+	APIPort      int
+	StatePort    int
+	Cert         string
+	PrivateKey   string
+	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
@@ -153,13 +159,6 @@ func (st *State) EnvironTag() names.EnvironTag {
 // controlled by this state instance.
 func (st *State) EnvironUUID() string {
 	return st.environTag.Id()
-}
-
-// getCollection fetches a named collection using a new session if the
-// database has previously been logged in to.
-// It returns the collection and a closer function for the session.
-func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
-	return mongo.CollectionFromName(st.db, coll)
 }
 
 // getPresence returns the presence collection.
@@ -561,7 +560,7 @@ func machineIdLessThan(id1, id2 string) bool {
 
 // Machine returns the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.getRawCollection(machinesC)
 	defer closer()
 
 	var err error
@@ -1150,7 +1149,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	if ch == nil {
 		return nil, errors.Errorf("charm is nil")
 	}
-	if exists, err := isNotDead(st.db, servicesC, name); err != nil {
+	if exists, err := isNotDead(st, servicesC, name); err != nil {
 		return nil, errors.Trace(err)
 	} else if exists {
 		return nil, errors.Errorf("service already exists")
@@ -1424,7 +1423,6 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 	defer closer()
 
 	docs := []networkDoc{}
-	// TODO(waigani) - ENVUUID - query needs to filter by env: bson.D{{"env-uuid", st.EnvironUUID()}}
 	err = networksCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all networks")
@@ -1662,7 +1660,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
-		if exists, err := isNotDead(st.db, relationsC, docID); err != nil {
+		if exists, err := isNotDead(st, relationsC, docID); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
 			return nil, errors.Errorf("relation already exists")
@@ -1763,7 +1761,6 @@ func (st *State) Relation(id int) (*Relation, error) {
 	defer closer()
 
 	doc := relationDoc{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err := relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
@@ -1780,7 +1777,6 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 	defer closer()
 
 	docs := relationDocSlice{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relations")
@@ -1960,6 +1956,14 @@ func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")
+	}
+	if info.CAPrivateKey == "" {
+		// No CA certificate key means we can't generate new state server
+		// certificates when needed to add to the certificate SANs.
+		// Older Juju deployments discard the key because no one realised
+		// the certificate was flawed, so at best we can log a warning
+		// until an upgrade process is written.
+		logger.Warningf("state serving info has no CA certificate key")
 	}
 	ops := []txn.Op{{
 		C:      stateServersC,

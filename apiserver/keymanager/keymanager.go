@@ -42,6 +42,7 @@ type KeyManagerAPI struct {
 	authorizer common.Authorizer
 	canRead    func(string) bool
 	canWrite   func(string) bool
+	check      *common.BlockChecker
 }
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
@@ -86,7 +87,9 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 		resources:  resources,
 		authorizer: authorizer,
 		canRead:    canRead,
-		canWrite:   canWrite}, nil
+		canWrite:   canWrite,
+		check:      common.NewBlockChecker(st),
+	}, nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
@@ -173,6 +176,9 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 
 // AddKeys adds new authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Keys)),
 	}
@@ -252,6 +258,9 @@ func runSSHKeyImport(keyIds []string) []importedSSHKey {
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Keys)),
 	}
@@ -323,6 +332,9 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Keys)),
 	}

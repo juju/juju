@@ -17,6 +17,7 @@ import (
 type MetricSuite struct {
 	ConnSuite
 	unit         *state.Unit
+	service      *state.Service
 	meteredCharm *state.Charm
 }
 
@@ -36,7 +37,7 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
 	envUUID := s.State.EnvironUUID()
-	m := state.Metric{"pings", "5", now, []byte("creds")}
+	m := state.Metric{"pings", "5", now}
 	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "metered/0")
@@ -50,7 +51,6 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(metric.Key, gc.Equals, "pings")
 	c.Assert(metric.Value, gc.Equals, "5")
 	c.Assert(metric.Time.Equal(now), jc.IsTrue)
-	c.Assert(metric.Credentials, gc.DeepEquals, []byte("creds"))
 
 	saved, err := s.State.MetricBatch(metricBatch.UUID())
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,6 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	c.Assert(metric.Key, gc.Equals, "pings")
 	c.Assert(metric.Value, gc.Equals, "5")
 	c.Assert(metric.Time.Equal(now), jc.IsTrue)
-	c.Assert(metric.Credentials, gc.DeepEquals, []byte("creds"))
 }
 
 func assertUnitRemoved(c *gc.C, unit *state.Unit) {
@@ -78,14 +77,14 @@ func assertUnitDead(c *gc.C, unit *state.Unit) {
 
 func (s *MetricSuite) assertAddUnit(c *gc.C) {
 	s.meteredCharm = s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
-	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: s.meteredCharm})
-	s.unit = s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	s.service = s.factory.MakeService(c, &factory.ServiceParams{Charm: s.meteredCharm})
+	s.unit = s.factory.MakeUnit(c, &factory.UnitParams{Service: s.service, SetCharmURL: true})
 }
 
 func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 	assertUnitRemoved(c, s.unit)
 	now := state.NowToTheSecond()
-	m := state.Metric{"pings", "5", now, []byte{}}
+	m := state.Metric{"pings", "5", now}
 	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `metered/0 not found`)
 }
@@ -93,14 +92,14 @@ func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
 	assertUnitDead(c, s.unit)
 	now := state.NowToTheSecond()
-	m := state.Metric{"pings", "5", now, []byte{}}
+	m := state.Metric{"pings", "5", now}
 	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `metered/0 not found`)
 }
 
 func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	now := state.NowToTheSecond()
-	m := state.Metric{"pings", "5", now, []byte{}}
+	m := state.Metric{"pings", "5", now}
 	added, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
@@ -115,13 +114,13 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
-	m := state.Metric{"pings", "5", oldTime, []byte("creds")}
+	m := state.Metric{"pings", "5", oldTime}
 	oldMetric, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	oldMetric.SetSent()
 
 	now := time.Now()
-	m = state.Metric{"pings", "5", now, []byte("creds")}
+	m = state.Metric{"pings", "5", now}
 	newMetric, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	newMetric.SetSent()
@@ -142,7 +141,7 @@ func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
 
 func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	now := state.NowToTheSecond()
-	m := state.Metric{"pings", "5", now, []byte("creds")}
+	m := state.Metric{"pings", "5", now}
 	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, jc.ErrorIsNil)
 	metricBatches, err := s.State.MetricBatches()
@@ -154,11 +153,24 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
 
+func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
+	now := state.NowToTheSecond()
+	m := state.Metric{"pings", "5", now}
+	err := s.service.SetMetricCredentials([]byte("hello there"))
+	c.Assert(err, gc.IsNil)
+	_, err = s.unit.AddMetrics(now, []state.Metric{m})
+	c.Assert(err, jc.ErrorIsNil)
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+	c.Assert(metricBatches[0].Credentials(), gc.DeepEquals, []byte("hello there"))
+}
+
 // TestCountMetrics asserts the correct values are returned
 // by CountofUnsentMetrics and CountofSentMetrics.
 func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	now := time.Now()
-	m := []state.Metric{{Key: "pings", Value: "123", Time: now, Credentials: []byte{}}}
+	m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: m})
@@ -175,7 +187,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	now := time.Now()
 	metrics := make([]*state.MetricBatch, 3)
 	for i := range metrics {
-		m := []state.Metric{{Key: "pings", Value: "123", Time: now, Credentials: []byte{}}}
+		m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 		metrics[i] = s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	}
 	uuids := make([]string, len(metrics))
@@ -192,7 +204,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 
 func (s *MetricSuite) TestMetricsToSend(c *gc.C) {
 	now := state.NowToTheSecond()
-	m := []state.Metric{{Key: "pings", Value: "123", Time: now, Credentials: []byte{}}}
+	m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: m})
@@ -205,11 +217,11 @@ func (s *MetricSuite) TestMetricsToSend(c *gc.C) {
 func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
 	now := state.NowToTheSecond()
 	for i := 0; i < 6; i++ {
-		m := []state.Metric{{Key: "pings", Value: "123", Time: now, Credentials: []byte{}}}
+		m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 		s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: m})
 	}
 	for i := 0; i < 4; i++ {
-		m := []state.Metric{{Key: "pings", Value: "123", Time: now, Credentials: []byte{}}}
+		m := []state.Metric{{Key: "pings", Value: "123", Time: now}}
 		s.factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: m})
 	}
 	for i := 0; i < 3; i++ {
@@ -245,32 +257,32 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 		err     string
 	}{{
 		"assert non metered unit returns an error",
-		[]state.Metric{{"metric-key", "1", now, []byte("creds")}},
+		[]state.Metric{{"metric-key", "1", now}},
 		nonMeteredUnit,
 		"charm doesn't implement metrics",
 	}, {
 		"assert metric with no errors and passes validation",
-		[]state.Metric{{"pings", "1", now, []byte("creds")}},
+		[]state.Metric{{"pings", "1", now}},
 		meteredUnit,
 		"",
 	}, {
 		"assert valid metric fails on dying unit",
-		[]state.Metric{{"pings", "1", now, []byte("creds")}},
+		[]state.Metric{{"pings", "1", now}},
 		dyingUnit,
 		"metered-service/1 not found",
 	}, {
 		"assert charm doesn't implement key returns error",
-		[]state.Metric{{"not-implemented", "1", now, []byte("creds")}},
+		[]state.Metric{{"not-implemented", "1", now}},
 		meteredUnit,
 		`metric "not-implemented" not defined`,
 	}, {
 		"assert invalid value returns error",
-		[]state.Metric{{"pings", "foobar", now, []byte("creds")}},
+		[]state.Metric{{"pings", "foobar", now}},
 		meteredUnit,
 		`invalid value type: expected float, got "foobar"`,
 	}, {
 		"long value returns error",
-		[]state.Metric{{"pings", "3.141592653589793238462643383279", now, []byte("creds")}},
+		[]state.Metric{{"pings", "3.141592653589793238462643383279", now}},
 		meteredUnit,
 		`metric value is too large`,
 	}}

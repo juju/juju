@@ -33,6 +33,7 @@ type UserManager interface {
 type UserManagerAPI struct {
 	state      *state.State
 	authorizer common.Authorizer
+	check      *common.BlockChecker
 }
 
 var _ UserManager = (*UserManagerAPI)(nil)
@@ -49,6 +50,7 @@ func NewUserManagerAPI(
 	return &UserManagerAPI{
 		state:      st,
 		authorizer: authorizer,
+		check:      common.NewBlockChecker(st),
 	}, nil
 }
 
@@ -71,6 +73,10 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	result := params.AddUserResults{
 		Results: make([]params.AddUserResult, len(args.Users)),
 	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	if len(args.Users) == 0 {
 		return result, nil
 	}
@@ -111,12 +117,18 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is consided a success.
 func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	return api.enableUserImpl(users, "enable", (*state.User).Enable)
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is consided a success.
 func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	return api.enableUserImpl(users, "disable", (*state.User).Disable)
 }
 
@@ -213,6 +225,9 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 
 // SetPassword changes the stored password for the specified users.
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

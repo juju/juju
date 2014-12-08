@@ -8,8 +8,13 @@ package http
 type DigestAlgorithm string
 
 const (
-	DIGEST_SHA DigestAlgorithm = "SHA"
+	// DigestSHA is the HTTP digest algorithm value used in juju's HTTP code.
+	DigestSHA DigestAlgorithm = "SHA"
 
-	CTYPE_JSON = "application/json"
-	CTYPE_RAW  = "application/octet-stream"
+	// The values used for content-type in juju's direct HTTP code:
+
+	// CTypeJSON is the HTTP content-type value used for JSON content.
+	CTypeJSON = "application/json"
+	// CTypeRaw is the HTTP content-type value used for raw, unformattedcontent.
+	CTypeRaw = "application/octet-stream"
 )

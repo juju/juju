@@ -46,9 +46,12 @@ func (m *Machine) setFlag() error {
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 	}, {
-		C:      rebootC,
-		Id:     m.doc.DocID,
-		Insert: rebootDoc{Id: m.Id()},
+		C:  rebootC,
+		Id: m.doc.DocID,
+		Insert: rebootDoc{
+			Id:      m.Id(),
+			EnvUUID: m.st.EnvironUUID(),
+		},
 	}}
 	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -113,7 +116,7 @@ func (m *Machine) GetRebootFlag() (bool, error) {
 func (m *Machine) machinesToCareAboutRebootsFor() []string {
 	var possibleIds []string
 	for currentId := m.Id(); currentId != ""; {
-		possibleIds = append(possibleIds, m.st.docID(currentId))
+		possibleIds = append(possibleIds, currentId)
 		currentId = ParentId(currentId)
 	}
 	return possibleIds
@@ -129,7 +132,7 @@ func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
 	machines := m.machinesToCareAboutRebootsFor()
 
 	docs := []rebootDoc{}
-	sel := bson.D{{"_id", bson.D{{"$in", machines}}}}
+	sel := bson.D{{"machineid", bson.D{{"$in", machines}}}}
 	if err := rebootCol.Find(sel).All(&docs); err != nil {
 		return ShouldDoNothing, errors.Trace(err)
 	}

@@ -29,6 +29,7 @@ func NewMetadata() *backups.Metadata {
 // NewMetadataStarted returns a Metadata to use for testing.
 func NewMetadataStarted() *backups.Metadata {
 	meta := backups.NewMetadata()
+	meta.Started = meta.Started.Truncate(time.Second)
 	meta.Origin.Environment = envID
 	meta.Origin.Machine = "0"
 	meta.Origin.Hostname = "main-host"

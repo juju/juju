@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/common"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
@@ -89,7 +90,7 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // sendJSON sends a JSON-encoded response to the client.
 func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.ToolsResult) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", apihttp.CTypeJSON)
 	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {

@@ -115,7 +115,7 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	// Handle download.
 	filename := c.decideFilename(ctx, c.Filename, result.Started)
 	if filename != "" {
-		if err := c.download(ctx, client, result.ID, filename); err != nil {
+		if err := c.download(ctx, result.ID, filename); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -135,8 +135,18 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 	return timestamp.Format(backups.FilenameTemplate)
 }
 
-func (c *CreateCommand) download(ctx *cmd.Context, client APIClient, id string, filename string) error {
+func (c *CreateCommand) download(ctx *cmd.Context, id string, filename string) error {
 	fmt.Fprintln(ctx.Stdout, "downloading to "+filename)
+
+	// TODO(ericsnow) lp-1399722 This needs further investigation:
+	// There is at least anecdotal evidence that we cannot use an API
+	// client for more than a single request. So we use a new client
+	// for download.
+	client, err := c.NewAPIClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
 
 	archive, err := client.Download(id)
 	if err != nil {

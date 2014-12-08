@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -37,7 +36,11 @@ func SharedToolsDir(dataDir string, vers version.Binary) string {
 // the tools used by the given agent within the given dataDir directory.
 // Conventionally it is a symbolic link to the actual tools directory.
 func ToolsDir(dataDir, agentName string) string {
-	return filepath.Join(dataDir, "tools", agentName)
+	//TODO(perrito666) ToolsDir and any other *Dir needs to take the
+	// agent series to use the right path, in this case, if filepath
+	// is used it ends up creating a bogus toolsdir when the client
+	// is in windows.
+	return path.Join(dataDir, "tools", agentName)
 }
 
 // UnpackTools reads a set of juju tools in gzipped tar-archive

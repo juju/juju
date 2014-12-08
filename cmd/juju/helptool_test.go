@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type HelpToolSuite struct {

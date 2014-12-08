@@ -22,6 +22,12 @@ import (
 
 var pairsRE = regexp.MustCompile(`([A-Z]+)=(?:"(.*?)")`)
 
+const (
+	// partitionType is the value of the TYPE column
+	// in lsblk output for partitions.
+	partitionType = "part"
+)
+
 func init() {
 	DefaultListBlockDevices = listBlockDevices
 }
@@ -32,6 +38,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		"SIZE",  // size
 		"LABEL", // filesystem label
 		"UUID",  // filesystem UUID
+		"TYPE",  // device type
 	}
 
 	logger.Debugf("executing lsblk")
@@ -52,6 +59,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 	for s.Scan() {
 		pairs := pairsRE.FindAllStringSubmatch(s.Text(), -1)
 		var dev storage.BlockDevice
+		var deviceType string
 		for _, pair := range pairs {
 			switch pair[1] {
 			case "KNAME":
@@ -69,9 +77,18 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				dev.Label = pair[2]
 			case "UUID":
 				dev.UUID = pair[2]
+			case "TYPE":
+				deviceType = pair[2]
 			default:
 				logger.Debugf("unexpected field from lsblk: %q", pair[1])
 			}
+		}
+
+		// Partitions may not be used, as there is no guarantee that the
+		// partition will remain available (and we don't model hierarchy).
+		if deviceType == partitionType {
+			logger.Debugf("ignoring partition: %+v", dev)
+			continue
 		}
 
 		// Check if the block device is in use. We need to know this so we can
