@@ -14,6 +14,8 @@ type KillSuite struct {
 	subcommand *action.KillCommand
 }
 
+var _ = gc.Suite(&KillSuite{})
+
 func (s *KillSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand = &action.KillCommand{}

@@ -99,13 +99,14 @@ func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
 }
 
 type fakeAPIClient struct {
-	action.APIClient
 	actionResults      []params.ActionResult
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   map[string][]params.Entity
 	charmActions       *charm.Actions
 	apiErr             error
 }
+
+var _ action.APIClient = (*fakeAPIClient)(nil)
 
 func (c *fakeAPIClient) Close() error {
 	return nil

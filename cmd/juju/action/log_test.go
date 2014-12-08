@@ -14,6 +14,8 @@ type LogSuite struct {
 	subcommand *action.LogCommand
 }
 
+//var _ = gc.Suite(&LogSuite{})
+
 func (s *LogSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand = &action.LogCommand{}

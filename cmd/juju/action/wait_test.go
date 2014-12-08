@@ -14,6 +14,8 @@ type WaitSuite struct {
 	subcommand *action.WaitCommand
 }
 
+var _ = gc.Suite(&WaitSuite{})
+
 func (s *WaitSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand = &action.WaitCommand{}

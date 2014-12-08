@@ -88,6 +88,10 @@ type APIClient interface {
 	// Actions fetches actions by tag.  These Actions can be used to get
 	// the ActionReceiver if necessary.
 	Actions(params.Entities) (params.ActionResults, error)
+
+	// FindActionTagsByPrefix takes a list of string prefixes and finds
+	// corresponding ActionTags that match that prefix.
+	FindActionTagsByPrefix(params.FindTags) (params.FindTagsResults, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.

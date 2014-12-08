@@ -14,6 +14,8 @@ type QueueSuite struct {
 	subcommand *action.QueueCommand
 }
 
+//var _ = gc.Suite(&QueueSuite{})
+
 func (s *QueueSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
 	s.subcommand = &action.QueueCommand{}
