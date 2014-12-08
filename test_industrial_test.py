@@ -22,6 +22,7 @@ from industrial_test import (
     BootstrapAttempt,
     DENSITY,
     DeployManyAttempt,
+    DeployManyFactory,
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
     FULL,
@@ -38,6 +39,7 @@ from jujuconfig import get_euca_env
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    _temp_env,
     )
 from substrate import AWSAccount
 from test_jujupy import assert_juju_call
@@ -172,12 +174,22 @@ class StubJujuClient:
         pass
 
 
+@contextmanager
+def temp_env(name, config=None):
+    if config is None:
+        config = {}
+    environments = {'environments': {name: config}}
+    with _temp_env(environments):
+        yield
+
+
 class TestMultiIndustrialTest(TestCase):
 
     def test_from_args(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
                          suite=QUICK, new_agent_url=None)
-        mit = MultiIndustrialTest.from_args(args)
+        with temp_env('foo'):
+            mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'foo')
         self.assertEqual(mit.new_juju_path, 'new-path')
         self.assertEqual(mit.attempt_count, 7)
@@ -186,7 +198,8 @@ class TestMultiIndustrialTest(TestCase):
             mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
         args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
                          suite=FULL, new_agent_url=None)
-        mit = MultiIndustrialTest.from_args(args)
+        with temp_env('bar'):
+            mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'bar')
         self.assertEqual(mit.new_juju_path, 'new-path2')
         self.assertEqual(mit.attempt_count, 6)
@@ -196,10 +209,53 @@ class TestMultiIndustrialTest(TestCase):
                 BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
                 EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
 
+    def test_from_args_maas(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         suite=DENSITY, new_agent_url=None)
+        with temp_env('foo', {'type': 'maas'}):
+            mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(
+            mit.stages, [
+                BootstrapAttempt, DeployManyFactory(2, 2),
+                DestroyEnvironmentAttempt])
+
+    def test_get_stages(self):
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(QUICK, {'type': 'foo'}),
+            [BootstrapAttempt, DestroyEnvironmentAttempt])
+
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(FULL, {'type': 'foo'}), [
+                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
+                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(DENSITY, {'type': 'foo'}), [
+                BootstrapAttempt, DeployManyAttempt,
+                DestroyEnvironmentAttempt])
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(BACKUP, {'type': 'foo'}), [
+                BootstrapAttempt, BackupRestoreAttempt,
+                DestroyEnvironmentAttempt])
+
+    def test_get_stages_maas(self):
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(QUICK, {'type': 'maas'}),
+            [BootstrapAttempt, DestroyEnvironmentAttempt])
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(FULL, {'type': 'maas'}), [
+                BootstrapAttempt, DeployManyFactory(2, 2),
+                BackupRestoreAttempt, EnsureAvailabilityAttempt,
+                DestroyEnvironmentAttempt])
+        self.assertEqual(
+            MultiIndustrialTest.get_stages(DENSITY, {'type': 'maas'}), [
+                BootstrapAttempt, DeployManyFactory(2, 2),
+                DestroyEnvironmentAttempt])
+
     def test_density_suite(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
                          suite=DENSITY, new_agent_url=None)
-        mit = MultiIndustrialTest.from_args(args)
+        with temp_env('foo'):
+            mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DeployManyAttempt,
                          DestroyEnvironmentAttempt])
@@ -207,7 +263,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_backup_suite(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
                          suite=BACKUP, new_agent_url=None)
-        mit = MultiIndustrialTest.from_args(args)
+        with temp_env('foo'):
+            mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
             mit.stages, [BootstrapAttempt, BackupRestoreAttempt,
                          DestroyEnvironmentAttempt])
@@ -215,7 +272,8 @@ class TestMultiIndustrialTest(TestCase):
     def test_from_args_new_agent_url(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
                          suite=QUICK, new_agent_url='http://example.net')
-        mit = MultiIndustrialTest.from_args(args)
+        with temp_env('foo'):
+            mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
 
     def test_init(self):
@@ -1134,6 +1192,17 @@ class TestDeployManyAttempt(TestCase):
         calls = self.predict_add_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
+
+
+class TestDeployManyFactory(TestCase):
+
+    def test_get_test_info(self):
+        self.assertEqual(DeployManyFactory(2, 2).get_test_info(),
+                         DeployManyAttempt.get_test_info())
+
+    def test_call(self):
+        factory = DeployManyFactory(4, 2)
+        self.assertEqual(factory(), DeployManyAttempt(4, 2))
 
 
 class TestBackupRestoreAttempt(TestCase):
