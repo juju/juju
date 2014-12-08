@@ -183,15 +183,7 @@ var getZone = func(st *state.State, tag names.Tag) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	mid, err := unit.AssignedMachineId()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	machine, err := st.Machine(mid)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	zone, err := machine.AvailabilityZone()
+	zone, err := unit.AvailabilityZone()
 	return zone, errors.Trace(err)
 }
 
@@ -220,12 +212,9 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			zone, err2 := getZone(u.st, tag)
-			if err2 != nil {
-				err = errors.Trace(err2)
-			} else {
+			zone, err := getZone(u.st, tag)
+			if err == nil {
 				results.Results[i].Result = zone
-				err = nil
 			}
 		}
 		results.Results[i].Error = common.ServerError(err)
