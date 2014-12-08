@@ -267,8 +267,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 
 	// convert it back to a dotted-quad
 	newIP := decimalToIP(newDecimal)
-	// XXX what should the Scope of the new address be?
-	newAddr := network.Address{Value: newIP}
+	newAddr := network.NewAddress(newIP, network.ScopeUnknown)
 
 	// and create a new IPAddress from it and return it
 	return s.st.AddIPAddress(newAddr, s.ID())
