@@ -21,9 +21,13 @@ import (
 )
 
 const (
-	UnitsC    = unitsC
-	ServicesC = servicesC
-	SettingsC = settingsC
+	InstanceDataC      = instanceDataC
+	MachinesC          = machinesC
+	NetworkInterfacesC = networkInterfacesC
+	ServicesC          = servicesC
+	SettingsC          = settingsC
+	UnitsC             = unitsC
+	UsersC             = usersC
 )
 
 var (
@@ -270,4 +274,12 @@ func StrictLocalID(st *State, id string) (string, error) {
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
+}
+
+func GetCollection(st *State, name string) (stateCollection, func()) {
+	return st.getCollection(name)
+}
+
+func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
+	return st.getRawCollection(name)
 }

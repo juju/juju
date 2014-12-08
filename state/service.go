@@ -660,7 +660,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if alive, err := isAlive(s.st.db, servicesC, s.doc.DocID); err != nil {
+		if alive, err := isAlive(s.st, servicesC, s.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -766,7 +766,6 @@ func serviceRelations(st *State, name string) (relations []*Relation, err error)
 	defer closer()
 
 	docs := []relationDoc{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err
@@ -870,12 +869,11 @@ func (s *Service) MetricCredentials() []byte {
 func (s *Service) SetMetricCredentials(b []byte) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			//notDead, err := isNotDead(s.st.db, servicesC, s.doc.DocID)
-			notDead, err := isNotDead(s.st.db, servicesC, s.st.docID(s.doc.DocID))
+			alive, err := isAlive(s.st, servicesC, s.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
-			} else if !notDead {
-				return nil, ErrDead
+			} else if !alive {
+				return nil, errNotAlive
 			}
 		}
 		ops := []txn.Op{
@@ -889,8 +887,8 @@ func (s *Service) SetMetricCredentials(b []byte) error {
 		return ops, nil
 	}
 	if err := s.st.run(buildTxn); err != nil {
-		if err == ErrDead {
-			return errors.New("cannot update metric credentials: service not found or dead")
+		if err == errNotAlive {
+			return errors.New("cannot update metric credentials: service " + err.Error())
 		}
 		return errors.Annotatef(err, "cannot update metric credentials")
 	}

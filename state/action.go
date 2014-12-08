@@ -323,7 +323,7 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 	}}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(st.db, receiverCollectionName, receiverId); err != nil {
+		if notDead, err := isNotDead(st, receiverCollectionName, receiverId); err != nil {
 			return nil, err
 		} else if !notDead {
 			return nil, ErrDead
@@ -351,10 +351,7 @@ func (st *State) matchingActionsByReceiverId(id string) ([]*Action, error) {
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", id}}
-	iter := actionsCollection.Find(sel).Iter()
-
+	iter := actionsCollection.Find(bson.D{{"receiver", id}}).Iter()
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
@@ -374,10 +371,7 @@ func (st *State) matchingActionNotificationsByReceiverId(id string) ([]names.Act
 	notificationCollection, closer := st.getCollection(actionNotificationsC)
 	defer closer()
 
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"$and", []bson.D{{{"env-uuid", envuuid}, {"receiver", id}}}}}
-	iter := notificationCollection.Find(sel).Iter()
-
+	iter := notificationCollection.Find(bson.D{{"receiver", id}}).Iter()
 	for iter.Next(&doc) {
 		tags = append(tags, newActionTagFromNotification(doc))
 	}
@@ -411,10 +405,7 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	envuuid := st.EnvironUUID()
-
-	condition := []bson.D{{{"env-uuid", envuuid}}, {{"receiver", tag.Id()}}, statusCondition}
-	sel := bson.D{{"$and", condition}}
+	sel := append(bson.D{{"receiver", tag.Id()}}, statusCondition...)
 	iter := actionsCollection.Find(sel).Iter()
 
 	for iter.Next(&doc) {

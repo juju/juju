@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -143,7 +142,7 @@ type lifecycleWatcher struct {
 
 	// coll is a function returning the mgo.Collection holding all
 	// interesting entities
-	coll     func() (*mgo.Collection, func())
+	coll     func() (stateCollection, func())
 	collName string
 
 	// members is used to select the initial set of interesting entities.
@@ -154,8 +153,8 @@ type lifecycleWatcher struct {
 	life map[string]Life
 }
 
-func collFactory(st *State, collName string) func() (*mgo.Collection, func()) {
-	return func() (*mgo.Collection, func()) {
+func collFactory(st *State, collName string) func() (stateCollection, func()) {
+	return func() (stateCollection, func()) {
 		return st.getCollection(collName)
 	}
 }
@@ -184,9 +183,6 @@ func (s *Service) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Service) WatchRelations() StringsWatcher {
-	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
-	members := bson.D{{"endpoints.servicename", s.doc.Name}}
-
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
 	filter := func(id interface{}) bool {
@@ -198,6 +194,7 @@ func (s *Service) WatchRelations() StringsWatcher {
 		return out
 	}
 
+	members := bson.D{{"endpoints.servicename", s.doc.Name}}
 	return newLifecycleWatcher(s.st, relationsC, members, filter)
 }
 
@@ -581,7 +578,6 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 	defer closer()
 
 	docs := []relationScopeDoc{}
-	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	sel := bson.D{
 		{"key", bson.D{{"$regex", "^" + w.prefix}}},
 		{"departing", bson.D{{"$ne", true}}},
@@ -928,10 +924,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	}
 	newUnits, closer := w.st.getCollection(unitsC)
 	defer closer()
-	query := bson.D{
-		{"name", bson.D{{"$in", initialNames}}},
-		{"env-uuid", w.st.EnvironUUID()},
-	}
+	query := bson.D{{"name", bson.D{{"$in", initialNames}}}}
 	docs := []lifeWatchDoc{}
 	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
 		return nil, err
@@ -1016,7 +1009,7 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 }
 
 func (w *unitsWatcher) loop(coll, id string) error {
-	collection, closer := mongo.CollectionFromName(w.st.db, coll)
+	collection, closer := w.st.getCollection(coll)
 	revno, err := getTxnRevno(collection, id)
 	closer()
 	if err != nil {
@@ -1294,7 +1287,7 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 // given key in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll *mgo.Collection, key interface{}) (int64, error) {
+func getTxnRevno(coll stateCollection, key interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
@@ -1315,8 +1308,8 @@ func (w *entityWatcher) loop(collName string, key interface{}) error {
 		return err
 	}
 	in := make(chan watcher.Change)
-	w.st.watcher.Watch(coll.Name, key, txnRevno, in)
-	defer w.st.watcher.Unwatch(coll.Name, key, in)
+	w.st.watcher.Watch(coll.Name(), key, txnRevno, in)
+	defer w.st.watcher.Unwatch(coll.Name(), key, in)
 	out := w.out
 	for {
 		select {
@@ -2341,7 +2334,11 @@ func (w *rebootWatcher) loop() error {
 	in := make(chan watcher.Change)
 	filter := func(key interface{}) bool {
 		if id, ok := key.(string); ok {
-			return w.machines.Contains(id)
+			if id, err := w.st.strictLocalID(id); err == nil {
+				return w.machines.Contains(id)
+			} else {
+				return false
+			}
 		}
 		w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
 		return false

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/lease"
@@ -32,8 +31,8 @@ func stubRunTransaction(ops []txn.Op) error {
 	return nil
 }
 
-func stubGetCollection(collectionName string) (*mgo.Collection, func()) {
-	return &mgo.Collection{}, func() {}
+func stubGetCollection(collectionName string) (stateCollection, func()) {
+	return &genericStateCollection{}, func() {}
 }
 
 type leaseSuite struct{}
@@ -87,9 +86,9 @@ func (s *leaseSuite) TestRemoveToken(c *gc.C) {
 func (s *leaseSuite) TestPersistedTokens(c *gc.C) {
 
 	closerCallCount := 0
-	stubGetCollection := func(collectionName string) (*mgo.Collection, func()) {
+	stubGetCollection := func(collectionName string) (stateCollection, func()) {
 		c.Check(collectionName, gc.Equals, testCollectionName)
-		return &mgo.Collection{}, func() { closerCallCount++ }
+		return &genericStateCollection{}, func() { closerCallCount++ }
 	}
 
 	persistor := NewLeasePersistor(testCollectionName, stubRunTransaction, stubGetCollection)

@@ -98,7 +98,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 
 	// check to see if _id_ field is removed
 	userMap := map[string]interface{}{}
-	users, closer := s.state.getCollection("users")
+	users, closer := s.state.getRawCollection("users")
 	defer closer()
 	err = users.Find(bson.D{{"_id", userId}}).One(&userMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	err = s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
-	stateServers, closer := s.state.getCollection(stateServersC)
+	stateServers, closer := s.state.getRawCollection(stateServersC)
 	defer closer()
 	var doc stateServersDoc
 	err = stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
@@ -919,7 +919,7 @@ func (s *upgradesSuite) checkEnvUUID(
 
 	// For each old document check that _id has been migrated and that
 	// env-uuid has been added correctly.
-	coll, closer := s.state.getCollection(collName)
+	coll, closer := s.state.getRawCollection(collName)
 	var d map[string]string
 	var ids []interface{}
 	envTag := s.state.EnvironUUID()
@@ -967,7 +967,7 @@ func (s *upgradesSuite) checkEnvUUIDIdempotent(
 	err = upgradeStep(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	coll, closer := s.state.getCollection(collName)
+	coll, closer := s.state.getRawCollection(collName)
 	defer closer()
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1032,7 +1032,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 	err = s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
-	environments, closer := s.state.getCollection(environmentsC)
+	environments, closer := s.state.getRawCollection(environmentsC)
 	defer closer()
 
 	var envDoc environmentDoc
@@ -1653,7 +1653,7 @@ func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instan
 func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, instID instance.Id) {
 	// check to see if instanceid is in instance
 	var instanceMap bson.M
-	insts, closer := s.state.getCollection(instanceDataC)
+	insts, closer := s.state.getRawCollection(instanceDataC)
 	defer closer()
 	err := insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1661,7 +1661,7 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 
 	// check to see if instanceid field is removed
 	var machineMap bson.M
-	machines, closer := s.state.getCollection(machinesC)
+	machines, closer := s.state.getRawCollection(machinesC)
 	defer closer()
 	err = machines.FindId(machineID).One(&machineMap)
 	c.Assert(err, jc.ErrorIsNil)

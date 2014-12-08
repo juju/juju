@@ -1060,6 +1060,7 @@ func (s *StateSuite) TestReadPreEnvUUIDMachine(c *gc.C) {
 		Id     string `bson:"_id"`
 		Series string
 	}
+
 	s.machines.Insert(&oldMachineDoc{"99", "quantal"})
 
 	machine, err := s.State.Machine("99")

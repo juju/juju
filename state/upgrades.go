@@ -35,7 +35,7 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 		return err
 	}
 
-	users, closer := st.getCollection(usersC)
+	users, closer := st.getRawCollection(usersC)
 	defer closer()
 	err = users.Find(bson.D{{
 		"lastconnection", bson.D{{"$exists", true}}}}).All(&oldDocs)
@@ -77,7 +77,7 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 	}
 
 	var userSlice []userDoc
-	users, closer := st.getCollection(usersC)
+	users, closer := st.getRawCollection(usersC)
 	defer closer()
 
 	err = users.Find(nil).All(&userSlice)
@@ -293,7 +293,7 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	}
 
 	var unitSlice []unitDoc
-	units, closer := st.getCollection(unitsC)
+	units, closer := st.getRawCollection(unitsC)
 	defer closer()
 
 	// Get all units ordered by their service and name.
@@ -372,10 +372,10 @@ func CreateUnitMeterStatus(st *State) error {
 	}
 
 	var unitSlice []unitDoc
-	units, closer := st.getCollection(unitsC)
+	units, closer := st.getRawCollection(unitsC)
 	defer closer()
 
-	meterStatuses, closer := st.getCollection(meterStatusC)
+	meterStatuses, closer := st.getRawCollection(meterStatusC)
 	defer closer()
 
 	// Get all units ordered by their service and name.
@@ -488,9 +488,9 @@ func MigrateMachineInstanceIdToInstanceData(st *State) error {
 		return errors.Trace(err)
 	}
 
-	instDatas, closer := st.getCollection(instanceDataC)
+	instDatas, closer := st.getRawCollection(instanceDataC)
 	defer closer()
-	machines, closer := st.getCollection(machinesC)
+	machines, closer := st.getRawCollection(machinesC)
 	defer closer()
 
 	var ops []txn.Op
@@ -601,7 +601,7 @@ func AddEnvUUIDToRequestedNetworks(st *State) error {
 // AddEnvUUIDToNetworkInterfaces prepends adds a new "env-uuid" field to all
 // networkInterfaces docs.
 func AddEnvUUIDToNetworkInterfaces(st *State) error {
-	coll, closer := st.getCollection(networkInterfacesC)
+	coll, closer := st.getRawCollection(networkInterfacesC)
 	defer closer()
 
 	upgradesLogger.Debugf("adding the env uuid %q to the %s collection", st.EnvironUUID(), networkInterfacesC)
@@ -709,7 +709,7 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 		return errors.Annotate(err, "failed to load environment")
 	}
 
-	coll, closer := st.getCollection(collName)
+	coll, closer := st.getRawCollection(collName)
 	defer closer()
 
 	upgradesLogger.Debugf("adding the env uuid %q to the %s collection", env.UUID(), collName)
@@ -784,7 +784,7 @@ func MigrateJobManageNetworking(st *State) error {
 	}
 
 	// Iterate over all machines and create operations.
-	machinesCollection, closer := st.getCollection(machinesC)
+	machinesCollection, closer := st.getRawCollection(machinesC)
 	defer closer()
 
 	iter := machinesCollection.Find(nil).Iter()

@@ -1767,6 +1767,6 @@ func (s *ServiceSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
-	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: service not found or dead")
+	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: service not found or not alive")
 
 }
