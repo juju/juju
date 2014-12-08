@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"syscall"
 	"time"
 
 	"github.com/juju/errors"
@@ -217,14 +216,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	size := fi.Size()
 
 	// Extract the timestamp.
-	var timestamp time.Time
-	rawstat := fi.Sys()
-	if rawstat != nil {
-		stat, ok := rawstat.(*syscall.Stat_t)
-		if ok {
-			timestamp = time.Unix(int64(stat.Ctim.Sec), 0)
-		}
-	}
+	timestamp := creationTime(fi)
 	if timestamp.IsZero() {
 		// Fall back to modification time.
 		timestamp = fi.ModTime()
