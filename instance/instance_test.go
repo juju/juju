@@ -14,11 +14,37 @@ type HardwareSuite struct{}
 
 var _ = gc.Suite(&HardwareSuite{})
 
-var parseHardwareTests = []struct {
+type parseHardwareTestSpec struct {
 	summary string
 	args    []string
 	err     string
-}{
+}
+
+func (ts *parseHardwareTestSpec) check(c *gc.C) {
+	hwc, err := instance.ParseHardware(ts.args...)
+
+	// Check the spec'ed error condition first.
+	if ts.err != "" {
+		c.Check(err, gc.ErrorMatches, ts.err)
+		// We expected an error so we don't worry about checking hwc.
+		return
+	} else if !c.Check(err, jc.ErrorIsNil) {
+		// We got an unexpected error so we don't worry about checking hwc.
+		return
+	}
+
+	// The error condition matched so we check hwc.
+	cons1, err := instance.ParseHardware(hwc.String())
+	if !c.Check(err, jc.ErrorIsNil) {
+		// Parsing didn't work so we don't worry about checking hwc.
+		return
+	}
+
+	// Compare the round-tripped HWC.
+	c.Check(cons1, gc.DeepEquals, hwc)
+}
+
+var parseHardwareTests = []parseHardwareTestSpec{
 	// Simple errors.
 	{
 		summary: "nothing at all",
@@ -248,19 +274,6 @@ var parseHardwareTests = []struct {
 func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 	for i, t := range parseHardwareTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hwc, err := instance.ParseHardware(t.args...)
-		if t.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-		} else {
-			c.Check(err, gc.ErrorMatches, t.err)
-			continue
-		}
-		cons1, err := instance.ParseHardware(hwc.String())
-		if !c.Check(err, jc.ErrorIsNil) {
-			continue
-		}
-		c.Check(cons1, gc.DeepEquals, hwc)
+		t.check(c)
 	}
 }
