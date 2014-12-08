@@ -228,7 +228,7 @@ func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
 
 	addr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr.Value(), jc.DeepEquals, "192.168.1.0")
+	c.Assert(addr.Value(), gc.Equals, "192.168.1.0")
 }
 
 func (s *SubnetSuite) TestPickNewAddress(c *gc.C) {
@@ -239,5 +239,5 @@ func (s *SubnetSuite) TestPickNewAddress(c *gc.C) {
 
 	ipAddr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ipAddr.Value(), jc.DeepEquals, "192.168.1.1")
+	c.Assert(ipAddr.Value(), gc.Equals, "192.168.1.1")
 }
