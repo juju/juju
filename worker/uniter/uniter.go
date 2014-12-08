@@ -20,7 +20,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -150,13 +149,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
-
-	environWatcher, err := u.st.WatchForEnvironConfigChanges()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(environWatcher, &u.tomb)
-	u.watchForProxyChanges(environWatcher)
 
 	// Start filtering state change events for consumption by modes.
 	u.f, err = filter.NewFilter(u.st, unitTag)
@@ -620,36 +612,6 @@ func (u *Uniter) fixDeployer() error {
 		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
 	}
 	return nil
-}
-
-// watchForProxyChanges kicks off a go routine to listen to the watcher and
-// update the proxy settings.
-func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
-	// TODO(fwereade) 23-10-2014 bug 1384565
-	// Uniter shouldn't be responsible for this at all: we should rename
-	// MachineEnvironmentWorker and run one of those (that eschews rewriting
-	// system files).
-	go func() {
-		for {
-			select {
-			case <-u.tomb.Dying():
-				return
-			case _, ok := <-environWatcher.Changes():
-				logger.Debugf("new environment change")
-				if !ok {
-					return
-				}
-				environConfig, err := u.st.EnvironConfig()
-				if err != nil {
-					logger.Errorf("cannot load environment configuration: %v", err)
-				} else {
-					proxySettings := environConfig.ProxySettings()
-					logger.Debugf("Updating proxy settings: %#v", proxySettings)
-					proxySettings.SetEnvironmentValues()
-				}
-			}
-		}
-	}()
 }
 
 // InferRemoteUnit attempts to infer the remoteUnit for a given relationId. If the

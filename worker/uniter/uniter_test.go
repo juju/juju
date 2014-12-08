@@ -2960,33 +2960,6 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 	}
 	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-
-	isExpectedEnvironment := func() bool {
-		for name, expect := range map[string]string{
-			"http_proxy":  s.Http,
-			"HTTP_PROXY":  s.Http,
-			"https_proxy": s.Https,
-			"HTTPS_PROXY": s.Https,
-			"ftp_proxy":   s.Ftp,
-			"FTP_PROXY":   s.Ftp,
-			"no_proxy":    s.NoProxy,
-			"NO_PROXY":    s.NoProxy,
-		} {
-			if actual := os.Getenv(name); actual != expect {
-				c.Logf("%s not yet set to %s (got %s)", name, expect, actual)
-				return false
-			}
-		}
-		return true
-	}
-
-	// wait for the new values...
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if isExpectedEnvironment() {
-			return
-		}
-	}
-	c.Fatal("settings didn't get noticed by the uniter")
 }
 
 type relationRunCommands []string

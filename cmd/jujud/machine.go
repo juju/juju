@@ -62,13 +62,13 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
-	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/proxyupdater"
 	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
@@ -486,9 +486,14 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
-		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+
+	// TODO(fwereade): this is *still* a hideous layering violation, but at least
+	// it's confined to jujud rather than extending into the worker itself.
+	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
+	a.startWorkerAfterUpgrade(runner, "proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
+
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
@@ -575,6 +580,15 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// shouldWriteProxyFiles returns true, unless the supplied conf identifies the
+// machine agent running directly on the host system in a local environment.
+var shouldWriteProxyFiles = func(conf agent.Config) bool {
+	if conf.Value(agent.ProviderType) != provider.Local {
+		return true
+	}
+	return conf.Tag() != names.NewMachineTag(bootstrapMachineId)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
