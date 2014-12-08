@@ -243,7 +243,7 @@ func (c *Settings) Read() error {
 // readSettingsDoc reads the settings with the given
 // key. It returns the settings and the current rxnRevno.
 func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, error) {
-	settings, closer := st.getCollection(settingsC)
+	settings, closer := st.getRawCollection(settingsC)
 	defer closer()
 
 	config := map[string]interface{}{}
