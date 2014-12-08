@@ -290,6 +290,12 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	return s.st.AddIPAddress(newAddr, s.ID())
 }
 
+// pickAddress will pick a number, representing an IPv4 address, between low
+// and high (inclusive) that isn't in the allocated map. There must be at least
+// one available address between low and high and not in allocated. e.g.
+// pickAddress(uint32(2700), unit32(2800), map[unit32]bool{unit32(2701): true})
+// The allocated map is just being used as a set of unavailable addresses, so
+// the bool value isn't significant.
 func pickAddress(low, high uint32, allocated map[uint32]bool) uint32 {
 	// +1 because Int63n will pick a number up to, but not including, the
 	// bounds we provide.
