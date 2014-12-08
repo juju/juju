@@ -223,7 +223,7 @@ class TestEnvJujuClient(TestCase):
                 client.destroy_environment()
             mock.assert_called_with(
                 'destroy-environment', ('foo', '--force', '-y'),
-                False, check=False, include_e=False)
+                False, check=False, include_e=False, timeout=600.0)
 
     def test_destroy_environment_sudo(self):
         env = Environment('foo', '')
@@ -233,7 +233,16 @@ class TestEnvJujuClient(TestCase):
                 client.destroy_environment()
             mock.assert_called_with(
                 'destroy-environment', ('foo', '--force', '-y'),
-                True, check=False, include_e=False)
+                True, check=False, include_e=False, timeout=600.0)
+
+    def test_destroy_environment_no_force(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju') as mock:
+            client.destroy_environment(force=False)
+            mock.assert_called_with(
+                'destroy-environment', ('foo', '-y'),
+                False, check=False, include_e=False, timeout=600.0)
 
     def test_get_juju_output(self):
         env = Environment('foo', '')
@@ -563,6 +572,15 @@ class TestEnvJujuClient(TestCase):
         self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
 
+    def test_juju_timeout(self):
+        env = Environment('qux', '')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_call') as cc_mock:
+            client.juju('foo', ('bar', 'baz'), timeout=58)
+        self.assertEqual(cc_mock.call_args[0][0], (
+            'timeout', '58.00s', 'juju', '--show-log', 'foo', '-e', 'qux',
+            'bar', 'baz'))
+
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
@@ -836,7 +854,7 @@ class TestJujuClientDevel(TestCase):
                 client.destroy_environment(env)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '--force', '-y'),
-                False, check=False, include_e=False)
+                False, check=False, include_e=False, timeout=600)
 
     def test_destroy_environment_sudo(self):
         env = Environment('foo', '')
@@ -846,7 +864,7 @@ class TestJujuClientDevel(TestCase):
                 client.destroy_environment(env)
             mock.assert_called_with(
                 'destroy-environment', ('foo', '--force', '-y'),
-                True, check=False, include_e=False)
+                True, check=False, include_e=False, timeout=600.0)
 
     def test_get_juju_output(self):
         env = Environment('foo', '')

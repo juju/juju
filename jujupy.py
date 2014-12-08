@@ -5,6 +5,7 @@ __metaclass__ = type
 from collections import defaultdict
 from contextlib import contextmanager
 from cStringIO import StringIO
+from datetime import timedelta
 import errno
 from itertools import chain
 import logging
@@ -192,10 +193,16 @@ class EnvJujuClient:
             args = ('--upload-tools',) + args
         self.juju('bootstrap', args, self.env.needs_sudo())
 
-    def destroy_environment(self):
+    def destroy_environment(self, force=True):
+        if force:
+            force_arg = ('--force',)
+        else:
+            force_arg = ()
         self.juju(
-            'destroy-environment', (self.env.environment, '--force', '-y'),
-            self.env.needs_sudo(), check=False, include_e=False)
+            'destroy-environment',
+            (self.env.environment,) + force_arg + ('-y',),
+            self.env.needs_sudo(), check=False, include_e=False,
+            timeout=timedelta(minutes=10).total_seconds())
 
     def get_juju_output(self, command, *args, **kwargs):
         args = self._full_args(command, False, args,
@@ -237,9 +244,11 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-env', (option_value,))
 
-    def juju(self, command, args, sudo=False, check=True, include_e=True):
+    def juju(self, command, args, sudo=False, check=True, include_e=True,
+             timeout=None):
         """Run a command under juju for the current environment."""
-        args = self._full_args(command, sudo, args, include_e=include_e)
+        args = self._full_args(command, sudo, args, include_e=include_e,
+                               timeout=timeout)
         print(' '.join(args))
         sys.stdout.flush()
         env = self._shell_environ()
