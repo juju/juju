@@ -212,7 +212,8 @@ func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringRes
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			zone, err := getZone(u.st, tag)
+			var zone string
+			zone, err = getZone(u.st, tag)
 			if err == nil {
 				results.Results[i].Result = zone
 			}
