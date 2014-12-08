@@ -205,6 +205,15 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	return meta, nil
 }
 
+func fileTimestamp(fi os.FileInfo) time.Time {
+	timestamp := creationTime(fi)
+	if !timestamp.IsZero() {
+		return timestamp
+	}
+	// Fall back to modification time.
+	return fi.ModTime()
+}
+
 // BuildMetadata generates the metadata for a backup archive file.
 func BuildMetadata(file *os.File) (*Metadata, error) {
 
@@ -216,11 +225,7 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	size := fi.Size()
 
 	// Extract the timestamp.
-	timestamp := creationTime(fi)
-	if timestamp.IsZero() {
-		// Fall back to modification time.
-		timestamp = fi.ModTime()
-	}
+	timestamp := fileTimestamp(fi)
 
 	// Get the checksum.
 	hasher := sha1.New()
