@@ -12,13 +12,11 @@ import (
 )
 
 func creationTime(fi os.FileInfo) time.Time {
-	var timestamp time.Time
 	rawstat := fi.Sys()
 	if rawstat != nil {
-		stat, ok := rawstat.(*syscall.Stat_t)
-		if ok {
-			timestamp = time.Unix(int64(stat.Ctim.Sec), 0)
+		if stat, ok := rawstat.(*syscall.Stat_t); ok {
+			return time.Unix(int64(stat.Ctim.Sec), 0)
 		}
 	}
-	return timestamp
+	return time.Time{}
 }
