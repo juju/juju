@@ -252,10 +252,11 @@ func (s *SubnetSuite) TestPickNewAddressRace(c *gc.C) {
 	var index int32 = -1
 	addresses := []uint32{initialIP, initialIP, initialIP + 1}
 
-	// the first two calls will get the same address, the third will get
+	// the first two calls will get the same address (which simulates the
+	// inherent race condition in the code). The third call will get
 	// a new one. We should see two different addresses come out of the
-	// two calls - i.e. we will have retried the second time we got the
-	// same address.
+	// two calls: i.e. we will have detected the race condition and tried
+	// again.
 	mockPickAddress := func(_, _ uint32, _ map[uint32]bool) uint32 {
 		theIndex := atomic.AddInt32(&index, 1)
 		return addresses[theIndex]
