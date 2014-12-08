@@ -18,7 +18,7 @@ import (
 type serviceSuite struct {
 	jujutesting.JujuConnSuite
 
-	serviceApi *service.ServiceAPI
+	serviceApi *service.API
 	service    *state.Service
 	authorizer apiservertesting.FakeAuthorizer
 }

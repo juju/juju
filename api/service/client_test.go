@@ -31,28 +31,18 @@ func (s *serviceSuite) TestSetServiceMetricCredentials(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "SetServiceMetricCredentials")
+		c.Assert(request, gc.Equals, "SetMetricCredentials")
 		args, ok := a.(params.ServiceMetricCredentials)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Creds, gc.HasLen, 2)
-		arguments := map[string][]byte{}
-		for _, arg := range args.Creds {
-			_, ok := arguments[arg.ServiceName]
-			c.Assert(ok, jc.IsFalse)
-			arguments[arg.ServiceName] = arg.MetricCredentials
-		}
-		c.Assert(arguments["serviceA"], gc.DeepEquals, []byte("creds 1"))
-		c.Assert(arguments["serviceB"], gc.DeepEquals, []byte("creds 2"))
+		c.Assert(args.Creds, gc.HasLen, 1)
+		c.Assert(args.Creds[0].ServiceName, gc.Equals, "serviceA")
+		c.Assert(args.Creds[0].MetricCredentials, gc.DeepEquals, []byte("creds 1"))
 
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
 		return nil
 	})
-	args := map[string][]byte{
-		"serviceA": []byte("creds 1"),
-		"serviceB": []byte("creds 2"),
-	}
-	err := s.client.SetServiceMetricCredentials(args)
+	err := s.client.SetMetricCredentials("serviceA", []byte("creds 1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -61,13 +51,23 @@ func (s *serviceSuite) TestSetServiceMetricCredentialsFails(c *gc.C) {
 	var called bool
 	service.PatchFacadeCall(s, s.client, func(request string, args, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "SetServiceMetricCredentials")
+		c.Assert(request, gc.Equals, "SetMetricCredentials")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
 		result.Results[0].Error = common.ServerError(common.ErrPerm)
 		return result.OneError()
 	})
-	err := s.client.SetServiceMetricCredentials(map[string][]byte{"service": []byte("creds")})
+	err := s.client.SetMetricCredentials("service", []byte("creds"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(called, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
+	service := s.Factory.MakeService(c, nil)
+	err := s.client.SetMetricCredentials(service.Name(), []byte("creds"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = service.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("creds"))
+
 }

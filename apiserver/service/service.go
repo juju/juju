@@ -23,32 +23,33 @@ type Service interface {
 	SetMetricCredentials(args params.ServiceMetricCredentials) (params.ErrorResults, error)
 }
 
-// ServiceAPI implements the service interface and is the concrete
+// API implements the service interface and is the concrete
 // implementation of the api end point.
-type ServiceAPI struct {
+type API struct {
 	state      *state.State
 	authorizer common.Authorizer
 }
 
-var _ Service = (*ServiceAPI)(nil)
+var _ Service = (*API)(nil)
 
+// NewAPI returns a new service API facade.
 func NewServiceAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-) (*ServiceAPI, error) {
+) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
-	return &ServiceAPI{
+	return &API{
 		state:      st,
 		authorizer: authorizer,
 	}, nil
 }
 
-// SetMetricCredentials sets credentials on the service
-func (api *ServiceAPI) SetMetricCredentials(args params.ServiceMetricCredentials) (params.ErrorResults, error) {
+// SetMetricCredentials sets credentials on the service.
+func (api *API) SetMetricCredentials(args params.ServiceMetricCredentials) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Creds)),
 	}

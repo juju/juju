@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Client provides access to the service api
+// Client provides access to the service api.
 type Client struct {
 	base.ClientFacade
 	st     *api.State
@@ -24,28 +24,31 @@ type Client struct {
 
 // ServiceClient defines the methods on the service API end point.
 type ServiceClient interface {
-	SetServiceMetricCredentials(map[string][]byte) error
+	SetMetricCredentials(string, []byte) error
 }
 
 var _ ServiceClient = (*Client)(nil)
 
-// NewClient creates a new client for accessing the service api
+// NewClient creates a new client for accessing the service api.
 func NewClient(st *api.State) *Client {
 	frontend, backend := base.NewClientFacade(st, "Service")
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
-// SetServiceMetricCredentials sets the metric credentials for the services specified.
-func (c *Client) SetServiceMetricCredentials(args map[string][]byte) error {
-	var creds []params.ServiceMetricCredential
-	for k, v := range args {
-		creds = append(creds, params.ServiceMetricCredential{k, v})
+// SetMetricCredentials sets the metric credentials for the service specified.
+func (c *Client) SetMetricCredentials(service string, credentials []byte) error {
+	creds := []params.ServiceMetricCredential{
+		{service, credentials},
 	}
 	p := params.ServiceMetricCredentials{creds}
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("SetServiceMetricCredentials", p, results)
+	err := c.facade.FacadeCall("SetMetricCredentials", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return results.OneError()
+	err = results.OneError()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

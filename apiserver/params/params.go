@@ -263,7 +263,7 @@ type ServiceUnexpose struct {
 	ServiceName string
 }
 
-// ServiceMetricCredentials holds parameters for the SetServiceCredentials call.
+// ServiceMetricCredential holds parameters for the SetServiceCredentials call.
 type ServiceMetricCredential struct {
 	ServiceName       string
 	MetricCredentials []byte
