@@ -246,7 +246,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	allocated := make(map[uint32]bool)
 	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
 	for iter.Next(&doc) {
-		// skip invalid values? Can't happen anyway as we validate.
+		// skip invalid values. Can't happen anyway as we validate.
 		value, err := ipToDecimal(doc.Value)
 		if err != nil {
 			continue
@@ -274,8 +274,10 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 }
 
 func pickAddress(low, high uint32, allocated map[uint32]bool) uint32 {
-	bounds := uint32(high - low)
-	if bounds == 0 {
+	// +1 because Int63n will pick a number up to, but not including, the
+	// bounds we provide.
+	bounds := uint32(high-low) + 1
+	if bounds == 1 {
 		// we've already checked that there is a free IP address, so
 		// this must be it!
 		return low

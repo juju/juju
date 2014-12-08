@@ -228,3 +228,19 @@ func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value(), jc.DeepEquals, "192.168.1.0")
 }
+
+func (s *SubnetSuite) TestPickNewAddress(c *gc.C) {
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.1",
+	}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
+	_, err = s.State.AddIPAddress(addr, subnet.ID())
+
+	ipAddr, err := subnet.PickNewAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ipAddr.Value(), jc.DeepEquals, "192.168.1.1")
+}
