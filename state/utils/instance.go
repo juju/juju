@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/instance"
-	provcommon "github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
 
@@ -21,7 +21,7 @@ func AvailabilityZone(st *state.State, instID instance.Id) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	zenv, ok := env.(provcommon.ZonedEnviron)
+	zenv, ok := env.(common.ZonedEnviron)
 	if !ok {
 		return "", errors.NotSupportedf(`zones for provider "%T"`, env)
 	}
