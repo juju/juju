@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -54,6 +55,7 @@ const (
 	constraintsC       = "constraints"
 	unitsC             = "units"
 	subnetsC           = "subnets"
+	ipaddressesC       = "ipaddresses"
 
 	// actionsC and related collections store state of Actions that
 	// have been enqueued.
@@ -1222,6 +1224,65 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		return nil, errors.Trace(err)
 	}
 	return svc, nil
+}
+
+// AddIPAddress creates and returns a new IP address
+func (st *State) AddIPAddress(addr network.Address, subnetid string) (ipaddress *IPAddress, err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot add IP address %v", addr.Value)
+
+	// This checks for a missing value as well as invalid values
+	ip := net.ParseIP(addr.Value)
+	if ip == nil {
+		return nil, errors.Errorf("invalid IP address %q", addr.Value)
+	}
+
+	addressID := st.docID(addr.Value)
+	ipDoc := ipaddressDoc{
+		DocID:    addressID,
+		EnvUUID:  st.EnvironUUID(),
+		State:    AddressStateUnknown,
+		SubnetId: subnetid,
+		Value:    addr.Value,
+		Type:     addr.Type,
+		Scope:    addr.Scope,
+	}
+
+	ipaddress = &IPAddress{doc: ipDoc, st: st}
+	ops := []txn.Op{{
+		C:      ipaddressesC,
+		Id:     addressID,
+		Assert: txn.DocMissing,
+		Insert: ipDoc,
+	}}
+
+	err = st.runTransaction(ops)
+	switch err {
+	case txn.ErrAborted:
+		if _, err = st.IPAddress(addr.Value); err == nil {
+			return nil, errors.AlreadyExistsf("IP address %q", addr.Value)
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+	case nil:
+		return ipaddress, nil
+	}
+	return nil, errors.Trace(err)
+}
+
+// IPAddress returns an existing IP address from the state.
+func (st *State) IPAddress(value string) (*IPAddress, error) {
+	addresses, closer := st.getCollection(ipaddressesC)
+	defer closer()
+
+	doc := &ipaddressDoc{}
+	err := addresses.FindId(st.docID(value)).One(doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("IP address %q", value)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get IP address %q", value)
+	}
+	return &IPAddress{st, *doc}, nil
 }
 
 // AddSubnet creates and returns a new subnet
