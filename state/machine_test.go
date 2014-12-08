@@ -814,11 +814,6 @@ func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
 	zone, err = s.machine.AvailabilityZone()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(zone, gc.Equals, "a_zone")
-	m, err := s.State.Machine(s.machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	zone, err = m.AvailabilityZone()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(zone, gc.Equals, "a_zone")
 }
 
 func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
