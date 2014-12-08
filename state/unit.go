@@ -639,7 +639,7 @@ func (u *Unit) PrincipalName() (string, bool) {
 }
 
 // machine returns the unit's machine.
-func (u *Unit) machine() (*state.Machine, error) {
+func (u *Unit) machine() (*Machine, error) {
 	id, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %v cannot get assigned machine", u)
