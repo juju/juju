@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 set -eu
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 new_juju=$(find $new_juju_dir -name juju)
