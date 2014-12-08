@@ -177,7 +177,7 @@ type instanceData struct {
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
-	AvailZone  *string     `bson:"availabilityzone,omitempty"`
+	AvailZone  *string     `bson:"availzone,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {

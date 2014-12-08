@@ -557,7 +557,7 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.I
 	iter := instDatas.Find(nil).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
-		zone, ok := doc["availabilityzone"]
+		zone, ok := doc["availzone"]
 		if ok {
 			continue
 		}
@@ -576,7 +576,7 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.I
 			Id:     doc["_id"].(string),
 			Assert: txn.DocExists,
 			Update: bson.D{
-				{"$set", bson.D{{"availabilityzone", zone}}},
+				{"$set", bson.D{{"availzone", zone}}},
 			},
 		})
 	}
