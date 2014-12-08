@@ -237,19 +237,19 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	high := s.doc.AllocatableIPHigh
 	low := s.doc.AllocatableIPLow
 	if low == "" || high == "" {
-		return nil, errors.Errorf("no allocatable IP addresses for subnet %q", s)
+		return nil, errors.Errorf("no allocatable IP addresses for subnet %v", s)
 	}
 
 	// convert low and high to decimals (dottedQuadToNum) as the bounds
 	lowDecimal, err := ipToDecimal(low)
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPLow %q for subnet %q", low, s)
+		return nil, errors.Errorf("invalid AllocatableIPLow %q for subnet %v", low, s)
 	}
 	highDecimal, err := ipToDecimal(high)
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPHigh %q for subnet %q", high)
+		return nil, errors.Errorf("invalid AllocatableIPHigh %q for subnet %v", high, s)
 	}
 
 	// find all addresses for this subnet and convert them to decimals
@@ -275,7 +275,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	// difference between low and high - i.e. we haven't exhausted all
 	// possible addresses.
 	if len(allocated) >= int(highDecimal-lowDecimal)+1 {
-		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %q", s)
+		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %v", s)
 	}
 
 	// pick a new random decimal between the low and high bounds that
