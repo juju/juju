@@ -10,10 +10,11 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/network"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // SubnetInfo describes a single subnet.
