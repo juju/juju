@@ -221,19 +221,19 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	high := s.doc.AllocatableIPHigh
 	low := s.doc.AllocatableIPLow
 	if low == "" || high == "" {
-		return nil, errors.New("No available IP addresses")
+		return nil, errors.Errorf("no allocatable IP addresses for subnet %q", s)
 	}
 
 	// convert low and high to decimals (dottedQuadToNum) as the bounds
 	lowDecimal, err := ipToDecimal(low)
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPLow %q", low)
+		return nil, errors.Errorf("invalid AllocatableIPLow %q for subnet %q", low, s)
 	}
 	highDecimal, err := ipToDecimal(high)
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPHigh %q", high)
+		return nil, errors.Errorf("invalid AllocatableIPHigh %q for subnet %q", high)
 	}
 
 	// find all addresses for this subnet and convert them to decimals

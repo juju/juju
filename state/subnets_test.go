@@ -192,12 +192,16 @@ func (s *SubnetSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestPickNewAddressNoAddresses(c *gc.C) {
-	subnetInfo := state.SubnetInfo{CIDR: "192.168.1.0/24"}
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "",
+		AllocatableIPHigh: "",
+	}
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = subnet.PickNewAddress()
-	c.Assert(err, gc.ErrorMatches, "No available IP addresses")
+	c.Assert(err, gc.ErrorMatches, "no allocatable IP addresses for subnet .*")
 }
 
 func (s *SubnetSuite) getSubnetForAddressPicking(c *gc.C, allocatableHigh string) *state.Subnet {
