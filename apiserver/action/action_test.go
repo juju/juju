@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
