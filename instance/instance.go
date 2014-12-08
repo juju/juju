@@ -56,7 +56,7 @@ type HardwareCharacteristics struct {
 	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
 	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
 
-	AvailabilityZone *string `json:",omitempty" yaml:"arch,omitempty"`
+	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
 }
 
 func uintStr(i uint64) string {
