@@ -257,7 +257,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	// Check that the number of addresses in use is less than the
 	// difference between low and high - i.e. we haven't exhausted all
 	// possible addresses.
-	if int(highDecimal-lowDecimal)+1 >= len(allocated) {
+	if len(allocated) >= int(highDecimal-lowDecimal)+1 {
 		return nil, errors.New("IP addresses exhausted")
 	}
 
