@@ -23,6 +23,6 @@ func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	config, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(env.Config(), gc.DeepEquals, config)
+	c.Check(env.Config(), jc.DeepEquals, config)
 	c.Check(env, gc.Not(gc.Equals), s.Environ)
 }
