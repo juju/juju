@@ -101,7 +101,6 @@ type Uniter struct {
 	paths         Paths
 	f             filter.Filter
 	unit          *uniter.Unit
-	service       *uniter.Service
 	relationers   map[int]*Relationer
 	relationHooks chan hook.Info
 
@@ -218,10 +217,6 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
 		return err
 	}
-	u.service, err = u.st.Service(u.unit.ServiceTag())
-	if err != nil {
-		return err
-	}
 
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
@@ -297,7 +292,12 @@ func (u *Uniter) getRelationInfos() map[int]*runner.RelationInfo {
 }
 
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
-	charmURL, _, err := u.service.CharmURL()
+	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
+	service, err := u.st.Service(u.unit.ServiceTag())
+	if err != nil {
+		return err
+	}
+	charmURL, _, err := service.CharmURL()
 	return charmURL, err
 }
 
