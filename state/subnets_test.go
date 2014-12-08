@@ -4,6 +4,10 @@
 package state_test
 
 import (
+	"sort"
+	"sync"
+	"sync/atomic"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -240,4 +244,52 @@ func (s *SubnetSuite) TestPickNewAddress(c *gc.C) {
 	ipAddr, err := subnet.PickNewAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ipAddr.Value(), gc.Equals, "192.168.1.1")
+}
+
+func (s *SubnetSuite) TestPickNewAddressRace(c *gc.C) {
+	// represents 192.168.1.0
+	initialIP := uint32(3232235776)
+	var index int32 = -1
+	addresses := []uint32{initialIP, initialIP, initialIP + 1}
+
+	// the first two calls will get the same address, the third will get
+	// a new one. We should see two different addresses come out of the
+	// two calls - i.e. we will have retried the second time we got the
+	// same address.
+	mockPickAddress := func(_, _ uint32, _ map[uint32]bool) uint32 {
+		theIndex := atomic.AddInt32(&index, 1)
+		return addresses[theIndex]
+	}
+	s.PatchValue(&state.PickAddress, mockPickAddress)
+
+	// 192.168.1.0 and 192.168.1.1 are the only valid addresses
+	subnet := s.getSubnetForAddressPicking(c, "192.168.1.1")
+
+	waiter := sync.WaitGroup{}
+	waiter.Add(2)
+
+	var firstResult *state.IPAddress
+	var firstError error
+	var secondResult *state.IPAddress
+	var secondError error
+	go func() {
+		firstResult, firstError = subnet.PickNewAddress()
+		waiter.Done()
+	}()
+	go func() {
+		secondResult, secondError = subnet.PickNewAddress()
+		waiter.Done()
+	}()
+	waiter.Wait()
+
+	c.Assert(firstError, jc.ErrorIsNil)
+	c.Assert(secondError, jc.ErrorIsNil)
+	c.Assert(firstResult, gc.NotNil)
+	c.Assert(secondResult, gc.NotNil)
+
+	ipAddresses := []string{firstResult.Value(), secondResult.Value()}
+	sort.Strings(ipAddresses)
+
+	expected := []string{"192.168.1.0", "192.168.1.1"}
+	c.Assert(ipAddresses, jc.DeepEquals, expected)
 }
