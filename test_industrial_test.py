@@ -482,11 +482,11 @@ class TestIndustrialTest(TestCase):
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', False, True)])
         assert_juju_call(self, cc_mock, old_client,
-                         ('juju', '--show-log', 'destroy-environment',
-                          'old', '--force', '-y'), 0)
+                         ('timeout', '600.00s', 'juju', '--show-log',
+                          'destroy-environment', 'old', '--force', '-y'), 0)
         assert_juju_call(self, cc_mock, new_client,
-                         ('juju', '--show-log', 'destroy-environment',
-                          'new', '--force', '-y'), 1)
+                         ('timeout', '600.00s', 'juju', '--show-log',
+                          'destroy-environment', 'new', '--force', '-y'), 1)
 
     def test_run_stages_new_fail(self):
         old_client = FakeEnvJujuClient('old')
@@ -497,11 +497,11 @@ class TestIndustrialTest(TestCase):
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', True, False)])
         assert_juju_call(self, cc_mock, old_client,
-                         ('juju', '--show-log', 'destroy-environment',
-                          'old', '--force', '-y'), 0)
+                         ('timeout', '600.00s', 'juju', '--show-log',
+                          'destroy-environment', 'old', '--force', '-y'), 0)
         assert_juju_call(self, cc_mock, new_client,
-                         ('juju', '--show-log', 'destroy-environment',
-                          'new', '--force', '-y'), 1)
+                         ('timeout', '600.00s', 'juju', '--show-log',
+                          'destroy-environment', 'new', '--force', '-y'), 1)
 
     def test_run_stages_both_fail(self):
         old_client = FakeEnvJujuClient('old')
@@ -512,11 +512,11 @@ class TestIndustrialTest(TestCase):
             result = industrial.run_stages()
             self.assertItemsEqual(result, [('foo-id', False, False)])
         assert_juju_call(self, cc_mock, old_client,
-                         ('juju', '--show-log', 'destroy-environment',
-                          'old', '--force', '-y'), 0)
+                         ('timeout', '600.00s', 'juju', '--show-log',
+                          'destroy-environment', 'old', '--force', '-y'), 0)
         assert_juju_call(self, cc_mock, new_client,
-                         ('juju', '--show-log', 'destroy-environment',
-                          'new', '--force', '-y'), 1)
+                         ('timeout', '600.00s', 'juju', '--show-log',
+                          'destroy-environment', 'new', '--force', '-y'), 1)
 
     def test_run_stages_recover_failure(self):
         old_client = FakeEnvJujuClient('old')
@@ -854,13 +854,14 @@ class TestDestroyEnvironmentAttempt(TestCase):
         destroy_env = DestroyEnvironmentAttempt()
         iterator = iter_steps_validate_info(self, destroy_env, client)
         self.assertEqual({'test_id': 'destroy-env'}, iterator.next())
-        with patch('subprocess.check_call') as mock_cc:
+        with patch('subprocess.call') as mock_cc:
             with patch.object(destroy_env, 'get_security_groups') as gsg_mock:
                 self.assertEqual(iterator.next(), {
                     'test_id': 'destroy-env', 'result': True})
         gsg_mock.assert_called_once_with(client)
         assert_juju_call(self, mock_cc, client, (
-            'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
+            'timeout', '600.00s', 'juju', '--show-log', 'destroy-environment',
+            'steve', '-y'))
         self.assertEqual(iterator.next(), {'test_id': 'substrate-clean'})
         with patch.object(destroy_env, 'check_security_groups') as csg_mock:
             self.assertEqual(iterator.next(),

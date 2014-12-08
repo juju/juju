@@ -401,8 +401,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
         results = {'test_id': 'destroy-env'}
         yield results
         groups = cls.get_security_groups(client)
-        client.juju('destroy-environment', ('-y', client.env.environment),
-                    include_e=False)
+        client.destroy_environment(force=False)
         # If it hasn't raised an exception, destroy-environment succeeded.
         results['result'] = True
         yield results
