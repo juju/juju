@@ -21,14 +21,34 @@ import (
 )
 
 const (
-	UnitsC    = unitsC
-	ServicesC = servicesC
-	SettingsC = settingsC
+	InstanceDataC      = instanceDataC
+	MachinesC          = machinesC
+	NetworkInterfacesC = networkInterfacesC
+	ServicesC          = servicesC
+	SettingsC          = settingsC
+	UnitsC             = unitsC
+	UsersC             = usersC
 )
 
 var (
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
+	MachineIdLessThan     = machineIdLessThan
+	NewAddress            = newAddress
+	StateServerAvailable  = &stateServerAvailable
+	GetOrCreatePorts      = getOrCreatePorts
+	GetPorts              = getPorts
+	PortsGlobalKey        = portsGlobalKey
+	CurrentUpgradeId      = currentUpgradeId
+	NowToTheSecond        = nowToTheSecond
+)
+
+type (
+	CharmDoc    charmDoc
+	MachineDoc  machineDoc
+	RelationDoc relationDoc
+	ServiceDoc  serviceDoc
+	UnitDoc     unitDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -62,14 +82,6 @@ func SetPolicy(st *State, p Policy) Policy {
 	st.policy = p
 	return old
 }
-
-type (
-	CharmDoc    charmDoc
-	MachineDoc  machineDoc
-	RelationDoc relationDoc
-	ServiceDoc  serviceDoc
-	UnitDoc     unitDoc
-)
 
 func (doc *MachineDoc) String() string {
 	m := &Machine{doc: machineDoc(*doc)}
@@ -139,8 +151,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 	err := st.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
-
-var MachineIdLessThan = machineIdLessThan
 
 // SCHEMACHANGE
 // This method is used to reset the ownertag attribute
@@ -213,13 +223,9 @@ func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
 }
 
-var NewAddress = newAddress
-
 func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
 }
-
-var StateServerAvailable = &stateServerAvailable
 
 func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
 	return mergeIds(st, changeset, updates)
@@ -236,15 +242,6 @@ func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) 
 func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
 	return newActionStatusWatcher(st, receivers, statuses...)
 }
-
-var (
-	GetOrCreatePorts = getOrCreatePorts
-	GetPorts         = getPorts
-	PortsGlobalKey   = portsGlobalKey
-	NowToTheSecond   = nowToTheSecond
-)
-
-var CurrentUpgradeId = currentUpgradeId
 
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	upgradeInfos, closer := st.getCollection(upgradeInfoC)
@@ -277,4 +274,12 @@ func StrictLocalID(st *State, id string) (string, error) {
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
+}
+
+func GetCollection(st *State, name string) (stateCollection, func()) {
+	return st.getCollection(name)
+}
+
+func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
+	return st.getRawCollection(name)
 }

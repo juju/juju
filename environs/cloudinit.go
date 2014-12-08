@@ -189,16 +189,23 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	mcfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
-	cert, key, err := cfg.GenerateStateServerCertAndKey()
+	// Initially, generate a state server certificate with no host IP
+	// addresses in the SAN field. Once the state server is up and the
+	// NIC addresses become known, the certificate can be regenerated.
+	cert, key, err := cfg.GenerateStateServerCertAndKey(nil)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate state server certificate")
 	}
-
+	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
+	if !hasCAPrivateKey {
+		return fmt.Errorf("environment configuration has no ca-private-key")
+	}
 	srvInfo := params.StateServingInfo{
-		StatePort:  cfg.StatePort(),
-		APIPort:    cfg.APIPort(),
-		Cert:       string(cert),
-		PrivateKey: string(key),
+		StatePort:    cfg.StatePort(),
+		APIPort:      cfg.APIPort(),
+		Cert:         string(cert),
+		PrivateKey:   string(key),
+		CAPrivateKey: caPrivateKey,
 	}
 	mcfg.StateServingInfo = &srvInfo
 	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {

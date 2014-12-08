@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
@@ -70,6 +71,27 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
 }
 
+func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
+	args := params.AddUsers{
+		Users: []params.AddUser{{
+			Username:    "foobar",
+			DisplayName: "Foo Bar",
+			Password:    "password",
+		}}}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	result, err := s.usermanager.AddUser(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+	c.Assert(result.Results, gc.HasLen, 1)
+	//check that user is not created
+	foobarTag := names.NewLocalUserTag("foobar")
+	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{})
+	// Check that the call results in a new user being created
+	_, err = s.State.User(foobarTag)
+	c.Assert(err, gc.ErrorMatches, `user "foobar" not found`)
+}
+
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
@@ -129,6 +151,33 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
+func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{alex.Tag().String()},
+			{barb.Tag().String()},
+			{names.NewLocalUserTag("ellie").String()},
+			{names.NewUserTag("fred@remote").String()},
+			{"not-a-tag"},
+		}}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := s.usermanager.DisableUser(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alex.IsDisabled(), jc.IsFalse)
+
+	err = barb.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(barb.IsDisabled(), jc.IsTrue)
+}
+
 func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
@@ -166,6 +215,33 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 	err = barb.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(barb.IsDisabled(), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{alex.Tag().String()},
+			{barb.Tag().String()},
+			{names.NewLocalUserTag("ellie").String()},
+			{names.NewUserTag("fred@remote").String()},
+			{"not-a-tag"},
+		}}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := s.usermanager.EnableUser(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(alex.IsDisabled(), jc.IsFalse)
+
+	err = barb.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
@@ -330,6 +406,26 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(alex.PasswordValid("new-password"), jc.IsTrue)
+}
+
+func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      alex.Tag().String(),
+			Password: "new-password",
+		}}}
+
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := s.usermanager.SetPassword(args)
+	// Check that the call is blocked
+	c.Assert(errors.Cause(err), gc.ErrorMatches, common.ErrOperationBlocked.Error())
+
+	err = alex.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(alex.PasswordValid("new-password"), jc.IsFalse)
 }
 
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {

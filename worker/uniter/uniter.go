@@ -20,18 +20,17 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -151,13 +150,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
 
-	environWatcher, err := u.st.WatchForEnvironConfigChanges()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(environWatcher, &u.tomb)
-	u.watchForProxyChanges(environWatcher)
-
 	// Start filtering state change events for consumption by modes.
 	u.f, err = filter.NewFilter(u.st, unitTag)
 	if err != nil {
@@ -246,15 +238,15 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := context.NewFactory(
-		u.st, unitTag, u.getRelationInfos, u.getCharm,
+	runnerFactory, err := runner.NewFactory(
+		u.st, unitTag, u.getRelationInfos, u.paths,
 	)
 	if err != nil {
 		return err
 	}
 	u.operationFactory = operation.NewFactory(
 		u.deployer,
-		contextFactory,
+		runnerFactory,
 		&operationCallbacks{u},
 		u.tomb.Dying(),
 	)
@@ -296,20 +288,12 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
-	relationInfos := map[int]*context.RelationInfo{}
+func (u *Uniter) getRelationInfos() map[int]*runner.RelationInfo {
+	relationInfos := map[int]*runner.RelationInfo{}
 	for id, r := range u.relationers {
 		relationInfos[id] = r.ContextInfo()
 	}
 	return relationInfos
-}
-
-func (u *Uniter) getCharm() (corecharm.Charm, error) {
-	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
-	if err != nil {
-		return nil, err
-	}
-	return ch, nil
 }
 
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
@@ -343,7 +327,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // initializeMetricsCollector enables the periodic collect-metrics hook
 // for charms that declare metrics.
 func (u *Uniter) initializeMetricsCollector() error {
-	charm, err := u.getCharm()
+	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}
@@ -628,36 +612,6 @@ func (u *Uniter) fixDeployer() error {
 		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
 	}
 	return nil
-}
-
-// watchForProxyChanges kicks off a go routine to listen to the watcher and
-// update the proxy settings.
-func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
-	// TODO(fwereade) 23-10-2014 bug 1384565
-	// Uniter shouldn't be responsible for this at all: we should rename
-	// MachineEnvironmentWorker and run one of those (that eschews rewriting
-	// system files).
-	go func() {
-		for {
-			select {
-			case <-u.tomb.Dying():
-				return
-			case _, ok := <-environWatcher.Changes():
-				logger.Debugf("new environment change")
-				if !ok {
-					return
-				}
-				environConfig, err := u.st.EnvironConfig()
-				if err != nil {
-					logger.Errorf("cannot load environment configuration: %v", err)
-				} else {
-					proxySettings := environConfig.ProxySettings()
-					logger.Debugf("Updating proxy settings: %#v", proxySettings)
-					proxySettings.SetEnvironmentValues()
-				}
-			}
-		}
-	}()
 }
 
 // InferRemoteUnit attempts to infer the remoteUnit for a given relationId. If the

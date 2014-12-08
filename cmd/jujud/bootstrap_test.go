@@ -89,6 +89,7 @@ func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 		StatePort:      args.StatePort,
 		Cert:           args.Cert,
 		PrivateKey:     args.PrivateKey,
+		CAPrivateKey:   args.CAPrivateKey,
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
@@ -196,10 +197,11 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 	}
 	servingInfo := params.StateServingInfo{
-		Cert:       "some cert",
-		PrivateKey: "some key",
-		APIPort:    3737,
-		StatePort:  gitjujutesting.MgoServer.Port(),
+		Cert:         "some cert",
+		PrivateKey:   "some key",
+		CAPrivateKey: "another key",
+		APIPort:      3737,
+		StatePort:    gitjujutesting.MgoServer.Port(),
 	}
 
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)

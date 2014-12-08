@@ -13,6 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -161,8 +162,8 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	addedURL, err := addCharmViaAPI(client, ctx, newURL, repo)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
-	return client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force)
+	return block.ProcessBlockedError(client.ServiceSetCharm(c.ServiceName, addedURL.String(), c.Force), block.BlockChange)
 }

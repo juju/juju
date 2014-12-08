@@ -57,6 +57,9 @@ func newApiHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier)
 		resources: common.NewResources(),
 		rpcConn:   rpcConn,
 	}
+	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
+		return nil, err
+	}
 	if err := r.resources.RegisterNamed("dataDir", common.StringResource(srv.dataDir)); err != nil {
 		return nil, err
 	}

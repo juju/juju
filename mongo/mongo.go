@@ -169,6 +169,9 @@ type EnsureServerParams struct {
 	// PrivateKey is the certificate's private key.
 	PrivateKey string
 
+	// CAPrivateKey is the CA certificate's private key.
+	CAPrivateKey string
+
 	// SharedSecret is a secret shared between mongo servers.
 	SharedSecret string
 

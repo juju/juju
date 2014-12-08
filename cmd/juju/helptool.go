@@ -12,7 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // dummyHookContext implements jujuc.Context,

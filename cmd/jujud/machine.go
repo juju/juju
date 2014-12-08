@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -52,6 +53,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
@@ -60,13 +62,13 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
-	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/proxyupdater"
 	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
@@ -99,6 +101,7 @@ var (
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
+	newCertificateUpdater    = certupdater.NewCertificateUpdater
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -483,9 +486,14 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
-		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+
+	// TODO(fwereade): this is *still* a hideous layering violation, but at least
+	// it's confined to jujud rather than extending into the worker itself.
+	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
+	a.startWorkerAfterUpgrade(runner, "proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
+
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
@@ -572,6 +580,15 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// shouldWriteProxyFiles returns true, unless the supplied conf identifies the
+// machine agent running directly on the host system in a local environment.
+var shouldWriteProxyFiles = func(conf agent.Config) bool {
+	if conf.Value(agent.ProviderType) != provider.Local {
+		return true
+	}
+	return conf.Tag() != names.NewMachineTag(bootstrapMachineId)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -700,14 +717,16 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
 				return a.newRestoreStateWatcher(st)
 			})
-
-			runner.StartWorker("apiserver", func() (worker.Worker, error) {
+			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
+				workerLoop := lease.WorkerLoop(st)
+				return worker.NewSimpleWorker(workerLoop), nil
+			})
+			apiserverWorker := func() (worker.Worker, error) {
+				agentConfig = a.CurrentConfig()
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
 				// agent, potentially enabling human intervention to fix
-				// the agent's configuration file. In the future, we may retrieve
-				// the state server certificate and key from the state, and
-				// this should then change.
+				// the agent's configuration file.
 				info, ok := agentConfig.StateServingInfo()
 				if !ok {
 					return nil, &fatalError{"StateServingInfo not available and we need it"}
@@ -718,6 +737,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
+				tag := agentConfig.Tag()
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 
@@ -729,10 +749,24 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
+					Tag:       tag,
 					DataDir:   dataDir,
 					LogDir:    logDir,
 					Validator: a.limitLogins,
 				})
+			}
+			runner.StartWorker("apiserver", apiserverWorker)
+			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
+				return a.ChangeConfig(func(config agent.ConfigSetter) error {
+					config.SetStateServingInfo(info)
+					logger.Debugf("stop api server worker")
+					runner.StopWorker("apiserver")
+					logger.Debugf("start new apiserver worker with new certificate")
+					return runner.StartWorker("apiserver", apiserverWorker)
+				})
+			}
+			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
+				return newCertificateUpdater(m, agentConfig, st, stateServingSetter), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -957,6 +991,7 @@ func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) st
 		StatePort:      i.StatePort,
 		Cert:           i.Cert,
 		PrivateKey:     i.PrivateKey,
+		CAPrivateKey:   i.CAPrivateKey,
 		SharedSecret:   i.SharedSecret,
 		SystemIdentity: i.SystemIdentity,
 	}

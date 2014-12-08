@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	apienvironment "github.com/juju/juju/api/environment"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -34,6 +35,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -303,6 +305,9 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	}}}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
+		return newDummyWorker()
+	})
 }
 
 // primeAgent writes the configuration file and tools with version vers
@@ -380,10 +385,11 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 			CACert:            stateInfo.CACert,
 		},
 		params.StateServingInfo{
-			Cert:       coretesting.ServerCert,
-			PrivateKey: coretesting.ServerKey,
-			StatePort:  gitjujutesting.MgoServer.Port(),
-			APIPort:    port,
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    gitjujutesting.MgoServer.Port(),
+			APIPort:      port,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)

@@ -167,6 +167,8 @@ var indexes = []struct {
 	{networkInterfacesC, []string{"machineid"}, false, false},
 	{blockDevicesC, []string{"machineid"}, false, false},
 	{subnetsC, []string{"providerid"}, true, true},
+	{ipaddressesC, []string{"state"}, false, false},
+	{ipaddressesC, []string{"subnetid"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -224,6 +226,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 		policy:    policy,
 		db:        db,
 	}
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:

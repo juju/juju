@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
@@ -130,6 +131,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
 	})
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), false), nil
+	})
+
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {

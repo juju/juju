@@ -130,3 +130,18 @@ EOF`)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices, gc.HasLen, 0)
 }
+
+func (s *ListBlockDevicesSuite) TestListBlockDevicesDevicePartitions(c *gc.C) {
+	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
+cat <<EOF
+KNAME="sda" SIZE="240057409536" LABEL="" UUID="" TYPE="disk"
+KNAME="sda1" SIZE="254803968" LABEL="" UUID="" TYPE="part"
+EOF`)
+
+	devices, err := diskmanager.ListBlockDevices()
+	c.Assert(err, gc.IsNil)
+	c.Assert(devices, gc.DeepEquals, []storage.BlockDevice{{
+		DeviceName: "sda",
+		Size:       228936,
+	}})
+}

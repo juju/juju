@@ -212,12 +212,14 @@ func (*environSuite) TestGetContainerName(c *gc.C) {
 
 func (suite *environSuite) TestAllInstances(c *gc.C) {
 	env := makeEnviron(c)
-	prefix := env.getEnvPrefix()
-	service1 := makeLegacyDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
-	service3 := makeDeployment(env, "not"+prefix+"service3")
+	name := env.Config().Name()
+	service1 := makeLegacyDeployment(env, "juju-"+name+"-service1")
+	service2 := makeDeployment(env, "juju-"+name+"-service2")
+	service3 := makeDeployment(env, "notjuju-"+name+"-service3")
+	service4 := makeDeployment(env, "juju-"+name+"-1-service3")
 
-	requests := patchInstancesResponses(c, prefix, service1, service2, service3)
+	prefix := env.getEnvPrefix()
+	requests := patchInstancesResponses(c, prefix, service1, service2, service3, service4)
 	instances, err := env.AllInstances()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(len(instances), gc.Equals, 3)
@@ -1070,12 +1072,15 @@ func assertOneRequestMatches(c *gc.C, requests []*gwacl.X509Request, method stri
 func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	prefix := env.getEnvPrefix()
-	service1 := makeDeployment(env, prefix+"service1")
-	service2 := makeDeployment(env, prefix+"service2")
+	name := env.Config().Name()
+	service1 := makeDeployment(env, "juju-"+name+"-service1")
+	service2 := makeDeployment(env, "juju-"+name+"-service2")
+	service3 := makeDeployment(env, "juju-"+name+"-1-service3")
 
 	// The call to AllInstances() will return only one service (service1).
-	responses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor)
+	responses := getAzureServiceListResponse(
+		c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor, service3.HostedServiceDescriptor,
+	)
 	responses = append(responses, buildStatusOKResponses(c, 2)...) // DeleteHostedService
 	responses = append(responses, getVnetCleanupResponse(c))
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteAffinityGroup
@@ -1261,8 +1266,8 @@ func (*environSuite) TestCreateVirtualNetwork(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	networkConf := (*body.VirtualNetworkSites)[0]
 	c.Check(networkConf.Name, gc.Equals, env.getVirtualNetworkName())
-	c.Check(networkConf.AffinityGroup, gc.Equals, env.getAffinityGroupName())
-	c.Check(networkConf.Location, gc.Equals, "")
+	c.Check(networkConf.AffinityGroup, gc.Equals, "")
+	c.Check(networkConf.Location, gc.Equals, "location")
 }
 
 func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
@@ -1652,4 +1657,37 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	})
 	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
+}
+
+func (s *environSuite) TestGetVirtualNetwork(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+
+	networkConfig := &gwacl.NetworkConfiguration{
+		XMLNS: gwacl.XMLNS_NC,
+		VirtualNetworkSites: &[]gwacl.VirtualNetworkSite{
+			{Name: env.getVirtualNetworkName()},
+		},
+	}
+	body, err := networkConfig.Serialize()
+	c.Assert(err, jc.ErrorIsNil)
+	responses := []gwacl.DispatcherResponse{
+		// Return existing configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	for i := 0; i < 2; i++ {
+		vnet, err := env.getVirtualNetwork()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(vnet, gc.NotNil)
+		c.Assert(vnet.Name, gc.Equals, env.getVirtualNetworkName())
+	}
+
+	// getVirtualNetwork should cache: there should be only one request to get
+	// the network configuration.
+	c.Assert(*requests, gc.HasLen, 1)
+	getRequest := (*requests)[0]
+	c.Check(getRequest.Method, gc.Equals, "GET")
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), jc.IsTrue)
 }

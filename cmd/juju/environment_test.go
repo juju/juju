@@ -176,6 +176,24 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
 }
 
+func (s *SetEnvironmentSuite) TestBlockEnvironmentSet(c *gc.C) {
+	// default-series not set
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	series, ok := stateConfig.DefaultSeries()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
 	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "ssl-hostname-verification=false")
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,6 +201,17 @@ func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
 	stateConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateConfig.SSLHostnameVerification(), jc.IsFalse)
+}
+
+func (s *SetEnvironmentSuite) TestUnblockSetEnvironment(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "block-all-changes=false")
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateConfig.PreventAllChanges(), jc.IsFalse)
 }
 
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
@@ -314,4 +343,16 @@ func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
 			}
 		}
 	}
+}
+
+func (s *UnsetEnvironmentSuite) TestBlockUnsetEnvironment(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	s.initConfig(c)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UnsetEnvironmentCommand{}), []string{"authorised-keys"}...)
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }

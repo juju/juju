@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -49,6 +51,14 @@ func (s *runSuite) TestRemoteParamsForMachinePopulates(c *gc.C) {
 	// have an address to use.
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 	c.Assert(result.Host, gc.Equals, "")
+}
+
+// blockAllChanges blocks all operations that could change environment -
+// setting block-all-changes to true.
+// Asserts that no errors were encountered.
+func (s *runSuite) blockAllChanges(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *runSuite) TestRemoteParamsForMachinePopulatesWithAddress(c *gc.C) {
@@ -257,6 +267,21 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
+func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
+	// Make three machines.
+	s.addMachineWithAddress(c, "10.3.2.1")
+	s.addMachineWithAddress(c, "10.3.2.2")
+	s.addMachineWithAddress(c, "10.3.2.3")
+
+	s.mockSSH(c, echoInput)
+
+	// block all changes
+	s.blockAllChanges(c)
+	client := s.APIState.Client()
+	_, err := client.RunOnAllMachines("hostname", testing.LongWait)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+}
+
 func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	// Make three machines.
 	s.addMachineWithAddress(c, "10.3.2.1")
@@ -301,6 +326,36 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	}
 
 	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
+	// Make three machines.
+	s.addMachineWithAddress(c, "10.3.2.1")
+
+	charm := s.AddTestingCharm(c, "dummy")
+	owner := s.Factory.MakeUser(c, nil).Tag()
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.addUnit(c, magic)
+	s.addUnit(c, magic)
+
+	s.mockSSH(c, echoInput)
+
+	// hmm... this seems to be going through the api client, and from there
+	// through to the apiserver implementation. Not ideal, but it is how the
+	// other client tests are written.
+	client := s.APIState.Client()
+
+	// block all changes
+	s.blockAllChanges(c)
+	_, err = client.Run(
+		params.RunParams{
+			Commands: "hostname",
+			Timeout:  testing.LongWait,
+			Machines: []string{"0"},
+			Services: []string{"magic"},
+		})
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
 
 var echoInputShowArgs = `#!/bin/bash
