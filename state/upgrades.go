@@ -553,6 +553,8 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.I
 	defer closer()
 
 	var ops []txn.Op
+	// Using bson.M instead of a struct is important because we need to
+	// know if the "availzone" key is set on the raw doc.
 	var doc bson.M
 	iter := instDatas.Find(nil).Iter()
 	defer iter.Close()
