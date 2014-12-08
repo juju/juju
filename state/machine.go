@@ -182,13 +182,12 @@ type instanceData struct {
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
-		Arch:     instData.Arch,
-		Mem:      instData.Mem,
-		RootDisk: instData.RootDisk,
-		CpuCores: instData.CpuCores,
-		CpuPower: instData.CpuPower,
-		Tags:     instData.Tags,
-
+		Arch:             instData.Arch,
+		Mem:              instData.Mem,
+		RootDisk:         instData.RootDisk,
+		CpuCores:         instData.CpuCores,
+		CpuPower:         instData.CpuPower,
+		Tags:             instData.Tags,
 		AvailabilityZone: instData.AvailZone,
 	}
 }
