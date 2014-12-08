@@ -80,7 +80,10 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 			C:      minUnitsC,
 			Id:     state.docID(serviceName),
 			Assert: txn.DocMissing,
-			Insert: &minUnitsDoc{ServiceName: serviceName},
+			Insert: &minUnitsDoc{
+				ServiceName: serviceName,
+				EnvUUID:     service.st.EnvironUUID(),
+			},
 		})
 	}
 	if minUnits == 0 {
