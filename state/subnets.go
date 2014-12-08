@@ -218,6 +218,22 @@ func (s *Subnet) Refresh() error {
 // PickNewAddress returns a new IPAddress that isn't in use for the subnet.
 // The address starts with AddressStateUnknown, for later allocation.
 func (s *Subnet) PickNewAddress() (*IPAddress, error) {
+	for {
+		addr, err := s.attemptToPickNewAddress()
+		if err == nil {
+			return addr, err
+		}
+		if !errors.IsAlreadyExists(err) {
+			return addr, err
+		}
+	}
+}
+
+// attemptToPickNewAddress will try to pick a new address. It can fail with
+// AlreadyExists due to a race condition between fetching the list of addresses
+// already in use and allocating a new one. It is called in a loop by
+// PickNewAddress until it gets one or there are no more available!
+func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	high := s.doc.AllocatableIPHigh
 	low := s.doc.AllocatableIPLow
 	if low == "" || high == "" {
@@ -259,7 +275,7 @@ func (s *Subnet) PickNewAddress() (*IPAddress, error) {
 	// difference between low and high - i.e. we haven't exhausted all
 	// possible addresses.
 	if len(allocated) >= int(highDecimal-lowDecimal)+1 {
-		return nil, errors.New("IP addresses exhausted")
+		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %q", s)
 	}
 
 	// pick a new random decimal between the low and high bounds that

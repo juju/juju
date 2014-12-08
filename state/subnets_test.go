@@ -220,7 +220,7 @@ func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
 	_, err := s.State.AddIPAddress(addr, subnet.ID())
 
 	_, err = subnet.PickNewAddress()
-	c.Assert(err, gc.ErrorMatches, "IP addresses exhausted")
+	c.Assert(err, gc.ErrorMatches, "allocatable IP addresses exhausted for subnet .*")
 }
 
 func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
