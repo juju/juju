@@ -986,12 +986,13 @@ func (u *uniterBaseAPI) EnterScope(args params.RelationUnits) (params.ErrorResul
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, tag)
 		if err == nil {
+			var zone string
 			// Construct the settings, passing the unit's
 			// private address and availability zone (we already know
 			// them).
 			privateAddress, _ := relUnit.PrivateAddress()
-			zone, err := availabilityZone(u.st, tag)
-			if err == nil || errors.IsNotSupported(err) {
+			zone, err = relUnit.AvailabilityZone()
+			if err == nil {
 				settings := map[string]interface{}{
 					"private-address":        privateAddress,
 					"juju-availability-zone": zone,
