@@ -1,12 +1,16 @@
 import subprocess
 from mock import patch
+import os
+import tarfile
 from unittest import TestCase
 
 from crossbuild import (
     go_build,
+    go_tarball,
     main,
     run_command,
 )
+from utils import temp_dir
 
 
 class CrossBuildTestCase(TestCase):
@@ -66,3 +70,18 @@ class CrossBuildTestCase(TestCase):
         with patch('subprocess.check_output') as mock:
             run_command(['ls'], dry_run=True)
         self.assertEqual(0, mock.call_count)
+
+    def test_gotarball_raises_error(self):
+        with self.assertRaises(ValueError):
+            go_tarball('foo.tar.gz').__enter__()
+
+    def test_go_tarball_gopath(self):
+        with temp_dir() as base_dir:
+            src_path = os.path.join(base_dir, 'juju-core_1.2.3')
+            os.makedirs(src_path)
+            tarball_path = '%s.tar.gz' % src_path
+            with tarfile.open(tarball_path, 'w:gz') as tar:
+                tar.add(src_path, arcname='juju-core_1.2.3')
+            with go_tarball(tarball_path) as gopath:
+                self.assertTrue(os.path.isdir(gopath))
+                self.assertTrue(gopath.endswith('juju-core_1.2.3'), gopath)

@@ -4,10 +4,13 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from contextlib import contextmanager
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
+from tempfile import mkdtemp
 import traceback
 
 GOLANG_VERSION = '1.2.1'
@@ -15,6 +18,28 @@ CROSSCOMPILE_SOURCE = (
     'https://raw.githubusercontent.com'
     '/davecheney/golang-crosscompile/master/crosscompile.bash')
 INNO_SOURCE = 'http://www.jrsoftware.org/download.php/is-unicode.exe?site=1'
+
+
+@contextmanager
+def go_tarball(tarball_path):
+    """Context manager for setting the GOPATH from a golang tarball."""
+    try:
+        saved_path = os.getcwd()
+        base_dir = mkdtemp()
+        try:
+            with tarfile.open(name=tarball_path, mode='r:gz') as tar:
+                tar.extractall(path=base_dir)
+        except (tarfile.ReadError, IOError):
+            error_message = "Not a tar.gz: %s" % tarball_path
+            raise ValueError(error_message)
+        tarball_dir_name = os.path.basename(
+            tarball_path.replace('.tar.gz', ''))
+        gopath = os.path.join(base_dir, tarball_dir_name)
+        os.chdir(gopath)
+        yield gopath
+    finally:
+        os.chdir(saved_path)
+        shutil.rmtree(base_dir)
 
 
 def run_command(command, env=None, dry_run=False, verbose=False):
