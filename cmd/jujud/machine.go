@@ -465,9 +465,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
-	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
-	})
+	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete
 	// before starting.
@@ -585,6 +583,15 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+func (a *MachineAgent) upgradeStepsWorkerStarter(
+	st *api.State,
+	jobs []multiwatcher.MachineJob,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+	}
 }
 
 // shouldWriteProxyFiles returns true, unless the supplied conf identifies the
@@ -728,48 +735,15 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				workerLoop := lease.WorkerLoop(st)
 				return worker.NewSimpleWorker(workerLoop), nil
 			})
-			apiserverWorker := func() (worker.Worker, error) {
-				agentConfig = a.CurrentConfig()
-				// If the configuration does not have the required information,
-				// it is currently not a recoverable error, so we kill the whole
-				// agent, potentially enabling human intervention to fix
-				// the agent's configuration file.
-				info, ok := agentConfig.StateServingInfo()
-				if !ok {
-					return nil, &fatalError{"StateServingInfo not available and we need it"}
-				}
-				cert := []byte(info.Cert)
-				key := []byte(info.PrivateKey)
-
-				if len(cert) == 0 || len(key) == 0 {
-					return nil, &fatalError{"configuration does not have state server cert/key"}
-				}
-				tag := agentConfig.Tag()
-				dataDir := agentConfig.DataDir()
-				logDir := agentConfig.LogDir()
-
-				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
-				listener, err := net.Listen("tcp", endpoint)
-				if err != nil {
-					return nil, err
-				}
-				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-					Cert:      cert,
-					Key:       key,
-					Tag:       tag,
-					DataDir:   dataDir,
-					LogDir:    logDir,
-					Validator: a.limitLogins,
-				})
-			}
-			runner.StartWorker("apiserver", apiserverWorker)
+			newApiserverWorker := a.apiserverWorkerStarter(st)
+			runner.StartWorker("apiserver", newApiserverWorker)
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Debugf("stop api server worker")
 					runner.StopWorker("apiserver")
 					logger.Debugf("start new apiserver worker with new certificate")
-					return runner.StartWorker("apiserver", apiserverWorker)
+					return runner.StartWorker("apiserver", newApiserverWorker)
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
@@ -802,6 +776,45 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // This must be overridden in tests, as it assumes
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
+
+func (a *MachineAgent) apiserverWorkerStarter(st *state.State) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) { return a.newApiserverWorker(st) }
+}
+
+func (a *MachineAgent) newApiserverWorker(st *state.State) (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
+	// If the configuration does not have the required information,
+	// it is currently not a recoverable error, so we kill the whole
+	// agent, potentially enabling human intervention to fix
+	// the agent's configuration file.
+	info, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, &fatalError{"StateServingInfo not available and we need it"}
+	}
+	cert := []byte(info.Cert)
+	key := []byte(info.PrivateKey)
+
+	if len(cert) == 0 || len(key) == 0 {
+		return nil, &fatalError{"configuration does not have state server cert/key"}
+	}
+	tag := agentConfig.Tag()
+	dataDir := agentConfig.DataDir()
+	logDir := agentConfig.LogDir()
+
+	endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+	listener, err := net.Listen("tcp", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	return apiserver.NewServer(st, listener, apiserver.ServerConfig{
+		Cert:      cert,
+		Key:       key,
+		Tag:       tag,
+		DataDir:   dataDir,
+		LogDir:    logDir,
+		Validator: a.limitLogins,
+	})
+}
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
