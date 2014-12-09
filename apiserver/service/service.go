@@ -15,7 +15,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.service")
 
 func init() {
-	common.RegisterStandardFacade("Service", 0, NewAPI)
+	common.RegisterStandardFacade("Service", 1, NewAPI)
 }
 
 // Service defines the methods on the service API end point.
