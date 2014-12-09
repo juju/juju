@@ -24,7 +24,6 @@ INNO_SOURCE = 'http://www.jrsoftware.org/download.php/is-unicode.exe?site=1'
 def go_tarball(tarball_path):
     """Context manager for setting the GOPATH from a golang tarball."""
     try:
-        saved_path = os.getcwd()
         base_dir = mkdtemp()
         try:
             with tarfile.open(name=tarball_path, mode='r:gz') as tar:
@@ -35,11 +34,19 @@ def go_tarball(tarball_path):
         tarball_dir_name = os.path.basename(
             tarball_path.replace('.tar.gz', ''))
         gopath = os.path.join(base_dir, tarball_dir_name)
-        os.chdir(gopath)
         yield gopath
     finally:
-        os.chdir(saved_path)
         shutil.rmtree(base_dir)
+
+
+@contextmanager
+def working_directory(path):
+    try:
+        saved_path = os.getcwd()
+        os.chdir(path)
+        yield path
+    finally:
+        os.chdir(saved_path)
 
 
 def run_command(command, env=None, dry_run=False, verbose=False):
@@ -90,7 +97,12 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
 
 
 def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
-    pass
+    gopath = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
+    with go_tarball(tarball_path) as gopath:
+        juju_cmd_dir = os.path.join(
+            gopath, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
+        with working_directory(juju_cmd_dir):
+            pass
 
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):

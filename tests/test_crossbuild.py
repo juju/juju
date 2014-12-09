@@ -9,6 +9,7 @@ from crossbuild import (
     go_tarball,
     main,
     run_command,
+    working_directory,
 )
 from utils import temp_dir
 
@@ -85,3 +86,12 @@ class CrossBuildTestCase(TestCase):
             with go_tarball(tarball_path) as gopath:
                 self.assertTrue(os.path.isdir(gopath))
                 self.assertTrue(gopath.endswith('juju-core_1.2.3'), gopath)
+
+    def test_working_directory(self):
+        this_dir = os.getcwd()
+        with temp_dir() as base_dir:
+            new_dir = os.path.join(base_dir, 'juju-core_1.2.3')
+            os.makedirs(new_dir)
+            with working_directory(new_dir):
+                self.assertEqual(new_dir, os.getcwd())
+        self.assertEqual(this_dir, os.getcwd())
