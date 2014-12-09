@@ -1670,8 +1670,8 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 }
 
 func (s *upgradesSuite) TestAddAvailabilityZoneToInstanceData(c *gc.C) {
-	machineID := "0"
-	var instID instance.Id = "1"
+	machineID := "9999"
+	var instID instance.Id = "9999"
 	s.azSetUp(c, machineID, instID)
 
 	azfunc := func(*State, instance.Id) (string, error) {
