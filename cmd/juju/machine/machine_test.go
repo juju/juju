@@ -4,15 +4,12 @@
 package machine_test
 
 import (
-	_ "os"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/machine"
-	_ "github.com/juju/juju/environs/configstore"
-	_ "github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 
 	// Bring in the dummy provider definition.

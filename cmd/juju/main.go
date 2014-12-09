@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/juju/juju/version"
 	"os"
 
 	"github.com/juju/cmd"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
