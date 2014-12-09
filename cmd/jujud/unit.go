@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -82,6 +83,10 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
+
 	network.InitializeFromConfig(agentConfig)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())

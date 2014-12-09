@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
@@ -231,6 +232,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")

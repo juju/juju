@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
@@ -17,9 +18,14 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
+
+func init() {
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
 
 var logger = loggo.GetLogger("juju.cmd.juju")
 
