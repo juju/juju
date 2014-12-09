@@ -1,9 +1,11 @@
+import subprocess
 from mock import patch
 from unittest import TestCase
 
 from crossbuild import (
     go_build,
     main,
+    run_command,
 )
 
 
@@ -51,3 +53,16 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual('./bar.1.2', env['GOPATH'])
         self.assertEqual('386', env['GOARCH'])
         self.assertEqual('windows', env['GOOS'])
+
+    def test_run_command(self):
+        with patch('subprocess.check_output') as mock:
+            run_command(
+                ['ls'], env={'CB_MARK': 'foo'}, dry_run=False, verbose=True)
+        args, kwargs = mock.call_args
+        self.assertEqual((['ls'], ), args)
+        self.assertEqual(
+            {'env': {'CB_MARK': 'foo'}, 'stderr': subprocess.STDOUT},
+            kwargs)
+        with patch('subprocess.check_output') as mock:
+            run_command(['ls'], dry_run=True)
+        self.assertEqual(0, mock.call_count)
