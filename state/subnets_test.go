@@ -236,7 +236,7 @@ func (s *SubnetSuite) TestPickNewAddressOneAddress(c *gc.C) {
 	c.Assert(addr.Value(), gc.Equals, "192.168.1.0")
 }
 
-func (s *SubnetSuite) TestPickNewAddress(c *gc.C) {
+func (s *SubnetSuite) TestPickNewAddressSkipsAllocated(c *gc.C) {
 	subnet := s.getSubnetForAddressPicking(c, "192.168.1.1")
 
 	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
