@@ -10,14 +10,14 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 type MapStorage struct {
 	Map map[string][]byte
 }
 
-var _ state.Storage = (*MapStorage)(nil)
+var _ storage.Storage = (*MapStorage)(nil)
 
 func (s *MapStorage) Get(path string) (r io.ReadCloser, length int64, err error) {
 	data, ok := s.Map[path]

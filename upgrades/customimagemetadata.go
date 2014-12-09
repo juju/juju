@@ -15,15 +15,16 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
+	statestorage "github.com/juju/juju/state/storage"
 )
 
-var stateStorage = (*state.State).Storage
+var newStateStorage = statestorage.NewStorage
 
 // migrateCustomImageMetadata copies uploaded image metadata from provider
 // storage to environment storage, preserving paths.
 func migrateCustomImageMetadata(st *state.State, agentConfig agent.Config) error {
 	logger.Debugf("migrating custom image metadata to environment storage")
-	estor := stateStorage(st)
+	estor := newStateStorage(st.EnvironUUID(), st.MongoSession())
 
 	// Local and manual provider host storage on the state server's
 	// filesystem, and serve via HTTP storage. The storage worker

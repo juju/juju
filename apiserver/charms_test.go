@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
 )
@@ -225,7 +226,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	storage := s.State.Storage()
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -302,7 +303,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	storage := s.State.Storage()
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()

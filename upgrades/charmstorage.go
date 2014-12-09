@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 var (
@@ -35,7 +36,7 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 	if err != nil {
 		return err
 	}
-	storage := st.Storage()
+	storage := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
 
 	// Local and manual provider host storage on the state server's
 	// filesystem, and serve via HTTP storage. The storage worker

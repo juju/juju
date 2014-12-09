@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -3113,8 +3115,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.makeMockCharmStore()
 
 	var blobs blobs
-	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
-		storage := st.Storage()
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
+		storage := storage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
@@ -3147,7 +3149,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage := s.State.Storage()
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -3230,7 +3232,7 @@ func (b *blobs) check() {
 }
 
 type recordingStorage struct {
-	state.Storage
+	storage.Storage
 	putBarrier *sync.WaitGroup
 	blobs      *blobs
 }
@@ -3262,8 +3264,8 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	var putBarrier sync.WaitGroup
 	var blobs blobs
-	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
-		storage := st.Storage()
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
+		storage := storage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
@@ -3308,7 +3310,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage := s.State.Storage()
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
@@ -3337,7 +3339,7 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage state.Storage, storagePath, expectedSHA256 string) {
+func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, storagePath, expectedSHA256 string) {
 	reader, _, err := storage.Get(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
