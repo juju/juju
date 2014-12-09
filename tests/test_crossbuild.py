@@ -2,6 +2,7 @@ from mock import patch
 from unittest import TestCase
 
 from crossbuild import (
+    go_build,
     main,
 )
 
@@ -35,3 +36,18 @@ class CrossBuildTestCase(TestCase):
         args, kwargs = mock.call_args
         self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+
+    def test_go_build(self):
+        with patch('crossbuild.run_command') as mock:
+            go_build(
+                'github/juju/juju/...', './foo', './bar.1.2', '386', 'windows',
+                verbose=True, dry_run=True)
+        args, kwargs = mock.call_args
+        self.assertEqual((['go', 'build', 'github/juju/juju/...'],), args)
+        self.assertTrue(kwargs['dry_run'])
+        self.assertTrue(kwargs['verbose'])
+        env = kwargs['env']
+        self.assertEqual('./foo', env['GOROOT'])
+        self.assertEqual('./bar.1.2', env['GOPATH'])
+        self.assertEqual('386', env['GOARCH'])
+        self.assertEqual('windows', env['GOOS'])

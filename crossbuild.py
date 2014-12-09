@@ -17,15 +17,26 @@ CROSSCOMPILE_SOURCE = (
 INNO_SOURCE = 'http://www.jrsoftware.org/download.php/is-unicode.exe?site=1'
 
 
-def run_command(command, dry_run=False, verbose=False, **kwargs):
+def run_command(command, env=None, dry_run=False, verbose=False):
     """Optionally xecute a command and maybe print the output."""
     if verbose:
         print('Executing: %s' % command)
     if not dry_run:
-        kwargs['stderr'] = subprocess.STDOUT
-        output = subprocess.check_output(command)
+        output = subprocess.check_output(
+            command, env=env, stderr=subprocess.STDOUT)
         if verbose:
             print(output)
+
+
+def go_build(package, goroot, gopath, goarch, goos,
+             dry_run=False, verbose=False):
+    env = dict(os.environ)
+    env['GOROOT'] = goroot
+    env['GOPATH'] = gopath
+    env['GOARCH'] = goarch
+    env['GOOS'] = goos
+    command = ['go', 'build', package]
+    run_command(command, env=env, dry_run=dry_run, verbose=verbose)
 
 
 def setup_cross_building(build_dir, dry_run=False, verbose=False):
