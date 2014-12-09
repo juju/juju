@@ -18,6 +18,48 @@ import (
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
+// Relations exists to encapsulate relation state and operations behind an
+// interface for the benefit of future refactoring.
+type Relations interface {
+
+	// Name returns the name of the relation with the supplied id, or an error
+	// if the relation is unknown.
+	Name(id int) (string, error)
+
+	// Hooks returns the channel on which relation hook execution requests
+	// are sent.
+	Hooks() <-chan hook.Info
+
+	// StartHooks starts sending hook execution requests on the Hooks channel.
+	StartHooks()
+
+	// StopHooks stops sending hook execution requests on the Hooks channel.
+	StopHooks() error
+
+	// PrepareHook returns the name of the supplied relation hook, or an error
+	// if the hook is unknown or invalid given current state.
+	PrepareHook(hookInfo hook.Info) (string, error)
+
+	// CommitHook persists the state change encoded in the supplied relation
+	// hook, or returns an error if the hook is unknown or invalid given
+	// current relation state.
+	CommitHook(hookInfo hook.Info) error
+
+	// GetInfo returns information about current relation state.
+	GetInfo() map[int]*runner.RelationInfo
+
+	// Update checks for and responds to changes in the life states of the
+	// relations with the supplied ids. If any id corresponds to an alive
+	// relation that is not already recorded, the unit will enter scope for
+	// that relation and start its hook queue.
+	Update(ids []int) error
+
+	// SetDying notifies all known relations that the only hooks to be requested
+	// should be those necessary to cleanly exit the relation.
+	SetDying() error
+}
+
+// relations implements Relations.
 type relations struct {
 	st            *uniter.State
 	unit          *uniter.Unit
@@ -92,7 +134,7 @@ func (r *relations) init() error {
 	return nil
 }
 
-// Name returns the name of the relation identified by the supplied id.
+// Name is part of the Relations interface.
 func (r *relations) Name(id int) (string, error) {
 	relationer, found := r.relationers[id]
 	if !found {
@@ -101,19 +143,19 @@ func (r *relations) Name(id int) (string, error) {
 	return relationer.ru.Endpoint().Name, nil
 }
 
-// Hooks returns the channel on which relation hook execution requests are sent.
+// Hooks is part of the Relations interface.
 func (r *relations) Hooks() <-chan hook.Info {
 	return r.relationHooks
 }
 
-// StartHooks starts sending hook execution requests on the Hooks channel.
+// StartHooks is part of the Relations interface.
 func (r *relations) StartHooks() {
 	for _, relationer := range r.relationers {
 		relationer.StartHooks()
 	}
 }
 
-// StopHooks stops sending hook execution requests on the Hook channel.
+// StopHooks is part of the Relations interface.
 func (r *relations) StopHooks() (err error) {
 	for _, relationer := range r.relationers {
 		if e := relationer.StopHooks(); e != nil {
@@ -127,6 +169,7 @@ func (r *relations) StopHooks() (err error) {
 	return err
 }
 
+// PrepareHook is part of the Relations interface.
 func (r *relations) PrepareHook(hookInfo hook.Info) (string, error) {
 	if !hookInfo.Kind.IsRelation() {
 		return "", errors.Errorf("not a relation hook: %#v", hookInfo)
@@ -138,6 +181,7 @@ func (r *relations) PrepareHook(hookInfo hook.Info) (string, error) {
 	return relationer.PrepareHook(hookInfo)
 }
 
+// CommitHook is part of the Relations interface.
 func (r *relations) CommitHook(hookInfo hook.Info) error {
 	if !hookInfo.Kind.IsRelation() {
 		return errors.Errorf("not a relation hook: %#v", hookInfo)
@@ -152,8 +196,7 @@ func (r *relations) CommitHook(hookInfo hook.Info) error {
 	return relationer.CommitHook(hookInfo)
 }
 
-// GetInfo returns the information about the current relations needed for hook
-// execution.
+// GetInfo is part of the Relations interface.
 func (r *relations) GetInfo() map[int]*runner.RelationInfo {
 	relationInfos := map[int]*runner.RelationInfo{}
 	for id, relationer := range r.relationers {
@@ -162,9 +205,7 @@ func (r *relations) GetInfo() map[int]*runner.RelationInfo {
 	return relationInfos
 }
 
-// Update responds to changes in the life states of the relations with the
-// supplied ids. If any id corresponds to an alive relation not known to the
-// unit, the uniter will join that relation and start its hook queue.
+// Update is part of the Relations interface.
 func (r *relations) Update(ids []int) error {
 	for _, id := range ids {
 		if relationer, found := r.relationers[id]; found {
@@ -235,7 +276,7 @@ func (r *relations) Update(ids []int) error {
 	return r.unit.Destroy()
 }
 
-// SetDying notifies all known relations that the only hooks to be requested
+// SetDying is part of the Relations interface.
 // should be those necessary to cleanly exit the relation.
 func (r *relations) SetDying() error {
 	for id := range r.relationers {

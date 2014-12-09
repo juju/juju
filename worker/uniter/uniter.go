@@ -99,7 +99,7 @@ type Uniter struct {
 	paths     Paths
 	f         filter.Filter
 	unit      *uniter.Unit
-	relations *relations
+	relations Relations
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
