@@ -114,7 +114,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 	defer closer()
 
 	var doc statusDoc
-	err := statuses.FindId(st.docID(globalKey)).One(&doc)
+	err := statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
 		return statusDoc{}, errors.NotFoundf("status")
 	}

@@ -204,7 +204,7 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	defer closer()
 
 	var instData instanceData
-	err := instanceDataCollection.FindId(st.docID(id)).One(&instData)
+	err := instanceDataCollection.FindId(id).One(&instData)
 	if err == mgo.ErrNotFound {
 		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}

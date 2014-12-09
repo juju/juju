@@ -251,7 +251,7 @@ func (st *State) Action(id string) (*Action, error) {
 	defer closer()
 
 	doc := actionDoc{}
-	err := actions.FindId(st.docID(id)).One(&doc)
+	err := actions.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action %q", id)
 	}

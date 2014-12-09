@@ -859,7 +859,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			// Already set
 			return nil, jujutxn.ErrNoOperations
 		}
-		if count, err := charms.FindId(u.st.docID(curl.String())).Count(); err != nil {
+		if count, err := charms.FindId(curl.String()).Count(); err != nil {
 			return nil, errors.Trace(err)
 		} else if count < 1 {
 			return nil, errors.Errorf("unknown charm url %q", curl)
@@ -976,7 +976,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	defer closer()
 
 	pudoc := unitDoc{}
-	err = units.FindId(u.st.docID(u.doc.Principal)).One(&pudoc)
+	err = units.FindId(u.doc.Principal).One(&pudoc)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("principal unit %q of %q", u.doc.Principal, u)
 	} else if err != nil {
@@ -1355,14 +1355,14 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	var machinesWithContainers = make([]string, len(containerRefs))
 	for i, cref := range containerRefs {
-		machinesWithContainers[i] = u.st.docID(cref.Id)
+		machinesWithContainers[i] = cref.Id
 	}
 	terms := bson.D{
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
-		{"_id", bson.D{{"$nin", machinesWithContainers}}},
+		{"machineid", bson.D{{"$nin", machinesWithContainers}}},
 	}
 	// Add the container filter term if necessary.
 	var containerType instance.ContainerType

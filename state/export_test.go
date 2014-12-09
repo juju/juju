@@ -94,7 +94,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(st.docID(key)).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
@@ -204,7 +204,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(st.docID(serviceName)).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil

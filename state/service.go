@@ -905,8 +905,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
-	docID := st.docID(key)
-	if count, err := settingsrefs.FindId(docID).Count(); err != nil {
+	if count, err := settingsrefs.FindId(key).Count(); err != nil {
 		return txn.Op{}, err
 	} else if count == 0 {
 		if !canCreate {
@@ -914,7 +913,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 		}
 		return txn.Op{
 			C:      settingsrefsC,
-			Id:     docID,
+			Id:     st.docID(key),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
 				RefCount: 1,
@@ -923,7 +922,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	}
 	return txn.Op{
 		C:      settingsrefsC,
-		Id:     docID,
+		Id:     st.docID(key),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 	}, nil
@@ -938,13 +937,13 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
-	docID := st.docID(key)
 	var doc settingsRefsDoc
-	if err := settingsrefs.FindId(docID).One(&doc); err == mgo.ErrNotFound {
+	if err := settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q settings for charm %q", serviceName, curl)
 	} else if err != nil {
 		return nil, err
 	}
+	docID := st.docID(key)
 	if doc.RefCount == 1 {
 		return []txn.Op{{
 			C:      settingsrefsC,
