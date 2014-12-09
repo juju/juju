@@ -41,6 +41,7 @@ var (
 	PortsGlobalKey        = portsGlobalKey
 	CurrentUpgradeId      = currentUpgradeId
 	NowToTheSecond        = nowToTheSecond
+	PickAddress           = &pickAddress
 )
 
 type (

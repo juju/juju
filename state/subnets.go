@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/network"
 )
 
-var PickAddress = pickAddress
-
 // SubnetInfo describes a single subnet.
 type SubnetInfo struct {
 	// ProviderId is a provider-specific network id. This may be empty.
@@ -282,7 +280,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 
 	// pick a new random decimal between the low and high bounds that
 	// doesn't match an existing one
-	newDecimal := PickAddress(lowDecimal, highDecimal, allocated)
+	newDecimal := pickAddress(lowDecimal, highDecimal, allocated)
 
 	// convert it back to a dotted-quad
 	newIP := decimalToIP(newDecimal)
@@ -298,7 +296,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 // e.g. pickAddress(uint32(2700), uint32(2800), map[uint32]bool{uint32(2701): true})
 // The allocated map is just being used as a set of unavailable addresses, so
 // the bool value isn't significant.
-func pickAddress(low, high uint32, allocated map[uint32]bool) uint32 {
+var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
 	// +1 because Int63n will pick a number up to, but not including, the
 	// bounds we provide.
 	bounds := uint32(high-low) + 1
