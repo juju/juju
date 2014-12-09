@@ -17,11 +17,12 @@ CROSSCOMPILE_SOURCE = (
 INNO_SOURCE = 'http://www.jrsoftware.org/download.php/is-unicode.exe?site=1'
 
 
-def run_command(command, dry_run=False, verbose=False):
+def run_command(command, dry_run=False, verbose=False, **kwargs):
     """Optionally xecute a command and maybe print the output."""
     if verbose:
         print('Executing: %s' % command)
     if not dry_run:
+        kwargs['stderr'] = subprocess.STDOUT
         output = subprocess.check_output(command)
         if verbose:
             print(output)
