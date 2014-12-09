@@ -199,6 +199,11 @@ func (p *PortSuite) TestPortRangeConflicts(c *gc.C) {
 	}
 }
 
+func (p *PortSuite) TestPortRangePortsString(c *gc.C) {
+	c.Assert(network.PortRange{80, 80, "TCP"}.PortsString(), gc.Equals, "80")
+	c.Assert(network.PortRange{80, 100, "TCP"}.PortsString(), gc.Equals, "80-100")
+}
+
 func (p *PortSuite) TestPortRangeString(c *gc.C) {
 	c.Assert(network.PortRange{80, 80, "TCP"}.String(),
 		gc.Equals,

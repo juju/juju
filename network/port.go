@@ -162,11 +162,18 @@ func (a PortRange) ConflictsWith(b PortRange) bool {
 	return a.ToPort >= b.FromPort && b.ToPort >= a.FromPort
 }
 
-func (p PortRange) String() string {
+// PortsString returns the ports in the PortRange as a string.
+func (p PortRange) PortsString() string {
 	if p.FromPort == p.ToPort {
-		return fmt.Sprintf("%d/%s", p.FromPort, strings.ToLower(p.Protocol))
+		return fmt.Sprintf("%d", p.FromPort)
 	}
-	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, strings.ToLower(p.Protocol))
+	return fmt.Sprintf("%d-%d", p.FromPort, p.ToPort)
+}
+
+// String returns a stringified version of the PortRange.
+func (p PortRange) String() string {
+	protocol := strings.ToLower(p.Protocol)
+	return fmt.Sprintf("%s/%s", p.PortsString(), protocol)
 }
 
 type portRangeSlice []PortRange
