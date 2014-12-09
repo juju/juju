@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -25,20 +26,20 @@ var logger = loggo.GetLogger("juju.worker.diskformatter")
 // AttachedBlockDeviceWatcher is an interface used to watch and retrieve details of
 // the block devices attached to datastores owned by the authenticated unit agent.
 type AttachedBlockDeviceWatcher interface {
-	WatchAttachedBlockDevices() (watcher.NotifyWatcher, error)
-	AttachedBlockDevices() ([]storage.BlockDevice, error)
+	WatchAttachedBlockDevices() (watcher.StringsWatcher, error)
+	BlockDevice([]names.DiskTag) (params.BlockDeviceResults, error)
 }
 
 // BlockDeviceDatastoreGetter is an interface used to retrieve details of the
 // datastores that the specified block devices are attached to.
 type BlockDeviceDatastoreGetter interface {
-	BlockDeviceDatastores([]storage.BlockDeviceId) (params.DatastoreResults, error)
+	BlockDeviceDatastore([]names.DiskTag) (params.DatastoreResults, error)
 }
 
-// DatastoreFilesystemSetter is an interface used to record information about the
-// filesystems created for the specified datastores.
-type DatastoreFilesystemSetter interface {
-	SetDatastoreFilesystems([]params.DatastoreFilesystem) error
+// BlockDeviceFilesystemSetter is an interface used to record information
+// about the filesystems created for the specified block devices.
+type BlockDeviceFilesystemSetter interface {
+	SetDatastoreFilesystem([]params.BlockDeviceFilesystem) error
 }
 
 // NewWorker returns a new worker that creates filesystems on block devices
@@ -46,26 +47,26 @@ type DatastoreFilesystemSetter interface {
 func NewWorker(
 	watcher AttachedBlockDeviceWatcher,
 	getter BlockDeviceDatastoreGetter,
-	setter DatastoreFilesystemSetter,
+	setter BlockDeviceFilesystemSetter,
 ) worker.Worker {
-	return worker.NewNotifyWorker(newDiskFormatter(watcher, getter, setter))
+	return worker.NewStringsWorker(newDiskFormatter(watcher, getter, setter))
 }
 
 func newDiskFormatter(
 	watcher AttachedBlockDeviceWatcher,
 	getter BlockDeviceDatastoreGetter,
-	setter DatastoreFilesystemSetter,
-) worker.NotifyWatchHandler {
+	setter BlockDeviceFilesystemSetter,
+) worker.StringsWatchHandler {
 	return &diskFormatter{watcher, getter, setter}
 }
 
 type diskFormatter struct {
 	watcher AttachedBlockDeviceWatcher
 	getter  BlockDeviceDatastoreGetter
-	setter  DatastoreFilesystemSetter
+	setter  BlockDeviceFilesystemSetter
 }
 
-func (f *diskFormatter) SetUp() (watcher.NotifyWatcher, error) {
+func (f *diskFormatter) SetUp() (watcher.StringsWatcher, error) {
 	return f.watcher.WatchAttachedBlockDevices()
 }
 
@@ -73,34 +74,45 @@ func (f *diskFormatter) TearDown() error {
 	return nil
 }
 
-func (f *diskFormatter) Handle() error {
-	// getAttachedBlockDevices returns the block devices that
+func (f *diskFormatter) Handle(diskNames []string) error {
+	tags := make([]names.DiskTag, len(diskNames))
+	for i, name := range diskNames {
+		tag, err := names.ParseDiskTag(name)
+		if err != nil {
+			return err
+		}
+		tags[i] = tag
+	}
+
+	// attachedBlockDevices returns the block devices that
 	// are present in the "machine block devices" subdoc;
 	// i.e. those that are attached and visible to the machine.
-	blockDevices, err := f.watcher.AttachedBlockDevices()
+	blockDevices, err := f.attachedBlockDevices(tags)
 	if err != nil {
 		return errors.Annotate(err, "cannot get block devices")
 	}
 
-	blockDeviceIds := make([]storage.BlockDeviceId, len(blockDevices))
+	blockDeviceTags := make([]names.DiskTag, len(blockDevices))
 	for i, dev := range blockDevices {
-		blockDeviceIds[i] = dev.Id
+		blockDeviceTags[i] = names.NewDiskTag(dev.Name)
 	}
-	results, err := f.getter.BlockDeviceDatastores(blockDeviceIds)
+
+	// Map block devices to the datastores they are assigned to.
+	results, err := f.getter.BlockDeviceDatastore(blockDeviceTags)
 	if err != nil {
 		return errors.Annotate(err, "cannot get assigned datastores")
 	}
 
-	var filesystems []params.DatastoreFilesystem
+	var filesystems []params.BlockDeviceFilesystem
 	for i, result := range results.Results {
 		if result.Error != nil {
 			// Ignore unassigned block devices; this could happen if
 			// the block device were unassigned from a datastore after
-			// the initial "AttachedBlockDevices" call returned.
+			// the initial "BlockDevice" call returned.
 			if !params.IsCodeNotAssigned(result.Error) {
 				logger.Errorf(
 					"could not determine datastore for block device %q: %v",
-					blockDeviceIds[i], result.Error,
+					blockDevices[i].Name, result.Error,
 				)
 			}
 			continue
@@ -111,31 +123,52 @@ func (f *diskFormatter) Handle() error {
 			continue
 		}
 		if datastore.Filesystem != nil {
-			logger.Debugf("block device %q already has a filesystem", blockDeviceIds[i])
+			logger.Debugf("block device %q already has a filesystem", blockDevices[i].Name)
 			continue
 		}
 		devicePath, err := storage.BlockDevicePath(blockDevices[i])
 		if err != nil {
-			logger.Errorf("cannot get path for block device %q: %v", blockDeviceIds[i], err)
+			logger.Errorf("cannot get path for block device %q: %v", blockDevices[i].Name, err)
 			continue
 		}
 		pref := createFilesystem(devicePath, datastore.Specification)
 		if pref == nil {
-			logger.Errorf("failed to create filesystem on block device %q", blockDeviceIds[i])
+			logger.Errorf("failed to create filesystem on block device %q", blockDevices[i].Name)
 			continue
 		}
-		filesystems = append(filesystems, params.DatastoreFilesystem{
-			DatastoreId: datastore.Id,
-			Filesystem:  pref.Filesystem,
+		filesystems = append(filesystems, params.BlockDeviceFilesystem{
+			// We must specify both blockdevice and datastore, in case the
+			// blockdevice is unassigned or reassigned to another datastore.
+			DiskTag:    blockDeviceTags[i].String(),
+			Datastore:  datastore.Name,
+			Filesystem: pref.Filesystem,
 		})
 	}
 
 	if len(filesystems) > 0 {
-		if err := f.setter.SetDatastoreFilesystems(filesystems); err != nil {
-			return errors.Annotate(err, "cannot set datastore filesystems")
+		if err := f.setter.SetDatastoreFilesystem(filesystems); err != nil {
+			return errors.Annotate(err, "cannot set filesystems")
 		}
 	}
 	return nil
+}
+
+func (f *diskFormatter) attachedBlockDevices(tags []names.DiskTag) ([]storage.BlockDevice, error) {
+	results, err := f.watcher.BlockDevice(tags)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get block devices")
+	}
+	blockDevices := make([]storage.BlockDevice, 0, len(tags))
+	for i, result := range results.Results {
+		if result.Error != nil {
+			if !errors.IsNotFound(result.Error) {
+				logger.Errorf("could not get details for block device %q", tags[i])
+			}
+			continue
+		}
+		blockDevices = append(blockDevices, result.Result)
+	}
+	return blockDevices, nil
 }
 
 func createFilesystem(devicePath string, spec *storage.Specification) *storage.FilesystemPreference {

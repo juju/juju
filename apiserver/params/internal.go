@@ -724,13 +724,16 @@ type BlockDevicesResults struct {
 	Results []BlockDevicesResult `json:"results,omitempty"`
 }
 
-// DatastoreFilesystem holds the parameters for recording information about
-// the filesystem corresponding to the specified datastore.
-type DatastoreFilesystem struct {
-	DatastoreId storage.DatastoreId `json:"datastoreid"`
-	Filesystem  storage.Filesystem  `json:"filesystem"`
+// BlockDeviceFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified block device.
+type BlockDeviceFilesystem struct {
+	DiskTag    string             `json:"disktag"`
+	Datastore  string             `json:"datastore"`
+	Filesystem storage.Filesystem `json:"filesystem"`
 }
 
-type DiskDatastores struct {
-	Disks []string
+// SetBlockDeviceFilesystem holds the parameters for recording information about
+// the filesystems corresponding to the specified block devices.
+type SetBlockDeviceFilesystem struct {
+	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
 }
