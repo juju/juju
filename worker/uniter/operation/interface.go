@@ -72,7 +72,19 @@ type Factory interface {
 	// NewCommands creates an operation to execute the supplied script in the
 	// indicated relation context, and pass the results back over the supplied
 	// func.
-	NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error)
+	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
+}
+
+// CommandArgs stores the arguments for a Command operation.
+type CommandArgs struct {
+	// Commands is the arbitrary commands to execute on the unit
+	Commands string
+	// RelationId is the relation context to execute the commands in.
+	RelationId int
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteUnitName string
+	// ForceRemoteUnit skips unit inference and existence validation.
+	ForceRemoteUnit bool
 }
 
 // CommandResponseFunc is for marshalling command responses back to the source

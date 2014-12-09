@@ -350,11 +350,6 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	// is reasonably bounded in a way that this one is not).
 	logger.Tracef("run commands: %s", args.Commands)
 
-	remoteUnitName, err := InferRemoteUnit(u.relationers, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	type responseInfo struct {
 		response *exec.ExecResponse
 		err      error
@@ -364,7 +359,13 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		responseChan <- responseInfo{response, err}
 	}
 
-	op, err := u.operationFactory.NewCommands(args.Commands, args.RelationId, remoteUnitName, sendResponse)
+	commandArgs := operation.CommandArgs{
+		Commands:        args.Commands,
+		RelationId:      args.RelationId,
+		RemoteUnitName:  args.RemoteUnitName,
+		ForceRemoteUnit: args.ForceRemoteUnit,
+	}
+	op, err := u.operationFactory.NewCommands(commandArgs, sendResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -612,68 +613,4 @@ func (u *Uniter) fixDeployer() error {
 		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
 	}
 	return nil
-}
-
-// InferRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
-// remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
-// the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
-// a given relationId an error is returned for display to the user.
-func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
-	if args.RelationId == -1 {
-		if len(args.RemoteUnitName) > 0 {
-			return "", errors.Errorf("remote unit: %s, provided without a relation", args.RemoteUnitName)
-		}
-		return "", nil
-	}
-
-	remoteUnit := args.RemoteUnitName
-	noRemoteUnit := len(remoteUnit) == 0
-
-	relationer, found := relationers[args.RelationId]
-	if !found {
-		return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
-	}
-
-	remoteUnits := relationer.ContextInfo().MemberNames
-	numRemoteUnits := len(remoteUnits)
-
-	if !args.ForceRemoteUnit {
-		if noRemoteUnit {
-			var err error
-			switch numRemoteUnits {
-			case 0:
-				err = errors.Errorf("no remote unit found for relation id: %d, override to execute commands", args.RelationId)
-			case 1:
-				remoteUnit = remoteUnits[0]
-			default:
-				err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
-			}
-
-			if err != nil {
-				return "", errors.Trace(err)
-			}
-		} else {
-			found := false
-			for _, value := range remoteUnits {
-				if value == remoteUnit {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return "", errors.Errorf("no remote unit found: %s, override to execute command", remoteUnit)
-			}
-		}
-	}
-
-	if noRemoteUnit && args.ForceRemoteUnit {
-		return remoteUnit, nil
-	}
-
-	if !names.IsValidUnit(remoteUnit) {
-		return "", errors.Errorf(`"%s" is not a valid remote unit name`, remoteUnit)
-	}
-
-	unitTag := names.NewUnitTag(remoteUnit)
-	return unitTag.Id(), nil
 }
