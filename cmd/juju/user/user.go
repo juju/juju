@@ -18,12 +18,6 @@ import (
 
 var logger = loggo.GetLogger("juju.cmd.juju.user")
 
-// SuperCommand is the top level user command that has the subcommands to do
-// real things with users.
-type SuperCommand struct {
-	*cmd.SuperCommand
-}
-
 const userCommandDoc = `
 "juju user" is used to manage the user accounts and access control in
 the Juju environment.
@@ -34,14 +28,12 @@ const userCommandPurpose = "manage user accounts and access control"
 // NewSuperCommand creates the user supercommand and registers the subcommands
 // that it supports.
 func NewSuperCommand() cmd.Command {
-	usercmd := &SuperCommand{
-		SuperCommand: cmd.NewSuperCommand(cmd.SuperCommandParams{
-			Name:        "user",
-			Doc:         userCommandDoc,
-			UsagePrefix: "juju",
-			Purpose:     userCommandPurpose,
-		}),
-	}
+	usercmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:        "user",
+		Doc:         userCommandDoc,
+		UsagePrefix: "juju",
+		Purpose:     userCommandPurpose,
+	})
 	usercmd.Register(envcmd.Wrap(&AddCommand{}))
 	usercmd.Register(envcmd.Wrap(&ChangePasswordCommand{}))
 	usercmd.Register(envcmd.Wrap(&InfoCommand{}))

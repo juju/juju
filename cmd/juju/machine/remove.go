@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package machine
 
 import (
 	"fmt"
@@ -14,9 +14,10 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 )
 
-// RemoveMachineCommand causes an existing machine to be destroyed.
-type RemoveMachineCommand struct {
+// RemoveCommand causes an existing machine to be destroyed.
+type RemoveCommand struct {
 	envcmd.EnvCommandBase
+	api        RemoveMachineAPI
 	MachineIds []string
 	Force      bool
 }
@@ -29,27 +30,26 @@ opportunity to shut down cleanly.
 
 Examples:
 	# Remove machine number 5 which has no running units or containers
-	$ juju remove-machine 5
+	$ juju machine remove 5
 
 	# Remove machine 6 and any running units or containers
-	$ juju remove-machine 6 --force
+	$ juju machine remove 6 --force
 `
 
-func (c *RemoveMachineCommand) Info() *cmd.Info {
+func (c *RemoveCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "remove-machine",
+		Name:    "remove",
 		Args:    "<machine> ...",
 		Purpose: "remove machines from the environment",
 		Doc:     destroyMachineDoc,
-		Aliases: []string{"destroy-machine", "terminate-machine"},
 	}
 }
 
-func (c *RemoveMachineCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *RemoveCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
 
-func (c *RemoveMachineCommand) Init(args []string) error {
+func (c *RemoveCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machines specified")
 	}
@@ -62,14 +62,27 @@ func (c *RemoveMachineCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
-	apiclient, err := c.NewAPIClient()
+type RemoveMachineAPI interface {
+	DestroyMachines(machines ...string) error
+	ForceDestroyMachines(machines ...string) error
+	Close() error
+}
+
+func (c *RemoveCommand) getRemoveMachineAPI() (RemoveMachineAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
+	return c.NewAPIClient()
+}
+
+func (c *RemoveCommand) Run(_ *cmd.Context) error {
+	client, err := c.getRemoveMachineAPI()
 	if err != nil {
 		return err
 	}
-	defer apiclient.Close()
+	defer client.Close()
 	if c.Force {
-		return apiclient.ForceDestroyMachines(c.MachineIds...)
+		return client.ForceDestroyMachines(c.MachineIds...)
 	}
-	return block.ProcessBlockedError(apiclient.DestroyMachines(c.MachineIds...), block.BlockRemove)
+	return block.ProcessBlockedError(client.DestroyMachines(c.MachineIds...), block.BlockRemove)
 }
