@@ -152,7 +152,7 @@ var configTests = []configTest{
 		change: attrs{
 			"region": "us-east-1",
 		},
-		err: `cannot change region from "configtest" to "us-east-1"`,
+		err: `.*cannot change region from "configtest" to "us-east-1"`,
 	}, {
 		config: attrs{
 			"region": 666,
@@ -177,7 +177,7 @@ var configTests = []configTest{
 		change: attrs{
 			"control-bucket": "new-x",
 		},
-		err: `cannot change control-bucket from "x" to "new-x"`,
+		err: `.*cannot change control-bucket from "x" to "new-x"`,
 	}, {
 		config: attrs{
 			"access-key": "jujuer",
@@ -221,7 +221,7 @@ var configTests = []configTest{
 		config: attrs{
 			"ssl-hostname-verification": false,
 		},
-		err: "disabling ssh-hostname-verification is not supported",
+		err: ".*disabling ssh-hostname-verification is not supported",
 	}, {
 		config: attrs{
 			"future": "hammerstein",
@@ -289,7 +289,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	os.Setenv("EC2_ACCESS_KEY", "")
 	os.Setenv("EC2_SECRET_KEY", "")
 	test := configTests[0]
-	test.err = "environment has no access-key or secret-key"
+	test.err = ".*environment has no access-key or secret-key"
 	test.check(c)
 }
 
