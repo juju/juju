@@ -215,16 +215,17 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
-	for _, r := range u.relationers {
-		r.StartHooks()
-	}
+	u.relations.StartHooks()
 	defer func() {
-		for _, r := range u.relationers {
-			if e := r.StopHooks(); e != nil && err == nil {
+		if e := u.relations.StopHooks(); e != nil {
+			if err == nil {
 				err = e
+			} else {
+				logger.Errorf("error while stopping hooks: %v", e)
 			}
 		}
 	}()
+
 	select {
 	case <-u.f.UnitDying():
 		return modeAbideDyingLoop(u)
@@ -253,16 +254,12 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case info := <-u.f.ActionEvents():
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
-		case hi = <-u.relationHooks:
+		case hi = <-u.relations.Hooks():
 		case <-collectMetricsSignal:
 			hi = hook.Info{Kind: hooks.CollectMetrics}
 		case ids := <-u.f.RelationsEvents():
-			added, err := u.updateRelations(ids)
-			if err != nil {
+			if err := u.relations.Update(ids); err != nil {
 				return nil, err
-			}
-			for _, r := range added {
-				r.StartHooks()
 			}
 			continue
 		case curl := <-u.f.UpgradeEvents():
@@ -283,15 +280,11 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err = u.unit.DestroyAllSubordinates(); err != nil {
 		return nil, err
 	}
-	for id, r := range u.relationers {
-		if err := r.SetDying(); err != nil {
-			return nil, err
-		} else if r.IsImplicit() {
-			delete(u.relationers, id)
-		}
+	if err := u.relations.SetDying(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	for {
-		if len(u.relationers) == 0 {
+		if len(u.relations.GetInfo()) == 0 {
 			return ModeStopping, nil
 		}
 		hi := hook.Info{}
@@ -302,7 +295,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case info := <-u.f.ActionEvents():
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
-		case hi = <-u.relationHooks:
+		case hi = <-u.relations.Hooks():
 		}
 		if err := u.runHook(hi); err != nil {
 			return nil, err
@@ -328,9 +321,11 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 		if hookInfo.RemoteUnit != "" {
 			statusData["remote-unit"] = hookInfo.RemoteUnit
 		}
-		relationer := u.relationers[hookInfo.RelationId]
-		name := relationer.ru.Endpoint().Name
-		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
+		relationName, err := u.relations.Name(hookInfo.RelationId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		hookName = fmt.Sprintf("%s-%s", relationName, hookInfo.Kind)
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
