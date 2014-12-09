@@ -4,6 +4,7 @@
 package certupdater_test
 
 import (
+	"crypto/x509"
 	stdtesting "testing"
 	"time"
 
@@ -101,9 +102,11 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
+	var srvCert *x509.Certificate
 	updated := make(chan struct{})
 	setter := func(info params.StateServingInfo) error {
-		srvCert, err := cert.ParseCert(info.Cert)
+		var err error
+		srvCert, err = cert.ParseCert(info.Cert)
 		c.Assert(err, jc.ErrorIsNil)
 		sanIPs := make([]string, len(srvCert.IPAddresses))
 		for i, ip := range srvCert.IPAddresses {
@@ -128,6 +131,10 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for certificate to be updated")
 	}
+
+	// The server certificates must report "juju-apiserver" as a DNS name
+	// for backwards-compatibility with API clients.
+	c.Assert(srvCert.DNSNames, gc.DeepEquals, []string{"juju-apiserver"})
 }
 
 type mockStateServingGetterNoCAKey struct{}

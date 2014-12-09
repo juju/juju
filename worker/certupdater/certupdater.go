@@ -97,8 +97,11 @@ func (c *CertificateUpdater) Handle() error {
 	if err != nil {
 		return errors.Annotate(err, "cannot add CA private key to environment config")
 	}
-	// We only want to include external IP addresses, so exclude local host.
-	var serverAddrs []string
+
+	// We only want to include externally accessible addresses, so exclude local
+	// host. For backwards compatibility, we must include "juju-apiserver" as a
+	// hostname as that is what clients specify as the hostname for verification.
+	serverAddrs := []string{"juju-apiserver"}
 	for _, addr := range addresses {
 		if addr.Value == "localhost" {
 			continue
