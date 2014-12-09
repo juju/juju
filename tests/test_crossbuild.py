@@ -1,10 +1,12 @@
-import subprocess
+from contextlib import contextmanager
 from mock import patch
 import os
+import subprocess
 import tarfile
 from unittest import TestCase
 
 from crossbuild import (
+    build_win_client,
     go_build,
     go_tarball,
     main,
@@ -95,3 +97,24 @@ class CrossBuildTestCase(TestCase):
             with working_directory(new_dir):
                 self.assertEqual(new_dir, os.getcwd())
         self.assertEqual(this_dir, os.getcwd())
+
+    def test_build_win_client(self):
+        @contextmanager
+        def fake_go_tarball(path):
+            try:
+                yield path.replace('.tar.gz', '')
+            finally:
+                pass
+
+        with patch('crossbuild.go_tarball',
+                   side_effect=fake_go_tarball) as gt_mock:
+            with patch('crossbuild.go_build') as gb_mock:
+                build_win_client('bar.1.2.3.tar.gz', '/foo')
+        args, kwargs = gt_mock.call_args
+        self.assertEqual(('bar.1.2.3.tar.gz', ), args)
+        args, kwargs = gb_mock.call_args
+        self.assertEqual(
+            ('github.com/juju/juju/cmd/juju',
+             '/foo/golang-1.2.1', 'bar.1.2.3', '386', 'windows'),
+            args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)

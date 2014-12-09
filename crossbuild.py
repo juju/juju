@@ -97,12 +97,12 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
 
 
 def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
-    gopath = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
+    cli_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'juju')
+    goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as gopath:
-        juju_cmd_dir = os.path.join(
-            gopath, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
-        with working_directory(juju_cmd_dir):
-            pass
+        go_build(
+            cli_package, goroot, gopath, '386', 'windows',
+            dry_run=dry_run, verbose=verbose)
 
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
