@@ -80,6 +80,9 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, id)
+	err = machine.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
+	c.Assert(err, jc.ErrorIsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }

@@ -638,22 +638,27 @@ func (u *Unit) PrincipalName() (string, bool) {
 	return u.doc.Principal, u.doc.Principal != ""
 }
 
-// addressesOfMachine returns Addresses of the related machine if present.
-func (u *Unit) addressesOfMachine() []network.Address {
-	var (
-		id  string
-		err error
-	)
-	if id, err = u.AssignedMachineId(); err != nil {
-		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
-		return nil
+// machine returns the unit's machine.
+func (u *Unit) machine() (*Machine, error) {
+	id, err := u.AssignedMachineId()
+	if err != nil {
+		return nil, errors.Annotatef(err, "unit %v cannot get assigned machine", u)
 	}
 	m, err := u.st.Machine(id)
-	if err == nil {
-		return m.Addresses()
+	if err != nil {
+		return nil, errors.Annotatef(err, "unit %v misses machine id %v", u)
 	}
-	unitLogger.Errorf("unit %v misses machine id %v", u, id)
-	return nil
+	return m, nil
+}
+
+// addressesOfMachine returns Addresses of the related machine if present.
+func (u *Unit) addressesOfMachine() []network.Address {
+	m, err := u.machine()
+	if err != nil {
+		unitLogger.Errorf("%v", err)
+		return nil
+	}
+	return m.Addresses()
 }
 
 // PublicAddress returns the public address of the unit and whether it is valid.
@@ -674,6 +679,16 @@ func (u *Unit) PrivateAddress() (string, bool) {
 		privateAddress = network.SelectInternalAddress(addresses, false)
 	}
 	return privateAddress, privateAddress != ""
+}
+
+// AvailabilityZone returns the name of the availability zone into which
+// the unit's machine instance was provisioned.
+func (u *Unit) AvailabilityZone() (string, error) {
+	m, err := u.machine()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return m.AvailabilityZone()
 }
 
 // Refresh refreshes the contents of the Unit from the underlying

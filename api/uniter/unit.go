@@ -328,6 +328,25 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return result.Result, nil
 }
 
+// AvailabilityZone returns the availability zone of the unit.
+func (u *Unit) AvailabilityZone() (string, error) {
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	if err := u.st.facade.FacadeCall("AvailabilityZone", args, &results); err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", errors.Trace(result.Error)
+	}
+	return result.Result, nil
+}
+
 // OpenPorts sets the policy of the port range with protocol to be
 // opened.
 func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {

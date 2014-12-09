@@ -109,6 +109,10 @@ func (c *Context) PrivateAddress() (string, bool) {
 	return "192.168.0.99", true
 }
 
+func (c *Context) AvailabilityZone() (string, bool) {
+	return "us-east-1a", true
+}
+
 func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
 	c.ports = append(c.ports, network.PortRange{
 		Protocol: protocol,

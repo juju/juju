@@ -50,6 +50,9 @@ type HookContext struct {
 	// address.
 	publicAddress string
 
+	// availabilityzone is the cached value of the unit's availability zone name.
+	availabilityzone string
+
 	// configSettings holds the service configuration.
 	configSettings charm.Settings
 
@@ -179,6 +182,10 @@ func (ctx *HookContext) PublicAddress() (string, bool) {
 
 func (ctx *HookContext) PrivateAddress() (string, bool) {
 	return ctx.privateAddress, ctx.privateAddress != ""
+}
+
+func (ctx *HookContext) AvailabilityZone() (string, bool) {
+	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
