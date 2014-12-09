@@ -230,6 +230,14 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	return errNotImplemented
 }
 
+func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	return errNotImplemented
+}
+
+func (env *environ) Subnets(inst instance.Id) ([]network.BasicInfo, error) {
+	return nil, errNotImplemented
+}
+
 func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) {
 	return nil, errNotImplemented
 }
