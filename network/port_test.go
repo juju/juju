@@ -311,3 +311,33 @@ func (*PortSuite) TestCollapsePorts(c *gc.C) {
 		c.Assert(network.CollapsePorts(t.ports), gc.DeepEquals, t.expected)
 	}
 }
+
+func (*PortSuite) TestParsePortRangePorts(c *gc.C) {
+	portRange, err := network.ParsePortRangePorts("10-100", "tcp")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(portRange.Protocol, gc.Equals, "tcp")
+	c.Check(portRange.FromPort, gc.Equals, 10)
+	c.Check(portRange.ToPort, gc.Equals, 100)
+}
+
+func (*PortSuite) TestParsePortRangePortsSingle(c *gc.C) {
+	portRange, err := network.ParsePortRangePorts("10", "tcp")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(portRange.Protocol, gc.Equals, "tcp")
+	c.Check(portRange.FromPort, gc.Equals, 10)
+	c.Check(portRange.ToPort, gc.Equals, 10)
+}
+
+func (*PortSuite) TestParsePortRangePortsMultiRange(c *gc.C) {
+	_, err := network.ParsePortRangePorts("10-55-100", "tcp")
+
+	c.Check(err, gc.ErrorMatches, `invalid port range "10-55-100".*`)
+}
+
+func (*PortSuite) TestParsePortRangePortsNonIntPort(c *gc.C) {
+	_, err := network.ParsePortRangePorts("spam-100", "tcp")
+
+	c.Check(err, gc.ErrorMatches, `invalid port "spam".*`)
+}

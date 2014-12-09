@@ -255,3 +255,37 @@ func CollapsePorts(ports []Port) (result []PortRange) {
 	}
 	return
 }
+
+// ParsePortRangePorts builds a PortRange from the provided string
+// and protocol. Example strings: "80", "443", "12345-12349".
+func ParsePortRangePorts(portRangeStr, protocol string) (*PortRange, error) {
+	var start, end int
+	parts := strings.Split(portRangeStr, "-")
+	if len(parts) > 2 {
+		return nil, errors.Errorf("invalid port range %q", portRangeStr)
+	}
+
+	if len(parts) == 1 {
+		port, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return nil, errors.Annotatef(err, "invalid port %q", portRangeStr)
+		}
+		start = port
+		end = port
+	} else {
+		var err error
+		if start, err = strconv.Atoi(parts[0]); err != nil {
+			return nil, errors.Annotatef(err, "invalid port %q", parts[0])
+		}
+		if end, err = strconv.Atoi(parts[1]); err != nil {
+			return nil, errors.Annotatef(err, "invalid port %q", parts[1])
+		}
+	}
+
+	result := PortRange{
+		Protocol: protocol,
+		FromPort: start,
+		ToPort:   end,
+	}
+	return &result, result.Validate()
+}
