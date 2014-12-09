@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,6 +50,9 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping lxc tests on windows")
+	}
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
 	go func() {
@@ -67,6 +71,9 @@ func (s *lxcSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping lxc tests on windows")
+	}
 	s.lxcSuite.SetUpTest(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
@@ -187,6 +194,9 @@ type lxcProvisionerSuite struct {
 var _ = gc.Suite(&lxcProvisionerSuite{})
 
 func (s *lxcProvisionerSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping lxc tests on windows")
+	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.lxcSuite.SetUpSuite(c)
 }

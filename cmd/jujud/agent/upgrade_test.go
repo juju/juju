@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -432,6 +433,10 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	//TODO(bogdanteleaga): Fix this to behave properly
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: this fails half of the time on windows because files are not closed properly")
+	}
 	s.setInstantRetryStrategy(c)
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)

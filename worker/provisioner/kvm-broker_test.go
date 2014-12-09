@@ -6,6 +6,7 @@ package provisioner_test
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/errors"
@@ -44,6 +45,9 @@ type kvmBrokerSuite struct {
 var _ = gc.Suite(&kvmBrokerSuite{})
 
 func (s *kvmSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping kvm tests on windows")
+	}
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	s.eventsDone = make(chan struct{})
@@ -63,6 +67,9 @@ func (s *kvmSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping kvm tests on windows")
+	}
 	s.kvmSuite.SetUpTest(c)
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
@@ -152,6 +159,9 @@ type kvmProvisionerSuite struct {
 var _ = gc.Suite(&kvmProvisionerSuite{})
 
 func (s *kvmProvisionerSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping kvm tests on windows")
+	}
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.kvmSuite.SetUpSuite(c)
 }

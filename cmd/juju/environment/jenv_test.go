@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -68,6 +69,9 @@ func (*jenvSuite) TestJenvFileDirectory(c *gc.C) {
 }
 
 func (*jenvSuite) TestJenvFileNotReadable(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a read-only jenv file.
 	f := openJenvFile(c, nil)
 	defer f.Close()
@@ -114,6 +118,9 @@ func (*jenvSuite) TestJenvFileContentErrors(c *gc.C) {
 }
 
 func (*jenvSuite) TestConfigStoreError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, nil)
 	defer f.Close()
@@ -131,6 +138,9 @@ func (*jenvSuite) TestConfigStoreError(c *gc.C) {
 }
 
 func (*jenvSuite) TestWriteError(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, makeValidJenvContents())
 	defer f.Close()
@@ -162,6 +172,9 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 }
 
 func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, makeValidJenvContents())
 	defer f.Close()
@@ -178,6 +191,9 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 }
 
 func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Cannot test on windows because it uses chmod")
+	}
 	// Create a jenv file.
 	f := openJenvFile(c, makeValidJenvContents())
 	defer f.Close()
