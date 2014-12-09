@@ -1712,7 +1712,7 @@ func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
 
 	// Ensure "availzone" isn't set.
 	var instanceMap bson.M
-	insts, closer := s.state.getCollection(instanceDataC)
+	insts, closer := s.state.getRawCollection(instanceDataC)
 	defer closer()
 	err = insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1724,7 +1724,7 @@ func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
 // for the instance data associated with the machine.
 func (s *upgradesSuite) checkAvailabilityZone(c *gc.C, machineID string, expectedZone string) {
 	var instanceMap bson.M
-	insts, closer := s.state.getCollection(instanceDataC)
+	insts, closer := s.state.getRawCollection(instanceDataC)
 	defer closer()
 	err := insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)

@@ -549,7 +549,7 @@ func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.I
 		return errors.Trace(err)
 	}
 
-	instDatas, closer := st.getCollection(instanceDataC)
+	instDatas, closer := st.getRawCollection(instanceDataC)
 	defer closer()
 
 	var ops []txn.Op
