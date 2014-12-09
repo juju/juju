@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"path/filepath"
 
 	"github.com/juju/errors"
 
@@ -37,7 +36,7 @@ func (s *MapStorage) Put(path string, r io.Reader, length int64) error {
 	if err != nil {
 		return err
 	}
-	s.Map[filepath.ToSlash(path)] = buf
+	s.Map[path] = buf
 	return nil
 }
 

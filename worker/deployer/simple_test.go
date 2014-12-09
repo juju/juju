@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -148,7 +147,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	toolsDir := tools.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	jujudPath := filepath.Join(toolsDir, names.Jujud)
+	jujudPath := filepath.Join(toolsDir, "jujud")
 	err = ioutil.WriteFile(jujudPath, []byte(fakeJujud), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
@@ -218,7 +217,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	}
 
 	logPath := filepath.Join(fix.logDir, tag.String()+".log")
-	jujudPath := filepath.Join(toolsDir, names.Jujud)
+	jujudPath := filepath.Join(toolsDir, "jujud")
 
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",

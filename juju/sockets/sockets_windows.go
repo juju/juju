@@ -8,7 +8,7 @@ import (
 )
 
 func Dial(socketPath string) (*rpc.Client, error) {
-	conn, err := npipe.DialTimeout(socketPath, Timeout)
+	conn, err := npipe.Dial(socketPath)
 	if err != nil {
 		return nil, err
 	}

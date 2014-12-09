@@ -985,13 +985,15 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	if runtime.GOOS != "windows" {
-		// cannot make symlink to nonexistent file on windows
-		err := symlink.New("/nowhere/special", jujuRun)
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = os.Stat(jujuRun)
-		c.Assert(err, jc.Satisfies, os.IsNotExist)
+	if runtime.GOOS == "windows" {
+		// Cannot make symlink to nonexistent file on windows or
+		// create a file point a symlink to it then remove it
+		c.Skip("Cannot test this on windows")
 	}
+	err := symlink.New("/nowhere/special", JujuRun)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = os.Stat(JujuRun)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		// juju-run should have been recreated
 		_, err := os.Stat(JujuRun)
