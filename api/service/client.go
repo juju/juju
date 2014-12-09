@@ -15,19 +15,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Client provides access to the service api.
+// Client allows access to the service API end point.
 type Client struct {
 	base.ClientFacade
 	st     *api.State
 	facade base.FacadeCaller
 }
-
-// ServiceClient defines the methods on the service API end point.
-type ServiceClient interface {
-	SetMetricCredentials(string, []byte) error
-}
-
-var _ ServiceClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the service api.
 func NewClient(st *api.State) *Client {
@@ -46,9 +39,5 @@ func (c *Client) SetMetricCredentials(service string, credentials []byte) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = results.OneError()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(results.OneError())
 }

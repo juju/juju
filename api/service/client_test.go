@@ -69,5 +69,4 @@ func (s *serviceSuite) TestSetServiceMetricCredentialsNoMocks(c *gc.C) {
 	err = service.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(service.MetricCredentials(), gc.DeepEquals, []byte("creds"))
-
 }

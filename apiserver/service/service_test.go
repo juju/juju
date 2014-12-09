@@ -25,6 +25,8 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
+var _ service.Service = (*service.API)(nil)
+
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.service = s.Factory.MakeService(c, nil)
@@ -33,7 +35,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		Tag: s.AdminUserTag(c),
 	}
 	var err error
-	s.serviceApi, err = service.NewServiceAPI(s.State, nil, s.authorizer)
+	s.serviceApi, err = service.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -15,7 +15,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.service")
 
 func init() {
-	common.RegisterStandardFacade("Service", 0, NewServiceAPI)
+	common.RegisterStandardFacade("Service", 0, NewAPI)
 }
 
 // Service defines the methods on the service API end point.
@@ -30,10 +30,8 @@ type API struct {
 	authorizer common.Authorizer
 }
 
-var _ Service = (*API)(nil)
-
 // NewAPI returns a new service API facade.
-func NewServiceAPI(
+func NewAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
