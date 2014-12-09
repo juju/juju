@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
@@ -83,6 +84,9 @@ func (c *Client) getDataDir() string {
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return params.RunResults{}, errors.Trace(err)
+	}
 	units, err := getAllUnitNames(c.api.state, run.Units, run.Services)
 	if err != nil {
 		return results, err
@@ -120,6 +124,9 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
 func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, error) {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return params.RunResults{}, errors.Trace(err)
+	}
 	machines, err := c.api.state.AllMachines()
 	if err != nil {
 		return params.RunResults{}, err

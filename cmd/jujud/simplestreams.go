@@ -12,19 +12,19 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/state"
+	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/state/storage"
 )
 
 // environmentStorageDataSource is a simplestreams.DataSource that
 // retrieves simplestreams metadata from environment storage.
 type environmentStorageDataSource struct {
-	stor state.Storage
+	stor storage.Storage
 }
 
 // NewEnvironmentStorageDataSource returns a new datasource that retrieves
 // metadata from environment storage.
-func NewEnvironmentStorageDataSource(stor state.Storage) simplestreams.DataSource {
+func NewEnvironmentStorageDataSource(stor storage.Storage) simplestreams.DataSource {
 	return environmentStorageDataSource{stor}
 }
 
@@ -37,7 +37,7 @@ func (d environmentStorageDataSource) Description() string {
 func (d environmentStorageDataSource) Fetch(file string) (io.ReadCloser, string, error) {
 	logger.Debugf("fetching %q", file)
 
-	r, _, err := d.stor.Get(path.Join(storage.BaseImagesPath, file))
+	r, _, err := d.stor.Get(path.Join(envstorage.BaseImagesPath, file))
 	if err != nil {
 		return nil, "", err
 	}
@@ -52,7 +52,7 @@ func (d environmentStorageDataSource) Fetch(file string) (io.ReadCloser, string,
 
 // URL is defined in simplestreams.DataSource.
 func (d environmentStorageDataSource) URL(file string) (string, error) {
-	path := path.Join(storage.BaseImagesPath, file)
+	path := path.Join(envstorage.BaseImagesPath, file)
 	return fmt.Sprintf("environment-storage://%s", path), nil
 }
 
@@ -61,7 +61,7 @@ func (d environmentStorageDataSource) SetAllowRetry(allow bool) {
 }
 
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
-func registerSimplestreamsDataSource(stor state.Storage) {
+func registerSimplestreamsDataSource(stor storage.Storage) {
 	ds := NewEnvironmentStorageDataSource(stor)
 	environs.RegisterImageDataSourceFunc(ds.Description(), func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil

@@ -48,7 +48,7 @@ func (s *ProxyUpdaterSuite) setStarted() {
 func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
-	// Create the machiner API facade.
+	// Create the environment API facade.
 	s.environmentAPI = s.apiRoot.Environment()
 	c.Assert(s.environmentAPI, gc.NotNil)
 

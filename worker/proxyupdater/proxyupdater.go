@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.worker.machineenvironment")
+	logger = loggo.GetLogger("juju.worker.proxyupdater")
 
 	// ProxyDirectory is the directory containing the proxy file that contains
 	// the environment settings for the proxies based on the environment

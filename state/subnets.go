@@ -60,6 +60,11 @@ func (s *Subnet) Life() Life {
 	return s.doc.Life
 }
 
+// ID returns the unique id for the subnet, for other entities to reference it
+func (s *Subnet) ID() string {
+	return s.doc.DocID
+}
+
 // EnsureDead sets the Life of the subnet to Dead
 func (s *Subnet) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
@@ -83,16 +88,34 @@ func (s *Subnet) EnsureDead() (err error) {
 }
 
 // Remove removes a dead subnet. If the subnet is not dead it returns an error.
+// It also removes any IP addresses associated with the subnet.
 func (s *Subnet) Remove() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot destroy subnet %v", s)
 	if s.doc.Life != Dead {
 		return errors.New("subnet is not dead")
 	}
-	ops := []txn.Op{{
+	addresses, closer := s.st.getCollection(ipaddressesC)
+	defer closer()
+
+	ops := []txn.Op{}
+	id := s.ID()
+	var doc struct {
+		DocID string `bson:"_id"`
+	}
+	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      ipaddressesC,
+			Id:     doc.DocID,
+			Remove: true,
+		})
+	}
+
+	ops = append(ops, txn.Op{
 		C:      subnetsC,
 		Id:     s.doc.DocID,
 		Remove: true,
-	}}
+	})
 	return s.st.runTransaction(ops)
 }
 

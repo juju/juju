@@ -333,6 +333,9 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.Sta
 	if serverInfo.PrivateKey == "" {
 		return nil, errors.Trace(requiredError("state server key"))
 	}
+	if serverInfo.CAPrivateKey == "" {
+		return nil, errors.Trace(requiredError("ca cert key"))
+	}
 	if serverInfo.StatePort == 0 {
 		return nil, errors.Trace(requiredError("state port"))
 	}

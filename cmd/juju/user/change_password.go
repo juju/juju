@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/configstore"
 )
 
@@ -137,7 +138,7 @@ func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
 	creds.Password = c.Password
 	err = client.SetPassword(creds.User, c.Password)
 	if err != nil {
-		return errors.Trace(err)
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	if c.User != "" {

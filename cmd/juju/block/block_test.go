@@ -1,55 +1,22 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package block_test
 
 import (
-	"strings"
-
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
-
-type ProtectionCommandSuite struct {
-	testing.FakeJujuHomeSuite
-	mockClient *mockClient
-}
-
-func (s *ProtectionCommandSuite) assertErrorMatches(c *gc.C, err error, expected string) {
-	c.Assert(
-		err,
-		gc.ErrorMatches,
-		expected)
-}
-
-func (s *ProtectionCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.mockClient = &mockClient{}
-	s.PatchValue(&getBlockClientAPI, func(p *ProtectionCommand) (BlockClientAPI, error) {
-		return s.mockClient, nil
-	})
-}
-
-type mockClient struct {
-	cfg map[string]interface{}
-}
-
-func (c *mockClient) Close() error {
-	return nil
-}
-
-func (c *mockClient) EnvironmentSet(attrs map[string]interface{}) error {
-	c.cfg = attrs
-	return nil
-}
 
 type BlockCommandSuite struct {
 	ProtectionCommandSuite
@@ -58,7 +25,7 @@ type BlockCommandSuite struct {
 var _ = gc.Suite(&BlockCommandSuite{})
 
 func runBlockCommand(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&BlockCommand{}), args...)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&block.BlockCommand{}), args...)
 	return err
 }
 
@@ -99,34 +66,27 @@ func (s *BlockCommandSuite) TestBlockCmdValidDestroyEnvOperation(c *gc.C) {
 	s.runBlockTestAndCompare(c, "destroy-environment", true)
 }
 
-type BlockableRemoveCommandSuite struct {
-	testing.FakeJujuHomeSuite
-}
-
-var _ = gc.Suite(&BlockableRemoveCommandSuite{})
-
-func (s *BlockableRemoveCommandSuite) processErrorTest(c *gc.C, tstError error, block Block, expectedError error, expectedWarning string) {
-	testCmd := BlockableCommand{}
+func (s *BlockCommandSuite) processErrorTest(c *gc.C, tstError error, blockType block.Block, expectedError error, expectedWarning string) {
 	if tstError != nil {
-		c.Assert(testCmd.processBlockedError(tstError, block), gc.Equals, expectedError)
+		c.Assert(errors.Cause(block.ProcessBlockedError(tstError, blockType)), gc.Equals, expectedError)
 	} else {
-		c.Assert(testCmd.processBlockedError(tstError, block), jc.ErrorIsNil)
+		c.Assert(block.ProcessBlockedError(tstError, blockType), jc.ErrorIsNil)
 	}
 	// warning displayed
 	logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Assert(logOutputText, gc.Matches, expectedWarning)
 }
 
-func (s *BlockableRemoveCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
-	s.processErrorTest(c, common.ErrOperationBlocked, BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
-	s.processErrorTest(c, common.ErrOperationBlocked, BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
+func (s *BlockCommandSuite) TestProcessErrOperationBlocked(c *gc.C) {
+	s.processErrorTest(c, common.ErrOperationBlocked, block.BlockRemove, cmd.ErrSilent, ".*operations that remove.*")
+	s.processErrorTest(c, common.ErrOperationBlocked, block.BlockDestroy, cmd.ErrSilent, ".*destroy-environment operation has been blocked.*")
 }
 
-func (s *BlockableRemoveCommandSuite) TestProcessErrNil(c *gc.C) {
-	s.processErrorTest(c, nil, BlockDestroy, nil, "")
+func (s *BlockCommandSuite) TestProcessErrNil(c *gc.C) {
+	s.processErrorTest(c, nil, block.BlockDestroy, nil, "")
 }
 
-func (s *BlockableRemoveCommandSuite) TestProcessErrAny(c *gc.C) {
+func (s *BlockCommandSuite) TestProcessErrAny(c *gc.C) {
 	err := errors.New("Test error Processing")
-	s.processErrorTest(c, err, BlockDestroy, err, "")
+	s.processErrorTest(c, err, block.BlockDestroy, err, "")
 }

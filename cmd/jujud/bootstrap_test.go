@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -89,6 +91,7 @@ func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 		StatePort:      args.StatePort,
 		Cert:           args.Cert,
 		PrivateKey:     args.PrivateKey,
+		CAPrivateKey:   args.CAPrivateKey,
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
@@ -196,10 +199,11 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		},
 	}
 	servingInfo := params.StateServingInfo{
-		Cert:       "some cert",
-		PrivateKey: "some key",
-		APIPort:    3737,
-		StatePort:  gitjujutesting.MgoServer.Port(),
+		Cert:         "some cert",
+		PrivateKey:   "some key",
+		CAPrivateKey: "another key",
+		APIPort:      3737,
+		StatePort:    gitjujutesting.MgoServer.Port(),
 	}
 
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
@@ -648,7 +652,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 	}
 
 	var stor statetesting.MapStorage
-	s.PatchValue(&stateStorage, func(*state.State) state.Storage {
+	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
 		return &stor
 	})
 

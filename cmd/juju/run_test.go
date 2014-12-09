@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -267,6 +268,21 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
 }
 
+func (s *RunSuite) TestBlockRunForMachineAndUnit(c *gc.C) {
+	mock := s.setupMockAPI()
+	// Block operation
+	mock.block = true
+	s.AssertConfigParameterUpdated(c, "block-all-changes", "true")
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
+		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
+		"-e blah",
+	)
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *RunSuite) TestAllMachines(c *gc.C) {
 	mock := s.setupMockAPI()
 	mock.setMachinesAlive("0", "1")
@@ -292,6 +308,17 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
+}
+
+func (s *RunSuite) TestBlockAllMachines(c *gc.C) {
+	mock := s.setupMockAPI()
+	// Block operation
+	mock.block = true
+	_, err := testing.RunCommand(c, &RunCommand{}, "--format=json", "--all", "hostname")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *RunSuite) TestSingleResponse(c *gc.C) {
@@ -363,6 +390,7 @@ type mockRunAPI struct {
 	// machines, services, units
 	machines  map[string]bool
 	responses map[string]params.RunResult
+	block     bool
 }
 
 type mockResponse struct {
@@ -410,14 +438,20 @@ func (*mockRunAPI) Close() error {
 }
 
 func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
+	var result []params.RunResult
 
+	if m.block {
+		return result, &params.Error{
+			Code:    params.CodeOperationBlocked,
+			Message: "The operation has been blocked.",
+		}
+	}
 	sortedMachineIds := make([]string, 0, len(m.machines))
 	for machineId := range m.machines {
 		sortedMachineIds = append(sortedMachineIds, machineId)
 	}
 	sort.Strings(sortedMachineIds)
 
-	var result []params.RunResult
 	for _, machineId := range sortedMachineIds {
 		response, found := m.responses[machineId]
 		if !found {
@@ -432,6 +466,13 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 
 func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.RunResult, error) {
 	var result []params.RunResult
+
+	if m.block {
+		return result, &params.Error{
+			Code:    params.CodeOperationBlocked,
+			Message: "The operation has been blocked.",
+		}
+	}
 	// Just add in ids that match in order.
 	for _, id := range runParams.Machines {
 		response, found := m.responses[id]

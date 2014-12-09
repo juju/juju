@@ -503,7 +503,7 @@ func (u *Unit) EnsureDead() (err error) {
 	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
+	if notDead, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !notDead {
 		return nil
@@ -835,8 +835,9 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 
 	db, closer := u.st.newDB()
 	defer closer()
-	units := db.C(unitsC)
-	charms := db.C(charmsC)
+	envUUID := u.st.EnvironUUID()
+	units := getCollectionFromDB(db, unitsC, envUUID)
+	charms := getCollectionFromDB(db, charmsC, envUUID)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -858,7 +859,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			// Already set
 			return nil, jujutxn.ErrNoOperations
 		}
-		if count, err := charms.FindId(u.st.docID(curl.String())).Count(); err != nil {
+		if count, err := charms.FindId(curl.String()).Count(); err != nil {
 			return nil, errors.Trace(err)
 		} else if count < 1 {
 			return nil, errors.Errorf("unknown charm url %q", curl)
@@ -975,7 +976,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	defer closer()
 
 	pudoc := unitDoc{}
-	err = units.FindId(u.st.docID(u.doc.Principal)).One(&pudoc)
+	err = units.FindId(u.doc.Principal).One(&pudoc)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("principal unit %q of %q", u.doc.Principal, u)
 	} else if err != nil {
@@ -1354,14 +1355,14 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	var machinesWithContainers = make([]string, len(containerRefs))
 	for i, cref := range containerRefs {
-		machinesWithContainers[i] = u.st.docID(cref.Id)
+		machinesWithContainers[i] = cref.Id
 	}
 	terms := bson.D{
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", true},
-		{"_id", bson.D{{"$nin", machinesWithContainers}}},
+		{"machineid", bson.D{{"$nin", machinesWithContainers}}},
 	}
 	// Add the container filter term if necessary.
 	var containerType instance.ContainerType
@@ -1621,7 +1622,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	} else if err != txn.ErrAborted {
 		return err
 	}
-	if ok, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
+	if ok, err := isNotDead(u.st, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !ok {
 		return ErrDead
@@ -1653,5 +1654,9 @@ func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, er
 	if !ok {
 		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics)
+	service, err := u.Service()
+	if err != nil {
+		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
+	}
+	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
 }

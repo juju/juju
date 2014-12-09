@@ -204,7 +204,7 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	defer closer()
 
 	var instData instanceData
-	err := instanceDataCollection.FindId(st.docID(id)).One(&instData)
+	err := instanceDataCollection.FindId(id).One(&instData)
 	if err == mgo.ErrNotFound {
 		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}
@@ -855,7 +855,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
-	} else if alive, err := isAlive(m.st.db, machinesC, m.doc.DocID); err != nil {
+	} else if alive, err := isAlive(m.st, machinesC, m.doc.DocID); err != nil {
 		return err
 	} else if !alive {
 		return errNotAlive
@@ -1037,7 +1037,6 @@ func (m *Machine) Networks() ([]*Network, error) {
 	networksCollection, closer := m.st.getCollection(networksC)
 	defer closer()
 
-	// TODO(waigani) - ENVUUID - query needs to filter by env: {"env-uuid", m.st.EnvironUUID()}
 	sel := bson.D{{"name", bson.D{{"$in", requestedNetworks}}}}
 	err = networksCollection.Find(sel).All(&docs)
 	if err != nil {

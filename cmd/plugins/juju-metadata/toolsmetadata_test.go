@@ -96,18 +96,26 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 	return buf.String()
 }
 
+var expectedOutputDirectoryReleasedTemplate = expectedOutputCommon + `
+.*Writing tools/streams/v1/index2\.json
+.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
+`
+
 var expectedOutputDirectoryTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 `
+
 var expectedOutputMirrorsTemplate = expectedOutputCommon + `
 .*Writing tools/streams/v1/index2\.json
+.*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-{{.Stream}}-tools\.json
 .*Writing tools/streams/v1/mirrors\.json
 `
 
 var expectedOutputDirectoryLegacyReleased = "No stream specified, defaulting to released tools in the releases directory.\n" +
-	makeExpectedOutput(expectedOutputDirectoryTemplate, "released", "releases")
+	makeExpectedOutput(expectedOutputDirectoryReleasedTemplate, "released", "releases")
 
 var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemplate, "released", "released")
 
@@ -311,6 +319,7 @@ Finding tools in .*
 .*Fetching tools from dir "released" to generate hash: %s
 .*Fetching tools from dir "released" to generate hash: %s
 .*Writing tools/streams/v1/index2\.json
+.*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju-released-tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)

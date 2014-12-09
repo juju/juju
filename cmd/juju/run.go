@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // RunCommand is responsible for running arbitrary commands on remote machines.
@@ -193,7 +194,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 
 	// If we are just dealing with one result, AND we are using the smart

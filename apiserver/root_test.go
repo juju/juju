@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -382,4 +383,32 @@ func (r *rootSuite) TestDescribeFacades(c *gc.C) {
 	clientVersions := asMap["Client"]
 	c.Assert(len(clientVersions), jc.GreaterThan, 0)
 	c.Check(clientVersions[0], gc.Equals, 0)
+}
+
+type stubStateEntity struct{ tag names.Tag }
+
+func (e *stubStateEntity) Tag() names.Tag { return e.tag }
+
+func (r *rootSuite) TestAuthOwner(c *gc.C) {
+
+	tag, err := names.ParseUnitTag("unit-postgresql-0")
+	if err != nil {
+		c.Errorf("error parsing unit tag for test: %s", err)
+	}
+
+	entity := &stubStateEntity{tag}
+
+	apiHandler := apiserver.ApiHandlerWithEntity(entity)
+	authorized := apiHandler.AuthOwner(tag)
+
+	c.Check(authorized, jc.IsTrue)
+
+	incorrectTag, err := names.ParseUnitTag("unit-mysql-0")
+	if err != nil {
+		c.Errorf("error parsing unit tag for test: %s", err)
+	}
+
+	authorized = apiHandler.AuthOwner(incorrectTag)
+
+	c.Check(authorized, jc.IsFalse)
 }

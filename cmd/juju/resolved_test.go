@@ -6,6 +6,9 @@ package main
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"strings"
+
+	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -99,4 +102,25 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 			c.Assert(unit.Resolved(), gc.Equals, t.mode)
 		}
 	}
+}
+
+func (s *ResolvedSuite) TestBlockResolved(c *gc.C) {
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
+	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
+		u, err := s.State.Unit(name)
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.SetStatus(state.StatusError, "lol borken", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	err = runResolved(c, []string{"dummy/2"})
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }

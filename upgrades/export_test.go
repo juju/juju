@@ -12,7 +12,7 @@ var (
 	CharmBundleURL            = &charmBundleURL
 	CharmStoragePath          = &charmStoragePath
 	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
-	StateStorage              = &stateStorage
+	NewStateStorage           = &newStateStorage
 	StateToolsStorage         = &stateToolsStorage
 
 	ChownPath      = &chownPath

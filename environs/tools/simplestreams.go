@@ -458,16 +458,21 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 }
 
 // WriteMetadata writes the given tools metadata for the specified streams to the given storage.
-// streamMetadata contains all known metadata so that the correct index file can be written.
+// streamMetadata contains all known metadata so that the correct index files can be written.
 // Only product files for the specified streams are written.
 func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, streams []string, writeMirrors ShouldWriteMirrors) error {
 	updated := time.Now()
-	index, products, err := MarshalToolsMetadataJSON(streamMetadata, updated)
+	index, legacyIndex, products, err := MarshalToolsMetadataJSON(streamMetadata, updated)
 	if err != nil {
 		return err
 	}
 	metadataInfo := []MetadataFile{
 		{simplestreams.UnsignedIndex(currentStreamsVersion, IndexFileVersion), index},
+	}
+	if legacyIndex != nil {
+		metadataInfo = append(metadataInfo, MetadataFile{
+			simplestreams.UnsignedIndex(currentStreamsVersion, 1), legacyIndex,
+		})
 	}
 	for _, stream := range streams {
 		if metadata, ok := products[stream]; ok {
