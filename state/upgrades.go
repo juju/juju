@@ -541,6 +541,54 @@ func MigrateMachineInstanceIdToInstanceData(st *State) error {
 	return st.runTransaction(ops)
 }
 
+// AddAvailabilityZoneToInstanceData sets the AvailZone field on
+// instanceData docs that don't have it already.
+func AddAvailabilityZoneToInstanceData(st *State, azFunc func(*State, instance.Id) (string, error)) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	instDatas, closer := st.getRawCollection(instanceDataC)
+	defer closer()
+
+	var ops []txn.Op
+	// Using bson.M instead of a struct is important because we need to
+	// know if the "availzone" key is set on the raw doc.
+	var doc bson.M
+	iter := instDatas.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		zone, ok := doc["availzone"]
+		if ok {
+			continue
+		}
+
+		zone, err := azFunc(st, instance.Id(doc["instanceid"].(string)))
+		if err != nil {
+			if !errors.IsNotSupported(err) {
+				return errors.Trace(err)
+			}
+			zone = ""
+		}
+
+		// Set AvailZone.
+		ops = append(ops, txn.Op{
+			C:      instanceDataC,
+			Id:     doc["_id"].(string),
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"availzone", zone}}},
+			},
+		})
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	err = st.runTransaction(ops)
+	return errors.Trace(err)
+}
+
 // AddEnvUUIDToServices prepends the environment UUID to the ID of
 // all service docs and adds new "env-uuid" field.
 func AddEnvUUIDToServices(st *State) error {

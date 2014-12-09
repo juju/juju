@@ -177,16 +177,18 @@ type instanceData struct {
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	Tags       *[]string   `bson:"tags,omitempty"`
+	AvailZone  *string     `bson:"availzone,omitempty"`
 }
 
 func hardwareCharacteristics(instData instanceData) *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
-		Arch:     instData.Arch,
-		Mem:      instData.Mem,
-		RootDisk: instData.RootDisk,
-		CpuCores: instData.CpuCores,
-		CpuPower: instData.CpuPower,
-		Tags:     instData.Tags,
+		Arch:             instData.Arch,
+		Mem:              instData.Mem,
+		RootDisk:         instData.RootDisk,
+		CpuCores:         instData.CpuCores,
+		CpuPower:         instData.CpuPower,
+		Tags:             instData.Tags,
+		AvailabilityZone: instData.AvailZone,
 	}
 }
 
@@ -780,6 +782,23 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 	return NotProvisionedError(m.Id())
 }
 
+// AvailabilityZone returns the provier-specific instance availability
+// zone in which the machine was provisioned.
+func (m *Machine) AvailabilityZone() (string, error) {
+	instData, err := getInstanceData(m.st, m.Id())
+	if errors.IsNotFound(err) {
+		return "", errors.Trace(NotProvisionedError(m.Id()))
+	}
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	var zone string
+	if instData.AvailZone != nil {
+		zone = *instData.AvailZone
+	}
+	return zone, nil
+}
+
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
@@ -834,6 +853,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
 		Tags:       characteristics.Tags,
+		AvailZone:  characteristics.AvailabilityZone,
 	}
 
 	ops := []txn.Op{
@@ -883,7 +903,7 @@ func (m *Machine) SetInstanceInfo(
 			// Ignore already existing networks.
 			continue
 		} else if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	for _, iface := range interfaces {
@@ -892,7 +912,7 @@ func (m *Machine) SetInstanceInfo(
 			// Ignore already existing network interfaces.
 			continue
 		} else if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
