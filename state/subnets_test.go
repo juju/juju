@@ -218,6 +218,7 @@ func (s *SubnetSuite) getSubnetForAddressPicking(c *gc.C, allocatableHigh string
 	c.Assert(err, jc.ErrorIsNil)
 	return subnet
 }
+
 func (s *SubnetSuite) TestPickNewAddressAddressesExhausted(c *gc.C) {
 	subnet := s.getSubnetForAddressPicking(c, "192.168.1.0")
 	addr := network.NewAddress("192.168.1.0", network.ScopeUnknown)
