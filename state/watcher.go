@@ -1394,7 +1394,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []st
 	doc := unitDoc{}
 	newUnits, closer := w.st.getCollection(unitsC)
 	defer closer()
-	err = newUnits.FindId(w.st.docID(unitName)).One(&doc)
+	err = newUnits.FindId(unitName).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, err
 	}

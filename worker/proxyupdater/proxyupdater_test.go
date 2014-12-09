@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machineenvironmentworker_test
+package proxyupdater_test
 
 import (
 	"io/ioutil"
@@ -9,25 +9,22 @@ import (
 	"path"
 	"time"
 
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/machineenvironmentworker"
+	"github.com/juju/juju/worker/proxyupdater"
 )
 
-type MachineEnvironmentWatcherSuite struct {
+type ProxyUpdaterSuite struct {
 	jujutesting.JujuConnSuite
 
 	apiRoot        *api.State
@@ -38,9 +35,9 @@ type MachineEnvironmentWatcherSuite struct {
 	started   chan struct{}
 }
 
-var _ = gc.Suite(&MachineEnvironmentWatcherSuite{})
+var _ = gc.Suite(&ProxyUpdaterSuite{})
 
-func (s *MachineEnvironmentWatcherSuite) setStarted() {
+func (s *ProxyUpdaterSuite) setStarted() {
 	select {
 	case <-s.started:
 	default:
@@ -48,22 +45,22 @@ func (s *MachineEnvironmentWatcherSuite) setStarted() {
 	}
 }
 
-func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
+func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.apiRoot, s.machine = s.OpenAPIAsNewMachine(c)
-	// Create the machiner API facade.
+	// Create the environment API facade.
 	s.environmentAPI = s.apiRoot.Environment()
 	c.Assert(s.environmentAPI, gc.NotNil)
 
 	proxyDir := c.MkDir()
-	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
+	s.PatchValue(&proxyupdater.ProxyDirectory, proxyDir)
 	s.started = make(chan struct{})
-	s.PatchValue(&machineenvironmentworker.Started, s.setStarted)
+	s.PatchValue(&proxyupdater.Started, s.setStarted)
 	s.PatchValue(&apt.ConfFile, path.Join(proxyDir, "juju-apt-proxy"))
-	s.proxyFile = path.Join(proxyDir, machineenvironmentworker.ProxyFile)
+	s.proxyFile = path.Join(proxyDir, proxyupdater.ProxyFile)
 }
 
-func (s *MachineEnvironmentWatcherSuite) waitForPostSetup(c *gc.C) {
+func (s *ProxyUpdaterSuite) waitForPostSetup(c *gc.C) {
 	select {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timeout while waiting for setup")
@@ -71,7 +68,7 @@ func (s *MachineEnvironmentWatcherSuite) waitForPostSetup(c *gc.C) {
 	}
 }
 
-func (s *MachineEnvironmentWatcherSuite) waitProxySettings(c *gc.C, expected proxy.Settings) {
+func (s *ProxyUpdaterSuite) waitProxySettings(c *gc.C, expected proxy.Settings) {
 	for {
 		select {
 		case <-time.After(testing.LongWait):
@@ -87,7 +84,7 @@ func (s *MachineEnvironmentWatcherSuite) waitProxySettings(c *gc.C, expected pro
 	}
 }
 
-func (s *MachineEnvironmentWatcherSuite) waitForFile(c *gc.C, filename, expected string) {
+func (s *ProxyUpdaterSuite) waitForFile(c *gc.C, filename, expected string) {
 	for {
 		select {
 		case <-time.After(testing.LongWait):
@@ -107,17 +104,12 @@ func (s *MachineEnvironmentWatcherSuite) waitForFile(c *gc.C, filename, expected
 	}
 }
 
-func (s *MachineEnvironmentWatcherSuite) makeWorker(c *gc.C, agentConfig agent.Config) worker.Worker {
-	return machineenvironmentworker.NewMachineEnvironmentWorker(s.environmentAPI, agentConfig)
+func (s *ProxyUpdaterSuite) TestRunStop(c *gc.C) {
+	updater := proxyupdater.New(s.environmentAPI, false)
+	c.Assert(worker.Stop(updater), gc.IsNil)
 }
 
-func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
-	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
-	envWorker := s.makeWorker(c, agentConfig)
-	c.Assert(worker.Stop(envWorker), gc.IsNil)
-}
-
-func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
+func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
 
 	proxySettings := proxy.Settings{
 		Http:    "http proxy",
@@ -149,24 +141,22 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (proxy.Settings, 
 	return proxySettings, aptProxySettings
 }
 
-func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
-	envWorker := s.makeWorker(c, agentConfig)
-	defer worker.Stop(envWorker)
+	updater := proxyupdater.New(s.environmentAPI, true)
+	defer worker.Stop(updater)
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
 	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
 }
 
-func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
-	envWorker := s.makeWorker(c, agentConfig)
-	defer worker.Stop(envWorker)
+	updater := proxyupdater.New(s.environmentAPI, true)
+	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 
 	s.waitProxySettings(c, proxySettings)
@@ -174,49 +164,14 @@ func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
 	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
 }
 
-func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) {
-	proxySettings, aptProxySettings := s.updateConfig(c)
-
-	agentConfig := agentConfig(names.NewMachineTag("1"), provider.Local)
-	envWorker := s.makeWorker(c, agentConfig)
-	defer worker.Stop(envWorker)
-
-	s.waitProxySettings(c, proxySettings)
-	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
-	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
-}
-
-func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) {
+func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
 	proxySettings, _ := s.updateConfig(c)
 
-	agentConfig := agentConfig(names.NewMachineTag("0"), provider.Local)
-	envWorker := s.makeWorker(c, agentConfig)
-	defer worker.Stop(envWorker)
+	updater := proxyupdater.New(s.environmentAPI, false)
+	defer worker.Stop(updater)
 	s.waitForPostSetup(c)
 
 	s.waitProxySettings(c, proxySettings)
-
 	c.Assert(apt.ConfFile, jc.DoesNotExist)
 	c.Assert(s.proxyFile, jc.DoesNotExist)
-}
-
-type mockConfig struct {
-	agent.Config
-	tag      names.MachineTag
-	provider string
-}
-
-func (mock *mockConfig) Tag() names.Tag {
-	return mock.tag
-}
-
-func (mock *mockConfig) Value(key string) string {
-	if key == agent.ProviderType {
-		return mock.provider
-	}
-	return ""
-}
-
-func agentConfig(machineTag names.MachineTag, provider string) *mockConfig {
-	return &mockConfig{tag: machineTag, provider: provider}
 }

@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machineenvironmentworker
+package proxyupdater
 
 import (
 	"fmt"
@@ -9,22 +9,19 @@ import (
 	"path"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/exec"
 	proxyutils "github.com/juju/utils/proxy"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
 var (
-	logger = loggo.GetLogger("juju.worker.machineenvironment")
+	logger = loggo.GetLogger("juju.worker.proxyupdater")
 
 	// ProxyDirectory is the directory containing the proxy file that contains
 	// the environment settings for the proxies based on the environment
@@ -41,12 +38,12 @@ var (
 	Started = func() {}
 )
 
-// MachineEnvironmentWorker is responsible for monitoring the juju environment
+// proxyWorker is responsible for monitoring the juju environment
 // configuration and making changes on the physical (or virtual) machine as
 // necessary to match the environment changes.  Examples of these types of
 // changes are apt proxy configuration and the juju proxies stored in the juju
 // proxy file.
-type MachineEnvironmentWorker struct {
+type proxyWorker struct {
 	api      *environment.Facade
 	aptProxy proxyutils.Settings
 	proxy    proxyutils.Settings
@@ -63,20 +60,13 @@ type MachineEnvironmentWorker struct {
 	first bool
 }
 
-var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
+var _ worker.NotifyWatchHandler = (*proxyWorker)(nil)
 
-// NewMachineEnvironmentWorker returns a worker.Worker that uses the notify
-// watcher returned from the setup.
-func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Config) worker.Worker {
-	// TODO(fwereade) 23-10-2014 bug 1384565
-	// This is a hideous layering violation. MEW ought to be parameterised with a
-	// writeSystemFiles bool.
-	// We don't write out system files for the local provider on machine zero
-	// as that is the host machine.
-	writeSystemFiles := (agentConfig.Tag() != names.NewMachineTag("0") ||
-		agentConfig.Value(agent.ProviderType) != provider.Local)
+// New returns a worker.Worker that updates proxy environment variables for the
+// process; and, if writeSystemFiles is true, for the whole machine.
+var New = func(api *environment.Facade, writeSystemFiles bool) worker.Worker {
 	logger.Debugf("write system files: %v", writeSystemFiles)
-	envWorker := &MachineEnvironmentWorker{
+	envWorker := &proxyWorker{
 		api:              api,
 		writeSystemFiles: writeSystemFiles,
 		first:            true,
@@ -84,7 +74,7 @@ func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Conf
 	return worker.NewNotifyWorker(envWorker)
 }
 
-func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
+func (w *proxyWorker) writeEnvironmentFile() error {
 	// Writing the environment file is handled by executing the script for two
 	// primary reasons:
 	//
@@ -119,7 +109,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	return nil
 }
 
-func (w *MachineEnvironmentWorker) writeEnvironmentToRegistry() error {
+func (w *proxyWorker) writeEnvironmentToRegistry() error {
 	// On windows we write the proxy settings to the registry.
 	setProxyScript := `$value_path = "%s"
     $new_proxy = "%s"
@@ -141,7 +131,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentToRegistry() error {
 	return nil
 }
 
-func (w *MachineEnvironmentWorker) writeEnvironment() error {
+func (w *proxyWorker) writeEnvironment() error {
 	osystem, err := version.GetOSFromSeries(version.Current.Series)
 	if err != nil {
 		return err
@@ -154,7 +144,7 @@ func (w *MachineEnvironmentWorker) writeEnvironment() error {
 	}
 }
 
-func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxyutils.Settings) {
+func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
@@ -168,7 +158,7 @@ func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxyutils.Se
 	}
 }
 
-func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings proxyutils.Settings) {
+func (w *proxyWorker) handleAptProxyValues(aptSettings proxyutils.Settings) {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
@@ -182,7 +172,7 @@ func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings proxyutils.S
 	}
 }
 
-func (w *MachineEnvironmentWorker) onChange() error {
+func (w *proxyWorker) onChange() error {
 	env, err := w.api.EnvironConfig()
 	if err != nil {
 		return err
@@ -193,7 +183,7 @@ func (w *MachineEnvironmentWorker) onChange() error {
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
-func (w *MachineEnvironmentWorker) SetUp() (watcher.NotifyWatcher, error) {
+func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	err := w.onChange()
@@ -206,12 +196,12 @@ func (w *MachineEnvironmentWorker) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (w *MachineEnvironmentWorker) Handle() error {
+func (w *proxyWorker) Handle() error {
 	return w.onChange()
 }
 
 // TearDown is defined on the worker.NotifyWatchHandler interface.
-func (w *MachineEnvironmentWorker) TearDown() error {
+func (w *proxyWorker) TearDown() error {
 	// Nothing to cleanup, only state is the watcher
 	return nil
 }

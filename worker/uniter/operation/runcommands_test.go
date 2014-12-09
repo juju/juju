@@ -22,46 +22,52 @@ var _ = gc.Suite(&RunCommandsSuite{})
 
 func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
-		MockNewRunner: &MockNewRunner{err: errors.New("blooey")},
+		MockNewCommandRunner: &MockNewCommandRunner{err: errors.New("blooey")},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
-	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
+	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, gc.ErrorMatches, "blooey")
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewRunner.gotRelationId, gc.Equals, 123)
-	c.Assert(*runnerFactory.MockNewRunner.gotRemoteUnitName, gc.Equals, "foo/456")
+	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
+		RelationId:      123,
+		RemoteUnitName:  "foo/456",
+		ForceRemoteUnit: true,
+	})
 }
 
 func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
-		MockNewRunner: &MockNewRunner{},
+		MockNewCommandRunner: &MockNewCommandRunner{},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
-	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
+	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newState, err := op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.IsNil)
-	c.Assert(*runnerFactory.MockNewRunner.gotRelationId, gc.Equals, 123)
-	c.Assert(*runnerFactory.MockNewRunner.gotRemoteUnitName, gc.Equals, "foo/456")
+	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, runner.CommandInfo{
+		RelationId:      123,
+		RemoteUnitName:  "foo/456",
+		ForceRemoteUnit: true,
+	})
 }
 
 func (s *RunCommandsSuite) TestExecuteLockError(c *gc.C) {
 	runnerFactory := &MockRunnerFactory{
-		MockNewRunner: &MockNewRunner{},
+		MockNewCommandRunner: &MockNewCommandRunner{},
 	}
 	callbacks := &RunCommandsCallbacks{
 		MockAcquireExecutionLock: &MockAcquireExecutionLock{err: errors.New("sneh")},
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
-	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
+	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,7 +88,7 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 		}
 		factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 		sendResponse := &MockSendResponse{}
-		op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse.Call)
+		op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = op.Prepare(operation.State{})
 		c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +98,7 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
 		c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-		c.Assert(*runnerFactory.MockNewRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
+		c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 		c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 101})
 		c.Assert(*sendResponse.gotErr, gc.Equals, operation.ErrNeedsReboot)
 	}
@@ -107,7 +113,7 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 	sendResponse := &MockSendResponse{}
-	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse.Call)
+	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,7 +123,7 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-	c.Assert(*runnerFactory.MockNewRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
+	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.IsNil)
 	c.Assert(*sendResponse.gotErr, gc.ErrorMatches, "sneh")
 }
@@ -131,7 +137,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	}
 	factory := operation.NewFactory(nil, runnerFactory, callbacks, nil)
 	sendResponse := &MockSendResponse{}
-	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse.Call)
+	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = op.Prepare(operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,7 +147,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*callbacks.MockAcquireExecutionLock.gotMessage, gc.Equals, "run commands")
 	c.Assert(callbacks.MockAcquireExecutionLock.didUnlock, jc.IsTrue)
-	c.Assert(*runnerFactory.MockNewRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
+	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
 	c.Assert(*sendResponse.gotResponse, gc.DeepEquals, &utilexec.ExecResponse{Code: 222})
 	c.Assert(*sendResponse.gotErr, jc.ErrorIsNil)
 }
@@ -149,7 +155,7 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 func (s *RunCommandsSuite) TestCommit(c *gc.C) {
 	factory := operation.NewFactory(nil, nil, nil, nil)
 	sendResponse := func(*utilexec.ExecResponse, error) { panic("not expected") }
-	op, err := factory.NewCommands("do something", 123, "foo/456", sendResponse)
+	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 	newState, err := op.Commit(operation.State{})
 	c.Assert(newState, gc.IsNil)

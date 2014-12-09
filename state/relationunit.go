@@ -80,8 +80,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	rsDocID := ru.st.docID(ruKey)
-	if count, err := relationScopes.FindId(rsDocID).Count(); err != nil {
+	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		return nil
@@ -110,7 +109,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   is considered to be a guarantee of the existence of a settings doc.
 	settingsChanged := func() (bool, error) { return false, nil }
 	settingsColl := getCollectionFromDB(db, settingsC, envUUID)
-	if count, err := settingsColl.FindId(ru.st.docID(ruKey)).Count(); err != nil {
+	if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
@@ -124,6 +123,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// * Create the scope doc.
+	rsDocID := ru.st.docID(ruKey)
 	ops = append(ops, txn.Op{
 		C:      relationScopesC,
 		Id:     rsDocID,
@@ -251,15 +251,14 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	if err != nil {
 		return err
 	}
-	docID := ru.st.docID(key)
-	if count, err := relationScopes.FindId(docID).Count(); err != nil {
+	if count, err := relationScopes.FindId(key).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		return nil
 	}
 	ops := []txn.Op{{
 		C:      relationScopesC,
-		Id:     docID,
+		Id:     ru.st.docID(key),
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
 	return ru.st.runTransaction(ops)
@@ -278,7 +277,6 @@ func (ru *RelationUnit) LeaveScope() error {
 	if err != nil {
 		return err
 	}
-	docID := ru.st.docID(key)
 	// The logic below is involved because we remove a dying relation
 	// with the last unit that leaves a scope in it. It handles three
 	// possible cases:
@@ -310,7 +308,7 @@ func (ru *RelationUnit) LeaveScope() error {
 				return nil, err
 			}
 		}
-		count, err := relationScopes.FindId(docID).Count()
+		count, err := relationScopes.FindId(key).Count()
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
@@ -318,7 +316,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		ops := []txn.Op{{
 			C:      relationScopesC,
-			Id:     docID,
+			Id:     ru.st.docID(key),
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
@@ -372,7 +370,7 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	sel = append(sel, bson.D{{"_id", ru.st.docID(key)}}...)
+	sel = append(sel, bson.D{{"_id", key}}...)
 	count, err := relationScopes.Find(sel).Count()
 	if err != nil {
 		return false, err

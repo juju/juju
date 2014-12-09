@@ -690,7 +690,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	err = charms.Find(bson.D{{"_id", st.docID(curl.String())}, {"placeholder", true}}).One(&existing)
+	err = charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
 		cdoc := &charmDoc{
 			DocID:        st.docID(curl.String()),
@@ -735,7 +735,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 	cdoc := &charmDoc{}
 	what := bson.D{
-		{"_id", st.docID(curl.String())},
+		{"_id", curl.String()},
 		{"placeholder", bson.D{{"$ne", true}}},
 		{"pendingupload", bson.D{{"$ne", true}}},
 	}
@@ -870,7 +870,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(st.docID(curl.String())).One(&uploadedCharm)
+		err := charms.FindId(curl.String()).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		} else if err == nil && !uploadedCharm.Placeholder {
@@ -949,8 +949,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		query := bson.D{{"_id", st.docID(curl.String())}}
-		err := charms.Find(query).Select(bson.D{{"_id", 1}}).One(&doc)
+		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -1050,7 +1049,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(st.docID(curl.String())).One(&doc)
+	err := charms.FindId(curl.String()).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -1338,7 +1337,7 @@ func (st *State) Subnet(cidr string) (*Subnet, error) {
 	defer closer()
 
 	doc := &subnetDoc{}
-	err := subnets.FindId(st.docID(cidr)).One(doc)
+	err := subnets.FindId(cidr).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("subnet %q", cidr)
 	}
@@ -1407,7 +1406,7 @@ func (st *State) Network(name string) (*Network, error) {
 	defer closer()
 
 	doc := &networkDoc{}
-	err := networks.FindId(st.docID(name)).One(doc)
+	err := networks.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("network %q", name)
 	}
@@ -1442,7 +1441,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 		return nil, errors.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
-	err = services.FindId(st.docID(name)).One(sdoc)
+	err = services.FindId(name).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q", name)
 	}
@@ -1630,7 +1629,6 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	docID := st.docID(key)
 	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
@@ -1660,7 +1658,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
-		if exists, err := isNotDead(st, relationsC, docID); err != nil {
+		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
 			return nil, errors.Errorf("relation already exists")
@@ -1711,6 +1709,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			}
 		}
+		docID := st.docID(key)
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
@@ -1745,7 +1744,7 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 	defer closer()
 
 	doc := relationDoc{}
-	err := relations.FindId(st.docID(key)).One(&doc)
+	err := relations.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
@@ -1805,7 +1804,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	defer closer()
 
 	doc := unitDoc{}
-	err := units.FindId(st.docID(name)).One(&doc)
+	err := units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("unit %q", name)
 	}

@@ -77,25 +77,23 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 }
 
 // NewCommands is part of the Factory interface.
-func (f *factory) NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error) {
-	if commands == "" {
+func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error) {
+	if args.Commands == "" {
 		return nil, errors.New("commands required")
 	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
 	}
-	if remoteUnitName != "" {
-		if relationId == -1 {
+	if args.RemoteUnitName != "" {
+		if args.RelationId == -1 {
 			return nil, errors.New("remote unit not valid without relation")
-		} else if !names.IsValidUnit(remoteUnitName) {
-			return nil, errors.Errorf("invalid remote unit name %q", remoteUnitName)
+		} else if !names.IsValidUnit(args.RemoteUnitName) {
+			return nil, errors.Errorf("invalid remote unit name %q", args.RemoteUnitName)
 		}
 	}
 	return &runCommands{
-		commands:       commands,
-		relationId:     relationId,
-		remoteUnitName: remoteUnitName,
-		sendResponse:   sendResponse,
-		callbacks:      f.callbacks,
-		runnerFactory:  f.runnerFactory,
+		args:          args,
+		sendResponse:  sendResponse,
+		callbacks:     f.callbacks,
+		runnerFactory: f.runnerFactory,
 	}, nil
 }

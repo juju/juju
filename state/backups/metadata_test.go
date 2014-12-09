@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -100,9 +99,7 @@ func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
 
 	fi, err := archive.Stat()
 	c.Assert(err, jc.ErrorIsNil)
-	rawstat := fi.Sys()
-	c.Assert(rawstat, gc.NotNil)
-	finished := rawstat.(*syscall.Stat_t).Ctim.Sec
+	finished := backups.FileTimestamp(fi).Unix()
 
 	meta, err := backups.BuildMetadata(archive)
 	c.Assert(err, jc.ErrorIsNil)
