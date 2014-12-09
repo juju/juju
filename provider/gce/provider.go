@@ -4,9 +4,9 @@
 package gce
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/juju/errors"
 	"launchpad.net/loggo"
 
 	"github.com/juju/juju/environs"
@@ -28,7 +28,7 @@ func init() {
 	environs.RegisterProvider("gce", providerInstance)
 }
 
-var errNotImplemented = errors.New("not implemented in gce provider")
+var errNotImplemented = errors.NotImplementedf("in gce provider")
 
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// You should probably not change this method; prefer to cause SetConfig

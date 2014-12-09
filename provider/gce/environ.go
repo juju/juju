@@ -53,6 +53,7 @@ type environ struct {
 	projectID string
 }
 
+//TODO (wwitzel3): Investigate simplestreams.HasRegion for this provider
 var _ environs.Environ = (*environ)(nil)
 
 func (env *environ) Name() string {
