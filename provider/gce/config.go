@@ -55,13 +55,13 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	}
 
 	attrs := cfg.UnknownAttrs()
-	if err := set(&auth.PrivateKey, attrs, cfgPrivateKey); err != nil {
+	if err := setAttr(&auth.PrivateKey, attrs, cfgPrivateKey); err != nil {
 		return nil, err
 	}
-	if err := set(&auth.ClientId, attrs, cfgClientId); err != nil {
+	if err := setAttr(&auth.ClientId, attrs, cfgClientId); err != nil {
 		return nil, err
 	}
-	if err := set(&auth.ClientId, attrs, cfgClientEmail); err != nil {
+	if err := setAttr(&auth.ClientId, attrs, cfgClientEmail); err != nil {
 		return nil, err
 	}
 
@@ -78,7 +78,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	return &environConfig{cfg, auth}, nil
 }
 
-func set(val *string, attrs map[string]interface{}, field string) error {
+func setAttr(val *string, attrs map[string]interface{}, field string) error {
 	if i, ok := attrs[field]; ok {
 		if s, ok := i.(string); ok {
 			*val = s
