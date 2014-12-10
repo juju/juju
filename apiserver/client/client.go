@@ -107,6 +107,7 @@ func (c *Client) ServiceSet(p params.ServiceSet) error {
 //
 // TODO(Nate): rename this to ServiceSet (and remove the deprecated ServiceSet)
 // when the GUI handles the new behavior.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
@@ -116,6 +117,7 @@ func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 }
 
 // ServiceUnset implements the server side of Client.ServiceUnset.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -132,6 +134,7 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -144,6 +147,7 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 }
 
 // ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
 	var results params.ServiceCharmRelationsResults
 	service, err := c.api.state.Service(p.ServiceName)
@@ -231,6 +235,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -244,6 +249,7 @@ func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
@@ -481,6 +487,7 @@ func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings m
 }
 
 // ServiceSetCharm sets the charm for a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	// when forced, don't block
 	if !args.Force {
@@ -560,6 +567,7 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 }
 
 // ServiceDestroy destroys a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 	if err := c.check.RemoveAllowed(); err != nil {
 		return errors.Trace(err)
@@ -572,6 +580,7 @@ func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 }
 
 // GetServiceConstraints returns the constraints for a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
@@ -591,6 +600,7 @@ func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, erro
 }
 
 // SetServiceConstraints sets the constraints for a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
