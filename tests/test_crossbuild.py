@@ -11,6 +11,7 @@ from crossbuild import (
     go_tarball,
     main,
     run_command,
+    version_from_tarball,
     working_directory,
 )
 from utils import temp_dir
@@ -53,6 +54,10 @@ class CrossBuildTestCase(TestCase):
         args, kwargs = mock.call_args
         self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+
+    def test_version_from_tarball(self):
+        self.assertEqual('1.2.3', version_from_tarball('foo_1.2.3.tar.gz'))
+        self.assertEqual('1.2.3', version_from_tarball('bzr/foo_1.2.3.tar.gz'))
 
     def test_go_build(self):
         with patch('crossbuild.run_command') as mock:
