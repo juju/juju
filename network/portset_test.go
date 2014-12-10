@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"strconv"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -40,36 +42,69 @@ func (s *PortSetSuite) SetUpTest(c *gc.C) {
 	s.portRange4 = *portRange4
 }
 
+func (s *PortSetSuite) getPorts(start, end int) []int {
+	var result []int
+	for i := start; i <= end; i++ {
+		result = append(result, i)
+	}
+	return result
+}
+
+func (s *PortSetSuite) checkPortSet(c *gc.C, ports network.PortSet, protocol string, expected ...int) {
+	var sexpected []string
+	for _, port := range expected {
+		sexpected = append(sexpected, strconv.Itoa(port))
+	}
+	values := ports.PortStrings(protocol)
+
+	c.Check(values, jc.SameContents, sexpected)
+}
+
+func (s *PortSetSuite) checkPortSetTCP(c *gc.C, ports network.PortSet, expected ...int) {
+	c.Check(ports.Protocols(), jc.SameContents, []string{"tcp"})
+	s.checkPortSet(c, ports, "tcp", expected...)
+}
+
+func (s *PortSetSuite) checkPorts(c *gc.C, ports []network.Port, protocol string, expected ...int) {
+	var found []int
+	for _, port := range ports {
+		c.Check(port.Protocol, gc.Equals, protocol)
+		found = append(found, port.Number)
+	}
+	c.Check(found, jc.SameContents, expected)
+}
+
 func (s *PortSetSuite) TestNewPortSet(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange1)
 	c.Assert(portSet.IsEmpty(), jc.IsFalse)
-	c.Assert(portSet.Ports(), gc.HasLen, 100)
+
+	s.checkPortSetTCP(c, portSet, s.getPorts(8000, 8099)...)
 }
 
 func (s *PortSetSuite) TestPortSetUnion(c *gc.C) {
 	portSet1 := network.NewPortSet(s.portRange2)
 	portSet2 := network.NewPortSet(s.portRange3)
-
 	result := portSet1.Union(portSet2)
-	c.Assert(result.Ports(), gc.HasLen, 3)
+
+	s.checkPortSetTCP(c, result, 79, 80, 81)
 }
 
 func (s *PortSetSuite) TestPortSetIntersection(c *gc.C) {
 	s.portRange2.ToPort = 83
 	portSet1 := network.NewPortSet(s.portRange2)
 	portSet2 := network.NewPortSet(s.portRange3)
-
 	result := portSet1.Intersection(portSet2)
-	c.Check(result.Ports(), gc.HasLen, 2)
+
+	s.checkPortSetTCP(c, result, 80, 81)
 }
 
 func (s *PortSetSuite) TestPortSetDifference(c *gc.C) {
 	s.portRange2.ToPort = 83
 	portSet1 := network.NewPortSet(s.portRange2)
 	portSet2 := network.NewPortSet(s.portRange3)
-
 	result := portSet1.Difference(portSet2)
-	c.Assert(result.Ports(), gc.HasLen, 2)
+
+	s.checkPortSetTCP(c, result, 82, 83)
 }
 
 func (s *PortSetSuite) TestPortSetSize(c *gc.C) {
@@ -92,16 +127,16 @@ func (s *PortSetSuite) TestPortSetAdd(c *gc.C) {
 	c.Check(portSet.IsEmpty(), jc.IsFalse)
 	portSet.Add(network.Port{Number: 81, Protocol: "tcp"})
 
-	c.Assert(portSet.Ports(), gc.HasLen, 2)
+	s.checkPortSetTCP(c, portSet, 80, 81)
 }
 
 func (s *PortSetSuite) TestPortSetAddRanges(c *gc.C) {
 	s.portRange2.ToPort = 83
 	portSet := network.NewPortSet(s.portRange2)
 	c.Check(portSet.IsEmpty(), jc.IsFalse)
-
 	portSet.AddRanges(s.portRange3)
-	c.Assert(portSet.Ports(), gc.HasLen, 5)
+
+	s.checkPortSetTCP(c, portSet, s.getPorts(79, 83)...)
 }
 
 func (s *PortSetSuite) TestPortSetRemove(c *gc.C) {
@@ -113,38 +148,42 @@ func (s *PortSetSuite) TestPortSetRemove(c *gc.C) {
 
 func (s *PortSetSuite) TestPortSetContains(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2)
-	found := portSet.Contains(network.Port{Number: 80, Protocol: "tcp"})
+	isfound := portSet.Contains(network.Port{Number: 80, Protocol: "tcp"})
 
-	c.Assert(found, jc.IsTrue)
+	c.Assert(isfound, jc.IsTrue)
 }
 
 func (s *PortSetSuite) TestPortSetContainsNotFound(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2)
-	found := portSet.Contains(network.Port{Number: 81, Protocol: "tcp"})
+	isfound := portSet.Contains(network.Port{Number: 81, Protocol: "tcp"})
 
-	c.Assert(found, jc.IsFalse)
+	c.Assert(isfound, jc.IsFalse)
 }
 
 func (s *PortSetSuite) TestPortSetValues(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange3)
 	ports := portSet.Values()
-	c.Assert(ports, gc.HasLen, 3)
+
+	s.checkPorts(c, ports, "tcp", 79, 80, 81)
 }
 
 func (s *PortSetSuite) TestPortSetProtocols(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2, s.portRange4)
 	protocols := portSet.Protocols()
-	c.Assert(protocols, gc.HasLen, 2)
+
+	c.Check(protocols, jc.SameContents, []string{"tcp", "udp"})
 }
 
 func (s *PortSetSuite) TestPortSetPorts(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange3)
 	ports := portSet.Ports()
-	c.Assert(ports, gc.HasLen, 3)
+
+	s.checkPorts(c, ports, "tcp", 79, 80, 81)
 }
 
 func (s *PortSetSuite) TestPortSetPortStrings(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange3)
 	ports := portSet.PortStrings("tcp")
-	c.Assert(ports, gc.HasLen, 3)
+
+	c.Check(ports, jc.SameContents, []string{"79", "80", "81"})
 }
