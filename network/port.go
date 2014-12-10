@@ -31,9 +31,31 @@ func (p Port) GoString() string {
 	return p.String()
 }
 
-// ParsePortRangePorts builds a PortRange from the provided string
-// and protocol. Example strings: "80", "443", "12345-12349".
-func ParsePortRangePorts(portRangeStr, protocol string) (*PortRange, error) {
+// ParsePortRange builds a PortRange from the provided string. If the
+// string does not include a protocol then "tcp" is used. Validate()
+// gets called on the result before returning. If validation fails the
+// invalid PortRange is still returned.
+// Example strings: "80/tcp", "443", "12345-12349/udp".
+func ParsePortRange(portRangeStr string) (*PortRange, error) {
+	// Extract the protocol.
+	protocol := "tcp"
+	parts := strings.SplitN(portRangeStr, "/", 2)
+	if len(parts) == 2 {
+		portRangeStr = parts[0]
+		protocol = parts[1]
+	}
+
+	// Parse the ports.
+	portRange, err := parsePortRange(portRangeStr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	portRange.Protocol = protocol
+
+	return portRange, portRange.Validate()
+}
+
+func parsePortRange(portRangeStr string) (*PortRange, error) {
 	var start, end int
 	parts := strings.Split(portRangeStr, "-")
 	if len(parts) > 2 {
@@ -58,9 +80,8 @@ func ParsePortRangePorts(portRangeStr, protocol string) (*PortRange, error) {
 	}
 
 	result := PortRange{
-		Protocol: protocol,
 		FromPort: start,
 		ToPort:   end,
 	}
-	return &result, result.Validate()
+	return &result, nil
 }
