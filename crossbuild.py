@@ -103,6 +103,9 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
         go_build(
             cli_package, goroot, gopath, '386', 'windows',
             dry_run=dry_run, verbose=verbose)
+        built_cli_path = os.path.join(gopath, 'src', cli_package, 'juju.exe')
+        iss_dir = os.path.join(gopath, 'scripts', 'win-installer')
+        shutil.move(built_cli_path, iss_dir)
 
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
