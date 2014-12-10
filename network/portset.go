@@ -81,6 +81,9 @@ func (ps PortSet) PortStrings(protocol string) []string {
 
 // Add adds a Port to the PortSet.
 func (ps *PortSet) Add(port Port) {
+	if ps.values == nil {
+		panic("uninitalised set")
+	}
 	portNum := strconv.Itoa(port.Number)
 	ports, ok := ps.values[port.Protocol]
 	if !ok {
