@@ -37,13 +37,21 @@ func (*PortRangeSuite) TestParsePortRangeDefaultProtocol(c *gc.C) {
 	c.Check(portRange.ToPort, gc.Equals, 80)
 }
 
-func (*PortRangeSuite) TestParsePortRangePortsMultiRange(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeRoundTrip(c *gc.C) {
+	portRange, err := network.ParsePortRange("8000-8099/tcp")
+	c.Assert(err, jc.ErrorIsNil)
+	portRangeStr := portRange.String()
+
+	c.Check(portRangeStr, gc.Equals, "8000-8099/tcp")
+}
+
+func (*PortRangeSuite) TestParsePortRangeMultiRange(c *gc.C) {
 	_, err := network.ParsePortRange("10-55-100")
 
 	c.Check(err, gc.ErrorMatches, `invalid port range "10-55-100".*`)
 }
 
-func (*PortRangeSuite) TestParsePortRangePortsNonIntPort(c *gc.C) {
+func (*PortRangeSuite) TestParsePortRangeNonIntPort(c *gc.C) {
 	_, err := network.ParsePortRange("spam-100")
 
 	c.Check(err, gc.ErrorMatches, `invalid port "spam".*`)
