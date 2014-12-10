@@ -22,6 +22,16 @@ func NewPortSet(portRanges ...PortRange) PortSet {
 	return portMap
 }
 
+// Size returns the number of ports in the set.
+func (ps PortSet) Size() int {
+	return len(ps.Ports())
+}
+
+// IsEmpty returns true if the PortSet is empty.
+func (ps PortSet) IsEmpty() bool {
+	return len(ps.values) == 0
+}
+
 // Protocols returns a list of protocols known to the PortSet.
 func (ps PortSet) Protocols() []string {
 	var result []string
@@ -117,9 +127,4 @@ func (ps *PortSet) AddRanges(portRanges ...PortRange) {
 	for _, port := range PortRangesToPorts(portRanges) {
 		ps.Add(port)
 	}
-}
-
-// IsEmpty returns true if the PortSet is empty.
-func (ps PortSet) IsEmpty() bool {
-	return len(ps.values) == 0
 }

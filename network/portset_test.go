@@ -63,6 +63,11 @@ func (s *PortSetSuite) TestPortSetDifference(c *gc.C) {
 	c.Assert(result.Ports(), gc.HasLen, 2)
 }
 
+func (s *PortSetSuite) TestPortSetSize(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange1)
+	c.Assert(portSet.Size(), gc.Equals, 100)
+}
+
 func (s *PortSetSuite) TestPortSetIsEmpty(c *gc.C) {
 	portSet := network.NewPortSet()
 	c.Assert(portSet.IsEmpty(), jc.IsTrue)
