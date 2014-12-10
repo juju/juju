@@ -47,7 +47,7 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	if hi.Kind.IsRelation() {
-		return opc.u.relationers[hi.RelationId].PrepareHook(hi)
+		return opc.u.relations.PrepareHook(hi)
 	}
 	return string(hi.Kind), nil
 }
@@ -55,12 +55,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 // CommitHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	if hi.Kind.IsRelation() {
-		if err := opc.u.relationers[hi.RelationId].CommitHook(hi); err != nil {
-			return err
-		}
-		if hi.Kind == hooks.RelationBroken {
-			delete(opc.u.relationers, hi.RelationId)
-		}
+		return opc.u.relations.CommitHook(hi)
 	}
 	if hi.Kind == hooks.ConfigChanged {
 		opc.u.ranConfigChanged = true

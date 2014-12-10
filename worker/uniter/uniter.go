@@ -1,5 +1,4 @@
 // Copyright 2012-2014 Canonical Ltd.
-
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -28,7 +27,6 @@ import (
 	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/relation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -96,14 +94,12 @@ type deployerProxy struct {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb          tomb.Tomb
-	st            *uniter.State
-	paths         Paths
-	f             filter.Filter
-	unit          *uniter.Unit
-	service       *uniter.Service
-	relationers   map[int]*Relationer
-	relationHooks chan hook.Info
+	tomb      tomb.Tomb
+	st        *uniter.State
+	paths     Paths
+	f         filter.Filter
+	unit      *uniter.Unit
+	relations Relations
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
@@ -216,18 +212,13 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	u.service, err = u.st.Service(u.unit.ServiceTag())
+	relations, err := newRelations(u.st, unitTag, u.paths, u.tomb.Dying())
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot create relations")
 	}
-
-	u.relationers = map[int]*Relationer{}
-	u.relationHooks = make(chan hook.Info)
-	if err := u.restoreRelations(); err != nil {
-		return err
-	}
+	u.relations = relations
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -235,11 +226,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		charm.NewBundlesDir(u.paths.State.BundlesDir),
 	)
 	if err != nil {
-		return fmt.Errorf("cannot create deployer: %v", err)
+		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
 	runnerFactory, err := runner.NewFactory(
-		u.st, unitTag, u.getRelationInfos, u.paths,
+		u.st, unitTag, u.relations.GetInfo, u.paths,
 	)
 	if err != nil {
 		return err
@@ -288,16 +279,13 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-func (u *Uniter) getRelationInfos() map[int]*runner.RelationInfo {
-	relationInfos := map[int]*runner.RelationInfo{}
-	for id, r := range u.relationers {
-		relationInfos[id] = r.ContextInfo()
-	}
-	return relationInfos
-}
-
 func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
-	charmURL, _, err := u.service.CharmURL()
+	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
+	service, err := u.st.Service(u.unit.ServiceTag())
+	if err != nil {
+		return nil, err
+	}
+	charmURL, _, err := service.CharmURL()
 	return charmURL, err
 }
 
@@ -416,193 +404,6 @@ func (u *Uniter) skipHook(hi hook.Info) (err error) {
 		return err
 	}
 	return u.operationExecutor.Skip(op)
-}
-
-// getJoinedRelations finds out what relations the unit is *really* part of,
-// working around the fact that pre-1.19 (1.18.1?) unit agents don't write a
-// state dir for a relation until a remote unit joins.
-func (u *Uniter) getJoinedRelations() (map[int]*uniter.Relation, error) {
-	var joinedRelationTags []names.RelationTag
-	for {
-		var err error
-		joinedRelationTags, err = u.unit.JoinedRelations()
-		if err == nil {
-			break
-		}
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("waiting for state server to be upgraded")
-			select {
-			case <-u.tomb.Dying():
-				return nil, tomb.ErrDying
-			case <-time.After(15 * time.Second):
-				continue
-			}
-		}
-		return nil, err
-	}
-	joinedRelations := make(map[int]*uniter.Relation)
-	for _, tag := range joinedRelationTags {
-		relation, err := u.st.Relation(tag)
-		if err != nil {
-			return nil, err
-		}
-		joinedRelations[relation.Id()] = relation
-	}
-	return joinedRelations, nil
-}
-
-// restoreRelations reconciles the local relation state dirs with the
-// remote state of the corresponding relations.
-func (u *Uniter) restoreRelations() error {
-	joinedRelations, err := u.getJoinedRelations()
-	if err != nil {
-		return err
-	}
-	knownDirs, err := relation.ReadAllStateDirs(u.paths.State.RelationsDir)
-	if err != nil {
-		return err
-	}
-	for id, dir := range knownDirs {
-		if rel, ok := joinedRelations[id]; ok {
-			if err := u.addRelation(rel, dir); err != nil {
-				return err
-			}
-		} else if err := dir.Remove(); err != nil {
-			return err
-		}
-	}
-	for id, rel := range joinedRelations {
-		if _, ok := knownDirs[id]; ok {
-			continue
-		}
-		dir, err := relation.ReadStateDir(u.paths.State.RelationsDir, id)
-		if err != nil {
-			return err
-		}
-		if err := u.addRelation(rel, dir); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// updateRelations responds to changes in the life states of the relations
-// with the supplied ids. If any id corresponds to an alive relation not
-// known to the unit, the uniter will join that relation and return its
-// relationer in the added list.
-func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
-	for _, id := range ids {
-		if r, found := u.relationers[id]; found {
-			rel := r.ru.Relation()
-			if err := rel.Refresh(); err != nil {
-				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
-			}
-			if rel.Life() == params.Dying {
-				if err := r.SetDying(); err != nil {
-					return nil, err
-				} else if r.IsImplicit() {
-					delete(u.relationers, id)
-				}
-			}
-			continue
-		}
-		// Relations that are not alive are simply skipped, because they
-		// were not previously known anyway.
-		rel, err := u.st.RelationById(id)
-		if err != nil {
-			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-				continue
-			}
-			return nil, err
-		}
-		if rel.Life() != params.Alive {
-			continue
-		}
-		// Make sure we ignore relations not implemented by the unit's charm.
-		ch, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
-		if err != nil {
-			return nil, err
-		}
-		if ep, err := rel.Endpoint(); err != nil {
-			return nil, err
-		} else if !ep.ImplementedBy(ch) {
-			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
-			continue
-		}
-		dir, err := relation.ReadStateDir(u.paths.State.RelationsDir, id)
-		if err != nil {
-			return nil, err
-		}
-		err = u.addRelation(rel, dir)
-		if err == nil {
-			added = append(added, u.relationers[id])
-			continue
-		}
-		e := dir.Remove()
-		if !params.IsCodeCannotEnterScope(err) {
-			return nil, err
-		}
-		if e != nil {
-			return nil, e
-		}
-	}
-	if ok, err := u.unit.IsPrincipal(); err != nil {
-		return nil, err
-	} else if ok {
-		return added, nil
-	}
-	// If no Alive relations remain between a subordinate unit's service
-	// and its principal's service, the subordinate must become Dying.
-	keepAlive := false
-	for _, r := range u.relationers {
-		scope := r.ru.Endpoint().Scope
-		if scope == corecharm.ScopeContainer && !r.dying {
-			keepAlive = true
-			break
-		}
-	}
-	if !keepAlive {
-		if err := u.unit.Destroy(); err != nil {
-			return nil, err
-		}
-	}
-	return added, nil
-}
-
-// addRelation causes the unit agent to join the supplied relation, and to
-// store persistent state in the supplied dir.
-func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error {
-	logger.Infof("joining relation %q", rel)
-	ru, err := rel.Unit(u.unit)
-	if err != nil {
-		return err
-	}
-	r := NewRelationer(ru, dir, u.relationHooks)
-	w, err := u.unit.Watch()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(w, &u.tomb)
-	for {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
-			if !ok {
-				return watcher.EnsureErr(w)
-			}
-			err := r.Join()
-			if params.IsCodeCannotEnterScopeYet(err) {
-				logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
-				continue
-			} else if err != nil {
-				return err
-			}
-			logger.Infof("joined relation %q", rel)
-			u.relationers[rel.Id()] = r
-			return nil
-		}
-	}
 }
 
 // fixDeployer replaces the uniter's git-based charm deployer with a manifest-
