@@ -144,13 +144,17 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
             dry_run=False, verbose=verbose)
         built_agent_path = os.path.join(
             gopath, 'src', agent_package, 'jujud.exe')
-        make_agent_tarball(
+        make_win_agent_tarball(
             built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_agent_tarball(built_agent_path, version, dest_dir,
-                       dry_run=False, verbose=False):
-    pass
+def make_win_agent_tarball(built_agent_path, version, dest_dir,
+                           dry_run=False, verbose=False):
+    agent_tarball_name = 'juju-%s-win2012-amd64.tgz' % version
+    agent_tarball_path = os.path.join(dest_dir, agent_tarball_name)
+    if not dry_run:
+        with tarfile.open(name=agent_tarball_path, mode='w:gz') as tar:
+            tar.add(built_agent_path, arcname='jujud.exe')
 
 
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
