@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
@@ -95,16 +94,14 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 func assertJENVContents(c *gc.C, filename, username, password string) {
 	raw, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
-	details := map[string]interface{}{}
-	err = goyaml.Unmarshal(raw, &details)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details["user"], gc.Equals, username)
-	c.Assert(details["password"], gc.Equals, password)
-	c.Assert(details["state-servers"], gc.DeepEquals, []interface{}{"localhost:12345"})
-	c.Assert(details["ca-cert"], gc.DeepEquals, testing.CACert)
-	c.Assert(details["environ-uuid"], gc.Equals, "env-uuid")
-	_, found := details["bootstrap-config"]
-	c.Assert(found, jc.IsFalse)
+	expected := map[string]interface{}{
+		"user": username,
+		"password": password,
+		"state-servers": []interface{}{"localhost:12345"},
+		"ca-cert": testing.CACert[:len(testing.CACert)-1],
+		"environ-uuid": "env-uuid",
+	}
+	c.Assert(string(raw), jc.YAMLEquals, expected)
 }
 
 func (s *UserAddCommandSuite) AssertJENVContents(c *gc.C, filename string) {
