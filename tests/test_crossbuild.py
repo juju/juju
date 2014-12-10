@@ -209,3 +209,9 @@ class CrossBuildTestCase(TestCase):
             self.assertTrue(os.path.isfile(agent_tarball_path))
             with tarfile.open(agent_tarball_path, 'r:gz') as tar:
                 self.assertEqual(['jujud.exe'], tar.getnames())
+
+    def test_make_win_agent_tarball_with_dry_run(self):
+        with patch('tarfile.open') as mock:
+            make_win_agent_tarball(
+                'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
+        self.assertEqual(0, mock.call_count)
