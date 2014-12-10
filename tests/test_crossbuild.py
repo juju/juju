@@ -14,6 +14,7 @@ from crossbuild import (
     ISCC_CMD,
     ISS_DIR,
     make_installer,
+    make_osx_tarball,
     make_win_agent_tarball,
     main,
     run_command,
@@ -231,6 +232,27 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
             (['baz/bar_1.2.3/bin/darwin_amd64/juju',
-              'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata'],
+              'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata',
+              'baz/bar_1.2.3/src/github.com/juju/juju/'
+                'scripts/win-installer/README.txt',
+              'baz/bar_1.2.3/src/github.com/juju/juju/LICENCE',
+              ],
              '1.2.3', os.getcwd()),
             mt_mock.call_args[0])
+
+    def test_make_osx_tarball(self):
+        with temp_dir() as base_dir:
+            cmd_dir = os.path.join(base_dir, 'foo')
+            os.makedirs(cmd_dir)
+            juju_binary = os.path.join(cmd_dir,  'juju')
+            metadata_binary = os.path.join(cmd_dir,  'juju-metadata')
+            for path in [juju_binary, metadata_binary]:
+                with open(path, 'w') as jb:
+                    jb.write('juju')
+            make_osx_tarball([juju_binary, metadata_binary], '1.2.3', base_dir)
+            osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
+            self.assertTrue(os.path.isfile(osx_tarball_path))
+            with tarfile.open(osx_tarball_path, 'r:gz') as tar:
+                self.assertEqual(
+                    ['juju-bin', 'juju-bin/juju', 'juju-bin/juju-metadata'],
+                    tar.getnames())

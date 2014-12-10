@@ -20,8 +20,8 @@ CROSSCOMPILE_SOURCE = (
 INNO_SOURCE = 'http://www.jrsoftware.org/download.php/is-unicode.exe?site=1'
 ISCC_CMD = os.path.expanduser(
     '~/.wine/drive_c/Program Files (x86)/Inno Setup 5/ISCC.exe')
-ISS_DIR = os.path.join(
-    'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
+JUJU_PACKAGE_PATH = os.path.join('github.com', 'juju', 'juju')
+ISS_DIR = os.path.join('src', JUJU_PACKAGE_PATH, 'scripts', 'win-installer')
 
 
 @contextmanager
@@ -103,7 +103,7 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
 
 def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
     cwd = os.getcwd()
-    cli_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'juju')
+    cli_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd', 'juju')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
@@ -135,7 +135,7 @@ def make_installer(built_cli_path, version, gopath, dest_dir,
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
     cwd = os.getcwd()
-    agent_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'jujud')
+    agent_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd', 'jujud')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
@@ -159,7 +159,7 @@ def make_win_agent_tarball(built_agent_path, version, dest_dir,
 
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
     cwd = os.getcwd()
-    cmd_package = os.path.join('github.com', 'juju', 'juju', 'cmd') + '/...'
+    cmd_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd') + '/...'
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
@@ -170,6 +170,8 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
         binary_paths = [
             os.path.join(bin_path, 'juju'),
             os.path.join(bin_path, 'juju-metadata'),
+            os.path.join(gopath, ISS_DIR, 'README.txt'),
+            os.path.join(gopath, 'src', JUJU_PACKAGE_PATH, 'LICENCE'),
         ]
         make_osx_tarball(
             binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
@@ -177,7 +179,16 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
 
 def make_osx_tarball(binary_paths, version, dest_dir,
                      dry_run=False, verbose=False):
-    pass
+    osx_tarball_name = 'juju-%s-osx.tar.gz' % version
+    osx_tarball_path = os.path.join(dest_dir, osx_tarball_name)
+    if not dry_run:
+        with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
+            ti = tarfile.TarInfo('juju-bin')
+            ti.type = tarfile.DIRTYPE
+            tar.addfile(ti)
+            for binary_path in binary_paths:
+                arcname = 'juju-bin/%s' % os.path.basename(binary_path)
+                tar.add(binary_path, arcname=arcname)
 
 
 def parse_args(args=None):
