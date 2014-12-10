@@ -4,13 +4,13 @@
 package gce_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gitjujutesting "github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/testbase"
 )
 
 func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
@@ -29,7 +29,7 @@ func validAttrs() testing.Attrs {
 }
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	gitjujutesting.LoggingSuite
 }
 
 var _ = gc.Suite(&ConfigSuite{})

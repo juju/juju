@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

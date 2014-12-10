@@ -6,7 +6,7 @@ package gce_test
 import (
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/gce"
