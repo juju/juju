@@ -267,6 +267,8 @@ var discardOperations chan<- Operation
 
 func init() {
 	environs.RegisterProvider("dummy", &providerInstance)
+	// Also register the dummy provider under an alternative test type.
+	environs.RegisterProvider("test-provider", &providerInstance)
 
 	// Prime the first ops channel, so that naive clients can use
 	// the testing environment by simply importing it.

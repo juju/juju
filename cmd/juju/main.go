@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
@@ -171,6 +172,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 	r.RegisterSuperAlias("destroy-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+
+	// Mangage environment
+	r.Register(environment.NewSuperCommand())
+	r.RegisterSuperAlias("add-machine", "machine", "add", twoDotOhDeprecation("machine add"))
+	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))

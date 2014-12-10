@@ -19,340 +19,62 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type GetEnvironmentSuite struct {
-	jujutesting.RepoSuite
+// EnvironmentSuite tests the connectivity of all the environment subcommands.
+// These tests go from the command line, api client, api server, db. The db
+// changes are then checked.  Only one test for each command is done here to
+// check connectivity.  Exhaustive unit tests are at each layer.
+type EnvironmentSuite struct {
+	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&GetEnvironmentSuite{})
+var _ = gc.Suite(&EnvironmentSuite{})
 
-var singleValueTests = []struct {
-	key    string
-	output string
-	err    string
-}{
-	{
-		key:    "type",
-		output: "dummy",
-	}, {
-		key:    "name",
-		output: "dummyenv",
-	}, {
-		key:    "authorized-keys",
-		output: dummy.SampleConfig()["authorized-keys"].(string),
-	}, {
-		key: "unknown",
-		err: `key "unknown" not found in "dummyenv" environment.`,
-	},
+func (s *EnvironmentSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	value, found := envConfig.AllAttrs()[key]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(value, gc.Equals, expected)
 }
 
-func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
-	for _, t := range singleValueTests {
-		context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), t.key)
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			output := strings.TrimSpace(testing.Stdout(context))
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(output, gc.Equals, t.output)
-		}
+func (s *EnvironmentSuite) assertEnvValueMissing(c *gc.C, key string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, found := envConfig.AllAttrs()[key]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *EnvironmentSuite) RunEnvironmentCommand(c *gc.C, commands ...string) (*cmd.Context, error) {
+	args := []string{"environment"}
+	args = append(args, commands...)
+	context := testing.Context(c)
+	juju := NewJujuCommand(context)
+	if err := testing.InitCommand(juju, args); err != nil {
+		return context, err
 	}
+	return context, juju.Run(context)
 }
 
-func (s *GetEnvironmentSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), "name", "type")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["type"\]`)
-}
-
-func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
-	context, _ := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}))
-	output := strings.TrimSpace(testing.Stdout(context))
-
-	// Make sure that all the environment keys are there. The admin
-	// secret and CA private key are never pushed into the
-	// environment.
-	for key := range s.Environ.Config().AllAttrs() {
-		c.Logf("test for key %q", key)
-		any := `(.|\n)*`
-		pattern := fmt.Sprintf(`(?m)^%s:`, key)
-		c.Check(output, gc.Matches, any+pattern+any)
-	}
-}
-
-type SetEnvironmentSuite struct {
-	jujutesting.RepoSuite
-}
-
-var _ = gc.Suite(&SetEnvironmentSuite{})
-
-var setEnvInitTests = []struct {
-	args     []string
-	expected attributes
-	err      string
-}{
-	{
-		args: []string{},
-		err:  "no key, value pairs specified",
-	}, {
-		args: []string{"agent-version=1.2.3"},
-		err:  `agent-version must be set via upgrade-juju`,
-	}, {
-		args: []string{"missing"},
-		err:  `expected "key=value", got "missing"`,
-	}, {
-		args: []string{"key=value"},
-		expected: attributes{
-			"key": "value",
-		},
-	}, {
-		args: []string{"key=value", "key=other"},
-		err:  `key "key" specified more than once`,
-	}, {
-		args: []string{"key=value", "other=embedded=equal"},
-		expected: attributes{
-			"key":   "value",
-			"other": "embedded=equal",
-		},
-	}, {
-		args: []string{"key="},
-		expected: attributes{
-			"key": "",
-		},
-	},
-}
-
-var setUnknownKeyTests = []struct {
-	args   []string
-	output string
-}{
-	{
-		args:   []string{"authoXized-keys=abc"},
-		output: `WARNING juju.cmd.juju key "authoXized-keys" is not defined in the current environemnt configuration: possible misspelling`,
-	},
-	{
-		args:   []string{"states-port=123"},
-		output: `WARNING juju.cmd.juju key "states-port" is not defined in the current environemnt configuration: possible misspelling`,
-	},
-	{
-		args:   []string{"loggging-config=<root>=INFO;juju.provider=DEBUG"},
-		output: `WARNING juju.cmd.juju key "loggging-config" is not defined in the current environemnt configuration: possible misspelling`,
-	},
-}
-
-func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
-	for _, t := range setEnvInitTests {
-		command := &SetEnvironmentCommand{}
-		testing.TestInit(c, envcmd.Wrap(command), t.args, t.err)
-		if t.expected != nil {
-			c.Assert(command.values, gc.DeepEquals, t.expected)
-		}
-	}
-}
-
-func (s *SetEnvironmentSuite) TestSetUnknownKey(c *gc.C) {
-	for _, t := range setUnknownKeyTests {
-		ctx := testing.ContextForDir(c, s.DataDir())
-		code := cmd.Main(envcmd.Wrap(&SetEnvironmentCommand{}), ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(c.GetTestLog(), jc.Contains, t.output)
-	}
-}
-
-func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
-	// default-series not set
-	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	series, ok := stateConfig.DefaultSeries()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
-
-	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
+func (s *EnvironmentSuite) TestGet(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	stateConfig, err = s.State.EnvironConfig()
+	context, err := s.RunEnvironmentCommand(c, "get", "special")
 	c.Assert(err, jc.ErrorIsNil)
-	series, ok = stateConfig.DefaultSeries()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(series, gc.Equals, "raring")
-	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
+	c.Assert(testing.Stdout(context), gc.Equals, "known\n")
 }
 
-func (s *SetEnvironmentSuite) TestBlockEnvironmentSet(c *gc.C) {
-	// default-series not set
-	stateConfig, err := s.State.EnvironConfig()
+func (s *EnvironmentSuite) TestSet(c *gc.C) {
+	_, err := s.RunEnvironmentCommand(c, "set", "special=known")
 	c.Assert(err, jc.ErrorIsNil)
-	series, ok := stateConfig.DefaultSeries()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
-
-	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.assertEnvValue(c, "special", "known")
 }
 
-func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "ssl-hostname-verification=false")
+func (s *EnvironmentSuite) TestUnset(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"special": "known"}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	stateConfig, err := s.State.EnvironConfig()
+	_, err = s.RunEnvironmentCommand(c, "unset", "special")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateConfig.SSLHostnameVerification(), jc.IsFalse)
-}
-
-func (s *SetEnvironmentSuite) TestUnblockSetEnvironment(c *gc.C) {
-	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "block-all-changes=false")
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateConfig.PreventAllChanges(), jc.IsFalse)
-}
-
-func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=spartan", "broken=nope", "secret=sekrit")
-	c.Assert(err, jc.ErrorIsNil)
-
-	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	attrs := stateConfig.AllAttrs()
-	c.Assert(attrs["default-series"].(string), gc.Equals, "spartan")
-	c.Assert(attrs["broken"].(string), gc.Equals, "nope")
-	c.Assert(attrs["secret"].(string), gc.Equals, "sekrit")
-}
-
-func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
-	c.Assert(err, jc.ErrorIsNil)
-
-	context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), "default-series")
-	c.Assert(err, jc.ErrorIsNil)
-	output := strings.TrimSpace(testing.Stdout(context))
-
-	c.Assert(output, gc.Equals, "raring")
-}
-
-var immutableConfigTests = map[string]string{
-	"name":          "foo",
-	"type":          "local",
-	"firewall-mode": config.FwGlobal,
-	"state-port":    "1",
-	"api-port":      "666",
-}
-
-func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
-	for name, value := range immutableConfigTests {
-		param := fmt.Sprintf("%s=%s", name, value)
-		_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), param)
-		errorPattern := fmt.Sprintf("cannot change %s from .* to [\"]?%v[\"]?", name, value)
-		c.Assert(err, gc.ErrorMatches, errorPattern)
-	}
-}
-
-type UnsetEnvironmentSuite struct {
-	jujutesting.RepoSuite
-}
-
-var _ = gc.Suite(&UnsetEnvironmentSuite{})
-
-var unsetEnvTests = []struct {
-	args       []string
-	err        string
-	expected   attributes
-	unexpected []string
-}{
-	{
-		args: []string{},
-		err:  "no keys specified",
-	}, {
-		args:       []string{"xyz", "xyz"},
-		unexpected: []string{"xyz"},
-	}, {
-		args: []string{"type", "xyz"},
-		err:  "type: expected string, got nothing",
-		expected: attributes{
-			"type": "dummy",
-			"xyz":  123,
-		},
-	}, {
-		args:       []string{"xyz2", "xyz"},
-		unexpected: []string{"xyz"},
-	},
-}
-
-var unsetUnknownKeyTests = []struct {
-	args   []string
-	output string
-}{
-	{
-		args:   []string{"authorixed-keys"},
-		output: `WARNING juju.cmd.juju key "authorixed-keys" is not defined in the current environemnt configuration: possible misspelling`,
-	},
-	{
-		args:   []string{"statez-port"},
-		output: `WARNING juju.cmd.juju key "statez-port" is not defined in the current environemnt configuration: possible misspelling`,
-	},
-	{
-		args:   []string{"loggin-config"},
-		output: `WARNING juju.cmd.juju key "loggin-config" is not defined in the current environemnt configuration: possible misspelling`,
-	},
-}
-
-func (s *UnsetEnvironmentSuite) TestUnsetUnknownKey(c *gc.C) {
-	for _, t := range unsetUnknownKeyTests {
-		ctx := testing.ContextForDir(c, s.DataDir())
-		code := cmd.Main(envcmd.Wrap(&UnsetEnvironmentCommand{}), ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(c.GetTestLog(), jc.Contains, t.output)
-	}
-}
-
-func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{
-		"xyz": 123,
-	}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
-	for _, t := range unsetEnvTests {
-		c.Logf("testing unset-env %v", t.args)
-		s.initConfig(c)
-		_, err := testing.RunCommand(c, envcmd.Wrap(&UnsetEnvironmentCommand{}), t.args...)
-		if t.err != "" {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		if len(t.expected)+len(t.unexpected) != 0 {
-			stateConfig, err := s.State.EnvironConfig()
-			c.Assert(err, jc.ErrorIsNil)
-			for k, v := range t.expected {
-				vstate, ok := stateConfig.AllAttrs()[k]
-				c.Assert(ok, jc.IsTrue)
-				c.Assert(vstate, gc.Equals, v)
-			}
-			for _, k := range t.unexpected {
-				_, ok := stateConfig.AllAttrs()[k]
-				c.Assert(ok, jc.IsFalse)
-			}
-		}
-	}
-}
-
-func (s *UnsetEnvironmentSuite) TestBlockUnsetEnvironment(c *gc.C) {
-	// Block operation
-	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
-	s.initConfig(c)
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UnsetEnvironmentCommand{}), []string{"authorised-keys"}...)
-	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-
-	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	s.assertEnvValueMissing(c, "special")
 }
