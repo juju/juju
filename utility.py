@@ -7,10 +7,13 @@ import re
 from shutil import rmtree
 import subprocess
 import socket
+from StringIO import StringIO
 import sys
 from time import sleep
 from tempfile import mkdtemp
 import xml.etree.ElementTree as ET
+
+from mock import patch
 
 
 @contextmanager
@@ -164,3 +167,11 @@ def configure_logging(log_level):
     logging.basicConfig(
         level=log_level, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
+
+
+@contextmanager
+def parse_error(test_case):
+    stderr = StringIO()
+    with test_case.assertRaises(SystemExit):
+        with patch('sys.stderr', stderr):
+            yield stderr
