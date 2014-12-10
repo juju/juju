@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -49,6 +50,27 @@ func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {
 		"outlook": "hello@world.tld",
 	})
 	assertUnsetSuccess(c, s.dir, s.svc, []string{"outlook"}, charm.Settings{})
+}
+
+func (s *UnsetSuite) TestBlockUnset(c *gc.C) {
+	// Set options as preparation.
+	assertSetSuccess(c, s.dir, s.svc, []string{
+		"username=hello",
+		"outlook=hello@world.tld",
+	}, charm.Settings{
+		"username": "hello",
+		"outlook":  "hello@world.tld",
+	})
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+
+	ctx := coretesting.ContextForDir(c, s.dir)
+	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, []string{"username"}...))
+	c.Check(code, gc.Equals, 1)
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *UnsetSuite) TestUnsetOptionMultipleAtOnceSuccess(c *gc.C) {

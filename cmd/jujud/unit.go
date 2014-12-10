@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
@@ -81,6 +83,10 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
+
 	network.InitializeFromConfig(agentConfig)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
@@ -130,6 +136,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
 	})
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), false), nil
+	})
+
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {

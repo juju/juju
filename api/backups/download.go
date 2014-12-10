@@ -15,12 +15,11 @@ import (
 
 // Download returns an io.ReadCloser for the given backup id.
 func (c *Client) Download(id string) (io.ReadCloser, error) {
+	// Send the request.
 	args := params.BackupsDownloadArgs{
 		ID: id,
 	}
-
-	// Send the request.
-	_, resp, err := c.http.SendHTTPRequest("GET", "backups", &args)
+	_, resp, err := c.http.SendHTTPRequest("backups", &args)
 	if err != nil {
 		return nil, errors.Annotate(err, "while sending HTTP request")
 	}

@@ -5,6 +5,8 @@ package backups_test
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -87,4 +89,31 @@ func (s *metadataSuite) TestNewMetadataJSONReader(c *gc.C) {
 	c.Check(meta.Origin.Machine, gc.Equals, "0")
 	c.Check(meta.Origin.Hostname, gc.Equals, "myhost")
 	c.Check(meta.Origin.Version.String(), gc.Equals, "1.21-alpha3")
+}
+
+func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
+	archive, err := os.Create(filepath.Join(c.MkDir(), "juju-backup.tgz"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = archive.Write([]byte("<compressed data>"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	fi, err := archive.Stat()
+	c.Assert(err, jc.ErrorIsNil)
+	finished := backups.FileTimestamp(fi).Unix()
+
+	meta, err := backups.BuildMetadata(archive)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(meta.ID(), gc.Equals, "")
+	c.Check(meta.Checksum(), gc.Equals, "2jmj7l5rSw0yVb/vlWAYkK/YBwk=")
+	c.Check(meta.ChecksumFormat(), gc.Equals, "SHA-1, base64 encoded")
+	c.Check(meta.Size(), gc.Equals, int64(17))
+	c.Check(meta.Stored(), gc.IsNil)
+	c.Check(meta.Started.Unix(), gc.Equals, int64(time.Time{}.Unix()))
+	c.Check(meta.Finished.Unix(), gc.Equals, finished)
+	c.Check(meta.Notes, gc.Equals, "")
+	c.Check(meta.Origin.Environment, gc.Equals, backups.UnknownString)
+	c.Check(meta.Origin.Machine, gc.Equals, backups.UnknownString)
+	c.Check(meta.Origin.Hostname, gc.Equals, backups.UnknownString)
+	c.Check(meta.Origin.Version.String(), gc.Equals, backups.UnknownVersion.String())
 }

@@ -57,8 +57,6 @@ func (c *RunCommand) Info() *cmd.Info {
 }
 
 func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.showHelp, "h", false, "show help on juju-run")
-	f.BoolVar(&c.showHelp, "help", false, "")
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
 	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
 	f.StringVar(&c.relationId, "relation", "", "")
@@ -98,10 +96,6 @@ func (c *RunCommand) Init(args []string) error {
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
-	if c.showHelp {
-		return gnuflag.ErrHelp
-	}
-
 	var result *exec.ExecResponse
 	var err error
 	if c.noContext {
@@ -199,8 +193,8 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 // checkRelationId verifies that the relationId
 // given by the user is of a valid syntax, it does
 // not check that the relationId is a valid one. This
-// is done by the NewRunContext method that is part of
-// the worker/uniter/context/factory package.
+// is done by the NewRunner method that is part of
+// the worker/uniter/runner/factory package.
 func checkRelationId(value string) (int, error) {
 	if len(value) == 0 {
 		return -1, nil

@@ -6,7 +6,6 @@ package params
 import (
 	"time"
 
-	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
 
@@ -29,6 +28,12 @@ type BackupsDownloadArgs struct {
 	ID string
 }
 
+// BackupsUploadArgs holds the args for the API Upload method.
+type BackupsUploadArgs struct {
+	Data     []byte
+	Metadata BackupsMetadataResult
+}
+
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
 	ID string
@@ -37,6 +42,11 @@ type BackupsRemoveArgs struct {
 // BackupsListResult holds the list of all stored backups.
 type BackupsListResult struct {
 	List []BackupsMetadataResult
+}
+
+// BackupsListResult holds the list of all stored backups.
+type BackupsUploadResult struct {
+	ID string
 }
 
 // BackupsMetadataResult holds the metadata for a backup as returned by
@@ -56,28 +66,4 @@ type BackupsMetadataResult struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
-}
-
-// UpdateFromMetadata updates the result with the information in the
-// metadata value.
-func (r *BackupsMetadataResult) UpdateFromMetadata(meta *backups.Metadata) {
-	r.ID = meta.ID()
-
-	r.Checksum = meta.Checksum()
-	r.ChecksumFormat = meta.ChecksumFormat()
-	r.Size = meta.Size()
-	if meta.Stored() != nil {
-		r.Stored = *(meta.Stored())
-	}
-
-	r.Started = meta.Started
-	if meta.Finished != nil {
-		r.Finished = *meta.Finished
-	}
-	r.Notes = meta.Notes
-
-	r.Environment = meta.Origin.Environment
-	r.Machine = meta.Origin.Machine
-	r.Hostname = meta.Origin.Hostname
-	r.Version = meta.Origin.Version
 }

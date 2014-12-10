@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -40,7 +41,7 @@ import (
 var (
 	agentInitializeState = agent.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
-	stateStorage         = (*state.State).Storage
+	newStateStorage      = storage.NewStorage
 	minSocketTimeout     = 1 * time.Minute
 )
 
@@ -221,7 +222,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 	// Add custom image metadata to environment storage.
 	if c.ImageMetadataDir != "" {
-		if err := c.storeCustomImageMetadata(stateStorage(st)); err != nil {
+		stor := newStateStorage(st.EnvironUUID(), st.MongoSession())
+		if err := c.storeCustomImageMetadata(stor); err != nil {
 			return err
 		}
 	}
@@ -264,6 +266,7 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		StatePort:      si.StatePort,
 		Cert:           si.Cert,
 		PrivateKey:     si.PrivateKey,
+		CAPrivateKey:   si.CAPrivateKey,
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 
@@ -378,7 +381,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 // storeCustomImageMetadata reads the custom image metadata from disk,
 // and stores the files in environment storage with the same relative
 // paths.
-func (c *BootstrapCommand) storeCustomImageMetadata(stor state.Storage) error {
+func (c *BootstrapCommand) storeCustomImageMetadata(stor storage.Storage) error {
 	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
 	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
 		if err != nil {

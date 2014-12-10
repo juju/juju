@@ -30,19 +30,19 @@ func (s *WireFormatSuite) TestToWire(c *gc.C) {
 	m := metric.Metrics()[0]
 	metrics := []wireformat.Metric{
 		{
-			Key:         m.Key,
-			Value:       m.Value,
-			Time:        m.Time.UTC(),
-			Credentials: m.Credentials,
+			Key:   m.Key,
+			Value: m.Value,
+			Time:  m.Time.UTC(),
 		},
 	}
 	expected := &wireformat.MetricBatch{
-		UUID:     metric.UUID(),
-		EnvUUID:  metric.EnvUUID(),
-		UnitName: metric.Unit(),
-		CharmUrl: metric.CharmURL(),
-		Created:  metric.Created().UTC(),
-		Metrics:  metrics,
+		UUID:        metric.UUID(),
+		EnvUUID:     metric.EnvUUID(),
+		UnitName:    metric.Unit(),
+		CharmUrl:    metric.CharmURL(),
+		Created:     metric.Created().UTC(),
+		Metrics:     metrics,
+		Credentials: metric.Credentials(),
 	}
 	c.Assert(result, gc.DeepEquals, expected)
 }

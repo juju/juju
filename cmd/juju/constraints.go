@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/constraints"
 )
 
@@ -140,8 +141,11 @@ func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	defer apiclient.Close()
+
 	if c.ServiceName == "" {
-		return apiclient.SetEnvironmentConstraints(c.Constraints)
+		err = apiclient.SetEnvironmentConstraints(c.Constraints)
+	} else {
+		err = apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 	}
-	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
+	return block.ProcessBlockedError(err, block.BlockChange)
 }

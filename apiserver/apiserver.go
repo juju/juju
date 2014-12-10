@@ -15,6 +15,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"github.com/bmizerany/pat"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/tomb"
 
@@ -37,6 +38,7 @@ type Server struct {
 	wg                sync.WaitGroup
 	state             *state.State
 	addr              string
+	tag               names.Tag
 	dataDir           string
 	logDir            string
 	limiter           utils.Limiter
@@ -56,6 +58,7 @@ type LoginValidator func(params.LoginRequest) error
 type ServerConfig struct {
 	Cert      []byte
 	Key       []byte
+	Tag       names.Tag
 	DataDir   string
 	LogDir    string
 	Validator LoginValidator
@@ -77,6 +80,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	srv := &Server{
 		state:     s,
 		addr:      net.JoinHostPort("localhost", listeningPort),
+		tag:       cfg.Tag,
 		dataDir:   cfg.DataDir,
 		logDir:    cfg.LogDir,
 		limiter:   utils.NewLimiter(loginRateLimit),

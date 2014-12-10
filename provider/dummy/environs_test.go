@@ -117,6 +117,18 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ 
 	return e
 }
 
+func (s *suite) TestAvailabilityZone(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, true)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	inst, hwc := jujutesting.AssertStartInstance(c, e, "0")
+	c.Assert(inst, gc.NotNil)
+	c.Check(hwc.AvailabilityZone, gc.IsNil)
+}
+
 func (s *suite) TestAllocateAddress(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {

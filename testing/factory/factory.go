@@ -344,7 +344,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{"pings", strconv.Itoa(factory.UniqueInteger()), *params.Time, []byte("creds")}}
+		params.Metrics = []state.Metric{{"pings", strconv.Itoa(factory.UniqueInteger()), *params.Time}}
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)

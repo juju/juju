@@ -191,6 +191,37 @@ stateserverkey: '-----BEGIN RSA PRIVATE KEY-----
   -----END RSA PRIVATE KEY-----
 
 '
+caprivatekey: '-----BEGIN RSA PRIVATE KEY-----
+
+  MIICXAIBAAKBgQDJnbuNL3m/oY7Er2lEF6ye1SodepvpI0CLCdLwrYP52cRxbVzo
+
+  D1jbXveclolg2xoUqugaqxsAhvVzzGaoLux1BoBD+G0N637fnY4XSIC9IuSkPOAd
+
+  ReKJkOvTL4nTjpzgfeHRhRin6Xckvp96L4Prmki7sYQ8PG9Q7TBcOf4yowIDAQAB
+
+  AoGASEtzETFQ6tI3q3dqu6vxjhLJw0BP381wO2sOZJcTl+fqdPHOOrgmGKN5DoE8
+
+  SarHM1oFWGq6h/nc0eUdenk4+CokpbKRgUU9hB1TKGYMbN3bUTKPOqTMHbnrhWdT
+
+  P/fqa+nXhvg7igMT3Rk7l9DsSxoYB5xZmiLaXqynVE5MNoECQQDRsgDDUrUOeMH6
+
+  1+GO+afb8beRzR8mnaBvja6XLlZB6SUcGet9bMgAiGH3arH6ARfNNsWrDAmvArah
+
+  SKeqRB5TAkEA9iMEQDkcybCmxu4Y3YLeQuT9r3h26QhQjc+eRINS/3ZLN+lxKnXG
+
+  N019ZUlsyL97lJBDzTMPsBqfXJ2pbqXwcQJBAJNLuPN63kl7E68zA3Ld9UYvBWY6
+
+  Mp56bJ7PZAs39kk4DuQtZNhmmBqfskkMPlZBfEmfJrxeqVKw0j56faPBU5cCQFYU
+
+  mP/8+VxwM2OPEZMmmaS7gR1E/BEznzh5S9iaNQSy0kuTkMhQuCnPJ/OsYiczEH08
+
+  lvnEyc/E/8bcPM09q4ECQCFwMWzw2Jx9VOBGm60yiOKIdLgdDZOY/tP0jigNCMJF
+
+  47/BJx3FCgW3io81a4KOc445LxgiPUJyyCNlY1dW70o=
+
+  -----END RSA PRIVATE KEY-----
+
+'
 apiport: 17070
 prefer-ipv6: true
 `[1:]

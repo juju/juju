@@ -14,11 +14,37 @@ type HardwareSuite struct{}
 
 var _ = gc.Suite(&HardwareSuite{})
 
-var parseHardwareTests = []struct {
+type parseHardwareTestSpec struct {
 	summary string
 	args    []string
 	err     string
-}{
+}
+
+func (ts *parseHardwareTestSpec) check(c *gc.C) {
+	hwc, err := instance.ParseHardware(ts.args...)
+
+	// Check the spec'ed error condition first.
+	if ts.err != "" {
+		c.Check(err, gc.ErrorMatches, ts.err)
+		// We expected an error so we don't worry about checking hwc.
+		return
+	} else if !c.Check(err, jc.ErrorIsNil) {
+		// We got an unexpected error so we don't worry about checking hwc.
+		return
+	}
+
+	// The error condition matched so we check hwc.
+	cons1, err := instance.ParseHardware(hwc.String())
+	if !c.Check(err, jc.ErrorIsNil) {
+		// Parsing didn't work so we don't worry about checking hwc.
+		return
+	}
+
+	// Compare the round-tripped HWC.
+	c.Check(cons1, gc.DeepEquals, hwc)
+}
+
+var parseHardwareTests = []parseHardwareTestSpec{
 	// Simple errors.
 	{
 		summary: "nothing at all",
@@ -218,28 +244,36 @@ var parseHardwareTests = []struct {
 		err:     `bad "root-disk" characteristic: already set`,
 	},
 
+	// "availability-zone" in detail.
+	{
+		summary: "set availability-zone empty",
+		args:    []string{"availability-zone="},
+	}, {
+		summary: "set availability-zone non-empty",
+		args:    []string{"availability-zone=a_zone"},
+	}, {
+		summary: "double set availability-zone together",
+		args:    []string{"availability-zone=a_zone availability-zone=a_zone"},
+		err:     `bad "availability-zone" characteristic: already set`,
+	}, {
+		summary: "double set availability-zone separately",
+		args:    []string{"availability-zone=a_zone", "availability-zone="},
+		err:     `bad "availability-zone" characteristic: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
+		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 availability-zone=a_zone"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf"},
+		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone"},
 	},
 }
 
 func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 	for i, t := range parseHardwareTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hwc, err := instance.ParseHardware(t.args...)
-		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
-			continue
-		}
-		cons1, err := instance.ParseHardware(hwc.String())
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cons1, gc.DeepEquals, hwc)
+		t.check(c)
 	}
 }

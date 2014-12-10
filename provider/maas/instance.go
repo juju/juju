@@ -187,10 +187,12 @@ func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteris
 	if err != nil {
 		return nil, errors.Annotate(err, "error determining available memory")
 	}
+	zone := mi.zone()
 	hc := &instance.HardwareCharacteristics{
-		Arch:     &nodeArch,
-		CpuCores: &nodeCpuCount,
-		Mem:      &nodeMemoryMB,
+		Arch:             &nodeArch,
+		CpuCores:         &nodeCpuCount,
+		Mem:              &nodeMemoryMB,
+		AvailabilityZone: &zone,
 	}
 	nodeTags, err := mi.tagNames()
 	if err != nil && !errors.IsNotFound(err) {

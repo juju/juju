@@ -449,6 +449,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateServingInfo.PrivateKey) == 0 {
 			return fmt.Errorf("missing state server private key")
 		}
+		if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
+			return fmt.Errorf("missing ca cert private key")
+		}
 		if cfg.StateServingInfo.StatePort == 0 {
 			return fmt.Errorf("missing state port")
 		}

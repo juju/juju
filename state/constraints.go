@@ -89,7 +89,7 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 	defer closer()
 
 	doc := constraintsDoc{}
-	if err := constraintsCollection.FindId(st.docID(id)).One(&doc); err == mgo.ErrNotFound {
+	if err := constraintsCollection.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err

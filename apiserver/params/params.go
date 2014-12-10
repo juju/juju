@@ -419,10 +419,14 @@ type ModifyUserSSHKeys struct {
 // StateServingInfo holds information needed by a state
 // server.
 type StateServingInfo struct {
-	APIPort    int
-	StatePort  int
+	APIPort   int
+	StatePort int
+	// The state server cert and corresponding private key.
 	Cert       string
 	PrivateKey string
+	// The private key for the CA cert so that a new state server
+	// cert can be generated when needed.
+	CAPrivateKey string
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string

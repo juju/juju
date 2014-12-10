@@ -24,6 +24,7 @@ import (
 )
 
 type upgradesSuite struct {
+	gitjujutesting.CleanupSuite
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
 	state *State
@@ -33,9 +34,11 @@ type upgradesSuite struct {
 func (s *upgradesSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.CleanupSuite.SetUpSuite(c)
 }
 
 func (s *upgradesSuite) TearDownSuite(c *gc.C) {
+	s.CleanupSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
@@ -43,6 +46,7 @@ func (s *upgradesSuite) TearDownSuite(c *gc.C) {
 func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.CleanupSuite.SetUpTest(c)
 	var err error
 	s.owner = names.NewLocalUserTag("upgrade-admin")
 	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
@@ -53,6 +57,7 @@ func (s *upgradesSuite) TearDownTest(c *gc.C) {
 	if s.state != nil {
 		s.state.Close()
 	}
+	s.CleanupSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -93,7 +98,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 
 	// check to see if _id_ field is removed
 	userMap := map[string]interface{}{}
-	users, closer := s.state.getCollection("users")
+	users, closer := s.state.getRawCollection("users")
 	defer closer()
 	err = users.Find(bson.D{{"_id", userId}}).One(&userMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,7 +160,7 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	err = s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
-	stateServers, closer := s.state.getCollection(stateServersC)
+	stateServers, closer := s.state.getRawCollection(stateServersC)
 	defer closer()
 	var doc stateServersDoc
 	err = stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
@@ -301,6 +306,66 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
 
 func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToOpenPorts(c *gc.C) {
+	range1 := []PortRange{{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: "wordpress/0",
+		Protocol: "TCP",
+	}, {
+		FromPort: 300,
+		ToPort:   400,
+		UnitName: "mysql/1",
+		Protocol: "UDP",
+	}}
+
+	range2 := []PortRange{{
+		FromPort: 800,
+		ToPort:   900,
+		UnitName: "ghost/1",
+		Protocol: "UDP",
+	}, {
+		FromPort: 500,
+		ToPort:   600,
+		UnitName: "mongo/0",
+		Protocol: "TCP",
+	}}
+
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToOpenPorts, openedPortsC,
+		bson.M{
+			"_id":   "m#2#n#juju-public",
+			"ports": range1,
+		},
+		bson.M{
+			"_id":   "m#1#n#net3",
+			"ports": range2,
+		},
+	)
+	defer closer()
+
+	var newDoc portsDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	p := Ports{s.state, newDoc, false}
+	c.Assert(p.GlobalKey(), gc.Equals, "m#2#n#juju-public")
+	c.Assert(newDoc.Ports, gc.DeepEquals, range1)
+	c.Assert(newDoc.MachineID, gc.Equals, "2")
+	c.Assert(newDoc.NetworkName, gc.Equals, "juju-public")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	p = Ports{s.state, newDoc, false}
+	c.Assert(p.GlobalKey(), gc.Equals, "m#1#n#net3")
+	c.Assert(newDoc.Ports, gc.DeepEquals, range2)
+	c.Assert(newDoc.MachineID, gc.Equals, "1")
+	c.Assert(newDoc.NetworkName, gc.Equals, "net3")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToOpenPortsIdempotent(c *gc.C) {
+	oldID := "m#0#n#net1"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToOpenPorts, openedPortsC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToAnnotations(c *gc.C) {
@@ -854,7 +919,7 @@ func (s *upgradesSuite) checkEnvUUID(
 
 	// For each old document check that _id has been migrated and that
 	// env-uuid has been added correctly.
-	coll, closer := s.state.getCollection(collName)
+	coll, closer := s.state.getRawCollection(collName)
 	var d map[string]string
 	var ids []interface{}
 	envTag := s.state.EnvironUUID()
@@ -902,7 +967,7 @@ func (s *upgradesSuite) checkEnvUUIDIdempotent(
 	err = upgradeStep(s.state)
 	c.Assert(err, jc.ErrorIsNil)
 
-	coll, closer := s.state.getCollection(collName)
+	coll, closer := s.state.getRawCollection(collName)
 	defer closer()
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -967,7 +1032,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 	err = s.state.runTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
-	environments, closer := s.state.getCollection(environmentsC)
+	environments, closer := s.state.getRawCollection(environmentsC)
 	defer closer()
 
 	var envDoc environmentDoc
@@ -1020,6 +1085,7 @@ func openLegacyRange(c *gc.C, unit *Unit, from, to int, proto string) {
 }
 
 func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Unit) {
+
 	// Setup the test scenario by creating 3 services with 1, 2, and 3
 	// units respectively, and 3 machines. Then assign the units like
 	// this:
@@ -1211,8 +1277,7 @@ func (s *upgradesSuite) newRange(from, to int, proto string) network.PortRange {
 
 func (s *upgradesSuite) assertInitialMachinePorts(c *gc.C, machines []*Machine, units map[int][]*Unit) {
 	for i := range machines {
-		portsKey := PortsGlobalKey(machines[i].Id(), network.DefaultPublic)
-		ports, err := s.state.Ports(portsKey)
+		ports, err := GetPorts(s.state, machines[i].Id(), network.DefaultPublic)
 		if i != 2 {
 			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 			c.Assert(ports, gc.IsNil)
@@ -1310,6 +1375,8 @@ func (s *upgradesSuite) assertFinalMachinePorts(c *gc.C, machines []*Machine, un
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
+	s.patchPortOptFuncs()
+
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1328,6 +1395,8 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
+	s.patchPortOptFuncs()
+
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
@@ -1349,6 +1418,104 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUnitPortsPostMigration(c, units)
 	s.assertFinalMachinePorts(c, machines, units)
+}
+
+// patchPortOptsFuncs patches addPortsDocOps, updatePortsDocOps and setPortsDocOps
+// to accommodate pre 1.22 schema during multihop upgrades. It returns a func
+// which restores original behaviour.
+func (s *upgradesSuite) patchPortOptFuncs() {
+	s.PatchValue(
+		&GetPorts,
+		func(st *State, machineId, networkName string) (*Ports, error) {
+			openedPorts, closer := st.getRawCollection(openedPortsC)
+			defer closer()
+
+			var doc portsDoc
+			key := portsGlobalKey(machineId, networkName)
+			err := openedPorts.FindId(key).One(&doc)
+			if err != nil {
+				doc.MachineID = machineId
+				doc.NetworkName = networkName
+				p := Ports{st, doc, false}
+				if err == mgo.ErrNotFound {
+					return nil, errors.NotFoundf(p.String())
+				}
+				return nil, errors.Annotatef(err, "cannot get %s", p.String())
+			}
+
+			return &Ports{st, doc, false}, nil
+		})
+
+	s.PatchValue(
+		&GetOrCreatePorts,
+		func(st *State, machineId, networkName string) (*Ports, error) {
+			ports, err := GetPorts(st, machineId, networkName)
+			if errors.IsNotFound(err) {
+				doc := portsDoc{
+					MachineID:   machineId,
+					NetworkName: networkName,
+				}
+				ports = &Ports{st, doc, true}
+				upgradesLogger.Debugf(
+					"created ports for machine %q, network %q",
+					machineId, networkName,
+				)
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return ports, nil
+		})
+
+	s.PatchValue(
+		&addPortsDocOps,
+		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+			pDoc.Ports = ports
+			return []txn.Op{{
+				C:      machinesC,
+				Id:     st.docID(pDoc.MachineID),
+				Assert: notDeadDoc,
+			}, {
+				C:      openedPortsC,
+				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
+				Assert: portsAssert,
+				Insert: pDoc,
+			}}, nil
+		})
+
+	s.PatchValue(
+		&updatePortsDocOps,
+		func(st *State, pDoc portsDoc, portsAssert interface{}, portRange PortRange) []txn.Op {
+			return []txn.Op{{
+				C:      machinesC,
+				Id:     st.docID(pDoc.MachineID),
+				Assert: notDeadDoc,
+			}, {
+				C:      unitsC,
+				Id:     portRange.UnitName,
+				Assert: notDeadDoc,
+			}, {
+				C:      openedPortsC,
+				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
+				Assert: portsAssert,
+				Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
+			}}
+		},
+	)
+
+	s.PatchValue(
+		&setPortsDocOps,
+		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) []txn.Op {
+			return []txn.Op{{
+				C:      machinesC,
+				Id:     st.docID(pDoc.MachineID),
+				Assert: notDeadDoc,
+			}, {
+				C:      openedPortsC,
+				Id:     portsGlobalKey(pDoc.MachineID, pDoc.NetworkName),
+				Assert: portsAssert,
+				Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
+			}}
+		})
 }
 
 func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
@@ -1486,7 +1653,7 @@ func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instan
 func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, instID instance.Id) {
 	// check to see if instanceid is in instance
 	var instanceMap bson.M
-	insts, closer := s.state.getCollection(instanceDataC)
+	insts, closer := s.state.getRawCollection(instanceDataC)
 	defer closer()
 	err := insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1494,12 +1661,77 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 
 	// check to see if instanceid field is removed
 	var machineMap bson.M
-	machines, closer := s.state.getCollection(machinesC)
+	machines, closer := s.state.getRawCollection(machinesC)
 	defer closer()
 	err = machines.FindId(machineID).One(&machineMap)
 	c.Assert(err, jc.ErrorIsNil)
 	_, keyExists := machineMap["instanceid"]
 	c.Assert(keyExists, jc.IsFalse)
+}
+
+func (s *upgradesSuite) TestAddAvailabilityZoneToInstanceData(c *gc.C) {
+	machineID := "9999"
+	var instID instance.Id = "9999"
+	s.azSetUp(c, machineID, instID)
+
+	azfunc := func(*State, instance.Id) (string, error) {
+		return "a_zone", nil
+	}
+
+	err := AddAvailabilityZoneToInstanceData(s.state, azfunc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkAvailabilityZone(c, machineID, "a_zone")
+}
+
+func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
+	ops := []txn.Op{
+		{
+			C:      machinesC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: bson.M{
+				"_id":        machineID,
+				"instanceid": instID,
+			},
+		},
+		{
+			C:      instanceDataC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: bson.M{
+				"_id":        machineID,
+				"machineid":  machineID,
+				"instanceid": instID,
+				// We do *not* set AvailZone.
+			},
+		},
+	}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure "availzone" isn't set.
+	var instanceMap bson.M
+	insts, closer := s.state.getRawCollection(instanceDataC)
+	defer closer()
+	err = insts.FindId(machineID).One(&instanceMap)
+	c.Assert(err, jc.ErrorIsNil)
+	_, ok := instanceMap["availzone"]
+	c.Assert(ok, jc.IsFalse)
+}
+
+// checkAvailabilityZone checks to see if the availability zone is set
+// for the instance data associated with the machine.
+func (s *upgradesSuite) checkAvailabilityZone(c *gc.C, machineID string, expectedZone string) {
+	var instanceMap bson.M
+	insts, closer := s.state.getRawCollection(instanceDataC)
+	defer closer()
+	err := insts.FindId(machineID).One(&instanceMap)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, ok := instanceMap["availzone"]
+	c.Check(ok, jc.IsTrue)
+	c.Check(zone, gc.Equals, expectedZone)
 }
 
 // setUpJobManageNetworking prepares the test environment for the JobManageNetworking tests.

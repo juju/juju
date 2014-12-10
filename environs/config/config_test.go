@@ -392,6 +392,22 @@ var configTests = []configTest{
 			"block-remove-object": false,
 		},
 	}, {
+		about:       "block-all-changes on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			"block-all-changes": true,
+		},
+	}, {
+		about:       "block-all-changes off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"block-all-changest": false,
+		},
+	}, {
 		about:       "Invalid prefer-ipv6 flag",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1315,6 +1331,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["set-numa-control-policy"] = false
 	attrs["block-destroy-environment"] = false
 	attrs["block-remove-object"] = false
+	attrs["block-all-changes"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1670,6 +1687,7 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 
 	for _, test := range []struct {
 		configValues map[string]interface{}
+		sanValues    []string
 		errMatch     string
 	}{{
 		configValues: map[string]interface{}{
@@ -1691,10 +1709,18 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			"ca-cert":        testing.CACert,
 			"ca-private-key": testing.CAKey,
 		},
+	}, {
+		configValues: map[string]interface{}{
+			"name":           "test-no-certs",
+			"type":           "dummy",
+			"ca-cert":        testing.CACert,
+			"ca-private-key": testing.CAKey,
+		},
+		sanValues: []string{"10.0.0.1", "192.168.1.1"},
 	}} {
 		cfg, err := config.New(config.UseDefaults, test.configValues)
 		c.Assert(err, jc.ErrorIsNil)
-		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey()
+		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey(test.sanValues)
 		if test.errMatch == "" {
 			c.Assert(err, jc.ErrorIsNil)
 
@@ -1707,6 +1733,13 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = cert.Verify(certPEM, testing.CACert, time.Now().AddDate(10, 0, 1))
 			c.Assert(err, gc.NotNil)
+			srvCert, err := cert.ParseCert(certPEM)
+			c.Assert(err, jc.ErrorIsNil)
+			sanIPs := make([]string, len(srvCert.IPAddresses))
+			for i, ip := range srvCert.IPAddresses {
+				sanIPs[i] = ip.String()
+			}
+			c.Assert(sanIPs, jc.SameContents, test.sanValues)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 			c.Assert(certPEM, gc.Equals, "")

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
@@ -144,8 +145,7 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-
-	return client.EnvironmentSet(c.values)
+	return block.ProcessBlockedError(client.EnvironmentSet(c.values), block.BlockChange)
 }
 
 // UnsetEnvironment
@@ -202,6 +202,5 @@ func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 
 	}
-
-	return client.EnvironmentUnset(c.keys...)
+	return block.ProcessBlockedError(client.EnvironmentUnset(c.keys...), block.BlockChange)
 }
