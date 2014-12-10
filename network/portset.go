@@ -136,6 +136,21 @@ func (ps PortSet) Union(other PortSet) PortSet {
 	return result
 }
 
+// Intersection returns a new PortSet of the values that are in both
+// this set and the other, but not in just one of either.
+func (ps PortSet) Intersection(other PortSet) PortSet {
+	var result PortSet
+	result.values = make(map[string]set.Strings)
+
+	for protocol, value := range ps.values {
+		ports, ok := other.values[protocol]
+		if ok {
+			result.values[protocol] = value.Intersection(ports)
+		}
+	}
+	return result
+}
+
 // Difference returns a new PortSet of the values
 // that are not in the other PortSet.
 func (ps PortSet) Difference(other PortSet) PortSet {

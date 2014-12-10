@@ -54,6 +54,15 @@ func (s *PortSetSuite) TestPortSetUnion(c *gc.C) {
 	c.Assert(result.Ports(), gc.HasLen, 3)
 }
 
+func (s *PortSetSuite) TestPortSetIntersection(c *gc.C) {
+	s.portRange2.ToPort = 83
+	portSet1 := network.NewPortSet(s.portRange2)
+	portSet2 := network.NewPortSet(s.portRange3)
+
+	result := portSet1.Intersection(portSet2)
+	c.Check(result.Ports(), gc.HasLen, 2)
+}
+
 func (s *PortSetSuite) TestPortSetDifference(c *gc.C) {
 	s.portRange2.ToPort = 83
 	portSet1 := network.NewPortSet(s.portRange2)
