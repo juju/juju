@@ -25,15 +25,19 @@ var _ = gc.Suite(&PortSetSuite{})
 func (s *PortSetSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	var err error
-	s.portRange1, err = network.ParsePortRangePorts("8000-8099", "tcp")
+	portRange1, err := network.ParsePortRange("8000-8099/tcp")
 	c.Assert(err, jc.ErrorIsNil)
-	s.portRange2, err = network.ParsePortRangePorts("80", "tcp")
+	portRange2, err := network.ParsePortRange("80/tcp")
 	c.Assert(err, jc.ErrorIsNil)
-	s.portRange3, err = network.ParsePortRangePorts("79-81", "tcp")
+	portRange3, err := network.ParsePortRange("79-81/tcp")
 	c.Assert(err, jc.ErrorIsNil)
-	s.portRange4, err = network.ParsePortRangePorts("5000-5123", "udp")
+	portRange4, err := network.ParsePortRange("5000-5123/udp")
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.portRange1 = *portRange1
+	s.portRange2 = *portRange2
+	s.portRange3 = *portRange3
+	s.portRange4 = *portRange4
 }
 
 func (s *PortSetSuite) TestNewPortSet(c *gc.C) {
