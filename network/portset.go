@@ -92,6 +92,15 @@ func (ps *PortSet) AddRanges(portRanges ...PortRange) {
 	}
 }
 
+// Remove removes the given Port from the set.
+func (ps *PortSet) Remove(port Port) {
+	ports, ok := ps.values[port.Protocol]
+	if ok {
+		portNum := strconv.Itoa(port.Number)
+		ports.Remove(portNum)
+	}
+}
+
 // Union returns a new PortSet of the shared values
 // that are common between both PortSets.
 func (ps PortSet) Union(other PortSet) PortSet {

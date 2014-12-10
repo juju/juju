@@ -95,6 +95,13 @@ func (s *PortSetSuite) TestPortSetAddRanges(c *gc.C) {
 	c.Assert(portSet.Ports(), gc.HasLen, 5)
 }
 
+func (s *PortSetSuite) TestPortSetRemove(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange2)
+	portSet.Remove(network.Port{Number: 80, Protocol: "tcp"})
+
+	c.Assert(portSet.Ports(), gc.HasLen, 0)
+}
+
 func (s *PortSetSuite) TestPortSetProtocols(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2, s.portRange4)
 	protocols := portSet.Protocols()
