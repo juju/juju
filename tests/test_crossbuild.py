@@ -9,6 +9,9 @@ from crossbuild import (
     build_win_client,
     go_build,
     go_tarball,
+    ISCC_CMD,
+    ISS_DIR,
+    make_installer,
     main,
     run_command,
     version_from_tarball,
@@ -115,7 +118,7 @@ class CrossBuildTestCase(TestCase):
         with patch('crossbuild.go_tarball',
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
-                with patch('crossbuild.create_installer') as ci_mock:
+                with patch('crossbuild.make_installer') as mi_mock:
                     build_win_client('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
         self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
@@ -128,6 +131,47 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(
             ('baz/bar_1.2.3/src/github.com/juju/juju/cmd/juju/juju.exe',
              '1.2.3',
-             'baz/bar_1.2.3/scripts/win-installer',
+             'baz/bar_1.2.3',
              os.getcwd()),
-            ci_mock.call_args[0])
+            mi_mock.call_args[0])
+
+    def test_make_installer_default(self):
+        with temp_dir() as base_dir:
+            iss_dir = os.path.join(base_dir, ISS_DIR)
+            iss_output_dir = os.path.join(iss_dir, 'output')
+            os.makedirs(iss_output_dir)
+            with patch('shutil.move') as mv_mock:
+                with patch('crossbuild.run_command') as rc_mock:
+                    make_installer(
+                        'foo/juju.exe', '1.2.3', base_dir, os.getcwd())
+        self.assertEqual(2, mv_mock.call_count)
+        # The juju.exe was moved to the iss dir.
+        self.assertEqual(
+            ('foo/juju.exe', iss_dir), mv_mock.mock_calls[0][1])
+        args, kwargs = rc_mock.call_args
+        self.assertEqual((['xvfb-run', 'wine', ISCC_CMD, 'setup.iss'], ), args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        # The installer was moved to the working dir.
+        self.assertEqual(
+            ('%s/juju-setup-1.2.3.exe' % iss_output_dir, os.getcwd()),
+            mv_mock.mock_calls[1][1])
+
+    def test_make_installer_with_dry_run(self):
+        with temp_dir() as base_dir:
+            iss_dir = os.path.join(base_dir, ISS_DIR)
+            iss_output_dir = os.path.join(iss_dir, 'output')
+            os.makedirs(iss_output_dir)
+            with patch('shutil.move') as mv_mock:
+                with patch('crossbuild.run_command') as rc_mock:
+                    make_installer(
+                        'foo/juju.exe', '1.2.3', base_dir, os.getcwd(),
+                        dry_run=True, verbose=True)
+        # The juju.exe was moved to the install dir, but the installer
+        # was not move to the working dir.
+        self.assertEqual(1, mv_mock.call_count)
+        self.assertEqual(
+            ('foo/juju.exe', iss_dir), mv_mock.mock_calls[0][1])
+        # The installer is created in a tmp dir, so dry_run is alway False.
+        self.assertEqual(
+            {'dry_run': False, 'verbose': True},
+            rc_mock.call_args[1])

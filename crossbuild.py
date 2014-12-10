@@ -18,6 +18,10 @@ CROSSCOMPILE_SOURCE = (
     'https://raw.githubusercontent.com'
     '/davecheney/golang-crosscompile/master/crosscompile.bash')
 INNO_SOURCE = 'http://www.jrsoftware.org/download.php/is-unicode.exe?site=1'
+ISCC_CMD = os.path.expanduser(
+    '~/.wine/drive_c/Program Files (x86)/Inno Setup 5/ISCC.exe')
+ISS_DIR = os.path.join(
+    'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
 
 
 @contextmanager
@@ -60,6 +64,11 @@ def run_command(command, env=None, dry_run=False, verbose=False):
             print(output)
 
 
+def version_from_tarball(tarball_path):
+    tarball_name = os.path.basename(tarball_path.replace('.tar.gz', ''))
+    return tarball_name.split('_')[-1]
+
+
 def go_build(package, goroot, gopath, goarch, goos,
              dry_run=False, verbose=False):
     env = dict(os.environ)
@@ -69,11 +78,6 @@ def go_build(package, goroot, gopath, goarch, goos,
     env['GOOS'] = goos
     command = ['go', 'build', package]
     run_command(command, env=env, dry_run=dry_run, verbose=verbose)
-
-
-def version_from_tarball(tarball_path):
-    tarball_name = os.path.basename(tarball_path.replace('.tar.gz', ''))
-    return tarball_name.split('_')[-1]
 
 
 def setup_cross_building(build_dir, dry_run=False, verbose=False):
@@ -106,31 +110,31 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
     cli_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'juju')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as gopath:
+        # This command always executes in a tmp dir, it does not make changes.
         go_build(
             cli_package, goroot, gopath, '386', 'windows',
-            dry_run=dry_run, verbose=verbose)
+            dry_run=False, verbose=verbose)
         built_cli_path = os.path.join(gopath, 'src', cli_package, 'juju.exe')
-        iss_dir = os.path.join(gopath, 'scripts', 'win-installer')
         version = version_from_tarball(tarball_path)
-        create_installer(
-            built_cli_path, version, iss_dir, cwd)
+        make_installer(
+            built_cli_path, version, gopath, cwd,
+            dry_run=dry_run, verbose=verbose)
 
 
-def create_installer(built_cli_path, version, iss_dir, dest_dir,
-                     dry_run=False, verbose=False):
-    iss_cmd = [
-        'xvfb-run', 'wine',
-        '~/.wine/drive_c/Program Files (x86)/Inno Setup 5/ISCC.exe',
-        'setup.iss']
+def make_installer(built_cli_path, version, gopath, dest_dir,
+                   dry_run=False, verbose=False):
+    iss_dir = os.path.join(gopath, ISS_DIR)
     shutil.move(built_cli_path, iss_dir)
     with working_directory(iss_dir):
-        run_command(iss_cmd, dry_run=dry_run, verbose=verbose)
-        installer_name = 'juju-setup-{0}.exe'.format(version)
+        # This command always executes in a tmp dir, it does not make changes.
+        iss_cmd = ['xvfb-run', 'wine', ISCC_CMD, 'setup.iss']
+        run_command(iss_cmd, dry_run=False, verbose=verbose)
+        installer_name = 'juju-setup-%s.exe' % version
         installer_path = os.path.join(iss_dir, 'output', installer_name)
         if not dry_run:
             shutil.move(installer_path, dest_dir)
             if verbose:
-                print('Moved {0} to {1}'.format(installer_path, dest_dir))
+                print('Moved %s to %s' % (installer_path, dest_dir))
     return installer_path
 
 
