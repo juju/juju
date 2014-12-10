@@ -39,6 +39,8 @@ type googleAuth struct {
 }
 
 func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {
+	// TODO(ericsnow) call config.Validate and cfg.ValidateUnknownAttrs?
+
 	// Check sanity of juju-level fields.
 	var oldCfg *config.Config
 	if old != nil {
@@ -75,7 +77,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 		return nil, configError(cfgClientId, gceClientId)
 	}
 
-	return &environConfig{cfg, auth}, nil
+	return &environConfig{cfg, auth, attrs}, nil
 }
 
 func setAttr(val *string, attrs map[string]interface{}, field string) error {
@@ -92,6 +94,7 @@ func setAttr(val *string, attrs map[string]interface{}, field string) error {
 type environConfig struct {
 	*config.Config
 	googleAuth
+	attrs map[string]interface{}
 }
 
 func configError(yaml, env string) error {
