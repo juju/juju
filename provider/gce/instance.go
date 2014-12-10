@@ -15,6 +15,7 @@ type environInstance struct {
 	id        instance.Id
 	env       *environ
 	projectID string
+	zone      string
 
 	gce *compute.Instance
 }
@@ -37,7 +38,7 @@ func (inst *environInstance) Refresh() error {
 	env := inst.env.getSnapshot()
 
 	// TODO(ericsnow) is zone the right thing
-	call := env.gce.Instances.Get(env.projectID, inst.zone, inst.id)
+	call := env.gce.Instances.Get(env.projectID, inst.zone, string(inst.id))
 	gInst, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
@@ -131,7 +132,7 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 	if currentPortsSet.IsEmpty() {
 		firewall := buildFirewall(machineId, inputPortsSet)
 		call := env.gce.Firewalls.Insert(inst.projectID, firewall)
-		operation, err := call.Do()
+		operation, err = call.Do()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -140,7 +141,7 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 		newPortsSet := currentPortsSet.Union(inputPortsSet)
 		firewall := buildFirewall(machineId, newPortsSet)
 		call := env.gce.Firewalls.Update(inst.projectID, machineId, firewall)
-		operation, err := call.Do()
+		operation, err = call.Do()
 		if err != nil {
 			return errors.Trace(err)
 		}
