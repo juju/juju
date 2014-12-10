@@ -115,38 +115,14 @@ var (
 	getMetricAPI = metricAPI
 )
 
-// PrepareRestore will flag the agent to allow only one command:
-// Restore, this will ensure that we can do all the file movements
-// required for restore and no one will do changes while we do that.
-// it will return error if the machine is already in this state.
-func (a *MachineAgent) PrepareRestore() error {
-	if a.restoreMode {
-		return fmt.Errorf("already in restore mode")
-	}
-	a.restoreMode = true
-	return nil
-}
-
-// BeginRestore will flag the agent to disallow all commands since
-// restore should be running and therefore making changes that
-// would override anything done.
-func (a *MachineAgent) BeginRestore() error {
-	switch {
-	case !a.restoreMode:
-		return fmt.Errorf("not in restore mode, cannot begin restoration")
-	case a.restoring:
-		return fmt.Errorf("already restoring")
-	}
-	a.restoring = true
-	return nil
-}
-
 // IsRestorePreparing returns bool representing if we are in restore mode
-// but not running restore
+// but not running restore.
 func (a *MachineAgent) IsRestorePreparing() bool {
 	return a.restoreMode && !a.restoring
 }
 
+// IsRestoreRunning returns bool representing if we are in restore mode
+// and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
 }
@@ -194,7 +170,6 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
-
 	return nil
 }
 
@@ -302,13 +277,44 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	return nil
 }
 
-func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+// PrepareRestore will flag the agent to allow only one command:
+// Restore, this will ensure that we can do all the file movements
+// required for restore and no one will do changes while we do that.
+// it will return error if the machine is already in this state.
+func (a *MachineAgent) PrepareRestore() error {
+	if a.restoreMode {
+		return errors.Errorf("already in restore mode")
+	}
+	a.restoreMode = true
+	return nil
+}
+
+// BeginRestore will flag the agent to disallow all commands since
+// restore should be running and therefore making changes that
+// would override anything done.
+func (a *MachineAgent) BeginRestore() error {
+	switch {
+	case !a.restoreMode:
+		return errors.Errorf("not in restore mode, cannot begin restoration")
+	case a.restoring:
+		return errors.Errorf("already restoring")
+	}
+	a.restoring = true
+	return nil
+}
+
+// newrestorestatewatcherworker will return a worker or err if there is a failure,
+// the worker takes care of watching the state of restoreInfo doc and put the
+// agent in the different restore modes.
+func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
 	}
 	return worker.NewSimpleWorker(rWorker), nil
 }
 
+// restoreChanged will be called whenever restoreInfo doc changes signaling a new
+// step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
 	rinfo, err := st.EnsureRestoreInfo()
 	if err != nil {
@@ -323,6 +329,7 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 	return nil
 }
 
+// restoreStateWatcher watches for restoreInfo looking for changes in the restore process.
 func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
 	restoreWatch := st.WatchRestoreInfoChanges()
 	defer func() {
@@ -718,7 +725,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
-				return a.newRestoreStateWatcher(st)
+				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
 				workerLoop := lease.WorkerLoop(st)
@@ -818,20 +825,17 @@ func init() {
 	}
 }
 
-// limitLogin is called by the API server for each login attempt.
+// limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrads or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
-	err := a.limitLoginsDuringRestore(req)
-	if err != nil {
+	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
-	err = a.limitLoginsDuringUpgrade(req)
-	if err != nil {
-		return err
-	}
-	return nil
+	return a.limitLoginsDuringUpgrade(req)
 }
 
+// limitLoginsDuringRestore will only allow logins for restore related purposes
+// while the different steps of restore are running.
 func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 	var err error
 	switch {
