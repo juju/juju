@@ -55,6 +55,8 @@ type HardwareCharacteristics struct {
 	CpuCores *uint64   `json:",omitempty" yaml:"cpucores,omitempty"`
 	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
 	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
+
+	AvailabilityZone *string `json:",omitempty" yaml:"availabilityzone,omitempty"`
 }
 
 func uintStr(i uint64) string {
@@ -104,6 +106,9 @@ func (hc HardwareCharacteristics) String() string {
 	}
 	if hc.Tags != nil && len(*hc.Tags) > 0 {
 		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
+	}
+	if hc.AvailabilityZone != nil && *hc.AvailabilityZone != "" {
+		strs = append(strs, fmt.Sprintf("availability-zone=%s", *hc.AvailabilityZone))
 	}
 	return strings.Join(strs, " ")
 }
@@ -168,6 +173,8 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setRootDisk(str)
 	case "tags":
 		err = hc.setTags(str)
+	case "availability-zone":
+		err = hc.setAvailabilityZone(str)
 	default:
 		return fmt.Errorf("unknown characteristic %q", name)
 	}
@@ -226,6 +233,16 @@ func (hc *HardwareCharacteristics) setTags(str string) (err error) {
 	}
 	hc.Tags = parseTags(str)
 	return
+}
+
+func (hc *HardwareCharacteristics) setAvailabilityZone(str string) error {
+	if hc.AvailabilityZone != nil {
+		return fmt.Errorf("already set")
+	}
+	if str != "" {
+		hc.AvailabilityZone = &str
+	}
+	return nil
 }
 
 // parseTags returns the tags in the value s

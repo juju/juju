@@ -308,7 +308,7 @@ func removeSettings(st *State, key string) error {
 	settings, closer := st.getCollection(settingsC)
 	defer closer()
 
-	err := settings.RemoveId(st.docID(key))
+	err := settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("settings")
 	}

@@ -7,7 +7,7 @@ var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	RemoteParamsForMachine  = remoteParamsForMachine
 	GetAllUnitNames         = getAllUnitNames
-	StateStorage            = &stateStorage
+	NewStateStorage         = &newStateStorage
 )
 
 var MachineJobFromParams = machineJobFromParams

@@ -229,23 +229,21 @@ func (mock *MockNewHookRunner) Call(hookInfo hook.Info) (runner.Runner, error) {
 	return mock.runner, mock.err
 }
 
-type MockNewRunner struct {
-	gotRelationId     *int
-	gotRemoteUnitName *string
-	runner            *MockRunner
-	err               error
+type MockNewCommandRunner struct {
+	gotInfo *runner.CommandInfo
+	runner  *MockRunner
+	err     error
 }
 
-func (mock *MockNewRunner) Call(relationId int, remoteUnitName string) (runner.Runner, error) {
-	mock.gotRelationId = &relationId
-	mock.gotRemoteUnitName = &remoteUnitName
+func (mock *MockNewCommandRunner) Call(info runner.CommandInfo) (runner.Runner, error) {
+	mock.gotInfo = &info
 	return mock.runner, mock.err
 }
 
 type MockRunnerFactory struct {
 	*MockNewActionRunner
 	*MockNewHookRunner
-	*MockNewRunner
+	*MockNewCommandRunner
 }
 
 func (f *MockRunnerFactory) NewActionRunner(actionId string) (runner.Runner, error) {
@@ -256,8 +254,8 @@ func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, er
 	return f.MockNewHookRunner.Call(hookInfo)
 }
 
-func (f *MockRunnerFactory) NewRunner(relationId int, remoteUnitName string) (runner.Runner, error) {
-	return f.MockNewRunner.Call(relationId, remoteUnitName)
+func (f *MockRunnerFactory) NewCommandRunner(commandInfo runner.CommandInfo) (runner.Runner, error) {
+	return f.MockNewCommandRunner.Call(commandInfo)
 }
 
 type MockContext struct {
@@ -361,7 +359,7 @@ func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
 
 func NewRunCommandsRunnerFactory(runResponse *utilexec.ExecResponse, runErr error) *MockRunnerFactory {
 	return &MockRunnerFactory{
-		MockNewRunner: &MockNewRunner{
+		MockNewCommandRunner: &MockNewCommandRunner{
 			runner: &MockRunner{
 				MockRunCommands: &MockRunCommands{response: runResponse, err: runErr},
 			},
@@ -401,4 +399,10 @@ var overwriteState = operation.State{
 	CharmURL:           curl("cs:quantal/wordpress-2"),
 	ActionId:           &randomActionId,
 	Hook:               &hook.Info{Kind: hooks.Install},
+}
+var someCommandArgs = operation.CommandArgs{
+	Commands:        "do something",
+	RelationId:      123,
+	RemoteUnitName:  "foo/456",
+	ForceRemoteUnit: true,
 }

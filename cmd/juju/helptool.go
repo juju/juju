@@ -31,6 +31,9 @@ func (dummyHookContext) PublicAddress() (string, bool) {
 func (dummyHookContext) PrivateAddress() (string, bool) {
 	return "", false
 }
+func (dummyHookContext) AvailabilityZone() (string, bool) {
+	return "", false
+}
 func (dummyHookContext) OpenPort(protocol string, port int) error {
 	return nil
 }

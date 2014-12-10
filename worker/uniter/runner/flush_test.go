@@ -87,7 +87,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	})
 }
 
-func (s *FlushContextSuite) TestRunHookMetricSending(c *gc.C) {
+func (s *FlushContextSuite) TestRunHookMetricSendingSuccess(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))

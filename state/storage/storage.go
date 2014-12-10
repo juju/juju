@@ -1,13 +1,21 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package storage
 
 import (
 	"io"
 
 	"github.com/juju/blobstore"
 	"gopkg.in/mgo.v2"
+)
+
+const (
+	// metadataDB is the name of the blobstore metadata database.
+	metadataDB = "juju"
+
+	// blobstoreDB is the name of the blobstore GridFS database.
+	blobstoreDB = "blobstore"
 )
 
 // Storage is an interface providing methods for storing and retrieving
@@ -28,39 +36,26 @@ type Storage interface {
 	Remove(path string) error
 }
 
-// Storage returns a Storage for the environment.
-func (st *State) Storage() Storage {
-	return stateStorage{st}
-}
-
-// getManagedStorage returns a blobstore.ManagedStorage using the
-// specified UUID and mgo.Session.
-func (st *State) getManagedStorage(uuid string, session *mgo.Session) blobstore.ManagedStorage {
-	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
-	db := st.db.With(session)
-	return blobstore.NewManagedStorage(db, rs)
+// Storage returns a Storage for the environment with the specified UUID.
+func NewStorage(envUUID string, session *mgo.Session) Storage {
+	return stateStorage{envUUID, session}
 }
 
 type stateStorage struct {
-	st *State
+	envUUID string
+	session *mgo.Session
 }
 
-func (s stateStorage) blobstore() (uuid string, session *mgo.Session, ms blobstore.ManagedStorage, err error) {
-	env, err := s.st.Environment()
-	if err != nil {
-		return "", nil, nil, err
-	}
-	uuid = env.UUID()
-	session = s.st.MongoSession().Copy()
-	return uuid, session, s.st.getManagedStorage(uuid, session), nil
+func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage) {
+	session := s.session.Copy()
+	rs := blobstore.NewGridFS(blobstoreDB, s.envUUID, session)
+	db := session.DB(metadataDB)
+	return session, blobstore.NewManagedStorage(db, rs)
 }
 
 func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error) {
-	uuid, session, ms, err := s.blobstore()
-	if err != nil {
-		return nil, -1, err
-	}
-	r, length, err = ms.GetForEnvironment(uuid, path)
+	session, ms := s.blobstore()
+	r, length, err = ms.GetForEnvironment(s.envUUID, path)
 	if err != nil {
 		session.Close()
 		return nil, -1, err
@@ -69,21 +64,15 @@ func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error
 }
 
 func (s stateStorage) Put(path string, r io.Reader, length int64) error {
-	uuid, session, ms, err := s.blobstore()
-	if err != nil {
-		return err
-	}
+	session, ms := s.blobstore()
 	defer session.Close()
-	return ms.PutForEnvironment(uuid, path, r, length)
+	return ms.PutForEnvironment(s.envUUID, path, r, length)
 }
 
 func (s stateStorage) Remove(path string) error {
-	uuid, session, ms, err := s.blobstore()
-	if err != nil {
-		return err
-	}
+	session, ms := s.blobstore()
 	defer session.Close()
-	return ms.RemoveForEnvironment(uuid, path)
+	return ms.RemoveForEnvironment(s.envUUID, path)
 }
 
 type stateStorageReadCloser struct {

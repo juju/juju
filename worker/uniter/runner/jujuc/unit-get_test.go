@@ -32,6 +32,9 @@ var unitGetTests = []struct {
 	{[]string{"public-address"}, "gimli.minecraft.testing.invalid\n"},
 	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.testing.invalid\n"},
 	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.testing.invalid"` + "\n"},
+	{[]string{"availability-zone"}, "us-east-1a\n"},
+	{[]string{"availability-zone", "--format", "yaml"}, "us-east-1a\n"},
+	{[]string{"availability-zone", "--format", "json"}, `"us-east-1a"` + "\n"},
 }
 
 func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {
@@ -46,9 +49,9 @@ func (s *UnitGetSuite) TestOutputFormat(c *gc.C) {
 		com := s.createCommand(c)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-		c.Assert(bufferString(ctx.Stdout), gc.Matches, t.out)
+		c.Check(code, gc.Equals, 0)
+		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Check(bufferString(ctx.Stdout), gc.Matches, t.out)
 	}
 }
 
@@ -58,7 +61,7 @@ func (s *UnitGetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: unit-get [options] <setting>
-purpose: print public-address or private-address
+purpose: print availability-zone, public-address, or private-address
 
 options:
 --format  (= smart)

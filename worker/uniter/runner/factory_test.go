@@ -122,7 +122,9 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
-func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int) *runner.ContextRelation {
+func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
+	actualRemoteUnit, _ := ctx.RemoteUnitName()
+	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
 	rel, found := ctx.HookRelation()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(rel.Id(), gc.Equals, relId)
@@ -135,8 +137,8 @@ func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx runner.Context) {
 	c.Assert(found, jc.IsFalse)
 }
 
-func (s *FactorySuite) TestNewRunner(c *gc.C) {
-	rnr, err := s.factory.NewRunner(-1, "")
+func (s *FactorySuite) TestNewCommandRunnerNoRelation(c *gc.C) {
+	rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: -1})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
@@ -145,19 +147,84 @@ func (s *FactorySuite) TestNewRunner(c *gc.C) {
 	s.AssertNotRelationContext(c, ctx)
 }
 
-func (s *FactorySuite) TestNewRunnerRelationId(c *gc.C) {
-	rnr, err := s.factory.NewRunner(0, "foo")
+func (s *FactorySuite) TestNewCommandRunnerRelationIdDoesNotExist(c *gc.C) {
+	for _, value := range []bool{true, false} {
+		_, err := s.factory.NewCommandRunner(runner.CommandInfo{
+			RelationId: 12, ForceRemoteUnit: value,
+		})
+		c.Check(err, gc.ErrorMatches, `unknown relation id: 12`)
+	}
+}
+
+func (s *FactorySuite) TestNewCommandRunnerRemoteUnitInvalid(c *gc.C) {
+	for _, value := range []bool{true, false} {
+		_, err := s.factory.NewCommandRunner(runner.CommandInfo{
+			RelationId: 0, RemoteUnitName: "blah", ForceRemoteUnit: value,
+		})
+		c.Check(err, gc.ErrorMatches, `invalid remote unit: blah`)
+	}
+}
+
+func (s *FactorySuite) TestNewCommandRunnerRemoteUnitInappropriate(c *gc.C) {
+	for _, value := range []bool{true, false} {
+		_, err := s.factory.NewCommandRunner(runner.CommandInfo{
+			RelationId: -1, RemoteUnitName: "blah/123", ForceRemoteUnit: value,
+		})
+		c.Check(err, gc.ErrorMatches, `remote unit provided without a relation: blah/123`)
+	}
+}
+
+func (s *FactorySuite) TestNewCommandRunnerEmptyRelation(c *gc.C) {
+	_, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: 1})
+	c.Check(err, gc.ErrorMatches, `cannot infer remote unit in empty relation 1`)
+}
+
+func (s *FactorySuite) TestNewCommandRunnerRemoteUnitAmbiguous(c *gc.C) {
+	s.membership[1] = []string{"foo/0", "foo/1"}
+	_, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: 1})
+	c.Check(err, gc.ErrorMatches, `ambiguous remote unit; possibilities are \[foo/0 foo/1\]`)
+}
+
+func (s *FactorySuite) TestNewCommandRunnerRemoteUnitMissing(c *gc.C) {
+	s.membership[0] = []string{"foo/0", "foo/1"}
+	_, err := s.factory.NewCommandRunner(runner.CommandInfo{
+		RelationId: 0, RemoteUnitName: "blah/123",
+	})
+	c.Check(err, gc.ErrorMatches, `unknown remote unit blah/123; possibilities are \[foo/0 foo/1\]`)
+}
+
+func (s *FactorySuite) TestNewCommandRunnerForceNoRemoteUnit(c *gc.C) {
+	rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{
+		RelationId: 0, ForceRemoteUnit: true,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	s.AssertRelationContext(c, ctx, 0)
+	s.AssertRelationContext(c, ctx, 0, "")
 }
 
-func (s *FactorySuite) TestNewRunnerRelationIdDoesNotExist(c *gc.C) {
-	_, err := s.factory.NewRunner(12, "baz")
-	c.Assert(err, gc.ErrorMatches, `unknown relation id:.*`)
+func (s *FactorySuite) TestNewCommandRunnerForceRemoteUnitMissing(c *gc.C) {
+	rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{
+		RelationId: 0, RemoteUnitName: "blah/123", ForceRemoteUnit: true,
+	})
+	c.Assert(err, gc.IsNil)
+	ctx := rnr.Context()
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertRelationContext(c, ctx, 0, "blah/123")
+}
+
+func (s *FactorySuite) TestNewCommandRunnerInferRemoteUnit(c *gc.C) {
+	s.membership[0] = []string{"foo/2"}
+	rnr, err := s.factory.NewCommandRunner(runner.CommandInfo{RelationId: 0})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertPaths(c, rnr)
+	ctx := rnr.Context()
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertRelationContext(c, ctx, 0, "foo/2")
 }
 
 func (s *FactorySuite) TestNewHookRunner(c *gc.C) {
@@ -186,7 +253,7 @@ func (s *FactorySuite) TestNewHookRunnerWithRelation(c *gc.C) {
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	s.AssertRelationContext(c, ctx, 1)
+	s.AssertRelationContext(c, ctx, 1, "")
 }
 
 func (s *FactorySuite) TestNewHookRunnerPrunesNonMemberCaches(c *gc.C) {
@@ -243,7 +310,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationJoinedUpdatesRelationContextAndC
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	rel := s.AssertRelationContext(c, ctx, 1)
+	rel := s.AssertRelationContext(c, ctx, 1, "r/0")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, gc.IsNil)
@@ -268,7 +335,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationChangedUpdatesRelationContextAnd
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	rel := s.AssertRelationContext(c, ctx, 1)
+	rel := s.AssertRelationContext(c, ctx, 1, "r/4")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
@@ -296,7 +363,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationDepartedUpdatesRelationContextAn
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	rel := s.AssertRelationContext(c, ctx, 1)
+	rel := s.AssertRelationContext(c, ctx, 1, "r/0")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, gc.IsNil)
@@ -325,7 +392,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationBrokenRetainsCaches(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
-	rel := s.AssertRelationContext(c, ctx, 1)
+	rel := s.AssertRelationContext(c, ctx, 1, "")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, jc.DeepEquals, params.RelationSettings{"foo": "bar"})

@@ -145,13 +145,15 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	// As much as I'd like to remove JujuContainerType now, it is still
 	// needed as MAAS still needs it at this stage, and we can't fix
 	// everything at once.
+	envVars := map[string]string{
+		osenv.JujuContainerTypeEnvKey: containerType,
+	}
+	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
 	sconf := common.Conf{
-		Desc: "juju unit agent for " + unitName,
-		Cmd:  cmd,
-		Out:  logPath,
-		Env: map[string]string{
-			osenv.JujuContainerTypeEnvKey: containerType,
-		},
+		Desc:    "juju unit agent for " + unitName,
+		Cmd:     cmd,
+		Out:     logPath,
+		Env:     envVars,
 		InitDir: ctx.initDir,
 	}
 	svc.UpdateConfig(sconf)

@@ -79,6 +79,11 @@ func stateStepsFor122() []Step {
 			targets:     []Target{DatabaseMaster},
 			run:         ensureSystemSSHKeyRedux,
 		},
+		&upgradeStep{
+			description: "set AvailZone in instanceData",
+			targets:     []Target{DatabaseMaster},
+			run:         addAvaililityZoneToInstanceData,
+		},
 	}
 }
 

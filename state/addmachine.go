@@ -263,6 +263,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				CpuCores:   template.HardwareCharacteristics.CpuCores,
 				CpuPower:   template.HardwareCharacteristics.CpuPower,
 				Tags:       template.HardwareCharacteristics.Tags,
+				AvailZone:  template.HardwareCharacteristics.AvailabilityZone,
 			},
 		})
 	}
