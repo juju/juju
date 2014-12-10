@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
@@ -272,6 +273,8 @@ var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
 	return environ.AllInstances()
 }
 
+var prepareEndpointsForCaching = juju.PrepareEndpointsForCaching
+
 // SetBootstrapEndpointAddress writes the API endpoint address of the
 // bootstrap server into the connection information. This should only be run
 // once directly after Bootstrap. It assumes that there is just one instance
@@ -299,12 +302,20 @@ func (c *BootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	// server if no addresses are found in connection info.
 	endpoint := info.APIEndpoint()
 	netAddrs, err := bootstrapInstance.Addresses()
-	apiPort := cfg.APIPort()
-	apiAddrs := make([]string, len(netAddrs))
-	for i, hp := range network.AddressesWithPort(netAddrs, apiPort) {
-		apiAddrs[i] = hp.NetAddr()
+	if err != nil {
+		return errors.Annotate(err, "failed to get bootstrap instance addresses")
 	}
-	endpoint.Addresses = apiAddrs
+	apiPort := cfg.APIPort()
+	apiHostPorts := network.AddressesWithPort(netAddrs, apiPort)
+	addrs, hosts, addrsChanged := prepareEndpointsForCaching(
+		info, [][]network.HostPort{apiHostPorts}, network.HostPort{},
+	)
+	if !addrsChanged {
+		// Something's wrong we already have cached addresses?
+		return errors.Annotate(err, "cached API endpoints unexpectedly exist")
+	}
+	endpoint.Addresses = addrs
+	endpoint.Hostnames = hosts
 	writer, err := c.ConnectionWriter()
 	if err != nil {
 		return errors.Annotate(err, "failed to get connection writer")

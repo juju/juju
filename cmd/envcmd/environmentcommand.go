@@ -149,8 +149,8 @@ func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	return info.APICredentials(), nil
 }
 
-// ConnectionEndpoint returns the end point information used to connect to the API for
-// the specified environment.
+// ConnectionEndpoint returns the end point information used to
+// connect to the API for the specified environment.
 func (c *EnvCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoint, error) {
 	// TODO: the endpoint information may soon be specified through the command line
 	// or through an environment setting, so return these when they are ready.

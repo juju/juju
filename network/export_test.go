@@ -3,10 +3,12 @@
 
 package network
 
+var NetLookupIP = &netLookupIP
+
 func SetPreferIPv6(value bool) {
-	preferIPv6 = value
+	globalPreferIPv6 = value
 }
 
 func GetPreferIPv6() bool {
-	return preferIPv6
+	return globalPreferIPv6
 }
