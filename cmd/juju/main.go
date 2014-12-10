@@ -182,7 +182,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage and control actions.
 	if featureflag.Enabled(action.FeatureFlag) {
-		r.Register(action.NewActionCommand())
+		r.Register(action.NewSuperCommand())
 	}
 
 	// Manage state server availability.

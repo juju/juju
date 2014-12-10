@@ -7,13 +7,15 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/juju/cmd"
+	jujutesting "github.com/juju/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/action"
 	coretesting "github.com/juju/juju/testing"
-	jujutesting "github.com/juju/testing"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
 )
 
 const (
@@ -66,11 +68,11 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseActionSuite struct {
-	command *action.ActionCommand
+	command cmd.Command
 }
 
 func (s *BaseActionSuite) SetUpTest(c *gc.C) {
-	s.command = action.NewActionCommand().(*action.ActionCommand)
+	s.command = action.NewSuperCommand()
 }
 
 func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {

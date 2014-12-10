@@ -14,7 +14,7 @@ var _ = gc.Suite(&CommonSuite{})
 func (s *CommonSuite) TestConform(c *gc.C) {
 	var goodInterfaceTests = []struct {
 		description       string
-		inputInterface    map[string]interface{}
+		inputInterface    interface{}
 		expectedInterface map[string]interface{}
 		expectedError     string
 	}{{

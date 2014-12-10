@@ -25,23 +25,15 @@ and retrieves their results.
 
 var actionPurpose = "execute, manage, monitor, and retrieve results of actions"
 
-// Command is the top-level command wrapping all action functionality.
-type ActionCommand struct {
-	cmd.SuperCommand
-}
-
-// NewActionCommand returns a new action super-command.
-func NewActionCommand() cmd.Command {
-	actionCmd := ActionCommand{
-		SuperCommand: *cmd.NewSuperCommand(
-			cmd.SuperCommandParams{
-				Name:        "action",
-				Doc:         actionDoc,
-				UsagePrefix: "juju",
-				Purpose:     actionPurpose,
-			},
-		),
-	}
+// NewSuperCommand returns a new action super-command.
+func NewSuperCommand() cmd.Command {
+	actionCmd := cmd.NewSuperCommand(
+		cmd.SuperCommandParams{
+			Name:        "action",
+			Doc:         actionDoc,
+			UsagePrefix: "juju",
+			Purpose:     actionPurpose,
+		})
 	actionCmd.Register(envcmd.Wrap(&DefinedCommand{}))
 	actionCmd.Register(envcmd.Wrap(&DoCommand{}))
 	actionCmd.Register(envcmd.Wrap(&WaitCommand{}))
@@ -50,7 +42,7 @@ func NewActionCommand() cmd.Command {
 	actionCmd.Register(envcmd.Wrap(&StatusCommand{}))
 	actionCmd.Register(envcmd.Wrap(&LogCommand{}))
 	actionCmd.Register(envcmd.Wrap(&FetchCommand{}))
-	return &actionCmd
+	return actionCmd
 }
 
 // type APIClient represents the action API functionality.

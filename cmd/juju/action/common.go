@@ -7,8 +7,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/yaml.v1"
+
 	"github.com/juju/juju/apiserver/params"
-	yaml "gopkg.in/yaml.v1"
 )
 
 // conform ensures all keys of any nested maps are strings.  This is
@@ -72,14 +73,19 @@ func displayActionResult(result params.ActionResult, ctx *cmd.Context, out cmd.O
 		return err
 	}
 
-	response := fmt.Sprintf("Action %q on %s finished:\n"+
-		"Status: %s\n"+
-		"Message: %s\n"+
-		"Results:\n%s",
-		result.Action.Name, result.Action.Receiver,
-		result.Status,
-		result.Message,
-		string(output))
+	response := struct {
+		Action  string
+		Target  string
+		Status  string
+		Message string
+		Results string
+	}{
+		Action:  result.Action.Name,
+		Target:  result.Action.Receiver,
+		Status:  result.Status,
+		Message: result.Message,
+		Results: string(output),
+	}
 
 	err = out.Write(ctx, response)
 	if err != nil {

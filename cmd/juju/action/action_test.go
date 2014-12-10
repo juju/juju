@@ -6,6 +6,7 @@ package action_test
 import (
 	"strings"
 
+	"github.com/juju/cmd"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -29,16 +30,19 @@ func (s *ActionCommandSuite) TestHelp(c *gc.C) {
 
 	expected := "(?s).*^usage: juju action <command> .+"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^purpose: " + s.command.Purpose + "$.*"
+
+	supercommand, ok := s.command.(*cmd.SuperCommand)
+	c.Check(ok, jc.IsTrue)
+	expected = "(?sm).*^purpose: " + supercommand.Purpose + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
-	expected = "(?sm).*^" + s.command.Doc + "$.*"
+	expected = "(?sm).*^" + supercommand.Doc + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 
 	// Check that we've properly registered all subcommands
-	s.checkHelpSubCommands(c)
+	s.checkHelpSubCommands(c, ctx)
 }
 
-func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C) {
+func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C, ctx *cmd.Context) {
 	var expectedSubCommmands = [][]string{
 		[]string{"defined", "TODO: show actions defined for a service"},
 		[]string{"do", "TODO: queue an action for execution"},
@@ -50,9 +54,6 @@ func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C) {
 		[]string{"status", "TODO: show status of action by id"},
 		[]string{"wait", "TODO: wait for results of an action"},
 	}
-
-	ctx, err := testing.RunCommand(c, s.command, "--help")
-	c.Assert(err, gc.IsNil)
 
 	// Check that we have registered all the sub commands by
 	// inspecting the help output.
