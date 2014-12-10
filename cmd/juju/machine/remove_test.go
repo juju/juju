@@ -4,10 +4,13 @@
 package machine_test
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/cmd"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/testing"
@@ -88,9 +91,30 @@ func (s *RemoveMachineSuite) TestRemoveForce(c *gc.C) {
 	c.Assert(s.fake.machines, jc.DeepEquals, []string{"1", "2/lxc/1"})
 }
 
+func (s *RemoveMachineSuite) TestBlockedError(c *gc.C) {
+	s.fake.removeError = &params.Error{Code: params.CodeOperationBlocked}
+	_, err := s.run(c, "1")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(s.fake.forced, jc.IsFalse)
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Assert(stripped, gc.Matches, ".*To unblock removal.*")
+}
+
+func (s *RemoveMachineSuite) TestForceBlockedError(c *gc.C) {
+	s.fake.removeError = &params.Error{Code: params.CodeOperationBlocked}
+	_, err := s.run(c, "--force", "1")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(s.fake.forced, jc.IsTrue)
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Assert(stripped, gc.Matches, ".*To unblock removal.*")
+}
+
 type fakeRemoveMachineAPI struct {
-	forced   bool
-	machines []string
+	forced      bool
+	machines    []string
+	removeError error
 }
 
 func (f *fakeRemoveMachineAPI) Close() error {
@@ -100,11 +124,11 @@ func (f *fakeRemoveMachineAPI) Close() error {
 func (f *fakeRemoveMachineAPI) DestroyMachines(machines ...string) error {
 	f.forced = false
 	f.machines = machines
-	return nil
+	return f.removeError
 }
 
 func (f *fakeRemoveMachineAPI) ForceDestroyMachines(machines ...string) error {
 	f.forced = true
 	f.machines = machines
-	return nil
+	return f.removeError
 }

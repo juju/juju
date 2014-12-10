@@ -82,7 +82,9 @@ func (c *RemoveCommand) Run(_ *cmd.Context) error {
 	}
 	defer client.Close()
 	if c.Force {
-		return client.ForceDestroyMachines(c.MachineIds...)
+		err = client.ForceDestroyMachines(c.MachineIds...)
+	} else {
+		err = client.DestroyMachines(c.MachineIds...)
 	}
-	return block.ProcessBlockedError(client.DestroyMachines(c.MachineIds...), block.BlockRemove)
+	return block.ProcessBlockedError(err, block.BlockRemove)
 }
