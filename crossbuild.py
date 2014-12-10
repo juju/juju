@@ -110,7 +110,7 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
         go_build(
             cli_package, goroot, gopath, '386', 'windows',
             dry_run=False, verbose=verbose)
-        built_cli_path = os.path.join(gopath, 'src', cli_package, 'juju.exe')
+        built_cli_path = os.path.join(gopath, 'bin', 'windows_386', 'juju.exe')
         make_installer(
             built_cli_path, version, gopath, cwd,
             dry_run=dry_run, verbose=verbose)

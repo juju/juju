@@ -129,10 +129,8 @@ class CrossBuildTestCase(TestCase):
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            ('baz/bar_1.2.3/src/github.com/juju/juju/cmd/juju/juju.exe',
-             '1.2.3',
-             'baz/bar_1.2.3',
-             os.getcwd()),
+            ('baz/bar_1.2.3/bin/windows_386/juju.exe',
+             '1.2.3', 'baz/bar_1.2.3', os.getcwd()),
             mi_mock.call_args[0])
 
     def test_make_installer_default(self):
