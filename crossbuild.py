@@ -37,8 +37,9 @@ def go_tarball(tarball_path):
             raise ValueError(error_message)
         tarball_dir_name = os.path.basename(
             tarball_path.replace('.tar.gz', ''))
+        version = tarball_dir_name.split('_')[-1]
         gopath = os.path.join(base_dir, tarball_dir_name)
-        yield gopath
+        yield gopath, version
     finally:
         shutil.rmtree(base_dir)
 
@@ -62,11 +63,6 @@ def run_command(command, env=None, dry_run=False, verbose=False):
             command, env=env, stderr=subprocess.STDOUT)
         if verbose:
             print(output)
-
-
-def version_from_tarball(tarball_path):
-    tarball_name = os.path.basename(tarball_path.replace('.tar.gz', ''))
-    return tarball_name.split('_')[-1]
 
 
 def go_build(package, goroot, gopath, goarch, goos,
@@ -109,13 +105,12 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
     cwd = os.getcwd()
     cli_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'juju')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
-    with go_tarball(tarball_path) as gopath:
+    with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
             cli_package, goroot, gopath, '386', 'windows',
             dry_run=False, verbose=verbose)
         built_cli_path = os.path.join(gopath, 'src', cli_package, 'juju.exe')
-        version = version_from_tarball(tarball_path)
         make_installer(
             built_cli_path, version, gopath, cwd,
             dry_run=dry_run, verbose=verbose)
@@ -142,14 +137,13 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
     cwd = os.getcwd()
     agent_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'jujud')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
-    with go_tarball(tarball_path) as gopath:
+    with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
             agent_package, goroot, gopath, 'amd64', 'windows',
             dry_run=False, verbose=verbose)
         built_agent_path = os.path.join(
             gopath, 'src', agent_package, 'jujud.exe')
-        version = version_from_tarball(tarball_path)
         make_agent_tarball(
             built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
 

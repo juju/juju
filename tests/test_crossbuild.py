@@ -15,7 +15,6 @@ from crossbuild import (
     make_installer,
     main,
     run_command,
-    version_from_tarball,
     working_directory,
 )
 from utils import temp_dir
@@ -24,7 +23,9 @@ from utils import temp_dir
 @contextmanager
 def fake_go_tarball(path):
     try:
-        yield path.replace('.tar.gz', '')
+        gopath = path.replace('.tar.gz', '')
+        version = os.path.basename(gopath).split('_')[-1]
+        yield gopath, version
     finally:
         pass
 
@@ -58,10 +59,6 @@ class CrossBuildTestCase(TestCase):
         args, kwargs = mock.call_args
         self.assertEqual(('bar.1.2.3.tar.gz', './foo'), args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
-
-    def test_version_from_tarball(self):
-        self.assertEqual('1.2.3', version_from_tarball('foo_1.2.3.tar.gz'))
-        self.assertEqual('1.2.3', version_from_tarball('bzr/foo_1.2.3.tar.gz'))
 
     def test_go_build(self):
         with patch('crossbuild.run_command') as mock:
@@ -102,9 +99,10 @@ class CrossBuildTestCase(TestCase):
             tarball_path = '%s.tar.gz' % src_path
             with tarfile.open(tarball_path, 'w:gz') as tar:
                 tar.add(src_path, arcname='juju-core_1.2.3')
-            with go_tarball(tarball_path) as gopath:
+            with go_tarball(tarball_path) as (gopath, version):
                 self.assertTrue(os.path.isdir(gopath))
                 self.assertTrue(gopath.endswith('juju-core_1.2.3'), gopath)
+                self.assertEqual('1.2.3', version)
 
     def test_working_directory(self):
         this_dir = os.getcwd()
