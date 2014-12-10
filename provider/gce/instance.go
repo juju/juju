@@ -6,6 +6,8 @@ package gce
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -58,7 +60,7 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 			address := network.Address{
 				Value: accessConfig.NatIP,
 				Type:  network.IPv4Address,
-				Scope: netowkr.ScopePublic,
+				Scope: network.ScopePublic,
 			}
 			addresses = append(addresses, address)
 
@@ -72,7 +74,7 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 		address := network.Address{
 			Value: netif.NetworkIP,
 			Type:  network.IPv4Address,
-			Scope: netowkr.ScopeCloudLocal,
+			Scope: network.ScopeCloudLocal,
 		}
 		addresses = append(addresses, address)
 	}
@@ -89,6 +91,8 @@ func (inst *environInstance) waitOperation(operation *compute.Operation) error {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+	env := inst.env.getSnapshot()
+
 	// Define the firewall.
 	// TODO(ericsnow) Should we be re-using the firewall (update vs. insert)?
 	firewall := compute.Firewall{
@@ -101,22 +105,23 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 		// SourceTags is not set.
 		// TargetTags is not set.
 	}
+
 	for _, portRange := range ports {
 		allowed := compute.FirewallAllowed{
 			IPProtocol: portRange.Protocol,
 			Ports:      []string{portRange.PortsString()},
 		}
-		firewall.Allowed = append(inst.firewall.Allowed, allowed)
+		firewall.Allowed = append(firewall.Allowed, &allowed)
 	}
 
 	// Send the request.
-	call := inst.gce.Firewalls.Insert(inst.projectID, &firewall)
+	call := env.gce.Firewalls.Insert(inst.projectID, &firewall)
 	operation, err := call.Do()
 	if err != nil {
-		return errors.Annotatef(err, "opening port %v", port)
+		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 	if err := inst.waitOperation(operation); err != nil {
-		return errors.Annotatef(err, "opening port %v", port)
+		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 	return nil
 }
@@ -124,14 +129,36 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRange) error {
-	return errNotImplemented
+	//TODO (wwitzel3): call Firewalls.Update with a difference of ports and inst.Ports
+	// if there is no difference, then call Firewalls.Delete
+
+	env := inst.env.getSnapshot()
+	// TODO (wwitzel3): make this real code
+	if ports != inst.Ports {
+		call := env.gce.Firewalls.Delete(inst.projectID, machineId)
+	} else {
+		newPorts := set(ports, inst.Ports).difference()
+		firewall := compute.Firewall{}
+		call := env.gce.Firewalls.Update(inst.projectID, machineId, &firewall)
+	}
+
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Annotatef(err, "closing port(s) %+v", ports)
+	}
+	if err := inst.waitOperation(operation); err != nil {
+		return errors.Annotatef(err, "closing port(s) %+v", ports)
+	}
+
+	return nil
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error) {
-	call := inst.gce.Firewalls.Get(inst.projectID, machineId)
+	env := inst.env.getSnapshot()
+	call := env.gce.Firewalls.Get(inst.projectID, machineId)
 	firewall, err := call.Do()
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting ports from GCE")
@@ -140,7 +167,7 @@ func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error
 	var ports []network.PortRange
 	for _, allowed := range firewall.Allowed {
 		for _, portRangeStr := range allowed.Ports {
-			portRange, err := network.ParsePortRange(portRangeStr, allowed.IPProtocol)
+			portRange, err := network.ParsePortToPortRange(portRangeStr, allowed.IPProtocol)
 			if err != nil {
 				return ports, errors.Annotate(err, "bad ports from GCE")
 			}
