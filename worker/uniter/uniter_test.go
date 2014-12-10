@@ -5,19 +5,17 @@ package uniter_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/api"
-	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -33,8 +31,6 @@ type UniterSuite struct {
 	oldLcAll string
 	unitDir  string
 
-	st     *api.State
-	uniter *apiuniter.State
 	ticker *uniter.ManualTicker
 }
 
@@ -47,7 +43,7 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(fwereade) GAAAAAAAAAAAAAAAAAH
+	// TODO(fwereade) GAAAAAAAAAAAAAAAAAH this is LUDICROUS.
 	cmd := exec.Command("go", "build", "github.com/juju/juju/cmd/jujud")
 	cmd.Dir = toolsDir
 	out, err := cmd.CombinedOutput()
@@ -85,19 +81,6 @@ func (s *UniterSuite) Reset(c *gc.C) {
 func (s *UniterSuite) ResetContext(c *gc.C) {
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword(password)
-	c.Assert(err, jc.ErrorIsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	c.Assert(s.st, gc.NotNil)
-	c.Logf("API: login as %q successful", unit.Tag())
-	s.uniter, err = s.st.Uniter()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.uniter, gc.NotNil)
 }
 
 func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
@@ -851,6 +834,134 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
+	// These tests are copies of the old git-deployer-related tests, to test that
+	// the uniter with the manifest-deployer work patched out still works how it
+	// used to; thus demonstrating that the *other* tests that verify manifest
+	// deployer behaviour in the presence of an old git deployer are working against
+	// an accurate representation of the base state.
+	// The only actual behaviour change is that we no longer commit changes after
+	// each hook execution; this is reflected by checking that it's dirty in a couple
+	// of places where we once checked it was not.
+
+	s.runUniterTests(c, []uniterTest{
+		// Upgrade scenarios - handling conflicts.
+		ugt(
+			"upgrade: conflicting files",
+			startGitUpgradeError{},
+
+			// NOTE: this is just dumbly committing the conflicts, but AFAICT this
+			// is the only reasonable solution; if the user tells us it's resolved
+			// we have to take their word for it.
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyGitCharm{revision: 1},
+		), ugt(
+			`upgrade: conflicting directories`,
+			createCharm{
+				customize: func(c *gc.C, ctx *context, path string) {
+					err := os.Mkdir(filepath.Join(path, "data"), 0755)
+					c.Assert(err, jc.ErrorIsNil)
+					appendHook(c, path, "start", "echo DATA > data/newfile")
+				},
+			},
+			serveCharm{},
+			createUniter{},
+			waitUnit{
+				status: params.StatusStarted,
+			},
+			waitHooks{"install", "config-changed", "start"},
+			verifyGitCharm{dirty: true},
+
+			createCharm{
+				revision: 1,
+				customize: func(c *gc.C, ctx *context, path string) {
+					data := filepath.Join(path, "data")
+					err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
+					c.Assert(err, jc.ErrorIsNil)
+				},
+			},
+			serveCharm{},
+			upgradeCharm{revision: 1},
+			waitUnit{
+				status: params.StatusError,
+				info:   "upgrade failed",
+				charm:  1,
+			},
+			verifyWaiting{},
+			verifyGitCharm{dirty: true},
+
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyGitCharm{revision: 1},
+		), ugt(
+			"upgrade conflict resolved with forced upgrade",
+			startGitUpgradeError{},
+			createCharm{
+				revision: 2,
+				customize: func(c *gc.C, ctx *context, path string) {
+					otherdata := filepath.Join(path, "otherdata")
+					err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
+					c.Assert(err, jc.ErrorIsNil)
+				},
+			},
+			serveCharm{},
+			upgradeCharm{revision: 2, forced: true},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  2,
+			},
+			waitHooks{"upgrade-charm", "config-changed"},
+			verifyGitCharm{revision: 2},
+			custom{func(c *gc.C, ctx *context) {
+				// otherdata should exist (in v2)
+				otherdata, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "otherdata"))
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(string(otherdata), gc.Equals, "blah")
+
+				// ignore should not (only in v1)
+				_, err = os.Stat(filepath.Join(ctx.path, "charm", "ignore"))
+				c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+				// data should contain what was written in the start hook
+				data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(string(data), gc.Equals, "STARTDATA\n")
+			}},
+		), ugt(
+			"upgrade conflict service dying",
+			startGitUpgradeError{},
+			serviceDying,
+			verifyWaiting{},
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed", "stop"},
+			waitUniterDead{},
+		), ugt(
+			"upgrade conflict unit dying",
+			startGitUpgradeError{},
+			unitDying,
+			verifyWaiting{},
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed", "stop"},
+			waitUniterDead{},
+		), ugt(
+			"upgrade conflict unit dead",
+			startGitUpgradeError{},
+			unitDead,
+			waitUniterDead{},
+			waitHooks{},
+		),
+	})
+}
+
 func (s *UniterSuite) TestRunCommand(c *gc.C) {
 	testDir := c.MkDir()
 	testFile := func(name string) string {
@@ -1490,8 +1601,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.unit, err = s.State.Unit("u/0")
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.APILogin(c, ctx.unit)
+	ctx.apiLogin(c)
 
 	// Run the actual test.
 	ctx.run(c, []stepper{

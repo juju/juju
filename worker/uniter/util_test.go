@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/rpc"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -29,6 +30,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 	goyaml "gopkg.in/yaml.v1"
 
+	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -75,6 +77,7 @@ type context struct {
 	dataDir       string
 	s             *UniterSuite
 	st            *state.State
+	api           *apiuniter.State
 	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
@@ -116,6 +119,19 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 		c.Logf("step %d:\n", i)
 		step(c, ctx, s)
 	}
+}
+
+func (ctx *context) apiLogin(c *gc.C) {
+	password, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctx.unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	st := ctx.s.OpenAPIAs(c, ctx.unit.Tag(), password)
+	c.Assert(st, gc.NotNil)
+	c.Logf("API: login as %q successful", ctx.unit.Tag())
+	ctx.api, err = st.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ctx.api, gc.NotNil)
 }
 
 var goodHook = `
@@ -407,7 +423,7 @@ func (csau createServiceAndUnit) step(c *gc.C, ctx *context) {
 	ctx.svc = svc
 	ctx.unit = unit
 
-	ctx.s.APILogin(c, unit)
+	ctx.apiLogin(c)
 }
 
 type createUniter struct{}
@@ -458,7 +474,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	if ctx.s.uniter == nil {
+	if ctx.api == nil {
 		panic("API connection not established")
 	}
 	tag, err := names.ParseUnitTag(s.unitTag)
@@ -468,7 +484,7 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.api, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
@@ -1447,5 +1463,82 @@ func (s prepareGitUniter) step(c *gc.C, ctx *context) {
 	}
 	if ctx.uniter != nil {
 		step(c, ctx, stopUniter{})
+	}
+}
+
+func ugt(summary string, steps ...stepper) uniterTest {
+	return ut(summary, prepareGitUniter{steps})
+}
+
+type verifyGitCharm struct {
+	revision int
+	dirty    bool
+}
+
+func (s verifyGitCharm) step(c *gc.C, ctx *context) {
+	charmPath := filepath.Join(ctx.path, "charm")
+	if !s.dirty {
+		revisionPath := filepath.Join(charmPath, "revision")
+		content, err := ioutil.ReadFile(revisionPath)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
+		err = ctx.unit.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		url, ok := ctx.unit.CharmURL()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(url, gc.DeepEquals, curl(s.revision))
+	}
+
+	// Before we try to check the git status, make sure expected hooks are all
+	// complete, to prevent the test and the uniter interfering with each other.
+	step(c, ctx, waitHooks{})
+	step(c, ctx, waitHooks{})
+	cmd := exec.Command("git", "status")
+	cmd.Dir = filepath.Join(ctx.path, "charm")
+	out, err := cmd.CombinedOutput()
+	c.Assert(err, jc.ErrorIsNil)
+	cmp := gc.Matches
+	if s.dirty {
+		cmp = gc.Not(gc.Matches)
+	}
+	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
+}
+
+type startGitUpgradeError struct{}
+
+func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
+	steps := []stepper{
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				appendHook(c, path, "start", "echo STARTDATA > data")
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+		verifyGitCharm{dirty: true},
+
+		createCharm{
+			revision: 1,
+			customize: func(c *gc.C, ctx *context, path string) {
+				ft.File{"data", "<nelson>ha ha</nelson>", 0644}.Create(c, path)
+				ft.File{"ignore", "anything", 0644}.Create(c, path)
+			},
+		},
+		serveCharm{},
+		upgradeCharm{revision: 1},
+		waitUnit{
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  1,
+		},
+		verifyWaiting{},
+		verifyGitCharm{dirty: true},
+	}
+	for _, s_ := range steps {
+		step(c, ctx, s_)
 	}
 }
