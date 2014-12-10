@@ -22,7 +22,12 @@ def parse_args(argv=None):
         'root_dir', help='Directory containing releases and candidates dir')
     parser.add_argument('--suite', help='Test suite to run', default=FULL,
                         choices=suites.keys())
-    return parser.parse_args(argv)
+    parser.add_argument('jobs', nargs='*', metavar='job',
+                        help='Jobs to schedule builds for.')
+    result = parser.parse_args(argv)
+    if result.jobs == []:
+        result.jobs = None
+    return result
 
 
 def find_candidates(root_dir):
@@ -57,8 +62,11 @@ def build_job(root, job_name, candidates, suite):
 def main():
     args = parse_args()
     candidates = list(find_candidates(args.root_dir))
-    for job in ['industrial-test', 'industrial-test-aws',
-                'industrial-test-joyent']:
+    jobs = args.jobs
+    if jobs is None:
+        jobs = ['industrial-test', 'industrial-test-aws',
+                'industrial-test-joyent']
+    for job in jobs:
         build_job(args.root_dir, job, candidates, args.suite)
 
 
