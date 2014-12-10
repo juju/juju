@@ -74,6 +74,24 @@ func (ps PortSet) PortStrings(protocol string) []string {
 	return ports.Values()
 }
 
+// Add adds a Port to the PortSet.
+func (ps *PortSet) Add(port Port) {
+	portNum := strconv.Itoa(port.Number)
+	ports, ok := ps.values[port.Protocol]
+	if !ok {
+		ps.values[port.Protocol] = set.NewStrings(portNum)
+	} else {
+		ports.Add(portNum)
+	}
+}
+
+// AddRanges adds port ranges to the PortSet.
+func (ps *PortSet) AddRanges(portRanges ...PortRange) {
+	for _, port := range PortRangesToPorts(portRanges) {
+		ps.Add(port)
+	}
+}
+
 // Union returns a new PortSet of the shared values
 // that are common between both PortSets.
 func (ps PortSet) Union(other PortSet) PortSet {
@@ -109,22 +127,4 @@ func (ps PortSet) Difference(other PortSet) PortSet {
 		}
 	}
 	return result
-}
-
-// Add adds a Port to the PortSet.
-func (ps *PortSet) Add(port Port) {
-	portNum := strconv.Itoa(port.Number)
-	ports, ok := ps.values[port.Protocol]
-	if !ok {
-		ps.values[port.Protocol] = set.NewStrings(portNum)
-	} else {
-		ports.Add(portNum)
-	}
-}
-
-// AddRanges adds portRanges to the PortSet.
-func (ps *PortSet) AddRanges(portRanges ...PortRange) {
-	for _, port := range PortRangesToPorts(portRanges) {
-		ps.Add(port)
-	}
 }
