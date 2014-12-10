@@ -9,13 +9,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
 // MachineSuite tests the connectivity of all the machine subcommands. These
 // tests go from the command line, api client, api server, db. The db changes
 // are then checked.  Only one test for each command is done here to check
-// connectivity.  Exhaustive tests are at each layer.
+// connectivity.  Exhaustive unit tests are at each layer.
 type MachineSuite struct {
 	jujutesting.JujuConnSuite
 }
@@ -55,5 +56,5 @@ func (s *MachineSuite) TestMachineRemove(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(machine.Life().String(), gc.Equals, "dying")
+	c.Assert(machine.Life(), gc.Equals, state.Dying)
 }
