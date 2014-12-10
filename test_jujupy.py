@@ -1132,6 +1132,32 @@ class TestStatus(TestCase):
                                      '1 is in state any-error'):
             status.check_agents_started('env1')
 
+    def do_check_agents_started_failure(self, failure):
+        status = Status({
+            'machines': {'0': {
+                'agent-state-info': failure}},
+            'services': {},
+            }, '')
+        with self.assertRaises(ErroredUnit) as e_cxt:
+            status.check_agents_started('env2')
+        e = e_cxt.exception
+        self.assertEqual(
+            str(e), '0 is in state {}'.format(failure))
+        self.assertEqual(e.unit_name, '0')
+        self.assertEqual(e.state, failure)
+
+    def test_check_agents_cannot_set_up_groups(self):
+        self.do_check_agents_started_failure('cannot set up groups foobar')
+
+    def test_check_agents_error(self):
+        self.do_check_agents_started_failure('error executing "lxc-start"')
+
+    def test_check_agents_cannot_run_instances(self):
+        self.do_check_agents_started_failure('cannot run instances')
+
+    def test_check_agents_cannot_run_instance(self):
+        self.do_check_agents_started_failure('cannot run instance')
+
     def test_check_agents_started_agent_info_error(self):
         # Sometimes the error is indicated in a special 'agent-state-info'
         # field.
