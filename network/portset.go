@@ -101,6 +101,16 @@ func (ps *PortSet) Remove(port Port) {
 	}
 }
 
+// Contains returns true if the provided port is in the set.
+func (ps *PortSet) Contains(port Port) bool {
+	ports, ok := ps.values[port.Protocol]
+	if !ok {
+		return false
+	}
+	portNum := strconv.Itoa(port.Number)
+	return ports.Contains(portNum)
+}
+
 // Union returns a new PortSet of the shared values
 // that are common between both PortSets.
 func (ps PortSet) Union(other PortSet) PortSet {

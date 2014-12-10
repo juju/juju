@@ -102,6 +102,20 @@ func (s *PortSetSuite) TestPortSetRemove(c *gc.C) {
 	c.Assert(portSet.Ports(), gc.HasLen, 0)
 }
 
+func (s *PortSetSuite) TestPortSetContains(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange2)
+	found := portSet.Contains(network.Port{Number: 80, Protocol: "tcp"})
+
+	c.Assert(found, jc.IsTrue)
+}
+
+func (s *PortSetSuite) TestPortSetContainsNotFound(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange2)
+	found := portSet.Contains(network.Port{Number: 81, Protocol: "tcp"})
+
+	c.Assert(found, jc.IsFalse)
+}
+
 func (s *PortSetSuite) TestPortSetProtocols(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2, s.portRange4)
 	protocols := portSet.Protocols()
