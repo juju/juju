@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
@@ -32,8 +31,6 @@ import (
 	"github.com/juju/juju/tools"
 )
 
-var logger = loggo.GetLogger("juju.provider.ec2")
-
 const (
 	none                        = "none"
 	invalidParameterValue       = "InvalidParameterValue"
@@ -46,13 +43,6 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-func init() {
-	environs.RegisterProvider("ec2", environProvider{})
-}
-
-type environProvider struct{}
-
-var providerInstance environProvider
 var AssignPrivateIPAddress = assignPrivateIPAddress
 
 type environ struct {
@@ -93,225 +83,6 @@ type defaultVpc struct {
 func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
 	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
 	return err
-}
-
-type ec2Instance struct {
-	e *environ
-
-	mu sync.Mutex
-	*ec2.Instance
-}
-
-func (inst *ec2Instance) String() string {
-	return string(inst.Id())
-}
-
-var _ instance.Instance = (*ec2Instance)(nil)
-
-func (inst *ec2Instance) getInstance() *ec2.Instance {
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-	return inst.Instance
-}
-
-func (inst *ec2Instance) Id() instance.Id {
-	return instance.Id(inst.getInstance().InstanceId)
-}
-
-func (inst *ec2Instance) Status() string {
-	return inst.getInstance().State.Name
-}
-
-// Refresh implements instance.Refresh(), requerying the
-// Instance details over the ec2 api
-func (inst *ec2Instance) Refresh() error {
-	_, err := inst.refresh()
-	return err
-}
-
-// refresh requeries Instance details over the ec2 api.
-func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
-	id := inst.Id()
-	insts, err := inst.e.Instances([]instance.Id{id})
-	if err != nil {
-		return nil, err
-	}
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-	inst.Instance = insts[0].(*ec2Instance).Instance
-	return inst.Instance, nil
-}
-
-// Addresses implements network.Addresses() returning generic address
-// details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses() ([]network.Address, error) {
-	// TODO(gz): Stop relying on this requerying logic, maybe remove error
-	instInstance := inst.getInstance()
-	var addresses []network.Address
-	possibleAddresses := []network.Address{
-		{
-			Value: instInstance.IPAddress,
-			Type:  network.IPv4Address,
-			Scope: network.ScopePublic,
-		},
-		{
-			Value: instInstance.PrivateIPAddress,
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		},
-	}
-	for _, address := range possibleAddresses {
-		if address.Value != "" {
-			addresses = append(addresses, address)
-		}
-	}
-	return addresses, nil
-}
-
-func (p environProvider) BoilerplateConfig() string {
-	return `
-# https://juju.ubuntu.com/docs/config-aws.html
-amazon:
-    type: ec2
-
-    # region specifies the EC2 region. It defaults to us-east-1.
-    #
-    # region: us-east-1
-
-    # access-key holds the EC2 access key. It defaults to the
-    # environment variable AWS_ACCESS_KEY_ID.
-    #
-    # access-key: <secret>
-
-    # secret-key holds the EC2 secret key. It defaults to the
-    # environment variable AWS_SECRET_ACCESS_KEY.
-    #
-    # secret-key: <secret>
-
-    # image-stream chooses a simplestreams stream from which to select
-    # OS images, for example daily or released images (or any other stream
-    # available on simplestreams).
-    #
-    # image-stream: "released"
-
-    # agent-stream chooses a simplestreams stream from which to select tools,
-    # for example released or proposed tools (or any other stream available
-    # on simplestreams).
-    #
-    # agent-stream: "released"
-
-    # Whether or not to refresh the list of available updates for an
-    # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-refresh-update: true
-
-    # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
-    #
-    # enable-os-upgrade: true
-
-`[1:]
-}
-
-func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	logger.Infof("opening environment %q", cfg.Name())
-	e := new(environ)
-	e.name = cfg.Name()
-	err := e.SetConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return e, nil
-}
-
-func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	attrs := cfg.UnknownAttrs()
-	if _, ok := attrs["control-bucket"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		attrs["control-bucket"] = fmt.Sprintf("%x", uuid.Raw())
-	}
-	cfg, err := cfg.Apply(attrs)
-	if err != nil {
-		return nil, err
-	}
-	e, err := p.Open(cfg)
-	if err != nil {
-		return nil, err
-	}
-	if ctx.ShouldVerifyCredentials() {
-		if err := verifyCredentials(e.(*environ)); err != nil {
-			return nil, err
-		}
-	}
-	return e, nil
-}
-
-// MetadataLookupParams returns parameters which are used to query image metadata to
-// find matching image information.
-func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	if region == "" {
-		fmt.Errorf("region must be specified")
-	}
-	ec2Region, ok := allRegions[region]
-	if !ok {
-		return nil, fmt.Errorf("unknown region %q", region)
-	}
-	return &simplestreams.MetadataLookupParams{
-		Region:        region,
-		Endpoint:      ec2Region.EC2Endpoint,
-		Architectures: arch.AllSupportedArches,
-	}, nil
-}
-
-func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	m := make(map[string]string)
-	ecfg, err := providerInstance.newConfig(cfg)
-	if err != nil {
-		return nil, err
-	}
-	m["access-key"] = ecfg.accessKey()
-	m["secret-key"] = ecfg.secretKey()
-	return m, nil
-}
-
-const badAccessKey = `
-Please ensure the Access Key ID you have specified is correct.
-You can obtain the Access Key ID via the "Security Credentials"
-page in the AWS console.`
-
-const badSecretKey = `
-Please ensure the Secret Access Key you have specified is correct.
-You can obtain the Secret Access Key via the "Security Credentials"
-page in the AWS console.`
-
-// verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
-// verify the configured credentials. If verification fails, a user-friendly
-// error will be returned, and the original error will be logged at debug
-// level.
-var verifyCredentials = func(e *environ) error {
-	_, err := e.ec2().AccountAttributes()
-	if err != nil {
-		logger.Debugf("ec2 request failed: %v", err)
-		if err, ok := err.(*ec2.Error); ok {
-			switch err.Code {
-			case "AuthFailure":
-				return errors.New("authentication failed.\n" + badAccessKey)
-			case "SignatureDoesNotMatch":
-				return errors.New("authentication failed.\n" + badSecretKey)
-			default:
-				return err
-			}
-		}
-		return err
-	}
-	return nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -1256,45 +1027,6 @@ func (e *environ) machineGroupName(machineId string) string {
 
 func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
-}
-
-func (inst *ec2Instance) OpenPorts(machineId string, ports []network.PortRange) error {
-	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
-			inst.e.Config().FirewallMode())
-	}
-	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.openPortsInGroup(name, ports); err != nil {
-		return err
-	}
-	logger.Infof("opened ports in security group %s: %v", name, ports)
-	return nil
-}
-
-func (inst *ec2Instance) ClosePorts(machineId string, ports []network.PortRange) error {
-	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
-			inst.e.Config().FirewallMode())
-	}
-	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.closePortsInGroup(name, ports); err != nil {
-		return err
-	}
-	logger.Infof("closed ports in security group %s: %v", name, ports)
-	return nil
-}
-
-func (inst *ec2Instance) Ports(machineId string) ([]network.PortRange, error) {
-	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
-			inst.e.Config().FirewallMode())
-	}
-	name := inst.e.machineGroupName(machineId)
-	ranges, err := inst.e.portsInGroup(name)
-	if err != nil {
-		return nil, err
-	}
-	return ranges, nil
 }
 
 // setUpGroups creates the security groups for the new machine, and
