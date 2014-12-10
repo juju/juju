@@ -61,7 +61,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 			return nil, fmt.Errorf("invalid config change: %v", err)
 		}
 	}
-	return newEcfg.Config, nil
+	return cfg.Apply(newEcfg.attrs)
 }
 
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {

@@ -5,7 +5,6 @@ package gce
 
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/instance"
@@ -88,13 +87,9 @@ func (inst *environInstance) waitOperation(operation *compute.Operation) error {
 	return errNotImplemented
 }
 
-// OpenPorts opens the given ports on the instance, which
-// should have been started with the given machine id.
-func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRange) error {
-	env := inst.env.getSnapshot()
-
-	// Define the firewall.
-	// TODO(ericsnow) Should we be re-using the firewall (update vs. insert)?
+// buildFirewall expands a port range set in to compute.FirewallAllowed and returns
+// a compute.Firewall for the machineId.
+func buildFirewall(machineId string, ps network.PortSet) *compute.Firewall {
 	firewall := compute.Firewall{
 		// Allowed is set below.
 		// Description is not set.
@@ -106,48 +101,93 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 		// TargetTags is not set.
 	}
 
-	for _, portRange := range ports {
+	for _, protocol := range ps.Protocols() {
 		allowed := compute.FirewallAllowed{
-			IPProtocol: portRange.Protocol,
-			Ports:      []string{portRange.PortsString()},
+			IPProtocol: protocol,
+			Ports:      ps.PortStrings(protocol),
 		}
 		firewall.Allowed = append(firewall.Allowed, &allowed)
 	}
+	return &firewall
+}
 
-	// Send the request.
-	call := env.gce.Firewalls.Insert(inst.projectID, &firewall)
-	operation, err := call.Do()
+// OpenPorts opens the given ports on the instance, which
+// should have been started with the given machine id.
+func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+	// Compose the full set of open ports.
+	currentPorts, err := inst.Ports(machineId)
 	if err != nil {
-		return errors.Annotatef(err, "opening port(s) %+v", ports)
+		return errors.Trace(err)
 	}
+	inputPortsSet := network.NewPortSet(ports...)
+	if inputPortsSet.IsEmpty() {
+		return nil
+	}
+	currentPortsSet := network.NewPortSet(currentPorts...)
+
+	// Send the request, depending on the current ports.
+	var operation *compute.Operation
+	env := inst.env.getSnapshot()
+	if currentPortsSet.IsEmpty() {
+		firewall := buildFirewall(machineId, inputPortsSet)
+		call := env.gce.Firewalls.Insert(inst.projectID, firewall)
+		operation, err := call.Do()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	} else {
+		newPortsSet := currentPortsSet.Union(inputPortsSet)
+		firewall := buildFirewall(machineId, newPortsSet)
+		call := env.gce.Firewalls.Update(inst.projectID, machineId, firewall)
+		operation, err := call.Do()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if err := inst.waitOperation(operation); err != nil {
 		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
+
 	return nil
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRange) error {
-	//TODO (wwitzel3): call Firewalls.Update with a difference of ports and inst.Ports
-	// if there is no difference, then call Firewalls.Delete
-
-	env := inst.env.getSnapshot()
-	// TODO (wwitzel3): make this real code
-	if ports != inst.Ports {
-		call := env.gce.Firewalls.Delete(inst.projectID, machineId)
-	} else {
-		newPorts := set(ports, inst.Ports).difference()
-		firewall := compute.Firewall{}
-		call := env.gce.Firewalls.Update(inst.projectID, machineId, &firewall)
-	}
-
-	operation, err := call.Do()
+	// Compose the full set of open ports.
+	currentPorts, err := inst.Ports(machineId)
 	if err != nil {
-		return errors.Annotatef(err, "closing port(s) %+v", ports)
+		return errors.Trace(err)
 	}
+	inputPortsSet := network.NewPortSet(ports...)
+	if inputPortsSet.IsEmpty() {
+		return nil
+	}
+	currentPortsSet := network.NewPortSet(currentPorts...)
+	newPortsSet := currentPortsSet.Difference(inputPortsSet)
+
+	// Send the request, depending on the current ports.
+	var operation *compute.Operation
+	env := inst.env.getSnapshot()
+	if newPortsSet.IsEmpty() {
+		call := env.gce.Firewalls.Delete(inst.projectID, machineId)
+		operation, err = call.Do()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else {
+		firewall := buildFirewall(machineId, newPortsSet)
+		call := env.gce.Firewalls.Update(inst.projectID, machineId, firewall)
+		operation, err = call.Do()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if err := inst.waitOperation(operation); err != nil {
-		return errors.Annotatef(err, "closing port(s) %+v", ports)
+		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 
 	return nil
@@ -167,7 +207,7 @@ func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error
 	var ports []network.PortRange
 	for _, allowed := range firewall.Allowed {
 		for _, portRangeStr := range allowed.Ports {
-			portRange, err := network.ParsePortToPortRange(portRangeStr, allowed.IPProtocol)
+			portRange, err := network.ParsePortRangePorts(portRangeStr, allowed.IPProtocol)
 			if err != nil {
 				return ports, errors.Annotate(err, "bad ports from GCE")
 			}
