@@ -142,9 +142,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&UnsetCommand{}))
 	r.Register(wrapEnvCommand(&GetConstraintsCommand{}))
 	r.Register(wrapEnvCommand(&SetConstraintsCommand{}))
-	r.Register(wrapEnvCommand(&GetEnvironmentCommand{}))
-	r.Register(wrapEnvCommand(&SetEnvironmentCommand{}))
-	r.Register(wrapEnvCommand(&UnsetEnvironmentCommand{}))
 	r.Register(wrapEnvCommand(&ExposeCommand{}))
 	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
 	r.Register(wrapEnvCommand(&UnexposeCommand{}))
@@ -175,8 +172,12 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Mangage environment
 	r.Register(environment.NewSuperCommand())
-	r.RegisterSuperAlias("add-machine", "machine", "add", twoDotOhDeprecation("machine add"))
-	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+	r.RegisterSuperAlias("get-environment", "environment", "get", twoDotOhDeprecation("environment get"))
+	r.RegisterSuperAlias("get-env", "environment", "get", twoDotOhDeprecation("environment get"))
+	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
+	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
+	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
+	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
