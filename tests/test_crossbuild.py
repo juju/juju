@@ -6,6 +6,7 @@ import tarfile
 from unittest import TestCase
 
 from crossbuild import (
+    build_osx_client,
     build_win_agent,
     build_win_client,
     go_build,
@@ -213,3 +214,23 @@ class CrossBuildTestCase(TestCase):
             make_win_agent_tarball(
                 'foo/jujud.exe', '1.2.3', './bar', dry_run=True)
         self.assertEqual(0, mock.call_count)
+
+    def test_build_osx_client(self):
+        with patch('crossbuild.go_tarball',
+                   side_effect=fake_go_tarball) as gt_mock:
+            with patch('crossbuild.go_build') as gb_mock:
+                with patch('crossbuild.make_osx_tarball') as mt_mock:
+                    build_osx_client('baz/bar_1.2.3.tar.gz', '/foo')
+        args, kwargs = gt_mock.call_args
+        self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
+        args, kwargs = gb_mock.call_args
+        self.assertEqual(
+            ('github.com/juju/juju/cmd/...',
+             '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'darwin'),
+            args)
+        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        self.assertEqual(
+            (['baz/bar_1.2.3/bin/darwin_amd64/juju',
+              'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata'],
+             '1.2.3', os.getcwd()),
+            mt_mock.call_args[0])

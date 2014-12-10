@@ -159,20 +159,23 @@ def make_win_agent_tarball(built_agent_path, version, dest_dir,
 
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
     cwd = os.getcwd()
-    cmd_package = os.path.join('github.com', 'juju', 'juju', 'cmd')
+    cmd_package = os.path.join('github.com', 'juju', 'juju', 'cmd') + '/...'
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
             cmd_package, goroot, gopath, 'amd64', 'darwin',
             dry_run=False, verbose=verbose)
-        built_agent_path = os.path.join(
-            gopath, 'src', cmd_package, 'juju', 'juju')
+        bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
+        binary_paths = [
+            os.path.join(bin_path, 'juju'),
+            os.path.join(bin_path, 'juju-metadata'),
+        ]
         make_osx_tarball(
-            built_agent_path, version, cwd, dry_run=dry_run, verbose=verbose)
+            binary_paths, version, cwd, dry_run=dry_run, verbose=verbose)
 
 
-def make_osx_tarball(built_agent_path, version, dest_dir,
+def make_osx_tarball(binary_paths, version, dest_dir,
                      dry_run=False, verbose=False):
     pass
 
