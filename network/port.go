@@ -263,9 +263,9 @@ func CollapsePorts(ports []Port) (result []PortRange) {
 	return
 }
 
-// ParsePortToPortRange builds a PortRange from the provided string
+// ParsePortRangePorts builds a PortRange from the provided string
 // and protocol. Example strings: "80", "443", "12345-12349".
-func ParsePortToPortRange(portRangeStr, protocol string) (PortRange, error) {
+func ParsePortRangePorts(portRangeStr, protocol string) (PortRange, error) {
 	var portRange PortRange
 	var start, end int
 	parts := strings.Split(portRangeStr, "-")
