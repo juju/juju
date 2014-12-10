@@ -10,12 +10,19 @@ from utility import get_auth_token
 
 from jenkins import Jenkins
 
+from industrial_test import (
+    FULL,
+    suites,
+    )
 
-def get_args():
+
+def parse_args(argv=None):
     parser = ArgumentParser()
     parser.add_argument(
         'root_dir', help='Directory containing releases and candidates dir')
-    return parser.parse_args()
+    parser.add_argument('--suite', help='Test suite to run', default=FULL,
+                        choices=suites.keys())
+    return parser.parse_args(argv)
 
 
 def find_candidates(root_dir):
@@ -37,21 +44,22 @@ def find_candidates(root_dir):
         yield candidate_path
 
 
-def build_job(root, job_name, candidates):
-    parameters = {'suite': 'density', 'attempts': '10'}
+def build_job(root, job_name, candidates, suite):
+    parameters = {'suite': suite, 'attempts': '10'}
     jenkins = Jenkins('http://localhost:8080')
     for candidate in candidates:
-        parameters['new_juju_dir'] = candidate
+        call_parameters = {'new_juju_dir': candidate}
+        call_parameters.update(parameters)
         token = get_auth_token(root, job_name)
-        jenkins.build_job(job_name, parameters, token=token)
+        jenkins.build_job(job_name, call_parameters, token=token)
 
 
 def main():
-    args = get_args()
+    args = parse_args()
     candidates = list(find_candidates(args.root_dir))
     for job in ['industrial-test', 'industrial-test-aws',
                 'industrial-test-joyent']:
-        build_job(args.root_dir, job, candidates)
+        build_job(args.root_dir, job, candidates, args.suite)
 
 
 if __name__ == '__main__':
