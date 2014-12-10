@@ -24,12 +24,6 @@ type BlockDevice interface {
 	// Machine returns the ID of the machine the block device is attached to.
 	Machine() string
 
-	// Datastore returns the name of the block device's assigned unit.
-	Unit() string
-
-	// Datastore returns the name of the block device's assigned datastore.
-	Datastore() string
-
 	// Info returns the block device's BlockDeviceInfo.
 	Info() BlockDeviceInfo
 }
@@ -40,21 +34,11 @@ type blockDevice struct {
 
 // blockDeviceDoc records information about a disk attached to a machine.
 type blockDeviceDoc struct {
-	DocID   string `bson:"_id"`
-	Name    string `bson:"name"`
-	EnvUUID string `bson:"env-uuid"`
-	Machine string `bson:"machine"`
-
-	// Unit and Datastore are set together. Unit is redundant, but simplifies
-	// watching and querying for block devices that are assigned to datastores
-	// owned by a specific unit.
-	//
-	// TODO(axw) define datastore name format, bake unit name in, and then
-	// remove this Unit field.
-	Unit      string `bson:"unit,omitempty"`
-	Datastore string `bson:"datastore,omitempty"`
-
-	Info BlockDeviceInfo `bson:"info"`
+	DocID   string          `bson:"_id"`
+	Name    string          `bson:"name"`
+	EnvUUID string          `bson:"env-uuid"`
+	Machine string          `bson:"machine"`
+	Info    BlockDeviceInfo `bson:"info"`
 }
 
 // BlockDeviceInfo describes information about a block device.
@@ -77,14 +61,6 @@ func (b *blockDevice) Name() string {
 
 func (b *blockDevice) Machine() string {
 	return b.doc.Machine
-}
-
-func (b *blockDevice) Unit() string {
-	return b.doc.Unit
-}
-
-func (b *blockDevice) Datastore() string {
-	return b.doc.Datastore
 }
 
 func (b *blockDevice) Info() BlockDeviceInfo {
@@ -180,17 +156,18 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot generate disk name")
 			}
-			var newDoc blockDeviceDoc
-			newDoc.Name = name
-			newDoc.Machine = machineId
-			newDoc.EnvUUID = st.EnvironUUID()
-			newDoc.DocID = st.docID(name)
-			newDoc.Info = info
+			newDoc := blockDeviceDoc{
+				Name:    name,
+				Machine: machineId,
+				EnvUUID: st.EnvironUUID(),
+				DocID:   st.docID(name),
+				Info:    info,
+			}
 			ops = append(ops, txn.Op{
 				C:      blockDevicesC,
 				Id:     newDoc.DocID,
 				Assert: txn.DocMissing,
-				Insert: newDoc,
+				Insert: &newDoc,
 			})
 		}
 
@@ -231,13 +208,6 @@ func removeMachineBlockDevicesOps(st *State, machineId string) ([]txn.Op, error)
 			Id:     doc.DocID,
 			Remove: true,
 		})
-		if doc.Datastore != "" {
-			ops = append(ops, txn.Op{
-				C:      datastoresC,
-				Id:     st.docID(doc.Datastore),
-				Remove: true,
-			})
-		}
 	}
 	return ops, errors.Trace(iter.Close())
 }
