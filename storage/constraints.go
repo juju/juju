@@ -17,39 +17,34 @@ var logger = loggo.GetLogger("juju.storage")
 
 // Constraints describes a set of storage constraints.
 type Constraints struct {
-	// Size is the preferred size of the storage in MiB.
+	// Source is the name of the storage source (ebs, ceph, ...) that
+	// must provide the storage, or "" if any source may be used.
+	Source string
+
+	// Minimum is the minimum acceptable values for each constraint variable.
+	Minimum ConstraintValues
+
+	// Preferred is the preferred values for each constraint variable.
+	Preferred ConstraintValues
+}
+
+// ConstraintValues describes the constraints on individual storage
+// characteristics.
+type ConstraintValues struct {
+	// Size is the size of the storage in MiB.
 	Size uint64
 
-	// MinimumSize is the minimum size of the storage in MiB.
-	MinimumSize uint64
-
-	// Count is the preferred number of instances of the
-	// storage to create.
+	// Count is the number of instances of the storage to create.
 	Count uint64
-
-	// MinimumCount is the minimum number of instances of the
-	// storage to create.
-	MinimumCount uint64
 
 	// Persistent indicates that the storage should be persistent
 	// beyond the lifetime of the machine that it is initially
 	// attached to.
 	Persistent bool
 
-	// RequirePersistent indicates that the storage must be persistent.
-	RequirePersistent bool
-
-	// IOPS is the preferred number of IOPS (I/O Operations Per Second)
-	// that the storage should be capable of.
+	// IOPS is the number of IOPS (I/O Operations Per Second) that the
+	// storage should be capable of.
 	IOPS uint64
-
-	// MinimumIOPS is the minimum number of IOPS that the storage must
-	// be capable of.
-	MinimumIOPS uint64
-
-	// Source is the name of the storage source (ebs, ceph, ...) that
-	// must provide the storage, or "" if any source may be used.
-	Source string
 }
 
 const (
@@ -105,18 +100,18 @@ func ParseConstraints(s string) (Constraints, error) {
 	if countSizeMatch != nil {
 		if countSizeMatch[1] != "" {
 			if countSizeMatch[1][0] != '-' {
-				cons.Count, err = strconv.ParseUint(countSizeMatch[1], 10, 64)
+				cons.Preferred.Count, err = strconv.ParseUint(countSizeMatch[1], 10, 64)
 				if err != nil {
 					return cons, errors.Annotatef(err, "cannot parse count %q", countSizeMatch[1])
 				}
 			}
-			if cons.Count == 0 {
+			if cons.Preferred.Count == 0 {
 				return cons, errors.Errorf("count must be greater than zero, got %q", countSizeMatch[1])
 			}
 		} else {
-			cons.Count = 1
+			cons.Preferred.Count = 1
 		}
-		cons.Size, err = utils.ParseSize(countSizeMatch[2])
+		cons.Preferred.Size, err = utils.ParseSize(countSizeMatch[2])
 		if err != nil {
 			return cons, errors.Annotate(err, "cannot parse size")
 		}
@@ -128,10 +123,10 @@ func ParseConstraints(s string) (Constraints, error) {
 		switch {
 		case field == "":
 		case field == "persistent":
-			cons.Persistent = true
+			cons.Preferred.Persistent = true
 		case strings.HasPrefix(strings.ToLower(field), "iops:"):
 			value := field[len("iops:"):]
-			cons.IOPS, err = strconv.ParseUint(value, 10, 64)
+			cons.Preferred.IOPS, err = strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return cons, errors.Annotatef(err, "cannot parse IOPS %q", value)
 			}
@@ -140,9 +135,8 @@ func ParseConstraints(s string) (Constraints, error) {
 		}
 	}
 
-	cons.MinimumCount = cons.Count
-	cons.MinimumSize = cons.Size
-	cons.RequirePersistent = cons.Persistent
-	cons.MinimumIOPS = cons.IOPS
+	// Explicitly specified constraints are always required;
+	// the minimum is the same as the preferred.
+	cons.Minimum = cons.Preferred
 	return cons, nil
 }
