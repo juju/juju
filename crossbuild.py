@@ -71,6 +71,11 @@ def go_build(package, goroot, gopath, goarch, goos,
     run_command(command, env=env, dry_run=dry_run, verbose=verbose)
 
 
+def version_from_tarball(tarball_path):
+    tarball_name = os.path.basename(tarball_path.replace('.tar.gz', ''))
+    return tarball_name.split('_')[-1]
+
+
 def setup_cross_building(build_dir, dry_run=False, verbose=False):
     """Setup a cross building directory.
 
@@ -97,6 +102,7 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
 
 
 def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
+    cwd = os.getcwd()
     cli_package = os.path.join('github.com', 'juju', 'juju', 'cmd', 'juju')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as gopath:
@@ -105,7 +111,27 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
             dry_run=dry_run, verbose=verbose)
         built_cli_path = os.path.join(gopath, 'src', cli_package, 'juju.exe')
         iss_dir = os.path.join(gopath, 'scripts', 'win-installer')
-        shutil.move(built_cli_path, iss_dir)
+        version = version_from_tarball(tarball_path)
+        create_installer(
+            built_cli_path, version, iss_dir, cwd)
+
+
+def create_installer(built_cli_path, version, iss_dir, dest_dir,
+                     dry_run=False, verbose=False):
+    iss_cmd = [
+        'xvfb-run', 'wine',
+        '~/.wine/drive_c/Program Files (x86)/Inno Setup 5/ISCC.exe',
+        'setup.iss']
+    shutil.move(built_cli_path, iss_dir)
+    with working_directory(iss_dir):
+        run_command(iss_cmd, dry_run=dry_run, verbose=verbose)
+        installer_name = 'juju-setup-{0}.exe'.format(version)
+        installer_path = os.path.join(iss_dir, 'output', installer_name)
+        if not dry_run:
+            shutil.move(installer_path, dest_dir)
+            if verbose:
+                print('Moved {0} to {1}'.format(installer_path, dest_dir))
+    return installer_path
 
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):

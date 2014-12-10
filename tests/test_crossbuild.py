@@ -110,17 +110,19 @@ class CrossBuildTestCase(TestCase):
         with patch('crossbuild.go_tarball',
                    side_effect=fake_go_tarball) as gt_mock:
             with patch('crossbuild.go_build') as gb_mock:
-                with patch('shutil.move') as mv_mock:
-                    build_win_client('bar.1.2.3.tar.gz', '/foo')
+                with patch('crossbuild.create_installer') as ci_mock:
+                    build_win_client('baz/bar_1.2.3.tar.gz', '/foo')
         args, kwargs = gt_mock.call_args
-        self.assertEqual(('bar.1.2.3.tar.gz', ), args)
+        self.assertEqual(('baz/bar_1.2.3.tar.gz', ), args)
         args, kwargs = gb_mock.call_args
         self.assertEqual(
             ('github.com/juju/juju/cmd/juju',
-             '/foo/golang-1.2.1', 'bar.1.2.3', '386', 'windows'),
+             '/foo/golang-1.2.1', 'baz/bar_1.2.3', '386', 'windows'),
             args)
         self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
         self.assertEqual(
-            ('bar.1.2.3/src/github.com/juju/juju/cmd/juju/juju.exe',
-             'bar.1.2.3/scripts/win-installer'),
-            mv_mock.call_args[0])
+            ('baz/bar_1.2.3/src/github.com/juju/juju/cmd/juju/juju.exe',
+             '1.2.3',
+             'baz/bar_1.2.3/scripts/win-installer',
+             os.getcwd()),
+            ci_mock.call_args[0])
