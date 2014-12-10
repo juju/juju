@@ -67,7 +67,7 @@ class CrossBuildTestCase(TestCase):
                 'github/juju/juju/...', './foo', './bar.1.2', '386', 'windows',
                 verbose=True, dry_run=True)
         args, kwargs = mock.call_args
-        self.assertEqual((['go', 'build', 'github/juju/juju/...'],), args)
+        self.assertEqual((['go', 'install', 'github/juju/juju/...'],), args)
         self.assertTrue(kwargs['dry_run'])
         self.assertTrue(kwargs['verbose'])
         env = kwargs['env']
