@@ -116,6 +116,12 @@ func (s *PortSetSuite) TestPortSetContainsNotFound(c *gc.C) {
 	c.Assert(found, jc.IsFalse)
 }
 
+func (s *PortSetSuite) TestPortSetValues(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange3)
+	ports := portSet.Values()
+	c.Assert(ports, gc.HasLen, 3)
+}
+
 func (s *PortSetSuite) TestPortSetProtocols(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2, s.portRange4)
 	protocols := portSet.Protocols()

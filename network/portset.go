@@ -32,6 +32,11 @@ func (ps PortSet) IsEmpty() bool {
 	return len(ps.values) == 0
 }
 
+// Values returns a list of all the ports in the set.
+func (ps PortSet) Values() []Port {
+	return ps.Ports()
+}
+
 // Protocols returns a list of protocols known to the PortSet.
 func (ps PortSet) Protocols() []string {
 	var result []string
