@@ -579,9 +579,9 @@ func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 	job params.MachineJob,
 	agent *fakeUpgradingMachineAgent,
 ) (error, *upgradeWorkerContext) {
+	s.setInstantRetryStrategy()
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, []params.MachineJob{job})
-	s.setInstantRetryStrategy()
 	return worker.Wait(), context
 }
 
