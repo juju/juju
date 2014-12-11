@@ -51,16 +51,11 @@ done
 
 
 if [[ $IS_LOCAL == "false" ]]; then
-    archive="$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact"
-    test -f buildvars.bash && rm buildvars.bash
-    wget -q $archive/buildvars.bash
+    downloaded=$($SCRIPTS/jujuci.py get build-revision '*' ./)
+    tarfile=$(basename $(echo "$downloaded" | grep tar.gz))
     source buildvars.bash
     rev=${REVNO-$(echo $REVISION_ID | head -c8)}
     echo "Testing $BRANCH $rev"
-
-    tarfile=$($SCRIPTS/get-tarfile-name $REVISION_BUILD)
-    test -f $tarfile && rm $tarfile
-    wget -q $archive/$tarfile
 fi
 tarfile_path=$(readlink -f $tarfile)
 juju_version=$(basename $tarfile .tar.gz)
