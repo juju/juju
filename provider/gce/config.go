@@ -3,6 +3,8 @@
 
 package gce
 
+// TODO(ericsnow) This file needs a once-over to verify correctness.
+
 import (
 	"net/mail"
 

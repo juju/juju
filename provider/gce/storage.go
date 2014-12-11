@@ -3,6 +3,8 @@
 
 package gce
 
+// TODO(ericsnow) Add doc comments.
+
 import (
 	"io"
 
