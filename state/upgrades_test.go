@@ -1249,12 +1249,12 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 		description: "joyent provider, no manual provisioned machines",
 		provider:    "joyent",
 		manual:      false,
-		hasJob:      []bool{true, true, true},
+		hasJob:      []bool{false, false, false},
 	}, {
 		description: "joyent provider, one manual provisioned machine",
 		provider:    "joyent",
 		manual:      true,
-		hasJob:      []bool{true, true, false},
+		hasJob:      []bool{false, false, false},
 	}, {
 		description: "local provider, no manual provisioned machines",
 		provider:    "local",
