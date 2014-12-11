@@ -13,6 +13,7 @@ import tarfile
 from tempfile import mkdtemp
 import traceback
 
+
 GOLANG_VERSION = '1.2.1'
 CROSSCOMPILE_SOURCE = (
     'https://raw.githubusercontent.com'
@@ -46,6 +47,7 @@ def go_tarball(tarball_path):
 
 @contextmanager
 def working_directory(path):
+    """Set the working directory for a block of operations."""
     try:
         saved_path = os.getcwd()
         os.chdir(path)
@@ -55,7 +57,7 @@ def working_directory(path):
 
 
 def run_command(command, env=None, dry_run=False, verbose=False):
-    """Optionally xecute a command and maybe print the output."""
+    """Optionally execute a command and maybe print the output."""
     if verbose:
         print('Executing: %s' % command)
     if not dry_run:
@@ -67,6 +69,7 @@ def run_command(command, env=None, dry_run=False, verbose=False):
 
 def go_build(package, goroot, gopath, goarch, goos,
              dry_run=False, verbose=False):
+    """Build and install a go package."""
     env = dict(os.environ)
     env['GOROOT'] = goroot
     env['GOPATH'] = gopath
@@ -102,6 +105,7 @@ def setup_cross_building(build_dir, dry_run=False, verbose=False):
 
 
 def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
+    """Build a juju win client and installer from a tarball."""
     cwd = os.getcwd()
     cli_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd', 'juju')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
@@ -118,6 +122,7 @@ def build_win_client(tarball_path, build_dir, dry_run=False, verbose=False):
 
 def make_installer(built_cli_path, version, gopath, dest_dir,
                    dry_run=False, verbose=False):
+    """Create an installer for the windows juju client."""
     iss_dir = os.path.join(gopath, ISS_DIR)
     shutil.move(built_cli_path, iss_dir)
     with working_directory(iss_dir):
@@ -130,10 +135,10 @@ def make_installer(built_cli_path, version, gopath, dest_dir,
             shutil.move(installer_path, dest_dir)
             if verbose:
                 print('Moved %s to %s' % (installer_path, dest_dir))
-    return installer_path
 
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
+    """Build a windows juju agent from a tarball."""
     cwd = os.getcwd()
     agent_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd', 'jujud')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
@@ -150,6 +155,7 @@ def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
 
 def make_win_agent_tarball(built_agent_path, version, dest_dir,
                            dry_run=False, verbose=False):
+    """Create a win agent tgz for a jujud."""
     agent_tarball_name = 'juju-%s-win2012-amd64.tgz' % version
     agent_tarball_path = os.path.join(dest_dir, agent_tarball_name)
     if not dry_run:
@@ -158,8 +164,9 @@ def make_win_agent_tarball(built_agent_path, version, dest_dir,
 
 
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
+    """Build an OS X client and plugins from a tarball."""
     cwd = os.getcwd()
-    cmd_package = os.path.join(JUJU_PACKAGE_PATH, 'cmd') + '/...'
+    cmd_package = '%s/...' % os.path.join(JUJU_PACKAGE_PATH, 'cmd')
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
@@ -179,6 +186,7 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
 
 def make_osx_tarball(binary_paths, version, dest_dir,
                      dry_run=False, verbose=False):
+    """Create a tarball of the built binaries and files."""
     osx_tarball_name = 'juju-%s-osx.tar.gz' % version
     osx_tarball_path = os.path.join(dest_dir, osx_tarball_name)
     if not dry_run:
@@ -211,7 +219,7 @@ def parse_args(args=None):
     # ./crossbuild win-client juju-core-1.2.3.tar.gz
     parser_win_client = subparsers.add_parser(
         'win-client',
-        help='Build a 386 windown juju client and an installer.')
+        help='Build a 386 windows juju client and an installer.')
     parser_win_client.add_argument(
         '-b', '--build-dir', default='$HOME/crossbuild',
         help='The path cross build dir.')
