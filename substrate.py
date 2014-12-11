@@ -36,6 +36,9 @@ class StillProvisioning(Exception):
 
 
 def terminate_instances(env, instance_ids):
+    if len(instance_ids) == 0:
+        print_now("No instances to delete.")
+        return
     provider_type = env.config.get('type')
     environ = dict(os.environ)
     if provider_type == 'ec2':
@@ -44,15 +47,27 @@ def terminate_instances(env, instance_ids):
     elif provider_type == 'openstack':
         environ.update(translate_to_env(env.config))
         command_args = ['nova', 'delete'] + instance_ids
+    elif provider_type == 'maas':
+        profile_name = env.environment
+        maas_url = env.config.get('maas-server') + 'api/1.0/'
+        maas_credentials = env.config.get('maas-oauth')
+        for instance in instance_ids:
+            maas_system_id = instance.split('/')[5]
+            commands = [
+                ['maas', 'login', profile_name, maas_url, maas_credentials],
+                ['maas', profile_name, 'node', 'release', maas_system_id],
+                ['maas', 'logout', profile_name]
+            ]
+            print_now("Deleting %s." % instance)
+            for cmd in commands:
+                subprocess.check_call(cmd)
+        return
     else:
         substrate = make_substrate(env.config)
         if substrate is None:
             raise ValueError(
                 "This test does not support the %s provider" % provider_type)
         return substrate.terminate_instances(instance_ids)
-    if len(instance_ids) == 0:
-        print_now("No instances to delete.")
-        return
     print_now("Deleting %s." % ', '.join(instance_ids))
     subprocess.check_call(command_args, env=environ)
 

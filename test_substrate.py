@@ -40,6 +40,14 @@ def get_aws_env():
         })
 
 
+def get_maas_env():
+    return SimpleEnvironment('mas', {
+        'type': 'maas',
+        'maas-server': 'http://10.0.10.10/MAAS/',
+        'maas-oauth': 'a:password:string',
+        })
+
+
 def get_openstack_env():
     return SimpleEnvironment('foo', {
         'type': 'openstack',
@@ -72,6 +80,32 @@ class TestTerminateInstances(TestCase):
 
     def test_terminate_aws_none(self):
         env = get_aws_env()
+        with patch('subprocess.check_call') as cc_mock:
+            with patch('sys.stdout') as out_mock:
+                terminate_instances(env, [])
+        self.assertEqual(cc_mock.call_count, 0)
+        self.assertEqual(out_mock.write.mock_calls, [
+            call('No instances to delete.'), call('\n')])
+
+    def test_terminate_maas(self):
+        env = get_maas_env()
+        with patch('subprocess.check_call') as cc_mock:
+            with patch('sys.stdout') as out_mock:
+                terminate_instances(env, ['/A/B/C/D/node-3d/'])
+        expected = (
+            ['maas', 'login', 'mas', 'http://10.0.10.10/MAAS/api/1.0/',
+             'a:password:string'],
+        )
+        self.assertEqual(expected, cc_mock.call_args_list[0][0])
+        expected = (['maas', 'mas', 'node', 'release', 'node-3d'],)
+        self.assertEqual(expected, cc_mock.call_args_list[1][0])
+        expected = (['maas', 'logout', 'mas'],)
+        self.assertEqual(expected, cc_mock.call_args_list[2][0])
+        self.assertEqual(out_mock.write.mock_calls, [
+            call('Deleting /A/B/C/D/node-3d/.'), call('\n')])
+
+    def test_terminate_maas_none(self):
+        env = get_maas_env()
         with patch('subprocess.check_call') as cc_mock:
             with patch('sys.stdout') as out_mock:
                 terminate_instances(env, [])
@@ -113,7 +147,7 @@ class TestTerminateInstances(TestCase):
                 with self.assertRaisesRegexp(
                         ValueError,
                         'This test does not support the unknown provider'):
-                    terminate_instances(env, [])
+                    terminate_instances(env, ['foo'])
         self.assertEqual(cc_mock.call_count, 0)
         self.assertEqual(out_mock.write.call_count, 0)
 
