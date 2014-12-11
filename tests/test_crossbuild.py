@@ -25,15 +25,18 @@ from utils import temp_dir
 
 @contextmanager
 def fake_go_tarball(path):
-    try:
-        gopath = path.replace('.tar.gz', '')
-        version = os.path.basename(gopath).split('_')[-1]
-        yield gopath, version
-    finally:
-        pass
+    gopath = path.replace('.tar.gz', '')
+    version = os.path.basename(gopath).split('_')[-1]
+    yield gopath, version
 
 
 class CrossBuildTestCase(TestCase):
+
+    def setUp(self):
+        # Ensure that no test ever fails and calls subprocess
+        patcher = patch('subprocess.check_output')
+        self.addCleanup(patcher.stop)
+        self.co_mock = patcher.start()
 
     def test_main_setup(self):
         with patch('crossbuild.setup_cross_building') as mock:
@@ -42,7 +45,7 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(('./foo', ), args)
         self.assertEqual({'dry_run': True, 'verbose': True}, kwargs)
 
-    def test_main_osx_clientt(self):
+    def test_main_osx_client(self):
         with patch('crossbuild.build_osx_client') as mock:
             main(['osx-client', '--build-dir', './foo', 'bar.1.2.3.tar.gz'])
         args, kwargs = mock.call_args
@@ -92,8 +95,9 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(0, mock.call_count)
 
     def test_gotarball_raises_error(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as ae:
             go_tarball('foo.tar.gz').__enter__()
+        self.assertEqual('Not a tar.gz: foo.tar.gz', str(ae.exception))
 
     def test_go_tarball_gopath(self):
         with temp_dir() as base_dir:
@@ -171,7 +175,7 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual(1, mv_mock.call_count)
         self.assertEqual(
             ('foo/juju.exe', iss_dir), mv_mock.mock_calls[0][1])
-        # The installer is created in a tmp dir, so dry_run is alway False.
+        # The installer is created in a tmp dir, so dry_run is always False.
         self.assertEqual(
             {'dry_run': False, 'verbose': True},
             rc_mock.call_args[1])

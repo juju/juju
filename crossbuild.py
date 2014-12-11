@@ -28,8 +28,8 @@ ISS_DIR = os.path.join('src', JUJU_PACKAGE_PATH, 'scripts', 'win-installer')
 @contextmanager
 def go_tarball(tarball_path):
     """Context manager for setting the GOPATH from a golang tarball."""
+    base_dir = mkdtemp()
     try:
-        base_dir = mkdtemp()
         try:
             with tarfile.open(name=tarball_path, mode='r:gz') as tar:
                 tar.extractall(path=base_dir)
@@ -48,8 +48,8 @@ def go_tarball(tarball_path):
 @contextmanager
 def working_directory(path):
     """Set the working directory for a block of operations."""
+    saved_path = os.getcwd()
     try:
-        saved_path = os.getcwd()
         os.chdir(path)
         yield path
     finally:
@@ -170,7 +170,7 @@ def make_win_agent_tarball(built_agent_path, version, dest_dir,
 def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
     """Build an OS X client and plugins from a tarball."""
     cwd = os.getcwd()
-    cmd_package = '%s/...' % os.path.join(JUJU_PACKAGE_PATH, 'cmd')
+    cmd_package = '%s/cmd/...' % JUJU_PACKAGE_PATH
     goroot = os.path.join(build_dir, 'golang-%s' % GOLANG_VERSION)
     with go_tarball(tarball_path) as (gopath, version):
         # This command always executes in a tmp dir, it does not make changes.
