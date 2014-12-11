@@ -202,10 +202,12 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
-	if config.Type() != provider.MAAS {
-		// In case of MAAS JobManageNetworking is not added to ensure
-		// the non-intrusive start of a networker like above for the
-		// manual provisioning.
+	if config.Type() != provider.MAAS &&
+		config.Type() != provider.Joyent {
+		// In case of MAAS and Joyent JobManageNetworking is not added
+		// to ensure the non-intrusive start of a networker like above
+		// for the manual provisioning. See this related joyent bug
+		// http://pad.lv/1401423
 		jobs = append(jobs, multiwatcher.JobManageNetworking)
 	}
 
