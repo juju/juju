@@ -670,6 +670,7 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 // machines except for:
 //
 // - machines in a MAAS environment,
+// - machines in a Joyent environment,
 // - machines in a manual environment,
 // - bootstrap node (host machine) in a local environment, and
 // - manually provisioned machines.
@@ -681,8 +682,10 @@ func MigrateJobManageNetworking(st *State) error {
 	}
 	envType := envConfig.Type()
 
-	// Check for MAAS or manual (aka null) provider.
-	if envType == provider.MAAS || provider.IsManual(envType) {
+	// Check for MAAS, Joyent, or manual (aka null) provider.
+	if envType == provider.MAAS ||
+		envType == provider.Joyent ||
+		provider.IsManual(envType) {
 		// No job adding for these environment types.
 		return nil
 	}

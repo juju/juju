@@ -11,6 +11,7 @@ import (
 // machines except for:
 //
 // - machines in a MAAS environment,
+// - machines in a Joyent environment,
 // - machines in a manual environment,
 // - bootstrap node (host machine) in a local environment, and
 // - manually provisioned machines.
