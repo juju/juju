@@ -4,18 +4,11 @@
 package main
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/local"
 	"github.com/juju/juju/testing"
 )
 
