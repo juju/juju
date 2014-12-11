@@ -7,13 +7,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 )
-
-var logger = loggo.GetLogger("juju.provider.gce")
 
 type environProvider struct{}
 
@@ -28,8 +25,6 @@ func init() {
 	// TODO(ericsnow) Comment this out until we are ready to "release".
 	environs.RegisterProvider("gce", providerInstance)
 }
-
-var errNotImplemented = errors.NotImplementedf("in gce provider")
 
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// TODO(ericsnow) Is this all we need?
