@@ -7,6 +7,7 @@ import os
 from unittest import TestCase
 
 from mock import patch
+from StringIO import StringIO
 
 from utility import (
     get_auth_token,
@@ -67,6 +68,14 @@ def write_config(root, job_name, token):
     with open(job_config, 'w') as config:
         config.write(
             '<config><authToken>{}</authToken></config>'.format(token))
+
+
+@contextmanager
+def parse_error(test_case):
+    stderr = StringIO()
+    with test_case.assertRaises(SystemExit):
+        with patch('sys.stderr', stderr):
+            yield stderr
 
 
 class TestGetAuthToken(TestCase):

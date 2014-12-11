@@ -14,11 +14,11 @@ from schedule_reliability_tests import (
     build_job,
     parse_args,
     )
-from test_utility import write_config
-from utility import (
+from test_utility import (
     parse_error,
-    temp_dir,
+    write_config,
     )
+from utility import temp_dir
 
 
 class TestParseArgs(TestCase):
