@@ -4,8 +4,11 @@
 package gce
 
 import (
+	"time"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -84,8 +87,30 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 
 // firewall stuff
 
+const (
+	globalOperationTimeout = 60 * time.Second
+	globalOperationDelay   = 10 * time.Second
+)
+
 func (inst *environInstance) waitOperation(operation *compute.Operation) error {
-	return errNotImplemented
+	env := inst.env.getSnapshot()
+
+	attempts := utils.AttemptStrategy{
+		Total: globalOperationTimeout,
+		Delay: globalOperationDelay,
+	}
+	for a := attempts.Start(); a.Next(); {
+		var err error
+		if operation.Status == "DONE" {
+			return nil
+		}
+		call := env.gce.GlobalOperations.Get(inst.projectID, operation.ClientOperationId)
+		operation, err = call.Do()
+		if err != nil {
+			return errors.Annotate(err, "while waiting for operation to complete")
+		}
+	}
+	return errors.Errorf("timed out after %d seconds waiting for GCE operation to finish", globalOperationTimeout)
 }
 
 // buildFirewall expands a port range set in to compute.FirewallAllowed and returns
