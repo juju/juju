@@ -40,6 +40,8 @@ class ErroredUnit(Exception):
     def __init__(self, unit_name, state):
         msg = '%s is in state %s' % (unit_name, state)
         Exception.__init__(self, msg)
+        self.unit_name = unit_name
+        self.state = state
 
 
 def yaml_loads(yaml_str):
@@ -498,10 +500,11 @@ class Status:
         If not, return agent_states output.  If so, return None.
         If an error is encountered for an agent, raise ErroredUnit
         """
-        # Look for errors preventing an agent from being installed
+        bad_state_info = re.compile(
+            '(.*error|^(cannot set up groups|cannot run instance)).*')
         for item_name, item in self.agent_items():
             state_info = item.get('agent-state-info', '')
-            if 'error' in state_info:
+            if bad_state_info.match(state_info):
                 raise ErroredUnit(item_name, state_info)
         states = self.agent_states()
         if states.keys() == ['started']:
