@@ -36,12 +36,18 @@ connection.
 package backups
 
 import (
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 )
 
 const (
@@ -50,6 +56,11 @@ const (
 
 	// FilenameTemplate is used with time.Time.Format to generate a filename.
 	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
+
+	// Machine 0 agent config.
+	// TODO(perrito666) get this from an authoritative source and avoid assuming
+	// machine 0.
+	ServerAgentConf = "/var/lib/juju/agents/machine-0/agent.conf"
 )
 
 var logger = loggo.GetLogger("juju.state.backups")
@@ -82,7 +93,6 @@ func StoreArchive(stor filestorage.FileStorage, meta *Metadata, file io.Reader) 
 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
-
 	// Create creates and stores a new juju backup archive. It updates
 	// the provided metadata.
 	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error
@@ -98,6 +108,9 @@ type Backups interface {
 
 	// Remove deletes the backup from storage.
 	Remove(id string) error
+
+	// Restore updates juju's state to the contents of the backup archive.
+	Restore(string, string, instance.Id) error
 }
 
 type backups struct {
@@ -205,4 +218,117 @@ func (b *backups) List() ([]*Metadata, error) {
 // Remove deletes the backup from storage.
 func (b *backups) Remove(id string) error {
 	return errors.Trace(b.storage.Remove(id))
+}
+
+// Restore handles either returning or creating a state server to a backed up status:
+// * extracts the content of the given backup file and:
+// * runs mongorestore with the backed up mongo dump
+// * updates and writes configuration files
+// * updates existing db entries to make sure they hold no references to
+// old instances
+// * updates config in all agents.
+func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id) error {
+	// TODO(perrito666) when upload is properly coded files will be added
+	// to the backups index and this method can just leave.
+	backupReader, err := backupFile(backupId, b)
+	if err != nil {
+		return errors.Annotate(err, "cannot obtain a backup")
+	}
+	defer backupReader.Close()
+
+	workspace, err := NewArchiveWorkspaceReader(backupReader)
+	if err != nil {
+		return errors.Annotate(err, "cannot unpack backup file")
+	}
+	defer workspace.Close()
+
+	meta, err := workspace.Metadata()
+	if err != nil {
+		return errors.Annotatef(err, "cannot read metadata file, this backup is either too old or corrupt")
+	}
+	// TODO(perrito666) Create a compatibility table of sorts.
+	version := meta.Origin.Version
+
+	// delete all the files to be replaced
+	if err := PrepareMachineForRestore(); err != nil {
+		return errors.Annotate(err, "cannot delete existing files")
+	}
+
+	if err := workspace.UnpackFilesBundle(filesystemRoot()); err != nil {
+		return errors.Annotate(err, "cannot obtain system files from backup")
+	}
+
+	var agentConfig agent.ConfigSetterWriter
+	if agentConfig, err = agent.ReadConfig(ServerAgentConf); err != nil {
+		return errors.Annotate(err, "cannot load agent config from disk")
+	}
+	ssi, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return errors.Errorf("cannot determine state serving info")
+	}
+
+	APIHostPort := network.HostPort{
+		Address: network.Address{
+			Value: privateAddress,
+			Type:  network.DeriveAddressType(privateAddress),
+		},
+		Port: ssi.APIPort}
+	agentConfig.SetAPIHostPorts([][]network.HostPort{{APIHostPort}})
+	if err := agentConfig.Write(); err != nil {
+		return errors.Annotate(err, "cannot write new agent configuration")
+	}
+
+	// Restore mongodb from backup
+	if err := placeNewMongo(workspace.DBDumpDir, version); err != nil {
+		return errors.Annotate(err, "error restoring state from backup")
+	}
+
+	// Re-start replicaset with the new value for server address
+	dialInfo, err := newDialInfo(privateAddress, agentConfig)
+	if err != nil {
+		return errors.Annotate(err, "cannot produce dial information")
+	}
+
+	memberHostPort := fmt.Sprintf("%s:%d", privateAddress, ssi.StatePort)
+	err = resetReplicaSet(dialInfo, memberHostPort)
+	if err != nil {
+		return errors.Annotate(err, "cannot reset replicaSet")
+	}
+
+	// Update entries for machine 0 to point to the newest instance
+	err = updateMongoEntries(newInstId, dialInfo)
+	if err != nil {
+		return errors.Annotate(err, "cannot update mongo entries")
+	}
+
+	// From here we work with the restored state server
+	st, err := newStateConnection(agentConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Close()
+
+	// update all agents known to the new state server.
+	// TODO(perrito666): We should never stop process because of this.
+	// updateAllMachines will not return errors for individual
+	// agent update failures
+	machines, err := st.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err = updateAllMachines(privateAddress, machines); err != nil {
+		return errors.Annotate(err, "cannot update agents")
+	}
+
+	info, err := st.EnsureRestoreInfo()
+
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Mark restoreInfo as Finished so upon restart of the apiserver
+	// the client can reconnect and determine if we where succesful.
+	err = info.SetStatus(state.RestoreFinished)
+
+	return errors.Annotate(err, "failed to set status to finished")
 }

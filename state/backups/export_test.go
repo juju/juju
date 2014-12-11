@@ -27,6 +27,7 @@ var (
 	StoreArchiveRef      = &storeArchive
 	GetMongodumpPath     = &getMongodumpPath
 	RunCommand           = &runCommand
+	ReplaceableFolders   = &replaceableFolders
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
