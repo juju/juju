@@ -404,7 +404,6 @@ func (s *clientSuite) TestEnvironmentSet(c *gc.C) {
 	// Check them using EnvironmentGet.
 	env, err := client.EnvironmentGet()
 	c.Assert(err, jc.ErrorIsNil)
-	// Check a known value, just checking that there is something there.
 	c.Assert(env["some-name"], gc.Equals, "value")
 	c.Assert(env["other-name"], gc.Equals, true)
 }

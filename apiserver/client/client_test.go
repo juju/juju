@@ -2491,45 +2491,39 @@ func (s *serverSuite) TestClientEnvironmentSet(c *gc.C) {
 }
 
 func (s *serverSuite) TestClientEnvironmentSetImmutable(c *gc.C) {
-	for key, value := range map[string]string{
-		"name":          "foo",
-		"type":          "test-provider",
-		"firewall-mode": config.FwGlobal,
-		"state-port":    "1",
-		"api-port":      "666",
-	} {
-		params := params.EnvironmentSet{
-			Config: map[string]interface{}{key: value},
-		}
-		err := s.client.EnvironmentSet(params)
-		errorPattern := fmt.Sprintf("cannot change %s from .* to [\"]?%v[\"]?", key, value)
-		c.Check(err, gc.ErrorMatches, errorPattern)
+	// The various immutable config values are tested in
+	// environs/config/config_test.go, so just choosing one here.
+	params := params.EnvironmentSet{
+		Config: map[string]interface{}{"state-port": "1"},
 	}
+	err := s.client.EnvironmentSet(params)
+	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to "1"`)
 }
 
-func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, blocked bool, args map[string]interface{}) {
+func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}) {
 	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertEnvValue(c, "some-key", "value")
-	}
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+}
+
+func (s *serverSuite) assertEnvironmentSetNotBlocked(c *gc.C, args map[string]interface{}) {
+	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnvValue(c, "some-key", "value")
 }
 
 func (s *serverSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
 	s.blockAllChanges(c)
 	args := map[string]interface{}{"some-key": "value"}
-	s.assertEnvironmentSetBlocked(c, true, args)
+	s.assertEnvironmentSetBlocked(c, args)
 
 	// Make sure just mentioning variable does not unblock env.
 	// Need right value to unblock properly.
 	args[config.PreventAllChangesKey] = true
-	s.assertEnvironmentSetBlocked(c, true, args)
+	s.assertEnvironmentSetBlocked(c, args)
 
 	// But make sure that can unblock block-changes with right value.
 	args[config.PreventAllChangesKey] = false
-	s.assertEnvironmentSetBlocked(c, false, args)
+	s.assertEnvironmentSetNotBlocked(c, args)
 	s.assertEnvValue(c, config.PreventAllChangesKey, false)
 }
 

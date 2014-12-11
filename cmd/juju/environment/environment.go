@@ -16,8 +16,6 @@ const commandDoc = `
 "juju environment" provides commands to interact with the Juju environment.
 `
 
-const commandPurpose = "manage environments"
-
 // NewSuperCommand creates the environment supercommand and registers the
 // subcommands that it supports.
 func NewSuperCommand() cmd.Command {
@@ -25,7 +23,7 @@ func NewSuperCommand() cmd.Command {
 		Name:        "environment",
 		Doc:         commandDoc,
 		UsagePrefix: "juju",
-		Purpose:     commandPurpose,
+		Purpose:     "manage environments",
 	})
 	environmentCmd.Register(envcmd.Wrap(&GetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))

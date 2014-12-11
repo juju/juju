@@ -26,12 +26,9 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeEnvAPI struct {
-	values     map[string]interface{}
-	getError   error
-	setError   error
-	setValues  map[string]interface{}
-	unsetError error
-	unsetKeys  []string
+	values map[string]interface{}
+	err    error
+	keys   []string
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -39,18 +36,15 @@ func (f *fakeEnvAPI) Close() error {
 }
 
 func (f *fakeEnvAPI) EnvironmentGet() (map[string]interface{}, error) {
-	if f.getError != nil {
-		return nil, f.getError
-	}
 	return f.values, nil
 }
 
 func (f *fakeEnvAPI) EnvironmentSet(config map[string]interface{}) error {
-	f.setValues = config
-	return f.setError
+	f.values = config
+	return f.err
 }
 
 func (f *fakeEnvAPI) EnvironmentUnset(keys ...string) error {
-	f.unsetKeys = keys
-	return f.unsetError
+	f.keys = keys
+	return f.err
 }

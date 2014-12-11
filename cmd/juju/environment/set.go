@@ -87,7 +87,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		// and warn the user if the key is not defined in
 		// the existing config
 		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %q is not defined in the current environemnt configuration: possible misspelling", key)
+			logger.Warningf("key %q is not defined in the current environment configuration: possible misspelling", key)
 		}
 
 	}

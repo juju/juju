@@ -31,7 +31,7 @@ the end of the command line.
 
 Example:
   
-  juju get-environment default-series  (returns the default series for the environment)
+  juju environment get default-series  (returns the default series for the environment)
 `
 
 func (c *GetCommand) Info() *cmd.Info {

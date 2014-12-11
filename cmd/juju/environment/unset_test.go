@@ -4,8 +4,6 @@
 package environment_test
 
 import (
-	"strings"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -40,23 +38,22 @@ func (s *UnsetSuite) TestInit(c *gc.C) {
 func (s *UnsetSuite) TestPassesValues(c *gc.C) {
 	_, err := s.run(c, "special", "running")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.unsetKeys, jc.DeepEquals, []string{"special", "running"})
+	c.Assert(s.fake.keys, jc.DeepEquals, []string{"special", "running"})
 }
 
 func (s *UnsetSuite) TestUnsettingKnownValue(c *gc.C) {
 	_, err := s.run(c, "unknown")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fake.unsetKeys, jc.DeepEquals, []string{"unknown"})
+	c.Assert(s.fake.keys, jc.DeepEquals, []string{"unknown"})
 	// Command succeeds, but warning logged.
-	expected := `key "unknown" is not defined in the current environemnt configuration: possible misspelling`
+	expected := `key "unknown" is not defined in the current environment configuration: possible misspelling`
 	c.Check(c.GetTestLog(), jc.Contains, expected)
 }
 
 func (s *UnsetSuite) TestBlockedError(c *gc.C) {
-	s.fake.unsetError = &params.Error{Code: params.CodeOperationBlocked}
+	s.fake.err = &params.Error{Code: params.CodeOperationBlocked}
 	_, err := s.run(c, "special")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	// msg is logged
-	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+	c.Check(c.GetTestLog(), jc.Contains, "To unblock changes")
 }
