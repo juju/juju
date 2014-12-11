@@ -130,11 +130,11 @@ def make_installer(built_cli_path, version, gopath, dest_dir,
         iss_cmd = ['xvfb-run', 'wine', ISCC_CMD, 'setup.iss']
         run_command(iss_cmd, dry_run=False, verbose=verbose)
         installer_name = 'juju-setup-%s.exe' % version
-        installer_path = os.path.join(iss_dir, 'output', installer_name)
+        installer_path = os.path.join(iss_dir, 'Output', installer_name)
         if not dry_run:
-            shutil.move(installer_path, dest_dir)
             if verbose:
-                print('Moved %s to %s' % (installer_path, dest_dir))
+                print('Moving %s to %s' % (installer_path, dest_dir))
+            shutil.move(installer_path, dest_dir)
 
 
 def build_win_agent(tarball_path, build_dir, dry_run=False, verbose=False):
@@ -159,7 +159,11 @@ def make_win_agent_tarball(built_agent_path, version, dest_dir,
     agent_tarball_name = 'juju-%s-win2012-amd64.tgz' % version
     agent_tarball_path = os.path.join(dest_dir, agent_tarball_name)
     if not dry_run:
+        if verbose:
+            print('Creating %s' % agent_tarball_path)
         with tarfile.open(name=agent_tarball_path, mode='w:gz') as tar:
+            if verbose:
+                print('Adding %s' % built_agent_path)
             tar.add(built_agent_path, arcname='jujud.exe')
 
 
@@ -190,11 +194,15 @@ def make_osx_tarball(binary_paths, version, dest_dir,
     osx_tarball_name = 'juju-%s-osx.tar.gz' % version
     osx_tarball_path = os.path.join(dest_dir, osx_tarball_name)
     if not dry_run:
+        if verbose:
+            print('Creating %s' % osx_tarball_path)
         with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
             tar.addfile(ti)
             for binary_path in binary_paths:
+                if verbose:
+                    print('Adding %s' % binary_path)
                 arcname = 'juju-bin/%s' % os.path.basename(binary_path)
                 tar.add(binary_path, arcname=arcname)
 

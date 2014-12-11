@@ -138,7 +138,7 @@ class CrossBuildTestCase(TestCase):
     def test_make_installer_default(self):
         with temp_dir() as base_dir:
             iss_dir = os.path.join(base_dir, ISS_DIR)
-            iss_output_dir = os.path.join(iss_dir, 'output')
+            iss_output_dir = os.path.join(iss_dir, 'Output')
             os.makedirs(iss_output_dir)
             with patch('shutil.move') as mv_mock:
                 with patch('crossbuild.run_command') as rc_mock:
