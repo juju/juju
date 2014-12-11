@@ -826,7 +826,7 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the EC2 provider yet.
-func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (*environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotImplementedf("Subnets")
 }
 

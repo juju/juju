@@ -20,9 +20,9 @@ const DefaultPrivate = "juju-private"
 // Id defines a provider-specific network id.
 type Id string
 
-// BasicInfo describes the bare minimum information for a network,
+// SubnetInfo describes the bare minimum information for a subnet,
 // which the provider knows about but juju might not yet.
-type BasicInfo struct {
+type SubnetInfo struct {
 	// CIDR of the network, in 123.45.67.89/24 format. Can be empty if
 	// unknown.
 	CIDR string
@@ -36,6 +36,13 @@ type BasicInfo struct {
 	// to define a VLAN network. For more information, see:
 	// http://en.wikipedia.org/wiki/IEEE_802.1Q.
 	VLANTag int
+
+	// AllocatableIPLow and AllocatableIPHigh describe the allocatable
+	// portion of the subnet. The provider will only permit allocation
+	// between these limits. If they are empty then none of the subnet is
+	// allocatable.
+	AllocatableIPLow  string
+	AllocatableIPHigh string
 }
 
 // Info describes a single network interface available on an instance.

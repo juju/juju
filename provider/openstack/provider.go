@@ -1256,7 +1256,7 @@ func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) e
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the OpenStack provider yet.
-func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (*environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	return nil, jujuerrors.NotImplementedf("Subnets")
 }
 

@@ -456,7 +456,7 @@ func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addre
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
-func (*localEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (*localEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("Subnets")
 }
 

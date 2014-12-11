@@ -1118,7 +1118,7 @@ func (*azureEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addre
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the Azure provider yet.
-func (*azureEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (*azureEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotImplementedf("Subnets")
 }
 

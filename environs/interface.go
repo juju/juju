@@ -135,7 +135,7 @@ type Environ interface {
 	// by the provider for the environment, for a specific instance. A
 	// provider may return all networks instead of just those for the
 	// instance (provider specific).
-	Subnets(inst instance.Id) ([]network.BasicInfo, error)
+	Subnets(inst instance.Id) ([]network.SubnetInfo, error)
 
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
