@@ -3,7 +3,6 @@ __metaclass__ = type
 from argparse import Namespace
 from contextlib import contextmanager
 import os
-from StringIO import StringIO
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
@@ -49,14 +48,7 @@ from test_substrate import (
     make_os_security_group_instance,
     make_os_security_groups,
     )
-
-
-@contextmanager
-def parse_error(test_case):
-    stderr = StringIO()
-    with test_case.assertRaises(SystemExit):
-        with patch('sys.stderr', stderr):
-            yield stderr
+from utility import parse_error
 
 
 def iter_steps_validate_info(test, stage, client):

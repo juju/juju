@@ -1470,3 +1470,19 @@ class TestGroupReporter(TestCase):
         self.assertEqual(sio.getvalue(), "\n".join([first, second]))
         reporter.update({"done": ["1", "2", "3"]})
         self.assertEqual(sio.getvalue(), "\n".join([first, second, ""]))
+
+    def test_finish(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        self.assertEqual(sio.getvalue(), "")
+        reporter.update({"working": ["1"]})
+        self.assertEqual(sio.getvalue(), "working: 1")
+        reporter.finish()
+        self.assertEqual(sio.getvalue(), "working: 1\n")
+
+    def test_finish_unchanged(self):
+        sio = StringIO.StringIO()
+        reporter = GroupReporter(sio, "done")
+        self.assertEqual(sio.getvalue(), "")
+        reporter.finish()
+        self.assertEqual(sio.getvalue(), "")

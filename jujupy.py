@@ -272,6 +272,7 @@ class EnvJujuClient:
                 continue
             states = status.check_agents_started()
             if states is None:
+                reporter.finish()
                 break
             reporter.update(states)
         else:
@@ -288,6 +289,7 @@ class EnvJujuClient:
                 print('Supressing "Unable to connect to environment"')
                 continue
             if versions.keys() == [version]:
+                reporter.finish()
                 break
             reporter.update(versions)
         else:
@@ -311,6 +313,7 @@ class EnvJujuClient:
                     # are not. Juju is not fully usable. The replica set
                     # lag might be 5 minutes.
                     pause(300)
+                    reporter.finish()
                     return
             reporter.update(states)
         else:
@@ -622,6 +625,10 @@ class GroupReporter:
     def _write(self, string):
         self.stream.write(string)
         self.stream.flush()
+
+    def finish(self):
+        if self.last_group:
+            self._write("\n")
 
     def update(self, group):
         if group == self.last_group:

@@ -60,13 +60,18 @@ class TestUntilTimeout(TestCase):
             self.assertEqual(list(until_timeout(10, now - timedelta(10))), [])
 
 
+def write_config(root, job_name, token):
+    job_dir = os.path.join(root, 'jobs', job_name)
+    os.makedirs(job_dir)
+    job_config = os.path.join(job_dir, 'config.xml')
+    with open(job_config, 'w') as config:
+        config.write(
+            '<config><authToken>{}</authToken></config>'.format(token))
+
+
 class TestGetAuthToken(TestCase):
 
     def test_get_auth_token(self):
         with temp_dir() as root:
-            job_dir = os.path.join(root, 'jobs', 'job-name')
-            os.makedirs(job_dir)
-            job_config = os.path.join(job_dir, 'config.xml')
-            with open(job_config, 'w') as config:
-                config.write("<config><authToken>foo</authToken></config>")
+            write_config(root, 'job-name', 'foo')
             self.assertEqual(get_auth_token(root, 'job-name'), 'foo')
