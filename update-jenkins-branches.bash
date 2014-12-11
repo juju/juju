@@ -29,15 +29,15 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
 fi
 cd ~/juju-release-tools
 bzr pull
+sudo apt-get update || "! $host is not setup for sudo"
 cd ~/juju-ci-tools
 bzr pull
+make install-deps
 if [[ -d ~/ci-director ]]; then
     cd ~/ci-director
     bzr pull
 fi
 
-sudo apt-get update || "! $host is not setup for sudo"
-sudo apt-get install s3cmd python-requests
 
 if [[ "$NEW_JUJU" == "true" ]]; then
     sudo apt-get install -y juju-local juju \
