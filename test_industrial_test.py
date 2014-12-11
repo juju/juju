@@ -48,7 +48,7 @@ from test_substrate import (
     make_os_security_group_instance,
     make_os_security_groups,
     )
-from utility import parse_error
+from test_utility import parse_error
 
 
 def iter_steps_validate_info(test, stage, client):
