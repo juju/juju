@@ -41,7 +41,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 	return InitiateMongoServer(p, false)
 }
 
-// InitiateMongoServer checks for an existing mongo configuration.s
+// InitiateMongoServer checks for an existing mongo configuration.
 // If no existing configuration is found one is created using Initiate.
 // If force flag is true, the configuration will be started anyway.
 func InitiateMongoServer(p InitiateMongoParams, force bool) error {
@@ -74,8 +74,17 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 			logger.Debugf("replica set initiation failed, will retry: %v", err)
 		}
 	}
+	if err == ErrReplicaSetAlreadyInitiated {
+		return err
+	}
 	return errors.Annotatef(err, "cannot initiate replica set")
 }
+
+// ErrReplicaSetAlreadyInitiated is returned with attemptInitiateMongoServer is called
+// on a mongo with an existing relicaset, it helps to assert which of the two valid
+// paths was taking when calling MaybeInitiateMongoServer/InitiateMongoServer which
+// is useful for testing purposes and also when debugging cases of faulty replica sets
+var ErrReplicaSetAlreadyInitiated = errors.New("replicaset is already initiated")
 
 // attemptInitiateMongoServer attempts to initiate the replica set.
 func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
@@ -90,8 +99,8 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 		return errors.Errorf("cannot get replica set configuration: %v", err)
 	}
 	if !force && err == nil && len(cfg.Members) > 0 {
-		logger.Infof("replica set configuration already found: %#v", cfg)
-		return nil
+		logger.Infof("replica set configuration found: %#v", cfg)
+		return ErrReplicaSetAlreadyInitiated
 	}
 
 	return replicaset.Initiate(

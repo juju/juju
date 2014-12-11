@@ -982,7 +982,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		// TODO(dfc) InitiateMongoParams should take a Tag
 		User:     stateInfo.Tag.String(),
 		Password: stateInfo.Password,
-	}); err != nil {
+	}); err != nil && err != peergrouper.ErrReplicaSetAlreadyInitiated {
 		return err
 	}
 	return nil
