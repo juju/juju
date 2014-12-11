@@ -32,15 +32,15 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr
 
 # prevent spurious failure on success
 rm .bash_logout
-afact=lastSuccessfulBuild/artifact
-wget -q ${JENKINS_URL}job/build-revision/$afact/buildvars.bash
+$SCRIPTS/jujuci.py get build-revision buildvars.bash ./
 source buildvars.bash
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
 juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
 juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_local_deb
-wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_core_deb
+juju-ci-tools/jujuci.py get publish-revision $JUJU_LOCAL_DEB
+juju-ci-tools/jujuci.py get publish-revision $JUJU_CORE_DEB
+
 set +e
 sudo dpkg -i $juju_core_deb $juju_local_deb
 set -e

@@ -39,8 +39,8 @@ else
 fi
 
 # Provide the juju-core and juju-local packages to the test
-juju-ci-tools/jujuci.py -d get publish-revision $JUJU_LOCAL_DEB
-juju-ci-tools/jujuci.py -d get publish-revision $JUJU_CORE_DEB
+juju-ci-tools/jujuci.py get publish-revision $JUJU_LOCAL_DEB
+juju-ci-tools/jujuci.py get publish-revision $JUJU_CORE_DEB
 dpkg-deb -x $WORKSPACE/$JUJU_CORE_DEB extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
