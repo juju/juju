@@ -1,7 +1,6 @@
 #!/bin/bash
 set -eux
 
-: ${LOCAL_JENKINS_URL=$JENKINS_URL}
 BUILD_PACKAGES=${BUILD_PACKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
@@ -14,7 +13,7 @@ if [[ -f $OFFICIAL_VERSIONS/juju-$VERSION-trusty-amd64.tgz ]]; then
 fi
 
 if [[ $BUILD_PACKAGES == 'true' ]]; then
-wget -q $LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
+    juju-ci-tools/jujuci.py get build-revision '*.tar.gz' ./
 
 # Make source packages for all supported series.
 if [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
