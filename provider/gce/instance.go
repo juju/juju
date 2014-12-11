@@ -4,23 +4,20 @@
 package gce
 
 import (
-	"time"
-
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
 type environInstance struct {
-	id        instance.Id
-	env       *environ
-	projectID string
-	zone      string
+	id   instance.Id
+	env  *environ
+	zone string
 
-	gce *compute.Instance
+	projectID string
+	gce       *compute.Instance
 }
 
 var _ instance.Instance = (*environInstance)(nil)
@@ -37,17 +34,21 @@ func (inst *environInstance) Status() string {
 	return inst.gce.Status
 }
 
+func (inst *environInstance) update(env *environ, newInst *compute.Instance) {
+	inst.gce = newInst
+	inst.projectID = env.projectID
+}
+
 func (inst *environInstance) Refresh() error {
 	env := inst.env.getSnapshot()
 
 	// TODO(ericsnow) is zone the right thing
-	call := env.gce.Instances.Get(env.projectID, inst.zone, string(inst.id))
-	gInst, err := call.Do()
+	gInst, err := env.getRawInstance(inst.zone, string(inst.id))
 	if err != nil {
 		return errors.Trace(err)
 	}
-	inst.gce = gInst
-	inst.projectID = env.projectID
+
+	inst.update(env, gInst)
 	return nil
 }
 
@@ -86,32 +87,6 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 }
 
 // firewall stuff
-
-const (
-	globalOperationTimeout = 60 * time.Second
-	globalOperationDelay   = 10 * time.Second
-)
-
-func (inst *environInstance) waitOperation(operation *compute.Operation) error {
-	env := inst.env.getSnapshot()
-
-	attempts := utils.AttemptStrategy{
-		Total: globalOperationTimeout,
-		Delay: globalOperationDelay,
-	}
-	for a := attempts.Start(); a.Next(); {
-		var err error
-		if operation.Status == "DONE" {
-			return nil
-		}
-		call := env.gce.GlobalOperations.Get(inst.projectID, operation.ClientOperationId)
-		operation, err = call.Do()
-		if err != nil {
-			return errors.Annotate(err, "while waiting for operation to complete")
-		}
-	}
-	return errors.Errorf("timed out after %d seconds waiting for GCE operation to finish", globalOperationTimeout)
-}
 
 // buildFirewall expands a port range set in to compute.FirewallAllowed and returns
 // a compute.Firewall for the machineId.
@@ -172,7 +147,7 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 		}
 	}
 
-	if err := inst.waitOperation(operation); err != nil {
+	if err := inst.env.waitOperation(operation); err != nil {
 		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 
@@ -212,7 +187,7 @@ func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRa
 		}
 	}
 
-	if err := inst.waitOperation(operation); err != nil {
+	if err := inst.env.waitOperation(operation); err != nil {
 		return errors.Annotatef(err, "opening port(s) %+v", ports)
 	}
 
