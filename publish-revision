@@ -13,8 +13,7 @@ if [[ -f $OFFICIAL_VERSIONS/juju-$VERSION-trusty-amd64.tgz ]]; then
 fi
 
 if [[ $BUILD_PACKAGES == 'true' ]]; then
-    juju-ci-tools/jujuci.py get build-revision '*.tar.gz' ./
-
+    $SCRIPTS/jujuci.py get build-revision '*.tar.gz' ./
 # Make source packages for all supported series.
 if [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
     PURPOSE="stable"

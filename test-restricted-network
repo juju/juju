@@ -38,8 +38,8 @@ RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
 juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
 juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-juju-ci-tools/jujuci.py get publish-revision $JUJU_LOCAL_DEB
-juju-ci-tools/jujuci.py get publish-revision $JUJU_CORE_DEB
+$SCRIPTS/jujuci.py get publish-revision $juju_local_deb
+$SCRIPTS/jujuci.py get publish-revision $juju_core_deb
 
 set +e
 sudo dpkg -i $juju_core_deb $juju_local_deb
