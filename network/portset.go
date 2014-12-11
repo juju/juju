@@ -16,10 +16,10 @@ type PortSet struct {
 
 // NewPortSet creates a map of protocols to sets of stringified port numbers.
 func NewPortSet(portRanges ...PortRange) PortSet {
-	var portMap PortSet
-	portMap.values = make(map[string]set.Strings)
-	portMap.AddRanges(portRanges...)
-	return portMap
+	var result PortSet
+	result.values = make(map[string]set.Strings)
+	result.AddRanges(portRanges...)
+	return result
 }
 
 // Size returns the number of ports in the set.
