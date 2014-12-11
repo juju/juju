@@ -277,8 +277,11 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	return nil
 }
 
-// PrepareRestore will flag the agent to allow only one command:
-// Restore, this will ensure that we can do all the file movements
+// PrepareRestore will flag the agent to allow only a limited set
+// of commands defined in
+// "github.com/juju/juju/apiserver".allowedMethodsAboutToRestore
+// the most noteworthy is:
+// Backups.Restore: this will ensure that we can do all the file movements
 // required for restore and no one will do changes while we do that.
 // it will return error if the machine is already in this state.
 func (a *MachineAgent) PrepareRestore() error {

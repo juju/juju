@@ -14,7 +14,8 @@ import (
 var aboutToRestoreError = errors.New("juju restore is in progress - Juju functionality is limited to avoid data loss")
 var restoreInProgressError = errors.New("juju restore is in progress - Juju api is off to prevent data loss")
 
-// aboutToRestoreRoot a root that will only allow Restore calls.
+// aboutToRestoreRoot a root that will only allow a limited
+// set of methods to run, defined in allowedMethodsAboutToRestore.
 type aboutToRestoreRoot struct {
 	rpc.MethodFinder
 }
