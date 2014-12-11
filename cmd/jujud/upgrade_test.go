@@ -32,6 +32,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/upgrader"
 )
 
@@ -435,34 +436,45 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
-	// Most tests in this file are lightweight unit tests.
-	//
-	// This test however is a fairly heavyweight end-to-end functional
-	// test that spins up machine agents and attempts actual logins
-	// during and after the upgrade process. Please keep this as a
-	// functional test so that there are at least some tests which
-	// ensure that the various components involved with machine agent
-	// upgrades hang together.
+	// Create machine agent to upgrade
+	machine, machine0Conf, _ := s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
+	a := s.newAgent(c, machine)
+
+	// Mock out upgrade logic, using a channel so that the test knows
+	// when upgrades have started and can control when upgrades
+	// should finish.
 	upgradeCh := make(chan bool)
+	abort := make(chan bool)
 	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
-		upgradeCh <- true // signal that upgrade has started
-		<-upgradeCh       // wait for signal that upgrades should finish
+		// Signal that upgrade has started.
+		select {
+		case upgradeCh <- true:
+		case <-abort:
+			return nil
+		}
+
+		// Wait for signal that upgrades should finish.
+		select {
+		case <-upgradeCh:
+		case <-abort:
+			return nil
+		}
 		return nil
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 
-	a, stopFunc := s.createAgentAndStartUpgrade(c, state.JobManageEnviron)
+	// Start the API server and upgrade-steps works just as the agent would.
+	runner := worker.NewRunner(isFatal, moreImportant)
 	defer func() {
-		// stopFunc won't complete unless the upgrade is done
-		select {
-		case <-upgradeCh:
-			break
-		default:
-			close(upgradeCh)
-		}
-		stopFunc()
+		close(abort)
+		runner.Kill()
+		runner.Wait()
 	}()
-	machine0Conf := a.CurrentConfig()
+	runner.StartWorker("apiserver", a.apiserverWorkerStarter(s.State))
+	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(
+		s.APIState,
+		[]multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
+	))
 
 	// Set up a second machine to log in as.
 	// API logins are tested manually so there's no need to actually
@@ -845,9 +857,9 @@ func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
 }
 
 var upgradeTestDialOpts = api.DialOpts{
-	DialAddressInterval: 50 * time.Millisecond,
-	Timeout:             1 * time.Minute,
+	Timeout:             2 * time.Minute,
 	RetryDelay:          250 * time.Millisecond,
+	DialAddressInterval: 50 * time.Millisecond,
 }
 
 func assertUpgradeComplete(c *gc.C, context *upgradeWorkerContext) {
