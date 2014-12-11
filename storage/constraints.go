@@ -15,6 +15,11 @@ import (
 
 var logger = loggo.GetLogger("juju.storage")
 
+const (
+	persistentConstraint = "persistent"
+	iopsConstraintPrefix = "iops:"
+)
+
 // Constraints describes a set of storage constraints.
 type Constraints struct {
 	// Source is the name of the storage source (ebs, ceph, ...) that
@@ -109,6 +114,7 @@ func ParseConstraints(s string) (Constraints, error) {
 				return cons, errors.Errorf("count must be greater than zero, got %q", countSizeMatch[1])
 			}
 		} else {
+			// Size is specified, but count is not; default count to 1.
 			cons.Preferred.Count = 1
 		}
 		cons.Preferred.Size, err = utils.ParseSize(countSizeMatch[2])
@@ -122,10 +128,10 @@ func ParseConstraints(s string) (Constraints, error) {
 		field = strings.TrimSpace(field)
 		switch {
 		case field == "":
-		case field == "persistent":
+		case field == persistentConstraint:
 			cons.Preferred.Persistent = true
-		case strings.HasPrefix(strings.ToLower(field), "iops:"):
-			value := field[len("iops:"):]
+		case strings.HasPrefix(strings.ToLower(field), iopsConstraintPrefix):
+			value := field[len(iopsConstraintPrefix):]
 			cons.Preferred.IOPS, err = strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				return cons, errors.Annotatef(err, "cannot parse IOPS %q", value)
