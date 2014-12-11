@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
@@ -51,15 +49,15 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	// that your checks are always applied.
 	newEcfg, err := validateConfig(cfg, nil)
 	if err != nil {
-		return nil, fmt.Errorf("invalid config: %v", err)
+		return nil, errors.Annotate(err, "invalid config")
 	}
 	if old != nil {
 		oldEcfg, err := validateConfig(old, nil)
 		if err != nil {
-			return nil, fmt.Errorf("invalid base config: %v", err)
+			return nil, errors.Annotate(err, "invalid base config")
 		}
 		if newEcfg, err = validateConfig(cfg, oldEcfg.Config); err != nil {
-			return nil, fmt.Errorf("invalid config change: %v", err)
+			return nil, errors.Annotate(err, "invalid config change")
 		}
 	}
 	return cfg.Apply(newEcfg.attrs)
