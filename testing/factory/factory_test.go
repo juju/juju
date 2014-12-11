@@ -510,8 +510,9 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
 	owner := names.NewUserTag("owner@local")
 	params := &factory.EnvParams{
-		Name:  "foo",
-		Owner: owner,
+		Name:        "foo",
+		Owner:       owner,
+		ConfigAttrs: testing.Attrs{"default-series": "precise"},
 	}
 
 	st := s.Factory.MakeEnvironment(c, params)
@@ -522,4 +523,8 @@ func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
 	c.Assert(env.Name(), gc.Equals, "foo")
 	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
 	c.Assert(env.Owner(), gc.Equals, owner)
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "precise")
 }
