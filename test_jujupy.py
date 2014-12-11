@@ -1139,7 +1139,7 @@ class TestStatus(TestCase):
             'services': {},
             }, '')
         with self.assertRaises(ErroredUnit) as e_cxt:
-            status.check_agents_started('env2')
+            status.check_agents_started()
         e = e_cxt.exception
         self.assertEqual(
             str(e), '0 is in state {}'.format(failure))
