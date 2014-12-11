@@ -4,7 +4,22 @@
 package gce
 
 import (
+	"code.google.com/p/goauth2/oauth"
+	"code.google.com/p/google-api-go-client/compute/v1"
+
 	"github.com/juju/juju/environs"
 )
 
-var Provider environs.EnvironProvider = providerInstance
+var (
+	Provider   environs.EnvironProvider = providerInstance
+	NewToken                            = &newToken
+	NewService                          = &newService
+)
+
+func DummyNewToken(*environConfig, string) (*oauth.Token, error) {
+	return nil, nil
+}
+
+func DummyNewService(*oauth.Transport) (*compute.Service, error) {
+	return nil, nil
+}

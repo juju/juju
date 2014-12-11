@@ -57,7 +57,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 		if err != nil {
 			return nil, fmt.Errorf("invalid base config: %v", err)
 		}
-		if newEcfg, err = validateConfig(cfg, oldEcfg); err != nil {
+		if newEcfg, err = validateConfig(cfg, oldEcfg.Config); err != nil {
 			return nil, fmt.Errorf("invalid config change: %v", err)
 		}
 	}
@@ -70,7 +70,7 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 		return nil, err
 	}
 	secretAttrs := map[string]string{}
-	secretAttrs[cfgPrivateKey] = ecfg.PrivateKey
+	secretAttrs[cfgPrivateKey] = ecfg.privateKey()
 	return secretAttrs, nil
 }
 

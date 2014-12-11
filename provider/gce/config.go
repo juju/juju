@@ -4,8 +4,10 @@
 package gce
 
 import (
-	"fmt"
-	"os"
+	"net/mail"
+
+	"github.com/juju/errors"
+	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
 )
@@ -32,71 +34,79 @@ gce:
   client-id:
 `[1:]
 
-type googleAuth struct {
-	PrivateKey  string
-	ClientEmail string
-	ClientId    string
+var configFields = schema.Fields{
+	cfgPrivateKey:  schema.String(),
+	cfgClientId:    schema.String(),
+	cfgClientEmail: schema.String(),
 }
 
-func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, error) {
-	// TODO(ericsnow) call config.Validate and cfg.ValidateUnknownAttrs?
+var configDefaults = schema.Defaults{}
 
-	// Check sanity of juju-level fields.
-	var oldCfg *config.Config
-	if old != nil {
-		oldCfg = old.Config
-	}
-	if err := config.Validate(cfg, oldCfg); err != nil {
-		return nil, err
-	}
-
-	auth := googleAuth{
-		PrivateKey:  os.Getenv(gcePrivateKey),
-		ClientEmail: os.Getenv(gceClientEmail),
-		ClientId:    os.Getenv(gceClientId),
-	}
-
-	attrs := cfg.UnknownAttrs()
-	if err := setAttr(&auth.PrivateKey, attrs, cfgPrivateKey); err != nil {
-		return nil, err
-	}
-	if err := setAttr(&auth.ClientId, attrs, cfgClientId); err != nil {
-		return nil, err
-	}
-	if err := setAttr(&auth.ClientId, attrs, cfgClientEmail); err != nil {
-		return nil, err
-	}
-
-	if auth.PrivateKey == "" {
-		return nil, configError(cfgPrivateKey, gcePrivateKey)
-	}
-	if auth.ClientEmail == "" {
-		return nil, configError(cfgClientEmail, gceClientEmail)
-	}
-	if auth.ClientId == "" {
-		return nil, configError(cfgClientId, gceClientId)
-	}
-
-	return &environConfig{cfg, auth, attrs}, nil
+var configSecretFields = []string{
+	cfgPrivateKey,
 }
 
-func setAttr(val *string, attrs map[string]interface{}, field string) error {
-	if i, ok := attrs[field]; ok {
-		if s, ok := i.(string); ok {
-			*val = s
-		} else {
-			return fmt.Errorf("expected %q to be a string, got %T", field, i)
-		}
-	}
-	return nil
+var configImmutableFields = []string{
+	// TODO(ericsnow) Do these really belong here?
+	cfgPrivateKey,
+	cfgClientId,
 }
 
 type environConfig struct {
 	*config.Config
-	googleAuth
 	attrs map[string]interface{}
 }
 
-func configError(yaml, env string) error {
-	return fmt.Errorf("missing gce config value %q in environments.yaml (or specified by the environment variable %q)", yaml, env)
+func (c *environConfig) privateKey() string {
+	return c.attrs[cfgPrivateKey].(string)
+}
+
+func (c *environConfig) clientID() string {
+	return c.attrs[cfgClientId].(string)
+}
+
+func (c *environConfig) clientEmail() string {
+	return c.attrs[cfgClientEmail].(string)
+}
+
+func validateConfig(cfg, old *config.Config) (*environConfig, error) {
+	// Check for valid changes and coerce the values (base config first
+	// then custom).
+	if err := config.Validate(cfg, old); err != nil {
+		return nil, errors.Trace(err)
+	}
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ecfg := &environConfig{cfg, validated}
+
+	// TODO(ericsnow) Support pulling ID/PK from shell environment variables.
+
+	// Check that no immutable fields have changed.
+	if old != nil {
+		attrs := old.UnknownAttrs()
+		for _, field := range configImmutableFields {
+			if attrs[field] != validated[field] {
+				return nil, errors.Errorf("%s: cannot change from %v to %v", field, attrs[field], validated[field])
+			}
+		}
+	}
+
+	// Check sanity of GCE fields.
+	if ecfg.privateKey() == "" {
+		return nil, errors.Errorf("%s: must not be empty", cfgPrivateKey)
+	}
+	if ecfg.clientID() == "" {
+		return nil, errors.Errorf("%s: must not be empty", cfgClientId)
+	}
+	if ecfg.clientEmail() == "" {
+		return nil, errors.Errorf("%s: must not be empty", cfgClientEmail)
+	} else {
+		if _, err := mail.ParseAddress(ecfg.clientEmail()); err != nil {
+			return nil, errors.Annotatef(err, "invalid %q in config", cfgClientEmail)
+		}
+	}
+
+	return ecfg, nil
 }

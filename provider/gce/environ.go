@@ -4,13 +4,13 @@
 package gce
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 
 	"code.google.com/p/goauth2/oauth"
 	"code.google.com/p/goauth2/oauth/jwt"
 	"code.google.com/p/google-api-go-client/compute/v1"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -64,10 +64,26 @@ func (*environ) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
+var newToken = func(ecfg *environConfig, scopes string) (*oauth.Token, error) {
+	jtok := jwt.NewToken(ecfg.clientEmail(), scopes, []byte(ecfg.privateKey()))
+	jtok.ClaimSet.Aud = tokenURL
+
+	token, err := jtok.Assert(&http.Client{})
+	return token, errors.Trace(err)
+}
+
+var newService = func(transport *oauth.Transport) (*compute.Service, error) {
+	return compute.New(transport.Client())
+}
+
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
-	ecfg, err := validateConfig(cfg, env.ecfg)
+	var oldCfg *config.Config
+	if env.ecfg != nil {
+		oldCfg = env.ecfg.Config
+	}
+	ecfg, err := validateConfig(cfg, oldCfg)
 	if err != nil {
 		return err
 	}
@@ -78,17 +94,14 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	env.ecfg = ecfg
 	env.storage = storage
 
-	jtok := jwt.NewToken(ecfg.ClientEmail, driverScopes, []byte(ecfg.PrivateKey))
-	jtok.ClaimSet.Aud = tokenURL
-
-	token, err := jtok.Assert(&http.Client{})
+	token, err := newToken(ecfg, driverScopes)
 	if err != nil {
-		return fmt.Errorf("can't retrieve auth token: %s", err)
+		return errors.Annotate(err, "can't retrieve auth token")
 	}
 
 	transport := &oauth.Transport{
 		Config: &oauth.Config{
-			ClientId: ecfg.ClientId,
+			ClientId: ecfg.clientID(),
 			Scope:    driverScopes,
 			TokenURL: tokenURL,
 			AuthURL:  authURL,
