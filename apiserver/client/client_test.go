@@ -2497,7 +2497,7 @@ func (s *serverSuite) TestClientEnvironmentSetImmutable(c *gc.C) {
 		Config: map[string]interface{}{"state-port": "1"},
 	}
 	err := s.client.EnvironmentSet(params)
-	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to "1"`)
+	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to 1`)
 }
 
 func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}) {
