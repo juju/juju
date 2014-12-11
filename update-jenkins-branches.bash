@@ -40,8 +40,7 @@ fi
 
 
 if [[ "$NEW_JUJU" == "true" ]]; then
-    sudo apt-get install -y juju-local juju \
-        uvtool-libvirt uvtool python-novaclient euca2ools || echo \
+    sudo apt-get install -y juju-local juju || echo \
             "! Could not update juju on $host"
 fi
 EOT
