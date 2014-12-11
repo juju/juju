@@ -101,6 +101,7 @@ class TestTerminateInstances(TestCase):
         self.assertEqual(expected, cc_mock.call_args_list[1][0])
         expected = (['maas', 'logout', 'mas'],)
         self.assertEqual(expected, cc_mock.call_args_list[2][0])
+        self.assertEqual(3, len(cc_mock.call_args_list))
         self.assertEqual(out_mock.write.mock_calls, [
             call('Deleting /A/B/C/D/node-3d/.'), call('\n')])
 
