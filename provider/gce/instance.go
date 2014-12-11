@@ -96,7 +96,7 @@ func buildFirewall(machineId string, ps network.PortSet) *compute.Firewall {
 		// Description is not set.
 		Name: machineId,
 		// TODO(ericsnow) Does Network need to be set?
-		Network: "",
+		// Network: "",
 		// SourceRanges is not set.
 		// SourceTags is not set.
 		// TargetTags is not set.
