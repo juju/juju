@@ -189,6 +189,8 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
+	// We're okay here as long as env.ProjectID is exclusive to this juju
+	// environment.
 	e := env.getSnapshot()
 
 	results, err := e.gce.Instances.AggregatedList(env.projectID).Do()
