@@ -2,8 +2,6 @@ set -eu
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 export PATH="$SCRIPTS:$PATH"
 
-# For most jobs, this is localhost, so provide it.
-: ${LOCAL_JENKINS_URL=http://juju-ci.vapour.ws:8080}
 export JUJU_HOME=$HOME/cloud-city
 if [ "$ENV" = "manual" ]; then
   source $HOME/cloud-city/ec2rc
@@ -20,11 +18,10 @@ mkdir -p $artifacts_path
 touch $artifacts_path/empty
 
 # Determine BRANCH, REVNO, VERSION, and PACKAGES under test.
-afact='lastSuccessfulBuild/artifact'
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
 if [[ -n ${revision_build:-} ]]; then
-    wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
+    $SCRIPTS/jujuci.py get build-revision buildvars.bash ./
     source buildvars.bash
     PACKAGES_JOB="publish-revision"
     JUJU_LOCAL_DEB="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
@@ -42,10 +39,8 @@ else
 fi
 
 # Provide the juju-core and juju-local packages to the test
-ENCODED_LOCAL_DEB=$(echo "$JUJU_LOCAL_DEB" | sed 's,[+],%2B,')
-ENCODED_CORE_DEB=$(echo "$JUJU_CORE_DEB" | sed 's,[+],%2B,')
-wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$ENCODED_LOCAL_DEB
-wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$ENCODED_CORE_DEB
+juju-ci-tools/jujuci.py -d get publish-revision $JUJU_LOCAL_DEB
+juju-ci-tools/jujuci.py -d get publish-revision $JUJU_CORE_DEB
 dpkg-deb -x $WORKSPACE/$JUJU_CORE_DEB extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
