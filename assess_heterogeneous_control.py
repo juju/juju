@@ -22,14 +22,6 @@ from deploy_stack import (
     )
 
 
-def env_from_client(client):
-    """Return an Enivronment based on an EnvJujuClient, for compatibility."""
-    old_style_client = JujuClientDevel(client.version, client.full_path)
-    old_style_client.debug = client.debug
-    return Environment(client.env.environment, old_style_client,
-                       client.env.config)
-
-
 def bootstrap_client(client, upload_tools):
     """Bootstrap using a client and its environment.
 
@@ -106,7 +98,7 @@ def test_control_heterogeneous(initial, other, released, log_dir,
     with dumping_env(released, host, log_dir):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
-        check_token(env_from_client(initial), token)
+        check_token(initial, token)
         check_series(other)
         other.juju('run', ('--all', 'uname -a'))
         other.get_juju_output('get', 'dummy-source')
