@@ -11,6 +11,7 @@ from jujuci import (
     list_artifacts,
     find_artifacts,
     main,
+    setup_workspace,
 )
 from utility import temp_dir
 
@@ -206,3 +207,15 @@ class JujuCITestCase(TestCase):
                 with self.assertRaises(ValueError):
                     get_artifacts(
                         'foo', '1234', '*.bash', '/foo-bar-baz', archive=True)
+
+    def test_setup_workspace(self):
+        with temp_dir() as base_dir:
+            workspace_dir = os.path.join(base_dir, 'workspace')
+            foo_dir = os.path.join(workspace_dir, 'foo')
+            os.makedirs(foo_dir)
+            with open(os.path.join(workspace_dir, 'old.txt'), 'w') as of:
+                of.write('old')
+            setup_workspace(workspace_dir, dry_run=False, verbose=False)
+            self.assertEqual(['artifacts'], os.listdir(workspace_dir))
+            artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+            self.assertEqual(['empty'], os.listdir(artifacts_dir))

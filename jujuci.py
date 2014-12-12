@@ -77,6 +77,28 @@ def get_artifacts(job_name, build, glob, path,
             opener.retrieve(artifact.location, local_path)
 
 
+def setup_workspace(workspace_path, dry_run=False, verbose=False):
+    """Clean the workspace directory and create an artifacts sub directory."""
+    for root, dirs, files in os.walk(workspace_path):
+        for name in files:
+            print_now('Removing %s' % name)
+            if not dry_run:
+                os.remove(os.path.join(root, name))
+        for name in dirs:
+            print_now('Removing %s' % name)
+            if not dry_run:
+                shutil.rmtree(os.path.join(root, name))
+    artifacts_path = os.path.join(workspace_path, 'artifacts')
+    print_now('Creating artifacts dir.')
+    if not dry_run:
+        os.mkdir(artifacts_path)
+    # "touch empty" to convice jenkins there is an archive.
+    empty_path = os.path.join(artifacts_path, 'empty')
+    if not dry_run:
+        with open(empty_path, 'a'):
+            os.utime(empty_path, None)
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("List and get artifacts from Juju CI.")
