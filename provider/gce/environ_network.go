@@ -10,19 +10,6 @@ import (
 
 // TODO(ericsnow) Fold this back into environ.go if neither ends up too big.
 
-// SupportNetworks returns whether the environment has support to
-// specify networks for services and machines.
-func (env *environ) SupportNetworks() bool {
-	return false
-}
-
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 // AllocateAddress requests a specific address to be allocated for the
 // given instance on the given network.
 func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {

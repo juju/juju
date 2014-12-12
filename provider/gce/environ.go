@@ -8,12 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -101,18 +99,6 @@ func (env *environ) Destroy() error {
 	return common.Destroy(env)
 }
 
-// ConstraintsValidator returns a Validator value which is used to
-// validate and merge constraints.
-func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
-	return nil, errNotImplemented
-}
-
-// PrecheckInstance verifies that the provided series and constraints
-// are valid for use in creating an instance in this environment.
-func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	return errNotImplemented
-}
-
 // instance stuff
 
 var instStatuses = []string{statusPending, statusStaging, statusRunning}
@@ -163,10 +149,4 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // to juju state servers.
 func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
-}
-
-// SupportedArchitectures returns the image architectures which can
-// be hosted by this environment.
-func (env *environ) SupportedArchitectures() ([]string, error) {
-	return arch.AllSupportedArches, nil
 }
