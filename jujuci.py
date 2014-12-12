@@ -43,11 +43,6 @@ def find_artifacts(build_data, glob='*'):
     return found
 
 
-def download_files(files, path):
-    for file_name in files:
-        pass
-
-
 def list_artifacts(job_name, build, glob, verbose=False):
     build_data = get_build_data(JENKINS_URL, job_name, build)
     artifacts = find_artifacts(build_data, glob)
