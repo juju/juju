@@ -27,6 +27,8 @@ func validAttrs() testing.Attrs {
 		"private-key":  "seekrit",
 		"client-id":    "static",
 		"client-email": "joe@mail.com",
+		"region":       "home",
+		"project-id":   "my-juju",
 	})
 }
 
@@ -74,6 +76,22 @@ var newConfigTests = []struct {
 	insert: testing.Attrs{"client-email": ""},
 	err:    "client-email: must not be empty",
 }, {
+	info:   "region is required",
+	remove: []string{"region"},
+	err:    "region: expected string, got nothing",
+}, {
+	info:   "region cannot be empty",
+	insert: testing.Attrs{"region": ""},
+	err:    "region: must not be empty",
+}, {
+	info:   "project-id is required",
+	remove: []string{"project-id"},
+	err:    "project-id: expected string, got nothing",
+}, {
+	info:   "project-id cannot be empty",
+	insert: testing.Attrs{"project-id": ""},
+	err:    "project-id: must not be empty",
+}, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
 	expect: testing.Attrs{"unknown-field": 12345},
@@ -94,6 +112,9 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
+			if v, ok := attrs["private-key"].(string); ok && v == "" {
+				//panic("here")
+			}
 			if err != nil {
 				c.Check(environ, gc.IsNil)
 			}
@@ -167,9 +188,17 @@ var changeConfigTests = []struct {
 	insert: testing.Attrs{"client-id": "mutant"},
 	err:    "client-id: cannot change from static to mutant",
 }, {
-	info:   "can change client-email",
+	info:   "cannot change client-email",
 	insert: testing.Attrs{"client-email": "spam@eggs.com"},
-	expect: testing.Attrs{"client-email": "spam@eggs.com"},
+	err:    "client-email: cannot change from joe@mail.com to spam@eggs.com",
+}, {
+	info:   "cannot change region",
+	insert: testing.Attrs{"region": "not home"},
+	err:    "region: cannot change from home to not home",
+}, {
+	info:   "cannot change project-id",
+	insert: testing.Attrs{"project-id": "your-juju"},
+	err:    "project-id: cannot change from my-juju to your-juju",
 }, {
 	info:   "can insert unknown field",
 	insert: testing.Attrs{"unknown": "ignoti"},

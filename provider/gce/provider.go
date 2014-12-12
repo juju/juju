@@ -32,7 +32,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// TODO(ericsnow) region, projectID, gce should be set here?
 	env := &environ{name: cfg.Name()}
 	if err := env.SetConfig(cfg); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return env, nil
 }
@@ -67,10 +67,12 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	ecfg, err := validateConfig(cfg, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	secretAttrs := map[string]string{}
-	secretAttrs[cfgPrivateKey] = ecfg.privateKey()
+	secretAttrs := make(map[string]string, len(configSecretFields))
+	for _, key := range configSecretFields {
+		secretAttrs[key] = ecfg.attrs[key].(string)
+	}
 	return secretAttrs, nil
 }
 

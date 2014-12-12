@@ -16,7 +16,7 @@ var (
 	NewService                          = &newService
 )
 
-func DummyNewToken(*environConfig, string) (*oauth.Token, error) {
+func DummyNewToken(gceAuth, string) (*oauth.Token, error) {
 	return nil, nil
 }
 

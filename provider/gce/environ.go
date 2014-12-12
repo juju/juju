@@ -4,17 +4,9 @@
 package gce
 
 import (
-	"fmt"
-	"net/http"
 	"sync"
-	"time"
 
-	"code.google.com/p/goauth2/oauth"
-	"code.google.com/p/goauth2/oauth/jwt"
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -25,32 +17,6 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-const (
-	driverScopes = "https://www.googleapis.com/auth/compute " +
-		"https://www.googleapis.com/auth/devstorage.full_control"
-
-	tokenURL = "https://accounts.google.com/o/oauth2/token"
-
-	authURL = "https://accounts.google.com/o/oauth2/auth"
-
-	storageScratch    = "SCRATCH"
-	storagePersistent = "PERSISTENT"
-
-	statusUp = "UP"
-)
-
-var (
-	globalOperationTimeout = 60 * time.Second
-	globalOperationDelay   = 10 * time.Second
-
-	signedImageDataOnly = false
-)
-
-// TODO(ericsnow) This should move out to providers/common.
-func (env *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.Config().Name(), names.NewMachineTag(machineId))
-}
-
 type environ struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -60,9 +26,8 @@ type environ struct {
 	ecfg    *environConfig
 	storage storage.Storage
 
-	gce       *compute.Service
-	region    string
-	projectID string
+	auth gceAuth
+	gce  *gceConnection
 }
 
 //TODO (wwitzel3): Investigate simplestreams.HasRegion for this provider
@@ -74,45 +39,6 @@ func (env *environ) Name() string {
 
 func (*environ) Provider() environs.EnvironProvider {
 	return providerInstance
-}
-
-func (env *environ) getRegionURL() string {
-	// TODO(ericsnow) finish this!
-	return ""
-}
-
-func (env *environ) waitOperation(operation *compute.Operation) error {
-	env = env.getSnapshot()
-
-	attempts := utils.AttemptStrategy{
-		Total: globalOperationTimeout,
-		Delay: globalOperationDelay,
-	}
-	for a := attempts.Start(); a.Next(); {
-		var err error
-		if operation.Status == "DONE" {
-			return nil
-		}
-		// TODO(ericsnow) should projectID come from inst?
-		call := env.gce.GlobalOperations.Get(env.projectID, operation.ClientOperationId)
-		operation, err = call.Do()
-		if err != nil {
-			return errors.Annotate(err, "while waiting for operation to complete")
-		}
-	}
-	return errors.Errorf("timed out after %d seconds waiting for GCE operation to finish", globalOperationTimeout)
-}
-
-var newToken = func(ecfg *environConfig, scopes string) (*oauth.Token, error) {
-	jtok := jwt.NewToken(ecfg.clientEmail(), scopes, []byte(ecfg.privateKey()))
-	jtok.ClaimSet.Aud = tokenURL
-
-	token, err := jtok.Assert(&http.Client{})
-	return token, errors.Trace(err)
-}
-
-var newService = func(transport *oauth.Transport) (*compute.Service, error) {
-	return compute.New(transport.Client())
 }
 
 func (env *environ) SetConfig(cfg *config.Config) error {
@@ -133,34 +59,18 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	env.ecfg = ecfg
 	env.storage = storage
 
-	token, err := newToken(ecfg, driverScopes)
-	if err != nil {
-		return errors.Annotate(err, "can't retrieve auth token")
-	}
-
-	transport := &oauth.Transport{
-		Config: &oauth.Config{
-			ClientId: ecfg.clientID(),
-			Scope:    driverScopes,
-			TokenURL: tokenURL,
-			AuthURL:  authURL,
-		},
-		Token: token,
-	}
-
-	service, err := compute.New(transport.Client())
-	if err != nil {
-		return err
-	}
-
-	env.gce = service
-	return nil
+	// Connect and authenticate.
+	env.gce = ecfg.newConnection()
+	err = env.gce.connect(ecfg.auth())
+	return errors.Trace(err)
 }
 
 func (env *environ) getSnapshot() *environ {
 	env.lock.Lock()
 	clone := *env
+	// TODO(ericsnow) Should env.ecfg be explicitly copied-by-value?
 	env.lock.Unlock()
+
 	clone.lock = sync.Mutex{}
 	return &clone
 }
@@ -190,12 +100,6 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 }
 
 // instance stuff
-
-func (env *environ) getRawInstance(zone string, id string) (*compute.Instance, error) {
-	call := env.gce.Instances.Get(env.projectID, zone, id)
-	gInst, err := call.Do()
-	return gInst, errors.Trace(err)
-}
 
 func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	// Please note that this must *not* return instances that have not been

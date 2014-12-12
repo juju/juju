@@ -67,15 +67,15 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
 	spec, err := env.findInstanceSpec(env.Config().ImageStream(), &instances.InstanceConstraint{
-		Region:      env.region,
+		Region:      env.gce.region,
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-		// TODO(ericsnow) What should go here?
+		// TODO(ericsnow) Is this right?
 		Storage: []string{storageScratch, storagePersistent},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	envTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
@@ -94,7 +94,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 		return nil, errors.Trace(err)
 	}
 
-	regionURL := env.getRegionURL()
+	regionURL := env.gce.regionURL()
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, regionURL},
 		Series:    []string{ic.Series},
@@ -128,7 +128,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
-	machineID := env.machineFullName(args.MachineConfig.MachineId)
+	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
 	instance := &compute.Instance{
 		// TODO(ericsnow) populate/verify these values.
@@ -147,77 +147,26 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, availZone := range availabilityZones {
-		call := env.gce.Instances.Insert(
-			env.projectID,
-			availZone,
-			instance,
-		)
-		operation, err := call.Do()
-		if err != nil {
-			// XXX Handle zone-is-full error.
-			return nil, errors.Annotate(err, "sending new instance request")
-		}
-		if err := env.waitOperation(operation); err != nil {
-			// TODO(ericsnow) Handle zone-is-full error here?
-			return nil, errors.Annotate(err, "waiting for new instance operation to finish")
-		}
-
-		// Get the instance here.
-		// TODO(ericsnow) Do we really need to get it?
-		instance, err = env.getRawInstance(availZone, machineID)
-		return instance, errors.Trace(err)
+	if err := env.gce.newInstance(instance, availabilityZones); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil, errors.Errorf("not able to provision in any zone")
+	return instance, nil
 }
-
-// minDiskSize is the minimum/default size (in megabytes) for GCE root disks.
-// TODO(ericsnow) Is there a minimum? What is the default?
-const minDiskSize uint64 = 0
 
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
-	rootDiskSize := minDiskSize
-	if cons.RootDisk != nil {
-		if *cons.RootDisk >= minDiskSize {
-			rootDiskSize = *cons.RootDisk
-		} else {
-			logger.Infof(
-				"Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dM",
-				*cons.RootDisk,
-				minDiskSize,
-			)
-		}
+	// TODO(ericsnow) Are we passing the right image value?
+	rootDisk, size := diskSpec(cons.RootDisk, spec.Image.Id, true)
+	if cons.RootDisk != nil && size == minDiskSize {
+		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dM"
+		logger.Infof(msg, *cons.RootDisk, minDiskSize)
 	}
-
-	// TODO(ericsnow) what happens if there is not attached disk?
-	disk := compute.AttachedDisk{
-		// TODO(ericsnow) Set other fields too?
-		Type: "SCRATCH",    // Could be "PERSISTENT".
-		Boot: true,         // not needed?
-		Mode: "READ_WRITE", // not needed?
-		InitializeParams: &compute.AttachedDiskInitializeParams{
-			// DiskName (defaults to instance name)
-			DiskSizeGb: int64(roundVolumeSize(rootDiskSize)),
-			// DiskType (???)
-			SourceImage: spec.Image.Id, // correct?
-		},
-		// Interface (???)
-		// DeviceName (persistent disk only)
-		// Source (persistent disk only)
-	}
-
-	return []*compute.AttachedDisk{&disk}
-}
-
-// AWS expects GiB, we work in MiB; round up to nearest G.
-// TODO(ericsnow) Move this to providers.common (also for ec2).
-func roundVolumeSize(m uint64) uint64 {
-	return (m + 1023) / 1024
+	return []*compute.AttachedDisk{rootDisk}
 }
 
 func (env *environ) handleStateMachine(args environs.StartInstanceParams, raw *compute.Instance) {
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
-		if err := common.AddStateInstance(env.Storage(), instance.Id(raw.Name)); err != nil {
+		err := common.AddStateInstance(env.Storage(), instance.Id(raw.Name))
+		if err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
 	}
@@ -247,16 +196,14 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 	// environment.
 	e := env.getSnapshot()
 
-	results, err := e.gce.Instances.AggregatedList(env.projectID).Do()
+	instances, err := e.gce.instances()
 	if err != nil {
 		return nil, err
 	}
 
 	ids := []instance.Id{}
-	for _, item := range results.Items {
-		for _, inst := range item.Instances {
-			ids = append(ids, instance.Id(inst.Name))
-		}
+	for _, inst := range instances {
+		ids = append(ids, instance.Id(inst.Name))
 	}
 	return env.Instances(ids)
 }

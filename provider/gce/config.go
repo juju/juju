@@ -6,8 +6,6 @@ package gce
 // TODO(ericsnow) This file needs a once-over to verify correctness.
 
 import (
-	"net/mail"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
@@ -15,13 +13,11 @@ import (
 )
 
 const (
-	gcePrivateKey  = "GCE_PRIVATE_KEY"
-	gceClientId    = "GCE_CLIENT_ID"
-	gceClientEmail = "GCE_CLIENT_EMAIL"
-
 	cfgPrivateKey  = "private-key"
-	cfgClientId    = "client-id"
+	cfgClientID    = "client-id"
 	cfgClientEmail = "client-email"
+	cfgRegion      = "region"
+	cfgProjectID   = "project-id"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -34,12 +30,24 @@ gce:
   private-key: 
   client-email:
   client-id:
+  region:
+  project-id:
 `[1:]
+
+var osEnvFields = map[string]string{
+	osEnvPrivateKey:  cfgPrivateKey,
+	osEnvClientID:    cfgClientID,
+	osEnvClientEmail: cfgClientEmail,
+	osEnvRegion:      cfgRegion,
+	osEnvProjectID:   cfgProjectID,
+}
 
 var configFields = schema.Fields{
 	cfgPrivateKey:  schema.String(),
-	cfgClientId:    schema.String(),
+	cfgClientID:    schema.String(),
 	cfgClientEmail: schema.String(),
+	cfgRegion:      schema.String(),
+	cfgProjectID:   schema.String(),
 }
 
 var configDefaults = schema.Defaults{}
@@ -49,9 +57,11 @@ var configSecretFields = []string{
 }
 
 var configImmutableFields = []string{
-	// TODO(ericsnow) Do these really belong here?
 	cfgPrivateKey,
-	cfgClientId,
+	cfgClientID,
+	cfgClientEmail,
+	cfgRegion,
+	cfgProjectID,
 }
 
 type environConfig struct {
@@ -59,16 +69,19 @@ type environConfig struct {
 	attrs map[string]interface{}
 }
 
-func (c *environConfig) privateKey() string {
-	return c.attrs[cfgPrivateKey].(string)
+func (c *environConfig) auth() gceAuth {
+	return gceAuth{
+		clientID:    c.attrs[cfgClientID].(string),
+		clientEmail: c.attrs[cfgClientEmail].(string),
+		privateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
+	}
 }
 
-func (c *environConfig) clientID() string {
-	return c.attrs[cfgClientId].(string)
-}
-
-func (c *environConfig) clientEmail() string {
-	return c.attrs[cfgClientEmail].(string)
+func (c *environConfig) newConnection() *gceConnection {
+	return &gceConnection{
+		region:    c.attrs[cfgRegion].(string),
+		projectID: c.attrs[cfgProjectID].(string),
+	}
 }
 
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
@@ -96,19 +109,21 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	}
 
 	// Check sanity of GCE fields.
-	if ecfg.privateKey() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgPrivateKey)
+	if err := ecfg.auth().validate(); err != nil {
+		return nil, errors.Trace(handleInvalidField(err))
 	}
-	if ecfg.clientID() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgClientId)
-	}
-	if ecfg.clientEmail() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgClientEmail)
-	} else {
-		if _, err := mail.ParseAddress(ecfg.clientEmail()); err != nil {
-			return nil, errors.Annotatef(err, "invalid %q in config", cfgClientEmail)
-		}
+	if err := ecfg.newConnection().validate(); err != nil {
+		return nil, errors.Trace(handleInvalidField(err))
 	}
 
 	return ecfg, nil
+}
+
+func handleInvalidField(err error) error {
+	vErr := err.(*config.InvalidConfigValue)
+	if vErr.Reason == nil && vErr.Value == "" {
+		key := osEnvFields[vErr.Key]
+		return errors.Errorf("%s: must not be empty", key)
+	}
+	return err
 }
