@@ -1,15 +1,28 @@
 package util
 
 import (
+	stderrors "errors"
+	"github.com/juju/juju/apiserver/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"testing"
 )
 
 var (
-	_ = gc.Suite(&toolSuite{})
+	_      = gc.Suite(&toolSuite{})
+	logger = loggo.GetLogger("juju.cmd.jujud")
 )
 
 type toolSuite struct {
 	coretesting.BaseSuite
+}
+
+func Test(t *testing.T) {
+	gc.TestingT(t)
 }
 
 func (*toolSuite) TestErrorImportance(c *gc.C) {
@@ -28,48 +41,34 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 	}
 }
 
-func (*toolSuite) TestIsFatal(c *gc.C) {
-
-	isFatalTests := []struct {
-		err     error
-		isFatal bool
-	}{{
-		err:     worker.ErrTerminateAgent,
-		isFatal: true,
-	}, {
-		err:     &upgrader.UpgradeReadyError{},
-		isFatal: true,
-	}, {
-		err: &params.Error{
-			Message: "blah",
-			Code:    params.CodeNotProvisioned,
-		},
-		isFatal: false,
-	}, {
-		err:     &cmdutil.FatalError{"some fatal error"},
-		isFatal: true,
-	}, {
-		err:     stderrors.New("foo"),
-		isFatal: false,
-	}, {
-		err: &params.Error{
-			Message: "blah",
-			Code:    params.CodeNotFound,
-		},
-		isFatal: false,
-	}}
-
-	for i, test := range isFatalTests {
-		c.Logf("test %d: %s", i, test.err)
-		c.Assert(cmdutil.IsFatal(test.err), gc.Equals, test.isFatal)
-	}
-}
-
-type testPinger func() error
-
-func (f testPinger) Ping() error {
-	return f()
-}
+var isFatalTests = []struct {
+	err     error
+	isFatal bool
+}{{
+	err:     worker.ErrTerminateAgent,
+	isFatal: true,
+}, {
+	err:     &upgrader.UpgradeReadyError{},
+	isFatal: true,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code:    params.CodeNotProvisioned,
+	},
+	isFatal: false,
+}, {
+	err:     &FatalError{"some fatal error"},
+	isFatal: true,
+}, {
+	err:     stderrors.New("foo"),
+	isFatal: false,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code:    params.CodeNotFound,
+	},
+	isFatal: false,
+}}
 
 func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 	var (
@@ -83,7 +82,7 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 	for i, pinger := range []testPinger{errPinger, okPinger} {
 		for j, test := range isFatalTests {
 			c.Logf("test %d.%d: %s", i, j, test.err)
-			fatal := cmdutil.ConnectionIsFatal(logger, pinger)(test.err)
+			fatal := ConnectionIsFatal(logger, pinger)(test.err)
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
@@ -91,4 +90,18 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 			}
 		}
 	}
+}
+
+func (*toolSuite) TestIsFatal(c *gc.C) {
+
+	for i, test := range isFatalTests {
+		c.Logf("test %d: %s", i, test.err)
+		c.Assert(IsFatal(test.err), gc.Equals, test.isFatal)
+	}
+}
+
+type testPinger func() error
+
+func (f testPinger) Ping() error {
+	return f()
 }

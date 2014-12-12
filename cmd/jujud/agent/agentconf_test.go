@@ -22,7 +22,7 @@ func (s *agentConfSuite) TestChangeConfigSuccess(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{}
 
 	conf := AgentConf{
-		dataDir: c.MkDir(),
+		DataDir: c.MkDir(),
 		_config: mcsw,
 	}
 
@@ -38,7 +38,7 @@ func (s *agentConfSuite) TestChangeConfigMutateFailure(c *gc.C) {
 	mcsw := &mockConfigSetterWriter{}
 
 	conf := AgentConf{
-		dataDir: c.MkDir(),
+		DataDir: c.MkDir(),
 		_config: mcsw,
 	}
 
@@ -56,7 +56,7 @@ func (s *agentConfSuite) TestChangeConfigWriteFailure(c *gc.C) {
 	}
 
 	conf := AgentConf{
-		dataDir: c.MkDir(),
+		DataDir: c.MkDir(),
 		_config: mcsw,
 	}
 

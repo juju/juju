@@ -178,7 +178,7 @@ func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	s.PatchValue(&fslock.LockWaitDelay, 10*time.Millisecond)
 
-	lock, err := hookExecutionLock(cmdutil.DataDir)
+	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	lock.Lock("juju-run test")
 	defer lock.Unlock() // in case of failure

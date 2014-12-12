@@ -3,13 +3,22 @@ package util
 import (
 	"fmt"
 	"github.com/juju/errors"
+	"github.com/juju/juju/agent"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/fslock"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"io"
+	"path/filepath"
+	"strconv"
 )
 
 var (
@@ -118,4 +127,109 @@ func SwitchProcessToRollingLogs(logger *lumberjack.Logger) error {
 	writer := loggo.NewSimpleWriter(logger, &loggo.DefaultFormatter{})
 	_, err := loggo.ReplaceDefaultWriter(writer)
 	return err
+}
+
+// newEnsureServerParams creates an EnsureServerParams from an agent configuration.
+func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+	// If oplog size is specified in the agent configuration, use that.
+	// Otherwise leave the default zero value to indicate to EnsureServer
+	// that it should calculate the size.
+	var oplogSize int
+	if oplogSizeString := agentConfig.Value(agent.MongoOplogSize); oplogSizeString != "" {
+		var err error
+		if oplogSize, err = strconv.Atoi(oplogSizeString); err != nil {
+			return mongo.EnsureServerParams{}, fmt.Errorf("invalid oplog size: %q", oplogSizeString)
+		}
+	}
+
+	// If numa ctl preference is specified in the agent configuration, use that.
+	// Otherwise leave the default false value to indicate to EnsureServer
+	// that numactl should not be used.
+	var numaCtlPolicy bool
+	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
+		var err error
+		if numaCtlPolicy, err = strconv.ParseBool(numaCtlString); err != nil {
+			return mongo.EnsureServerParams{}, fmt.Errorf("invalid numactl preference: %q", numaCtlString)
+		}
+	}
+
+	si, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
+	}
+
+	params := mongo.EnsureServerParams{
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
+		CAPrivateKey:   si.CAPrivateKey,
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
+
+		DataDir:              agentConfig.DataDir(),
+		Namespace:            agentConfig.Value(agent.Namespace),
+		OplogSize:            oplogSize,
+		SetNumaControlPolicy: numaCtlPolicy,
+	}
+	return params, nil
+}
+
+// newCloseWorker returns a task that wraps the given task,
+// closing the given closer when it finishes.
+func NewCloseWorker(logger loggo.Logger, worker worker.Worker, closer io.Closer) worker.Worker {
+	return &CloseWorker{
+		worker: worker,
+		closer: closer,
+	}
+}
+
+type CloseWorker struct {
+	worker worker.Worker
+	closer io.Closer
+	logger loggo.Logger
+}
+
+func (c *CloseWorker) Kill() {
+	c.worker.Kill()
+}
+
+func (c *CloseWorker) Wait() error {
+	err := c.worker.Wait()
+	if err := c.closer.Close(); err != nil {
+		c.logger.Errorf("closeWorker: close error: %v", err)
+	}
+	return err
+}
+
+// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
+// hook execution lock. Other workers may also use this lock if they
+// require isolation from hook execution.
+func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
+	lockDir := filepath.Join(dataDir, "locks")
+	return fslock.NewLock(lockDir, "uniter-hook-execution")
+}
+
+// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
+// based on the specified configuration parameters.
+var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	tag := agentConfig.Tag()
+	namespace := agentConfig.Value(agent.Namespace)
+	addrs, err := agentConfig.APIAddresses()
+	if err != nil {
+		return nil, err
+	}
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
+}
+
+func ParamsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		CAPrivateKey:   i.CAPrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
+	}
 }

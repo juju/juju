@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"fmt"
@@ -30,10 +30,8 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/api/metricsmanager"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/container/kvm"
@@ -79,9 +77,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/utils/fslock"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"io"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -95,7 +91,7 @@ type eitherState interface{}
 
 var (
 	retryDelay      = 3 * time.Second
-	jujuRun         = paths.MustSucceed(paths.JujuRun(version.Current.Series))
+	JujuRun         = paths.MustSucceed(paths.JujuRun(version.Current.Series))
 	useMultipleCPUs = utils.UseMultipleCPUs
 
 	// The following are defined as variables to
@@ -160,7 +156,7 @@ func (a *MachineAgent) IsRestoreRunning() bool {
 type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
-	agentcmd.AgentConf
+	AgentConf
 	MachineId            string
 	previousAgentVersion version.Number
 	runner               worker.Runner
@@ -169,7 +165,8 @@ type MachineAgent struct {
 	restoreMode          bool
 	restoring            bool
 	workersStarted       chan struct{}
-	st                   *state.State
+	// TODO(katco-): Remove this.
+	//st                   *state.State
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -193,6 +190,7 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
+
 	if !names.IsValidMachine(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
@@ -224,7 +222,7 @@ func (a *MachineAgent) Dying() <-chan struct{} {
 }
 
 // Run runs a machine agent.
-func (a *MachineAgent) Run(_ *cmd.Context) error {
+func (a *MachineAgent) Run(*cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old
 	// environments that have been upgraded, we need to explicitly remove the
 	// file writer if one has been added, otherwise we will get duplicate
@@ -291,7 +289,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	// We need to reopen the API to clear the reboot flag after
 	// scheduling the reboot. It may be cleaner to do this in the reboot
 	// worker, before returning the ErrRebootMachine.
-	st, _, err := agentcmd.OpenAPIState(agentCfg, a)
+	st, _, err := OpenAPIState(agentCfg, a)
 	if err != nil {
 		logger.Infof("Reboot: Error connecting to state")
 		return errors.Trace(err)
@@ -313,7 +311,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 	return worker.ErrRebootMachine
 }
 
-func (a *MachineAgent) ChangeConfig(mutate agentcmd.AgentConfigMutator) error {
+func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
 	if err != nil {
@@ -408,7 +406,7 @@ func (a *MachineAgent) stateStarter(stopch <-chan struct{}) error {
 // workers that need an API connection.
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
-	st, entity, err := agentcmd.OpenAPIState(agentConfig, a)
+	st, entity, err := OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
@@ -495,7 +493,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		lock, err := hookExecutionLock(cmdutil.DataDir)
+		lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -511,7 +509,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
-		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	a.startWorkerAfterUpgrade(runner, "diskmanager", func() (worker.Worker, error) {
 		api, err := st.DiskManager()
@@ -595,7 +593,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// the API, report "unknown job type" here.
 		}
 	}
-	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -654,7 +652,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
-	initLock, err := hookExecutionLock(agentConfig.DataDir())
+	initLock, err := cmdutil.HookExecutionLock(agentConfig.DataDir())
 	if err != nil {
 		return err
 	}
@@ -793,7 +791,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			logger.Warningf("ignoring unknown job %q", job)
 		}
 	}
-	return newCloseWorker(runner, st), nil
+	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
 // stateWorkerDialOpts is a mongo.DialOpts suitable
@@ -942,7 +940,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		if err != nil {
 			return err
 		}
-		ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(servingInfo)
 		if err := st.SetStateServingInfo(ssi); err != nil {
 			st.Close()
 			return fmt.Errorf("cannot set state serving info: %v", err)
@@ -953,7 +951,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
-	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
 		return err
 	}
@@ -990,18 +988,6 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		return err
 	}
 	return nil
-}
-
-func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
-	return state.StateServingInfo{
-		APIPort:        i.APIPort,
-		StatePort:      i.StatePort,
-		Cert:           i.Cert,
-		PrivateKey:     i.PrivateKey,
-		CAPrivateKey:   i.CAPrivateKey,
-		SharedSecret:   i.SharedSecret,
-		SystemIdentity: i.SystemIdentity,
-	}
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
@@ -1129,11 +1115,11 @@ func (a *MachineAgent) Tag() names.Tag {
 func (a *MachineAgent) createJujuRun(dataDir string) error {
 	// TODO do not remove the symlink if it already points
 	// to the right place.
-	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
-	return symlink.New(jujud, jujuRun)
+	return symlink.New(jujud, JujuRun)
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
@@ -1149,7 +1135,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		}
 	}
 	// Remove the juju-run symlink.
-	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
 		errors = append(errors, err)
 	}
 
@@ -1200,26 +1186,6 @@ func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
 	return metricsmanager.NewClient(st)
 }
 
-// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
-// hook execution lock. Other workers may also use this lock if they
-// require isolation from hook execution.
-func hookExecutionLock(dataDir string) (*fslock.Lock, error) {
-	lockDir := filepath.Join(dataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution")
-}
-
-// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
-// based on the specified configuration parameters.
-var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
-	tag := agentConfig.Tag()
-	namespace := agentConfig.Value(agent.Namespace)
-	addrs, err := agentConfig.APIAddresses()
-	if err != nil {
-		return nil, err
-	}
-	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
-}
-
 // newDeployContext gives the tests the opportunity to create a deployer.Context
 // that can be used for testing so as to avoid (1) deploying units to the system
 // running the tests and (2) get access to the *State used internally, so that
@@ -1227,30 +1193,4 @@ var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 // otherwise be restricted.
 var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
 	return deployer.NewSimpleContext(agentConfig, st)
-}
-
-type closeWorker struct {
-	worker worker.Worker
-	closer io.Closer
-}
-
-// newCloseWorker returns a task that wraps the given task,
-// closing the given closer when it finishes.
-func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
-	return &closeWorker{
-		worker: worker,
-		closer: closer,
-	}
-}
-
-func (c *closeWorker) Kill() {
-	c.worker.Kill()
-}
-
-func (c *closeWorker) Wait() error {
-	err := c.worker.Wait()
-	if err := c.closer.Close(); err != nil {
-		logger.Errorf("closeWorker: close error: %v", err)
-	}
-	return err
 }

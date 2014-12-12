@@ -179,7 +179,7 @@ func (c *RunCommand) appendProxyToCommands() string {
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
-	lock, err := hookExecutionLock(cmdutil.DataDir)
+	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

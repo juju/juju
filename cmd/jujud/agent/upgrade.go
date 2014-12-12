@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
@@ -27,7 +26,7 @@ type upgradingMachineAgent interface {
 	ensureMongoServer(agent.Config) error
 	setMachineStatus(*api.State, params.Status, string) error
 	CurrentConfig() agent.Config
-	ChangeConfig(agentcmd.AgentConfigMutator) error
+	ChangeConfig(AgentConfigMutator) error
 	Dying() <-chan struct{}
 }
 

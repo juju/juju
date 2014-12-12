@@ -110,7 +110,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	dataDir := agentConfig.DataDir()
-	hookLock, err := hookExecutionLock(dataDir)
+	hookLock, err := cmdutil.HookExecutionLock(dataDir)
 	if err != nil {
 		return nil, err
 	}
@@ -157,9 +157,9 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 	})
-	return newCloseWorker(runner, st), nil
+	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
 func (a *UnitAgent) Tag() names.Tag {

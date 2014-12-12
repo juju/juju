@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
@@ -110,7 +111,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	})
 	jujud.Log.Factory = &writerFactory{}
 	jujud.Register(&BootstrapCommand{})
-	jujud.Register(&MachineAgent{})
+	jujud.Register(&agentcmd.MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil

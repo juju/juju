@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
@@ -26,19 +25,17 @@ import (
 )
 
 var (
-	ApiOpen = api.Open
+	apiOpen = api.Open
 
-	CheckProvisionedStrategy = utils.AttemptStrategy{
+	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
 		Delay: 5 * time.Second,
 	}
-
-	logger = loggo.GetLogger("juju.cmd.jujud")
 )
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	dataDir string
+	DataDir string
 	mu      sync.Mutex
 	_config agent.ConfigSetterWriter
 }
@@ -51,11 +48,11 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", util.DataDir, "directory for juju data")
+	f.StringVar(&c.DataDir, "data-dir", util.DataDir, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {
-	if c.dataDir == "" {
+	if c.DataDir == "" {
 		return util.RequiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
@@ -68,7 +65,7 @@ func (c *AgentConf) ReadConfig(tag string) error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.DataDir, t))
 	if err != nil {
 		return err
 	}
@@ -154,7 +151,7 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	// then the worker that's calling this cannot
 	// be interrupted.
 	info := agentConfig.APIInfo()
-	st, err := ApiOpen(info, api.DialOpts{})
+	st, err := apiOpen(info, api.DialOpts{})
 	usedOldPassword := false
 	if params.IsCodeUnauthorized(err) {
 		// We've perhaps used the wrong password, so
@@ -163,13 +160,13 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		info = &infoCopy
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
-		st, err = ApiOpen(info, api.DialOpts{})
+		st, err = apiOpen(info, api.DialOpts{})
 	}
 	// The provisioner may take some time to record the agent's
 	// machine instance ID, so wait until it does so.
 	if params.IsCodeNotProvisioned(err) {
-		for a := CheckProvisionedStrategy.Start(); a.Next(); {
-			st, err = ApiOpen(info, api.DialOpts{})
+		for a := checkProvisionedStrategy.Start(); a.Next(); {
+			st, err = apiOpen(info, api.DialOpts{})
 			if !params.IsCodeNotProvisioned(err) {
 				break
 			}
@@ -226,7 +223,7 @@ func OpenAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 
 		st.Close()
 		info.Password = newPassword
-		st, err = ApiOpen(info, api.DialOpts{})
+		st, err = apiOpen(info, api.DialOpts{})
 		if err != nil {
 			return nil, nil, err
 		}
