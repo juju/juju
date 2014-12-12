@@ -8,6 +8,8 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// TODO(ericsnow) Fold this back into environ.go if neither ends up too big.
+
 // SupportNetworks returns whether the environment has support to
 // specify networks for services and machines.
 func (env *environ) SupportNetworks() bool {
