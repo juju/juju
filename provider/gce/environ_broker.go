@@ -189,23 +189,8 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, raw
 }
 
 func (env *environ) AllInstances() ([]instance.Instance, error) {
-	// Please note that this must *not* return instances that have not been
-	// allocated as part of this environment -- if it does, juju will see they
-	// are not tracked in state, assume they're stale/rogue, and shut them down.
-	// We're okay here as long as env.ProjectID is exclusive to this juju
-	// environment.
-	e := env.getSnapshot()
-
-	instances, err := e.gce.instances()
-	if err != nil {
-		return nil, err
-	}
-
-	ids := []instance.Id{}
-	for _, inst := range instances {
-		ids = append(ids, instance.Id(inst.Name))
-	}
-	return env.Instances(ids)
+	instances, err := env.instances()
+	return instances, errors.Trace(err)
 }
 
 func (env *environ) StopInstances(instances ...instance.Id) error {

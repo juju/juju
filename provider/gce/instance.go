@@ -21,6 +21,15 @@ type environInstance struct {
 
 var _ instance.Instance = (*environInstance)(nil)
 
+func newInstance(raw *compute.Instance, env *environ) *environInstance {
+	return &environInstance{
+		id:   instance.Id(raw.Name),
+		env:  env,
+		zone: raw.Zone,
+		gce:  raw,
+	}
+}
+
 func (inst *environInstance) getInstance() *compute.Instance {
 	return inst.gce
 }
@@ -82,6 +91,15 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 	}
 
 	return addresses, nil
+}
+
+func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
+	for _, inst := range instances {
+		if id == inst.Id() {
+			return inst
+		}
+	}
+	return nil
 }
 
 // firewall stuff

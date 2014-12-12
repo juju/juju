@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -31,9 +32,16 @@ const (
 	storageScratch    = "SCRATCH"
 	storagePersistent = "PERSISTENT"
 
-	statusUp = "UP"
-
-	operationDone = "DONE"
+	statusDone         = "DONE"
+	statusDown         = "DOWN"
+	statusPending      = "PENDING"
+	statusProvisioning = "PROVISIONING"
+	statusRunning      = "RUNNING"
+	statusStaging      = "STAGING"
+	statusStopped      = "STOPPED"
+	statusStopping     = "STOPPING"
+	statusTerminated   = "TERMINATED"
+	statusUp           = "UP"
 
 	operationTimeout = 60 // seconds
 
@@ -161,7 +169,7 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 
 	for a := operationAttempts.Start(); a.Next(); {
 		var err error
-		if operation.Status == operationDone {
+		if operation.Status == statusDone {
 			return nil
 		}
 		// TODO(ericsnow) Should projectID be an arg?
@@ -171,7 +179,7 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 			return errors.Annotate(err, "waiting for operation to complete")
 		}
 	}
-	if operation.Status == operationDone {
+	if operation.Status == statusDone {
 		return nil
 	}
 
@@ -215,9 +223,15 @@ func (gce *gceConnection) newInstance(inst *compute.Instance, zones []string) er
 	return errors.Errorf("not able to provision in any zone")
 }
 
-func (gce *gceConnection) instances() ([]*compute.Instance, error) {
-	// TODO(ericsnow) MaxResults arg defaults to 500...
-	raw, err := gce.Instances.AggregatedList(gce.projectID).Do()
+func (gce *gceConnection) instances(env environs.Environ) ([]*compute.Instance, error) {
+	// env won't be nil.
+	prefix := common.MachineFullName(env, "")
+
+	// TODO(ericsnow) MaxResults arg defaults to 500... (call.MaxResults()).
+	call := gce.Instances.AggregatedList(gce.projectID)
+	call = call.Filter("name eq " + prefix + ".*")
+	// TODO(ericsnow) If we can use multiple filters, filter on status here.
+	raw, err := call.Do()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -266,6 +280,32 @@ func (gce *gceConnection) setFirewall(machineId string, firewall *compute.Firewa
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func filterInstances(instances []*compute.Instance, statuses ...string) []*compute.Instance {
+	// TODO(ericsnow) Filter in-place?
+	// TODO(ericsnow) Also filter metadata (or tags)? While highly
+	// unlikely (due to our choice of instance ID), it is possible that
+	// the filter in gce.instances() results in a false positive.
+	// An additional filter on the metadata would address that
+	// possibility.
+	var results []*compute.Instance
+	for _, inst := range instances {
+		if !checkInstStatus(inst, statuses...) {
+			continue
+		}
+		results = append(results, inst)
+	}
+	return results
+}
+
+func checkInstStatus(inst *compute.Instance, statuses ...string) bool {
+	for _, status := range statuses {
+		if inst.Status == status {
+			return true
+		}
+	}
+	return false
 }
 
 func diskSpec(sizeReq *uint64, image string, boot bool) (*compute.AttachedDisk, uint64) {
