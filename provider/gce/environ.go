@@ -119,11 +119,3 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 func (env *environ) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
-
-// SupportsUnitAssignment returns an error which, if non-nil, indicates
-// that the environment does not support unit placement. If the environment
-// does not support unit placement, then machines may not be created
-// without units, and units cannot be placed explcitly.
-func (env *environ) SupportsUnitPlacement() error {
-	return errNotImplemented
-}
