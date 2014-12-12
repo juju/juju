@@ -12,15 +12,13 @@ import sys
 import traceback
 
 from jujuci import (
+    BUILD_REVISION,
     get_build_data,
     get_artifacts,
     JENKINS_URL,
+    PUBLISH_REVISION
 )
 from utility import temp_dir
-
-
-BUILD_REVISION = 'build-revision'
-PUBLISH_REVISION = 'publish-revision'
 
 
 def get_build_parameters(build_data):

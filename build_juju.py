@@ -17,8 +17,11 @@ from jujuci import (
 
 def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
     #./crossbuild.py -v win-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
+    # juju-setup-1.20.12.exe
     #./crossbuild.py -v win-agent -b $HOME/crossbuild juju-core_1.20.12.tar.gz
+    # juju-1.20.12-win2012-amd64.tgz
     #./crossbuild.py -v osx-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
+    # juju-1.20.12-osx.tar.gz
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     artifacts = get_artifacts(
         BUILD_REVISION, build, 'juju-core-*.tar.gz', workspace_dir,
