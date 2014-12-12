@@ -133,6 +133,10 @@ def parse_args(args=None):
     parser_get.add_argument(
         'path', nargs='?', default='.',
         help="The path to download the files to.")
+    parser_workspace = subparsers.add_parser(
+        'setup-workspace', help='Setup and clean a workspace for building.')
+    parser_workspace.add_argument(
+        'path', help="The path to the existing workspace directory.")
     return parser.parse_args(args)
 
 
@@ -148,6 +152,9 @@ def main(argv):
                 args.job, args.build, args.glob, args.path,
                 archive=args.archive, dry_run=args.dry_run,
                 verbose=args.verbose)
+        elif args.command == 'setup-workspace':
+            setup_workspace(
+                args.path, dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
         if args.verbose:

@@ -99,6 +99,14 @@ class JujuCITestCase(TestCase):
             self.assertTrue(kwargs['verbose'])
             self.assertTrue(kwargs['dry_run'])
 
+    def test_main_setup_workspace_options(self):
+        with patch('jujuci.setup_workspace') as mock:
+            main(['-d', '-v', 'setup-workspace', './foo'])
+            args, kwargs = mock.call_args
+            self.assertEqual(('./foo', ), args)
+            self.assertTrue(kwargs['dry_run'])
+            self.assertTrue(kwargs['verbose'])
+
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
         json_io = StringIO(json.dumps(expected_data))
