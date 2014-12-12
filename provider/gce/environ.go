@@ -61,7 +61,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 
 	// Connect and authenticate.
 	auth := gceAuth{
-		clientID:    ecfg.attrs[cfgClientId].(string),
+		clientID:    ecfg.attrs[cfgClientID].(string),
 		clientEmail: ecfg.attrs[cfgClientEmail].(string),
 		privateKey:  []byte(ecfg.attrs[cfgPrivateKey].(string)),
 	}

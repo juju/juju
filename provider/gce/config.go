@@ -22,7 +22,7 @@ const (
 	osEnvProjectID   = "GCE_PROJECT_ID"
 
 	cfgPrivateKey  = "private-key"
-	cfgClientId    = "client-id"
+	cfgClientID    = "client-id"
 	cfgClientEmail = "client-email"
 	cfgRegion      = "region"
 	cfgProjectID   = "project-id"
@@ -44,7 +44,7 @@ gce:
 
 var osEnvFields = map[string]string{
 	osEnvPrivateKey:  cfgPrivateKey,
-	osEnvClientID:    cfgClientId,
+	osEnvClientID:    cfgClientID,
 	osEnvClientEmail: cfgClientEmail,
 	osEnvRegion:      cfgRegion,
 	osEnvProjectID:   cfgProjectID,
@@ -52,7 +52,7 @@ var osEnvFields = map[string]string{
 
 var configFields = schema.Fields{
 	cfgPrivateKey:  schema.String(),
-	cfgClientId:    schema.String(),
+	cfgClientID:    schema.String(),
 	cfgClientEmail: schema.String(),
 	cfgRegion:      schema.String(),
 	cfgProjectID:   schema.String(),
@@ -67,7 +67,7 @@ var configSecretFields = []string{
 var configImmutableFields = []string{
 	// TODO(ericsnow) Do these really belong here?
 	cfgPrivateKey,
-	cfgClientId,
+	cfgClientID,
 	cfgRegion,
 	cfgProjectID,
 }
@@ -82,7 +82,7 @@ func (c *environConfig) privateKey() string {
 }
 
 func (c *environConfig) clientID() string {
-	return c.attrs[cfgClientId].(string)
+	return c.attrs[cfgClientID].(string)
 }
 
 func (c *environConfig) clientEmail() string {
@@ -126,7 +126,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, errors.Errorf("%s: must not be empty", cfgPrivateKey)
 	}
 	if ecfg.clientID() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgClientId)
+		return nil, errors.Errorf("%s: must not be empty", cfgClientID)
 	}
 	if ecfg.clientEmail() == "" {
 		return nil, errors.Errorf("%s: must not be empty", cfgClientEmail)
