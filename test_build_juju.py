@@ -2,6 +2,7 @@ from mock import patch
 import os
 from unittest import TestCase
 
+from jujuci import Artifact
 from build_juju import (
     build_juju,
     main,
@@ -23,9 +24,26 @@ class JujuBuildTestCase(TestCase):
         with temp_dir() as base_dir:
             work_dir = os.path.join(base_dir, 'workspace')
             with patch('build_juju.setup_workspace') as sw_mock:
-                build_juju(
-                    'win-client', work_dir, 'lastSucessful',
-                    dry_run=True, verbose=True)
+                artifacts = [Artifact('foo.tar.gz', 'http:...foo.tar.gz')]
+                with patch('build_juju.get_artifacts',
+                           return_value=artifacts) as ga_mock:
+                    with patch('build_juju.run_command') as rc_mock:
+                        build_juju(
+                            'win-client', work_dir, 'lastSucessful',
+                            dry_run=True, verbose=True)
         self.assertEqual((work_dir, ), sw_mock.call_args[0])
         self.assertEqual(
             {'dry_run': True, 'verbose': True}, sw_mock.call_args[1])
+        self.assertEqual(
+            ('build-revision', 'lastSucessful', 'juju-core-*.tar.gz',
+             work_dir, ),
+            ga_mock.call_args[0])
+        self.assertEqual(
+            {'archive': False, 'dry_run': True, 'verbose': True},
+            ga_mock.call_args[1])
+        self.assertEqual(
+            (['crossbuild.py', 'win-client', '-b', '~/crossbuild',
+              'foo.tar.gz'], ),
+            rc_mock.call_args[0])
+        self.assertEqual(
+            {'dry_run': True, 'verbose': True}, rc_mock.call_args[1])
