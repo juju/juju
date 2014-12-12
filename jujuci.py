@@ -16,6 +16,8 @@ import urllib2
 
 
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
+BUILD_REVISION = 'build-revision'
+PUBLISH_REVISION = 'publish-revision'
 
 Artifact = namedtuple('Artifact', ['file_name', 'location'])
 
@@ -75,6 +77,7 @@ def get_artifacts(job_name, build, glob, path,
             print_now(artifact.file_name)
         if not dry_run:
             opener.retrieve(artifact.location, local_path)
+    return artifacts
 
 
 def setup_workspace(workspace_path, dry_run=False, verbose=False):

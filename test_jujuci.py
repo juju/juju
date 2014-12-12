@@ -5,6 +5,7 @@ from StringIO import StringIO
 from unittest import TestCase
 
 from jujuci import (
+    Artifact,
     get_build_data,
     JENKINS_URL,
     get_artifacts,
@@ -169,13 +170,15 @@ class JujuCITestCase(TestCase):
         with patch('jujuci.get_build_data', return_value=build_data):
             with patch('urllib.URLopener.retrieve') as uo_mock:
                 with patch('jujuci.print_now') as pn_mock:
-                    get_artifacts(
+                    found = get_artifacts(
                         'foo', '1234', '*.bash', './', verbose=True)
-        self.assertEqual(1, uo_mock.call_count)
-        args, kwargs = uo_mock.call_args
         location = (
             'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
             'buildvars.bash')
+        buildvar_artifact = Artifact('buildvars.bash', location)
+        self.assertEqual([buildvar_artifact], found)
+        self.assertEqual(1, uo_mock.call_count)
+        args, kwargs = uo_mock.call_args
         local_path = '%s/buildvars.bash' % os.path.abspath('./')
         self.assertEqual((location, local_path), args)
         messages = sorted(call[1][0] for call in pn_mock.mock_calls)
