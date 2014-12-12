@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -175,7 +176,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 }
 
 var commandNames = []string{
-	// "action", // currently enabled only by 'action' feature flag.
+	"action",
 	"add-machine",
 	"add-relation",
 	"add-unit",
@@ -245,14 +246,21 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// First check default commands, and then check commands that are
 	// activated by feature flags.
 
+	// remove "action" for the first test because the feature is not
+	// enabled.
+	var commandNamesWithoutAction []string
+	sort.Strings(commandNames)
+	index := sort.SearchStrings(commandNames, "action")
+	copy(commandNamesWithoutAction, commandNames[:index])
+	commandNamesWithoutAction = append(commandNamesWithoutAction, commandNames[index+1:]...)
+
 	// 1. Default Commands. Disable all features.
 	setFeatureFlags("")
-	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNames)
+	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNamesWithoutAction)
 
 	// 2. Enable Action feature, and test again.
 	setFeatureFlags(action.FeatureFlag)
-	c.Assert(getHelpCommandNames(c), jc.DeepEquals, append([]string{"action"}, commandNames...))
+	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNames)
 }
 
 func getHelpCommandNames(c *gc.C) []string {
