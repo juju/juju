@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import fnmatch
 import sys
 import traceback
 
@@ -15,6 +16,10 @@ from jujuci import (
 )
 
 
+def save_artifacts(workspace_dir, dry_run=False, verbose=False):
+    pass
+
+
 def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
     #./crossbuild.py -v win-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
     # juju-setup-1.20.12.exe
@@ -24,12 +29,13 @@ def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
     # juju-1.20.12-osx.tar.gz
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     artifacts = get_artifacts(
-        BUILD_REVISION, build, 'juju-core-*.tar.gz', workspace_dir,
+        BUILD_REVISION, build, 'juju-core_*.tar.gz', workspace_dir,
         archive=False, dry_run=dry_run, verbose=verbose)
     tar_artifact = artifacts[0]
     command = [
         'crossbuild.py', product, '-b', '~/crossbuild', tar_artifact.file_name]
     run_command(command, dry_run=dry_run, verbose=verbose)
+    save_artifacts(workspace_dir, dry_run=dry_run, verbose=verbose)
 
 
 def parse_args(args=None):
