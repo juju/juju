@@ -4,17 +4,11 @@
 package gce_test
 
 import (
-	"testing"
-
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/gce"
 )
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type gceSuite struct{}
 
