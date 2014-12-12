@@ -32,10 +32,28 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
 
+var unsupportedConstraints = []string{
+	constraints.Tags,
+	constraints.CpuPower,
+}
+
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
-	return nil, errNotImplemented
+	validator := constraints.NewValidator()
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.CpuCores},
+	)
+	validator.RegisterUnsupported(unsupportedConstraints)
+
+	instTypeNames := make([]string, len(allInstanceTypes))
+	for i, itype := range allInstanceTypes {
+		instTypeNames[i] = itype.Name
+	}
+
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 // SupportsUnitPlacement implement via common.SupportsUnitPlacementPolicy
