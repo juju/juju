@@ -216,6 +216,7 @@ func (gce *gceConnection) newInstance(inst *compute.Instance, zones []string) er
 }
 
 func (gce *gceConnection) instances() ([]*compute.Instance, error) {
+	// TODO(ericsnow) MaxResults arg defaults to 500...
 	raw, err := gce.Instances.AggregatedList(gce.projectID).Do()
 	if err != nil {
 		return nil, errors.Trace(err)
