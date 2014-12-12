@@ -7,12 +7,16 @@ from argparse import ArgumentParser
 import sys
 import traceback
 
+from jujuci import (
+    setup_workspace,
+)
+
 
 def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
     #./crossbuild.py -v win-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
     #./crossbuild.py -v win-agent -b $HOME/crossbuild juju-core_1.20.12.tar.gz
     #./crossbuild.py -v osx-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
-    pass
+    setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
 
 
 def parse_args(args=None):
