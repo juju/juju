@@ -60,8 +60,17 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	env.storage = storage
 
 	// Connect and authenticate.
-	env.gce = ecfg.newConnection()
-	err = env.gce.connect(ecfg.auth())
+	auth := gceAuth{
+		clientID:    ecfg.attrs[cfgClientId].(string),
+		clientEmail: ecfg.attrs[cfgClientEmail].(string),
+		privateKey:  []byte(ecfg.attrs[cfgPrivateKey].(string)),
+	}
+	env.gce = &gceConnection{
+		// TODO(ericsnow) Pull these from ecfg.
+		region:    "",
+		projectID: "",
+	}
+	err = env.gce.connect(auth)
 	return errors.Trace(err)
 }
 

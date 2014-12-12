@@ -5,7 +5,6 @@ package gce
 
 import (
 	"net/http"
-	"net/mail"
 	"time"
 
 	"code.google.com/p/goauth2/oauth"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
@@ -40,12 +38,6 @@ const (
 	// minDiskSize is the minimum/default size (in megabytes) for GCE disks.
 	//  TODO(ericsnow) Is there a minimum? What is the default?
 	minDiskSize uint64 = 0
-
-	osEnvPrivateKey  = "GCE_PRIVATE_KEY"
-	osEnvClientID    = "GCE_CLIENT_ID"
-	osEnvClientEmail = "GCE_CLIENT_EMAIL"
-	osEnvRegion      = "GCE_REGION"
-	osEnvProjectID   = "GCE_PROJECT_ID"
 )
 
 var (
@@ -65,22 +57,6 @@ type gceAuth struct {
 	clientID    string
 	clientEmail string
 	privateKey  []byte
-}
-
-func (ga gceAuth) validate() error {
-	if ga.clientID == "" {
-		return &config.InvalidConfigValue{Key: osEnvClientID}
-	}
-	if ga.clientEmail == "" {
-		return &config.InvalidConfigValue{Key: osEnvClientEmail}
-	} else if _, err := mail.ParseAddress(ga.clientEmail); err != nil {
-		err = errors.Trace(err)
-		return &config.InvalidConfigValue{osEnvClientEmail, ga.clientEmail, err}
-	}
-	if ga.privateKey == nil {
-		return &config.InvalidConfigValue{Key: osEnvPrivateKey}
-	}
-	return nil
 }
 
 func (ga gceAuth) newTransport() (*oauth.Transport, error) {
@@ -131,16 +107,6 @@ type gceConnection struct {
 
 	region    string
 	projectID string
-}
-
-func (gce *gceConnection) validate() error {
-	if gce.region == "" {
-		return &config.InvalidConfigValue{Key: osEnvRegion}
-	}
-	if gce.projectID == "" {
-		return &config.InvalidConfigValue{Key: osEnvProjectID}
-	}
-	return nil
 }
 
 func (gce *gceConnection) connect(auth gceAuth) error {
