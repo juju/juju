@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	gcePrivateKey  = "GCE_PRIVATE_KEY"
-	gceClientId    = "GCE_CLIENT_ID"
-	gceClientEmail = "GCE_CLIENT_EMAIL"
+	osEnvPrivateKey  = "GCE_PRIVATE_KEY"
+	osEnvClientId    = "GCE_CLIENT_ID"
+	osEnvClientEmail = "GCE_CLIENT_EMAIL"
 
 	cfgPrivateKey  = "private-key"
 	cfgClientId    = "client-id"
@@ -35,6 +35,12 @@ gce:
   client-email:
   client-id:
 `[1:]
+
+var osEnvFields = map[string]string{
+	osEnvPrivateKey:  cfgPrivateKey,
+	osEnvClientId:    cfgClientId,
+	osEnvClientEmail: cfgClientEmail,
+}
 
 var configFields = schema.Fields{
 	cfgPrivateKey:  schema.String(),
