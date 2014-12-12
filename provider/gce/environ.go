@@ -33,14 +33,17 @@ type environ struct {
 //TODO (wwitzel3): Investigate simplestreams.HasRegion for this provider
 var _ environs.Environ = (*environ)(nil)
 
+// Name returns the name of the environment.
 func (env *environ) Name() string {
 	return env.name
 }
 
+// Provider returns the environment provider that created this env.
 func (*environ) Provider() environs.EnvironProvider {
 	return providerInstance
 }
 
+// SetConfig updates the env's configuration.
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -75,26 +78,38 @@ func (env *environ) getSnapshot() *environ {
 	return &clone
 }
 
+// Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
+// Storage returns storage specific to the environment.
 func (env *environ) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
+// Bootstrap creates a new instance, chosing the series and arch out of
+// available tools. The series and arch are returned along with a func
+// that must be called to finalize the bootstrap process by transferring
+// the tools and installing the initial juju state server.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	return common.Bootstrap(ctx, env, params)
 }
 
+// Destroy shuts down all known machines and destroys the rest of the
+// known environment.
 func (env *environ) Destroy() error {
 	return common.Destroy(env)
 }
 
+// ConstraintsValidator returns a Validator value which is used to
+// validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return nil, errNotImplemented
 }
 
+// PrecheckInstance verifies that the provided series and constraints
+// are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	return errNotImplemented
 }
@@ -145,10 +160,14 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	return results, nil
 }
 
+// StateServerInstances returns the IDs of the instances corresponding
+// to juju state servers.
 func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
 }
 
+// SupportedArchitectures returns the image architectures which can
+// be hosted by this environment.
 func (env *environ) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
