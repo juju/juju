@@ -22,17 +22,8 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
-
-// This file contains the core of the gce Environ implementation. You will
-// probably not need to change this file very much to begin with; and if you
-// never need to add any more fields, you may never need to touch it.
-//
-// The rest of the implementation is split into environ_instance.go (which
-// must be implemented ) and environ_firewall.go (which can be safely
-// ignored until you've got an environment bootstrapping successfully).
 
 const (
 	driverScopes = "https://www.googleapis.com/auth/compute " +
@@ -183,12 +174,10 @@ func (env *environ) Storage() storage.Storage {
 }
 
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	// You can probably ignore this method; the common implementation should work.
 	return common.Bootstrap(ctx, env, params)
 }
 
 func (env *environ) Destroy() error {
-	// You can probably ignore this method; the common implementation should work.
 	return common.Destroy(env)
 }
 
@@ -198,29 +187,6 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	return errNotImplemented
-}
-
-// firewall stuff
-
-// OpenPorts opens the given port ranges for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-func (env *environ) OpenPorts(ports []network.PortRange) error {
-	return errNotImplemented
-}
-
-// ClosePorts closes the given port ranges for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-func (env *environ) ClosePorts(ports []network.PortRange) error {
-	return errNotImplemented
-}
-
-// Ports returns the port ranges opened for the whole environment.
-// Must only be used if the environment was setup with the
-// FwGlobal firewall mode.
-func (env *environ) Ports() ([]network.PortRange, error) {
-	return nil, errNotImplemented
 }
 
 // instance stuff
@@ -248,39 +214,6 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 
 func (env *environ) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
-}
-
-// Networks
-
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
-// AllocateAddress requests a specific address to be allocated for the
-// given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	return errNotImplemented
-}
-
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	return errNotImplemented
-}
-
-func (env *environ) Subnets(inst instance.Id) ([]network.BasicInfo, error) {
-	return nil, errNotImplemented
-}
-
-func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) {
-	return nil, errNotImplemented
-}
-
-// SupportNetworks returns whether the environment has support to
-// specify networks for services and machines.
-func (env *environ) SupportNetworks() bool {
-	return false
 }
 
 // SupportsUnitAssignment returns an error which, if non-nil, indicates
