@@ -26,8 +26,7 @@ type environ struct {
 	ecfg    *environConfig
 	storage storage.Storage
 
-	auth gceAuth
-	gce  *gceConnection
+	gce *gceConnection
 }
 
 //TODO (wwitzel3): Investigate simplestreams.HasRegion for this provider
