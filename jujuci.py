@@ -99,6 +99,18 @@ def setup_workspace(workspace_path, dry_run=False, verbose=False):
             os.utime(empty_path, None)
 
 
+def add_build_job_glob(parser):
+    """Added the --build, job, and glob arguments to the parser."""
+    parser.add_argument(
+        '-b', '--build', default='lastSuccessfulBuild',
+        help="The specific build to examine (default: lastSuccessfulBuild).")
+    parser.add_argument(
+        'job', help="The job that collected the artifacts.")
+    parser.add_argument(
+        'glob', nargs='?', default='*',
+        help="The glob pattern to match artifact file names.")
+
+
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("List and get artifacts from Juju CI.")
@@ -108,20 +120,17 @@ def parse_args(args=None):
     parser.add_argument(
         '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
-    parser.add_argument(
+    subparsers = parser.add_subparsers(help='sub-command help', dest="command")
+    parser_list = subparsers.add_parser(
+        'list', help='list artifacts for a job build')
+    add_build_job_glob(parser_list)
+    parser_get = subparsers.add_parser(
+        'get', help='get artifacts for a job build')
+    add_build_job_glob(parser_get)
+    parser_get.add_argument(
         '-a', '--archive', action='store_true', default=False,
         help='Ensure the download path exists and remove older files.')
-    parser.add_argument(
-        '-b', '--build', default='lastSuccessfulBuild',
-        help="The specific build to examine (default: lastSuccessfulBuild).")
-    parser.add_argument(
-        'command', choices=['list', 'get'], help='The action to perform.')
-    parser.add_argument(
-        'job', help="The job that collected the artifacts.")
-    parser.add_argument(
-        'glob', nargs='?', default='*',
-        help="The glob pattern to match artifact file names.")
-    parser.add_argument(
+    parser_get.add_argument(
         'path', nargs='?', default='.',
         help="The path to download the files to.")
     return parser.parse_args(args)

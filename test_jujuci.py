@@ -84,15 +84,15 @@ class JujuCITestCase(TestCase):
 
     def test_main_list_options(self):
         with patch('jujuci.list_artifacts') as mock:
-            main(['-d', '-v', '-b', '1234', 'list', 'foo', '*.tar.gz'])
+            main(['-d', '-v', 'list', '-b', '1234', 'foo', '*.tar.gz'])
             args, kwargs = mock.call_args
             self.assertEqual(('foo', '1234', '*.tar.gz'), args)
             self.assertTrue(kwargs['verbose'])
 
     def test_main_get_options(self):
         with patch('jujuci.get_artifacts') as mock:
-            main(['-d', '-v', '-a', '-b', '1234',
-                  'get', 'foo', '*.tar.gz', 'bar'])
+            main(['-d', '-v',
+                  'get', '-a', '-b', '1234', 'foo', '*.tar.gz', 'bar'])
             args, kwargs = mock.call_args
             self.assertEqual(('foo', '1234', '*.tar.gz', 'bar'), args)
             self.assertTrue(kwargs['archive'])
