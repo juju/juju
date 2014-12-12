@@ -1,6 +1,8 @@
 package gce
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -9,7 +11,19 @@ import (
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	return errNotImplemented
+	if placement != "" {
+		if _, err := env.parsePlacement(placement); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if cons.HasInstanceType() {
+		if !checkInstanceType(cons) {
+			return errors.Errorf("invalid GCE instance type %q", *cons.InstanceType)
+		}
+	}
+
+	return nil
 }
 
 // SupportedArchitectures returns the image architectures which can

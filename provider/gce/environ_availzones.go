@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"strings"
-
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
@@ -79,26 +77,4 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	}
 
 	return zoneNames, nil
-}
-
-func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, error) {
-	pos := strings.IndexRune(placement, '=')
-	if pos == -1 {
-		return nil, errors.Errorf("unknown placement directive: %v", placement)
-	}
-	switch key, value := placement[:pos], placement[pos+1:]; key {
-	case "zone":
-		zoneName := value
-		zones, err := env.AvailabilityZones()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, z := range zones {
-			if z.Name() == zoneName {
-				return z.(*gceAvailabilityZone), nil
-			}
-		}
-		return nil, errors.Errorf("invalid availability zone %q", zoneName)
-	}
-	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }

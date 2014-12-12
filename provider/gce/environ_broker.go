@@ -117,10 +117,6 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
-func (env *environ) listInstanceTypes(ic *instances.InstanceConstraint) ([]instances.InstanceType, error) {
-	return nil, errNotImplemented
-}
-
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*compute.Instance, error) {
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {

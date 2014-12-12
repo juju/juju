@@ -4,12 +4,15 @@
 package gce
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -149,4 +152,40 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // to juju state servers.
 func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return common.ProviderStateInstances(env, env.Storage())
+}
+
+func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, error) {
+	pos := strings.IndexRune(placement, '=')
+	if pos == -1 {
+		return nil, errors.Errorf("unknown placement directive: %v", placement)
+	}
+	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "zone":
+		zoneName := value
+		zones, err := env.AvailabilityZones()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, z := range zones {
+			if z.Name() == zoneName {
+				return z.(*gceAvailabilityZone), nil
+			}
+		}
+		return nil, errors.Errorf("invalid availability zone %q", zoneName)
+	}
+	return nil, errors.Errorf("unknown placement directive: %v", placement)
+}
+
+func (env *environ) listInstanceTypes(ic *instances.InstanceConstraint) ([]instances.InstanceType, error) {
+	return nil, errNotImplemented
+}
+
+func checkInstanceType(cons constraints.Value) bool {
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	for _, itype := range allInstanceTypes {
+		if itype.Name == *cons.InstanceType {
+			return true
+		}
+	}
+	return false
 }
