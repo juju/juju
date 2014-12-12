@@ -161,7 +161,7 @@ func (gce *gceConnection) connect(auth gceAuth) error {
 
 func (gce *gceConnection) regionURL() string {
 	// TODO(ericsnow) Finish this!
-	return ""
+	return "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a"
 }
 
 func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
