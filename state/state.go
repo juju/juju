@@ -138,6 +138,31 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
+// RemoveAllEnvironDocs removes all documents from multi environment
+// collections.
+func (st *State) RemoveAllEnvironDocs() error {
+	for collName := range multiEnvCollections {
+		coll, closer := st.getCollection(collName)
+		changeInfo, err := coll.RemoveAll(nil)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if changeInfo.Removed > 0 {
+			logger.Infof("removed %d %s documents", changeInfo.Removed, collName)
+		}
+		closer()
+	}
+
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+	err := environments.RemoveId(st.EnvironUUID())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("removed environment document")
+	return nil
+}
+
 // ForEnviron returns a connection to mongo for the specified environment. The
 // connection uses the same credentails and policy as the existing connection.
 func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {

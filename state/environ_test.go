@@ -120,3 +120,39 @@ func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 		"uuid": uuid.String(),
 	}), uuid.String()
 }
+
+func (s *EnvironSuite) TestDestroyStateServerEnvironment(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyOtherEnvironment(c *gc.C) {
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	env, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *EnvironSuite) TestDestroyEnvironmentStateServerSafeGuard(c *gc.C) {
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	env2, err := st2.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.Destroy()
+	c.Assert(err, gc.ErrorMatches, "state server environment cannot be destroyed before all other environments are destroyed")
+
+	err = env2.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st2.Cleanup()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+}
