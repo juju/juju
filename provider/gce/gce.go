@@ -71,7 +71,7 @@ func (ga gceAuth) validate() error {
 		err = errors.Trace(err)
 		return &config.InvalidConfigValue{osEnvClientEmail, ga.clientEmail, err}
 	}
-	if ga.privateKey == nil {
+	if len(ga.privateKey) == 0 {
 		return &config.InvalidConfigValue{Key: osEnvPrivateKey}
 	}
 	return nil
