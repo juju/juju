@@ -505,6 +505,10 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 	origEnv, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Owner(), gc.Equals, origEnv.Owner())
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "trusty")
 }
 
 func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
