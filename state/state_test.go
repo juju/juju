@@ -2064,6 +2064,22 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+	err := st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	logOutput := c.GetTestLog()
+	for kind, count := range map[string]int{
+		"constraints": 1,
+		"settings":    1,
+	} {
+		c.Assert(logOutput, jc.Contains, fmt.Sprintf("removed %d %s documents", count, kind))
+	}
+	c.Assert(logOutput, jc.Contains, "removed environment document")
+}
+
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {

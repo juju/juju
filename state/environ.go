@@ -263,7 +263,7 @@ func (e *Environment) assertAliveOp() txn.Op {
 	}
 }
 
-// isEnvAlive is an Environment-specific versio nof isAliveDoc.
+// isEnvAlive is an Environment-specific version of isAliveDoc.
 //
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
