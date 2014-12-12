@@ -65,9 +65,9 @@ var configSecretFields = []string{
 }
 
 var configImmutableFields = []string{
-	// TODO(ericsnow) Do these really belong here?
 	cfgPrivateKey,
 	cfgClientID,
+	cfgClientEmail,
 	cfgRegion,
 	cfgProjectID,
 }

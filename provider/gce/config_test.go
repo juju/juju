@@ -185,9 +185,9 @@ var changeConfigTests = []struct {
 	insert: testing.Attrs{"client-id": "mutant"},
 	err:    "client-id: cannot change from static to mutant",
 }, {
-	info:   "can change client-email",
+	info:   "cannot change client-email",
 	insert: testing.Attrs{"client-email": "spam@eggs.com"},
-	expect: testing.Attrs{"client-email": "spam@eggs.com"},
+	err:    "client-email: cannot change from joe@mail.com to spam@eggs.com",
 }, {
 	info:   "cannot change region",
 	insert: testing.Attrs{"region": "not home"},
