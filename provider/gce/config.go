@@ -6,8 +6,6 @@ package gce
 // TODO(ericsnow) This file needs a once-over to verify correctness.
 
 import (
-	"net/mail"
-
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
@@ -15,6 +13,7 @@ import (
 )
 
 const (
+	// These are not GCE-official environment variable names.
 	osEnvPrivateKey  = "GCE_PRIVATE_KEY"
 	osEnvClientID    = "GCE_CLIENT_ID"
 	osEnvClientEmail = "GCE_CLIENT_EMAIL"
@@ -137,25 +136,21 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	}
 
 	// Check sanity of GCE fields.
-	if ecfg.privateKey() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgPrivateKey)
+	if err := ecfg.auth().validate(); err != nil {
+		return nil, errors.Trace(handleInvalidField(err))
 	}
-	if ecfg.clientID() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgClientID)
-	}
-	if ecfg.clientEmail() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgClientEmail)
-	} else {
-		if _, err := mail.ParseAddress(ecfg.clientEmail()); err != nil {
-			return nil, errors.Annotatef(err, "invalid %q in config", cfgClientEmail)
-		}
-	}
-	if ecfg.region() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgRegion)
-	}
-	if ecfg.projectID() == "" {
-		return nil, errors.Errorf("%s: must not be empty", cfgProjectID)
+	if err := ecfg.newConnection().validate(); err != nil {
+		return nil, errors.Trace(handleInvalidField(err))
 	}
 
 	return ecfg, nil
+}
+
+func handleInvalidField(err error) error {
+	vErr := err.(*config.InvalidConfigValue)
+	if vErr.Reason == nil && vErr.Value == "" {
+		key := osEnvFields[vErr.Key]
+		return errors.Errorf("%s: must not be empty", key)
+	}
+	return err
 }
