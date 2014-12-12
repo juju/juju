@@ -97,6 +97,21 @@ func (c *environConfig) projectID() string {
 	return c.attrs[cfgProjectID].(string)
 }
 
+func (c *environConfig) auth() gceAuth {
+	return gceAuth{
+		clientID:    c.attrs[cfgClientID].(string),
+		clientEmail: c.attrs[cfgClientEmail].(string),
+		privateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
+	}
+}
+
+func (c *environConfig) newConnection() *gceConnection {
+	return &gceConnection{
+		region:    c.attrs[cfgRegion].(string),
+		projectID: c.attrs[cfgProjectID].(string),
+	}
+}
+
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes and coerce the values (base config first
 	// then custom).
