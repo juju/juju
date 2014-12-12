@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -176,7 +177,8 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 			return errors.Trace(err)
 		}
 
-		registerSimplestreamsDataSource(c.st.Storage())
+		stor := storage.NewStorage(c.st.EnvironUUID(), c.st.MongoSession())
+		registerSimplestreamsDataSource(stor)
 	}
 	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	apienvironment "github.com/juju/juju/api/environment"
 	apifirewaller "github.com/juju/juju/api/firewaller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
@@ -62,9 +62,9 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/upgrader"
@@ -991,35 +991,55 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
-	proxyDir := c.MkDir()
-	s.AgentSuite.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
-	s.AgentSuite.PatchValue(&apt.ConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
+func (s *MachineSuite) TestProxyUpdater(c *gc.C) {
+	s.assertProxyUpdater(c, true)
+	s.assertProxyUpdater(c, false)
+}
 
-	s.primeAgent(c, version.Current, state.JobHostUnits)
+func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) {
+	// Patch out the func that decides whether we should write system files.
+	var gotConf agent.Config
+	s.AgentSuite.PatchValue(&shouldWriteProxyFiles, func(conf agent.Config) bool {
+		gotConf = conf
+		return expectWriteSystemFiles
+	})
+
 	// Make sure there are some proxy settings to write.
-	proxySettings := proxy.Settings{
+	expectSettings := proxy.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
 	}
-
-	updateAttrs := config.ProxyConfigMap(proxySettings)
-
+	updateAttrs := config.ProxyConfigMap(expectSettings)
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Patch out the actual worker func.
+	started := make(chan struct{})
+	mockNew := func(api *apienvironment.Facade, writeSystemFiles bool) worker.Worker {
+		// Direct check of the behaviour flag.
+		c.Check(writeSystemFiles, gc.Equals, expectWriteSystemFiles)
+		// Indirect check that we get a functional API.
+		conf, err := api.EnvironConfig()
+		if c.Check(err, jc.ErrorIsNil) {
+			actualSettings := conf.ProxySettings()
+			c.Check(actualSettings, jc.DeepEquals, expectSettings)
+		}
+		return worker.NewSimpleWorker(func(_ <-chan struct{}) error {
+			close(started)
+			return nil
+		})
+	}
+	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
+
+	s.primeAgent(c, version.Current, state.JobHostUnits)
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
 		for {
 			select {
 			case <-time.After(coretesting.LongWait):
-				c.Fatalf("timeout while waiting for proxy settings to change")
-			case <-time.After(10 * time.Millisecond):
-				_, err := os.Stat(apt.ConfFile)
-				if os.IsNotExist(err) {
-					continue
-				}
-				c.Assert(err, jc.ErrorIsNil)
+				c.Fatalf("timeout while waiting for proxy updater to start")
+			case <-started:
+				c.Assert(gotConf, jc.DeepEquals, conf)
 				return
 			}
 		}
@@ -1476,6 +1496,76 @@ func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureRepl
 	c.Assert(safe, gc.NotNil)
 	c.Assert(safe.WMode, gc.Equals, expectedWMode)
 	c.Assert(safe.J, jc.IsTrue) // always enabled
+}
+
+type shouldWriteProxyFilesSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&shouldWriteProxyFilesSuite{})
+
+func (s *shouldWriteProxyFilesSuite) TestAll(c *gc.C) {
+	tests := []struct {
+		description  string
+		providerType string
+		machineId    string
+		expect       bool
+	}{{
+		description:  "local provider machine 0 must not write",
+		providerType: "local",
+		machineId:    "0",
+		expect:       false,
+	}, {
+		description:  "local provider other machine must write 1",
+		providerType: "local",
+		machineId:    "0/kvm/0",
+		expect:       true,
+	}, {
+		description:  "local provider other machine must write 2",
+		providerType: "local",
+		machineId:    "123",
+		expect:       true,
+	}, {
+		description:  "other provider machine 0 must write",
+		providerType: "anything",
+		machineId:    "0",
+		expect:       true,
+	}, {
+		description:  "other provider other machine must write 1",
+		providerType: "dummy",
+		machineId:    "0/kvm/0",
+		expect:       true,
+	}, {
+		description:  "other provider other machine must write 2",
+		providerType: "blahblahblah",
+		machineId:    "123",
+		expect:       true,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.description)
+		mockConf := &mockAgentConfig{
+			providerType: test.providerType,
+			tag:          names.NewMachineTag(test.machineId),
+		}
+		c.Check(shouldWriteProxyFiles(mockConf), gc.Equals, test.expect)
+	}
+}
+
+type mockAgentConfig struct {
+	agent.Config
+	providerType string
+	tag          names.Tag
+}
+
+func (m *mockAgentConfig) Tag() names.Tag {
+	return m.tag
+}
+
+func (m *mockAgentConfig) Value(key string) string {
+	if key == agent.ProviderType {
+		return m.providerType
+	}
+	return ""
 }
 
 type singularRunnerRecord struct {

@@ -25,6 +25,7 @@ import (
 	_ "github.com/juju/juju/apiserver/provisioner"
 	_ "github.com/juju/juju/apiserver/reboot"
 	_ "github.com/juju/juju/apiserver/rsyslog"
+	_ "github.com/juju/juju/apiserver/service"
 	_ "github.com/juju/juju/apiserver/uniter"
 	_ "github.com/juju/juju/apiserver/upgrader"
 	_ "github.com/juju/juju/apiserver/usermanager"

@@ -5,12 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/lease"
 	"time"
+
+	"github.com/juju/juju/lease"
 )
 
 type leaseEntity struct {
@@ -23,7 +23,7 @@ type leaseEntity struct {
 func NewLeasePersistor(
 	collectionName string,
 	runTransaction func([]txn.Op) error,
-	getCollection func(string) (_ *mgo.Collection, closer func()),
+	getCollection func(string) (_ stateCollection, closer func()),
 ) *LeasePersistor {
 	return &LeasePersistor{
 		collectionName: collectionName,
@@ -37,7 +37,7 @@ func NewLeasePersistor(
 type LeasePersistor struct {
 	collectionName string
 	runTransaction func([]txn.Op) error
-	getCollection  func(string) (_ *mgo.Collection, closer func())
+	getCollection  func(string) (_ stateCollection, closer func())
 }
 
 // WriteToken writes the given token to the data store with the given

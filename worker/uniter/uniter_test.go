@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -2031,7 +2032,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage := ctx.st.Storage()
+	storage := storage.NewStorage(ctx.st.EnvironUUID(), ctx.st.MongoSession())
 	for storagePath, data := range ctx.charms {
 		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, jc.ErrorIsNil)
@@ -2960,33 +2961,6 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 	}
 	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-
-	isExpectedEnvironment := func() bool {
-		for name, expect := range map[string]string{
-			"http_proxy":  s.Http,
-			"HTTP_PROXY":  s.Http,
-			"https_proxy": s.Https,
-			"HTTPS_PROXY": s.Https,
-			"ftp_proxy":   s.Ftp,
-			"FTP_PROXY":   s.Ftp,
-			"no_proxy":    s.NoProxy,
-			"NO_PROXY":    s.NoProxy,
-		} {
-			if actual := os.Getenv(name); actual != expect {
-				c.Logf("%s not yet set to %s (got %s)", name, expect, actual)
-				return false
-			}
-		}
-		return true
-	}
-
-	// wait for the new values...
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if isExpectedEnvironment() {
-			return
-		}
-	}
-	c.Fatal("settings didn't get noticed by the uniter")
 }
 
 type relationRunCommands []string

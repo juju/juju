@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
+	apienvironment "github.com/juju/juju/api/environment"
 	"github.com/juju/juju/apiserver/params"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -32,6 +33,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/proxyupdater"
 )
 
 var (
@@ -172,6 +174,9 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	}}}
 	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(&proxyupdater.New, func(*apienvironment.Facade, bool) worker.Worker {
+		return newDummyWorker()
+	})
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {

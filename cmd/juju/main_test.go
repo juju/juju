@@ -140,12 +140,12 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "check block command registered properly",
 		args:    []string{"block"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object] to block\n",
+		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to block\n",
 	}, {
 		summary: "check unblock command registered properly",
 		args:    []string{"unblock"},
 		code:    0,
-		out:     "error: must specify one of [destroy-environment | remove-object] to unblock\n",
+		out:     "error: must specify one of [destroy-environment | remove-object | all-changes] to unblock\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -202,6 +202,7 @@ var commandNames = []string{
 	"help",
 	"help-tool",
 	"init",
+	"machine",
 	"publish",
 	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
@@ -327,6 +328,10 @@ func (r *commands) Register(c cmd.Command) {
 	*r = append(*r, c)
 }
 
+func (r *commands) RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck) {
+	// Do nothing.
+}
+
 func (s *MainSuite) TestEnvironCommands(c *gc.C) {
 	var commands commands
 	registerCommands(&commands, testing.Context(c))
@@ -375,4 +380,27 @@ func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
 			)
 		}
 	}
+}
+
+func (s *MainSuite) TestTwoDotOhDeprecation(c *gc.C) {
+	check := twoDotOhDeprecation("the replacement")
+
+	// first check pre-2.0
+	s.PatchValue(&version.Current.Number, version.MustParse("1.26.4"))
+	deprecated, replacement := check.Deprecated()
+	c.Check(deprecated, jc.IsFalse)
+	c.Check(replacement, gc.Equals, "")
+	c.Check(check.Obsolete(), jc.IsFalse)
+
+	s.PatchValue(&version.Current.Number, version.MustParse("2.0-alpha1"))
+	deprecated, replacement = check.Deprecated()
+	c.Check(deprecated, jc.IsTrue)
+	c.Check(replacement, gc.Equals, "the replacement")
+	c.Check(check.Obsolete(), jc.IsFalse)
+
+	s.PatchValue(&version.Current.Number, version.MustParse("3.0-alpha1"))
+	deprecated, replacement = check.Deprecated()
+	c.Check(deprecated, jc.IsTrue)
+	c.Check(replacement, gc.Equals, "the replacement")
+	c.Check(check.Obsolete(), jc.IsTrue)
 }

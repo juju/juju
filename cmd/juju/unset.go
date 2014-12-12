@@ -9,6 +9,7 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 // UnsetCommand sets configuration values of a service back
@@ -53,5 +54,5 @@ func (c *UnsetCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
-	return apiclient.ServiceUnset(c.ServiceName, c.Options)
+	return block.ProcessBlockedError(apiclient.ServiceUnset(c.ServiceName, c.Options), block.BlockChange)
 }

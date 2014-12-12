@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
@@ -50,6 +51,7 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -64,13 +66,13 @@ import (
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
 	workerlogger "github.com/juju/juju/worker/logger"
-	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	"github.com/juju/juju/worker/proxyupdater"
 	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
@@ -249,6 +251,9 @@ func (a *MachineAgent) Run(*cmd.Context) error {
 		}
 	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
@@ -479,9 +484,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
-	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
-	})
+	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete
 	// before starting.
@@ -505,9 +508,14 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
-		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
+
+	// TODO(fwereade): this is *still* a hideous layering violation, but at least
+	// it's confined to jujud rather than extending into the worker itself.
+	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
+	a.startWorkerAfterUpgrade(runner, "proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
+
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
@@ -594,6 +602,24 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	return cmdutil.NewCloseWorker(logger, runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+func (a *MachineAgent) upgradeStepsWorkerStarter(
+	st *api.State,
+	jobs []multiwatcher.MachineJob,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+	}
+}
+
+// shouldWriteProxyFiles returns true, unless the supplied conf identifies the
+// machine agent running directly on the host system in a local environment.
+var shouldWriteProxyFiles = func(conf agent.Config) bool {
+	if conf.Value(agent.ProviderType) != provider.Local {
+		return true
+	}
+	return conf.Tag() != names.NewMachineTag(bootstrapMachineId)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
@@ -687,7 +713,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
-	registerSimplestreamsDataSource(st.Storage())
+
+	stor := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	registerSimplestreamsDataSource(stor)
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
@@ -726,48 +754,15 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				workerLoop := lease.WorkerLoop(st)
 				return worker.NewSimpleWorker(workerLoop), nil
 			})
-			apiserverWorker := func() (worker.Worker, error) {
-				agentConfig = a.CurrentConfig()
-				// If the configuration does not have the required information,
-				// it is currently not a recoverable error, so we kill the whole
-				// agent, potentially enabling human intervention to fix
-				// the agent's configuration file.
-				info, ok := agentConfig.StateServingInfo()
-				if !ok {
-					return nil, &cmdutil.FatalError{"StateServingInfo not available and we need it"}
-				}
-				cert := []byte(info.Cert)
-				key := []byte(info.PrivateKey)
-
-				if len(cert) == 0 || len(key) == 0 {
-					return nil, &cmdutil.FatalError{"configuration does not have state server cert/key"}
-				}
-				tag := agentConfig.Tag()
-				dataDir := agentConfig.DataDir()
-				logDir := agentConfig.LogDir()
-
-				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
-				listener, err := net.Listen("tcp", endpoint)
-				if err != nil {
-					return nil, err
-				}
-				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-					Cert:      cert,
-					Key:       key,
-					Tag:       tag,
-					DataDir:   dataDir,
-					LogDir:    logDir,
-					Validator: a.limitLogins,
-				})
-			}
-			runner.StartWorker("apiserver", apiserverWorker)
+			newApiserverWorker := a.apiserverWorkerStarter(st)
+			runner.StartWorker("apiserver", newApiserverWorker)
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Debugf("stop api server worker")
 					runner.StopWorker("apiserver")
 					logger.Debugf("start new apiserver worker with new certificate")
-					return runner.StartWorker("apiserver", apiserverWorker)
+					return runner.StartWorker("apiserver", newApiserverWorker)
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
@@ -800,6 +795,45 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // This must be overridden in tests, as it assumes
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
+
+func (a *MachineAgent) apiserverWorkerStarter(st *state.State) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) { return a.newApiserverWorker(st) }
+}
+
+func (a *MachineAgent) newApiserverWorker(st *state.State) (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
+	// If the configuration does not have the required information,
+	// it is currently not a recoverable error, so we kill the whole
+	// agent, potentially enabling human intervention to fix
+	// the agent's configuration file.
+	info, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, &cmdutil.FatalError{"StateServingInfo not available and we need it"}
+	}
+	cert := []byte(info.Cert)
+	key := []byte(info.PrivateKey)
+
+	if len(cert) == 0 || len(key) == 0 {
+		return nil, &cmdutil.FatalError{"configuration does not have state server cert/key"}
+	}
+	tag := agentConfig.Tag()
+	dataDir := agentConfig.DataDir()
+	logDir := agentConfig.LogDir()
+
+	endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+	listener, err := net.Listen("tcp", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	return apiserver.NewServer(st, listener, apiserver.ServerConfig{
+		Cert:      cert,
+		Key:       key,
+		Tag:       tag,
+		DataDir:   dataDir,
+		LogDir:    logDir,
+		Validator: a.limitLogins,
+	})
+}
 
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()

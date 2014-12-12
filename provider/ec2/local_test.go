@@ -436,7 +436,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	}
 	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(env, "1")
-	c.Assert(err, gc.Equals, mock.err)
+	c.Assert(errors.Cause(err), gc.Equals, mock.err)
 
 	mock.err = nil
 	dgErr := fmt.Errorf("DistributionGroup failed")
@@ -446,7 +446,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 		},
 	}
 	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
-	c.Assert(err, gc.Equals, dgErr)
+	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
@@ -552,9 +552,10 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 		}
 		return realRunInstances(e, ri)
 	})
-	inst, _ := testing.AssertStartInstance(c, env, "1")
+	inst, hwc := testing.AssertStartInstance(c, env, "1")
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
+	c.Check(*hwc.AvailabilityZone, gc.Equals, "az2")
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {

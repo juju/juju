@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider"
 )
@@ -136,7 +137,7 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	}
 
 	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
-	return err
+	return block.ProcessBlockedError(err, block.BlockChange)
 }
 
 const (

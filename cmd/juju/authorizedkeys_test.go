@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -172,6 +173,21 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 	s.assertEnvironKeys(c, key1, key2)
 }
 
+func (s *AddKeySuite) TestBlockAddKey(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorizedKeys(c, key1)
+
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), key2, "invalid-key")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
@@ -200,6 +216,22 @@ func (s *DeleteKeySuite) TestDeleteKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot delete key id "invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1)
+}
+
+func (s *DeleteKeySuite) TestBlockDeleteKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
+	s.setAuthorizedKeys(c, key1, key2)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
+		sshtesting.ValidKeyTwo.Fingerprint, "invalid-key")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
@@ -234,6 +266,20 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stderr(context), gc.Matches, `cannot import key id "invalid-key".*\n`)
 	s.assertEnvironKeys(c, key1, sshtesting.ValidKeyThree.Key)
+}
+
+func (s *ImportKeySuite) TestBlockImportKeys(c *gc.C) {
+	key1 := sshtesting.ValidKeyOne.Key + " user@host"
+	s.setAuthorizedKeys(c, key1)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "lp:validuser", "invalid-key")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {

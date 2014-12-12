@@ -189,6 +189,17 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceAvailabilityZone(c *gc.C) {
+	env := s.Prepare(c)
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	inst, hwc := testing.AssertStartInstance(c, env, "100")
+	err = env.StopInstances(inst.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(hwc.AvailabilityZone, gc.IsNil)
+}
+
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})

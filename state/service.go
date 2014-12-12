@@ -596,7 +596,8 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status: StatusPending,
+		Status:  StatusPending,
+		EnvUUID: s.st.EnvironUUID(),
 	}
 	msdoc := meterStatusDoc{
 		Code: MeterNotSet,
@@ -659,7 +660,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if alive, err := isAlive(s.st.db, servicesC, s.doc.DocID); err != nil {
+		if alive, err := isAlive(s.st, servicesC, s.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -765,7 +766,6 @@ func serviceRelations(st *State, name string) (relations []*Relation, err error)
 	defer closer()
 
 	docs := []relationDoc{}
-	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err
@@ -869,12 +869,11 @@ func (s *Service) MetricCredentials() []byte {
 func (s *Service) SetMetricCredentials(b []byte) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			//notDead, err := isNotDead(s.st.db, servicesC, s.doc.DocID)
-			notDead, err := isNotDead(s.st.db, servicesC, s.st.docID(s.doc.DocID))
+			alive, err := isAlive(s.st, servicesC, s.doc.DocID)
 			if err != nil {
 				return nil, errors.Trace(err)
-			} else if !notDead {
-				return nil, ErrDead
+			} else if !alive {
+				return nil, errNotAlive
 			}
 		}
 		ops := []txn.Op{
@@ -888,8 +887,8 @@ func (s *Service) SetMetricCredentials(b []byte) error {
 		return ops, nil
 	}
 	if err := s.st.run(buildTxn); err != nil {
-		if err == ErrDead {
-			return errors.New("cannot update metric credentials: service not found or dead")
+		if err == errNotAlive {
+			return errors.New("cannot update metric credentials: service " + err.Error())
 		}
 		return errors.Annotatef(err, "cannot update metric credentials")
 	}
@@ -906,8 +905,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
-	docID := st.docID(key)
-	if count, err := settingsrefs.FindId(docID).Count(); err != nil {
+	if count, err := settingsrefs.FindId(key).Count(); err != nil {
 		return txn.Op{}, err
 	} else if count == 0 {
 		if !canCreate {
@@ -915,7 +913,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 		}
 		return txn.Op{
 			C:      settingsrefsC,
-			Id:     docID,
+			Id:     st.docID(key),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{
 				RefCount: 1,
@@ -924,7 +922,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	}
 	return txn.Op{
 		C:      settingsrefsC,
-		Id:     docID,
+		Id:     st.docID(key),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 	}, nil
@@ -939,13 +937,13 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
-	docID := st.docID(key)
 	var doc settingsRefsDoc
-	if err := settingsrefs.FindId(docID).One(&doc); err == mgo.ErrNotFound {
+	if err := settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q settings for charm %q", serviceName, curl)
 	} else if err != nil {
 		return nil, err
 	}
+	docID := st.docID(key)
 	if doc.RefCount == 1 {
 		return []txn.Op{{
 			C:      settingsrefsC,

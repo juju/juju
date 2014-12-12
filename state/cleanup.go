@@ -163,13 +163,7 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) error {
 	serviceName = strings.TrimSuffix(serviceName, "/")
 
 	unit := Unit{st: st}
-	// TODO(mjs) - ENVUUID - test env filtering needs to be tested
-	// when multiple environments exist.
-	sel := bson.D{
-		{"service", serviceName},
-		{"env-uuid", st.EnvironUUID()},
-		{"life", Alive},
-	}
+	sel := bson.D{{"service", serviceName}, {"life", Alive}}
 	iter := units.Find(sel).Iter()
 	for iter.Next(&unit.doc) {
 		if err := unit.Destroy(); err != nil {

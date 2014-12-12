@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	statestorage "github.com/juju/juju/state/storage"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -619,7 +621,7 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 	}
 
 	var stor statetesting.MapStorage
-	s.PatchValue(&stateStorage, func(*state.State) state.Storage {
+	s.PatchValue(&newStateStorage, func(string, *mgo.Session) statestorage.Storage {
 		return &stor
 	})
 

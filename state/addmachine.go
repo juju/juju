@@ -263,6 +263,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 				CpuCores:   template.HardwareCharacteristics.CpuCores,
 				CpuPower:   template.HardwareCharacteristics.CpuPower,
 				Tags:       template.HardwareCharacteristics.Tags,
+				AvailZone:  template.HardwareCharacteristics.AvailabilityZone,
 			},
 		})
 	}
@@ -424,7 +425,8 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	return []txn.Op{
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
-			Status: StatusPending,
+			Status:  StatusPending,
+			EnvUUID: st.EnvironUUID(),
 		}),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine

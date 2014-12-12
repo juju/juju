@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	statestorage "github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -439,7 +440,7 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 		return nil, err
 	}
 
-	stor := st.Storage()
+	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)

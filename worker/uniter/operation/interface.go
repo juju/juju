@@ -9,8 +9,8 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.operation")
@@ -72,7 +72,19 @@ type Factory interface {
 	// NewCommands creates an operation to execute the supplied script in the
 	// indicated relation context, and pass the results back over the supplied
 	// func.
-	NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error)
+	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
+}
+
+// CommandArgs stores the arguments for a Command operation.
+type CommandArgs struct {
+	// Commands is the arbitrary commands to execute on the unit
+	Commands string
+	// RelationId is the relation context to execute the commands in.
+	RelationId int
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteUnitName string
+	// ForceRemoteUnit skips unit inference and existence validation.
+	ForceRemoteUnit bool
 }
 
 // CommandResponseFunc is for marshalling command responses back to the source
@@ -89,12 +101,6 @@ type Callbacks interface {
 	// operations that execute external code.
 	AcquireExecutionLock(message string) (unlock func(), err error)
 
-	// GetRunner returns a runner for the supplied context; it primarily exists
-	// to allow operations to be tested without shelling out to run actual
-	// external code. It's used by all the operations that execute external
-	// code.
-	GetRunner(ctx context.Context) context.Runner
-
 	// PrepareHook and CommitHook exist so that we can defer worrying about how
 	// to untangle Uniter.relationers from everything else. They're only used by
 	// RunHook operations.
@@ -103,8 +109,8 @@ type Callbacks interface {
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
-	NotifyHookCompleted(string, context.Context)
-	NotifyHookFailed(string, context.Context)
+	NotifyHookCompleted(string, runner.Context)
+	NotifyHookFailed(string, runner.Context)
 
 	// FailAction marks the supplied action failed. It exists so we can test
 	// the operation package without involving the API. It's only used by

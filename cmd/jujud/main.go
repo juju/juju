@@ -15,15 +15,21 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
+
+func init() {
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
 
 var jujudDoc = `
 juju provides easy, intelligent service orchestration on top of environments

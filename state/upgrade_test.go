@@ -407,16 +407,21 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c *gc.C) {
 	serverIdB, serverIdC := s.addStateServers(c)
 
+	machines, closer := state.GetRawCollection(s.State, state.MachinesC)
+	defer closer()
+	instanceData, closer := state.GetRawCollection(s.State, state.InstanceDataC)
+	defer closer()
+
 	// Add minimal machine and instanceData docs for the state servers
 	// that look how these documents did before the environment UUID
 	// migration.
-	_, err := s.instanceData.RemoveAll(nil)
+	_, err := instanceData.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.machines.RemoveAll(nil)
+	_, err = machines.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addLegacyMachine := func(machineId string) {
-		err := s.machines.Insert(bson.M{"_id": machineId})
+		err := machines.Insert(bson.M{"_id": machineId})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	addLegacyMachine(s.serverIdA)
@@ -424,7 +429,7 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c
 	addLegacyMachine(serverIdC)
 
 	legacyProvision := func(machineId string) {
-		err := s.instanceData.Insert(bson.M{"_id": machineId})
+		err := instanceData.Insert(bson.M{"_id": machineId})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	legacyProvision(s.serverIdA)

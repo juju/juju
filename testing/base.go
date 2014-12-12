@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/osenv"
@@ -37,12 +38,16 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 		osenv.JujuHomeEnvKey,
 		osenv.JujuEnvEnvKey,
 		osenv.JujuLoggingConfigEnvKey,
+		osenv.JujuFeatureFlagEnvKey,
 	} {
 		s.oldEnvironment[name] = os.Getenv(name)
 		os.Setenv(name, "")
 	}
 	s.oldHomeEnv = utils.Home()
 	utils.SetHome("")
+	// Update the feature flag set to be empty (given we have just set the
+	// environment value to the empty string)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {

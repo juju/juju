@@ -9,7 +9,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
 github.com/juju/blobstore	git	c8e097e6dc9619475be92918c20de5f2d05ffa0b	
-github.com/juju/cmd	git	459abc41443aa1e80380efe43897c08646797ab8	
+github.com/juju/cmd	git	f75cb03fd9ba687f573755b1075a2405f833952d	
 github.com/juju/errors	git	fde0386c51c8b9642c392a3a22df4d5058e40fea	
 github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8	
 github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
@@ -21,7 +21,7 @@ github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d
 github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	
 github.com/juju/testing	git	839334678c08487fb1c6ab032893fc8c85d74756	
 github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	
-github.com/juju/utils	git	1942c197c7bc4ce805171c564df741777299e939	
+github.com/juju/utils	git	c1f38bc81aa18a8fff86ffbd8d5587b218118d3d	
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	
 gopkg.in/juju/charm.v4	git	f7e5613ff75457d2700d1c3269546cc903ea0471	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
@@ -33,5 +33,5 @@ launchpad.net/goamz	bzr	martin.packman@canonical.com-20140813150539-umttn7s536u8
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20140730020217-xa1jyuytye6g1qie	12
 launchpad.net/gomaasapi	bzr	raphael.badin@canonical.com-20141030154602-5noqak0jfeao9opr	58
 launchpad.net/goose	bzr	tarmac-20140908075634-5iinsru19k3d8w55	128
-launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141001010733-pu1w53wfrivt0mb5	238
+launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141203072923-27pcp2hckqyezbfe	242
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

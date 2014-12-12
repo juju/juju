@@ -21,13 +21,16 @@ import (
 )
 
 const (
-	UnitsC    = unitsC
-	ServicesC = servicesC
-	SettingsC = settingsC
+	InstanceDataC      = instanceDataC
+	MachinesC          = machinesC
+	NetworkInterfacesC = networkInterfacesC
+	ServicesC          = servicesC
+	SettingsC          = settingsC
+	UnitsC             = unitsC
+	UsersC             = usersC
 )
 
 var (
-	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 	MachineIdLessThan     = machineIdLessThan
 	NewAddress            = newAddress
@@ -90,7 +93,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(st.docID(key)).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
@@ -200,7 +203,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(st.docID(serviceName)).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
@@ -270,4 +273,12 @@ func StrictLocalID(st *State, id string) (string, error) {
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
+}
+
+func GetCollection(st *State, name string) (stateCollection, func()) {
+	return st.getCollection(name)
+}
+
+func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
+	return st.getRawCollection(name)
 }
