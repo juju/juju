@@ -16,12 +16,16 @@ import (
 
 const (
 	osEnvPrivateKey  = "GCE_PRIVATE_KEY"
-	osEnvClientId    = "GCE_CLIENT_ID"
+	osEnvClientID    = "GCE_CLIENT_ID"
 	osEnvClientEmail = "GCE_CLIENT_EMAIL"
+	osEnvRegion      = "GCE_REGION"
+	osEnvProjectID   = "GCE_PROJECT_ID"
 
 	cfgPrivateKey  = "private-key"
 	cfgClientId    = "client-id"
 	cfgClientEmail = "client-email"
+	cfgRegion      = "region"
+	cfgProjectID   = "project-id"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -34,18 +38,24 @@ gce:
   private-key: 
   client-email:
   client-id:
+  region:
+  project-id:
 `[1:]
 
 var osEnvFields = map[string]string{
 	osEnvPrivateKey:  cfgPrivateKey,
-	osEnvClientId:    cfgClientId,
+	osEnvClientID:    cfgClientId,
 	osEnvClientEmail: cfgClientEmail,
+	osEnvRegion:      cfgRegion,
+	osEnvProjectID:   cfgProjectID,
 }
 
 var configFields = schema.Fields{
 	cfgPrivateKey:  schema.String(),
 	cfgClientId:    schema.String(),
 	cfgClientEmail: schema.String(),
+	cfgRegion:      schema.String(),
+	cfgProjectID:   schema.String(),
 }
 
 var configDefaults = schema.Defaults{}
@@ -58,6 +68,8 @@ var configImmutableFields = []string{
 	// TODO(ericsnow) Do these really belong here?
 	cfgPrivateKey,
 	cfgClientId,
+	cfgRegion,
+	cfgProjectID,
 }
 
 type environConfig struct {
@@ -75,6 +87,14 @@ func (c *environConfig) clientID() string {
 
 func (c *environConfig) clientEmail() string {
 	return c.attrs[cfgClientEmail].(string)
+}
+
+func (c *environConfig) region() string {
+	return c.attrs[cfgRegion].(string)
+}
+
+func (c *environConfig) projectID() string {
+	return c.attrs[cfgProjectID].(string)
 }
 
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
@@ -114,6 +134,12 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		if _, err := mail.ParseAddress(ecfg.clientEmail()); err != nil {
 			return nil, errors.Annotatef(err, "invalid %q in config", cfgClientEmail)
 		}
+	}
+	if ecfg.region() == "" {
+		return nil, errors.Errorf("%s: must not be empty", cfgRegion)
+	}
+	if ecfg.projectID() == "" {
+		return nil, errors.Errorf("%s: must not be empty", cfgProjectID)
 	}
 
 	return ecfg, nil
