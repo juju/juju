@@ -29,7 +29,7 @@ class JujuBuildTestCase(TestCase):
                 with patch('build_juju.get_artifacts',
                            return_value=artifacts) as ga_mock:
                     with patch('build_juju.run_command') as rc_mock:
-                        with patch('build_juju.save_artifacts') as sa_mock:
+                        with patch('build_juju.add_artifacts') as aa_mock:
                             build_juju(
                                 'win-client', work_dir, 'lastSucessful',
                                 dry_run=True, verbose=True)
@@ -48,7 +48,10 @@ class JujuBuildTestCase(TestCase):
               'juju-core_1.2.3.tar.gz'], ),
             rc_mock.call_args[0])
         self.assertEqual(
-            {'dry_run': True, 'verbose': True}, sa_mock.call_args[1])
-        self.assertEqual((work_dir, ), sw_mock.call_args[0])
+            {'dry_run': True, 'verbose': True}, rc_mock.call_args[1])
+        globs = [
+            'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz',
+            'juju-*-osx.tar.gz']
+        self.assertEqual((work_dir, globs), aa_mock.call_args[0])
         self.assertEqual(
-            {'dry_run': True, 'verbose': True}, sa_mock.call_args[1])
+            {'dry_run': True, 'verbose': True}, aa_mock.call_args[1])

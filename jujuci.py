@@ -102,6 +102,25 @@ def setup_workspace(workspace_path, dry_run=False, verbose=False):
             os.utime(empty_path, None)
 
 
+def add_artifacts(workspace_dir, globs, dry_run=False, verbose=False):
+    workspace_dir = os.path.realpath(workspace_dir)
+    artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+    for root, dirs, files in os.walk(workspace_dir):
+        relative = root.replace(workspace_dir, '')[1:]
+        if 'artifacts' in dirs:
+            dirs.remove('artifacts')
+        for file_name in files:
+            file_path = os.path.join(root, file_name)
+            file_relative_path = os.path.join(relative, file_name)
+            for glob in globs:
+                if fnmatch.fnmatch(file_relative_path, glob):
+                    if verbose:
+                        print_now("Adding artifact %s" % file_relative_path)
+                    if not dry_run:
+                        shutil.move(file_path, artifacts_dir)
+                    break
+
+
 def add_build_job_glob(parser):
     """Added the --build, job, and glob arguments to the parser."""
     parser.add_argument(

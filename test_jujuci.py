@@ -5,6 +5,7 @@ from StringIO import StringIO
 from unittest import TestCase
 
 from jujuci import (
+    add_artifacts,
     Artifact,
     get_build_data,
     JENKINS_URL,
@@ -230,3 +231,35 @@ class JujuCITestCase(TestCase):
             self.assertEqual(['artifacts'], os.listdir(workspace_dir))
             artifacts_dir = os.path.join(workspace_dir, 'artifacts')
             self.assertEqual(['empty'], os.listdir(artifacts_dir))
+
+    def test_add_artifacts_simple(self):
+        with temp_dir() as workspace_dir:
+            artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+            os.mkdir(artifacts_dir)
+            for name in ['foo.tar.gz', 'bar.json', 'baz.txt',
+                         'juju-core_1.2.3.tar.gz', 'juju-core-1.2.3.deb',
+                         'buildvars.bash', 'buildvars.json']:
+                with open(os.path.join(workspace_dir, name), 'w') as nf:
+                    nf.write(name)
+            globs = ['buildvars.*', 'juju-core_*.tar.gz', 'juju-*.deb']
+            add_artifacts(
+                workspace_dir, globs, dry_run=False, verbose=False)
+            artifacts = sorted(os.listdir(artifacts_dir))
+            expected = [
+                'buildvars.bash', 'buildvars.json',
+                'juju-core-1.2.3.deb', 'juju-core_1.2.3.tar.gz']
+            self.assertEqual(expected, artifacts)
+
+    def test_add_artifacts_deep(self):
+        with temp_dir() as workspace_dir:
+            artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+            os.mkdir(artifacts_dir)
+            sub_dir = os.path.join(workspace_dir, 'sub_dir')
+            os.mkdir(sub_dir)
+            for name in ['foo.tar.gz', 'juju-core-1.2.3.deb']:
+                with open(os.path.join(sub_dir, name), 'w') as nf:
+                    nf.write(name)
+            add_artifacts(
+                workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
+            artifacts = os.listdir(artifacts_dir)
+            self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
