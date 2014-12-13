@@ -80,9 +80,9 @@ def get_artifacts(job_name, build, glob, path,
     return artifacts
 
 
-def setup_workspace(workspace_path, dry_run=False, verbose=False):
+def setup_workspace(workspace_dir, dry_run=False, verbose=False):
     """Clean the workspace directory and create an artifacts sub directory."""
-    for root, dirs, files in os.walk(workspace_path):
+    for root, dirs, files in os.walk(workspace_dir):
         for name in files:
             print_now('Removing %s' % name)
             if not dry_run:
@@ -91,7 +91,7 @@ def setup_workspace(workspace_path, dry_run=False, verbose=False):
             print_now('Removing %s' % name)
             if not dry_run:
                 shutil.rmtree(os.path.join(root, name))
-    artifacts_path = os.path.join(workspace_path, 'artifacts')
+    artifacts_path = os.path.join(workspace_dir, 'artifacts')
     print_now('Creating artifacts dir.')
     if not dry_run:
         os.mkdir(artifacts_path)
@@ -103,6 +103,11 @@ def setup_workspace(workspace_path, dry_run=False, verbose=False):
 
 
 def add_artifacts(workspace_dir, globs, dry_run=False, verbose=False):
+    """Find files beneath the workspace_dir and move them to the artifacts.
+
+    The list of globs can match the full file name, part of a name, or
+    a sub directory: eg: buildvars.json, *.deb, tmp/*.deb.
+    """
     workspace_dir = os.path.realpath(workspace_dir)
     artifacts_dir = os.path.join(workspace_dir, 'artifacts')
     for root, dirs, files in os.walk(workspace_dir):
