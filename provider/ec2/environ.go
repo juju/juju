@@ -837,10 +837,14 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	for i, subnet := range resp.Subnets {
 		// No VLANTag available
 		cidr := subnet.CIDRBlock
-		allocatableLow := network.DecimalToIP(network.IPToDecimal(start) + 4)
+		allocatableLow, err := network.DecimalToIP(network.IPToDecimal(start) + 4)
+		if err != nil {
+			logger.Warningf("Skipping subnet %q, invalid IP, %v", cidr, err)
+			continue
+		}
 		info := network.SubnetInfo{
 			CIDR:             cidr,
-			ProviderID:       subnet.Id,
+			ProviderId:       subnet.Id,
 			AllocatableIPLow: allocatableLow,
 		}
 		results[i] = info

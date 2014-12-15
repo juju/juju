@@ -4,7 +4,9 @@
 package network
 
 import (
+	"encoding/binary"
 	"fmt"
+	"net"
 
 	"github.com/juju/loggo"
 )
@@ -111,4 +113,20 @@ type PreferIPv6Getter interface {
 func InitializeFromConfig(config PreferIPv6Getter) {
 	preferIPv6 = config.PreferIPv6()
 	logger.Infof("setting prefer-ipv6 to %v", preferIPv6)
+}
+
+// DecimalToIP converts a datted quad IP address to its decimal equivalent.
+func DecimalToIP(addr uint32) string {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, addr)
+	return net.IP(bytes).String()
+}
+
+// IPToDecimal converts a decimal to the dotted quad IP address format.
+func IPToDecimal(ipv4Addr string) (uint32, error) {
+	ip := net.ParseIP(ipv4Addr).To4()
+	if ip == nil {
+		return 0, fmt.Errorf("%q is not a valid IPv4 Address.", ipv4Addr)
+	}
+	return binary.BigEndian.Uint32([]byte(ip)), nil
 }
