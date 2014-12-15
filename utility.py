@@ -164,3 +164,11 @@ def configure_logging(log_level):
     logging.basicConfig(
         level=log_level, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
+
+
+def ensure_deleted(path):
+    try:
+        os.unlink(path)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise

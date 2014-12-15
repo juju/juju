@@ -20,10 +20,12 @@ import yaml
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
+    get_juju_home,
     get_selected_environment,
     )
 from utility import (
     check_free_disk_space,
+    ensure_deleted,
     pause,
     print_now,
     scoped_environ,
@@ -195,7 +197,7 @@ class EnvJujuClient:
             args = ('--upload-tools',) + args
         self.juju('bootstrap', args, self.env.needs_sudo())
 
-    def destroy_environment(self, force=True):
+    def destroy_environment(self, force=True, delete_jenv=False):
         if force:
             force_arg = ('--force',)
         else:
@@ -205,6 +207,9 @@ class EnvJujuClient:
             (self.env.environment,) + force_arg + ('-y',),
             self.env.needs_sudo(), check=False, include_e=False,
             timeout=timedelta(minutes=10).total_seconds())
+        if delete_jenv:
+            jenv_path = get_jenv_path(get_juju_home(), self.env.environment)
+            ensure_deleted(jenv_path)
 
     def get_juju_output(self, command, *args, **kwargs):
         args = self._full_args(command, False, args,
