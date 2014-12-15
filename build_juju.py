@@ -17,13 +17,19 @@ from jujuci import (
 )
 
 
+DEFAULT_JUJU_RELEASE_TOOLS = os.path.realpath(
+    os.path.join(__file__, '..', '..', 'juju-release-tools'))
+
+
 def get_script(juju_release_tools=None):
-    """Return the full path to the crossbuild script."""
+    """Return the full path to the crossbuild script.
+
+    The juju-release-tools dir is assumed to be a sibling of the juju-ci-tools
+    directory.
+    """
     if not juju_release_tools:
-        juju_release_tools = os.path.join(
-            __file__, '..', '..', 'juju-release-tools')
-    script = os.path.realpath(
-        os.path.join(juju_release_tools, 'crossbuild.py'))
+        juju_release_tools = DEFAULT_JUJU_RELEASE_TOOLS
+    script = os.path.join(juju_release_tools, 'crossbuild.py')
     return script
 
 
@@ -63,7 +69,8 @@ def parse_args(args=None):
         help="The specific revision-build number to get the tarball from")
     parser.add_argument(
         '-t', '--juju-release-tools',
-        help='The path to the juju-release-tools dir.')
+        help='The path to the juju-release-tools dir, default: %s' %
+              DEFAULT_JUJU_RELEASE_TOOLS)
     parser.add_argument(
         'product', choices=['win-client', 'win-agent', 'osx-agent'],
         help='the kind of juju to make and package.')
