@@ -162,7 +162,7 @@ class FakeAttemptClass:
 
 class StubJujuClient:
 
-    def destroy_environment(self):
+    def destroy_environment(self, delete_jenv=False):
         pass
 
 
@@ -541,8 +541,8 @@ class TestIndustrialTest(TestCase):
                               side_effect=Exception) as nc_mock:
                 with self.assertRaises(Exception):
                     industrial.destroy_both()
-        oc_mock.assert_called_once_with()
-        nc_mock.assert_called_once_with()
+        oc_mock.assert_called_once_with(delete_jenv=True)
+        nc_mock.assert_called_once_with(delete_jenv=True)
 
     def test_run_attempt(self):
         old_client = FakeEnvJujuClient('old')

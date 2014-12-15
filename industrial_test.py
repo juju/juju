@@ -12,7 +12,9 @@ from deploy_stack import (
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
     )
-from jujuconfig import get_juju_home
+from jujuconfig import (
+    get_juju_home,
+    )
 from jujupy import (
     AgentsNotStarted,
     EnvJujuClient,
@@ -178,9 +180,9 @@ class IndustrialTest:
     def destroy_both(self):
         """Destroy the environments of the old and new client."""
         try:
-            self.old_client.destroy_environment()
+            self.old_client.destroy_environment(delete_jenv=True)
         finally:
-            self.new_client.destroy_environment()
+            self.new_client.destroy_environment(delete_jenv=True)
 
     def run_stages(self):
         """Iterator of (boolean, boolean) for stage results.

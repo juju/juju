@@ -35,6 +35,7 @@ from jujupy import (
     SimpleEnvironment,
     Status,
     temp_bootstrap_env,
+    _temp_env,
     uniquify_local,
 )
 from utility import (
@@ -243,6 +244,18 @@ class TestEnvJujuClient(TestCase):
             mock.assert_called_with(
                 'destroy-environment', ('foo', '-y'),
                 False, check=False, include_e=False, timeout=600.0)
+
+    def test_destroy_environment_delete_jenv(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'juju'):
+            with _temp_env({}) as juju_home:
+                jenv_path = get_jenv_path(juju_home, 'foo')
+                os.makedirs(os.path.dirname(jenv_path))
+                open(jenv_path, 'w')
+                self.assertTrue(os.path.exists(jenv_path))
+                client.destroy_environment(delete_jenv=True)
+                self.assertFalse(os.path.exists(jenv_path))
 
     def test_get_juju_output(self):
         env = Environment('foo', '')

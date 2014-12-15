@@ -172,6 +172,14 @@ def configure_logging(log_level):
         datefmt='%Y-%m-%d %H:%M:%S')
 
 
+def ensure_deleted(path):
+    try:
+        os.unlink(path)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
 def get_candidates_path(root_dir):
     return os.path.join(root_dir, 'candidate')
 

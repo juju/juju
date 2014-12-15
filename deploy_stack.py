@@ -4,7 +4,6 @@ __metaclass__ = type
 
 
 from argparse import ArgumentParser
-import errno
 import glob
 import logging
 import os
@@ -33,6 +32,7 @@ from substrate import (
 )
 from utility import (
     configure_logging,
+    ensure_deleted,
     PortTimeoutError,
     print_now,
     scoped_environ,
@@ -418,11 +418,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 logging.info('Waiting for port 22 on %s' % machine)
                 wait_for_port(machine, 22, timeout=120)
             juju_home = get_juju_home()
-            try:
-                os.unlink(get_jenv_path(juju_home, env.environment))
-            except OSError as e:
-                if e.errno != errno.ENOENT:
-                    raise
+            ensure_deleted(get_jenv_path(juju_home, env.environment))
             try:
                 bootstrap_from_env(juju_home, env.client.get_env_client(env))
             except:
