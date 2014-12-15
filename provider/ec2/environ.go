@@ -828,12 +828,14 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 // This is not implemented by the EC2 provider yet.
 func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	ec2Inst := e.ec2()
-	_, err := ec2Inst.Subnets([]string{}, nil)
+	resp, err := ec2Inst.Subnets([]string{}, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 	}
 
-	return nil, errors.NotImplementedf("Subnets")
+	results := make([]network.SubnetInfo, len(resp.Subnets), len(resp.Subnets))
+
+	return results, nil
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {
