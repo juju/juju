@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -2067,16 +2068,45 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	st := s.factory.MakeEnvironment(c, nil)
 	defer st.Close()
-	err := st.RemoveAllEnvironDocs()
+
+	// insert one doc for each multiEnvCollection
+	var ops []mgotxn.Op
+	for collName := range state.MultiEnvCollections {
+		// constraints and settings are already added to state
+		if collName == "constraints" || collName == "settings" {
+			continue
+		}
+		ops = append(ops, mgotxn.Op{
+			C:      collName,
+			Id:     state.DocID(st, "arbitraryid"),
+			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	}
+	err := state.RunTransaction(st, ops)
 	c.Assert(err, jc.ErrorIsNil)
 
-	logOutput := c.GetTestLog()
-	for kind, count := range map[string]int{
-		"constraints": 1,
-		"settings":    1,
-	} {
-		c.Assert(logOutput, jc.Contains, fmt.Sprintf("removed %d %s documents", count, kind))
+	// test that we can find each doc in state
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 1)
 	}
+
+	err = st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+	logOutput := c.GetTestLog()
+
+	// ensure all docs for all multiEnvCollections are removed
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0)
+		c.Assert(logOutput, jc.Contains, fmt.Sprintf("removed 1 %s documents", collName))
+	}
+
 	c.Assert(logOutput, jc.Contains, "removed environment document")
 }
 

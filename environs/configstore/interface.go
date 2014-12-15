@@ -20,6 +20,13 @@ type APIEndpoint struct {
 	// bootstrapped.
 	Addresses []string
 
+	// Hostnames holds a list of API addresses which may contain
+	// unresolved hostnames. It's used to compare more recent API
+	// addresses before resolving hostnames to determine if the cached
+	// addresses have changed and therefore perform (a possibly slow)
+	// local DNS resolution before comparing them against Addresses.
+	Hostnames []string
+
 	// CACert holds the CA certificate that
 	// signed the API server's key.
 	CACert string

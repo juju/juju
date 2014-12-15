@@ -6,9 +6,11 @@ package client_test
 import (
 	"fmt"
 
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/utils"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	githubtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,12 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type destroyEnvironmentSuite struct {
@@ -31,44 +33,40 @@ type destroyEnvironmentSuite struct {
 
 type destroyTwoEnvironmentsSuite struct {
 	destroyEnvironmentSuite
-	githubtesting.CleanupSuite
 	otherState     *state.State
-	otherEnvOwner  names.Tag
+	otherEnvOwner  names.UserTag
 	otherEnvClient *client.Client
 }
 
 var _ = gc.Suite(&destroyEnvironmentSuite{})
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
 
-func (s *destroyTwoEnvironmentsSuite) SetUpSuite(c *gc.C) {
-	s.destroyEnvironmentSuite.SetUpSuite(c)
-	s.CleanupSuite.SetUpSuite(c)
-}
-
-func (s *destroyTwoEnvironmentsSuite) TearDownSuite(c *gc.C) {
-	s.destroyEnvironmentSuite.TearDownSuite(c)
-	s.baseSuite.TearDownSuite(c)
-}
-
 func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 	s.destroyEnvironmentSuite.SetUpTest(c)
-	s.CleanupSuite.SetUpTest(c)
 
 	// Make the other environment
-	cfg := dummy.SampleConfig().Merge(coretesting.Attrs{"state-server": false, "state-id": "1"})
-	delete(cfg, "uuid")
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfgAttrs := dummy.SampleConfig().Merge(coretesting.Attrs{"state-server": false, "agent-version": "1.2.3", "uuid": uuid.String()})
+	delete(cfgAttrs, "admin-secret")
+	cfg, err := config.New(config.NoDefaults, cfgAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	dummyProvider, err := environs.Provider("dummy")
+	c.Assert(err, jc.ErrorIsNil)
+	env, err := dummyProvider.Prepare(envtesting.BootstrapContext(c), cfg)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
-	s.otherState = s.Factory.MakeEnvironment(c, &factory.EnvParams{Owner: s.otherEnvOwner, ConfigAttrs: cfg})
+	_, s.otherState, err = s.State.NewEnvironment(env.Config(), s.otherEnvOwner)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		if s.otherState != nil {
 			s.otherState.Close()
 		}
-	})
-	s.AddCleanup(func(*gc.C) {
 		if s.State != nil {
 			s.State.Close()
 		}
+		dummy.Reset()
 	})
 
 	// get the client for the other environment
@@ -76,7 +74,6 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 		Tag:            s.otherEnvOwner,
 		EnvironManager: false,
 	}
-	var err error
 	s.otherEnvClient, err = client.NewClient(s.otherState, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
 }

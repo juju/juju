@@ -40,6 +40,7 @@ var (
 	PortsGlobalKey        = portsGlobalKey
 	CurrentUpgradeId      = currentUpgradeId
 	NowToTheSecond        = nowToTheSecond
+	MultiEnvCollections   = multiEnvCollections
 )
 
 type (

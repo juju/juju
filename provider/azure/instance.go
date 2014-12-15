@@ -232,7 +232,7 @@ func convertEndpointsToPortRanges(endpoints []gwacl.InputEndpoint) []network.Por
 		portRanges = append(portRanges, network.CollapsePorts(ports)...)
 	}
 
-	portRanges = append(portRanges, network.PortsToPortRanges(otherPorts)...)
+	portRanges = append(portRanges, network.CollapsePorts(otherPorts)...)
 	network.SortPortRanges(portRanges)
 	return portRanges
 }
@@ -272,9 +272,10 @@ func (azInstance *azureInstance) Ports(machineId string) (ports []network.PortRa
 	return ports, err
 }
 
-// listPorts returns the slice of ports (network.Port) that this machine
-// has opened. The returned list does not contain the "initial ports"
-// (i.e. the ports every instance shoud have opened).
+// listPorts returns the slice of port ranges (network.PortRange)
+// that this machine has opened. The returned list does not contain
+// the "initial port ranges" (i.e. the port ranges every instance
+// shoud have opened).
 func (azInstance *azureInstance) listPorts(api *gwacl.ManagementAPI) ([]network.PortRange, error) {
 	endpoints, err := api.ListRoleEndpoints(&gwacl.ListRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),

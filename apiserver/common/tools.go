@@ -362,6 +362,9 @@ func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
 	// is the upgrader, and that is cloud-local.
 	hostPorts := apiHostPorts[rand.Int()%len(apiHostPorts)]
 	apiAddress := network.SelectInternalHostPort(hostPorts, false)
+	if apiAddress == "" {
+		return "", errors.Errorf("no suitable API server address to pick from %v", hostPorts)
+	}
 	serverRoot := fmt.Sprintf("https://%s/environment/%s", apiAddress, t.envUUID)
 	return ToolsURL(serverRoot, v), nil
 }

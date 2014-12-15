@@ -269,10 +269,7 @@ func (s *toolsSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
 	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{
 		hostPorts: [][]network.HostPort{
-			network.AddressesWithPort(
-				network.NewAddresses("0.1.2.3"),
-				1234,
-			),
+			network.NewHostPorts(1234, "0.1.2.3"),
 		},
 	})
 	url, err := g.ToolsURL(version.Current)

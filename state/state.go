@@ -143,6 +143,7 @@ type StateServingInfo struct {
 func (st *State) RemoveAllEnvironDocs() error {
 	for collName := range multiEnvCollections {
 		coll, closer := st.getCollection(collName)
+		defer closer()
 		changeInfo, err := coll.RemoveAll(nil)
 		if err != nil {
 			return errors.Trace(err)
@@ -150,7 +151,6 @@ func (st *State) RemoveAllEnvironDocs() error {
 		if changeInfo.Removed > 0 {
 			logger.Infof("removed %d %s documents", changeInfo.Removed, collName)
 		}
-		closer()
 	}
 
 	environments, closer := st.getCollection(environmentsC)
