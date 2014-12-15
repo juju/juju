@@ -4,9 +4,6 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
-import fnmatch
-import os
-import shutil
 import sys
 import traceback
 
@@ -20,12 +17,14 @@ from jujuci import (
 
 
 def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
-    #./crossbuild.py -v win-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
-    # juju-setup-1.20.12.exe
-    #./crossbuild.py -v win-agent -b $HOME/crossbuild juju-core_1.20.12.tar.gz
-    # juju-1.20.12-win2012-amd64.tgz
-    #./crossbuild.py -v osx-client -b $HOME/crossbuild juju-core_1.20.12.tar.gz
-    # juju-1.20.12-osx.tar.gz
+    """Build the juju product from a Juju CI build-revision in a workspace.
+
+    The product is passed to juju-release-tools/crossbuild.py. The options
+    include osx-client, win-client, win-agent.
+
+    The tarfile from the build-revision build number is downloaded and passed
+    to crossbuild.py.
+    """
     setup_workspace(workspace_dir, dry_run=dry_run, verbose=verbose)
     artifacts = get_artifacts(
         BUILD_REVISION, build, 'juju-core_*.tar.gz', workspace_dir,
@@ -60,7 +59,7 @@ def parse_args(args=None):
 
 
 def main(argv):
-    """Manage list and get files from jujuci builds."""
+    """Build and package juju for an non-debian OS."""
     args = parse_args(argv)
     try:
         build_juju(

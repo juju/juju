@@ -95,7 +95,7 @@ def setup_workspace(workspace_dir, dry_run=False, verbose=False):
     print_now('Creating artifacts dir.')
     if not dry_run:
         os.mkdir(artifacts_path)
-    # "touch empty" to convice jenkins there is an archive.
+    # "touch empty" to convince jenkins there is an archive.
     empty_path = os.path.join(artifacts_path, 'empty')
     if not dry_run:
         with open(empty_path, 'a'):
@@ -168,7 +168,7 @@ def parse_args(args=None):
 
 
 def main(argv):
-    """Manage list and get files from jujuci builds."""
+    """Manage list and get files from Juju CI builds."""
     args = parse_args(argv)
     try:
         if args.command == 'list':
