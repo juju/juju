@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
 
@@ -29,6 +30,7 @@ var _ = gc.Suite(&AddMachineSuite{})
 func (s *AddMachineSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.fake = &fakeAddMachineAPI{}
+	s.fake.agentVersion = "1.21.0"
 }
 
 func (s *AddMachineSuite) TestInit(c *gc.C) {
@@ -117,6 +119,13 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	context, err := s.run(c)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
+
+	c.Assert(s.fake.args, gc.HasLen, 1)
+	param := s.fake.args[0]
+	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
+		multiwatcher.JobHostUnits,
+		multiwatcher.JobManageNetworking,
+	})
 }
 
 func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
@@ -177,11 +186,24 @@ func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
 	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
+func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
+	s.fake.agentVersion = "1.18.1"
+	_, err := s.run(c)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fake.args, gc.HasLen, 1)
+	param := s.fake.args[0]
+	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
+		multiwatcher.JobHostUnits,
+	})
+}
+
 type fakeAddMachineAPI struct {
 	successOrder []bool
 	currentOp    int
 	args         []params.AddMachineParams
 	addError     error
+	agentVersion interface{}
 }
 
 func (f *fakeAddMachineAPI) Close() error {
@@ -222,6 +244,11 @@ func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([
 func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 	return errors.NotImplementedf("ForceDestroyMachines")
 }
+
 func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
 	return "", errors.NotImplementedf("ProvisioningScript")
+}
+
+func (f *fakeAddMachineAPI) EnvironmentGet() (map[string]interface{}, error) {
+	return map[string]interface{}{"agent-version": f.agentVersion}, nil
 }
