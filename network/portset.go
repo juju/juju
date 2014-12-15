@@ -95,8 +95,11 @@ func (ps *PortSet) Add(port Port) {
 
 // AddRanges adds port ranges to the PortSet.
 func (ps *PortSet) AddRanges(portRanges ...PortRange) {
-	for _, port := range PortRangesToPorts(portRanges) {
-		ps.Add(port)
+	for _, portRange := range portRanges {
+		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
+			port := Port{portRange.Protocol, p}
+			ps.Add(port)
+		}
 	}
 }
 
