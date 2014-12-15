@@ -288,6 +288,17 @@ bootcmd:
 		},
 	},
 	{
+		"AddBootTextFile",
+		addBootTextFileExpected,
+		func(cfg *cloudinit.Config) {
+			cfg.AddBootTextFile(
+				"/etc/apt/apt.conf.d/99proxy",
+				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
+	{
 		"SetAptGetWrapper",
 		"apt_get_wrapper:\n  command: eatmydata\n  enabled: auto\n",
 		func(cfg *cloudinit.Config) {
@@ -297,8 +308,10 @@ bootcmd:
 }
 
 const (
-	header              = "#cloud-config\n"
-	addTextFileExpected = `runcmd:
+	header                  = "#cloud-config\n"
+	addTextFileExpected     = "runcmd:" + textFile
+	addBootTextFileExpected = "bootcmd:" + textFile
+	textFile                = `
 - install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
 - printf '%s\n' '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
 `
