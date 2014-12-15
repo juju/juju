@@ -1,8 +1,19 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package util
 
 import (
 	"fmt"
+	"io"
+	"path/filepath"
+	"strconv"
+
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils/fslock"
+	"gopkg.in/natefinch/lumberjack.v2"
+
 	"github.com/juju/juju/agent"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
@@ -13,12 +24,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/fslock"
-	"gopkg.in/natefinch/lumberjack.v2"
-	"io"
-	"path/filepath"
-	"strconv"
 )
 
 var (
@@ -31,6 +36,7 @@ func RequiredError(name string) error {
 	return fmt.Errorf("--%s option must be set", name)
 }
 
+// IsFatal determines if an error is fatal to the process.
 func IsFatal(err error) bool {
 	switch err {
 	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
@@ -48,10 +54,12 @@ func isUpgraded(err error) bool {
 	return ok
 }
 
+// FatalError is an error type designated for fatal errors.
 type FatalError struct {
 	Err string
 }
 
+// Error returns an error string.
 func (e *FatalError) Error() string {
 	return e.Err
 }
@@ -97,14 +105,17 @@ func AgentDone(logger loggo.Logger, err error) error {
 	return err
 }
 
+// Pinger provides a type that knows how to ping.
 type Pinger interface {
+
+	// Ping pings something.
 	Ping() error
 }
 
-// connectionIsFatal returns a function suitable for passing
-// as the isFatal argument to worker.NewRunner,
-// that diagnoses an error as fatal if the connection
-// has failed or if the error is otherwise fatal.
+// ConnectionIsFatal returns a function suitable for passing as the
+// isFatal argument to worker.NewRunner, that diagnoses an error as
+// fatal if the connection has failed or if the error is otherwise
+// fatal.
 func ConnectionIsFatal(logger loggo.Logger, conn Pinger) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
@@ -114,7 +125,7 @@ func ConnectionIsFatal(logger loggo.Logger, conn Pinger) func(err error) bool {
 	}
 }
 
-// connectionIsDead returns true if the given pinger fails to ping.
+// ConnectionIsDead returns true if the given pinger fails to ping.
 var ConnectionIsDead = func(logger loggo.Logger, conn Pinger) bool {
 	if err := conn.Ping(); err != nil {
 		logger.Infof("error pinging %T: %v", conn, err)
@@ -123,13 +134,16 @@ var ConnectionIsDead = func(logger loggo.Logger, conn Pinger) bool {
 	return false
 }
 
+// SwitchProcessToRollingLogs switches the processes's logging to
+// rolling logs provided by the given logger.
 func SwitchProcessToRollingLogs(logger *lumberjack.Logger) error {
 	writer := loggo.NewSimpleWriter(logger, &loggo.DefaultFormatter{})
 	_, err := loggo.ReplaceDefaultWriter(writer)
 	return err
 }
 
-// newEnsureServerParams creates an EnsureServerParams from an agent configuration.
+// NewEnsureServerParams creates an EnsureServerParams from an agent
+// configuration.
 func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
 	// If oplog size is specified in the agent configuration, use that.
 	// Otherwise leave the default zero value to indicate to EnsureServer
@@ -175,7 +189,7 @@ func NewEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 	return params, nil
 }
 
-// newCloseWorker returns a task that wraps the given task,
+// NewCloseWorker returns a task that wraps the given task,
 // closing the given closer when it finishes.
 func NewCloseWorker(logger loggo.Logger, worker worker.Worker, closer io.Closer) worker.Worker {
 	return &CloseWorker{
@@ -184,6 +198,8 @@ func NewCloseWorker(logger loggo.Logger, worker worker.Worker, closer io.Closer)
 	}
 }
 
+// CloseWorker is a worker which closes the given closer when finished
+// with a task.
 type CloseWorker struct {
 	worker worker.Worker
 	closer io.Closer
@@ -202,16 +218,17 @@ func (c *CloseWorker) Wait() error {
 	return err
 }
 
-// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
-// hook execution lock. Other workers may also use this lock if they
-// require isolation from hook execution.
+// HookExecutionLock returns an *fslock.Lock suitable for use as a
+// unit hook execution lock. Other workers may also use this lock if
+// they require isolation from hook execution.
 func HookExecutionLock(dataDir string) (*fslock.Lock, error) {
 	lockDir := filepath.Join(dataDir, "locks")
 	return fslock.NewLock(lockDir, "uniter-hook-execution")
 }
 
-// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
-// based on the specified configuration parameters.
+// NewRsyslogConfigWorker creates and returns a new
+// RsyslogConfigWorker based on the specified configuration
+// parameters.
 var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 	tag := agentConfig.Tag()
 	namespace := agentConfig.Value(agent.Namespace)
@@ -222,6 +239,8 @@ var NewRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
 }
 
+// ParamsStateServingInfoToStateStateServingInfo converts a
+// params.StateServingInfo to a state.StateServingInfo.
 func ParamsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
 	return state.StateServingInfo{
 		APIPort:        i.APIPort,

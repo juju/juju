@@ -40,12 +40,6 @@ var (
 	_ = gc.Suite(&apiOpenSuite{})
 )
 
-type fakeAPIOpenConfig struct{ agent.Config }
-
-func (fakeAPIOpenConfig) APIInfo() *api.Info              { return &api.Info{} }
-func (fakeAPIOpenConfig) OldPassword() string             { return "old" }
-func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob { return []multiwatcher.MachineJob{} }
-
 type apiOpenSuite struct{ coretesting.BaseSuite }
 
 func (s *apiOpenSuite) SetUpTest(c *gc.C) {
@@ -282,3 +276,9 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf
 }
+
+type fakeAPIOpenConfig struct{ agent.Config }
+
+func (fakeAPIOpenConfig) APIInfo() *api.Info              { return &api.Info{} }
+func (fakeAPIOpenConfig) OldPassword() string             { return "old" }
+func (fakeAPIOpenConfig) Jobs() []multiwatcher.MachineJob { return []multiwatcher.MachineJob{} }

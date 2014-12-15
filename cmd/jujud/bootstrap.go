@@ -236,52 +236,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
-// // newEnsureServerParams creates an EnsureServerParams from an agent configuration.
-// func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
-// 	// If oplog size is specified in the agent configuration, use that.
-// 	// Otherwise leave the default zero value to indicate to EnsureServer
-// 	// that it should calculate the size.
-// 	var oplogSize int
-// 	if oplogSizeString := agentConfig.Value(agent.MongoOplogSize); oplogSizeString != "" {
-// 		var err error
-// 		if oplogSize, err = strconv.Atoi(oplogSizeString); err != nil {
-// 			return mongo.EnsureServerParams{}, fmt.Errorf("invalid oplog size: %q", oplogSizeString)
-// 		}
-// 	}
-
-// 	// If numa ctl preference is specified in the agent configuration, use that.
-// 	// Otherwise leave the default false value to indicate to EnsureServer
-// 	// that numactl should not be used.
-// 	var numaCtlPolicy bool
-// 	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
-// 		var err error
-// 		if numaCtlPolicy, err = strconv.ParseBool(numaCtlString); err != nil {
-// 			return mongo.EnsureServerParams{}, fmt.Errorf("invalid numactl preference: %q", numaCtlString)
-// 		}
-// 	}
-
-// 	si, ok := agentConfig.StateServingInfo()
-// 	if !ok {
-// 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
-// 	}
-
-// 	params := mongo.EnsureServerParams{
-// 		APIPort:        si.APIPort,
-// 		StatePort:      si.StatePort,
-// 		Cert:           si.Cert,
-// 		PrivateKey:     si.PrivateKey,
-// 		CAPrivateKey:   si.CAPrivateKey,
-// 		SharedSecret:   si.SharedSecret,
-// 		SystemIdentity: si.SystemIdentity,
-
-// 		DataDir:              agentConfig.DataDir(),
-// 		Namespace:            agentConfig.Value(agent.Namespace),
-// 		OplogSize:            oplogSize,
-// 		SetNumaControlPolicy: numaCtlPolicy,
-// 	}
-// 	return params, nil
-// }
-
 func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 

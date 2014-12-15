@@ -167,8 +167,6 @@ type MachineAgent struct {
 	restoreMode          bool
 	restoring            bool
 	workersStarted       chan struct{}
-	// TODO(katco-): Remove this.
-	//st                   *state.State
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool

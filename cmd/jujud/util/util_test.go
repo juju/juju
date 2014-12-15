@@ -1,15 +1,20 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package util
 
 import (
 	stderrors "errors"
+	"testing"
+
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/loggo"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"testing"
 )
 
 var (

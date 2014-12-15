@@ -189,23 +189,3 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 	module = module[lastDot+1:]
 	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
 }
-
-// setupLogging redirects logging to rolled log files.
-//
-// NOTE: do not use this in the bootstrap agent, or
-// if you do, change the bootstrap error reporting.
-// func setupAgentLoggingFoo(conf agent.Config) error {
-// 	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
-
-// 	log := &lumberjack.Logger{
-// 		Filename:   filename,
-// 		MaxSize:    300, // megabytes
-// 		MaxBackups: 2,
-// 	}
-
-// 	writer := loggo.NewSimpleWriter(log, &loggo.DefaultFormatter{})
-// 	_, err := loggo.ReplaceDefaultWriter(writer)
-// 	return err
-// }
-
-//var setupLoggingFoo = setupAgentLoggingFoo
