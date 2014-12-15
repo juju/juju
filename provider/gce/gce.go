@@ -242,9 +242,12 @@ func (gce *gceConnection) instances(env environs.Environ) ([]*compute.Instance, 
 	return results, nil
 }
 
-func (gce *gceConnection) availabilityZones() ([]*compute.Zone, error) {
+func (gce *gceConnection) availabilityZones(region string) ([]*compute.Zone, error) {
 	//TODO(wwtizel3) support paging requests if we receive a truncated result.
 	call := gce.Zones.List(gce.projectID)
+	if region != "" {
+		call = call.Filter("name eq " + region + "-")
+	}
 	raw, err := call.Do()
 	if err != nil {
 		return nil, errors.Trace(err)

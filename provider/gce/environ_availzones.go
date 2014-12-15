@@ -31,7 +31,7 @@ func (z *gceAvailabilityZone) Available() bool {
 
 // AvailabilityZones returns all availability zones in the environment.
 func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
-	zones, err := env.gce.availabilityZones()
+	zones, err := env.gce.availabilityZones(env.ecfg.region())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
