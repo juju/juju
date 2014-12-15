@@ -57,7 +57,9 @@ var configFields = schema.Fields{
 	cfgProjectID:   schema.String(),
 }
 
-var configDefaults = schema.Defaults{}
+var configDefaults = schema.Defaults{
+	cfgRegion: "",
+}
 
 var configSecretFields = []string{
 	cfgPrivateKey,

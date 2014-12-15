@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"strings"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
@@ -69,9 +71,13 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	}
 
 	var zoneNames []string
+	region := env.ecfg.region()
 	for _, z := range zoneInstances {
-		zoneNames = append(zoneNames, z.ZoneName)
+		if region == "" || strings.HasPrefix(z.ZoneName, region+"-") {
+			zoneNames = append(zoneNames, z.ZoneName)
+		}
 	}
+
 	if len(zoneNames) == 0 {
 		return nil, errors.New("failed to determine availability zones")
 	}
