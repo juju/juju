@@ -5,7 +5,11 @@ from argparse import ArgumentParser
 import os
 
 from jenkins import Jenkins
-from utility import get_auth_token
+from utility import (
+    find_candidates,
+    get_auth_token,
+    get_candidates_path,
+    )
 
 
 def get_args():
@@ -25,8 +29,11 @@ def get_releases(root):
 
 def calculate_jobs(root):
     releases = list(get_releases(root))
-    candidates = ['master', 'stable']
-    for candidate in candidates:
+    candidates_path = get_candidates_path(root)
+    for candidate_path in find_candidates(root):
+        parent, candidate = os.path.split(candidate_path)
+        if parent != candidates_path:
+            raise ValueError('Wrong path')
         for release in releases:
             if release == candidate:
                 continue
