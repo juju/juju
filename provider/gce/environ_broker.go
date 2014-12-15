@@ -94,7 +94,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 		return nil, errors.Trace(err)
 	}
 
-	regionURL := env.gce.regionURL()
+	regionURL := env.regionURL()
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, regionURL},
 		Series:    []string{ic.Series},
@@ -110,6 +110,12 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	images := instances.ImageMetadataToImages(matchingImages)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	return spec, errors.Trace(err)
+}
+
+func (env *environ) regionURL() string {
+	// TODO(ericsnow) Finish this!
+	// See https://cloud.google.com/compute/docs/reference/latest/instances/insert#disks.initializeParams.sourceImage
+	return "projects/.../global/images/..."
 }
 
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*compute.Instance, error) {

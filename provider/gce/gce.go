@@ -158,11 +158,6 @@ func (gce *gceConnection) connect(auth gceAuth) error {
 	return nil
 }
 
-func (gce *gceConnection) regionURL() string {
-	// TODO(ericsnow) Finish this!
-	return "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a"
-}
-
 func (gce *gceConnection) verifyCredentials() error {
 	call := gce.Projects.Get(gce.projectID)
 	if _, err := call.Do(); err != nil {
