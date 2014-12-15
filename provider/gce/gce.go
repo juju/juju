@@ -255,6 +255,46 @@ func (gce *gceConnection) availabilityZones(region string) ([]*compute.Zone, err
 	return raw.Items, nil
 }
 
+func (gce *gceConnection) removeInstance(id, zone string) error {
+	call := gce.Instances.Delete(gce.projectID, zone, id)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := gce.waitOperation(operation); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	instances, err := gce.instances(env)
+	if err != nil {
+		return errors.Annotatef(err, "while removing instances %v", ids)
+	}
+
+	var failed []string
+	for _, instID := range ids {
+		for _, inst := range instances {
+			if inst.Name == instID {
+				if err := gce.removeInstance(instID, inst.Zone); err != nil {
+					failed = append(failed, instID)
+					logger.Errorf("while removing instance %q: %v", instID, err)
+				}
+				break
+			}
+		}
+	}
+	if len(failed) != 0 {
+		return errors.Errorf("some instance removals failed: %v", failed)
+	}
+	return nil
+}
+
 func (gce *gceConnection) firewall(machineId string) (*compute.Firewall, error) {
 	call := gce.Firewalls.Get(gce.projectID, machineId)
 	firewall, err := call.Do()

@@ -118,7 +118,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
-
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
 	instance := &compute.Instance{
@@ -185,6 +184,15 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	_ = env.getSnapshot()
-	return errors.Annotatef(errNotImplemented, "StopInstances")
+	env = env.getSnapshot()
+
+	var ids []string
+	for _, id := range instances {
+		ids = append(ids, string(id))
+	}
+	if err := env.gce.removeInstances(env, ids...); err != nil {
+		return errors.Trace(err)
+	}
+
+	return common.RemoveStateInstances(env.Storage(), instances...)
 }
