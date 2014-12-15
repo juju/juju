@@ -107,13 +107,8 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 		return nil, errors.Trace(err)
 	}
 
-	instanceTypes, err := env.listInstanceTypes(ic)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	images := instances.ImageMetadataToImages(matchingImages)
-	spec, err := instances.FindInstanceSpec(images, ic, instanceTypes)
+	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	return spec, errors.Trace(err)
 }
 
@@ -191,5 +186,5 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 func (env *environ) StopInstances(instances ...instance.Id) error {
 	_ = env.getSnapshot()
-	return errors.Trace(errNotImplemented)
+	return errors.Annotatef(errNotImplemented, "StopInstances")
 }

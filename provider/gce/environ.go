@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -176,10 +175,6 @@ func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, erro
 		return nil, errors.Errorf("invalid availability zone %q", zoneName)
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
-}
-
-func (env *environ) listInstanceTypes(ic *instances.InstanceConstraint) ([]instances.InstanceType, error) {
-	return nil, errors.Trace(errors.Trace(errNotImplemented))
 }
 
 func checkInstanceType(cons constraints.Value) bool {
