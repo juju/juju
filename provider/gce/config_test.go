@@ -51,6 +51,12 @@ var newConfigTests = []struct {
 	remove []string
 	expect testing.Attrs
 	err    string
+	// skipIfNotValidated should be set to true if you are using a config.Config
+	// that had environConfig.attrs applied to it (via Apply). See gce.Provider.Validate.
+	skipIfNotValidated bool
+	// skipIfOldConfig should be set to true if you are going to pass an old
+	// config to gce.Provider.Validate.
+	skipIfOldConfig bool
 }{{
 	info:   "client-id is required",
 	remove: []string{"client-id"},
@@ -76,13 +82,15 @@ var newConfigTests = []struct {
 	insert: testing.Attrs{"client-email": ""},
 	err:    "client-email: must not be empty",
 }, {
-	info:   "region is required",
-	remove: []string{"region"},
-	err:    "region: expected string, got nothing",
+	info:               "region is inserted if missing",
+	remove:             []string{"region"},
+	expect:             testing.Attrs{"region": ""},
+	skipIfNotValidated: true,
 }, {
-	info:   "region cannot be empty",
-	insert: testing.Attrs{"region": ""},
-	err:    "region: must not be empty",
+	info:            "region can be empty",
+	insert:          testing.Attrs{"region": ""},
+	expect:          testing.Attrs{"region": ""},
+	skipIfOldConfig: true,
 }, {
 	info:   "project-id is required",
 	remove: []string{"project-id"},
@@ -100,6 +108,11 @@ var newConfigTests = []struct {
 func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
+		if test.skipIfNotValidated {
+			c.Logf("skipping %d: %s", i, test.info)
+			continue
+		}
+
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
@@ -109,6 +122,7 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 			}
 			attrs := environ.Config().AllAttrs()
 			for field, value := range test.expect {
+				c.Logf("%+v", attrs)
 				c.Check(attrs[field], gc.Equals, value)
 			}
 		} else {
@@ -147,6 +161,11 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	knownGoodConfig := newConfig(c, validAttrs())
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
+		if test.skipIfNotValidated || test.skipIfOldConfig {
+			c.Logf("skipping %d: %s", i, test.info)
+			continue
+		}
+
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := gce.Provider.Validate(knownGoodConfig, testConfig)

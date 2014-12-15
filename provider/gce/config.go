@@ -123,6 +123,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	ecfg := &environConfig{cfg, validated}
 
 	// TODO(ericsnow) Support pulling ID/PK from shell environment variables.

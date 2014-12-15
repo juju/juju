@@ -136,9 +136,6 @@ type gceConnection struct {
 }
 
 func (gce *gceConnection) validate() error {
-	if gce.region == "" {
-		return &config.InvalidConfigValue{Key: osEnvRegion}
-	}
 	if gce.projectID == "" {
 		return &config.InvalidConfigValue{Key: osEnvProjectID}
 	}
