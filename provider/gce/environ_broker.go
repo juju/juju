@@ -191,5 +191,5 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 
 func (env *environ) StopInstances(instances ...instance.Id) error {
 	_ = env.getSnapshot()
-	return errNotImplemented
+	return errors.Trace(errNotImplemented)
 }

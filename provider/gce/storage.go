@@ -8,6 +8,8 @@ package gce
 import (
 	"io"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/utils"
 )
@@ -23,27 +25,27 @@ func newStorage(ecfg *environConfig) (storage.Storage, error) {
 }
 
 func (s *environStorage) List(prefix string) ([]string, error) {
-	return nil, errNotImplemented
+	return nil, errors.Trace(errNotImplemented)
 }
 
 func (s *environStorage) URL(name string) (string, error) {
-	return "", errNotImplemented
+	return "", errors.Trace(errNotImplemented)
 }
 
 func (s *environStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, errNotImplemented
+	return nil, errors.Trace(errNotImplemented)
 }
 
 func (s *environStorage) Put(name string, r io.Reader, length int64) error {
-	return errNotImplemented
+	return errors.Trace(errNotImplemented)
 }
 
 func (s *environStorage) Remove(name string) error {
-	return errNotImplemented
+	return errors.Trace(errNotImplemented)
 }
 
 func (s *environStorage) RemoveAll() error {
-	return errNotImplemented
+	return errors.Trace(errNotImplemented)
 }
 
 func (s *environStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {

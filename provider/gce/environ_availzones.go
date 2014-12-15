@@ -31,14 +31,14 @@ func (z *gceAvailabilityZone) Available() bool {
 
 // AvailabilityZones returns all availability zones in the environment.
 func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
-	return nil, errNotImplemented
+	return nil, errors.Trace(errNotImplemented)
 }
 
 // InstanceAvailabilityZoneNames returns the names of the availability
 // zones for the specified instances. The error returned follows the same
 // rules as Environ.Instances.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	return nil, errNotImplemented
+	return nil, errors.Trace(errNotImplemented)
 }
 
 func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {

@@ -55,6 +55,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return err
 	}
+
 	storage, err := newStorage(ecfg)
 	if err != nil {
 		return err
@@ -65,6 +66,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	// Connect and authenticate.
 	env.gce = ecfg.newConnection()
 	err = env.gce.connect(ecfg.auth())
+
 	return errors.Trace(err)
 }
 
@@ -177,7 +179,7 @@ func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, erro
 }
 
 func (env *environ) listInstanceTypes(ic *instances.InstanceConstraint) ([]instances.InstanceType, error) {
-	return nil, errNotImplemented
+	return nil, errors.Trace(errors.Trace(errNotImplemented))
 }
 
 func checkInstanceType(cons constraints.Value) bool {
