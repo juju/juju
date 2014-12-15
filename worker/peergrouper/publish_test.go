@@ -32,8 +32,8 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	var mock mockAPIHostPortsSetter
 	statePublish := newPublisher(&mock, false)
 
-	hostPorts1 := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "127.0.0.1"), 1234)
-	hostPorts2 := network.AddressesWithPort(network.NewAddresses("testing2.invalid", "127.0.0.2"), 1234)
+	hostPorts1 := network.NewHostPorts(1234, "testing1.invalid", "127.0.0.1")
+	hostPorts2 := network.NewHostPorts(1234, "testing2.invalid", "127.0.0.2")
 
 	// statePublish.publishAPIServers should not update state a second time.
 	apiServers := [][]network.HostPort{hostPorts1}
@@ -55,8 +55,8 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 }
 
 func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
-	ipV4First := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "127.0.0.1", "::1"), 1234)
-	ipV6First := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "::1", "127.0.0.1"), 1234)
+	ipV4First := network.NewHostPorts(1234, "testing1.invalid", "127.0.0.1", "::1")
+	ipV6First := network.NewHostPorts(1234, "testing1.invalid", "::1", "127.0.0.1")
 
 	check := func(preferIPv6 bool, publish, expect []network.HostPort) {
 		var mock mockAPIHostPortsSetter
