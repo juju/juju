@@ -34,7 +34,6 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
-	constraints.CpuPower,
 }
 
 // ConstraintsValidator returns a Validator value which is used to
@@ -43,7 +42,7 @@ func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.CpuCores},
+		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower},
 	)
 	validator.RegisterUnsupported(unsupportedConstraints)
 
