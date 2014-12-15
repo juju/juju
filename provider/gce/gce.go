@@ -161,6 +161,14 @@ func (gce *gceConnection) regionURL() string {
 	return "https://www.googleapis.com/compute/v1/projects/my-project/zones/us-central1-a"
 }
 
+func (gce *gceConnection) verifyCredentials() error {
+	call := gce.Projects.Get(gce.projectID)
+	if _, err := call.Do(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 	opID := operation.ClientOperationId
 

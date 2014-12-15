@@ -38,8 +38,17 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	// TODO(ericsnow) This needs to be finished.
-	return providerInstance.Open(cfg)
+	env, err := providerInstance.Open(cfg)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if ctx.ShouldVerifyCredentials() {
+		if err := env.(*environ).gce.verifyCredentials(); err != nil {
+			return nil, err
+		}
+	}
+	return env, nil
 }
 
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
