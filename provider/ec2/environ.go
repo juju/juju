@@ -834,6 +834,17 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	}
 
 	results := make([]network.SubnetInfo, len(resp.Subnets), len(resp.Subnets))
+	for i, subnet := range resp.Subnets {
+		// No VLANTag available
+		cidr := subnet.CIDRBlock
+		allocatableLow := network.DecimalToIP(network.IPToDecimal(start) + 4)
+		info := network.SubnetInfo{
+			CIDR:             cidr,
+			ProviderID:       subnet.Id,
+			AllocatableIPLow: allocatableLow,
+		}
+		results[i] = info
+	}
 
 	return results, nil
 }
