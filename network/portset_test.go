@@ -125,7 +125,7 @@ func (s *PortSetSuite) TestPortSetIsNotEmpty(c *gc.C) {
 func (s *PortSetSuite) TestPortSetAdd(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2)
 	c.Check(portSet.IsEmpty(), jc.IsFalse)
-	portSet.Add(network.Port{Number: 81, Protocol: "tcp"})
+	portSet.Add("tcp", 81)
 
 	s.checkPortSetTCP(c, portSet, 80, 81)
 }
@@ -141,21 +141,54 @@ func (s *PortSetSuite) TestPortSetAddRanges(c *gc.C) {
 
 func (s *PortSetSuite) TestPortSetRemove(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2)
-	portSet.Remove(network.Port{Number: 80, Protocol: "tcp"})
+	portSet.Remove("tcp", 80)
 
 	c.Assert(portSet.Ports(), gc.HasLen, 0)
 }
 
+func (s *PortSetSuite) TestPortSetRemoveRanges(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange1)
+	portSet.RemoveRanges(
+		s.portRange2,
+		network.PortRange{7000, 8049, "tcp"},
+		network.PortRange{8051, 8074, "tcp"},
+		network.PortRange{8080, 9000, "tcp"},
+	)
+
+	s.checkPortSetTCP(c, portSet, 8050, 8075, 8076, 8077, 8078, 8079)
+}
+
 func (s *PortSetSuite) TestPortSetContains(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2)
-	isfound := portSet.Contains(network.Port{Number: 80, Protocol: "tcp"})
+	isfound := portSet.Contains("tcp", 80)
 
 	c.Assert(isfound, jc.IsTrue)
 }
 
 func (s *PortSetSuite) TestPortSetContainsNotFound(c *gc.C) {
 	portSet := network.NewPortSet(s.portRange2)
-	isfound := portSet.Contains(network.Port{Number: 81, Protocol: "tcp"})
+	isfound := portSet.Contains("tcp", 81)
+
+	c.Assert(isfound, jc.IsFalse)
+}
+
+func (s *PortSetSuite) TestPortSetContainsRangesSingleMatch(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange1)
+	isfound := portSet.ContainsRanges(network.PortRange{8080, 8080, "tcp"})
+
+	c.Assert(isfound, jc.IsTrue)
+}
+
+func (s *PortSetSuite) TestPortSetContainsRangesSingleNoMatch(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange1)
+	isfound := portSet.ContainsRanges(s.portRange2)
+
+	c.Assert(isfound, jc.IsFalse)
+}
+
+func (s *PortSetSuite) TestPortSetContainsRangesOverlapping(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange1)
+	isfound := portSet.ContainsRanges(network.PortRange{7000, 8049, "tcp"})
 
 	c.Assert(isfound, jc.IsFalse)
 }
@@ -179,6 +212,13 @@ func (s *PortSetSuite) TestPortSetPorts(c *gc.C) {
 	ports := portSet.Ports()
 
 	s.checkPorts(c, ports, "tcp", 79, 80, 81)
+}
+
+func (s *PortSetSuite) TestPortSetPortNumbers(c *gc.C) {
+	portSet := network.NewPortSet(s.portRange3)
+	ports := portSet.PortNumbers("tcp")
+
+	c.Check(ports, jc.SameContents, []int{79, 80, 81})
 }
 
 func (s *PortSetSuite) TestPortSetPortStrings(c *gc.C) {

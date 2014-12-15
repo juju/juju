@@ -4,6 +4,7 @@
 package network
 
 import (
+	"sort"
 	"strconv"
 
 	"github.com/juju/utils/set"
@@ -24,7 +25,11 @@ func NewPortSet(portRanges ...PortRange) PortSet {
 
 // Size returns the number of ports in the set.
 func (ps PortSet) Size() int {
-	return len(ps.Ports())
+	size := 0
+	for _, ports := range ps.values {
+		size += len(ports)
+	}
+	return size
 }
 
 // IsEmpty returns true if the PortSet is empty.
@@ -46,25 +51,86 @@ func (ps PortSet) Protocols() []string {
 	return result
 }
 
-// Ports returns a list of all the ports in the set for the
-// given protocols. If no protocols are provided all known
-// protocols in the set are used.
+// PortRanges returns a list of all the port ranges in the set for the
+// given protocols. If no protocols are provided all known protocols in
+// the set are used.
+func (ps PortSet) PortRanges(protocols ...string) []PortRange {
+	if len(protocols) == 0 {
+		protocols = ps.Protocols()
+	}
+
+	var result []PortRange
+	for _, protocol := range protocols {
+		ranges := collapsePorts(protocol, ps.PortNumbers(protocol)...)
+		result = append(result, ranges...)
+	}
+	return result
+}
+
+func collapsePorts(protocol string, ports ...int) (result []PortRange) {
+	if len(ports) == 0 {
+		return nil
+	}
+
+	sort.Ints(ports)
+
+	fromPort := 0
+	toPort := 0
+	for _, port := range ports {
+		if fromPort == 0 {
+			// new port range
+			fromPort = port
+			toPort = port
+		} else if port == toPort+1 {
+			// continuing port range
+			toPort = port
+		} else {
+			// break in port range
+			result = append(result,
+				PortRange{
+					Protocol: protocol,
+					FromPort: fromPort,
+					ToPort:   toPort,
+				})
+			fromPort = port
+			toPort = port
+		}
+	}
+	result = append(result, PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	})
+	return
+}
+
+// PortNumbers returns a list of all the port numbers in the set for
+// the given protocol.
 func (ps PortSet) Ports(protocols ...string) []Port {
 	if len(protocols) == 0 {
 		protocols = ps.Protocols()
 	}
 
-	var result []Port
-	for _, protocol := range protocols {
-		ports, ok := ps.values[protocol]
-		if !ok {
-			return nil
+	var results []Port
+	for _, portRange := range ps.PortRanges(protocols...) {
+		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
+			results = append(results, Port{portRange.Protocol, p})
 		}
-		for _, port := range ports.Values() {
-			portNum, _ := strconv.Atoi(port)
-			result = append(result, Port{protocol, portNum})
+	}
+	return results
+}
 
-		}
+// PortNumbers returns a list of all the port numbers in the set for
+// the given protocol.
+func (ps PortSet) PortNumbers(protocol string) []int {
+	var result []int
+	ports, ok := ps.values[protocol]
+	if !ok {
+		return nil
+	}
+	for _, port := range ports.Values() {
+		portNum, _ := strconv.Atoi(port)
+		result = append(result, portNum)
 	}
 	return result
 }
@@ -79,15 +145,15 @@ func (ps PortSet) PortStrings(protocol string) []string {
 	return ports.Values()
 }
 
-// Add adds a Port to the PortSet.
-func (ps *PortSet) Add(port Port) {
+// Add adds a port to the PortSet.
+func (ps *PortSet) Add(protocol string, port int) {
 	if ps.values == nil {
 		panic("uninitalised set")
 	}
-	portNum := strconv.Itoa(port.Number)
-	ports, ok := ps.values[port.Protocol]
+	portNum := strconv.Itoa(port)
+	ports, ok := ps.values[protocol]
 	if !ok {
-		ps.values[port.Protocol] = set.NewStrings(portNum)
+		ps.values[protocol] = set.NewStrings(portNum)
 	} else {
 		ports.Add(portNum)
 	}
@@ -97,29 +163,59 @@ func (ps *PortSet) Add(port Port) {
 func (ps *PortSet) AddRanges(portRanges ...PortRange) {
 	for _, portRange := range portRanges {
 		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
-			port := Port{portRange.Protocol, p}
-			ps.Add(port)
+			ps.Add(portRange.Protocol, p)
 		}
 	}
 }
 
-// Remove removes the given Port from the set.
-func (ps *PortSet) Remove(port Port) {
-	ports, ok := ps.values[port.Protocol]
+// Remove removes the given port from the set.
+func (ps *PortSet) Remove(protocol string, port int) {
+	ports, ok := ps.values[protocol]
 	if ok {
-		portNum := strconv.Itoa(port.Number)
+		portNum := strconv.Itoa(port)
 		ports.Remove(portNum)
 	}
 }
 
+// RemoveRanges removes all ports in the given PortRange values
+// from the set.
+func (ps *PortSet) RemoveRanges(portRanges ...PortRange) {
+	for _, portRange := range portRanges {
+		_, ok := ps.values[portRange.Protocol]
+		if ok {
+			for p := portRange.FromPort; p <= portRange.ToPort; p++ {
+				ps.Remove(portRange.Protocol, p)
+			}
+		}
+	}
+}
+
 // Contains returns true if the provided port is in the set.
-func (ps *PortSet) Contains(port Port) bool {
-	ports, ok := ps.values[port.Protocol]
+func (ps *PortSet) Contains(protocol string, port int) bool {
+	ports, ok := ps.values[protocol]
 	if !ok {
 		return false
 	}
-	portNum := strconv.Itoa(port.Number)
+	portNum := strconv.Itoa(port)
 	return ports.Contains(portNum)
+}
+
+// ContainsRanges returns true if the provided port ranges are
+// in the set.
+func (ps *PortSet) ContainsRanges(portRanges ...PortRange) bool {
+	for _, portRange := range portRanges {
+		ports, ok := ps.values[portRange.Protocol]
+		if !ok {
+			return false
+		}
+		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
+			portNum := strconv.Itoa(p)
+			if !ports.Contains(portNum) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // Union returns a new PortSet of the shared values
