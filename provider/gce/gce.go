@@ -53,7 +53,7 @@ const (
 var (
 	logger = loggo.GetLogger("juju.provider.gce")
 
-	errNotImplemented = errors.NotImplementedf("in gce provider")
+	errNotImplemented = errors.NotImplementedf("gce provider")
 
 	operationAttempts = utils.AttemptStrategy{
 		Total: operationTimeout * time.Second,
@@ -240,6 +240,16 @@ func (gce *gceConnection) instances(env environs.Environ) ([]*compute.Instance, 
 		}
 	}
 	return results, nil
+}
+
+func (gce *gceConnection) availabilityZones() ([]*compute.Zone, error) {
+	//TODO(wwtizel3) support paging requests if we receive a truncated result.
+	call := gce.Zones.List(gce.projectID)
+	raw, err := call.Do()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return raw.Items, nil
 }
 
 func (gce *gceConnection) firewall(machineId string) (*compute.Firewall, error) {
