@@ -6,9 +6,7 @@ from subprocess import CalledProcessError
 
 from jujuconfig import get_juju_home
 from jujupy import (
-    Environment,
     EnvJujuClient,
-    JujuClientDevel,
     SimpleEnvironment,
     temp_bootstrap_env,
     until_timeout,
@@ -68,17 +66,13 @@ def prepare_dummy_env(client):
     return token
 
 
-def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
-                         upload_tools, debug):
-    """Top level function that prepares the clients and environment.
-
-    initial and other are paths to the binariy used initially, and a binary
-    used later.  base_env is the name of the environment to base the
-    environment on and environment_name is the new name for the environment.
-    """
+def get_clients(initial, other, base_env, environment_name, debug, agent_url):
+    """Return the clients to use for testing."""
     environment = SimpleEnvironment.from_config(base_env)
-    update_env(environment, environment_name, series='precise')
-    environment.config.pop('tools-metadata-url', None)
+    update_env(environment, environment_name, series='precise',
+               agent_url=agent_url)
+    if agent_url is None:
+        environment.config.pop('tools-metadata-url', None)
     initial_client = EnvJujuClient.by_version(environment, initial,
                                               debug=debug)
     other_client = EnvJujuClient.by_version(environment, other, debug=debug)
@@ -86,6 +80,19 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     # down environments reliably.  (For example, 1.18.x cannot tear down
     # environments with alpha agent-versions.)
     released_client = EnvJujuClient.by_version(environment, debug=debug)
+    return initial_client, other_client, released_client
+
+
+def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
+                         upload_tools, debug, agent_url):
+    """Top level function that prepares the clients and environment.
+
+    initial and other are paths to the binariy used initially, and a binary
+    used later.  base_env is the name of the environment to base the
+    environment on and environment_name is the new name for the environment.
+    """
+    initial_client, other_client, released_client = get_clients(
+        initial, other, base_env, environment_name, debug, agent_url)
     test_control_heterogeneous(initial_client, other_client, released_client,
                                log_dir, upload_tools)
 
@@ -195,7 +202,7 @@ def check_series(client):
             'Series is {}, not {}'.format(codename, expected_codename))
 
 
-def main():
+def parse_args(argv=None):
     parser = ArgumentParser(description=dedent("""\
         Determine whether one juju version can control an environment created
         by another version.
@@ -210,10 +217,15 @@ def main():
         help='Upload local version of tools before bootstrapping.')
     parser.add_argument('--debug', help='Run juju with --debug',
                         action='store_true', default=False)
-    args = parser.parse_args()
+    parser.add_argument('--agent-url', default=None)
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
     assess_heterogeneous(args.initial, args.other, args.base_environment,
                          args.environment_name, args.log_dir,
-                         args.upload_tools, args.debug)
+                         args.upload_tools, args.debug, args.agent_url)
 
 
 if __name__ == '__main__':
