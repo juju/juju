@@ -5,6 +5,7 @@ from unittest import TestCase
 from jujuci import Artifact
 from build_juju import (
     build_juju,
+    get_script,
     main,
 )
 from utility import temp_dir
@@ -55,3 +56,13 @@ class JujuBuildTestCase(TestCase):
         self.assertEqual((work_dir, globs), aa_mock.call_args[0])
         self.assertEqual(
             {'dry_run': True, 'verbose': True}, aa_mock.call_args[1])
+
+    def test_get_script(self):
+        self.assertEqual(
+            '/foo/juju-release-tools/crossbuild.py',
+            get_script('/foo/juju-release-tools'))
+        parent_dir = os.path.realpath(
+            os.path.join(__file__, '..', '..'))
+        self.assertEqual(
+            os.path.join(parent_dir, 'juju-release-tools', 'crossbuild.py'),
+            get_script())
