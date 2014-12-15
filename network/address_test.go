@@ -610,3 +610,16 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 		"8.8.8.8",
 	))
 }
+
+func (*AddressSuite) TestIPToDecimal(c *gc.C) {
+	zeroIP, err := network.IPToDecimal("0.0.0.0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zeroIP, gc.Equals, uint32(0))
+
+	_, err = network.IPToDecimal("bad format")
+	c.Assert(err, gc.ErrorMatches, `"bad format" is not a valid IPv4 address`)
+
+	nonZeroIP, err := network.IPToDecimal("192.168.1.1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nonZeroIP, gc.Equals, uint32(3232235777))
+}

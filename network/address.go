@@ -5,6 +5,8 @@ package network
 
 import (
 	"bytes"
+	"encoding/binary"
+	"fmt"
 	"net"
 	"sort"
 )
@@ -393,4 +395,20 @@ func SortAddresses(addrs []Address, preferIPv6 bool) {
 	} else {
 		sort.Sort(addressesPreferringIPv4Slice(addrs))
 	}
+}
+
+// DecimalToIP converts a datted quad IP address to its decimal equivalent.
+func DecimalToIP(addr uint32) string {
+	bytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(bytes, addr)
+	return net.IP(bytes).String()
+}
+
+// IPToDecimal converts a decimal to the dotted quad IP address format.
+func IPToDecimal(ipv4Addr string) (uint32, error) {
+	ip := net.ParseIP(ipv4Addr).To4()
+	if ip == nil {
+		return 0, fmt.Errorf("%q is not a valid IPv4 address", ipv4Addr)
+	}
+	return binary.BigEndian.Uint32([]byte(ip)), nil
 }
