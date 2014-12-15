@@ -149,7 +149,12 @@ type AddMachineParams struct {
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics
-	Addrs                   []network.Address
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
+	Addrs []network.Address
 }
 
 // AddMachines holds the parameters for making the
@@ -573,7 +578,13 @@ type RsyslogConfigResult struct {
 	// Port is only used by state servers as the port to listen on.
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
-	Port      int
+	Port int
+
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	HostPorts []network.HostPort
 }
 
@@ -599,6 +610,11 @@ type DistributionGroupResults struct {
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// [][]string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	Servers [][]network.HostPort
 }
 
@@ -611,6 +627,11 @@ type FacadeVersions struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// [][]string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	Servers        [][]network.HostPort
 	EnvironTag     string
 	LastConnection *time.Time
@@ -637,6 +658,10 @@ type AuthUserInfo struct {
 
 // LoginRequestV1 holds the result of an Admin v1 Login call.
 type LoginResultV1 struct {
+	// TODO(dimitern): Use [][]string instead in order to break the
+	// dependency on the network package, as this potentially
+	// introduces hard to catch and debug wire-format changes in the
+	// protocol when the type changes!
 	Servers [][]network.HostPort `json:"servers"`
 
 	// EnvironTag is the tag for the environment that is being connected to.

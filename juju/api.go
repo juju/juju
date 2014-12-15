@@ -31,6 +31,7 @@ var (
 // apiState provides a subset of api.State's public
 // interface, defined here so it can be mocked.
 type apiState interface {
+	Addr() string
 	Close() error
 	APIHostPorts() [][]network.HostPort
 	EnvironTag() (names.EnvironTag, error)
@@ -97,6 +98,16 @@ func newAPIClient(envName string) (*api.State, error) {
 	return st.(*api.State), nil
 }
 
+// serverAddress returns the given string address:port as network.HostPort.
+var serverAddress = func(hostPort string) (network.HostPort, error) {
+	addrConnectedTo, err := network.ParseHostPorts(hostPort)
+	if err != nil {
+		// Should never happen, since we've just connected with it.
+		return network.HostPort{}, errors.Annotatef(err, "invalid API address %q", hostPort)
+	}
+	return addrConnectedTo[0], nil
+}
+
 // newAPIFromStore implements the bulk of NewAPIClientFromName
 // but is separate for testing purposes.
 func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenFunc) (apiState, error) {
@@ -150,7 +161,10 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 	}
 	var delay time.Duration
 	if info != nil && len(info.APIEndpoint().Addresses) > 0 {
-		logger.Debugf("trying cached API connection settings")
+		logger.Debugf(
+			"trying cached API connection settings - endpoints %v",
+			info.APIEndpoint().Addresses,
+		)
 		try.Start(func(stop <-chan struct{}) (io.Closer, error) {
 			return apiInfoConnect(store, info, apiOpen, stop)
 		})
@@ -178,6 +192,10 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 	}
 
 	st := val0.(apiState)
+	addrConnectedTo, err := serverAddress(st.Addr())
+	if err != nil {
+		return nil, err
+	}
 	// Even though we are about to update API addresses based on
 	// APIHostPorts in cacheChangedAPIInfo, we first cache the
 	// addresses based on the provider lookup. This is because older API
@@ -189,11 +207,15 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 			// Cache the connection settings only if we used the
 			// environment config, but any errors are just logged
 			// as warnings, because they're not fatal.
-			err = cacheAPIInfo(info, cachedInfo.cachedInfo)
+			err = cacheAPIInfo(st, info, cachedInfo.cachedInfo)
 			if err != nil {
 				logger.Warningf("cannot cache API connection settings: %v", err.Error())
 			} else {
 				logger.Infof("updated API connection settings cache")
+			}
+			addrConnectedTo, err = serverAddress(st.Addr())
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -202,8 +224,8 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 	if err != nil {
 		logger.Warningf("ignoring API connection environ tag: %v", err)
 	}
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), envTag); localerr != nil {
-		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), addrConnectedTo, envTag); localerr != nil {
+		logger.Warningf("cannot cache API addresses: %v", localerr)
 	}
 	return st, nil
 }
@@ -335,7 +357,7 @@ func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, er
 // cacheAPIInfo updates the local environment settings (.jenv file)
 // with the provided apiInfo, assuming we've just successfully
 // connected to the API server.
-func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
+func cacheAPIInfo(st apiState, info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.DeferredAnnotatef(&err, "failed to cache API credentials")
 	var environUUID string
 	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {
@@ -345,11 +367,28 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 		// with an empty UUID. Login will work for the same reasons.
 		logger.Warningf("ignoring invalid cached API endpoint environment UUID %v", apiInfo.EnvironTag.Id())
 	}
-	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   apiInfo.Addrs,
+	hostPorts, err := network.ParseHostPorts(apiInfo.Addrs...)
+	if err != nil {
+		return errors.Annotatef(err, "invalid API addresses %v", apiInfo.Addrs)
+	}
+	addrConnectedTo, err := network.ParseHostPorts(st.Addr())
+	if err != nil {
+		// Should never happen, since we've just connected with it.
+		return errors.Annotatef(err, "invalid API address %q", st.Addr())
+	}
+	addrs, hostnames, addrsChanged := PrepareEndpointsForCaching(
+		info, [][]network.HostPort{hostPorts}, addrConnectedTo[0],
+	)
+
+	endpoint := configstore.APIEndpoint{
 		CACert:      string(apiInfo.CACert),
 		EnvironUUID: environUUID,
-	})
+	}
+	if addrsChanged {
+		endpoint.Addresses = addrs
+		endpoint.Hostnames = hostnames
+	}
+	info.SetAPIEndpoint(endpoint)
 	tag, ok := apiInfo.Tag.(names.UserTag)
 	if !ok {
 		return errors.Errorf("apiInfo.Tag was of type %T, expecting names.UserTag", apiInfo.Tag)
@@ -364,42 +403,136 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	return info.Write()
 }
 
+var maybePreferIPv6 = func(info configstore.EnvironInfo) bool {
+	// BootstrapConfig will exist in production environments after
+	// bootstrap, but for testing it's easier to mock this function.
+	cfg := info.BootstrapConfig()
+	result := false
+	if cfg != nil {
+		if val, ok := cfg["prefer-ipv6"]; ok {
+			// It's optional, so if missing assume false.
+			result, _ = val.(bool)
+		}
+	}
+	return result
+}
+
+var resolveOrDropHostnames = network.ResolveOrDropHostnames
+
+// PrepareEndpointsForCaching performs the necessary operations on the
+// given API hostPorts so they are suitable for caching into the
+// environment's .jenv file, taking into account the addrConnectedTo
+// and the existing config store info:
+//
+// 1. Collapses hostPorts into a single slice.
+// 2. Filters out machine-local and link-local addresses.
+// 3. Removes any duplicates
+// 4. Call network.SortHostPorts() on the list, respecing prefer-ipv6
+// flag.
+// 5. Puts the addrConnectedTo on top.
+// 6. Compares the result against info.APIEndpoint.Hostnames.
+// 7. If the addresses differ, call network.ResolveOrDropHostnames()
+// on the list and perform all steps again from step 1.
+// 8. Compare the list of resolved addresses against the cached info
+// APIEndpoint.Addresses, and if changed return both addresses and
+// hostnames as strings (so they can be cached on APIEndpoint) and
+// set haveChanged to true.
+// 9. If the hostnames haven't changed, return two empty slices and set
+// haveChanged to false. No DNS resolution is performed to save time.
+//
+// This is used right after bootstrap to cache the initial API
+// endpoints, as well as on each CLI connection to verify if the
+// cached endpoints need updating.
+func PrepareEndpointsForCaching(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort) (addresses, hostnames []string, haveChanged bool) {
+	processHostPorts := func(allHostPorts [][]network.HostPort) []network.HostPort {
+		collapsedHPs := network.CollapseHostPorts(allHostPorts)
+		filteredHPs := network.FilterUnusableHostPorts(collapsedHPs)
+		uniqueHPs := network.DropDuplicatedHostPorts(filteredHPs)
+		// Sort the result to prefer public IPs on top (when prefer-ipv6
+		// is true, IPv6 addresses of the same scope will come before IPv4
+		// ones).
+		preferIPv6 := maybePreferIPv6(info)
+		network.SortHostPorts(uniqueHPs, preferIPv6)
+
+		if addrConnectedTo.Value != "" {
+			return network.EnsureFirstHostPort(addrConnectedTo, uniqueHPs)
+		}
+		// addrConnectedTo can be empty only right after bootstrap.
+		return uniqueHPs
+	}
+
+	apiHosts := processHostPorts(hostPorts)
+	hostsStrings := network.HostPortsToStrings(apiHosts)
+	endpoint := info.APIEndpoint()
+	needResolving := false
+
+	// Verify if the unresolved addresses have changed.
+	if len(apiHosts) > 0 && len(endpoint.Hostnames) > 0 {
+		if addrsChanged(hostsStrings, endpoint.Hostnames) {
+			logger.Debugf(
+				"API hostnames changed from %v to %v - resolving hostnames",
+				endpoint.Hostnames, hostsStrings,
+			)
+			needResolving = true
+		}
+	} else if len(apiHosts) > 0 {
+		// No cached hostnames, most likely right after bootstrap.
+		logger.Debugf("API hostnames %v - resolving hostnames", hostsStrings)
+		needResolving = true
+	}
+	if !needResolving {
+		// We're done - nothing changed.
+		logger.Debugf("API hostnames unchanged - not resolving")
+		return nil, nil, false
+	}
+	// Perform DNS resolution and check against APIEndpoints.Addresses.
+	resolved := resolveOrDropHostnames(apiHosts)
+	apiAddrs := processHostPorts([][]network.HostPort{resolved})
+	addrsStrings := network.HostPortsToStrings(apiAddrs)
+	if len(apiAddrs) > 0 && len(endpoint.Addresses) > 0 {
+		if addrsChanged(addrsStrings, endpoint.Addresses) {
+			logger.Infof(
+				"API addresses changed from %v to %v",
+				endpoint.Addresses, addrsStrings,
+			)
+			return addrsStrings, hostsStrings, true
+		}
+	} else if len(apiAddrs) > 0 {
+		// No cached addresses, most likely right after bootstrap.
+		logger.Infof("new API addresses to cache %v", addrsStrings)
+		return addrsStrings, hostsStrings, true
+	}
+	// No changes.
+	logger.Debugf("API addresses unchanged")
+	return nil, nil, false
+}
+
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag names.EnvironTag) error {
-	var addrs []string
-	for _, serverHostPorts := range hostPorts {
-		for _, hostPort := range serverHostPorts {
-			// Only cache addresses that are likely to be usable,
-			// exclude localhost style ones.
-			if hostPort.Scope != network.ScopeMachineLocal &&
-				hostPort.Scope != network.ScopeLinkLocal {
-				addrs = append(addrs, hostPort.NetAddr())
-			}
-		}
-	}
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, addrConnectedTo network.HostPort, newEnvironTag names.EnvironTag) error {
+	addrs, hosts, addrsChanged := PrepareEndpointsForCaching(info, hostPorts, addrConnectedTo)
 	endpoint := info.APIEndpoint()
-	changed := false
+	needCaching := false
 	if names.IsValidEnvironment(newEnvironTag.Id()) {
 		if environUUID := newEnvironTag.Id(); endpoint.EnvironUUID != environUUID {
-			changed = true
 			endpoint.EnvironUUID = environUUID
+			needCaching = true
 		}
 	}
-	if len(addrs) != 0 && addrsChanged(endpoint.Addresses, addrs) {
-		logger.Debugf("API addresses changed from %q to %q", endpoint.Addresses, addrs)
-		changed = true
+	if addrsChanged {
 		endpoint.Addresses = addrs
+		endpoint.Hostnames = hosts
+		needCaching = true
 	}
-	if !changed {
+	if !needCaching {
 		return nil
 	}
 	info.SetAPIEndpoint(endpoint)
 	if err := info.Write(); err != nil {
 		return err
 	}
-	logger.Infof("updated API connection settings cache")
+	logger.Infof("updated API connection settings cache - endpoints %v", endpoint.Addresses)
 	return nil
 }
 

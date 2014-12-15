@@ -179,7 +179,7 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, name
 	defer worker.Kill()
 
 	// change the API HostPorts to trigger an rsyslog restart
-	newHostPorts := network.AddressesWithPort(network.NewAddresses("127.0.0.1"), 6541)
+	newHostPorts := network.NewHostPorts(6541, "127.0.0.1")
 	err = s.State.SetAPIHostPorts([][]network.HostPort{newHostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -69,6 +69,11 @@ type PortsResults struct {
 // of network.Port or an error.
 type PortsResult struct {
 	Error *Error
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	Ports []network.Port
 }
 
@@ -84,7 +89,11 @@ type MachinePorts struct {
 type MachinePortRange struct {
 	UnitTag     string
 	RelationTag string
-	PortRange   network.PortRange
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// string instead in order to break the dependency on the network
+	// package, as this potentially introduces hard to catch and debug
+	// wire-format changes in the protocol when the type changes!
+	PortRange network.PortRange
 }
 
 // MachinePortsParams holds the arguments for making a
@@ -419,7 +428,12 @@ type RequestedNetworksResults struct {
 // MachineNetworkInfoResult holds network info for a single machine.
 type MachineNetworkInfoResult struct {
 	Error *Error
-	Info  []network.Info
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []NetworkInfo (locally defined) instead in order to break the
+	// dependency on the network package, as this potentially
+	// introduces hard to catch and debug wire-format changes in the
+	// protocol when the type changes!
+	Info []network.Info
 }
 
 // MachineNetworkInfoResults holds network info for multiple machines.
@@ -458,7 +472,12 @@ type StatusResults struct {
 
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
-	Tag       string
+	Tag string
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	Addresses []network.Address
 }
 

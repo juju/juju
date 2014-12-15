@@ -134,17 +134,24 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	addr := s.machine.Addresses()
 	c.Assert(addr, gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("10.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-	}
-	err = machine.SetMachineAddresses(addresses)
+	setAddresses := network.NewAddresses(
+		"8.8.8.8",
+		"127.0.0.1",
+		"10.0.0.1",
+	)
+	// Before setting, the addresses are sorted to put public on top,
+	// cloud-local next, machine-local last.
+	expectAddresses := network.NewAddresses(
+		"8.8.8.8",
+		"10.0.0.1",
+		"127.0.0.1",
+	)
+	err = machine.SetMachineAddresses(setAddresses)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, addresses)
+	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, expectAddresses)
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {

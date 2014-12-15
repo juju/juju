@@ -117,7 +117,7 @@ func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
 	if prefs != nil {
 		// Create the apt preferences file. This needs to be done
 		// before apt-get upgrade, so it must be done as a bootcmd.
-		cfg.addBootTextFile(prefs.Path, prefs.FileContents(), 0644)
+		cfg.AddBootTextFile(prefs.Path, prefs.FileContents(), 0644)
 	}
 }
 
@@ -352,10 +352,10 @@ func (cfg *Config) AddTextFile(filename, data string, mode uint) {
 	addFile(cfg.AddRunCmd, filename, []byte(data), mode, false)
 }
 
-// addBootTextFile will add multiple bootcmd entries to safely set the
+// AddBootTextFile will add multiple bootcmd entries to safely set the
 // contents of a specific file to the requested contents early in the
 // boot process.
-func (cfg *Config) addBootTextFile(filename, data string, mode uint) {
+func (cfg *Config) AddBootTextFile(filename, data string, mode uint) {
 	addFile(cfg.AddBootCmd, filename, []byte(data), mode, false)
 }
 

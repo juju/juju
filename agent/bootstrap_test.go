@@ -135,9 +135,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
-		network.AddressesWithPort(
-			network.NewAddresses("zeroonetwothree", "0.1.2.3"),
-			1234),
+		network.NewHostPorts(1234, "zeroonetwothree", "0.1.2.3"),
 	})
 
 	// Check that the state serving info is initialised correctly.

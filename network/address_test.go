@@ -288,6 +288,25 @@ var selectPublicTests = []selectTest{{
 	},
 	0,
 	false,
+}, {
+	"first public address is picked when both public IPs and public hostnames exist",
+	[]network.Address{
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown},
+		{"example.com", network.HostName, "public", network.ScopePublic},
+		{"8.8.8.8", network.IPv4Address, "floating", network.ScopePublic},
+	},
+	1,
+	false,
+}, {
+	"first public IPv6 address is picked when both public IPs and public hostnames exist when preferIPv6 is true",
+	[]network.Address{
+		{"10.0.0.1", network.IPv4Address, "cloud", network.ScopeUnknown},
+		{"8.8.8.8", network.IPv4Address, "floating", network.ScopePublic},
+		{"example.com", network.HostName, "public", network.ScopePublic},
+		{"2001:db8::1", network.IPv6Address, "other", network.ScopePublic},
+	},
+	3,
+	true,
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
@@ -477,11 +496,61 @@ var selectInternalMachineTests = []selectTest{{
 }, {
 	"first IPv4 machine local address is selected when preferIPv6 is true and no IPv6 addresses",
 	[]network.Address{
-		{"168.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
 		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
 		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
 	},
 	1,
+	true,
+}, {
+	"first machine local address is selected when preferIPv6 is false even with public/cloud hostnames",
+	[]network.Address{
+		{"public.example.com", network.HostName, "public", network.ScopePublic},
+		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal},
+		{"unknown.example.com", network.HostName, "public", network.ScopeUnknown},
+		{"cloud.internal", network.HostName, "public", network.ScopeCloudLocal},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+	},
+	1,
+	false,
+}, {
+	"first cloud local hostname is selected when preferIPv6 is false even with other machine/cloud addresses",
+	[]network.Address{
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
+		{"cloud-unknown.internal", network.HostName, "container", network.ScopeUnknown},
+		{"cloud-local.internal", network.HostName, "container", network.ScopeCloudLocal},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+	},
+	2,
+	false,
+}, {
+	"first IPv6 machine local address is selected when preferIPv6 is true even with public/cloud hostnames",
+	[]network.Address{
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"public.example.com", network.HostName, "public", network.ScopePublic},
+		{"unknown.example.com", network.HostName, "public", network.ScopeUnknown},
+		{"cloud.internal", network.HostName, "public", network.ScopeCloudLocal},
+		{"::1", network.IPv6Address, "container", network.ScopeMachineLocal},
+		{"fe80::1", network.IPv6Address, "container", network.ScopeLinkLocal},
+	},
+	4,
+	true,
+}, {
+	"first IPv6 cloud local address is selected when preferIPv6 is true even with cloud local hostnames",
+	[]network.Address{
+		{"169.254.1.1", network.IPv4Address, "link", network.ScopeLinkLocal},
+		{"cloud-unknown.internal", network.HostName, "container", network.ScopeUnknown},
+		{"cloud-local.internal", network.HostName, "container", network.ScopeCloudLocal},
+		{"fc00::1", network.IPv6Address, "cloud", network.ScopeCloudLocal},
+		{"127.0.0.1", network.IPv4Address, "container", network.ScopeMachineLocal},
+		{"fc00::2", network.IPv6Address, "cloud", network.ScopeCloudLocal},
+		{"127.0.0.2", network.IPv4Address, "container", network.ScopeMachineLocal},
+	},
+	3,
 	true,
 }}
 
@@ -547,66 +616,71 @@ func (s *AddressSuite) TestString(c *gc.C) {
 	for i, test := range stringTests {
 		c.Logf("test %d: %#v", i, test.addr)
 		c.Check(test.addr.String(), gc.Equals, test.str)
-	}
-}
-
-var netAddrTests = []struct {
-	addr   network.Address
-	port   int
-	expect string
-}{{
-	addr:   network.NewAddress("0.1.2.3", network.ScopeUnknown),
-	port:   99,
-	expect: "0.1.2.3:99",
-}, {
-	addr:   network.NewAddress("2001:DB8::1", network.ScopeUnknown),
-	port:   100,
-	expect: "[2001:DB8::1]:100",
-}}
-
-func (*AddressSuite) TestNetAddr(c *gc.C) {
-	for i, test := range netAddrTests {
-		c.Logf("test %d: %q", i, test.addr)
-		hp := network.HostPort{
-			Address: test.addr,
-			Port:    test.port,
-		}
-		c.Assert(hp.NetAddr(), gc.Equals, test.expect)
+		c.Check(test.addr.GoString(), gc.Equals, test.str)
 	}
 }
 
 func (*AddressSuite) TestSortAddresses(c *gc.C) {
 	addrs := network.NewAddresses(
 		"127.0.0.1",
-		"localhost",
-		"example.com",
 		"::1",
 		"fc00::1",
+		"169.254.1.2",
+		"localhost",
+		"2001:db8::1",
 		"fe80::2",
+		"7.8.8.8",
 		"172.16.0.1",
+		"example.com",
 		"8.8.8.8",
 	)
+	// Simulate prefer-ipv6: false first.
 	network.SortAddresses(addrs, false)
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses(
+		// Public IPv4 addresses on top.
+		"7.8.8.8",
+		"8.8.8.8",
+		// After that public IPv6 addresses.
+		"2001:db8::1",
+		// Then hostnames.
 		"example.com",
 		"localhost",
-		"127.0.0.1",
+		// Then IPv4 cloud-local addresses.
 		"172.16.0.1",
-		"8.8.8.8",
-		"::1",
-		"fe80::2",
+		// Then IPv6 cloud-local addresses.
 		"fc00::1",
+		// Then machine-local IPv4 addresses.
+		"127.0.0.1",
+		// Then machine-local IPv6 addresses.
+		"::1",
+		// Then link-local IPv4 addresses.
+		"169.254.1.2",
+		// Finally, link-local IPv6 addresses.
+		"fe80::2",
 	))
 
+	// Now, simulate prefer-ipv6: true.
 	network.SortAddresses(addrs, true)
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses(
+		// Public IPv6 addresses on top.
+		"2001:db8::1",
+		// After that public IPv4 addresses.
+		"7.8.8.8",
+		"8.8.8.8",
+		// Then hostnames.
 		"example.com",
 		"localhost",
-		"fe80::2",
-		"::1",
+		// Then IPv6 cloud-local addresses.
 		"fc00::1",
-		"127.0.0.1",
+		// Then IPv4 cloud-local addresses.
 		"172.16.0.1",
-		"8.8.8.8",
+		// Then machine-local IPv6 addresses.
+		"::1",
+		// Then machine-local IPv4 addresses.
+		"127.0.0.1",
+		// Then link-local IPv6 addresses.
+		"fe80::2",
+		// Finally, link-local IPv4 addresses.
+		"169.254.1.2",
 	))
 }
