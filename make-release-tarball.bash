@@ -102,6 +102,7 @@ if [[ $(lsb_release -sc) == "trusty" ]]; then
 fi
 
 # Remove godeps, non-free data, and any binaries.
+rm -rf $WORK/src/golang.org/x/crypto
 rm -r $WORK/src/launchpad.net/godeps
 rm -rf $WORK/src/github.com/kisielk/gotool
 rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
