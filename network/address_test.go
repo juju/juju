@@ -623,3 +623,11 @@ func (*AddressSuite) TestIPToDecimal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nonZeroIP, gc.Equals, uint32(3232235777))
 }
+
+func (*AddressSuite) TestDecimalToIP(c *gc.C) {
+	addr := network.DecimalToIP(uint32(0))
+	c.Assert(addr, gc.Equals, "0.0.0.0")
+
+	addr = network.DecimalToIP(uint32(3232235777))
+	c.Assert(addr, gc.Equals, "192.168.1.1")
+}
