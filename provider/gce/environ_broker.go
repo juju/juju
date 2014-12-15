@@ -122,10 +122,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	disks := getDisks(spec, args.Constraints)
 	instance := &compute.Instance{
 		// TODO(ericsnow) populate/verify these values.
-		Name: machineID,
-		// TODO(ericsnow) The GCE instance types need to be registered.
-		MachineType: spec.InstanceType.Name,
-		Disks:       disks,
+		Name:  machineID,
+		Disks: disks,
 		// TODO(ericsnow) Do we really need this?
 		Metadata: &compute.Metadata{Items: []*compute.MetadataItems{{
 			Key:   "metadata.cloud-init:user-data",
@@ -137,7 +135,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := env.gce.newInstance(instance, availabilityZones); err != nil {
+	if err := env.gce.newInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return instance, nil

@@ -29,6 +29,8 @@ const (
 
 	authURL = "https://accounts.google.com/o/oauth2/auth"
 
+	partialMachineType = "zones/%s/machineTypes/%s"
+
 	storageScratch    = "SCRATCH"
 	storagePersistent = "PERSISTENT"
 
@@ -198,8 +200,9 @@ func (gce *gceConnection) instance(zone, id string) (*compute.Instance, error) {
 	return inst, errors.Trace(err)
 }
 
-func (gce *gceConnection) newInstance(inst *compute.Instance, zones []string) error {
+func (gce *gceConnection) newInstance(inst *compute.Instance, machineType string, zones []string) error {
 	for _, zoneName := range zones {
+		inst.MachineType = resolveMachineType(zoneName, machineType)
 		call := gce.Instances.Insert(
 			gce.projectID,
 			zoneName,
