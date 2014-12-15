@@ -88,11 +88,12 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	if err != nil {
 		return errors.Annotate(err, "error getting image from storage")
 	}
+	defer imageReader.Close()
 
 	// Stream the image to the caller.
 	logger.Debugf("streaming image from state blobstore: %+v", metadata)
 	resp.Header().Set("Content-Type", "application/x-tar-gz")
-	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", apihttp.DIGEST_SHA, metadata.SHA256))
+	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", apihttp.DigestSHA, metadata.SHA256))
 	resp.Header().Set("Content-Length", fmt.Sprint(metadata.Size))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, imageReader); err != nil {

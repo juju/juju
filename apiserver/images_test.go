@@ -127,7 +127,7 @@ func (s *imageSuite) testDownload(c *gc.C, kind, series, arch, uuid string) []by
 	resp, err := s.downloadRequest(c, uuid, kind, series, arch)
 	c.Assert(err, gc.IsNil)
 	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
-	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DIGEST_SHA)+"="+s.imageChecksum)
+	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DigestSHA)+"="+s.imageChecksum)
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, s.archiveContentType)
 	c.Check(resp.Header.Get("Content-Length"), gc.Equals, fmt.Sprintf("%v", len(s.imageData)))
 

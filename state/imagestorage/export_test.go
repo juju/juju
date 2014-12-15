@@ -10,8 +10,8 @@ import (
 )
 
 // ManagedStorage returns the managedStorage attribute for the storage.
-func ManagedStorage(s Storage) blobstore.ManagedStorage {
-	return s.(*imageStorage).getManagedStorage()
+func ManagedStorage(s Storage, session *mgo.Session) blobstore.ManagedStorage {
+	return s.(*imageStorage).getManagedStorage(session)
 }
 
 // MetadataCollection returns the metadataCollection attribute for the storage.

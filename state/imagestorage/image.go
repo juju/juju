@@ -61,15 +61,14 @@ var getManagedStorage = func(session *mgo.Session) blobstore.ManagedStorage {
 	return blobstore.NewManagedStorage(metadataDb, rs)
 }
 
-func (s *imageStorage) getManagedStorage() blobstore.ManagedStorage {
-	return getManagedStorage(s.blobDb.Session.Copy())
+func (s *imageStorage) getManagedStorage(session *mgo.Session) blobstore.ManagedStorage {
+	return getManagedStorage(session)
 }
 
-func (s *imageStorage) txnRunnerWithSession() (jujutxn.Runner, *mgo.Session) {
+func (s *imageStorage) txnRunner(session *mgo.Session) jujutxn.Runner {
 	db := s.metadataCollection.Database
-	session := db.Session.Copy()
 	runnerDb := db.With(session)
-	return txnRunner(runnerDb), session
+	return txnRunner(runnerDb)
 }
 
 // Override for testing.
@@ -79,7 +78,9 @@ var txnRunner = func(db *mgo.Database) jujutxn.Runner {
 
 // AddImage is defined on the Storage interface.
 func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr error) {
-	managedStorage := s.getManagedStorage()
+	session := s.blobDb.Session.Copy()
+	defer session.Close()
+	managedStorage := s.getManagedStorage(session)
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
 	if err := managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store image")
@@ -140,8 +141,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 		}
 		return []txn.Op{op}, nil
 	}
-	txnRunner, session := s.txnRunnerWithSession()
-	defer session.Close()
+	txnRunner := s.txnRunner(session)
 	err := txnRunner.Run(buildTxn)
 	if err != nil {
 		return errors.Annotate(err, "cannot store image metadata")
@@ -161,8 +161,11 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 
 // DeleteImage is defined on the Storage interface.
 func (s *imageStorage) DeleteImage(metadata *Metadata) (resultErr error) {
+	session := s.blobDb.Session.Copy()
+	defer session.Close()
+	managedStorage := s.getManagedStorage(session)
 	path := imagePath(metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-	if err := s.getManagedStorage().RemoveForEnvironment(s.envUUID, path); err != nil {
+	if err := managedStorage.RemoveForEnvironment(s.envUUID, path); err != nil {
 		return errors.Annotate(err, "cannot remove image blob")
 	}
 	// Remove the metadata.
@@ -174,14 +177,25 @@ func (s *imageStorage) DeleteImage(metadata *Metadata) (resultErr error) {
 		}
 		return []txn.Op{op}, nil
 	}
-	txnRunner, session := s.txnRunnerWithSession()
-	defer session.Close()
+	txnRunner := s.txnRunner(session)
 	err := txnRunner.Run(buildTxn)
 	// Metadata already removed, we don't care.
 	if err == mgo.ErrNotFound {
 		return nil
 	}
 	return errors.Annotate(err, "cannot remove image metadata")
+}
+
+// imageCloser encapsulates an image reader and session
+// so that both are closed together.
+type imageCloser struct {
+	io.ReadCloser
+	session *mgo.Session
+}
+
+func (c *imageCloser) Close() error {
+	c.session.Close()
+	return c.ReadCloser.Close()
 }
 
 // Image is defined on the Storage interface.
@@ -194,7 +208,9 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 	if err != nil {
 		return nil, nil, err
 	}
-	image, err := s.imageBlob(s.getManagedStorage(), metadataDoc.Path)
+	session := s.blobDb.Session.Copy()
+	managedStorage := s.getManagedStorage(session)
+	image, err := s.imageBlob(managedStorage, metadataDoc.Path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -207,7 +223,11 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 		SHA256:  metadataDoc.SHA256,
 		Created: created,
 	}
-	return metadata, image, nil
+	imageResult := &imageCloser{
+		image,
+		session,
+	}
+	return metadata, imageResult, nil
 }
 
 type imageMetadataDoc struct {

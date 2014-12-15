@@ -31,17 +31,18 @@ const (
 )
 
 var (
-	GetManagedStorage     = (*State).getManagedStorage
-	ToolstorageNewStorage = &toolstorageNewStorage
-	MachineIdLessThan     = machineIdLessThan
-	NewAddress            = newAddress
-	StateServerAvailable  = &stateServerAvailable
-	GetOrCreatePorts      = getOrCreatePorts
-	GetPorts              = getPorts
-	PortsGlobalKey        = portsGlobalKey
-	CurrentUpgradeId      = currentUpgradeId
-	NowToTheSecond        = nowToTheSecond
-	PickAddress           = &pickAddress
+	GetManagedStorage      = (*State).getManagedStorage
+	ToolstorageNewStorage  = &toolstorageNewStorage
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	NewAddress             = newAddress
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	PickAddress            = &pickAddress
 )
 
 type (

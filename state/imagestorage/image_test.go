@@ -12,7 +12,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +36,6 @@ type ImageSuite struct {
 	mongo              *gitjujutesting.MgoInstance
 	session            *mgo.Session
 	storage            imagestorage.Storage
-	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
 	txnRunner          jujutxn.Runner
 }
@@ -51,7 +49,6 @@ func (s *ImageSuite) SetUpTest(c *gc.C) {
 	s.session, err = s.mongo.Dial()
 	c.Assert(err, gc.IsNil)
 	s.storage = imagestorage.NewStorage(s.session, "my-uuid")
-	s.managedStorage = imagestorage.ManagedStorage(s.storage)
 	s.metadataCollection = imagestorage.MetadataCollection(s.storage)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: s.metadataCollection.Database})
 	s.patchTransactionRunner()
@@ -118,7 +115,8 @@ func (s *ImageSuite) TestImage(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `resource at path "environs/my-uuid/path" not found`)
 
-	err = s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	err = managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
 	metadata, r, err := s.storage.Image("lxc", "trusty", "amd64")
@@ -142,7 +140,8 @@ func (s *ImageSuite) TestAddImageRemovesExisting(c *gc.C) {
 	// Add a metadata doc and a blob at a known path, then
 	// call AddImage and ensure the original blob is removed.
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "path")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	err := managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
 	addedMetadata := &imagestorage.Metadata{
@@ -157,7 +156,7 @@ func (s *ImageSuite) TestAddImageRemovesExisting(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// old blob should be gone
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", "path")
+	_, _, err = managedStorage.GetForEnvironment("my-uuid", "path")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertImage(c, addedMetadata, "xyzzzz")
@@ -169,7 +168,8 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	// the original blob, but does not return an error if it
 	// fails.
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "path")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	err := managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
 	storage := imagestorage.NewStorage(s.session, "my-uuid")
@@ -186,7 +186,7 @@ func (s *ImageSuite) TestAddImageRemovesExistingRemoveFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// old blob should still be there
-	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", "path")
+	r, _, err := managedStorage.GetForEnvironment("my-uuid", "path")
 	c.Assert(err, gc.IsNil)
 	r.Close()
 
@@ -217,7 +217,8 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailure(c *gc.C) {
 
 	path := fmt.Sprintf(
 		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.SHA256)
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	_, _, err = managedStorage.GetForEnvironment("my-uuid", path)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -239,7 +240,8 @@ func (s *ImageSuite) TestAddImageRemovesBlobOnFailureRemoveFails(c *gc.C) {
 	// blob should still be there, because the removal failed.
 	path := fmt.Sprintf(
 		"images/%s-%s-%s:%s", addedMetadata.Kind, addedMetadata.Series, addedMetadata.Arch, addedMetadata.SHA256)
-	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", path)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	r, _, err := managedStorage.GetForEnvironment("my-uuid", path)
 	c.Assert(err, gc.IsNil)
 	r.Close()
 }
@@ -284,7 +286,8 @@ func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 	addMetadata := func() {
 		err := s.storage.AddImage(strings.NewReader("0"), metadata0)
 		c.Assert(err, gc.IsNil)
-		r, _, err := s.managedStorage.GetForEnvironment("my-uuid", "images/lxc-trusty-amd64:0")
+		managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+		r, _, err := managedStorage.GetForEnvironment("my-uuid", "images/lxc-trusty-amd64:0")
 		c.Assert(err, gc.IsNil)
 		r.Close()
 	}
@@ -294,7 +297,8 @@ func (s *ImageSuite) TestAddImageConcurrent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Blob added in before-hook should be removed.
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", "images/lxc-trusty-amd64:0")
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	_, _, err = managedStorage.GetForEnvironment("my-uuid", "images/lxc-trusty-amd64:0")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	s.assertImage(c, metadata1, "1")
@@ -322,7 +326,8 @@ func (s *ImageSuite) TestAddImageExcessiveContention(c *gc.C) {
 	// There should be no blobs apart from the last one added by the before-hook.
 	for _, metadata := range metadata[:3] {
 		path := fmt.Sprintf("images/%s-%s-%s:%s", metadata.Kind, metadata.Series, metadata.Arch, metadata.SHA256)
-		_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+		managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+		_, _, err = managedStorage.GetForEnvironment("my-uuid", path)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 
@@ -331,7 +336,8 @@ func (s *ImageSuite) TestAddImageExcessiveContention(c *gc.C) {
 
 func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 	s.addMetadataDoc(c, "lxc", "trusty", "amd64", 3, "hash(abc)", "images/lxc-trusty-amd64:sha256")
-	err := s.managedStorage.PutForEnvironment("my-uuid", "images/lxc-trusty-amd64:sha256", strings.NewReader("blah"), 4)
+	managedStorage := imagestorage.ManagedStorage(s.storage, s.session)
+	err := managedStorage.PutForEnvironment("my-uuid", "images/lxc-trusty-amd64:sha256", strings.NewReader("blah"), 4)
 	c.Assert(err, gc.IsNil)
 
 	_, rc, err := s.storage.Image("lxc", "trusty", "amd64")
@@ -349,7 +355,7 @@ func (s *ImageSuite) TestDeleteImage(c *gc.C) {
 	err = s.storage.DeleteImage(metadata)
 	c.Assert(err, gc.IsNil)
 
-	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", "images/lxc-trusty-amd64:sha256")
+	_, _, err = managedStorage.GetForEnvironment("my-uuid", "images/lxc-trusty-amd64:sha256")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, _, err = s.storage.Image("lxc", "trusty", "amd64")
