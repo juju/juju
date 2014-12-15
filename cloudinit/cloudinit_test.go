@@ -331,6 +331,20 @@ var ctests = []struct {
 		},
 	},
 	{
+		"AddBootTextFile",
+		map[string]interface{}{"bootcmd": []string{
+			"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'",
+			"printf '%s\\n' '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
+		}},
+		func(cfg *cloudinit.Config) {
+			cfg.AddBootTextFile(
+				"/etc/apt/apt.conf.d/99proxy",
+				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
+	{
 		"SetAptGetWrapper",
 		map[string]interface{}{"apt_get_wrapper": map[string]interface{}{
 			"command": "eatmydata",
@@ -343,7 +357,8 @@ var ctests = []struct {
 }
 
 func (S) TestOutput(c *gc.C) {
-	for _, t := range ctests {
+	for i, t := range ctests {
+		c.Logf("test %d: %s", i, t.name)
 		cfg := cloudinit.New()
 		t.setOption(cfg)
 		renderer, err := cloudinit.NewRenderer("quantal")

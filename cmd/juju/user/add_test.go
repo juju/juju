@@ -97,11 +97,11 @@ func assertJENVContents(c *gc.C, filename, username, password string) {
 	raw, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]interface{}{
-		"user": username,
-		"password": password,
+		"user":          username,
+		"password":      password,
 		"state-servers": []interface{}{"localhost:12345"},
-		"ca-cert": testing.CACert[:len(testing.CACert)-1],
-		"environ-uuid": "env-uuid",
+		"ca-cert":       testing.CACert[:len(testing.CACert)-1],
+		"environ-uuid":  "env-uuid",
 	}
 	c.Assert(string(raw), jc.YAMLEquals, expected)
 }

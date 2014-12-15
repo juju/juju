@@ -98,6 +98,43 @@ var relationGetTests = []struct {
 		relid:   0,
 		args:    []string{"private-address", "u/0"},
 		out:     "foo: bar\n",
+	}, {
+		summary: "all keys with implicit member",
+		relid:   1,
+		unit:    "m/0",
+		out:     "pew: |\n  pew\n  pew",
+	}, {
+		summary: "all keys with explicit member",
+		relid:   1,
+		args:    []string{"-", "m/0"},
+		out:     "pew: |\n  pew\n  pew",
+	}, {
+		summary: "all keys with explicit local",
+		relid:   0,
+		args:    []string{"-", "u/0"},
+		out:     "private-address: |\n  foo: bar",
+	}, {
+		summary: "explicit smart formatting 1",
+		relid:   1,
+		unit:    "m/0",
+		args:    []string{"--format", "smart"},
+		out:     "pew: |\n  pew\n  pew",
+	}, {
+		summary: "explicit smart formatting 2",
+		relid:   1,
+		unit:    "m/0",
+		args:    []string{"pew", "--format", "smart"},
+		out:     "pew\npew\n",
+	}, {
+		summary: "explicit smart formatting 3",
+		relid:   1,
+		args:    []string{"value", "u/1", "--format", "smart"},
+		out:     "12345",
+	}, {
+		summary: "explicit smart formatting 4",
+		relid:   1,
+		args:    []string{"missing", "u/1", "--format", "smart"},
+		out:     "",
 	},
 }
 
@@ -125,7 +162,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	}
 }
 
-var relationGetYAMLTests = []struct {
+var relationGetFormatTests = []struct {
 	summary string
 	relid   int
 	unit    string
@@ -133,127 +170,54 @@ var relationGetYAMLTests = []struct {
 	out     interface{}
 }{
 	{
-		summary: "all keys with implicit member",
+		summary: "formatting 1",
 		relid:   1,
 		unit:    "m/0",
 		out:     map[string]interface{}{"pew": "pew\npew\n"},
 	}, {
-		summary: "all keys with explicit member",
-		relid:   1,
-		args:    []string{"-", "m/0"},
-		out:     map[string]interface{}{"pew": "pew\npew\n"},
-	}, {
-		summary: "all keys with explicit local",
-		relid:   0,
-		args:    []string{"-", "u/0"},
-		out:     map[string]interface{}{"private-address": "foo: bar\n"},
-	}, {
-		summary: "explicit smart formatting 1",
+		summary: "formatting 2",
 		relid:   1,
 		unit:    "m/0",
-		args:    []string{"--format", "smart"},
-		out:     map[string]interface{}{"pew": "pew\npew\n"},
-	}, {
-		summary: "explicit smart formatting 2",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"pew", "--format", "smart"},
-		out:     "pew pew",
-	}, {
-		summary: "explicit smart formatting 3",
-		relid:   1,
-		args:    []string{"value", "u/1", "--format", "smart"},
-		out:     12345,
-	}, {
-		summary: "explicit smart formatting 4",
-		relid:   1,
-		args:    []string{"missing", "u/1", "--format", "smart"},
-		out:     nil,
-	}, {
-		summary: "yaml formatting 1",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"--format", "yaml"},
-		out:     map[string]interface{}{"pew": "pew\npew\n"},
-	}, {
-		summary: "yaml formatting 2",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"pew", "--format", "yaml"},
+		args:    []string{"pew"},
 		out:     "pew\npew\n",
 	}, {
-		summary: "yaml formatting 3",
+		summary: "formatting 3",
 		relid:   1,
-		args:    []string{"value", "u/1", "--format", "yaml"},
+		args:    []string{"value", "u/1"},
 		out:     "12345",
 	}, {
-		summary: "yaml formatting 4",
+		summary: "formatting 4",
 		relid:   1,
-		args:    []string{"missing", "u/1", "--format", "yaml"},
+		args:    []string{"missing", "u/1"},
 		out:     nil,
 	},
 }
 
-func (s *RelationGetSuite) TestRelationGetYAML(c *gc.C) {
-	for i, t := range relationGetYAMLTests {
-		c.Logf("test %d: %s", i, t.summary)
-		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
-		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
-		code := cmd.Main(com, ctx, t.args)
-		c.Check(code, gc.Equals, 0)
-		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-		stdout := bufferString(ctx.Stdout)
-		c.Check(stdout, jc.YAMLEquals, t.out)
+func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
+	testFormat := func(format string) {
+		for i, t := range relationGetFormatTests {
+			c.Logf("test %d: %s %s", i, format, t.summary)
+			hctx := s.GetHookContext(c, t.relid, t.unit)
+			com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
+			c.Assert(err, jc.ErrorIsNil)
+			ctx := testing.Context(c)
+			args := append(t.args, "--format", format)
+			code := cmd.Main(com, ctx, args)
+			c.Check(code, gc.Equals, 0)
+			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+			stdout := bufferString(ctx.Stdout)
+			switch format {
+			case "yaml":
+				c.Check(stdout, jc.YAMLEquals, t.out)
+			case "json":
+				c.Check(stdout, jc.JSONEquals, t.out)
+			default:
+				c.Fail()
+			}
+		}
 	}
-}
-
-var relationGetJSONTests = []struct {
-	summary string
-	relid   int
-	unit    string
-	args    []string
-	out     interface{}
-}{
-	{
-		summary: "json formatting 1",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"--format", "json"},
-		out:     map[string]interface{}{"pew": "pew\npew\n"},
-	}, {
-		summary: "json formatting 2",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"pew", "--format", "json"},
-		out:     "pew\npew\n",
-	}, {
-		summary: "json formatting 3",
-		relid:   1,
-		args:    []string{"value", "u/1", "--format", "json"},
-		out:     "12345",
-	}, {
-		summary: "json formatting 4",
-		relid:   1,
-		args:    []string{"missing", "u/1", "--format", "json"},
-		out:     nil,
-	},
-}
-
-func (s *RelationGetSuite) TestRelationGetJSON(c *gc.C) {
-	for i, t := range relationGetJSONTests {
-		c.Logf("test %d: %s", i, t.summary)
-		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
-		c.Assert(err, jc.ErrorIsNil)
-		ctx := testing.Context(c)
-		code := cmd.Main(com, ctx, t.args)
-		c.Check(code, gc.Equals, 0)
-		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-		stdout := bufferString(ctx.Stdout)
-		c.Check(stdout, jc.JSONEquals, t.out)
-	}
+	testFormat("yaml")
+	testFormat("json")
 }
 
 var helpTemplate = `
