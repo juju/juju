@@ -126,10 +126,10 @@ def deploy_dummy_stack(env, charm_prefix):
         env.wait_for_started(3600)
     else:
         env.wait_for_started()
-    check_token(env, token)
+    check_token(env.client.get_env_client(env), token)
 
 
-def check_token(env, token):
+def check_token(client, token):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
@@ -146,12 +146,11 @@ def check_token(env, token):
         cat /var/run/dummy-sink/token
     """
     try:
-        result = env.client.get_juju_output(
-            env, 'ssh', 'dummy-sink/0', get_token)
+        result = client.get_juju_output('ssh', 'dummy-sink/0', get_token)
     except subprocess.CalledProcessError as err:
         print("WARNING: juju ssh failed: {}".format(str(err)))
         print("Falling back to ssh.")
-        dummy_sink = env.get_status().status['services']['dummy-sink']
+        dummy_sink = client.get_status().status['services']['dummy-sink']
         dummy_sink_ip = dummy_sink['units']['dummy-sink/0']['public-address']
         user_at_host = 'ubuntu@{}'.format(dummy_sink_ip)
         result = subprocess.check_output(
