@@ -5,6 +5,8 @@ package ec2
 
 import (
 	"fmt"
+	"math"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -825,7 +827,6 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the EC2 provider yet.
 func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	ec2Inst := e.ec2()
 	resp, err := ec2Inst.Subnets([]string{}, nil)
@@ -833,21 +834,36 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 	}
 
-	results := make([]network.SubnetInfo, len(resp.Subnets), len(resp.Subnets))
-	for i, subnet := range resp.Subnets {
-		// No VLANTag available
+	results := []network.SubnetInfo{}
+	for _, subnet := range resp.Subnets {
 		cidr := subnet.CIDRBlock
-		allocatableLow, err := network.DecimalToIP(network.IPToDecimal(start) + 4)
+		ip, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			logger.Warningf("Skipping subnet %q, invalid IP, %v", cidr, err)
+			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
 			continue
 		}
-		info := network.SubnetInfo{
-			CIDR:             cidr,
-			ProviderId:       subnet.Id,
-			AllocatableIPLow: allocatableLow,
+		start, err := network.IPToDecimal(ip.String())
+		if err != nil {
+			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
+			continue
 		}
-		results[i] = info
+		// the first four addresses in a subnet are reserved
+		allocatableLow := network.DecimalToIP(start + 4)
+
+		_, zeros := ipnet.Mask.Size()
+		highMask := uint32(math.Pow(2, float64(zeros))) - 1
+		highIP := start | highMask
+		// the last address in a subnet is reserved
+		allocatableHigh := network.DecimalToIP(highIP - 1)
+
+		// No VLANTag available
+		info := network.SubnetInfo{
+			CIDR:              cidr,
+			ProviderId:        network.Id(subnet.Id),
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
+		}
+		results = append(results, info)
 	}
 
 	return results, nil
