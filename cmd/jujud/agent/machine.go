@@ -697,7 +697,15 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	imageURLGetter := container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
+	// There may not be a CA certificate private key available, and without
+	// it we can't ensure that other Juju nodes can connect securely, so only
+	// use an image URL getter if there's a private key.
+	var imageURLGetter container.ImageURLGetter
+	if servingInfo, ok := agentConfig.StateServingInfo(); ok {
+		if servingInfo.CAPrivateKey != "" {
+			imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
+		}
+	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
 		WorkerName:          watcherName,
