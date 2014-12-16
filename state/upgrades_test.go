@@ -1670,8 +1670,8 @@ func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, ins
 }
 
 func (s *upgradesSuite) TestAddAvailabilityZoneToInstanceData(c *gc.C) {
-	machineID := "0"
-	var instID instance.Id = "1"
+	machineID := "9999"
+	var instID instance.Id = "9999"
 	s.azSetUp(c, machineID, instID)
 
 	azfunc := func(*State, instance.Id) (string, error) {
@@ -1833,12 +1833,12 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 		description: "joyent provider, no manual provisioned machines",
 		provider:    "joyent",
 		manual:      false,
-		hasJob:      []bool{true, true, true},
+		hasJob:      []bool{false, false, false},
 	}, {
 		description: "joyent provider, one manual provisioned machine",
 		provider:    "joyent",
 		manual:      true,
-		hasJob:      []bool{true, true, false},
+		hasJob:      []bool{false, false, false},
 	}, {
 		description: "local provider, no manual provisioned machines",
 		provider:    "local",

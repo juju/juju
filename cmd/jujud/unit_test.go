@@ -80,6 +80,9 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, id)
+	err = machine.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
+	c.Assert(err, jc.ErrorIsNil)
 	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
@@ -322,9 +325,9 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]network.HostPort{network.AddressesWithPort(
-		network.NewAddresses("localhost"), 1234,
-	)}
+	updatedServers := [][]network.HostPort{
+		network.NewHostPorts(1234, "localhost"),
+	}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 

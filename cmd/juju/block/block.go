@@ -210,7 +210,7 @@ var blockedMessages = map[Block]string{
 // ProcessBlockedError ensures that correct and user-friendly message is
 // displayed to the user based on the block type.
 func ProcessBlockedError(err error, block Block) error {
-	if params.IsCodeOperationBlocked(err) {
+	if params.IsCodeOperationBlocked(errors.Cause(err)) {
 		logger.Errorf(blockedMessages[block])
 		return cmd.ErrSilent
 	}

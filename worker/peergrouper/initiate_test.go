@@ -40,7 +40,19 @@ func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	// This would return a mgo.QueryError if a ReplicaSet
 	// configuration already existed but we tried to create
 	// one with replicaset.Initiate again.
+	// ErrReplicaSetAlreadyInitiated is not a failure but an
+	// indication that we tried to initiate an initiated rs
 	err = peergrouper.MaybeInitiateMongoServer(args)
+	c.Assert(err, gc.Equals, peergrouper.ErrReplicaSetAlreadyInitiated)
+
+	// Make sure running InitiateMongoServer without forcing will behave
+	// in the same way as MaybeInitiateMongoServer
+	err = peergrouper.InitiateMongoServer(args, false)
+	c.Assert(err, gc.Equals, peergrouper.ErrReplicaSetAlreadyInitiated)
+
+	// Assert that passing Force to initiate will re-create the replicaset
+	// even though it exists already
+	err = peergrouper.InitiateMongoServer(args, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO test login

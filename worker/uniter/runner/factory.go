@@ -306,6 +306,15 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.proxySettings = environConfig.ProxySettings()
 
+	availabilityzone, err := f.unit.AvailabilityZone()
+	if errors.IsNotSupported(err) {
+		// The provider does not support availability zones.
+		availabilityzone = ""
+	} else if err != nil {
+		return err
+	}
+	ctx.availabilityzone = availabilityzone
+
 	// Calling these last, because there's a potential race: they're not guaranteed
 	// to be set in time to be needed for a hook. If they're not, we just leave them
 	// unset as we always have; this isn't great but it's about behaviour preservation.

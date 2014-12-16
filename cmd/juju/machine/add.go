@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package machine
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/version"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -35,13 +36,13 @@ running a supported operating system (see "manual provisioning" below),
 and containers on machines. Machines are created in a clean state and
 ready to have units deployed.
 
-Without any parameters, add-machine will allocate a new provider-specific
+Without any parameters, add machine will allocate a new provider-specific
 machine (multiple, if "-n" is provided). When adding a new machine, you
 may specify constraints for the machine to be provisioned; the provider
 will interpret these constraints in order to decide what kind of machine
 to allocate.
 
-If a container type is specified (e.g. "lxc"), then add-machine will
+If a container type is specified (e.g. "lxc"), then add machine will
 allocate a container of that type on a new provider-specific machine. It is
 also possible to add containers to existing machines using the format
 <container type>:<machine number>. Constraints cannot be combined with
@@ -60,14 +61,14 @@ MAAS provider to acquire a particular node by specifying its hostname with
 "--to". For more information on placement directives, see "juju help placement".
 
 Examples:
-   juju add-machine                      (starts a new machine)
-   juju add-machine -n 2                 (starts 2 new machines)
-   juju add-machine lxc                  (starts a new machine with an lxc container)
-   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
-   juju add-machine lxc:4                (starts a new lxc container on machine 4)
-   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
-   juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
-   juju add-machine zone=us-east-1a
+   juju machine add                      (starts a new machine)
+   juju machine add -n 2                 (starts 2 new machines)
+   juju machine add lxc                  (starts a new machine with an lxc container)
+   juju machine add lxc -n 2             (starts 2 new machines with an lxc container)
+   juju machine add lxc:4                (starts a new lxc container on machine 4)
+   juju machine add --constraints mem=8G (starts a machine with at least 8GB RAM)
+   juju machine add ssh:user@10.10.0.3   (manually provisions a machine with ssh)
+   juju machine add zone=us-east-1a
 
 See Also:
    juju help constraints
@@ -87,9 +88,10 @@ func init() {
 	)
 }
 
-// AddMachineCommand starts a new machine and registers it in the environment.
-type AddMachineCommand struct {
+// AddCommand starts a new machine and registers it in the environment.
+type AddCommand struct {
 	envcmd.EnvCommandBase
+	api AddMachineAPI
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
@@ -100,22 +102,22 @@ type AddMachineCommand struct {
 	NumMachines int
 }
 
-func (c *AddMachineCommand) Info() *cmd.Info {
+func (c *AddCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add-machine",
+		Name:    "add",
 		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
 		Doc:     addMachineDoc,
 	}
 }
 
-func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
-func (c *AddMachineCommand) Init(args []string) error {
+func (c *AddCommand) Init(args []string) error {
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
@@ -137,28 +139,33 @@ func (c *AddMachineCommand) Init(args []string) error {
 	return nil
 }
 
-type addMachineAPI interface {
+type AddMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
+	EnvironmentGet() (map[string]interface{}, error)
 	EnvironmentUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
-var getAddMachineAPI = func(c *AddMachineCommand) (addMachineAPI, error) {
+var manualProvisioner = manual.ProvisionMachine
+
+func (c *AddCommand) getAddMachineAPI() (AddMachineAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	return c.NewAPIClient()
 }
 
-var manualProvisioner = manual.ProvisionMachine
-
-func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
-	client, err := getAddMachineAPI(c)
+func (c *AddCommand) Run(ctx *cmd.Context) error {
+	client, err := c.getAddMachineAPI()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer client.Close()
 
+	logger.Infof("load config")
 	var config *config.Config
 	if defaultStore, err := configstore.Default(); err != nil {
 		return err
@@ -167,7 +174,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
-		// Manual provisioning.
+		logger.Infof("manual provisioning")
 		args := manual.ProvisionMachineArgs{
 			Host:   c.Placement.Directive,
 			Client: client,
@@ -186,6 +193,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
+	logger.Infof("environment provisioning")
 	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
 		c.Placement.Scope = client.EnvironmentUUID()
 	}
@@ -196,10 +204,22 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
-	if config.Type() != provider.MAAS {
-		// In case of MAAS JobManageNetworking is not added to ensure
-		// the non-intrusive start of a networker like above for the
-		// manual provisioning.
+
+	envVersion, err := envcmd.GetEnvironmentVersion(client)
+	if err != nil {
+		return err
+	}
+
+	// Servers before 1.21-alpha2 don't have the networker so don't
+	// try to use JobManageNetworking with them.
+	//
+	// In case of MAAS and Joyent JobManageNetworking is not added
+	// to ensure the non-intrusive start of a networker like above
+	// for the manual provisioning. See this related joyent bug
+	// http://pad.lv/1401423
+	if envVersion.Compare(version.MustParse("1.21-alpha2")) >= 0 &&
+		config.Type() != provider.MAAS &&
+		config.Type() != provider.Joyent {
 		jobs = append(jobs, multiwatcher.JobManageNetworking)
 	}
 
@@ -262,7 +282,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "failed to create %d machines\n", len(errs))
 		returnErr := []string{}
 		for _, e := range errs {
-			returnErr = append(returnErr, fmt.Sprintf("%s", e))
+			returnErr = append(returnErr, e.Error())
 		}
 		return errors.New(strings.Join(returnErr, ", "))
 	}

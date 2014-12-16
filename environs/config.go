@@ -59,7 +59,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	if name == "" {
 		name = envs.Default
 		if name == "" {
-			return nil, fmt.Errorf("no default environment found")
+			return nil, errors.New("no default environment found")
 		}
 	}
 	attrs, ok := envs.rawEnvirons[name]
@@ -67,7 +67,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		return nil, errors.NotFoundf("environment %q", name)
 	}
 	if err := validateEnvironmentKind(attrs); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// If deprecated config attributes are used, log warnings so the user can know

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -409,6 +410,29 @@ func (s *uniterBaseSuite) testPrivateAddress(
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: "1.2.3.4"},
 			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterBaseSuite) testAvailabilityZone(
+	c *gc.C,
+	facade interface {
+		AvailabilityZone(args params.Entities) (params.StringResults, error)
+	},
+) {
+	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
+		return "a_zone", nil
+	})
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+	result, err := facade.AvailabilityZone(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(result, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{
+			{Result: "a_zone"},
 		},
 	})
 }

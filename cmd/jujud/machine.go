@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/charm.v4"
@@ -115,38 +116,14 @@ var (
 	getMetricAPI = metricAPI
 )
 
-// PrepareRestore will flag the agent to allow only one command:
-// Restore, this will ensure that we can do all the file movements
-// required for restore and no one will do changes while we do that.
-// it will return error if the machine is already in this state.
-func (a *MachineAgent) PrepareRestore() error {
-	if a.restoreMode {
-		return fmt.Errorf("already in restore mode")
-	}
-	a.restoreMode = true
-	return nil
-}
-
-// BeginRestore will flag the agent to disallow all commands since
-// restore should be running and therefore making changes that
-// would override anything done.
-func (a *MachineAgent) BeginRestore() error {
-	switch {
-	case !a.restoreMode:
-		return fmt.Errorf("not in restore mode, cannot begin restoration")
-	case a.restoring:
-		return fmt.Errorf("already restoring")
-	}
-	a.restoring = true
-	return nil
-}
-
 // IsRestorePreparing returns bool representing if we are in restore mode
-// but not running restore
+// but not running restore.
 func (a *MachineAgent) IsRestorePreparing() bool {
 	return a.restoreMode && !a.restoring
 }
 
+// IsRestoreRunning returns bool representing if we are in restore mode
+// and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
 }
@@ -194,7 +171,6 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
-
 	return nil
 }
 
@@ -231,6 +207,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
@@ -302,13 +281,47 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	return nil
 }
 
-func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+// PrepareRestore will flag the agent to allow only a limited set
+// of commands defined in
+// "github.com/juju/juju/apiserver".allowedMethodsAboutToRestore
+// the most noteworthy is:
+// Backups.Restore: this will ensure that we can do all the file movements
+// required for restore and no one will do changes while we do that.
+// it will return error if the machine is already in this state.
+func (a *MachineAgent) PrepareRestore() error {
+	if a.restoreMode {
+		return errors.Errorf("already in restore mode")
+	}
+	a.restoreMode = true
+	return nil
+}
+
+// BeginRestore will flag the agent to disallow all commands since
+// restore should be running and therefore making changes that
+// would override anything done.
+func (a *MachineAgent) BeginRestore() error {
+	switch {
+	case !a.restoreMode:
+		return errors.Errorf("not in restore mode, cannot begin restoration")
+	case a.restoring:
+		return errors.Errorf("already restoring")
+	}
+	a.restoring = true
+	return nil
+}
+
+// newrestorestatewatcherworker will return a worker or err if there is a failure,
+// the worker takes care of watching the state of restoreInfo doc and put the
+// agent in the different restore modes.
+func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
 	}
 	return worker.NewSimpleWorker(rWorker), nil
 }
 
+// restoreChanged will be called whenever restoreInfo doc changes signaling a new
+// step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
 	rinfo, err := st.EnsureRestoreInfo()
 	if err != nil {
@@ -323,6 +336,7 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 	return nil
 }
 
+// restoreStateWatcher watches for restoreInfo looking for changes in the restore process.
 func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
 	restoreWatch := st.WatchRestoreInfoChanges()
 	defer func() {
@@ -461,9 +475,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
-	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
-	})
+	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(st, entity.Jobs()))
 
 	// All other workers must wait for the upgrade steps to complete
 	// before starting.
@@ -581,6 +593,15 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+func (a *MachineAgent) upgradeStepsWorkerStarter(
+	st *api.State,
+	jobs []multiwatcher.MachineJob,
+) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) {
+		return a.upgradeWorkerContext.Worker(a, st, jobs), nil
+	}
 }
 
 // shouldWriteProxyFiles returns true, unless the supplied conf identifies the
@@ -718,54 +739,21 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
-				return a.newRestoreStateWatcher(st)
+				return a.newRestoreStateWatcherWorker(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "lease manager", func() (worker.Worker, error) {
 				workerLoop := lease.WorkerLoop(st)
 				return worker.NewSimpleWorker(workerLoop), nil
 			})
-			apiserverWorker := func() (worker.Worker, error) {
-				agentConfig = a.CurrentConfig()
-				// If the configuration does not have the required information,
-				// it is currently not a recoverable error, so we kill the whole
-				// agent, potentially enabling human intervention to fix
-				// the agent's configuration file.
-				info, ok := agentConfig.StateServingInfo()
-				if !ok {
-					return nil, &fatalError{"StateServingInfo not available and we need it"}
-				}
-				cert := []byte(info.Cert)
-				key := []byte(info.PrivateKey)
-
-				if len(cert) == 0 || len(key) == 0 {
-					return nil, &fatalError{"configuration does not have state server cert/key"}
-				}
-				tag := agentConfig.Tag()
-				dataDir := agentConfig.DataDir()
-				logDir := agentConfig.LogDir()
-
-				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
-				listener, err := net.Listen("tcp", endpoint)
-				if err != nil {
-					return nil, err
-				}
-				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-					Cert:      cert,
-					Key:       key,
-					Tag:       tag,
-					DataDir:   dataDir,
-					LogDir:    logDir,
-					Validator: a.limitLogins,
-				})
-			}
-			runner.StartWorker("apiserver", apiserverWorker)
+			newApiserverWorker := a.apiserverWorkerStarter(st)
+			runner.StartWorker("apiserver", newApiserverWorker)
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
 					logger.Debugf("stop api server worker")
 					runner.StopWorker("apiserver")
 					logger.Debugf("start new apiserver worker with new certificate")
-					return runner.StartWorker("apiserver", apiserverWorker)
+					return runner.StartWorker("apiserver", newApiserverWorker)
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
@@ -799,6 +787,45 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
 
+func (a *MachineAgent) apiserverWorkerStarter(st *state.State) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) { return a.newApiserverWorker(st) }
+}
+
+func (a *MachineAgent) newApiserverWorker(st *state.State) (worker.Worker, error) {
+	agentConfig := a.CurrentConfig()
+	// If the configuration does not have the required information,
+	// it is currently not a recoverable error, so we kill the whole
+	// agent, potentially enabling human intervention to fix
+	// the agent's configuration file.
+	info, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return nil, &fatalError{"StateServingInfo not available and we need it"}
+	}
+	cert := []byte(info.Cert)
+	key := []byte(info.PrivateKey)
+
+	if len(cert) == 0 || len(key) == 0 {
+		return nil, &fatalError{"configuration does not have state server cert/key"}
+	}
+	tag := agentConfig.Tag()
+	dataDir := agentConfig.DataDir()
+	logDir := agentConfig.LogDir()
+
+	endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+	listener, err := net.Listen("tcp", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	return apiserver.NewServer(st, listener, apiserver.ServerConfig{
+		Cert:      cert,
+		Key:       key,
+		Tag:       tag,
+		DataDir:   dataDir,
+		LogDir:    logDir,
+		Validator: a.limitLogins,
+	})
+}
+
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
@@ -818,20 +845,17 @@ func init() {
 	}
 }
 
-// limitLogin is called by the API server for each login attempt.
+// limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrads or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
-	err := a.limitLoginsDuringRestore(req)
-	if err != nil {
+	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
-	err = a.limitLoginsDuringUpgrade(req)
-	if err != nil {
-		return err
-	}
-	return nil
+	return a.limitLoginsDuringUpgrade(req)
 }
 
+// limitLoginsDuringRestore will only allow logins for restore related purposes
+// while the different steps of restore are running.
 func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 	var err error
 	switch {
@@ -982,7 +1006,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		// TODO(dfc) InitiateMongoParams should take a Tag
 		User:     stateInfo.Tag.String(),
 		Password: stateInfo.Password,
-	}); err != nil {
+	}); err != nil && err != peergrouper.ErrReplicaSetAlreadyInitiated {
 		return err
 	}
 	return nil
