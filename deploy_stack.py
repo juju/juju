@@ -272,7 +272,11 @@ def test_upgrade(old_env):
     env = Environment.from_config(old_env.environment)
     env.client.debug = old_env.client.debug
     upgrade_juju(env)
-    env.wait_for_version(env.get_matching_agent_version(), 600)
+    if env.config['type'] == 'maas':
+        timeout = 1200
+    else:
+        timeout = 600
+    env.wait_for_version(env.get_matching_agent_version(), timeout)
 
 
 def upgrade_juju(environment):
