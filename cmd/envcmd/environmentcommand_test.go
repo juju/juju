@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type EnvironmentCommandSuite struct {
@@ -238,4 +239,62 @@ type closer struct{}
 
 func (*closer) Close() error {
 	return nil
+}
+
+type EnvironmentVersionSuite struct {
+	fake *fakeEnvGetter
+}
+
+var _ = gc.Suite(&EnvironmentVersionSuite{})
+
+type fakeEnvGetter struct {
+	agentVersion interface{}
+	err          error
+}
+
+func (g *fakeEnvGetter) EnvironmentGet() (map[string]interface{}, error) {
+	if g.err != nil {
+		return nil, g.err
+	} else if g.agentVersion == nil {
+		return map[string]interface{}{}, nil
+	} else {
+		return map[string]interface{}{
+			"agent-version": g.agentVersion,
+		}, nil
+	}
+}
+
+func (s *EnvironmentVersionSuite) SetUpTest(*gc.C) {
+	s.fake = new(fakeEnvGetter)
+}
+
+func (s *EnvironmentVersionSuite) TestApiCallFails(c *gc.C) {
+	s.fake.err = errors.New("boom")
+	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	c.Assert(err, gc.ErrorMatches, "unable to retrieve environment config: boom")
+}
+
+func (s *EnvironmentVersionSuite) TestNoVersion(c *gc.C) {
+	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	c.Assert(err, gc.ErrorMatches, "version not found in environment config")
+}
+
+func (s *EnvironmentVersionSuite) TestInvalidVersionType(c *gc.C) {
+	s.fake.agentVersion = 99
+	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	c.Assert(err, gc.ErrorMatches, "invalid environment version type in config")
+}
+
+func (s *EnvironmentVersionSuite) TestInvalidVersion(c *gc.C) {
+	s.fake.agentVersion = "a.b.c"
+	_, err := envcmd.GetEnvironmentVersion(s.fake)
+	c.Assert(err, gc.ErrorMatches, "unable to parse environment version: .+")
+}
+
+func (s *EnvironmentVersionSuite) TestSuccess(c *gc.C) {
+	vs := "1.22.1"
+	s.fake.agentVersion = vs
+	v, err := envcmd.GetEnvironmentVersion(s.fake)
+	c.Assert(err, gc.IsNil)
+	c.Assert(v.Compare(version.MustParse(vs)), gc.Equals, 0)
 }
