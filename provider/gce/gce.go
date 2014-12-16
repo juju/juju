@@ -316,7 +316,7 @@ func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) e
 }
 
 func (gce *gceConnection) removeDisk(id, zone string) error {
-	call := gce.Disks.Delete(gce.projectId, zone, id)
+	call := gce.Disks.Delete(gce.projectID, zone, id)
 	operation, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
