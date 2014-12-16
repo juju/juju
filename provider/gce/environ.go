@@ -30,8 +30,8 @@ type environ struct {
 	gce *gceConnection
 }
 
-//TODO (wwitzel3): Investigate simplestreams.HasRegion for this provider
 var _ environs.Environ = (*environ)(nil)
+var _ simplestreams.HasRegion = (*environ)(nil)
 
 // Name returns the name of the environment.
 func (env *environ) Name() string {
