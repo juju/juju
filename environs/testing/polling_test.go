@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -79,12 +80,14 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
 func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *gc.C) {
 	c.Assert(common.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
 	c.Assert(common.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(environs.AddressesRefreshAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
 
 	cleanup := PatchAttemptStrategies()
 	defer cleanup()
 
 	c.Check(common.LongAttempt, gc.DeepEquals, impatientAttempt)
 	c.Check(common.ShortAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(environs.AddressesRefreshAttempt, gc.DeepEquals, impatientAttempt)
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {

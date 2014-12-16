@@ -11,6 +11,7 @@ import (
 type mockAPIState struct {
 	close func(juju.APIState) error
 
+	addr         string
 	apiHostPorts [][]network.HostPort
 	environTag   string
 }
@@ -20,6 +21,10 @@ func (s *mockAPIState) Close() error {
 		return s.close(s)
 	}
 	return nil
+}
+
+func (s *mockAPIState) Addr() string {
+	return s.addr
 }
 
 func (s *mockAPIState) APIHostPorts() [][]network.HostPort {

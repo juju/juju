@@ -43,7 +43,7 @@ func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 }
 
 func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
-	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Infof("opening state, mongo addresses: %q; entity %v", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {

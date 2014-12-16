@@ -6,8 +6,6 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
@@ -340,27 +338,13 @@ func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
-	hostPort, err := parseHostPort(apiInfo.Addrs[0])
+	hostPort, err := network.ParseHostPorts(apiInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
 
-	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort[0]}})
 	c.Assert(err, gc.IsNil)
 
 	logger.Debugf("api host ports primed %#v", hostPort)
-}
-
-func parseHostPort(s string) (network.HostPort, error) {
-	addr, port, err := net.SplitHostPort(s)
-	if err != nil {
-		return network.HostPort{}, err
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		return network.HostPort{}, fmt.Errorf("bad port number %q", port)
-	}
-	addrs := network.NewAddresses(addr)
-	hostPorts := network.AddressesWithPort(addrs, portNum)
-	return hostPorts[0], nil
 }
 
 // writeStateAgentConfig creates and writes a state agent config.

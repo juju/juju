@@ -64,7 +64,7 @@ func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
 	wc.AssertOneChange()
 
 	// change the API HostPorts
-	newHostPorts := network.AddressesWithPort(network.NewAddresses("127.0.0.1"), 6541)
+	newHostPorts := network.NewHostPorts(6541, "127.0.0.1")
 	err = s.State.SetAPIHostPorts([][]network.HostPort{newHostPorts})
 	c.Assert(err, gc.IsNil)
 

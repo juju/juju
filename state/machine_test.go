@@ -1638,30 +1638,51 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := network.NewAddresses(
-		"127.0.0.1", "8.8.8.8", "fc00::1", "::1", "", "example.org",
+	providerAddresses := network.NewAddresses(
+		"127.0.0.2",
+		"8.8.8.8",
+		"fc00::1",
+		"::1",
+		"",
+		"2001:db8::1",
+		"127.0.0.2",
+		"example.org",
 	)
-	err = machine.SetAddresses(addresses...)
+	err = machine.SetAddresses(providerAddresses...)
 	c.Assert(err, gc.IsNil)
 
 	machineAddresses := network.NewAddresses(
-		"127.0.0.1", "localhost", "192.168.0.1", "fe80::1", "::1", "fd00::1",
+		"127.0.0.1",
+		"localhost",
+		"2001:db8::1",
+		"192.168.0.1",
+		"fe80::1",
+		"::1",
+		"fd00::1",
 	)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 
+	// Before setting the addresses coming from either the provider or
+	// the machine itself, they are sorted to prefer public IPs on
+	// top, then hostnames, cloud-local, machine-local, link-local.
+	// Duplicates are removed, then when calling Addresses() both
+	// sources are merged while preservig the provider addresses
+	// order.
 	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
-		"example.org",
 		"8.8.8.8",
-		"127.0.0.1",
+		"2001:db8::1",
+		"example.org",
 		"fc00::1",
+		"127.0.0.2",
 		"::1",
-		"192.168.0.1",
 		"localhost",
-		"fe80::1",
+		"192.168.0.1",
 		"fd00::1",
+		"127.0.0.1",
+		"fe80::1",
 	))
 
 	// Now simulate prefer-ipv6: true
@@ -1673,22 +1694,24 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		gc.IsNil,
 	)
 
-	err = machine.SetAddresses(addresses...)
+	err = machine.SetAddresses(providerAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
-		"::1",
-		"fc00::1",
-		"example.org",
+		"2001:db8::1",
 		"8.8.8.8",
-		"127.0.0.1",
-		"fd00::1",
-		"fe80::1",
+		"example.org",
+		"fc00::1",
+		"::1",
+		"127.0.0.2",
 		"localhost",
+		"fd00::1",
 		"192.168.0.1",
+		"127.0.0.1",
+		"fe80::1",
 	))
 }
 
