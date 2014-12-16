@@ -364,29 +364,46 @@ func checkInstStatus(inst *compute.Instance, statuses ...string) bool {
 	return false
 }
 
-func diskSpec(sizeReq *uint64, image string, boot bool) (*compute.AttachedDisk, uint64) {
+type diskSpec struct {
+	sizeHint *uint64
+	imageURL string
+	boot     bool
+	scratch  bool
+	readonly bool
+}
+
+func (ds *diskSpec) size() int64 {
 	size := minDiskSize
-	if sizeReq != nil && *sizeReq >= minDiskSize {
-		size = *sizeReq
+	if ds.sizeHint != nil && *ds.sizeHint >= minDiskSize {
+		size = *ds.sizeHint
+	}
+	return int64(common.MiBToGiB(size))
+}
+
+func (ds *diskSpec) newAttached() *compute.AttachedDisk {
+	diskType := "PERSISTENT" // The default.
+	if ds.scratch {
+		diskType = "SCRATCH"
+	}
+	mode := "READ_WRITE" // The default.
+	if ds.readonly {
+		mode = "READ_ONLY"
 	}
 
-	// TODO(ericsnow) what happens if there is not attached disk?
 	disk := compute.AttachedDisk{
-		// TODO(ericsnow) Set other fields too?
-		Type: "SCRATCH", // Could be "PERSISTENT".
-		Boot: boot,
-		Mode: "READ_WRITE", // not needed?
+		Type: diskType,
+		Boot: ds.boot,
+		Mode: mode,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
 			// DiskName (defaults to instance name)
-			DiskSizeGb: int64(common.MiBToGiB(size)),
-			// DiskType (???)
-			SourceImage: image, // needed?
+			DiskSizeGb: ds.size(),
+			// DiskType (defaults to pd-standard, pd-ssd, local-ssd)
+			SourceImage: ds.imageURL,
 		},
-		// Interface (???)
-		// DeviceName (persistent disk only)
-		// Source (persistent disk only)
+		// Interface (defaults to SCSI)
+		// DeviceName (GCE sets this, persistent disk only)
 	}
-	return &disk, size
+	return &disk
 }
 
 // firewallSpec expands a port range set in to compute.FirewallAllowed

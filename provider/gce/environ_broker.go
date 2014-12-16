@@ -148,10 +148,13 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 }
 
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
-	// TODO(ericsnow) Are we passing the right image value?
-	boot := true
-	rootDisk, size := diskSpec(cons.RootDisk, spec.Image.Id, boot)
-	if cons.RootDisk != nil && size == minDiskSize {
+	dSpec := diskSpec{
+		sizeHint: cons.RootDisk,
+		imageURL: spec.Image.Id,
+		boot:     true,
+	}
+	rootDisk := dSpec.newAttached()
+	if cons.RootDisk != nil && dSpec.size() == int64(minDiskSize) {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dM"
 		logger.Infof(msg, *cons.RootDisk, minDiskSize)
 	}
