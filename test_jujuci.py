@@ -60,7 +60,7 @@ def make_build_data(number='lastSuccessfulBuild'):
             {
                 "displayPath": "juju-core_1.22-alpha1.tar.gz",
                 "fileName": "juju-core_1.22-alpha1.tar.gz",
-                "relativePath": "juju-core_1.22-alpha1.tar.gz"
+                "relativePath": "artifacts/juju-core_1.22-alpha1.tar.gz"
             }
         ],
         "building": False,
@@ -140,7 +140,7 @@ class JujuCITestCase(TestCase):
         self.assertEqual('juju-core_1.22-alpha1.tar.gz', artifact.file_name)
         self.assertEqual(
             'http://juju-ci.vapour.ws:8080/job/build-revision/2112/'
-            'artifact/juju-core_1.22-alpha1.tar.gz',
+            'artifact/artifacts/juju-core_1.22-alpha1.tar.gz',
             artifact.location)
 
     def test_list_artifacts(self):
