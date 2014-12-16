@@ -301,8 +301,8 @@ func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) e
 	return nil
 }
 
-func (gce *gceConnection) firewall(machineId string) (*compute.Firewall, error) {
-	call := gce.Firewalls.Get(gce.projectID, machineId)
+func (gce *gceConnection) firewall(name string) (*compute.Firewall, error) {
+	call := gce.Firewalls.Get(gce.projectID, name)
 	firewall, err := call.Do()
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting firewall from GCE")
@@ -310,23 +310,23 @@ func (gce *gceConnection) firewall(machineId string) (*compute.Firewall, error) 
 	return firewall, nil
 }
 
-func (gce *gceConnection) setFirewall(machineId string, firewall *compute.Firewall) error {
+func (gce *gceConnection) setFirewall(name string, firewall *compute.Firewall) error {
 	var err error
 	var operation *compute.Operation
 	if firewall == nil {
-		call := gce.Firewalls.Delete(gce.projectID, machineId)
+		call := gce.Firewalls.Delete(gce.projectID, name)
 		operation, err = call.Do()
 		if err != nil {
 			return errors.Trace(err)
 		}
-	} else if machineId == "" {
+	} else if name == "" {
 		call := gce.Firewalls.Insert(gce.projectID, firewall)
 		operation, err = call.Do()
 		if err != nil {
 			return errors.Trace(err)
 		}
 	} else {
-		call := gce.Firewalls.Update(gce.projectID, machineId, firewall)
+		call := gce.Firewalls.Update(gce.projectID, name, firewall)
 		operation, err = call.Do()
 		if err != nil {
 			return errors.Trace(err)
@@ -390,12 +390,12 @@ func diskSpec(sizeReq *uint64, image string, boot bool) (*compute.AttachedDisk, 
 }
 
 // firewallSpec expands a port range set in to compute.FirewallAllowed
-// and returns a compute.Firewall for the machineId.
-func firewallSpec(machineId string, ps network.PortSet) *compute.Firewall {
+// and returns a compute.Firewall for the provided name.
+func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 	firewall := compute.Firewall{
 		// Allowed is set below.
 		// Description is not set.
-		Name: machineId,
+		Name: name,
 		// TODO(ericsnow) Does Network need to be set?
 		// Network: "",
 		// SourceRanges is not set.
