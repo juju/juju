@@ -172,6 +172,8 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     rm -rf /tmp/test-*
 EOT
 else
+    set +e
+    # EC2 failures cannot change the EXIT_STATUS.
     $SCRIPTS/ec2-terminate-job-instances
 fi
 exit $EXIT_STATUS
