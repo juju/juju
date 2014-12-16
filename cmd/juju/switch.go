@@ -7,13 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/configstore"
 )
 
 type SwitchCommand struct {
@@ -53,15 +54,6 @@ func (c *SwitchCommand) Init(args []string) (err error) {
 	return
 }
 
-func validEnvironmentName(name string, names []string) bool {
-	for _, n := range names {
-		if name == n {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// Switch is an alternative way of dealing with environments than using
 	// the JUJU_ENV environment setting, and as such, doesn't play too well.
@@ -73,15 +65,24 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("couldn't read the environment")
 	}
-	names := environments.Names()
-	sort.Strings(names)
+
+	names := set.NewStrings(environments.Names()...)
+	store, err := configstore.Default()
+	if err != nil {
+		return err
+	}
+	other, err := store.List()
+	if err != nil {
+		return err
+	}
+	names = names.Union(set.NewStrings(other...))
 
 	if c.List {
 		// List all environments.
 		if c.EnvName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
-		for _, name := range names {
+		for _, name := range names.SortedValues() {
 			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
 		return nil
@@ -112,7 +113,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
 	default:
 		// Switch the environment.
-		if !validEnvironmentName(c.EnvName, names) {
+		if !names.Contains(c.EnvName) {
 			return fmt.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
 		if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
