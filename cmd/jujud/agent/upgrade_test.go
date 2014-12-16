@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -45,6 +46,7 @@ type UpgradeSuite struct {
 	logWriter       loggo.TestWriter
 	connectionDead  bool
 	machineIsMaster bool
+	aptMutex        sync.Mutex
 }
 
 var _ = gc.Suite(&UpgradeSuite{})
@@ -59,6 +61,23 @@ var (
 const fails = true
 const succeeds = false
 
+func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
+	s.aptMutex.Lock()
+	defer s.aptMutex.Unlock()
+	if cmd == nil {
+		s.aptCmds = nil
+	} else {
+		s.aptCmds = append(s.aptCmds, cmd)
+	}
+	return s.aptCmds
+}
+
+func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
+	s.aptMutex.Lock()
+	defer s.aptMutex.Unlock()
+	return s.aptCmds
+}
+
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
@@ -67,7 +86,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	aptCmds := s.AgentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
-			s.aptCmds = append(s.aptCmds, cmd)
+			s.setAptCmds(cmd)
 		}
 	}()
 
@@ -752,8 +771,9 @@ func (s *UpgradeSuite) keyFile() string {
 
 func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C) {
 	// rsyslog-gnutls should have been installed.
-	c.Assert(s.aptCmds, gc.HasLen, 1)
-	args := s.aptCmds[0].Args
+	cmds := s.getAptCmds()
+	c.Assert(cmds, gc.HasLen, 1)
+	args := cmds[0].Args
 	c.Assert(len(args), jc.GreaterThan, 1)
 	c.Assert(args[0], gc.Equals, "apt-get")
 	c.Assert(args[len(args)-1], gc.Equals, "rsyslog-gnutls")

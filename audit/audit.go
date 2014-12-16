@@ -25,7 +25,11 @@ func Audit(user Tagger, format string, args ...interface{}) {
 	if user.Tag() == "" {
 		panic("user tag cannot be blank")
 	}
-	// Logf is called directly, rather than Infof so that the caller of Audit is
-	// recorded, not Audit itself.
-	logger.Logf(loggo.INFO, fmt.Sprintf("%s: %s", user.Tag(), format), args...)
+
+	// LogCallf is called directly, rather than Infof so that the caller
+	// of Audit is recorded, not Audit itself.
+	// Also, we're using LogCallf instead of Logf to work around a bug
+	// in the go1.4 version of go vet (https://github.com/golang/go/issues/9080)
+	// which incorrectly flags the Logf call.
+	logger.LogCallf(1, loggo.INFO, fmt.Sprintf("%s: %s", user.Tag(), format), args...)
 }

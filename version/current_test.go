@@ -34,6 +34,14 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 			c.Assert(s, gc.Equals, "n/a")
 		}
 	} else {
-		c.Assert(string(out), gc.Equals, "Codename:\t"+s+"\n")
+		os, err := version.GetOSFromSeries(s)
+		c.Assert(err, gc.IsNil)
+		// There is no lsb_release command on CentOS.
+		switch os {
+		case version.CentOS:
+			c.Check(s, gc.Matches, `centos7`)
+		default:
+			c.Assert(string(out), gc.Equals, "Codename:\t"+s+"\n")
+		}
 	}
 }

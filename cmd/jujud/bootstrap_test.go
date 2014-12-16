@@ -99,7 +99,6 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&version.Current.Series, "trusty") // for predictable tools
 	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
 		return "private-key", "public-key", nil
 	})
