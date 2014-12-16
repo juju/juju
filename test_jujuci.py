@@ -5,12 +5,15 @@ from StringIO import StringIO
 from unittest import TestCase
 
 from jujuci import (
+    add_artifacts,
+    Artifact,
     get_build_data,
     JENKINS_URL,
     get_artifacts,
     list_artifacts,
     find_artifacts,
     main,
+    setup_workspace,
 )
 from utility import temp_dir
 
@@ -83,20 +86,28 @@ class JujuCITestCase(TestCase):
 
     def test_main_list_options(self):
         with patch('jujuci.list_artifacts') as mock:
-            main(['-d', '-v', '-b', '1234', 'list', 'foo', '*.tar.gz'])
+            main(['-d', '-v', 'list', '-b', '1234', 'foo', '*.tar.gz'])
             args, kwargs = mock.call_args
             self.assertEqual(('foo', '1234', '*.tar.gz'), args)
             self.assertTrue(kwargs['verbose'])
 
     def test_main_get_options(self):
         with patch('jujuci.get_artifacts') as mock:
-            main(['-d', '-v', '-a', '-b', '1234',
-                  'get', 'foo', '*.tar.gz', 'bar'])
+            main(['-d', '-v',
+                  'get', '-a', '-b', '1234', 'foo', '*.tar.gz', 'bar'])
             args, kwargs = mock.call_args
             self.assertEqual(('foo', '1234', '*.tar.gz', 'bar'), args)
             self.assertTrue(kwargs['archive'])
             self.assertTrue(kwargs['verbose'])
             self.assertTrue(kwargs['dry_run'])
+
+    def test_main_setup_workspace_options(self):
+        with patch('jujuci.setup_workspace') as mock:
+            main(['-d', '-v', 'setup-workspace', './foo'])
+            args, kwargs = mock.call_args
+            self.assertEqual(('./foo', ), args)
+            self.assertTrue(kwargs['dry_run'])
+            self.assertTrue(kwargs['verbose'])
 
     def test_get_build_data(self):
         expected_data = make_build_data(1234)
@@ -160,13 +171,15 @@ class JujuCITestCase(TestCase):
         with patch('jujuci.get_build_data', return_value=build_data):
             with patch('urllib.URLopener.retrieve') as uo_mock:
                 with patch('jujuci.print_now') as pn_mock:
-                    get_artifacts(
+                    found = get_artifacts(
                         'foo', '1234', '*.bash', './', verbose=True)
-        self.assertEqual(1, uo_mock.call_count)
-        args, kwargs = uo_mock.call_args
         location = (
             'http://juju-ci.vapour.ws:8080/job/build-revision/1234/artifact/'
             'buildvars.bash')
+        buildvar_artifact = Artifact('buildvars.bash', location)
+        self.assertEqual([buildvar_artifact], found)
+        self.assertEqual(1, uo_mock.call_count)
+        args, kwargs = uo_mock.call_args
         local_path = '%s/buildvars.bash' % os.path.abspath('./')
         self.assertEqual((location, local_path), args)
         messages = sorted(call[1][0] for call in pn_mock.mock_calls)
@@ -206,3 +219,47 @@ class JujuCITestCase(TestCase):
                 with self.assertRaises(ValueError):
                     get_artifacts(
                         'foo', '1234', '*.bash', '/foo-bar-baz', archive=True)
+
+    def test_setup_workspace(self):
+        with temp_dir() as base_dir:
+            workspace_dir = os.path.join(base_dir, 'workspace')
+            foo_dir = os.path.join(workspace_dir, 'foo')
+            os.makedirs(foo_dir)
+            with open(os.path.join(workspace_dir, 'old.txt'), 'w') as of:
+                of.write('old')
+            setup_workspace(workspace_dir, dry_run=False, verbose=False)
+            self.assertEqual(['artifacts'], os.listdir(workspace_dir))
+            artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+            self.assertEqual(['empty'], os.listdir(artifacts_dir))
+
+    def test_add_artifacts_simple(self):
+        with temp_dir() as workspace_dir:
+            artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+            os.mkdir(artifacts_dir)
+            for name in ['foo.tar.gz', 'bar.json', 'baz.txt',
+                         'juju-core_1.2.3.tar.gz', 'juju-core-1.2.3.deb',
+                         'buildvars.bash', 'buildvars.json']:
+                with open(os.path.join(workspace_dir, name), 'w') as nf:
+                    nf.write(name)
+            globs = ['buildvars.*', 'juju-core_*.tar.gz', 'juju-*.deb']
+            add_artifacts(
+                workspace_dir, globs, dry_run=False, verbose=False)
+            artifacts = sorted(os.listdir(artifacts_dir))
+            expected = [
+                'buildvars.bash', 'buildvars.json',
+                'juju-core-1.2.3.deb', 'juju-core_1.2.3.tar.gz']
+            self.assertEqual(expected, artifacts)
+
+    def test_add_artifacts_deep(self):
+        with temp_dir() as workspace_dir:
+            artifacts_dir = os.path.join(workspace_dir, 'artifacts')
+            os.mkdir(artifacts_dir)
+            sub_dir = os.path.join(workspace_dir, 'sub_dir')
+            os.mkdir(sub_dir)
+            for name in ['foo.tar.gz', 'juju-core-1.2.3.deb']:
+                with open(os.path.join(sub_dir, name), 'w') as nf:
+                    nf.write(name)
+            add_artifacts(
+                workspace_dir, ['sub_dir/*.deb'], dry_run=False, verbose=False)
+            artifacts = os.listdir(artifacts_dir)
+            self.assertEqual(['juju-core-1.2.3.deb'], artifacts)
