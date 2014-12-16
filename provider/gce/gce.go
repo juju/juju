@@ -176,7 +176,6 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 		if operation.Status == statusDone {
 			return nil
 		}
-		// TODO(ericsnow) Should projectID be an arg?
 		call := gce.GlobalOperations.Get(gce.projectID, opID)
 		operation, err = call.Do()
 		if err != nil {
