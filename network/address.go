@@ -19,11 +19,12 @@ var (
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
 )
 
-// preferIPv6 determines whether IPv6 addresses will be preferred when
-// selecting a public or internal addresses, using the Select*()
-// methods below. InitializeFromConfig() needs to be called to
-// set this flag globally.
-var preferIPv6 bool = false
+// globalPreferIPv6 determines whether IPv6 addresses will be
+// preferred when selecting a public or internal addresses, using the
+// Select*() methods below. InitializeFromConfig() needs to be called
+// to set this flag globally at the earliest time possible (e.g. at
+// bootstrap, agent startup, before any CLI command).
+var globalPreferIPv6 bool = false
 
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
@@ -89,6 +90,11 @@ func (a Address) String() string {
 		buf.WriteByte(')')
 	}
 	return buf.String()
+}
+
+// GoString implements fmt.GoStringer.
+func (a Address) GoString() string {
+	return a.String()
 }
 
 // NewAddresses is a convenience function to create addresses from a string slice
@@ -180,7 +186,7 @@ func NewAddress(value string, scope Scope) Address {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, the empty string is returned.
 func SelectPublicAddress(addresses []Address) string {
-	index := bestAddressIndex(len(addresses), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
@@ -193,7 +199,7 @@ func SelectPublicAddress(addresses []Address) string {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
 func SelectPublicHostPort(hps []HostPort) string {
-	index := bestAddressIndex(len(hps), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), globalPreferIPv6, func(i int) Address {
 		return hps[i].Address
 	}, publicMatch)
 	if index < 0 {
@@ -206,7 +212,7 @@ func SelectPublicHostPort(hps []HostPort) string {
 // used as an endpoint for juju internal communication. If there are
 // no suitable addresses, the empty string is returned.
 func SelectInternalAddress(addresses []Address, machineLocal bool) string {
-	index := bestAddressIndex(len(addresses), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -220,7 +226,7 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) string {
 // in its NetAddr form. If there are no suitable addresses, the empty
 // string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := bestAddressIndex(len(hps), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), globalPreferIPv6, func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -229,23 +235,23 @@ func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
 	return hps[index].NetAddr()
 }
 
-func publicMatch(addr Address, preferIPv6 bool) scopeMatch {
+func publicMatch(addr Address, globalPreferIPv6 bool) scopeMatch {
 	switch addr.Scope {
 	case ScopePublic:
-		return mayPreferIPv6(addr, exactScope, preferIPv6)
+		return mayPreferIPv6(addr, exactScope, globalPreferIPv6)
 	case ScopeCloudLocal, ScopeUnknown:
-		return mayPreferIPv6(addr, fallbackScope, preferIPv6)
+		return mayPreferIPv6(addr, fallbackScope, globalPreferIPv6)
 	}
 	return invalidScope
 }
 
 // mayPreferIPv6 returns mismatchedTypeExactScope or
 // mismatchedTypeFallbackScope (depending on originalScope) if addr's
-// type is IPv4, and preferIPv6 is true. When preferIPv6 is false, or
-// addr's type is IPv6 and preferIPv6 is true, returns the
+// type is IPv4, and globalPreferIPv6 is true. When globalPreferIPv6 is false, or
+// addr's type is IPv6 and globalPreferIPv6 is true, returns the
 // originalScope unchanged.
-func mayPreferIPv6(addr Address, originalScope scopeMatch, preferIPv6 bool) scopeMatch {
-	if preferIPv6 && addr.Type != IPv6Address {
+func mayPreferIPv6(addr Address, originalScope scopeMatch, globalPreferIPv6 bool) scopeMatch {
+	if globalPreferIPv6 && addr.Type != IPv6Address {
 		switch originalScope {
 		case exactScope:
 			return mismatchedTypeExactScope
@@ -264,21 +270,21 @@ func internalAddressMatcher(machineLocal bool) func(Address, bool) scopeMatch {
 	return cloudLocalMatch
 }
 
-func cloudLocalMatch(addr Address, preferIPv6 bool) scopeMatch {
+func cloudLocalMatch(addr Address, globalPreferIPv6 bool) scopeMatch {
 	switch addr.Scope {
 	case ScopeCloudLocal:
-		return mayPreferIPv6(addr, exactScope, preferIPv6)
+		return mayPreferIPv6(addr, exactScope, globalPreferIPv6)
 	case ScopePublic, ScopeUnknown:
-		return mayPreferIPv6(addr, fallbackScope, preferIPv6)
+		return mayPreferIPv6(addr, fallbackScope, globalPreferIPv6)
 	}
 	return invalidScope
 }
 
-func cloudOrMachineLocalMatch(addr Address, preferIPv6 bool) scopeMatch {
+func cloudOrMachineLocalMatch(addr Address, globalPreferIPv6 bool) scopeMatch {
 	if addr.Scope == ScopeMachineLocal {
-		return mayPreferIPv6(addr, exactScope, preferIPv6)
+		return mayPreferIPv6(addr, exactScope, globalPreferIPv6)
 	}
-	return cloudLocalMatch(addr, preferIPv6)
+	return cloudLocalMatch(addr, globalPreferIPv6)
 }
 
 type scopeMatch int
@@ -294,26 +300,26 @@ const (
 // bestAddressIndex returns the index of the first address
 // with an exactly matching scope, or the first address with
 // a matching fallback scope if there are no exact matches, or
-// a matching scope but mismatched type when preferIPv6 is true.
+// a matching scope but mismatched type when globalPreferIPv6 is true.
 // If there are no suitable addresses, -1 is returned.
-func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) int {
+func bestAddressIndex(numAddr int, globalPreferIPv6 bool, getAddr func(i int) Address, match func(addr Address, globalPreferIPv6 bool) scopeMatch) int {
 	fallbackAddressIndex := -1
 	mismatchedTypeFallbackIndex := -1
 	mismatchedTypeExactIndex := -1
 	for i := 0; i < numAddr; i++ {
 		addr := getAddr(i)
-		switch match(addr, preferIPv6) {
+		switch match(addr, globalPreferIPv6) {
 		case exactScope:
-			logger.Tracef("exactScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+			logger.Tracef("exactScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 			return i
 		case fallbackScope:
-			logger.Tracef("fallbackScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+			logger.Tracef("fallbackScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 			// Use the first fallback address if there are no exact matches.
 			if fallbackAddressIndex == -1 {
 				fallbackAddressIndex = i
 			}
 		case mismatchedTypeExactScope:
-			logger.Tracef("mismatchedTypeExactScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+			logger.Tracef("mismatchedTypeExactScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 			// We have an exact scope match, but the type does not
 			// match, so save the first index as this is the best
 			// match so far.
@@ -321,7 +327,7 @@ func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address,
 				mismatchedTypeExactIndex = i
 			}
 		case mismatchedTypeFallbackScope:
-			logger.Tracef("mismatchedTypeFallbackScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+			logger.Tracef("mismatchedTypeFallbackScope match: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", i, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 			// We have a fallback scope match, but the type does not
 			// match, so we save the first index in case this is the
 			// best match so far.
@@ -330,22 +336,63 @@ func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address,
 			}
 		}
 	}
-	if preferIPv6 {
+	if globalPreferIPv6 {
 		if fallbackAddressIndex != -1 {
 			// Prefer an IPv6 fallback to a IPv4 mismatch.
-			logger.Tracef("fallbackScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", fallbackAddressIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+			logger.Tracef("fallbackScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", fallbackAddressIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 			return fallbackAddressIndex
 		}
 		if mismatchedTypeExactIndex != -1 {
 			// Prefer an exact IPv4 match to a fallback.
-			logger.Tracef("mismatchedTypeExactScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", mismatchedTypeExactIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+			logger.Tracef("mismatchedTypeExactScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", mismatchedTypeExactIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 			return mismatchedTypeExactIndex
 		}
-		logger.Tracef("mismatchedTypeFallbackScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", mismatchedTypeFallbackIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+		logger.Tracef("mismatchedTypeFallbackScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", mismatchedTypeFallbackIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 		return mismatchedTypeFallbackIndex
 	}
-	logger.Tracef("fallbackScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,preferIPv6=%v", fallbackAddressIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, preferIPv6)
+	logger.Tracef("fallbackScope return: index=%d,fallback=%d,mismatchedExact=%d,mismatchedFallback=%d,globalPreferIPv6=%v", fallbackAddressIndex, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, globalPreferIPv6)
 	return fallbackAddressIndex
+}
+
+// sortOrder calculates the "weight" of the address when sorting,
+// taking into account the preferIPv6 flag:
+// - public IPs first;
+// - hostnames after that, but "localhost" will be last if present;
+// - cloud-local next;
+// - machine-local next;
+// - link-local next;
+// - non-hostnames with unknown scope last.
+//
+// When preferIPv6 flag and the address type do not match, the order
+// is incremented to put non-preferred addresses after preferred.
+func (a Address) sortOrder(preferIPv6 bool) int {
+	order := 0xFF
+	switch a.Scope {
+	case ScopePublic:
+		order = 0x00
+	case ScopeCloudLocal:
+		order = 0x20
+	case ScopeMachineLocal:
+		order = 0x40
+	case ScopeLinkLocal:
+		order = 0x80
+	}
+	switch a.Type {
+	case HostName:
+		order = 0x10
+		if a.Value == "localhost" {
+			order++
+		}
+	case IPv4Address:
+		if preferIPv6 {
+			order++
+		}
+	case IPv6Address:
+		if !preferIPv6 {
+			order++
+		}
+	}
+	return order
 }
 
 type addressesPreferringIPv4Slice []Address
@@ -355,15 +402,12 @@ func (a addressesPreferringIPv4Slice) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
 	addr1 := a[i]
 	addr2 := a[j]
-	if addr1.Type == HostName {
-		// Prefer hostnames on top, if possible.
-		return addr2.Type != HostName
+	order1 := addr1.sortOrder(false)
+	order2 := addr2.sortOrder(false)
+	if order1 == order2 {
+		return addr1.Value < addr2.Value
 	}
-	if addr1.Type == IPv4Address || addr2.Type == IPv4Address {
-		// Prefer IPv4 addresses to IPv6 ones.
-		return addr1.Type == IPv4Address
-	}
-	return addr1.Value == addr2.Value
+	return order1 < order2
 }
 
 type addressesPreferringIPv6Slice struct {
@@ -373,22 +417,19 @@ type addressesPreferringIPv6Slice struct {
 func (a addressesPreferringIPv6Slice) Less(i, j int) bool {
 	addr1 := a.addressesPreferringIPv4Slice[i]
 	addr2 := a.addressesPreferringIPv4Slice[j]
-	if addr1.Type == HostName {
-		// Prefer hostnames on top, if possible.
-		return addr2.Type != HostName
+	order1 := addr1.sortOrder(true)
+	order2 := addr2.sortOrder(true)
+	if order1 == order2 {
+		return addr1.Value < addr2.Value
 	}
-	if addr1.Type == IPv6Address || addr2.Type == IPv6Address {
-		// Prefer IPv6 addresses to IPv4 ones.
-		return addr1.Type == IPv6Address
-	}
-	return addr1.Value == addr2.Value
+	return order1 < order2
 }
 
-// SortAddresses sorts the given Address slice, putting hostnames on
-// top and depending on the preferIPv6 flag either IPv6 or IPv4
-// addresses after that.
-func SortAddresses(addrs []Address, preferIPv6 bool) {
-	if preferIPv6 {
+// SortAddresses sorts the given Address slice according to the
+// sortOrder of each address and the preferIpv6 flag. See
+// Address.sortOrder() for more info.
+func SortAddresses(addrs []Address, globalPreferIPv6 bool) {
+	if globalPreferIPv6 {
 		sort.Sort(addressesPreferringIPv6Slice{addressesPreferringIPv4Slice(addrs)})
 	} else {
 		sort.Sort(addressesPreferringIPv4Slice(addrs))

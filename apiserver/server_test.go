@@ -308,6 +308,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
+
 	// We have to use 'localhost' because that is what the TLS cert says.
 	// So find just the Port for the server
 	_, portString, err := net.SplitHostPort(srv.Addr())

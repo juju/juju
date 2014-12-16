@@ -81,6 +81,9 @@ var sampleInfo = `
   user: rog
   password: guessit
   state-servers:
+  - 10.0.0.1
+  - 127.0.0.1
+  server-hostnames:
   - example.com
   - kremvax.ru
   ca-cert: 'first line
@@ -107,7 +110,8 @@ func (*diskStoreSuite) TestRead(c *gc.C) {
 		Password: "guessit",
 	})
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{
-		Addresses: []string{"example.com", "kremvax.ru"},
+		Addresses: []string{"10.0.0.1", "127.0.0.1"},
+		Hostnames: []string{"example.com", "kremvax.ru"},
 		CACert:    "first line\nsecond line",
 	})
 	c.Assert(info.Location(), gc.Equals, fmt.Sprintf("file %q", dir+"/environments/someenv.jenv"))
@@ -189,6 +193,7 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	info := store.CreateInfo("someenv")
 	endpoint := configstore.APIEndpoint{
 		Addresses:   []string{"this", "is", "never", "validated", "here"},
+		Hostnames:   []string{"neither", "is", "this"},
 		EnvironUUID: "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
 	}
 	info.SetAPIEndpoint(endpoint)
@@ -199,6 +204,7 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Now change the number of addresses to be shorter.
 	endpoint.Addresses = []string{"just one"}
+	endpoint.Hostnames = []string{"just this"}
 	newInfo.SetAPIEndpoint(endpoint)
 	err = newInfo.Write()
 	c.Assert(err, gc.IsNil)
@@ -207,4 +213,5 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	yaInfo, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
+	c.Assert(yaInfo.APIEndpoint().Hostnames, gc.DeepEquals, []string{"just this"})
 }

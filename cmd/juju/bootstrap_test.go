@@ -30,6 +30,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -80,10 +81,11 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 }
 
-func (s *BootstrapSuite) TestTest(c *gc.C) {
+func (s *BootstrapSuite) TestRunTests(c *gc.C) {
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
-		test.run(c)
+		restore := s.run(c, test)
+		restore()
 	}
 }
 
@@ -103,24 +105,45 @@ type bootstrapTest struct {
 	keepBroken  bool
 }
 
-func (test bootstrapTest) run(c *gc.C) {
+func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) (restore gitjujutesting.Restorer) {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	env := resetJujuHome(c, "peckham")
+
+	// Although we're testing PrepareEndpointsForCaching interactions
+	// separately in the juju package, here we just ensure it gets
+	// called with the right arguments.
+	prepareCalled := false
+	addrConnectedTo := "localhost:17070"
+	restore = gitjujutesting.PatchValue(
+		&prepareEndpointsForCaching,
+		func(info configstore.EnvironInfo, hps [][]network.HostPort, addr network.HostPort) (_, _ []string, _ bool) {
+			prepareCalled = true
+			addrs, hosts, changed := juju.PrepareEndpointsForCaching(info, hps, addr)
+			// Because we're bootstrapping the addresses will always
+			// change, as there's no .jenv file saved yet.
+			c.Assert(changed, jc.IsTrue)
+			return addrs, hosts, changed
+		},
+	)
 
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
 		origVersion := version.Current
 		version.Current = version.MustParseBinary(useVersion)
-		defer func() { version.Current = origVersion }()
+		restore = restore.Add(func() {
+			version.Current = origVersion
+		})
 	}
 
 	if test.hostArch != "" {
-		origVersion := arch.HostArch
+		origArch := arch.HostArch
 		arch.HostArch = func() string {
 			return test.hostArch
 		}
-		defer func() { arch.HostArch = origVersion }()
+		restore = restore.Add(func() {
+			arch.HostArch = origArch
+		})
 	}
 
 	// Run command and check for uploads.
@@ -130,10 +153,10 @@ func (test bootstrapTest) run(c *gc.C) {
 		err := <-errc
 		stripped := strings.Replace(err.Error(), "\n", "", -1)
 		c.Check(stripped, gc.Matches, test.err)
-		return
+		return restore
 	}
 	if !c.Check(<-errc, gc.IsNil) {
-		return
+		return restore
 	}
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
@@ -160,7 +183,9 @@ func (test bootstrapTest) run(c *gc.C) {
 	info, err := store.ReadInfo("peckham")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
-	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{"localhost:17070"})
+	c.Assert(prepareCalled, jc.IsTrue)
+	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{addrConnectedTo})
+	return restore
 }
 
 var bootstrapTests = []bootstrapTest{{

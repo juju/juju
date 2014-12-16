@@ -159,8 +159,8 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	c.Assert(s.machine.Refresh(), gc.IsNil)
 	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
 		network.NewAddress("2001:db8::1", network.ScopeUnknown),
-		network.NewAddress("::1", network.ScopeMachineLocal),
 		network.NewAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewAddress("::1", network.ScopeMachineLocal),
 		network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
 	})
 }

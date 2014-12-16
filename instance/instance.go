@@ -32,17 +32,17 @@ type Instance interface {
 	// associated with the instance.
 	Addresses() ([]network.Address, error)
 
-	// OpenPorts opens the given ports on the instance, which
+	// OpenPorts opens the given port ranges on the instance, which
 	// should have been started with the given machine id.
 	OpenPorts(machineId string, ports []network.PortRange) error
 
-	// ClosePorts closes the given ports on the instance, which
+	// ClosePorts closes the given port ranges on the instance, which
 	// should have been started with the given machine id.
 	ClosePorts(machineId string, ports []network.PortRange) error
 
-	// Ports returns the set of ports open on the instance, which
-	// should have been started with the given machine id.
-	// The ports are returned as sorted by SortPorts.
+	// Ports returns the set of port ranges open on the instance,
+	// which should have been started with the given machine id. The
+	// port ranges are returned as sorted by SortPortRanges().
 	Ports(machineId string) ([]network.PortRange, error)
 }
 

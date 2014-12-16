@@ -189,7 +189,8 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 		Password: "foopass",
 	})
 	s.endpoint = configstore.APIEndpoint{
-		Addresses:   []string{"foo.invalid"},
+		Addresses:   []string{"0.1.2.3"},
+		Hostnames:   []string{"foo.invalid"},
 		CACert:      "certificated",
 		EnvironUUID: "fake-uuid",
 	}
@@ -216,7 +217,8 @@ func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 
 func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 	newEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"foo.example.com"},
+		Addresses:   []string{"0.1.2.3"},
+		Hostnames:   []string{"foo.invalid"},
 		CACert:      "certificated",
 		EnvironUUID: "fake-uuid",
 	}

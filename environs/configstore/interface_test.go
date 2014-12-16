@@ -68,7 +68,8 @@ func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
 	info := store.CreateInfo("someenv")
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"example.com"},
+		Addresses:   []string{"0.1.2.3"},
+		Hostnames:   []string{"example.com"},
 		CACert:      "a cert",
 		EnvironUUID: "dead-beef",
 	}
@@ -97,7 +98,8 @@ func (s *interfaceSuite) TestWrite(c *gc.C) {
 	info.SetAPICredentials(expectCreds)
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses:   []string{"example.invalid"},
+		Addresses:   []string{"0.1.2.3"},
+		Hostnames:   []string{"example.invalid"},
 		CACert:      "a cert",
 		EnvironUUID: "dead-beef",
 	}

@@ -14,8 +14,8 @@ var MachineJobFromParams = machineJobFromParams
 
 // Filtering exports
 var (
-	MatchPorts  = matchPorts
-	MatchSubnet = matchSubnet
+	MatchPortRanges = matchPortRanges
+	MatchSubnet     = matchSubnet
 )
 
 // Status exports

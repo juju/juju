@@ -917,10 +917,10 @@ func IsNotProvisionedError(err error) bool {
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
 	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	var providerValues set.Strings
+	providerValues := set.NewStrings()
 	for _, address := range providerAddresses {
 		// Older versions of Juju may have stored an empty address so ignore it here.
-		if address.Value == "" {
+		if address.Value == "" || providerValues.Contains(address.Value) {
 			continue
 		}
 		providerValues.Add(address.Value)
@@ -938,8 +938,9 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 // determined both by the machine itself, and by asking the provider.
 //
 // The addresses returned by the provider shadow any of the addresses
-// that the machine reported with the same address value. Provider-reported
-// addresses always come before machine-reported addresses.
+// that the machine reported with the same address value.
+// Provider-reported addresses always come before machine-reported
+// addresses. Duplicates are removed.
 func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }

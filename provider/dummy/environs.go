@@ -1117,6 +1117,7 @@ func SetInstanceAddresses(inst instance.Instance, addrs []network.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
+	logger.Debugf("setting instance %q addresses to %v", inst0.Id(), addrs)
 	inst0.mu.Unlock()
 }
 
