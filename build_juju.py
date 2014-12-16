@@ -84,7 +84,7 @@ def main(argv):
     args = parse_args(argv)
     try:
         build_juju(
-            args.product, args.build, args.workspace,
+            args.product, args.workspace, args.build,
             dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)

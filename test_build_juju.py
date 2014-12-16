@@ -17,7 +17,7 @@ class JujuBuildTestCase(TestCase):
         with patch('build_juju.build_juju') as mock:
             main(['-d', '-v', '-b', '1234', 'win-client', './foo'])
             args, kwargs = mock.call_args
-            self.assertEqual(('win-client', '1234', './foo'), args)
+            self.assertEqual(('win-client', './foo', '1234'), args)
             self.assertTrue(kwargs['dry_run'])
             self.assertTrue(kwargs['verbose'])
 
