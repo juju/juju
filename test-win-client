@@ -9,12 +9,15 @@ usage() {
     exit 1
 }
 
-
+INSTALL_JUJU="false"
 while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
     case $1 in
         --juju-home)
             shift
             JUJU_HOME=$(cd $1; pwd)
+            ;;
+        --install-juju)
+            INSTALL_JUJU="true"
             ;;
         --help)
             usage
@@ -30,9 +33,22 @@ HOST="$1"
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 export PATH="$SCRIPTS:$PATH"
 
+SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
+    -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
 set -x
-scp -i $JUJU_HOME/staging-juju-rsa \
-    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+if [[ $INSTALL_JUJU == "true" ]]; then
+    installer=$(
+        $SCRIPTS/jujuci.py get build-win-client 'juju-setup-*.exe' ./)
+    echo "Downloaded $installer"
+    scp $SSH_OPTIONS $installer \
+        Administrator@$HOST:/cygdrive/c/Users/Administrator/ci
+    ssh $SSH_OPTIONS Administrator@$HOST \
+        /cygdrive/c/Users/Administrator/ci/$installer /verysilent
+    ssh $SSH_OPTIONS Administrator@$HOST juju version
+fi
+
+scp $SSH_OPTIONS \
     $SCRIPTS/deploy_stack.py $SCRIPTS/jujupy.py $SCRIPTS/jujuconfig.py \
     $SCRIPTS/substrate.py $SCRIPTS/utility.py \
     Administrator@$HOST:/cygdrive/c/Users/Administrator/ci/
@@ -40,19 +56,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 set +e
-ssh -i $JUJU_HOME/staging-juju-rsa \
-    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$HOST \
+ssh $SSH_OPTIONS Administrator@$HOST \
     'juju destroy-environment --force -y test-win-client'
-ssh -i $JUJU_HOME/staging-juju-rsa \
-    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$HOST \
+ssh $SSH_OPTIONS Administrator@$HOST \
     '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\deploy_stack.py' \
      test-win-client
 EXIT_STATUS=$?
-ssh -i $JUJU_HOME/staging-juju-rsa \
-    -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$HOST \
+ssh $SSH_OPTIONS Administrator@$HOST \
     'juju destroy-environment --force -y test-win-client'
 set -e
 set +x
