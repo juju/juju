@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 // TODO(ericsnow) Fold this back into environ.go if neither ends up too big.
@@ -30,25 +31,33 @@ func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) 
 	return nil, errors.Trace(errNotImplemented)
 }
 
+func (env *environ) globalFirewallName() string {
+	fwName := common.MachineFullName(env, "")
+	return fwName[:len(fwName)-1]
+}
+
 // OpenPorts opens the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
-	return errors.Trace(errNotImplemented)
+	err := env.openPorts(env.globalFirewallName(), ports)
+	return errors.Trace(err)
 }
 
 // ClosePorts closes the given port ranges for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
-	return errors.Trace(errNotImplemented)
+	err := env.closePorts(env.globalFirewallName(), ports)
+	return errors.Trace(err)
 }
 
 // Ports returns the port ranges opened for the whole environment.
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
-	return nil, errors.Trace(errNotImplemented)
+	ports, err := env.ports(env.globalFirewallName())
+	return ports, errors.Trace(err)
 }
 
 func (env *environ) openPorts(name string, ports []network.PortRange) error {
