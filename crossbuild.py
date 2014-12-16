@@ -237,7 +237,7 @@ def parse_args(args=None):
     parser_win_agent = subparsers.add_parser(
         'win-agent', help='Build an amd64 windows juju agent.')
     parser_win_agent.add_argument(
-        '-b', '--build-dir', default='$HOME/crossbuild',
+        '-b', '--build-dir', default='~/crossbuild',
         help='The path cross build dir.')
     parser_win_agent.add_argument(
         'tarball_path', help='The path to the juju source tarball.')
@@ -255,6 +255,7 @@ def parse_args(args=None):
 def main(argv):
     """Cross build juju for an OS, arch, and client or server."""
     args = parse_args(argv)
+    args.build_dir = os.path.expanduser(args.build_dir)
     try:
         if args.command == 'setup':
             setup_cross_building(
