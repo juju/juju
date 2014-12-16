@@ -150,7 +150,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
-				`grep -q ubuntu /etc/passwd && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+				`(id ubuntu &> /dev/null) && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 				shquote(w.mcfg.ProxySettings.AsScriptEnvironment())))
 	}
 
@@ -162,7 +162,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	w.conf.AddScripts(
 		fmt.Sprintf("mkdir -p %s", lockDir),
 		// We only try to change ownership if there is an ubuntu user defined.
-		fmt.Sprintf("grep -q ubuntu /etc/passwd && chown ubuntu:ubuntu %s", lockDir),
+		fmt.Sprintf("(id ubuntu &> /dev/null) && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", w.mcfg.LogDir),
 		fmt.Sprintf("chown syslog:adm %s", w.mcfg.LogDir),
 	)
