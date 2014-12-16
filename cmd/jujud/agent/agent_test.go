@@ -5,8 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
@@ -177,7 +175,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
-	hostPort, err := parseHostPort(apiInfo.Addrs[0])
+	hostPort, err := agenttesting.ParseHostPort(apiInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
@@ -233,20 +231,6 @@ func (s *AgentSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCm
 	c.Assert(err, gc.IsNil)
 	// Check we can open the API with the new configuration.
 	assertOpen(conf)
-}
-
-func parseHostPort(s string) (network.HostPort, error) {
-	addr, port, err := net.SplitHostPort(s)
-	if err != nil {
-		return network.HostPort{}, err
-	}
-	portNum, err := strconv.Atoi(port)
-	if err != nil {
-		return network.HostPort{}, fmt.Errorf("bad port number %q", port)
-	}
-	addrs := network.NewAddresses(addr)
-	hostPorts := network.AddressesWithPort(addrs, portNum)
-	return hostPorts[0], nil
 }
 
 // writeStateAgentConfig creates and writes a state agent config.

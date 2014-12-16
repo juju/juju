@@ -1,8 +1,6 @@
 package rsyslog
 
 import (
-	"net"
-
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -16,15 +14,11 @@ func newRsyslogConfig(envCfg *config.Config, api *RsyslogAPI) (*apirsyslog.Rsysl
 	}
 	port := envCfg.SyslogPort()
 
-	var bareAddrs []string
-	for _, addr := range stateAddrsResult.Result {
-		hostOnly, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, err
-		}
-		bareAddrs = append(bareAddrs, hostOnly)
+	apiHostPorts, err := network.ParseHostPorts(stateAddrsResult.Result...)
+	if err != nil {
+		return nil, err
 	}
-	apiAddresses := network.NewAddresses(bareAddrs...)
+	apiAddresses := network.HostsWithoutPort(apiHostPorts)
 
 	return &apirsyslog.RsyslogConfig{
 		CACert:    envCfg.RsyslogCACert(),

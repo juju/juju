@@ -105,7 +105,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	apiInfo := s.APIInfo(c)
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
-	hostPort, err := parseHostPort(apiInfo.Addrs[0])
+	hostPort, err := ParseHostPort(apiInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
@@ -114,7 +114,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	c.Logf("api host ports primed %#v", hostPort)
 }
 
-func parseHostPort(s string) (network.HostPort, error) {
+func ParseHostPort(s string) (network.HostPort, error) {
 	addr, port, err := net.SplitHostPort(s)
 	if err != nil {
 		return network.HostPort{}, err

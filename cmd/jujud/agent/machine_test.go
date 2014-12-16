@@ -1093,9 +1093,9 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]network.HostPort{network.AddressesWithPort(
-		network.NewAddresses("localhost"), 1234,
-	)}
+	updatedServers := [][]network.HostPort{
+		network.NewHostPorts(1234, "localhost"),
+	}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 
