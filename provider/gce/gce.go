@@ -51,7 +51,7 @@ const (
 
 	// minDiskSize is the minimum/default size (in megabytes) for GCE
 	// disks. GCE does not currently have a minimum disk size.
-	minDiskSize uint64 = 0
+	minDiskSize int64 = 0
 )
 
 var (
@@ -366,7 +366,8 @@ func checkInstStatus(inst *compute.Instance, statuses ...string) bool {
 }
 
 type diskSpec struct {
-	sizeHint *uint64
+	// sizeHint is the requested disk size in Gigabytes.
+	sizeHint int64
 	imageURL string
 	boot     bool
 	scratch  bool
@@ -375,10 +376,10 @@ type diskSpec struct {
 
 func (ds *diskSpec) size() int64 {
 	size := minDiskSize
-	if ds.sizeHint != nil && *ds.sizeHint >= minDiskSize {
-		size = *ds.sizeHint
+	if ds.sizeHint >= minDiskSize {
+		size = ds.sizeHint
 	}
-	return int64(common.MiBToGiB(size))
+	return size
 }
 
 func (ds *diskSpec) newAttached() *compute.AttachedDisk {

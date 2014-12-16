@@ -148,9 +148,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 }
 
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
+	size := common.MinRootDiskSizeGiB
+	if cons.RootDisk != nil && *cons.RootDisk > uint64(size) {
+		size = int64(common.MiBToGiB(*cons.RootDisk))
+	}
 	dSpec := diskSpec{
-		// TODO(ericsnow) sizeHint must be at least the size of the image.
-		sizeHint: cons.RootDisk,
+		sizeHint: size,
 		imageURL: spec.Image.Id,
 		boot:     true,
 	}
