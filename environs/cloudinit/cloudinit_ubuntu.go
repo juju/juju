@@ -140,7 +140,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// sourced by bash, and ssh through that.
 	w.conf.AddScripts(
 		// We look to see if the proxy line is there already as
-		// the manual provider may have had it aleady. The ubuntu
+		// the manual provider may have had it already. The ubuntu
 		// user may not exist (local provider only).
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
@@ -149,7 +149,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		w.conf.AddScripts(
 			fmt.Sprintf(
-				`[ -e /home/ubuntu ] && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
+				`grep -q ubuntu /etc/passwd && (printf '%%s\n' %s > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,
 				shquote(w.mcfg.ProxySettings.AsScriptEnvironment())))
 	}
 
@@ -160,9 +160,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	lockDir := path.Join(w.mcfg.DataDir, "locks")
 	w.conf.AddScripts(
 		fmt.Sprintf("mkdir -p %s", lockDir),
-		// We only try to change ownership if there is an ubuntu user
-		// defined, and we determine this by the existance of the home dir.
-		fmt.Sprintf("[ -e /home/ubuntu ] && chown ubuntu:ubuntu %s", lockDir),
+		// We only try to change ownership if there is an ubuntu user defined.
+		fmt.Sprintf("grep -q ubuntu /etc/passwd && chown ubuntu:ubuntu %s", lockDir),
 		fmt.Sprintf("mkdir -p %s", w.mcfg.LogDir),
 		fmt.Sprintf("chown syslog:adm %s", w.mcfg.LogDir),
 	)
