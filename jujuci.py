@@ -98,8 +98,8 @@ def setup_workspace(workspace_dir, dry_run=False, verbose=False):
     # "touch empty" to convince jenkins there is an archive.
     empty_path = os.path.join(artifacts_path, 'empty')
     if not dry_run:
-        with open(empty_path, 'a'):
-            os.utime(empty_path, None)
+        with open(empty_path, 'w'):
+            pass
 
 
 def add_artifacts(workspace_dir, globs, dry_run=False, verbose=False):
@@ -111,7 +111,10 @@ def add_artifacts(workspace_dir, globs, dry_run=False, verbose=False):
     workspace_dir = os.path.realpath(workspace_dir)
     artifacts_dir = os.path.join(workspace_dir, 'artifacts')
     for root, dirs, files in os.walk(workspace_dir):
-        relative = root.replace(workspace_dir, '')[1:]
+        # create a pseudo-relative path to make glob matches easy.
+        relative = os.path.relpath(root, workspace_dir)
+        if relative == '.':
+            relative = ''
         if 'artifacts' in dirs:
             dirs.remove('artifacts')
         for file_name in files:
