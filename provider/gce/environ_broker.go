@@ -179,8 +179,7 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, raw
 		CpuCores: &spec.InstanceType.CpuCores,
 		CpuPower: spec.InstanceType.CpuPower,
 		RootDisk: &rootDiskSize,
-		// TODO(ericsnow) Add Tags here?
-		// Tags *compute.Tags
+		// Tags: not supported in GCE.
 		AvailabilityZone: &raw.Zone,
 	}
 	return &hwc
