@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
@@ -28,7 +29,7 @@ type RunTestSuite struct {
 
 func (s *RunTestSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&DataDir, c.MkDir())
+	s.PatchValue(&cmdutil.DataDir, c.MkDir())
 }
 
 var _ = gc.Suite(&RunTestSuite{})
@@ -177,7 +178,7 @@ func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	s.PatchValue(&fslock.LockWaitDelay, 10*time.Millisecond)
 
-	lock, err := hookExecutionLock(DataDir)
+	lock, err := cmdutil.HookExecutionLock(cmdutil.DataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	lock.Lock("juju-run test")
 	defer lock.Unlock() // in case of failure
@@ -194,7 +195,7 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
-	agentDir := filepath.Join(DataDir, "agents", "unit-foo-1")
+	agentDir := filepath.Join(cmdutil.DataDir, "agents", "unit-foo-1")
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -292,7 +293,7 @@ func (s *RunTestSuite) TestCheckRelationIdValid(c *gc.C) {
 }
 
 func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
-	agentDir := filepath.Join(DataDir, "agents", agent)
+	agentDir := filepath.Join(cmdutil.DataDir, "agents", agent)
 	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	var socketPath string

@@ -28,6 +28,8 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -48,7 +50,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 var _ = configstore.Default
@@ -64,7 +65,7 @@ type BootstrapSuite struct {
 	dataDir         string
 	logDir          string
 	mongoOplogSize  string
-	fakeEnsureMongo fakeEnsure
+	fakeEnsureMongo agenttesting.FakeEnsure
 	bootstrapName   string
 
 	toolsStorage storage.Storage
@@ -72,41 +73,9 @@ type BootstrapSuite struct {
 
 var _ = gc.Suite(&BootstrapSuite{})
 
-type fakeEnsure struct {
-	ensureCount    int
-	initiateCount  int
-	dataDir        string
-	namespace      string
-	oplogSize      int
-	info           state.StateServingInfo
-	initiateParams peergrouper.InitiateMongoParams
-	err            error
-}
-
-func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
-	f.ensureCount++
-	f.dataDir, f.namespace, f.oplogSize = args.DataDir, args.Namespace, args.OplogSize
-	f.info = state.StateServingInfo{
-		APIPort:        args.APIPort,
-		StatePort:      args.StatePort,
-		Cert:           args.Cert,
-		PrivateKey:     args.PrivateKey,
-		CAPrivateKey:   args.CAPrivateKey,
-		SharedSecret:   args.SharedSecret,
-		SystemIdentity: args.SystemIdentity,
-	}
-	return f.err
-}
-
-func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error {
-	f.initiateCount++
-	f.initiateParams = p
-	return nil
-}
-
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
+	s.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.FakeEnsureMongo)
+	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.FakeInitiateMongo)
 
 	storageDir := c.MkDir()
 	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
@@ -138,7 +107,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
-	s.fakeEnsureMongo = fakeEnsure{}
+	s.fakeEnsureMongo = agenttesting.FakeEnsure{}
 
 	// Create fake tools.tar.gz and downloaded-tools.txt.
 	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, version.Current))
@@ -223,32 +192,32 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
-	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
-	c.Assert(s.fakeEnsureMongo.oplogSize, gc.Equals, 1234)
+	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.OplogSize, gc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
 	c.Assert(expectInfo.SystemIdentity, gc.Equals, "")
 
-	servingInfo := s.fakeEnsureMongo.info
+	servingInfo := s.fakeEnsureMongo.Info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
 	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
 	servingInfo.SystemIdentity = ""
-	expect := paramsStateServingInfoToStateStateServingInfo(expectInfo)
+	expect := cmdutil.ParamsStateServingInfoToStateStateServingInfo(expectInfo)
 	c.Assert(servingInfo, jc.DeepEquals, expect)
 	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
-	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
+	gotDialAddrs := s.fakeEnsureMongo.InitiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
 
 	memberHost := fmt.Sprintf("%s:%d", s.bootstrapName, expectInfo.StatePort)
-	c.Assert(s.fakeEnsureMongo.initiateParams.MemberHostPort, gc.Equals, memberHost)
-	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
-	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
+	c.Assert(s.fakeEnsureMongo.InitiateParams.MemberHostPort, gc.Equals, memberHost)
+	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
+	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
 
 	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
