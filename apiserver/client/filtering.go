@@ -163,11 +163,11 @@ func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
-	ports, err := u.OpenedPorts()
+	portRanges, err := u.OpenedPorts()
 	if err != nil {
 		return false, false, err
 	}
-	return matchPorts(patterns, network.PortRangesToPorts(ports)...)
+	return matchPortRanges(patterns, portRanges...)
 }
 
 func buildServiceMatcherShims(s *state.Service, patterns ...string) (shims []closurePredicate, _ error) {
@@ -267,8 +267,8 @@ func buildUnitMatcherShims(u *state.Unit, patterns []string) []closurePredicate 
 	}
 }
 
-func matchPorts(patterns []string, ports ...network.Port) (bool, bool, error) {
-	for _, p := range ports {
+func matchPortRanges(patterns []string, portRanges ...network.PortRange) (bool, bool, error) {
+	for _, p := range portRanges {
 		for _, patt := range patterns {
 			if strings.HasPrefix(p.String(), patt) {
 				return true, true, nil

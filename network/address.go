@@ -21,11 +21,12 @@ var (
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
 )
 
-// preferIPv6 determines whether IPv6 addresses will be preferred when
-// selecting a public or internal addresses, using the Select*()
-// methods below. InitializeFromConfig() needs to be called to
-// set this flag globally.
-var preferIPv6 bool = false
+// globalPreferIPv6 determines whether IPv6 addresses will be
+// preferred when selecting a public or internal addresses, using the
+// Select*() methods below. InitializeFromConfig() needs to be called
+// to set this flag globally at the earliest time possible (e.g. at
+// bootstrap, agent startup, before any CLI command).
+var globalPreferIPv6 bool = false
 
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
@@ -91,6 +92,11 @@ func (a Address) String() string {
 		buf.WriteByte(')')
 	}
 	return buf.String()
+}
+
+// GoString implements fmt.GoStringer.
+func (a Address) GoString() string {
+	return a.String()
 }
 
 // NewAddresses is a convenience function to create addresses from a string slice
@@ -182,7 +188,7 @@ func NewAddress(value string, scope Scope) Address {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, the empty string is returned.
 func SelectPublicAddress(addresses []Address) string {
-	index := bestAddressIndex(len(addresses), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
@@ -195,7 +201,7 @@ func SelectPublicAddress(addresses []Address) string {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
 func SelectPublicHostPort(hps []HostPort) string {
-	index := bestAddressIndex(len(hps), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), globalPreferIPv6, func(i int) Address {
 		return hps[i].Address
 	}, publicMatch)
 	if index < 0 {
@@ -208,7 +214,7 @@ func SelectPublicHostPort(hps []HostPort) string {
 // used as an endpoint for juju internal communication. If there are
 // no suitable addresses, the empty string is returned.
 func SelectInternalAddress(addresses []Address, machineLocal bool) string {
-	index := bestAddressIndex(len(addresses), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), globalPreferIPv6, func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -222,7 +228,7 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) string {
 // in its NetAddr form. If there are no suitable addresses, the empty
 // string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := bestAddressIndex(len(hps), preferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), globalPreferIPv6, func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -350,6 +356,47 @@ func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address,
 	return fallbackAddressIndex
 }
 
+// sortOrder calculates the "weight" of the address when sorting,
+// taking into account the preferIPv6 flag:
+// - public IPs first;
+// - hostnames after that, but "localhost" will be last if present;
+// - cloud-local next;
+// - machine-local next;
+// - link-local next;
+// - non-hostnames with unknown scope last.
+//
+// When preferIPv6 flag and the address type do not match, the order
+// is incremented to put non-preferred addresses after preferred.
+func (a Address) sortOrder(preferIPv6 bool) int {
+	order := 0xFF
+	switch a.Scope {
+	case ScopePublic:
+		order = 0x00
+	case ScopeCloudLocal:
+		order = 0x20
+	case ScopeMachineLocal:
+		order = 0x40
+	case ScopeLinkLocal:
+		order = 0x80
+	}
+	switch a.Type {
+	case HostName:
+		order = 0x10
+		if a.Value == "localhost" {
+			order++
+		}
+	case IPv4Address:
+		if preferIPv6 {
+			order++
+		}
+	case IPv6Address:
+		if !preferIPv6 {
+			order++
+		}
+	}
+	return order
+}
+
 type addressesPreferringIPv4Slice []Address
 
 func (a addressesPreferringIPv4Slice) Len() int      { return len(a) }
@@ -357,15 +404,12 @@ func (a addressesPreferringIPv4Slice) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a addressesPreferringIPv4Slice) Less(i, j int) bool {
 	addr1 := a[i]
 	addr2 := a[j]
-	if addr1.Type == HostName {
-		// Prefer hostnames on top, if possible.
-		return addr2.Type != HostName
+	order1 := addr1.sortOrder(false)
+	order2 := addr2.sortOrder(false)
+	if order1 == order2 {
+		return addr1.Value < addr2.Value
 	}
-	if addr1.Type == IPv4Address || addr2.Type == IPv4Address {
-		// Prefer IPv4 addresses to IPv6 ones.
-		return addr1.Type == IPv4Address
-	}
-	return addr1.Value == addr2.Value
+	return order1 < order2
 }
 
 type addressesPreferringIPv6Slice struct {
@@ -375,20 +419,17 @@ type addressesPreferringIPv6Slice struct {
 func (a addressesPreferringIPv6Slice) Less(i, j int) bool {
 	addr1 := a.addressesPreferringIPv4Slice[i]
 	addr2 := a.addressesPreferringIPv4Slice[j]
-	if addr1.Type == HostName {
-		// Prefer hostnames on top, if possible.
-		return addr2.Type != HostName
+	order1 := addr1.sortOrder(true)
+	order2 := addr2.sortOrder(true)
+	if order1 == order2 {
+		return addr1.Value < addr2.Value
 	}
-	if addr1.Type == IPv6Address || addr2.Type == IPv6Address {
-		// Prefer IPv6 addresses to IPv4 ones.
-		return addr1.Type == IPv6Address
-	}
-	return addr1.Value == addr2.Value
+	return order1 < order2
 }
 
-// SortAddresses sorts the given Address slice, putting hostnames on
-// top and depending on the preferIPv6 flag either IPv6 or IPv4
-// addresses after that.
+// SortAddresses sorts the given Address slice according to the
+// sortOrder of each address and the preferIpv6 flag. See
+// Address.sortOrder() for more info.
 func SortAddresses(addrs []Address, preferIPv6 bool) {
 	if preferIPv6 {
 		sort.Sort(addressesPreferringIPv6Slice{addressesPreferringIPv4Slice(addrs)})

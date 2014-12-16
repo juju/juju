@@ -51,10 +51,9 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
-	updatedServers := [][]network.HostPort{network.AddressesWithPort(
-		network.NewAddresses("localhost", "127.0.0.1"),
-		1234,
-	)}
+	updatedServers := [][]network.HostPort{
+		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
+	}
 	err := s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -80,10 +79,9 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
-	updatedServers := [][]network.HostPort{network.AddressesWithPort(
-		network.NewAddresses("localhost", "127.0.0.1"),
-		1234,
-	)}
+	updatedServers := [][]network.HostPort{
+		network.NewHostPorts(1234, "localhost", "127.0.0.1"),
+	}
 	// SetAPIHostPorts should be called with the initial value (empty),
 	// and then the updated value.
 	select {

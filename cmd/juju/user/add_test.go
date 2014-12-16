@@ -102,7 +102,9 @@ func assertJENVContents(c *gc.C, filename, username, password string) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(details["user"], gc.Equals, username)
 	c.Assert(details["password"], gc.Equals, password)
-	c.Assert(details["state-servers"], gc.DeepEquals, []interface{}{"localhost:12345"})
+	c.Assert(details["state-servers"], gc.DeepEquals, []interface{}{"127.0.0.1:12345"})
+	// "server-hostnames" is optional and only set when caching api endpoints.
+	c.Assert(details["server-hostnames"], gc.IsNil)
 	c.Assert(details["ca-cert"], gc.DeepEquals, testing.CACert)
 	c.Assert(details["environ-uuid"], gc.Equals, "env-uuid")
 	_, found := details["bootstrap-config"]
