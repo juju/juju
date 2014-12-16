@@ -794,6 +794,22 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (t *localServerSuite) TestSubnets(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets("")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaultSubnets := []network.SubnetInfo{
+		network.SubnetInfo{
+			CIDR:              "10.10.0.0/20",
+			ProviderId:        "subnet-0",
+			VLANTag:           0,
+			AllocatableIPLow:  "10.10.0.4",
+			AllocatableIPHigh: "10.10.15.254",
+		}}
+	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
+}
+
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
