@@ -31,8 +31,10 @@ const (
 
 	partialMachineType = "zones/%s/machineTypes/%s"
 
-	storageScratch    = "SCRATCH"
-	storagePersistent = "PERSISTENT"
+	diskTypeScratch    = "SCRATCH"
+	diskTypePersistent = "PERSISTENT"
+	diskModeRW         = "READ_WRITE"
+	diskModeRO         = "READ_ONLY"
 
 	statusDone         = "DONE"
 	statusDown         = "DOWN"
@@ -380,13 +382,13 @@ func (ds *diskSpec) size() int64 {
 }
 
 func (ds *diskSpec) newAttached() *compute.AttachedDisk {
-	diskType := "PERSISTENT" // The default.
+	diskType := diskTypePersistent // The default.
 	if ds.scratch {
-		diskType = "SCRATCH"
+		diskType = diskTypeScratch
 	}
-	mode := "READ_WRITE" // The default.
+	mode := diskModeRW // The default.
 	if ds.readonly {
-		mode = "READ_ONLY"
+		mode = diskModeRO
 	}
 
 	disk := compute.AttachedDisk{

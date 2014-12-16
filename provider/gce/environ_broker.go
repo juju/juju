@@ -72,7 +72,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 		Arches:      arches,
 		Constraints: args.Constraints,
 		// TODO(ericsnow) Is this right?
-		Storage: []string{storageScratch, storagePersistent},
+		Storage: []string{diskTypeScratch, diskTypePersistent},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
