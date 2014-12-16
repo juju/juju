@@ -281,7 +281,10 @@ func (gce *gceConnection) removeInstance(id, zone string) error {
 	if err := gce.waitOperation(operation); err != nil {
 		return errors.Trace(err)
 	}
-	return nil
+
+	// Clean up the instance's root disk.
+	err = gce.removeDisk(id, zone)
+	return errors.Trace(err)
 }
 
 func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) error {
@@ -310,6 +313,16 @@ func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) e
 		return errors.Errorf("some instance removals failed: %v", failed)
 	}
 	return nil
+}
+
+func (gce *gceConnection) removeDisk(id, zone string) error {
+	call := gce.Disks.Delete(gce.projectId, zone, id)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = gce.waitOperation(operation)
+	return errors.Trace(err)
 }
 
 func (gce *gceConnection) firewall(name string) (*compute.Firewall, error) {

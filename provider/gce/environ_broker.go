@@ -71,8 +71,6 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-		// TODO(ericsnow) Is this right?
-		Storage: []string{diskTypeScratch, diskTypePersistent},
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -204,9 +202,6 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	if err := env.gce.removeInstances(env, ids...); err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(ericsnow) Delete disks (that we created) that are associated
-	// with the stopped instances.
 
 	return common.RemoveStateInstances(env.Storage(), instances...)
 }
