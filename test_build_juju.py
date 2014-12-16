@@ -44,8 +44,9 @@ class JujuBuildTestCase(TestCase):
         self.assertEqual(
             {'archive': False, 'dry_run': True, 'verbose': True},
             ga_mock.call_args[1])
+        crossbuild = get_script()
         self.assertEqual(
-            (['crossbuild.py', 'win-client', '-b', '~/crossbuild',
+            ([crossbuild, 'win-client', '-b', '~/crossbuild',
               'juju-core_1.2.3.tar.gz'], ),
             rc_mock.call_args[0])
         self.assertEqual(

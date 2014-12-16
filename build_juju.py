@@ -33,7 +33,8 @@ def get_script(juju_release_tools=None):
     return script
 
 
-def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
+def build_juju(product, workspace_dir, build,
+               juju_release_tools=None, dry_run=False, verbose=False):
     """Build the juju product from a Juju CI build-revision in a workspace.
 
     The product is passed to juju-release-tools/crossbuild.py. The options
@@ -47,8 +48,9 @@ def build_juju(product, workspace_dir, build, dry_run=False, verbose=False):
         BUILD_REVISION, build, 'juju-core_*.tar.gz', workspace_dir,
         archive=False, dry_run=dry_run, verbose=verbose)
     tar_artifact = artifacts[0]
+    crossbuild = get_script(juju_release_tools)
     command = [
-        'crossbuild.py', product, '-b', '~/crossbuild', tar_artifact.file_name]
+        crossbuild, product, '-b', '~/crossbuild', tar_artifact.file_name]
     run_command(command, dry_run=dry_run, verbose=verbose)
     globs = [
         'juju-setup-*.exe', 'juju-*-win2012-amd64.tgz', 'juju-*-osx.tar.gz']
@@ -85,6 +87,7 @@ def main(argv):
     try:
         build_juju(
             args.product, args.workspace, args.build,
+            juju_release_tools=args.juju_release_tools,
             dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
