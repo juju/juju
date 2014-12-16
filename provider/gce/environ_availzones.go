@@ -47,7 +47,17 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // zones for the specified instances. The error returned follows the same
 // rules as Environ.Instances.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
-	return nil, errors.Trace(errNotImplemented)
+	instances, err := env.Instances(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []string
+	for _, inst := range instances {
+		eInst := inst.(*environInstance)
+		results = append(results, eInst.zone)
+	}
+	return results, nil
 }
 
 func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
