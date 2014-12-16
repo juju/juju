@@ -211,15 +211,18 @@ def get_machine_addrs(client):
 
 
 def dump_logs(client, host, directory, host_id=None):
-    if client.env.local:
-        copy_local_logs(directory, client)
-    else:
-        copy_remote_logs(host, directory)
-    subprocess.check_call(
-        ['gzip', '-f'] +
-        glob.glob(os.path.join(directory, '*.log')))
-
-    dump_euca_console(host_id, directory)
+    try:
+        if client.env.local:
+            copy_local_logs(directory, client)
+        else:
+            copy_remote_logs(host, directory)
+        subprocess.check_call(
+            ['gzip', '-f'] +
+            glob.glob(os.path.join(directory, '*.log')))
+        dump_euca_console(host_id, directory)
+    except Exception as e:
+        print_now("Failed to retrieve logs")
+        print_now(str(e))
 
 
 def copy_local_logs(directory, client):

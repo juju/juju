@@ -79,6 +79,8 @@ def wait_for_port(host, port, closed=False, timeout=30):
                 raise
             if closed:
                 return
+        except socket.gaierror as e:
+            print_now(str(e))
         except Exception as e:
             print_now('Unexpected %r: %s' % (type(e), e))
             raise
