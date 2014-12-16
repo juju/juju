@@ -204,7 +204,7 @@ func (gce *gceConnection) instance(zone, id string) (*compute.Instance, error) {
 	return inst, errors.Trace(err)
 }
 
-func (gce *gceConnection) newInstance(inst *compute.Instance, machineType string, zones []string) error {
+func (gce *gceConnection) addInstance(inst *compute.Instance, machineType string, zones []string) error {
 	for _, zoneName := range zones {
 		inst.MachineType = resolveMachineType(zoneName, machineType)
 		call := gce.Instances.Insert(
@@ -220,7 +220,7 @@ func (gce *gceConnection) newInstance(inst *compute.Instance, machineType string
 		waitErr := gce.waitOperation(operation)
 
 		// Check if the instance was created.
-		updated, err := gce.instance(zoneName, inst.Name)
+		realized, err := gce.instance(zoneName, inst.Name)
 		if err != nil {
 			if waitErr == nil {
 				return errors.Trace(err)
@@ -231,7 +231,7 @@ func (gce *gceConnection) newInstance(inst *compute.Instance, machineType string
 		}
 
 		// Success!
-		*inst = *updated
+		*inst = *realized
 		return nil
 	}
 	return errors.Errorf("not able to provision in any zone")

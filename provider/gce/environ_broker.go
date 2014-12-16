@@ -141,7 +141,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := env.gce.newInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
+	if err := env.gce.addInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return instance, nil
