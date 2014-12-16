@@ -83,16 +83,13 @@ var newConfigTests = []struct {
 	insert: testing.Attrs{"client-email": ""},
 	err:    "client-email: must not be empty",
 }, {
-	info:               "region is inserted if missing",
-	remove:             []string{"region"},
-	expect:             testing.Attrs{"region": "us-central1"},
-	skipIfNotValidated: true,
+	info:   "region is required",
+	remove: []string{"region"},
+	err:    "region: expected string, got nothing",
 }, {
-	info:   "region can be empty",
+	info:   "region cannot be empty",
 	insert: testing.Attrs{"region": ""},
-	// TODO(ericsnow) Shouldn't the default be set?
-	expect:          testing.Attrs{"region": ""},
-	skipIfOldConfig: true,
+	err:    "region: must not be empty",
 }, {
 	info:   "project-id is required",
 	remove: []string{"project-id"},

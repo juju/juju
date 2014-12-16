@@ -65,8 +65,6 @@ var configFields = schema.Fields{
 }
 
 var configDefaults = schema.Defaults{
-	// TODO(ericsnow) Do we really want a default region (see azure)?
-	cfgRegion: "us-central1",
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",
 }
