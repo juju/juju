@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/version"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -143,6 +144,7 @@ type AddMachineAPI interface {
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	ForceDestroyMachines(machines ...string) error
+	EnvironmentGet() (map[string]interface{}, error)
 	EnvironmentUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
@@ -202,12 +204,22 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 	}
 
 	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
-	if config.Type() != provider.MAAS &&
+
+	envVersion, err := envcmd.GetEnvironmentVersion(client)
+	if err != nil {
+		return err
+	}
+
+	// Servers before 1.21-alpha2 don't have the networker so don't
+	// try to use JobManageNetworking with them.
+	//
+	// In case of MAAS and Joyent JobManageNetworking is not added
+	// to ensure the non-intrusive start of a networker like above
+	// for the manual provisioning. See this related joyent bug
+	// http://pad.lv/1401423
+	if envVersion.Compare(version.MustParse("1.21-alpha2")) >= 0 &&
+		config.Type() != provider.MAAS &&
 		config.Type() != provider.Joyent {
-		// In case of MAAS and Joyent JobManageNetworking is not added
-		// to ensure the non-intrusive start of a networker like above
-		// for the manual provisioning. See this related joyent bug
-		// http://pad.lv/1401423
 		jobs = append(jobs, multiwatcher.JobManageNetworking)
 	}
 
