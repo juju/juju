@@ -205,5 +205,8 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Delete disks (that we created) that are associated
+	// with the stopped instances.
+
 	return common.RemoveStateInstances(env.Storage(), instances...)
 }
