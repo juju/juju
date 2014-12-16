@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"strings"
 	"sync"
@@ -829,6 +828,7 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 // yet (i.e. when called initially or when a new network was created).
 func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	ec2Inst := e.ec2()
+	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
 	resp, err := ec2Inst.Subnets([]string{}, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
@@ -851,8 +851,8 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 		allocatableLow := network.DecimalToIP(start + 4)
 
 		_, zeros := ipnet.Mask.Size()
-		highMask := uint32(math.Pow(2, float64(zeros))) - 1
-		highIP := start | highMask
+		numIPs := 1 << uint32(zeros)
+		highIP := start + numIPs - 1
 		// the last address in a subnet is reserved
 		allocatableHigh := network.DecimalToIP(highIP - 1)
 
