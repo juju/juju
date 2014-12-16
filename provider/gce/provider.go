@@ -20,16 +20,12 @@ func init() {
 	// somewhere. To enable a provider, import it in the "providers/all"
 	// package; please do *not* import individual providers anywhere else,
 	// except in direct tests for that provider.
-	// TODO(ericsnow) Comment this out until we are ready to "release".
 	environs.RegisterProvider("gce", providerInstance)
 }
 
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	// TODO(ericsnow) Is this all we need?
-
 	// You should probably not change this method; prefer to cause SetConfig
 	// to completely configure an environment, regardless of the initial state.
-	// TODO(ericsnow) region, projectID, gce should be set here?
 	env := &environ{name: cfg.Name()}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
@@ -52,8 +48,6 @@ func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config
 }
 
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	// TODO(ericsnow) Is this method really correct?
-
 	// You should almost certainly not change this method; if you need to change
 	// how configs are validated, you should edit validateConfig itself, to ensure
 	// that your checks are always applied.

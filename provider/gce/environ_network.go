@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-// TODO(ericsnow) Fold this back into environ.go if neither ends up too big.
-
 // AllocateAddress requests a specific address to be allocated for the
 // given instance on the given network.
 func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {

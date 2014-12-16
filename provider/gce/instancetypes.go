@@ -11,7 +11,9 @@ import (
 
 var vtype = "docker"
 
-// TODO(wwitzel3) do we need to set a RootDisk?
+// Instance types are not associated with disks in GCE, so we do not
+// set RootDisk.
+
 // Shared-core machine types.
 var allInstanceTypes = []instances.InstanceType{
 	{ // Standard machine types

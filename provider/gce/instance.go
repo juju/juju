@@ -49,7 +49,6 @@ func (inst *environInstance) update(env *environ, newInst *compute.Instance) {
 func (inst *environInstance) Refresh() error {
 	env := inst.env.getSnapshot()
 
-	// TODO(ericsnow) is zone the right thing
 	gInst, err := env.gce.instance(inst.zone, string(inst.id))
 	if err != nil {
 		return errors.Trace(err)
@@ -78,7 +77,6 @@ func (inst *environInstance) Addresses() ([]network.Address, error) {
 		}
 
 		// Add private address.
-		// TODO(ericsnow) Are these really the internal addresses?
 		if netif.NetworkIP == "" {
 			continue
 		}

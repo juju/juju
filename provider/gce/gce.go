@@ -47,8 +47,8 @@ const (
 
 	operationTimeout = 60 // seconds
 
-	// minDiskSize is the minimum/default size (in megabytes) for GCE disks.
-	//  TODO(ericsnow) Is there a minimum? What is the default?
+	// minDiskSize is the minimum/default size (in megabytes) for GCE
+	// disks. GCE does not currently have a minimum disk size.
 	minDiskSize uint64 = 0
 )
 
@@ -214,7 +214,6 @@ func (gce *gceConnection) newInstance(inst *compute.Instance, machineType string
 		}
 
 		// Get the instance here.
-		// TODO(ericsnow) Do we really need to get it?
 		updated, err := gce.instance(zoneName, inst.Name)
 		if err != nil {
 			return errors.Trace(err)
