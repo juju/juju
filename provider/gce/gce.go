@@ -171,10 +171,11 @@ func (gce *gceConnection) verifyCredentials() error {
 func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 	opID := operation.ClientOperationId
 
+	logger.Infof("GCE operation %q, waiting...", opID)
 	for a := operationAttempts.Start(); a.Next(); {
 		var err error
 		if operation.Status == statusDone {
-			return nil
+			break
 		}
 		call := gce.GlobalOperations.Get(gce.projectID, opID)
 		operation, err = call.Do()
@@ -182,12 +183,19 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 			return errors.Annotate(err, "waiting for operation to complete")
 		}
 	}
-	if operation.Status == statusDone {
-		return nil
+	if operation.Status != statusDone {
+		msg := "timed out after %d seconds waiting for GCE operation to finish"
+		return errors.Errorf(msg, operationTimeout)
+	}
+	if operation.Error != nil {
+		for _, err := range operation.Error.Errors {
+			logger.Errorf("GCE operation failed: (%s) %s", err.Code, err.Message)
+		}
+		return errors.Errorf("GCE operation %q failed", opID)
 	}
 
-	msg := "timed out after %d seconds waiting for GCE operation to finish"
-	return errors.Errorf(msg, operationTimeout)
+	logger.Infof("GCE operation %q finished", opID)
+	return nil
 }
 
 func (gce *gceConnection) instance(zone, id string) (*compute.Instance, error) {
@@ -206,21 +214,24 @@ func (gce *gceConnection) newInstance(inst *compute.Instance, machineType string
 		)
 		operation, err := call.Do()
 		if err != nil {
-			// XXX Handle zone-is-full error.
+			// We are guaranteed the insert failed at the point.
 			return errors.Annotate(err, "sending new instance request")
 		}
-		if err := gce.waitOperation(operation); err != nil {
-			// TODO(ericsnow) Handle zone-is-full error here?
-			return errors.Trace(err)
-		}
+		waitErr := gce.waitOperation(operation)
 
-		// Get the instance here.
+		// Check if the instance was created.
 		updated, err := gce.instance(zoneName, inst.Name)
 		if err != nil {
-			return errors.Trace(err)
+			if waitErr == nil {
+				return errors.Trace(err)
+			}
+			// Try the next zone.
+			logger.Errorf("failed to get new instance in zone %q: %v", zoneName, waitErr)
+			continue
 		}
-		*inst = *updated
+
 		// Success!
+		*inst = *updated
 		return nil
 	}
 	return errors.Errorf("not able to provision in any zone")
