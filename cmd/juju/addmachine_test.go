@@ -38,6 +38,10 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
+	c.Assert(m.Jobs(), jc.SameContents, []state.MachineJob{
+		state.JobHostUnits,
+		state.JobManageNetworking,
+	})
 	c.Assert(m.Life(), gc.Equals, state.Alive)
 	c.Assert(m.Series(), gc.DeepEquals, config.LatestLtsSeries())
 	mcons, err := m.Constraints()
@@ -198,9 +202,27 @@ failed to create 2 machines
 	c.Assert(testing.Stderr(context), gc.Equals, expectedOutput)
 }
 
+func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
+	fakeApi := fakeAddMachineAPI{}
+	s.PatchValue(&getAddMachineAPI, func(c *AddMachineCommand) (addMachineAPI, error) {
+		return &fakeApi, nil
+	})
+	fakeApi.successOrder = []bool{true}
+	fakeApi.agentVersion = "1.18.1"
+
+	_, err := runAddMachine(c)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(fakeApi.args, gc.HasLen, 1)
+	params0 := fakeApi.args[0]
+	c.Assert(params0.Jobs, gc.DeepEquals, []params.MachineJob{params.JobHostUnits})
+}
+
 type fakeAddMachineAPI struct {
 	successOrder []bool
+	args         []params.AddMachineParams
 	currentOp    int
+	agentVersion interface{}
 }
 
 func (f *fakeAddMachineAPI) Close() error {
@@ -212,6 +234,7 @@ func (f *fakeAddMachineAPI) EnvironmentUUID() string {
 }
 
 func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	f.args = args
 	results := []params.AddMachinesResult{}
 	for i := range args {
 		if f.successOrder[i] {
@@ -239,4 +262,11 @@ func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 }
 func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
 	return "", fmt.Errorf("not implemented")
+}
+
+func (f *fakeAddMachineAPI) EnvironmentGet() (map[string]interface{}, error) {
+	if f.agentVersion == nil {
+		f.agentVersion = "1.21.0"
+	}
+	return map[string]interface{}{"agent-version": f.agentVersion}, nil
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.cmd.envcmd")
@@ -297,4 +298,31 @@ func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext
 		Context:           cmdContext,
 		verifyCredentials: false,
 	}
+}
+
+type EnvironmentGetter interface {
+	EnvironmentGet() (map[string]interface{}, error)
+}
+
+// GetEnvironmentVersion retrieves the environment's agent-version
+// value from an API client.
+func GetEnvironmentVersion(client EnvironmentGetter) (version.Number, error) {
+	noVersion := version.Number{}
+	attrs, err := client.EnvironmentGet()
+	if err != nil {
+		return noVersion, errors.Annotate(err, "unable to retrieve environment config")
+	}
+	vi, found := attrs["agent-version"]
+	if !found {
+		return noVersion, errors.New("version not found in environment config")
+	}
+	vs, ok := vi.(string)
+	if !ok {
+		return noVersion, errors.New("invalid environment version type in config")
+	}
+	v, err := version.Parse(vs)
+	if err != nil {
+		return noVersion, errors.Annotate(err, "unable to parse environment version")
+	}
+	return v, nil
 }
