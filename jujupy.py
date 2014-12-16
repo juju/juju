@@ -291,7 +291,7 @@ class EnvJujuClient:
         reporter = GroupReporter(sys.stdout, version)
         for ignored in until_timeout(timeout):
             try:
-                versions = self.get_status(120).get_agent_versions()
+                versions = self.get_status(300).get_agent_versions()
             except CannotConnectEnv:
                 print('Supressing "Unable to connect to environment"')
                 continue
