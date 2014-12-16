@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -40,6 +41,20 @@ func (env *environ) Name() string {
 // Provider returns the environment provider that created this env.
 func (*environ) Provider() environs.EnvironProvider {
 	return providerInstance
+}
+
+// Region returns the CloudSpec to use for the provider, as configured.
+func (env *environ) Region() (simplestreams.CloudSpec, error) {
+	cloudSpec, err := env.cloudSpec(env.ecfg.region())
+	return cloudSpec, errors.Trace(err)
+}
+
+func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   region,
+		Endpoint: env.ecfg.imageURL(),
+	}
+	return cloudSpec, nil
 }
 
 // SetConfig updates the env's configuration.

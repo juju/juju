@@ -29,6 +29,7 @@ func validAttrs() testing.Attrs {
 		"client-email": "joe@mail.com",
 		"region":       "home",
 		"project-id":   "my-juju",
+		"image-url":    "<some data>",
 	})
 }
 
@@ -99,6 +100,16 @@ var newConfigTests = []struct {
 	info:   "project-id cannot be empty",
 	insert: testing.Attrs{"project-id": ""},
 	err:    "project-id: must not be empty",
+}, {
+	info:               "image-url is inserted if missing",
+	remove:             []string{"image-url"},
+	expect:             testing.Attrs{"image-url": ""},
+	skipIfNotValidated: true,
+}, {
+	info:            "image-url can be empty",
+	insert:          testing.Attrs{"image-url": ""},
+	expect:          testing.Attrs{"image-url": ""},
+	skipIfOldConfig: true,
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},

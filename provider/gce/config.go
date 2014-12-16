@@ -19,12 +19,14 @@ const (
 	osEnvClientEmail = "GCE_CLIENT_EMAIL"
 	osEnvRegion      = "GCE_REGION"
 	osEnvProjectID   = "GCE_PROJECT_ID"
+	osEnvImageURL    = "GCE_IMAGE_URL"
 
 	cfgPrivateKey  = "private-key"
 	cfgClientID    = "client-id"
 	cfgClientEmail = "client-email"
 	cfgRegion      = "region"
 	cfgProjectID   = "project-id"
+	cfgImageURL    = "image-url"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -37,8 +39,11 @@ gce:
   private-key: 
   client-email:
   client-id:
+
+  # Google instance info
   region:
   project-id:
+  # image-url:
 `[1:]
 
 var osEnvFields = map[string]string{
@@ -47,6 +52,7 @@ var osEnvFields = map[string]string{
 	osEnvClientEmail: cfgClientEmail,
 	osEnvRegion:      cfgRegion,
 	osEnvProjectID:   cfgProjectID,
+	osEnvImageURL:    cfgImageURL,
 }
 
 var configFields = schema.Fields{
@@ -55,10 +61,16 @@ var configFields = schema.Fields{
 	cfgClientEmail: schema.String(),
 	cfgRegion:      schema.String(),
 	cfgProjectID:   schema.String(),
+	cfgImageURL:    schema.String(),
 }
 
 var configDefaults = schema.Defaults{
+	// TODO(ericsnow) Do we really want a default region (see azure)?
 	cfgRegion: "",
+	// TODO(ericsnow) This needs the right default.
+	// See https://cloud.google.com/compute/docs/reference/latest/instances/insert#disks.initializeParams.sourceImage
+	// cfgImageURL: "projects/.../global/images/...",
+	cfgImageURL: "",
 }
 
 var configSecretFields = []string{
@@ -71,6 +83,7 @@ var configImmutableFields = []string{
 	cfgClientEmail,
 	cfgRegion,
 	cfgProjectID,
+	cfgImageURL,
 }
 
 type environConfig struct {
@@ -96,6 +109,10 @@ func (c *environConfig) region() string {
 
 func (c *environConfig) projectID() string {
 	return c.attrs[cfgProjectID].(string)
+}
+
+func (c *environConfig) imageURL() string {
+	return c.attrs[cfgImageURL].(string)
 }
 
 func (c *environConfig) auth() gceAuth {
@@ -145,6 +162,9 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if err := ecfg.newConnection().validate(); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
+
+	// Check image URL value.
+	// TODO(ericsnow) Implement the check.
 
 	return ecfg, nil
 }
