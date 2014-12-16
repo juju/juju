@@ -87,7 +87,9 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 func (env *environ) getSnapshot() *environ {
 	env.lock.Lock()
 	clone := *env
-	// TODO(ericsnow) Should env.ecfg be explicitly copied-by-value?
+	// The config values are all immutable so we don't need to also copy
+	// env.ecfg and env.gce by value. If that changes we need to
+	// re-evaluate copying them by value.
 	env.lock.Unlock()
 
 	clone.lock = sync.Mutex{}
