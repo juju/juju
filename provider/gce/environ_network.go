@@ -50,3 +50,79 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 func (env *environ) Ports() ([]network.PortRange, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
+
+func (env *environ) openPorts(name string, ports []network.PortRange) error {
+	// Compose the full set of open ports.
+	currentPorts, err := env.ports(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	inputPortsSet := network.NewPortSet(ports...)
+	if inputPortsSet.IsEmpty() {
+		return nil
+	}
+	currentPortsSet := network.NewPortSet(currentPorts...)
+
+	// Send the request, depending on the current ports.
+	if currentPortsSet.IsEmpty() {
+		firewall := firewallSpec(name, inputPortsSet)
+		if err := env.gce.setFirewall("", firewall); err != nil {
+			return errors.Annotatef(err, "opening port(s) %+v", ports)
+		}
+
+	} else {
+		newPortsSet := currentPortsSet.Union(inputPortsSet)
+		firewall := firewallSpec(name, newPortsSet)
+		if err := env.gce.setFirewall(name, firewall); err != nil {
+			return errors.Annotatef(err, "opening port(s) %+v", ports)
+		}
+	}
+	return nil
+}
+
+func (env *environ) closePorts(name string, ports []network.PortRange) error {
+	// Compose the full set of open ports.
+	currentPorts, err := env.ports(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	inputPortsSet := network.NewPortSet(ports...)
+	if inputPortsSet.IsEmpty() {
+		return nil
+	}
+	currentPortsSet := network.NewPortSet(currentPorts...)
+	newPortsSet := currentPortsSet.Difference(inputPortsSet)
+
+	// Send the request, depending on the current ports.
+	if newPortsSet.IsEmpty() {
+		if err := env.gce.setFirewall(name, nil); err != nil {
+			return errors.Annotatef(err, "closing port(s) %+v", ports)
+		}
+	} else {
+		firewall := firewallSpec(name, newPortsSet)
+		if err := env.gce.setFirewall(name, firewall); err != nil {
+			return errors.Annotatef(err, "closing port(s) %+v", ports)
+		}
+	}
+	return nil
+}
+
+func (env *environ) ports(name string) ([]network.PortRange, error) {
+	firewall, err := env.gce.firewall(name)
+	if err != nil {
+		return nil, errors.Annotate(err, "while getting ports from GCE")
+	}
+
+	var ports []network.PortRange
+	for _, allowed := range firewall.Allowed {
+		for _, portRangeStr := range allowed.Ports {
+			portRange, err := network.ParsePortRangePorts(portRangeStr, allowed.IPProtocol)
+			if err != nil {
+				return ports, errors.Annotate(err, "bad ports from GCE")
+			}
+			ports = append(ports, portRange)
+		}
+	}
+
+	return ports, nil
+}

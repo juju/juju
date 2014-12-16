@@ -108,64 +108,16 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	env := inst.env.getSnapshot()
-
-	// Compose the full set of open ports.
-	currentPorts, err := inst.Ports(machineId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	inputPortsSet := network.NewPortSet(ports...)
-	if inputPortsSet.IsEmpty() {
-		return nil
-	}
-	currentPortsSet := network.NewPortSet(currentPorts...)
-
-	// Send the request, depending on the current ports.
-	if currentPortsSet.IsEmpty() {
-		firewall := firewallSpec(machineId, inputPortsSet)
-		if err := env.gce.setFirewall("", firewall); err != nil {
-			return errors.Annotatef(err, "opening port(s) %+v", ports)
-		}
-
-	} else {
-		newPortsSet := currentPortsSet.Union(inputPortsSet)
-		firewall := firewallSpec(machineId, newPortsSet)
-		if err := env.gce.setFirewall(machineId, firewall); err != nil {
-			return errors.Annotatef(err, "opening port(s) %+v", ports)
-		}
-	}
-	return nil
+	err := env.openPorts(machineId, ports)
+	return errors.Trace(err)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	env := inst.env.getSnapshot()
-
-	// Compose the full set of open ports.
-	currentPorts, err := inst.Ports(machineId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	inputPortsSet := network.NewPortSet(ports...)
-	if inputPortsSet.IsEmpty() {
-		return nil
-	}
-	currentPortsSet := network.NewPortSet(currentPorts...)
-	newPortsSet := currentPortsSet.Difference(inputPortsSet)
-
-	// Send the request, depending on the current ports.
-	if newPortsSet.IsEmpty() {
-		if err := env.gce.setFirewall(machineId, nil); err != nil {
-			return errors.Annotatef(err, "closing port(s) %+v", ports)
-		}
-	} else {
-		firewall := firewallSpec(machineId, newPortsSet)
-		if err := env.gce.setFirewall(machineId, firewall); err != nil {
-			return errors.Annotatef(err, "closing port(s) %+v", ports)
-		}
-	}
-	return nil
+	err := env.closePorts(machineId, ports)
+	return errors.Trace(err)
 }
 
 // Ports returns the set of ports open on the instance, which
@@ -173,22 +125,6 @@ func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRa
 // The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error) {
 	env := inst.env.getSnapshot()
-
-	firewall, err := env.gce.firewall(machineId)
-	if err != nil {
-		return nil, errors.Annotate(err, "while getting ports from GCE")
-	}
-
-	var ports []network.PortRange
-	for _, allowed := range firewall.Allowed {
-		for _, portRangeStr := range allowed.Ports {
-			portRange, err := network.ParsePortRangePorts(portRangeStr, allowed.IPProtocol)
-			if err != nil {
-				return ports, errors.Annotate(err, "bad ports from GCE")
-			}
-			ports = append(ports, portRange)
-		}
-	}
-
-	return ports, nil
+	ports, err := env.ports(machineId)
+	return ports, errors.Trace(err)
 }
