@@ -425,8 +425,7 @@ func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 		// Allowed is set below.
 		// Description is not set.
 		Name: name,
-		// TODO(ericsnow) Does Network need to be set?
-		// Network: "",
+		// Network: (defaults to global)
 		// SourceRanges is not set.
 		// SourceTags is not set.
 		// TargetTags is not set.
