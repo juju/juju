@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 )
 
-var vtype = "docker"
+var vtype = "kvm" // Google *container* engine uses docker.
 
 // Instance types are not associated with disks in GCE, so we do not
 // set RootDisk.
