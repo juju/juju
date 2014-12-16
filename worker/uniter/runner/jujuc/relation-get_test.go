@@ -194,7 +194,7 @@ var relationGetFormatTests = []struct {
 }
 
 func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
-	testFormat := func(format string) {
+	testFormat := func(format string, checker gc.Checker) {
 		for i, t := range relationGetFormatTests {
 			c.Logf("test %d: %s %s", i, format, t.summary)
 			hctx := s.GetHookContext(c, t.relid, t.unit)
@@ -206,18 +206,11 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 			c.Check(code, gc.Equals, 0)
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			stdout := bufferString(ctx.Stdout)
-			switch format {
-			case "yaml":
-				c.Check(stdout, jc.YAMLEquals, t.out)
-			case "json":
-				c.Check(stdout, jc.JSONEquals, t.out)
-			default:
-				c.Fail()
-			}
+			c.Check(stdout, checker, t.out)
 		}
 	}
-	testFormat("yaml")
-	testFormat("json")
+	testFormat("yaml", jc.YAMLEquals)
+	testFormat("json", jc.JSONEquals)
 }
 
 var helpTemplate = `

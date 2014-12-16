@@ -38,12 +38,13 @@ type diskStore struct {
 
 // EnvironInfoData is the serialisation structure for the original JENV file.
 type EnvironInfoData struct {
-	User         string
-	Password     string
-	EnvironUUID  string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
-	StateServers []string               `json:"state-servers" yaml:"state-servers"`
-	CACert       string                 `json:"ca-cert" yaml:"ca-cert"`
-	Config       map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
+	User            string
+	Password        string
+	EnvironUUID     string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
+	StateServers    []string               `json:"state-servers" yaml:"state-servers"`
+	ServerHostnames []string               `json:"server-hostnames,omitempty" yaml:"server-hostnames,omitempty"`
+	CACert          string                 `json:"ca-cert" yaml:"ca-cert"`
+	Config          map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
 }
 
 type environInfo struct {
@@ -67,6 +68,7 @@ type environInfo struct {
 	credentials     string
 	environmentUUID string
 	apiEndpoints    []string
+	apiHostnames    []string
 	caCert          string
 	bootstrapConfig map[string]interface{}
 }
@@ -190,6 +192,7 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 	defer info.mu.Unlock()
 	return APIEndpoint{
 		Addresses:   info.apiEndpoints,
+		Hostnames:   info.apiHostnames,
 		CACert:      info.caCert,
 		EnvironUUID: info.environmentUUID,
 	}
@@ -210,6 +213,7 @@ func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	info.apiEndpoints = endpoint.Addresses
+	info.apiHostnames = endpoint.Hostnames
 	info.caCert = endpoint.CACert
 	info.environmentUUID = endpoint.EnvironUUID
 }
@@ -295,6 +299,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	info.environmentUUID = values.EnvironUUID
 	info.caCert = values.CACert
 	info.apiEndpoints = values.StateServers
+	info.apiHostnames = values.ServerHostnames
 	info.bootstrapConfig = values.Config
 
 	info.initialized = true
@@ -305,12 +310,13 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 func (info *environInfo) writeJENVFile() error {
 
 	infoData := EnvironInfoData{
-		User:         info.user,
-		Password:     info.credentials,
-		EnvironUUID:  info.environmentUUID,
-		StateServers: info.apiEndpoints,
-		CACert:       info.caCert,
-		Config:       info.bootstrapConfig,
+		User:            info.user,
+		Password:        info.credentials,
+		EnvironUUID:     info.environmentUUID,
+		StateServers:    info.apiEndpoints,
+		ServerHostnames: info.apiHostnames,
+		CACert:          info.caCert,
+		Config:          info.bootstrapConfig,
 	}
 
 	data, err := goyaml.Marshal(infoData)

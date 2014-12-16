@@ -93,15 +93,24 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 	}
 }
 
+// serializedCACert adjusts the testing.CACert for the test below.
+func serializedCACert() string {
+	parts := strings.Split(testing.CACert, "\n")
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return strings.Join(parts[:len(parts)-1], "\n")
+}
+
 func assertJENVContents(c *gc.C, filename, username, password string) {
 	raw, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]interface{}{
-		"user":          username,
-		"password":      password,
-		"state-servers": []interface{}{"localhost:12345"},
-		"ca-cert":       testing.CACert[:len(testing.CACert)-1],
-		"environ-uuid":  "env-uuid",
+		"user":             username,
+		"password":         password,
+		"state-servers":    []interface{}{"127.0.0.1:12345"},
+		"ca-cert":          serializedCACert(),
+		"environ-uuid":     "env-uuid",
 	}
 	c.Assert(string(raw), jc.YAMLEquals, expected)
 }
