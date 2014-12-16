@@ -195,6 +195,7 @@ func NewCloseWorker(logger loggo.Logger, worker worker.Worker, closer io.Closer)
 	return &CloseWorker{
 		worker: worker,
 		closer: closer,
+		logger: logger,
 	}
 }
 
