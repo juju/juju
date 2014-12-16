@@ -125,10 +125,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
 	instance := &compute.Instance{
-		// TODO(ericsnow) populate/verify these values.
-		Name:  machineID,
+		Name: machineID,
+		// MachineType is set in the env.gce.newInstance call.
 		Disks: disks,
-		// TODO(ericsnow) Do we really need this?
+		// We don't set NetworkInterfaces (we use the default).
+		// We store a snapshot of what information was used to create
+		// this instance. It is only informational.
 		Metadata: &compute.Metadata{Items: []*compute.MetadataItems{{
 			Key:   "metadata.cloud-init:user-data",
 			Value: string(userData),
@@ -147,7 +149,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
 	// TODO(ericsnow) Are we passing the right image value?
-	rootDisk, size := diskSpec(cons.RootDisk, spec.Image.Id, true)
+	boot := true
+	rootDisk, size := diskSpec(cons.RootDisk, spec.Image.Id, boot)
 	if cons.RootDisk != nil && size == minDiskSize {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dM"
 		logger.Infof(msg, *cons.RootDisk, minDiskSize)
