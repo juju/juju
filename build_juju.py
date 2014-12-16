@@ -74,7 +74,7 @@ def parse_args(args=None):
         help='The path to the juju-release-tools dir, default: %s' %
               DEFAULT_JUJU_RELEASE_TOOLS)
     parser.add_argument(
-        'product', choices=['win-client', 'win-agent', 'osx-agent'],
+        'product', choices=['win-client', 'win-agent', 'osx-client'],
         help='the kind of juju to make and package.')
     parser.add_argument(
         'workspace',  help='The path to the workspace to build in.')
