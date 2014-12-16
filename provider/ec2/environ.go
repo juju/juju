@@ -850,8 +850,9 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 		// the first four addresses in a subnet are reserved
 		allocatableLow := network.DecimalToIP(start + 4)
 
-		_, zeros := ipnet.Mask.Size()
-		numIPs := 1 << uint32(zeros)
+		ones, bits := ipnet.Mask.Size()
+		zeros := bits - ones
+		numIPs := uint32(1) << uint32(zeros)
 		highIP := start + numIPs - 1
 		// the last address in a subnet is reserved
 		allocatableHigh := network.DecimalToIP(highIP - 1)
