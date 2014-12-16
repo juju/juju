@@ -17,17 +17,30 @@ func osDependentEnvVars(paths Paths) []string {
 		return windowsEnv(paths)
 	case version.Ubuntu:
 		return ubuntuEnv(paths)
+	case version.CentOS:
+		return centosEnv(paths)
 	}
 	return nil
 }
 
+func appendPath(paths Paths) []string {
+	return []string{
+		"PATH=" + paths.GetToolsDir() + ":" + os.Getenv("PATH"),
+	}
+}
+
 func ubuntuEnv(paths Paths) []string {
+	path := appendPath(paths)
 	env := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
-		"PATH=" + paths.GetToolsDir() + ":" + os.Getenv("PATH"),
 	}
+	env = append(env, path...)
 	return env
+}
+
+func centosEnv(paths Paths) []string {
+	return appendPath(paths)
 }
 
 // windowsEnv adds windows specific environment variables. PSModulePath
