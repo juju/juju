@@ -14,19 +14,19 @@ import (
 
 const (
 	// These are not GCE-official environment variable names.
-	osEnvPrivateKey  = "GCE_PRIVATE_KEY"
-	osEnvClientID    = "GCE_CLIENT_ID"
-	osEnvClientEmail = "GCE_CLIENT_EMAIL"
-	osEnvRegion      = "GCE_REGION"
-	osEnvProjectID   = "GCE_PROJECT_ID"
-	osEnvImageURL    = "GCE_IMAGE_URL"
+	osEnvPrivateKey    = "GCE_PRIVATE_KEY"
+	osEnvClientID      = "GCE_CLIENT_ID"
+	osEnvClientEmail   = "GCE_CLIENT_EMAIL"
+	osEnvRegion        = "GCE_REGION"
+	osEnvProjectID     = "GCE_PROJECT_ID"
+	osEnvImageEndpoint = "GCE_IMAGE_URL"
 
-	cfgPrivateKey  = "private-key"
-	cfgClientID    = "client-id"
-	cfgClientEmail = "client-email"
-	cfgRegion      = "region"
-	cfgProjectID   = "project-id"
-	cfgImageURL    = "image-url"
+	cfgPrivateKey    = "private-key"
+	cfgClientID      = "client-id"
+	cfgClientEmail   = "client-email"
+	cfgRegion        = "region"
+	cfgProjectID     = "project-id"
+	cfgImageEndpoint = "image-endpoint"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -41,36 +41,34 @@ gce:
   client-id:
 
   # Google instance info
-  region:
+  # region: us-central1
   project-id:
-  # image-url:
+  # image-endpoint: https://www.googleapis.com
 `[1:]
 
 var osEnvFields = map[string]string{
-	osEnvPrivateKey:  cfgPrivateKey,
-	osEnvClientID:    cfgClientID,
-	osEnvClientEmail: cfgClientEmail,
-	osEnvRegion:      cfgRegion,
-	osEnvProjectID:   cfgProjectID,
-	osEnvImageURL:    cfgImageURL,
+	osEnvPrivateKey:    cfgPrivateKey,
+	osEnvClientID:      cfgClientID,
+	osEnvClientEmail:   cfgClientEmail,
+	osEnvRegion:        cfgRegion,
+	osEnvProjectID:     cfgProjectID,
+	osEnvImageEndpoint: cfgImageEndpoint,
 }
 
 var configFields = schema.Fields{
-	cfgPrivateKey:  schema.String(),
-	cfgClientID:    schema.String(),
-	cfgClientEmail: schema.String(),
-	cfgRegion:      schema.String(),
-	cfgProjectID:   schema.String(),
-	cfgImageURL:    schema.String(),
+	cfgPrivateKey:    schema.String(),
+	cfgClientID:      schema.String(),
+	cfgClientEmail:   schema.String(),
+	cfgRegion:        schema.String(),
+	cfgProjectID:     schema.String(),
+	cfgImageEndpoint: schema.String(),
 }
 
 var configDefaults = schema.Defaults{
 	// TODO(ericsnow) Do we really want a default region (see azure)?
-	cfgRegion: "",
-	// TODO(ericsnow) This needs the right default.
-	// See https://cloud.google.com/compute/docs/reference/latest/instances/insert#disks.initializeParams.sourceImage
-	// cfgImageURL: "projects/.../global/images/...",
-	cfgImageURL: "",
+	cfgRegion: "us-central1",
+	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
+	cfgImageEndpoint: "https://www.googleapis.com",
 }
 
 var configSecretFields = []string{
@@ -83,7 +81,7 @@ var configImmutableFields = []string{
 	cfgClientEmail,
 	cfgRegion,
 	cfgProjectID,
-	cfgImageURL,
+	cfgImageEndpoint,
 }
 
 type environConfig struct {
@@ -112,7 +110,7 @@ func (c *environConfig) projectID() string {
 }
 
 func (c *environConfig) imageURL() string {
-	return c.attrs[cfgImageURL].(string)
+	return c.attrs[cfgImageEndpoint].(string)
 }
 
 func (c *environConfig) auth() gceAuth {

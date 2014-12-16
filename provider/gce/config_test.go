@@ -23,13 +23,13 @@ func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
 
 func validAttrs() testing.Attrs {
 	return testing.FakeConfig().Merge(testing.Attrs{
-		"type":         "gce",
-		"private-key":  "seekrit",
-		"client-id":    "static",
-		"client-email": "joe@mail.com",
-		"region":       "home",
-		"project-id":   "my-juju",
-		"image-url":    "<some data>",
+		"type":           "gce",
+		"private-key":    "seekrit",
+		"client-id":      "static",
+		"client-email":   "joe@mail.com",
+		"region":         "home",
+		"project-id":     "my-juju",
+		"image-endpoint": "https://www.googleapis.com",
 	})
 }
 
@@ -85,11 +85,12 @@ var newConfigTests = []struct {
 }, {
 	info:               "region is inserted if missing",
 	remove:             []string{"region"},
-	expect:             testing.Attrs{"region": ""},
+	expect:             testing.Attrs{"region": "us-central1"},
 	skipIfNotValidated: true,
 }, {
-	info:            "region can be empty",
-	insert:          testing.Attrs{"region": ""},
+	info:   "region can be empty",
+	insert: testing.Attrs{"region": ""},
+	// TODO(ericsnow) Shouldn't the default be set?
 	expect:          testing.Attrs{"region": ""},
 	skipIfOldConfig: true,
 }, {
@@ -101,14 +102,15 @@ var newConfigTests = []struct {
 	insert: testing.Attrs{"project-id": ""},
 	err:    "project-id: must not be empty",
 }, {
-	info:               "image-url is inserted if missing",
-	remove:             []string{"image-url"},
-	expect:             testing.Attrs{"image-url": ""},
+	info:               "image-endpoint is inserted if missing",
+	remove:             []string{"image-endpoint"},
+	expect:             testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
 	skipIfNotValidated: true,
 }, {
-	info:            "image-url can be empty",
-	insert:          testing.Attrs{"image-url": ""},
-	expect:          testing.Attrs{"image-url": ""},
+	info:   "image-endpoint can be empty",
+	insert: testing.Attrs{"image-endpoint": ""},
+	// TODO(ericsnow) Shouldn't the default be set?
+	expect:          testing.Attrs{"image-endpoint": ""},
 	skipIfOldConfig: true,
 }, {
 	info:   "unknown field is not touched",
