@@ -8,6 +8,7 @@ const (
 	// instance, in Gigabytes. This value accommodates the anticipated
 	// size of the initial image, any updates, and future application
 	// data.
+	// TODO(wwitzel3) make sure this value is sensible?
 	MinRootDiskSizeGiB int64 = 10
 )
 
