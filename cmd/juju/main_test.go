@@ -193,6 +193,7 @@ var commandNames = []string{
 	"destroy-unit",
 	"ensure-availability",
 	"env", // alias for switch
+	"environment",
 	"expose",
 	"generate-config", // alias for init
 	"get",

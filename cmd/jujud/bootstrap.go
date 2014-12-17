@@ -11,18 +11,20 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -39,15 +41,17 @@ import (
 )
 
 var (
-	agentInitializeState = agent.InitializeState
-	sshGenerateKey       = ssh.GenerateKey
-	newStateStorage      = storage.NewStorage
-	minSocketTimeout     = 1 * time.Minute
+	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
+	agentInitializeState     = agent.InitializeState
+	sshGenerateKey           = ssh.GenerateKey
+	newStateStorage          = storage.NewStorage
+	minSocketTimeout         = 1 * time.Minute
+	logger                   = loggo.GetLogger("juju.cmd.jujud")
 )
 
 type BootstrapCommand struct {
 	cmd.CommandBase
-	AgentConf
+	agentcmd.AgentConf
 	EnvConfig        map[string]interface{}
 	Constraints      constraints.Value
 	Hardware         instance.HardwareCharacteristics
@@ -77,10 +81,10 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
-		return requiredError("env-config")
+		return cmdutil.RequiredError("env-config")
 	}
 	if c.InstanceId == "" {
-		return requiredError("instance-id")
+		return cmdutil.RequiredError("instance-id")
 	}
 	if !names.IsValidUser(c.AdminUsername) {
 		return errors.Errorf("%q is not a valid username", c.AdminUsername)
@@ -232,52 +236,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
-// newEnsureServerParams creates an EnsureServerParams from an agent configuration.
-func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
-	// If oplog size is specified in the agent configuration, use that.
-	// Otherwise leave the default zero value to indicate to EnsureServer
-	// that it should calculate the size.
-	var oplogSize int
-	if oplogSizeString := agentConfig.Value(agent.MongoOplogSize); oplogSizeString != "" {
-		var err error
-		if oplogSize, err = strconv.Atoi(oplogSizeString); err != nil {
-			return mongo.EnsureServerParams{}, fmt.Errorf("invalid oplog size: %q", oplogSizeString)
-		}
-	}
-
-	// If numa ctl preference is specified in the agent configuration, use that.
-	// Otherwise leave the default false value to indicate to EnsureServer
-	// that numactl should not be used.
-	var numaCtlPolicy bool
-	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
-		var err error
-		if numaCtlPolicy, err = strconv.ParseBool(numaCtlString); err != nil {
-			return mongo.EnsureServerParams{}, fmt.Errorf("invalid numactl preference: %q", numaCtlString)
-		}
-	}
-
-	si, ok := agentConfig.StateServingInfo()
-	if !ok {
-		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
-	}
-
-	params := mongo.EnsureServerParams{
-		APIPort:        si.APIPort,
-		StatePort:      si.StatePort,
-		Cert:           si.Cert,
-		PrivateKey:     si.PrivateKey,
-		CAPrivateKey:   si.CAPrivateKey,
-		SharedSecret:   si.SharedSecret,
-		SystemIdentity: si.SystemIdentity,
-
-		DataDir:              agentConfig.DataDir(),
-		Namespace:            agentConfig.Value(agent.Namespace),
-		OplogSize:            oplogSize,
-		SetNumaControlPolicy: numaCtlPolicy,
-	}
-	return params, nil
-}
-
 func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
@@ -305,11 +263,11 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 
 	logger.Debugf("calling ensureMongoServer")
-	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
 		return err
 	}
-	err = ensureMongoServer(ensureServerParams)
+	err = cmdutil.EnsureMongoServer(ensureServerParams)
 	if err != nil {
 		return err
 	}

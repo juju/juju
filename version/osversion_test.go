@@ -30,42 +30,85 @@ var _ = gc.Suite(&kernelVersionSuite{})
 var readSeriesTests = []struct {
 	contents string
 	series   string
+	err      string
 }{{
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.04
-DISTRIB_CODENAME=precise
-DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
+	`NAME="Ubuntu"
+VERSION="12.04.5 LTS, Precise Pangolin"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu precise (12.04.5 LTS)"
+VERSION_ID="12.04"
+`,
 	"precise",
+	"",
 }, {
-	"DISTRIB_CODENAME= \tprecise\t",
+	`NAME="Ubuntu"
+ID=ubuntu
+VERSION_ID= "12.04" `,
 	"precise",
+	"",
 }, {
-	`DISTRIB_CODENAME="precise"`,
+	`NAME='Ubuntu'
+ID='ubuntu'
+VERSION_ID='12.04'
+`,
 	"precise",
+	"",
 }, {
-	"DISTRIB_CODENAME='precise'",
-	"precise",
+	`NAME="CentOS Linux"
+ID="centos"
+VERSION_ID="7"
+`,
+	"centos7",
+	"",
 }, {
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.10
-DISTRIB_CODENAME=quantal
-DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
-	"quantal",
+	`NAME="Ubuntu"
+VERSION="14.04.1 LTS, Trusty Tahr"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 14.04.1 LTS"
+VERSION_ID="14.04"
+HOME_URL="http://www.ubuntu.com/"
+SUPPORT_URL="http://help.ubuntu.com/"
+BUG_REPORT_URL="http://bugs.launchpad.net/ubuntu/"
+`,
+	"trusty",
+	"",
 }, {
 	"",
 	"unknown",
+	"OS release file is missing ID",
+}, {
+	`NAME="CentOS Linux"
+ID="centos"
+`,
+	"unknown",
+	"OS release file is missing VERSION_ID",
+}, {
+	`NAME="SuSE Linux"
+ID="SuSE"
+VERSION_ID="12"
+`,
+	"unknown",
+	"",
 },
 }
 
-func (*readSeriesSuite) TestReadSeries(c *gc.C) {
+func (s *readSeriesSuite) TestReadSeries(c *gc.C) {
 	d := c.MkDir()
 	f := filepath.Join(d, "foo")
+	s.PatchValue(version.OSReleaseFile, f)
 	for i, t := range readSeriesTests {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
 		c.Assert(err, jc.ErrorIsNil)
-		series, err := version.ReadSeries(f)
-		c.Assert(err, jc.ErrorIsNil)
+		series, err := version.ReadSeries()
+		if t.err == "" {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		}
+
 		c.Assert(series, gc.Equals, t.series)
 	}
 }

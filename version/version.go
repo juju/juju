@@ -29,9 +29,9 @@ const version = "1.22-alpha1"
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = MustParse("1.19.9")
 
-// lsbReleaseFile is the name of the file that is read in order to determine
-// the release version of ubuntu.
-var lsbReleaseFile = "/etc/lsb-release"
+// osReleaseFile is the name of the file that is read in order to determine
+// the linux type release version.
+var osReleaseFile = "/etc/os-release"
 
 var osVers = mustOSVersion()
 
@@ -346,21 +346,15 @@ func (v Number) IsDev() bool {
 	return v.Tag != "" || v.Build > 0
 }
 
-// ReleaseVersion looks for the value of DISTRIB_RELEASE in the content of
-// the lsbReleaseFile.  If the value is not found, the file is not found, or
+// ReleaseVersion looks for the value of VERSION_ID in the content of
+// the os-release.  If the value is not found, the file is not found, or
 // an error occurs reading the file, an empty string is returned.
 func ReleaseVersion() string {
-	content, err := ioutil.ReadFile(lsbReleaseFile)
+	release, err := readOSRelease()
 	if err != nil {
 		return ""
 	}
-	const prefix = "DISTRIB_RELEASE="
-	for _, line := range strings.Split(string(content), "\n") {
-		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\"")
-		}
-	}
-	return ""
+	return release["VERSION_ID"]
 }
 
 // ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.

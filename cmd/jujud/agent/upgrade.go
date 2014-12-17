@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"fmt"
@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -335,7 +336,7 @@ func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) e
 		if upgradeErr == nil {
 			break
 		}
-		if connectionIsDead(c.apiState) {
+		if cmdutil.ConnectionIsDead(logger, c.apiState) {
 			// API connection has gone away - abort!
 			return &apiLostDuringUpgrade{upgradeErr}
 		}

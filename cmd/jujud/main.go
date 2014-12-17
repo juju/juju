@@ -16,14 +16,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/featureflag"
-	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -118,7 +117,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	})
 	jujud.Log.Factory = &writerFactory{}
 	jujud.Register(&BootstrapCommand{})
-	jujud.Register(&MachineAgent{})
+	jujud.Register(&agentcmd.MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
@@ -190,23 +189,3 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 	module = module[lastDot+1:]
 	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
 }
-
-// setupLogging redirects logging to rolled log files.
-//
-// NOTE: do not use this in the bootstrap agent, or
-// if you do, change the bootstrap error reporting.
-func setupAgentLogging(conf agent.Config) error {
-	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
-
-	log := &lumberjack.Logger{
-		Filename:   filename,
-		MaxSize:    300, // megabytes
-		MaxBackups: 2,
-	}
-
-	writer := loggo.NewSimpleWriter(log, &loggo.DefaultFormatter{})
-	_, err := loggo.ReplaceDefaultWriter(writer)
-	return err
-}
-
-var setupLogging = setupAgentLogging
