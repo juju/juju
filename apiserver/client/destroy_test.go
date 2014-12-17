@@ -32,7 +32,7 @@ type destroyEnvironmentSuite struct {
 }
 
 type destroyTwoEnvironmentsSuite struct {
-	destroyEnvironmentSuite
+	baseSuite
 	otherState     *state.State
 	otherEnvOwner  names.UserTag
 	otherEnvClient *client.Client
@@ -42,7 +42,7 @@ var _ = gc.Suite(&destroyEnvironmentSuite{})
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
 
 func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
-	s.destroyEnvironmentSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
 
 	// Make the other environment
 	uuid, err := utils.NewUUID()
@@ -80,7 +80,7 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 
 func (s *destroyTwoEnvironmentsSuite) TearDownTest(c *gc.C) {
 	s.CleanupSuite.TearDownTest(c)
-	s.destroyEnvironmentSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 // setUpManual adds "manually provisioned" machines to state:
@@ -100,16 +100,16 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 // setUpInstances adds machines to state backed by instances:
 // one manager machine, one non-manager, and a container in the
 // non-manager.
-func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C, st *state.State) (m0, m1, m2 *state.Machine) {
+func setUpInstances(c *gc.C, st *state.State, env environs.Environ) (m0, m1, m2 *state.Machine) {
 	m0, err := st.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
+	inst, _ := testing.AssertStartInstance(c, env, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err = st.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	inst, _ = testing.AssertStartInstance(c, s.Environ, m1.Id())
+	inst, _ = testing.AssertStartInstance(c, env, m1.Id())
 	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -149,7 +149,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
-	manager, nonManager, _ := s.setUpInstances(c, s.State)
+	manager, nonManager, _ := setUpInstances(c, s.State, s.Environ)
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()
 
@@ -196,7 +196,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 	ops := make(chan dummy.Operation, 500)
 	dummy.Listen(ops)
 
-	_, nonManager, _ := s.setUpInstances(c, s.State)
+	_, nonManager, _ := setUpInstances(c, s.State, s.Environ)
 	nonManagerId, _ := nonManager.InstanceId()
 
 	err := s.APIState.Client().DestroyEnvironment()
@@ -211,7 +211,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 	// add instances to non-state-server environment
-	manager, nonManager, _ := s.setUpInstances(c, s.otherState)
+	manager, nonManager, _ := setUpInstances(c, s.otherState, s.Environ)
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()
 
@@ -248,7 +248,7 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 	// Setup environment
-	s.setUpInstances(c, s.State)
+	setUpInstances(c, s.State, s.Environ)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-destroy-environment": true}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,7 +258,7 @@ func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {
 
 func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 	// Setup environment
-	s.setUpInstances(c, s.State)
+	setUpInstances(c, s.State, s.Environ)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-remove-object": true}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +268,7 @@ func (s *destroyEnvironmentSuite) TestBlockRemoveDestroyEnvironment(c *gc.C) {
 
 func (s *destroyEnvironmentSuite) TestBlockChangesDestroyEnvironment(c *gc.C) {
 	// Setup environment
-	s.setUpInstances(c, s.State)
+	setUpInstances(c, s.State, s.Environ)
 	// lock environment: can't destroy locked environment
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
