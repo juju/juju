@@ -43,6 +43,12 @@ func (ru *RelationUnit) PrivateAddress() (string, bool) {
 	return ru.unit.PrivateAddress()
 }
 
+// AvailabilityZone returns the name of the availability zone into which
+// the unit's machine instance was provisioned.
+func (ru *RelationUnit) AvailabilityZone() (string, error) {
+	return ru.unit.AvailabilityZone()
+}
+
 // ErrCannotEnterScope indicates that a relation unit failed to enter its scope
 // due to either the unit or the relation not being Alive.
 var ErrCannotEnterScope = stderrors.New("cannot enter scope: unit or relation is not alive")

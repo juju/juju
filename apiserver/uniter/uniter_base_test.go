@@ -1552,7 +1552,8 @@ func (s *uniterBaseSuite) testEnterScope(
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
-		"private-address": "1.2.3.4",
+		"private-address":        "1.2.3.4",
+		"juju-availability-zone": "",
 	})
 }
 
