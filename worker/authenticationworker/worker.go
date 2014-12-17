@@ -46,7 +46,11 @@ func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
 	if version.Current.OS == version.Windows {
 		return worker.NewNoOpWorker()
 	}
-	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag().(names.MachineTag)}
+	kw := &keyupdaterWorker{
+		st:       st,
+		tag:      agentConfig.Tag().(names.MachineTag),
+		jujuKeys: set.NewStrings(),
+	}
 	return worker.NewNotifyWorker(kw)
 }
 

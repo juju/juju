@@ -99,6 +99,7 @@ var _ state.Prechecker = (*azureEnviron)(nil)
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	var env azureEnviron
+	env.availableRoleSizes = set.NewStrings()
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -199,21 +200,21 @@ func (env *azureEnviron) getAvailableRoleSizes() (_ set.Strings, err error) {
 	}
 	locations, err := snap.api.ListLocations()
 	if err != nil {
-		return set.Strings{}, errors.Annotate(err, "cannot list locations")
+		return set.NewStrings(), errors.Annotate(err, "cannot list locations")
 	}
-	var available set.Strings
+	available := set.NewStrings()
 	for _, location := range locations {
 		if location.Name != snap.ecfg.location() {
 			continue
 		}
 		if location.ComputeCapabilities == nil {
-			return set.Strings{}, errors.Annotate(err, "cannot determine compute capabilities")
+			return set.NewStrings(), errors.Annotate(err, "cannot determine compute capabilities")
 		}
 		available = set.NewStrings(location.ComputeCapabilities.VirtualMachineRoleSizes...)
 		break
 	}
 	if available.IsEmpty() {
-		return set.Strings{}, errors.NotFoundf("location %q", snap.ecfg.location())
+		return set.NewStrings(), errors.NotFoundf("location %q", snap.ecfg.location())
 	}
 	env.Lock()
 	env.availableRoleSizes = available
@@ -948,7 +949,7 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 			continue
 		}
 		// Filter the instances that have no corresponding role.
-		var roleNames set.Strings
+		roleNames := set.NewStrings()
 		for _, role := range service.Deployments[0].RoleList {
 			roleNames.Add(role.RoleName)
 		}
@@ -1049,7 +1050,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	}
 
 	instancesIds := make([]instanceId, len(ids))
-	var serviceNames set.Strings
+	serviceNames := set.NewStrings()
 	for i, id := range ids {
 		serviceName, roleName := env.splitInstanceId(id)
 		if serviceName == "" {

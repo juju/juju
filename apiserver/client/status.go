@@ -44,8 +44,8 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		predicate := BuildPredicateFor(args.Patterns)
 
 		// Filter units
-		var unfilteredSvcs set.Strings
-		var unfilteredMachines set.Strings
+		unfilteredSvcs := set.NewStrings()
+		unfilteredMachines := set.NewStrings()
 		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
@@ -547,7 +547,7 @@ func (context *statusContext) unitByName(name string) *state.Unit {
 
 func (context *statusContext) processServiceRelations(service *state.Service) (
 	related map[string][]string, subord []string, err error) {
-	var subordSet set.Strings
+	subordSet := set.NewStrings()
 	related = make(map[string][]string)
 	relations := context.relations[service.Name()]
 	for _, relation := range relations {
