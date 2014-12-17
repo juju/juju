@@ -68,6 +68,7 @@ func TestPackage(t *testing.T) {
 }
 
 type BaseActionSuite struct {
+	// TODO(bodie) : Consider using IsolationSuite here.
 	command cmd.Command
 }
 
