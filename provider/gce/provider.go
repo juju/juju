@@ -26,6 +26,9 @@ func init() {
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// You should probably not change this method; prefer to cause SetConfig
 	// to completely configure an environment, regardless of the initial state.
+	// TODO(ericsnow) This leaves ecfg and gce nil, which might
+	// result in nil pointer panics.  Either use new(environ) here
+	// or handle nil for those two fields wherever we use them.
 	env := &environ{name: cfg.Name()}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, errors.Trace(err)

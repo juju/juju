@@ -78,25 +78,28 @@ func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
+
+	// Build the config.
 	var oldCfg *config.Config
 	if env.ecfg != nil {
 		oldCfg = env.ecfg.Config
 	}
-	ecfg, err := validateConfig(cfg, oldCfg)
+	cfg, err := providerInstance.Validate(cfg, oldCfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
+	env.ecfg = &environConfig{cfg, cfg.UnknownAttrs()}
 
-	storage, err := newStorage(ecfg)
+	// Build storage.
+	storage, err := newStorage(env.ecfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	env.ecfg = ecfg
 	env.storage = storage
 
 	// Connect and authenticate.
-	env.gce = ecfg.newConnection()
-	err = env.gce.connect(ecfg.auth())
+	env.gce = env.ecfg.newConnection()
+	err = env.gce.connect(env.ecfg.auth())
 
 	return errors.Trace(err)
 }

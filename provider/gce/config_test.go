@@ -140,7 +140,7 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 			if err != nil {
 				c.Check(environ, gc.IsNil)
 			}
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, "invalid config: "+test.err)
 		}
 	}
 }
@@ -274,7 +274,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
 		} else {
-			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
 			for field, value := range baseConfig.UnknownAttrs() {
 				c.Check(newAttrs[field], gc.Equals, value)
 			}
