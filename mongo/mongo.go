@@ -94,7 +94,6 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 	if err == replicaset.ErrMasterNotConfigured {
 		return true, nil
 	}
-
 	if err != nil {
 		return false, err
 	}
@@ -104,8 +103,12 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 		return false, err
 	}
 
-	machinePeerAddr := SelectPeerAddress(addrs)
-	return machinePeerAddr == masterAddr, nil
+	for _, addr := range addrs {
+		if addr.Value == masterAddr {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // SelectPeerAddress returns the address to use as the
@@ -168,6 +171,9 @@ type EnsureServerParams struct {
 
 	// PrivateKey is the certificate's private key.
 	PrivateKey string
+
+	// CAPrivateKey is the CA certificate's private key.
+	CAPrivateKey string
 
 	// SharedSecret is a secret shared between mongo servers.
 	SharedSecret string

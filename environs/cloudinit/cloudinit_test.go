@@ -118,10 +118,11 @@ func must(s string, err error) string {
 }
 
 var stateServingInfo = &params.StateServingInfo{
-	Cert:       string(serverCert),
-	PrivateKey: string(serverKey),
-	StatePort:  37017,
-	APIPort:    17070,
+	Cert:         string(serverCert),
+	PrivateKey:   string(serverKey),
+	CAPrivateKey: "ca-private-key",
+	StatePort:    37017,
+	APIPort:      17070,
 }
 
 var logDir = must(paths.LogDir("precise"))
@@ -207,7 +208,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju/locks
-\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
+\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
@@ -311,7 +312,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju/locks
-\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
+\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
@@ -832,6 +833,11 @@ var verifyTests = []struct {
 		info.PrivateKey = ""
 		cfg.StateServingInfo = &info
 	}},
+	{"missing ca cert private key", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.StateServingInfo
+		info.CAPrivateKey = ""
+		cfg.StateServingInfo = &info
+	}},
 	{"missing state port", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.StateServingInfo
 		info.StatePort = 0
@@ -1034,7 +1040,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export no_proxy=localhost,10.0.3.1`,
 		`export NO_PROXY=localhost,10.0.3.1`,
-		`[ -e /home/ubuntu ] && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+		`(id ubuntu &> /dev/null) && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=localhost,10.0.3.1
 export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,

@@ -35,21 +35,21 @@ type MetricBatch struct {
 }
 
 type metricBatchDoc struct {
-	UUID     string    `bson:"_id"`
-	EnvUUID  string    `bson:"env-uuid"`
-	Unit     string    `bson:"unit"`
-	CharmUrl string    `bson:"charmurl"`
-	Sent     bool      `bson:"sent"`
-	Created  time.Time `bson:"created"`
-	Metrics  []Metric  `bson:"metrics"`
+	UUID        string    `bson:"_id"`
+	EnvUUID     string    `bson:"env-uuid"`
+	Unit        string    `bson:"unit"`
+	CharmUrl    string    `bson:"charmurl"`
+	Sent        bool      `bson:"sent"`
+	Created     time.Time `bson:"created"`
+	Metrics     []Metric  `bson:"metrics"`
+	Credentials []byte    `bson:"credentials"`
 }
 
 // Metric represents a single Metric.
 type Metric struct {
-	Key         string    `bson:"key"`
-	Value       string    `bson:"value"`
-	Time        time.Time `bson:"time"`
-	Credentials []byte    `bson:"credentials"`
+	Key   string    `bson:"key"`
+	Value string    `bson:"value"`
+	Time  time.Time `bson:"time"`
 }
 
 // validate checks that the MetricBatch contains valid metrics.
@@ -74,9 +74,9 @@ func (m *MetricBatch) validate() error {
 	return nil
 }
 
-// AddMetric adds a new batch of metrics to the database.
+// addMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
-func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
+func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric, creds []byte) (*MetricBatch, error) {
 	if len(metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
 	}
@@ -88,20 +88,21 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
-			UUID:     uuid.String(),
-			EnvUUID:  st.EnvironUUID(),
-			Unit:     unitTag.Id(),
-			CharmUrl: charmUrl.String(),
-			Sent:     false,
-			Created:  created,
-			Metrics:  metrics,
+			UUID:        uuid.String(),
+			EnvUUID:     st.EnvironUUID(),
+			Unit:        unitTag.Id(),
+			CharmUrl:    charmUrl.String(),
+			Sent:        false,
+			Created:     created,
+			Metrics:     metrics,
+			Credentials: creds,
 		}}
 	if err := metric.validate(); err != nil {
 		return nil, err
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
+			notDead, err := isNotDead(st, unitsC, unitTag.Id())
 			if err != nil || !notDead {
 				return nil, errors.NotFoundf(unitTag.Id())
 			}
@@ -276,6 +277,11 @@ func (m *MetricBatch) SetSent() error {
 
 	m.doc.Sent = true
 	return nil
+}
+
+// Credentials returns any credentials associated with the metric batch.
+func (m *MetricBatch) Credentials() []byte {
+	return m.doc.Credentials
 }
 
 func setSentOps(batchUUIDs []string) []txn.Op {

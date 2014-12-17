@@ -9,16 +9,26 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/environment"
+	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/version"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
+
+func init() {
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
 
 var logger = loggo.GetLogger("juju.cmd.juju")
 
@@ -88,6 +98,7 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 
 type commandRegistry interface {
 	Register(cmd.Command)
+	RegisterSuperAlias(name, super, forName string, check cmd.DeprecationCheck)
 }
 
 // registerCommands registers commands in the specified registry.
@@ -99,13 +110,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Creation commands.
 	r.Register(wrapEnvCommand(&BootstrapCommand{}))
-	r.Register(wrapEnvCommand(&AddMachineCommand{}))
 	r.Register(wrapEnvCommand(&DeployCommand{}))
 	r.Register(wrapEnvCommand(&AddRelationCommand{}))
 	r.Register(wrapEnvCommand(&AddUnitCommand{}))
 
 	// Destruction commands.
-	r.Register(wrapEnvCommand(&RemoveMachineCommand{}))
 	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
 	r.Register(wrapEnvCommand(&RemoveServiceCommand{}))
 	r.Register(wrapEnvCommand(&RemoveUnitCommand{}))
@@ -133,9 +142,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&UnsetCommand{}))
 	r.Register(wrapEnvCommand(&GetConstraintsCommand{}))
 	r.Register(wrapEnvCommand(&SetConstraintsCommand{}))
-	r.Register(wrapEnvCommand(&GetEnvironmentCommand{}))
-	r.Register(wrapEnvCommand(&SetEnvironmentCommand{}))
-	r.Register(wrapEnvCommand(&UnsetEnvironmentCommand{}))
 	r.Register(wrapEnvCommand(&ExposeCommand{}))
 	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
 	r.Register(wrapEnvCommand(&UnexposeCommand{}))
@@ -157,12 +163,28 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage users and access
 	r.Register(user.NewSuperCommand())
 
+	// Manage machines
+	r.Register(machine.NewSuperCommand())
+	r.RegisterSuperAlias("add-machine", "machine", "add", twoDotOhDeprecation("machine add"))
+	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+	r.RegisterSuperAlias("destroy-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+
+	// Mangage environment
+	r.Register(environment.NewSuperCommand())
+	r.RegisterSuperAlias("get-environment", "environment", "get", twoDotOhDeprecation("environment get"))
+	r.RegisterSuperAlias("get-env", "environment", "get", twoDotOhDeprecation("environment get"))
+	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
+	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
+	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
+	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
+
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
 
 	// Operation protection commands
-	r.Register(wrapEnvCommand(&BlockCommand{}))
-	r.Register(wrapEnvCommand(&UnblockCommand{}))
+	r.Register(wrapEnvCommand(&block.BlockCommand{}))
+	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
@@ -188,4 +210,35 @@ func (w envCmdWrapper) Init(args []string) error {
 
 func main() {
 	Main(os.Args)
+}
+
+type versionDeprecation struct {
+	replacement string
+	deprecate   version.Number
+	obsolete    version.Number
+}
+
+// Deprecated implements cmd.DeprecationCheck.
+// If the current version is after the deprecate version number,
+// the command is deprecated and the replacement should be used.
+func (v *versionDeprecation) Deprecated() (bool, string) {
+	if version.Current.Number.Compare(v.deprecate) > 0 {
+		return true, v.replacement
+	}
+	return false, ""
+}
+
+// Obsolete implements cmd.DeprecationCheck.
+// If the current version is after the obsolete version number,
+// the command is obsolete and shouldn't be registered.
+func (v *versionDeprecation) Obsolete() bool {
+	return version.Current.Number.Compare(v.obsolete) > 0
+}
+
+func twoDotOhDeprecation(replacement string) cmd.DeprecationCheck {
+	return &versionDeprecation{
+		replacement: replacement,
+		deprecate:   version.MustParse("2.0-00"),
+		obsolete:    version.MustParse("3.0-00"),
+	}
 }

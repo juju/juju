@@ -103,7 +103,6 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *actionSuite) TestActions(c *gc.C) {
-	// arrange
 	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}},
@@ -121,11 +120,9 @@ func (s *actionSuite) TestActions(c *gc.C) {
 		entities[i] = params.Entity{Tag: result.Action.Tag}
 	}
 
-	// act
 	actions, err := s.action.Actions(params.Entities{Entities: entities})
 	c.Assert(err, gc.Equals, nil)
 
-	// assert
 	c.Assert(len(actions.Results), gc.Equals, len(entities))
 	for i, got := range actions.Results {
 		c.Logf("check index %d (%s: %s)", i, entities[i].Tag, arg.Actions[i].Name)
@@ -142,21 +139,18 @@ func (s *actionSuite) TestActions(c *gc.C) {
 }
 
 func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
-	// arrange
-	// TODO(jcw4) inject the UUID and test multiple similiar ids
+	// NOTE: full testing with multiple matches has been moved to state package.
 	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}}}}
 	r, err := s.action.Enqueue(arg)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
 
-	// act
 	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
 	c.Assert(err, gc.Equals, nil)
 	prefix := actionTag.Id()[:7]
 	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
 	c.Assert(err, gc.Equals, nil)
 
-	// assert
 	entities, ok := tags.Matches[prefix]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(len(entities), gc.Equals, 1)
@@ -185,7 +179,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 			{Receiver: s.wordpressUnit.Tag().String(), Name: expectedName, Parameters: expectedParameters},
 			// Service tag instead of Unit tag.
 			{Receiver: s.wordpress.Tag().String(), Name: "baz"},
-			// TODO(jcw4) notice no Name. Shouldn't Action Names be required?
+			// Missing name.
 			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},
 		},
 	}
@@ -206,11 +200,8 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
-	// TODO(jcw4) shouldn't Action Names be required?
-	c.Assert(res.Results[3].Error, gc.IsNil)
-	c.Assert(res.Results[3].Action, gc.NotNil)
-	c.Assert(res.Results[3].Action.Receiver, gc.Equals, s.mysqlUnit.Tag().String())
-	c.Assert(res.Results[3].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+	c.Assert(res.Results[3].Error, gc.ErrorMatches, "action name required")
+	c.Assert(res.Results[3].Action, gc.IsNil)
 
 	// Make sure an Action was enqueued for the wordpress Unit.
 	actions, err = s.wordpressUnit.Actions()
@@ -220,14 +211,10 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
 	c.Assert(actions[0].Receiver(), gc.Equals, s.wordpressUnit.Name())
 
-	// Make sure an Action was enqueued for the mysql Unit.
+	// Make sure an Action was not enqueued for the mysql Unit.
 	actions, err = s.mysqlUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, 1)
-	// TODO(jcw4) notice Action Name empty. Shouldn't Action Names be required?
-	c.Assert(actions[0].Name(), gc.Equals, "")
-	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
-	c.Assert(actions[0].Receiver(), gc.Equals, s.mysqlUnit.Name())
+	c.Assert(actions, gc.HasLen, 0)
 }
 
 type testCaseAction struct {

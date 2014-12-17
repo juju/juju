@@ -4,6 +4,9 @@
 package main
 
 import (
+	"strings"
+
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -74,6 +77,18 @@ func (s *AddUnitSuite) TestAddUnit(c *gc.C) {
 	s.AssertService(c, "some-service-name", curl, 4, 0)
 }
 
+func (s *AddUnitSuite) TestBlockAddUnit(c *gc.C) {
+	s.setupService(c)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	c.Assert(runAddUnit(c, "some-service-name"), gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 // assertForceMachine ensures that the result of assigning a unit with --to
 // is as expected.
 func (s *AddUnitSuite) assertForceMachine(c *gc.C, svc *state.Service, expectedNumMachines, unitNum int, machineId string) {
@@ -97,6 +112,24 @@ func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 	err = runAddUnit(c, "some-service-name", "--to", machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
+	s.assertForceMachine(c, svc, 3, 1, machine2.Id())
+	s.assertForceMachine(c, svc, 3, 2, machine.Id())
+}
+
+func (s *AddUnitSuite) TestBlockForceMachine(c *gc.C) {
+	curl := s.setupService(c)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	machine2, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runAddUnit(c, "some-service-name", "--to", machine2.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	err = runAddUnit(c, "some-service-name", "--to", machine.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
+	// Block operation: should be ignored :)
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
 	s.assertForceMachine(c, svc, 3, 1, machine2.Id())
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
 }
@@ -140,10 +173,31 @@ func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
 }
 
+func (s *AddUnitSuite) TestBlockNonLocalCannotHostUnits(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	c.Assert(runAddUnit(c, "some-service-name", "--to", "0"), gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
 	s.setupService(c)
 	err := runAddUnit(c, "some-service-name", "--to", "42")
 	c.Assert(err, gc.ErrorMatches, `cannot add units for service "some-service-name" to machine 42: machine 42 not found`)
+}
+
+func (s *AddUnitSuite) TestBlockCannotDeployToNonExistentMachine(c *gc.C) {
+	s.setupService(c)
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	c.Assert(runAddUnit(c, "some-service-name", "--to", "42"), gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 type AddUnitLocalSuite struct {

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type baseProviderSuite struct {
@@ -245,10 +246,11 @@ Acquire::magic::Proxy "none";
 		c.Assert(envConfig.FtpProxy(), gc.Equals, test.expectedProxy.Ftp)
 		c.Assert(envConfig.NoProxy(), gc.Equals, test.expectedProxy.NoProxy)
 
-		c.Assert(envConfig.AptHttpProxy(), gc.Equals, test.expectedAptProxy.Http)
-		c.Assert(envConfig.AptHttpsProxy(), gc.Equals, test.expectedAptProxy.Https)
-		c.Assert(envConfig.AptFtpProxy(), gc.Equals, test.expectedAptProxy.Ftp)
-
+		if version.Current.OS == version.Ubuntu {
+			c.Assert(envConfig.AptHttpProxy(), gc.Equals, test.expectedAptProxy.Http)
+			c.Assert(envConfig.AptHttpsProxy(), gc.Equals, test.expectedAptProxy.Https)
+			c.Assert(envConfig.AptFtpProxy(), gc.Equals, test.expectedAptProxy.Ftp)
+		}
 		for _, clean := range cleanup {
 			clean()
 		}

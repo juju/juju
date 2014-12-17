@@ -167,7 +167,7 @@ func (s *DeploySuite) TestPrepareSuccess(c *gc.C) {
 
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
-		callbacks := NewPrepareDeploySuccessCallbacks()
+		callbacks := NewDeployCallbacks()
 		deployer := &MockDeployer{MockStage: &MockStage{}}
 		factory := operation.NewFactory(deployer, nil, callbacks, nil)
 		op, err := factory.NewDeploy(curl("cs:quantal/nyancat-4"), test.kind)
@@ -184,7 +184,7 @@ func (s *DeploySuite) TestPrepareSuccess(c *gc.C) {
 func (s *DeploySuite) TestExecuteError(c *gc.C) {
 	for _, kind := range bothDeployKinds {
 		c.Logf("testing %s", kind)
-		callbacks := NewPrepareDeploySuccessCallbacks()
+		callbacks := NewDeployCallbacks()
 		deployer := &MockDeployer{
 			MockStage:  &MockStage{},
 			MockDeploy: &MockDeploy{err: errors.New("rasp")},
@@ -271,7 +271,8 @@ func (s *DeploySuite) TestExecuteSuccess(c *gc.C) {
 
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
-		callbacks, deployer := NewDeployExecuteSuccessFixture()
+		deployer := NewMockDeployer()
+		callbacks := NewDeployCallbacks()
 		factory := operation.NewFactory(deployer, nil, callbacks, nil)
 		op, err := factory.NewDeploy(curl("cs:quantal/lol-1"), test.kind)
 		c.Assert(err, jc.ErrorIsNil)

@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	Create = create
+	Create        = create
+	FileTimestamp = fileTimestamp
 
 	TestGetFilesToBackUp = &getFilesToBackUp
 	GetDBDumper          = &getDBDumper

@@ -9,31 +9,31 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // NewFactory returns a Factory that creates Operations backed by the supplied
 // parameters.
 func NewFactory(
 	deployer charm.Deployer,
-	contextFactory context.Factory,
+	runnerFactory runner.Factory,
 	callbacks Callbacks,
 	abort <-chan struct{},
 ) Factory {
 	return &factory{
-		deployer:       deployer,
-		contextFactory: contextFactory,
-		callbacks:      callbacks,
-		abort:          abort,
+		deployer:      deployer,
+		runnerFactory: runnerFactory,
+		callbacks:     callbacks,
+		abort:         abort,
 	}
 }
 
 type factory struct {
-	deployer       charm.Deployer
-	contextFactory context.Factory
-	callbacks      Callbacks
-	abort          <-chan struct{}
+	deployer      charm.Deployer
+	runnerFactory runner.Factory
+	callbacks     Callbacks
+	abort         <-chan struct{}
 }
 
 // NewDeploy is part of the Factory interface.
@@ -58,9 +58,9 @@ func (f *factory) NewHook(hookInfo hook.Info) (Operation, error) {
 		return nil, err
 	}
 	return &runHook{
-		info:           hookInfo,
-		callbacks:      f.callbacks,
-		contextFactory: f.contextFactory,
+		info:          hookInfo,
+		callbacks:     f.callbacks,
+		runnerFactory: f.runnerFactory,
 	}, nil
 }
 
@@ -70,32 +70,30 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
 	return &runAction{
-		actionId:       actionId,
-		callbacks:      f.callbacks,
-		contextFactory: f.contextFactory,
+		actionId:      actionId,
+		callbacks:     f.callbacks,
+		runnerFactory: f.runnerFactory,
 	}, nil
 }
 
 // NewCommands is part of the Factory interface.
-func (f *factory) NewCommands(commands string, relationId int, remoteUnitName string, sendResponse CommandResponseFunc) (Operation, error) {
-	if commands == "" {
+func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error) {
+	if args.Commands == "" {
 		return nil, errors.New("commands required")
 	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
 	}
-	if remoteUnitName != "" {
-		if relationId == -1 {
+	if args.RemoteUnitName != "" {
+		if args.RelationId == -1 {
 			return nil, errors.New("remote unit not valid without relation")
-		} else if !names.IsValidUnit(remoteUnitName) {
-			return nil, errors.Errorf("invalid remote unit name %q", remoteUnitName)
+		} else if !names.IsValidUnit(args.RemoteUnitName) {
+			return nil, errors.Errorf("invalid remote unit name %q", args.RemoteUnitName)
 		}
 	}
 	return &runCommands{
-		commands:       commands,
-		relationId:     relationId,
-		remoteUnitName: remoteUnitName,
-		sendResponse:   sendResponse,
-		callbacks:      f.callbacks,
-		contextFactory: f.contextFactory,
+		args:          args,
+		sendResponse:  sendResponse,
+		callbacks:     f.callbacks,
+		runnerFactory: f.runnerFactory,
 	}, nil
 }

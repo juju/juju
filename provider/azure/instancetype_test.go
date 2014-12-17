@@ -6,7 +6,9 @@ package azure
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
@@ -74,6 +76,10 @@ func (s *instanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) 
 
 func (s *instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	var desiredCores uint64 = 50
+
+	s.PatchValue(&getAvailableRoleSizes, func(*azureEnviron) (set.Strings, error) {
+		return set.NewStrings("Panda", "LFA", "Lambo", "Veyron"), nil
+	})
 
 	costs := map[string]uint64{
 		"Panda":  10,
@@ -190,6 +196,82 @@ func (s *instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
 	c.Assert(instType, gc.DeepEquals, expectation)
 }
 
+func (s *instanceTypeSuite) TestListInstanceTypesAGVNetRoleSizeFiltering(c *gc.C) {
+	// Old environments with a virtual network tied to an affinity group
+	// will cause D and G series to be filtered out.
+	expectation := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
+	for _, roleSize := range gwacl.RoleSizes {
+		if strings.HasPrefix(roleSize.Name, "Basic_") {
+			continue
+		}
+		if strings.HasPrefix(roleSize.Name, "Standard_") {
+			continue
+		}
+		instanceType, err := newInstanceType(roleSize, "West US")
+		c.Assert(err, jc.ErrorIsNil)
+		instanceType.Arches = []string{"amd64"}
+		expectation = append(expectation, instanceType)
+	}
+
+	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
+		return &gwacl.VirtualNetworkSite{Name: "vnet", AffinityGroup: "ag"}, nil
+	})
+	env := s.setupEnvWithDummyMetadata(c)
+	types, err := listInstanceTypes(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types, gc.DeepEquals, expectation)
+}
+
+func (s *instanceTypeSuite) TestListInstanceTypesNoVNetNoRoleSizeFiltering(c *gc.C) {
+	// If there's no virtual network yet, we'll create one with a
+	// location rather than an affinity group; thus we do not limit
+	// which instance types are available.
+	expectation := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
+	for _, roleSize := range gwacl.RoleSizes {
+		if strings.HasPrefix(roleSize.Name, "Basic_") {
+			continue
+		}
+		instanceType, err := newInstanceType(roleSize, "West US")
+		c.Assert(err, jc.ErrorIsNil)
+		instanceType.Arches = []string{"amd64"}
+		expectation = append(expectation, instanceType)
+	}
+
+	s.PatchValue(&getVirtualNetwork, func(*azureEnviron) (*gwacl.VirtualNetworkSite, error) {
+		return nil, errors.NotFoundf("virtual network")
+	})
+	env := s.setupEnvWithDummyMetadata(c)
+	types, err := listInstanceTypes(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types, gc.DeepEquals, expectation)
+}
+
+func (s *instanceTypeSuite) TestListInstanceTypesLocationFiltering(c *gc.C) {
+	available := set.NewStrings("Standard_D1")
+	s.PatchValue(&getAvailableRoleSizes, func(*azureEnviron) (set.Strings, error) {
+		return available, nil
+	})
+
+	// If there's no virtual network yet, we'll create one with a
+	// location rather than an affinity group; thus we do not limit
+	// which instance types are available.
+	expectation := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
+	for _, roleSize := range gwacl.RoleSizes {
+		if !available.Contains(roleSize.Name) {
+			continue
+		}
+		instanceType, err := newInstanceType(roleSize, "West US")
+		c.Assert(err, jc.ErrorIsNil)
+		instanceType.Arches = []string{"amd64"}
+		expectation = append(expectation, instanceType)
+	}
+
+	env := s.setupEnvWithDummyMetadata(c)
+	types, err := listInstanceTypes(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(types, gc.DeepEquals, expectation)
+}
+
 func (s *instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
 	expectation := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
 	for _, roleSize := range gwacl.RoleSizes {
@@ -228,7 +310,7 @@ var findInstanceSpecTests = []struct {
 	{
 		series: "precise",
 		cons:   "mem=7G cpu-cores=2",
-		itype:  "Large",
+		itype:  "Standard_D2",
 	}, {
 		series: "precise",
 		cons:   "instance-type=ExtraLarge",

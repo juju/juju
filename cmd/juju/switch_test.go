@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
 )
@@ -97,6 +98,20 @@ func (*SwitchSimpleSuite) TestListEnvironments(c *gc.C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
+}
+
+func (s *SwitchSimpleSuite) TestListEnvironmentsWithConfigstore(c *gc.C) {
+	memstore := configstore.NewMem()
+	s.PatchValue(&configstore.Default, func() (configstore.Storage, error) {
+		return memstore, nil
+	})
+	info := memstore.CreateInfo("testing")
+	err := info.Write()
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--list")
+	c.Assert(err, jc.ErrorIsNil)
+	expected := expectedEnvironments + "testing\n"
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
 }
 
 func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {

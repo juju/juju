@@ -12,8 +12,9 @@ var (
 	CharmBundleURL            = &charmBundleURL
 	CharmStoragePath          = &charmStoragePath
 	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
-	StateStorage              = &stateStorage
+	NewStateStorage           = &newStateStorage
 	StateToolsStorage         = &stateToolsStorage
+	AddAZToInstData           = &addAZToInstData
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
@@ -35,4 +36,5 @@ var (
 	// 122 upgrade functions
 	EnsureSystemSSHKeyRedux               = ensureSystemSSHKeyRedux
 	UpdateAuthorizedKeysForSystemIdentity = updateAuthorizedKeysForSystemIdentity
+	AddAvaililityZoneToInstanceData       = addAvaililityZoneToInstanceData
 )

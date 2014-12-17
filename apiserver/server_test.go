@@ -51,6 +51,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer srv.Stop()
@@ -105,6 +106,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer srv.Stop()
@@ -305,9 +307,11 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
+		Tag:  names.NewMachineTag("0"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer srv.Stop()
+
 	// We have to use 'localhost' because that is what the TLS cert says.
 	// So find just the Port for the server
 	_, portString, err := net.SplitHostPort(srv.Addr())

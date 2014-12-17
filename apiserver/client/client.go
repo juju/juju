@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/version"
 )
 
@@ -36,7 +37,7 @@ func init() {
 var (
 	logger = loggo.GetLogger("juju.apiserver.client")
 
-	stateStorage = (*state.State).Storage
+	newStateStorage = storage.NewStorage
 )
 
 type API struct {
@@ -51,7 +52,8 @@ type API struct {
 
 // Client serves client-specific API methods.
 type Client struct {
-	api *API
+	api   *API
+	check *common.BlockChecker
 }
 
 // NewClient creates a new instance of the Client Facade.
@@ -64,13 +66,15 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
-	return &Client{api: &API{
-		state:        st,
-		auth:         authorizer,
-		resources:    resources,
-		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
-		toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
-	}}, nil
+	return &Client{
+		api: &API{
+			state:        st,
+			auth:         authorizer,
+			resources:    resources,
+			statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
+			toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
+		},
+		check: common.NewBlockChecker(st)}, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -86,6 +90,9 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 // (Deprecated) Use NewServiceSetForClientAPI instead, to preserve values set to
 // an empty string, and use ServiceUnset to unset values.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -100,6 +107,7 @@ func (c *Client) ServiceSet(p params.ServiceSet) error {
 //
 // TODO(Nate): rename this to ServiceSet (and remove the deprecated ServiceSet)
 // when the GUI handles the new behavior.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
@@ -109,7 +117,11 @@ func (c *Client) NewServiceSetForClientAPI(p params.ServiceSet) error {
 }
 
 // ServiceUnset implements the server side of Client.ServiceUnset.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceUnset(p params.ServiceUnset) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -122,7 +134,11 @@ func (c *Client) ServiceUnset(p params.ServiceUnset) error {
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
@@ -130,21 +146,8 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
-// blockedOperationError determines what error to throw up.
-// If err is not nil, it is returned wrapped in Server Error.
-// If block is true, a "blocked operation" error is thrown up.
-// Otherwise, proceed as before
-func blockedOperationError(blocked bool, err error) error {
-	if err != nil {
-		return common.ServerError(err)
-	}
-	if blocked {
-		return common.ErrOperationBlocked
-	}
-	return nil
-}
-
 // ServiceCharmRelations implements the server side of Client.ServiceCharmRelations.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.ServiceCharmRelationsResults, error) {
 	var results params.ServiceCharmRelationsResults
 	service, err := c.api.state.Service(p.ServiceName)
@@ -164,6 +167,9 @@ func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.S
 
 // Resolved implements the server side of Client.Resolved.
 func (c *Client) Resolved(p params.Resolved) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	unit, err := c.api.state.Unit(p.UnitName)
 	if err != nil {
 		return err
@@ -229,7 +235,11 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceExpose(args params.ServiceExpose) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -239,7 +249,11 @@ func (c *Client) ServiceExpose(args params.ServiceExpose) error {
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -266,6 +280,9 @@ func networkTagsToNames(tags []string) ([]string, error) {
 // before calling ServiceDeploy, although for backward compatibility
 // this is not necessary until 1.16 support is removed.
 func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
@@ -343,6 +360,11 @@ func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 // minimum number of units, settings and constraints.
 // All parameters in params.ServiceUpdate except the service name are optional.
 func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
+	if !args.ForceCharmUrl {
+		if err := c.check.ChangeAllowed(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -465,7 +487,14 @@ func newServiceSetSettingsStringsForClientAPI(service *state.Service, settings m
 }
 
 // ServiceSetCharm sets the charm for a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
+	// when forced, don't block
+	if !args.Force {
+		if err := c.check.ChangeAllowed(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -497,6 +526,9 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return params.AddServiceUnitsResults{}, errors.Trace(err)
+	}
 	units, err := addServiceUnits(c.api.state, args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
@@ -510,9 +542,8 @@ func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddService
 
 // DestroyServiceUnits removes a given set of service units.
 func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
-		//no need to iterate over all units if the operation is blocked
-		return err
+	if err := c.check.RemoveAllowed(); err != nil {
+		return errors.Trace(err)
 	}
 	var errs []string
 	for _, name := range args.UnitNames {
@@ -536,9 +567,10 @@ func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
 }
 
 // ServiceDestroy destroys a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
-	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
-		return err
+	if err := c.check.RemoveAllowed(); err != nil {
+		return errors.Trace(err)
 	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
@@ -548,6 +580,7 @@ func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
 }
 
 // GetServiceConstraints returns the constraints for a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetConstraintsResults, error) {
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
@@ -567,7 +600,11 @@ func (c *Client) GetEnvironmentConstraints() (params.GetConstraintsResults, erro
 }
 
 // SetServiceConstraints sets the constraints for a given service.
+// TODO(mattyw, all): This api call should be move to the new service facade. The client api version will then need bumping.
 func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	svc, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
@@ -577,11 +614,17 @@ func (c *Client) SetServiceConstraints(args params.SetConstraints) error {
 
 // SetEnvironmentConstraints sets the constraints for the environment.
 func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	return c.api.state.SetEnvironConstraints(args.Constraints)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
 	inEps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, err
@@ -603,8 +646,8 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	if err := blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
-		return err
+	if err := c.check.RemoveAllowed(); err != nil {
+		return errors.Trace(err)
 	}
 	eps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
@@ -626,6 +669,9 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+	if err := c.check.ChangeAllowed(); err != nil {
+		return results, errors.Trace(err)
 	}
 	for i, p := range args.MachineParams {
 		m, err := c.addOneMachine(p)
@@ -789,9 +835,8 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 			continue
 		default:
 			{
-				if err = blockedOperationError(c.isRemoveObjectBlocked()); err != nil {
-					// no need to iterate over all machines, if the operation is blocked
-					return err
+				if err := c.check.RemoveAllowed(); err != nil {
+					return errors.Trace(err)
 				}
 				err = machine.Destroy()
 			}
@@ -801,20 +846,6 @@ func (c *Client) DestroyMachines(args params.DestroyMachines) error {
 		}
 	}
 	return destroyErr("machines", args.MachineNames, errs)
-}
-
-// isRemoveObjectBlocked determines whether remove object
-// operation should proceed, where object is any juju artifact
-//  such as machine, service, unit or relation.
-// We examine whether prevent-remove-object set to true.
-// If the command must be blocked, an error is thrown up,
-// effectively blocking remove operation.
-func (c *Client) isRemoveObjectBlocked() (bool, error) {
-	cfg, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return true, err
-	}
-	return cfg.PreventRemoveObject(), nil
 }
 
 // CharmInfo returns information about the requested charm.
@@ -998,6 +1029,16 @@ func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
 // EnvironmentSet implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		// if trying to change value for block-changes, we would want to let it go.
+		if v, present := args.Config[config.PreventAllChangesKey]; !present {
+			return errors.Trace(err)
+		} else if block, ok := v.(bool); ok && block {
+			// still want to block changes
+			return errors.Trace(err)
+		}
+		// else if block is false, we want to unblock changes
+	}
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
 		if v, found := updateAttrs["agent-version"]; found {
@@ -1019,6 +1060,9 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 // EnvironmentUnset implements the server-side part of the
 // set-environment CLI command.
 func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
@@ -1027,12 +1071,18 @@ func (c *Client) EnvironmentUnset(args params.EnvironmentUnset) error {
 
 // SetEnvironAgentVersion sets the environment agent version.
 func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	return c.api.state.SetEnvironAgentVersion(args.Version)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (c *Client) AbortCurrentUpgrade() error {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
 	return c.api.state.AbortCurrentUpgrade()
 }
 
@@ -1119,7 +1169,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 // StoreCharmArchive stores a charm archive in environment storage.
 func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
-	storage := stateStorage(st)
+	storage := newStateStorage(st.EnvironUUID(), st.MongoSession())
 	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
@@ -1194,6 +1244,9 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
 		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
@@ -1215,6 +1268,9 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 // DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
 // This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
+	if err := c.check.ChangeAllowed(); err != nil {
+		return params.StateServersChangeResults{}, errors.Trace(err)
+	}
 	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
 	for i, stateServersSpec := range args.Specs {
 		result, err := highavailability.EnsureAvailabilitySingle(c.api.state, stateServersSpec)

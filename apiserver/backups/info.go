@@ -11,17 +11,13 @@ import (
 
 // Info provides the implementation of the API method.
 func (a *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, error) {
-	var result params.BackupsMetadataResult
-
 	backups, closer := newBackups(a.st)
 	defer closer.Close()
 
 	meta, _, err := backups.Get(args.ID) // Ignore the archive file.
 	if err != nil {
-		return result, errors.Trace(err)
+		return params.BackupsMetadataResult{}, errors.Trace(err)
 	}
 
-	result.UpdateFromMetadata(meta)
-
-	return result, nil
+	return ResultFromMetadata(meta), nil
 }

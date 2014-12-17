@@ -10,6 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
+	httptesting "github.com/juju/juju/api/http/testing"
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	stbackups "github.com/juju/juju/state/backups"
@@ -34,9 +36,8 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *baseSuite) metadataResult() *params.BackupsMetadataResult {
-	result := &params.BackupsMetadataResult{}
-	result.UpdateFromMetadata(s.Meta)
-	return result
+	result := apiserverbackups.ResultFromMetadata(s.Meta)
+	return &result
 }
 
 func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata) {
@@ -61,4 +62,49 @@ func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataR
 	c.Check(result.Machine, gc.Equals, meta.Origin.Machine)
 	c.Check(result.Hostname, gc.Equals, meta.Origin.Hostname)
 	c.Check(result.Version, gc.Equals, meta.Origin.Version)
+}
+
+type httpSuite struct {
+	baseSuite
+	httptesting.APIHTTPClientSuite
+}
+
+func (s *httpSuite) SetUpSuite(c *gc.C) {
+	s.baseSuite.SetUpSuite(c)
+	s.APIHTTPClientSuite.SetUpSuite(c)
+}
+
+func (s *httpSuite) TearDownSuite(c *gc.C) {
+	s.APIHTTPClientSuite.TearDownSuite(c)
+	s.baseSuite.TearDownSuite(c)
+}
+
+func (s *httpSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	s.APIHTTPClientSuite.SetUpTest(c)
+}
+
+func (s *httpSuite) TearDownTest(c *gc.C) {
+	s.APIHTTPClientSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
+}
+
+func (s *httpSuite) setResponse(c *gc.C, status int, data []byte, ctype string) {
+	s.APIHTTPClientSuite.SetResponse(c, status, data, ctype)
+	backups.SetHTTP(s.client, &s.FakeClient)
+}
+
+func (s *httpSuite) setJSONSuccess(c *gc.C, result interface{}) {
+	s.APIHTTPClientSuite.SetJSONSuccess(c, result)
+	backups.SetHTTP(s.client, &s.FakeClient)
+}
+
+func (s *httpSuite) setFailure(c *gc.C, msg string, status int) {
+	s.APIHTTPClientSuite.SetFailure(c, msg, status)
+	backups.SetHTTP(s.client, &s.FakeClient)
+}
+
+func (s *httpSuite) setError(c *gc.C, msg string, status int) {
+	s.APIHTTPClientSuite.SetError(c, msg, status)
+	backups.SetHTTP(s.client, &s.FakeClient)
 }

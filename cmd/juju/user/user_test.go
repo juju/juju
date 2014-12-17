@@ -5,7 +5,6 @@ package user_test
 
 import (
 	"os"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -36,15 +35,7 @@ func (s *UserCommandSuite) TestHelp(c *gc.C) {
 	// Check the help output
 	ctx, err := testing.RunCommand(c, user.NewSuperCommand(), "--help")
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that we have registered all the sub commands by
-	// inspecting the help output.
-	var namesFound []string
-	commandHelp := strings.SplitAfter(testing.Stdout(ctx), "commands:")[1]
-	commandHelp = strings.TrimSpace(commandHelp)
-	for _, line := range strings.Split(commandHelp, "\n") {
-		namesFound = append(namesFound, strings.TrimSpace(strings.Split(line, " - ")[0]))
-	}
+	namesFound := testing.ExtractCommandsFromHelpOutput(ctx)
 	c.Assert(namesFound, gc.DeepEquals, expectedUserCommmandNames)
 }
 
@@ -62,7 +53,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	info := memstore.CreateInfo("testing")
 	info.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	info.SetAPIEndpoint(configstore.APIEndpoint{
-		Addresses:   []string{"localhost:12345"},
+		Addresses:   []string{"127.0.0.1:12345"},
+		Hostnames:   []string{"localhost:12345"},
 		CACert:      testing.CACert,
 		EnvironUUID: "env-uuid",
 	})

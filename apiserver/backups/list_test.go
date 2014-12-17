@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -20,8 +21,7 @@ func (s *backupsSuite) TestListOkay(c *gc.C) {
 	result, err := s.api.List(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	item := params.BackupsMetadataResult{}
-	item.UpdateFromMetadata(s.meta)
+	item := backups.ResultFromMetadata(s.meta)
 	expected := params.BackupsListResult{
 		List: []params.BackupsMetadataResult{item},
 	}

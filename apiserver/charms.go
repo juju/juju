@@ -26,7 +26,9 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/client"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/storage"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
@@ -87,7 +89,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // sendJSON sends a JSON-encoded response to the client.
 func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response *params.CharmsResponse) error {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", apihttp.CTypeJSON)
 	w.WriteHeader(statusCode)
 	body, err := json.Marshal(response)
 	if err != nil {
@@ -406,7 +408,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 // downloadCharm downloads the given charm name from the provider storage and
 // saves the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) error {
-	storage := h.state.Storage()
+	storage := storage.NewStorage(h.state.EnvironUUID(), h.state.MongoSession())
 	ch, err := h.state.Charm(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot get charm from state")

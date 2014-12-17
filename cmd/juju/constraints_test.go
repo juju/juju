@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -42,6 +43,15 @@ func assertSet(c *gc.C, args ...string) {
 	c.Assert(rstderr, gc.Equals, "")
 }
 
+func assertSetBlocked(c *gc.C, args ...string) {
+	rcode, _, _ := runCmdLine(c, envcmd.Wrap(&SetConstraintsCommand{}), args...)
+	c.Assert(rcode, gc.Equals, 1)
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	// Set constraints.
 	assertSet(c, "mem=4G", "cpu-power=250")
@@ -57,6 +67,13 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	cons, err = s.State.EnvironConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *ConstraintsCommandsSuite) TestBlockSetEnviron(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	// Set constraints.
+	assertSetBlocked(c, "mem=4G", "cpu-power=250")
 }
 
 func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
@@ -76,6 +93,15 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
 	cons, err = svc.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *ConstraintsCommandsSuite) TestBlockSetService(c *gc.C) {
+	s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	// Set constraints.
+	assertSetBlocked(c, "-s", "svc", "mem=4G", "cpu-power=250")
 }
 
 func assertSetError(c *gc.C, code int, stderr string, args ...string) {

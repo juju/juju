@@ -7,26 +7,21 @@ var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	RemoteParamsForMachine  = remoteParamsForMachine
 	GetAllUnitNames         = getAllUnitNames
-	StateStorage            = &stateStorage
+	NewStateStorage         = &newStateStorage
 )
 
 var MachineJobFromParams = machineJobFromParams
 
 // Filtering exports
 var (
-	MatchPorts  = matchPorts
-	MatchSubnet = matchSubnet
+	MatchPortRanges = matchPortRanges
+	MatchSubnet     = matchSubnet
 )
 
 // Status exports
 var (
 	ProcessMachines   = processMachines
 	MakeMachineStatus = makeMachineStatus
-)
-
-//Client exports
-var (
-	BlockOperation = blockedOperationError
 )
 
 type MachineAndContainers machineAndContainers

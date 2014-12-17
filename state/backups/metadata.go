@@ -5,6 +5,8 @@ package backups
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"os"
@@ -30,6 +32,22 @@ type Origin struct {
 	Machine     string
 	Hostname    string
 	Version     version.Number
+}
+
+// UnknownString is a marker value for string fields with unknown values.
+const UnknownString = "<unknown>"
+
+// UnknownVersion is a marker value for version fields with unknown values.
+var UnknownVersion = version.MustParse("9999.9999.9999")
+
+// UnknownOrigin returns a new backups origin with unknown values.
+func UnknownOrigin() Origin {
+	return Origin{
+		Environment: UnknownString,
+		Machine:     UnknownString,
+		Hostname:    UnknownString,
+		Version:     UnknownVersion,
+	}
 }
 
 // Metadata contains the metadata for a single state backup archive.
@@ -184,5 +202,48 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 		Version:     flat.Version,
 	}
 
+	return meta, nil
+}
+
+func fileTimestamp(fi os.FileInfo) time.Time {
+	timestamp := creationTime(fi)
+	if !timestamp.IsZero() {
+		return timestamp
+	}
+	// Fall back to modification time.
+	return fi.ModTime()
+}
+
+// BuildMetadata generates the metadata for a backup archive file.
+func BuildMetadata(file *os.File) (*Metadata, error) {
+
+	// Extract the file size.
+	fi, err := file.Stat()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	size := fi.Size()
+
+	// Extract the timestamp.
+	timestamp := fileTimestamp(fi)
+
+	// Get the checksum.
+	hasher := sha1.New()
+	_, err = io.Copy(hasher, file)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rawsum := hasher.Sum(nil)
+	checksum := base64.StdEncoding.EncodeToString(rawsum)
+
+	// Build the metadata.
+	meta := NewMetadata()
+	meta.Started = time.Time{}
+	meta.Origin = UnknownOrigin()
+	err = meta.MarkComplete(size, checksum)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	meta.Finished = &timestamp
 	return meta, nil
 }

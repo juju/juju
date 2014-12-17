@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 )
 
 // RepoSuite acts as a JujuConnSuite but also sets up
@@ -71,7 +72,7 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 
-	storage := s.State.Storage()
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	r, _, err := storage.Get(ch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer r.Close()

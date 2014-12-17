@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	jujucmd "github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -422,6 +423,18 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	//c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UpgradeJujuSuite) TestBlockUpgradeJujuWithRealUpload(c *gc.C) {
+	s.Reset(c)
+	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
+	c.Assert(err, gc.ErrorMatches, jujucmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 type DryRunTest struct {
 	about             string
 	cmdArgs           []string
@@ -531,6 +544,26 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 		"the last upgrade that has been resolved, consider running the\n"+
 		"upgrade-juju command with the --reset-previous-upgrade flag.",
 	)
+}
+
+func (s *UpgradeJujuSuite) TestBlockUpgradeInProgress(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.setVersionErr = &params.Error{
+		Code:    params.CodeOperationBlocked,
+		Message: "The operation has been blocked.",
+	}
+	fakeAPI.patch(s)
+	cmd := &UpgradeJujuCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	err = cmd.Run(coretesting.Context(c))
+	c.Assert(err, gc.ErrorMatches, jujucmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {

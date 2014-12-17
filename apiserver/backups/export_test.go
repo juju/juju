@@ -4,5 +4,6 @@
 package backups
 
 var (
-	NewBackups = &newBackups
+	NewBackups     = &newBackups
+	WaitUntilReady = &waitUntilReady
 )

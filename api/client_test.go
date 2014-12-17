@@ -386,6 +386,45 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
+func (s *clientSuite) TestEnvironmentGet(c *gc.C) {
+	client := s.APIState.Client()
+	env, err := client.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	// Check a known value, just checking that there is something there.
+	c.Assert(env["type"], gc.Equals, "dummy")
+}
+
+func (s *clientSuite) TestEnvironmentSet(c *gc.C) {
+	client := s.APIState.Client()
+	err := client.EnvironmentSet(map[string]interface{}{
+		"some-name":  "value",
+		"other-name": true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// Check them using EnvironmentGet.
+	env, err := client.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(env["some-name"], gc.Equals, "value")
+	c.Assert(env["other-name"], gc.Equals, true)
+}
+
+func (s *clientSuite) TestEnvironmentUnset(c *gc.C) {
+	client := s.APIState.Client()
+	err := client.EnvironmentSet(map[string]interface{}{
+		"some-name": "value",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now unset it and make sure it isn't there.
+	err = client.EnvironmentUnset("some-name")
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := client.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	_, found := env["some-name"]
+	c.Assert(found, jc.IsFalse)
+}
+
 // badReader raises err when Read is called.
 type badReader struct {
 	err error

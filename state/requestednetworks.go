@@ -51,7 +51,7 @@ func readRequestedNetworks(st *State, id string) ([]string, error) {
 	defer closer()
 
 	doc := requestedNetworksDoc{}
-	err := requestedNetworks.FindId(st.docID(id)).One(&doc)
+	err := requestedNetworks.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		// In 1.17.7+ we always create a requestedNetworksDoc for each
 		// service or machine we create, but in legacy databases this
