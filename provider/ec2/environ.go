@@ -842,20 +842,20 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
 			continue
 		}
-		start, err := network.IPToDecimal(ip.String())
+		start, err := network.IPv4ToDecimal(ip.String())
 		if err != nil {
 			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
 			continue
 		}
 		// the first four addresses in a subnet are reserved
-		allocatableLow := network.DecimalToIP(start + 4)
+		allocatableLow := network.DecimalToIPv4(start + 4)
 
 		ones, bits := ipnet.Mask.Size()
 		zeros := bits - ones
 		numIPs := uint32(1) << uint32(zeros)
 		highIP := start + numIPs - 1
 		// the last address in a subnet is reserved
-		allocatableHigh := network.DecimalToIP(highIP - 1)
+		allocatableHigh := network.DecimalToIPv4(highIP - 1)
 
 		// No VLANTag available
 		info := network.SubnetInfo{
