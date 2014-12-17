@@ -12,7 +12,6 @@ import (
 	"code.google.com/p/goauth2/oauth/jwt"
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
@@ -55,16 +54,10 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.provider.gce")
-
-	errNotImplemented = errors.NotImplementedf("gce provider")
-
 	operationAttempts = utils.AttemptStrategy{
 		Total: operationTimeout * time.Second,
 		Delay: 10 * time.Second,
 	}
-
-	signedImageDataOnly = false
 )
 
 type gceAuth struct {

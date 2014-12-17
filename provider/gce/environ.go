@@ -9,6 +9,7 @@ import (
 
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -24,6 +25,14 @@ const (
 	metadataKeyCloudInit = "metadata.cloud-init:user-data"
 
 	roleState = "state"
+)
+
+var (
+	logger = loggo.GetLogger("juju.provider.gce")
+
+	errNotImplemented = errors.NotImplementedf("gce provider")
+
+	signedImageDataOnly = false
 )
 
 type environ struct {
