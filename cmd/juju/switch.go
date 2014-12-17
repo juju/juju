@@ -4,16 +4,17 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"sort"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/configstore"
 )
 
 type SwitchCommand struct {
@@ -53,13 +54,16 @@ func (c *SwitchCommand) Init(args []string) (err error) {
 	return
 }
 
-func validEnvironmentName(name string, names []string) bool {
-	for _, n := range names {
-		if name == n {
-			return true
-		}
+func getConfigstoreEnvironments() (set.Strings, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get config store")
 	}
-	return false
+	other, err := store.List()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to list environments in config store")
+	}
+	return set.NewStrings(other...), nil
 }
 
 func (c *SwitchCommand) Run(ctx *cmd.Context) error {
@@ -71,17 +75,22 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// Passing through the empty string reads the default environments.yaml file.
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
-		return fmt.Errorf("couldn't read the environment")
+		return errors.Errorf("couldn't read the environment")
 	}
-	names := environments.Names()
-	sort.Strings(names)
+
+	names := set.NewStrings(environments.Names()...)
+	configEnvirons, err := getConfigstoreEnvironments()
+	if err != nil {
+		return err
+	}
+	names = names.Union(configEnvirons)
 
 	if c.List {
 		// List all environments.
 		if c.EnvName != "" {
 			return errors.New("cannot switch and list at the same time")
 		}
-		for _, name := range names {
+		for _, name := range names.SortedValues() {
 			fmt.Fprintf(ctx.Stdout, "%s\n", name)
 		}
 		return nil
@@ -93,7 +102,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 			fmt.Fprintf(ctx.Stdout, "%s\n", jujuEnv)
 			return nil
 		} else {
-			return fmt.Errorf("cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
+			return errors.Errorf("cannot switch when JUJU_ENV is overriding the environment (set to %q)", jujuEnv)
 		}
 	}
 
@@ -112,8 +121,8 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stdout, "%s\n", currentEnv)
 	default:
 		// Switch the environment.
-		if !validEnvironmentName(c.EnvName, names) {
-			return fmt.Errorf("%q is not a name of an existing defined environment", c.EnvName)
+		if !names.Contains(c.EnvName) {
+			return errors.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
 		if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
 			return err
