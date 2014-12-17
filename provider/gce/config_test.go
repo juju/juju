@@ -106,7 +106,8 @@ var newConfigTests = []struct {
 }, {
 	info:   "image-endpoint can be empty",
 	insert: testing.Attrs{"image-endpoint": ""},
-	// TODO(ericsnow) Shouldn't the default be set?
+	// This is not set to the default value because
+	// an explict call to config.Apply never happens.
 	expect:          testing.Attrs{"image-endpoint": ""},
 	skipIfOldConfig: true,
 }, {

@@ -3,8 +3,6 @@
 
 package gce
 
-// TODO(ericsnow) This file needs a once-over to verify correctness.
-
 import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -158,9 +156,6 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	if err := ecfg.newConnection().validate(); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
-
-	// Check image URL value.
-	// TODO(ericsnow) Implement the check.
 
 	return ecfg, nil
 }
