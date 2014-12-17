@@ -14,7 +14,7 @@ import (
 
 // conform ensures all keys of any nested maps are strings.  This is
 // necessary because YAML unmarshals map[interface{}]interface{} in nested
-// maps, which cannot be serialized by bson.
+// maps, which cannot be serialized by bson. Also, handle []interface{}.
 // cf. gopkg.in/juju/charm.v4/actions.go cleanse
 func conform(input interface{}) (interface{}, error) {
 	switch typedInput := input.(type) {

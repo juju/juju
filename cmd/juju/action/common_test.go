@@ -99,9 +99,12 @@ func (s *CommonSuite) TestConform(c *gc.C) {
 
 	for i, test := range goodInterfaceTests {
 		c.Logf("test %d: %s", i, test.description)
-		cleansedInterfaceMap, err := conform(test.inputInterface)
+		input := serialize(test.inputInterface)
+		cleansedInterfaceMap, err := conform(input)
 		if test.expectedError == "" {
-			c.Assert(err, gc.IsNil)
+			if !c.Check(err, gc.IsNil) {
+				continue
+			}
 			c.Check(cleansedInterfaceMap, gc.DeepEquals, test.expectedInterface)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
@@ -156,8 +159,18 @@ func (s *CommonSuite) TestTabbedString(c *gc.C) {
 		if t.errString != "" {
 			c.Check(err, gc.ErrorMatches, t.errString)
 		} else {
-			c.Assert(err, gc.IsNil)
+			if !c.Check(err, gc.IsNil) {
+				continue
+			}
 			c.Check(obtained, gc.Equals, t.expected)
 		}
 	}
+}
+
+func serialize(input interface{}) interface{} {
+	// TODO(bodie) not sure how to serialize YAML/bson per your comment
+	// on conform.  I noticed the cleanse func in gopkg.in/juju/charm.v4
+	// is basically the same test as this test, but those tests don't
+	// test the serialization either.
+	return input
 }

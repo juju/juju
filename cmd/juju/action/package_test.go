@@ -88,9 +88,8 @@ func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
 	c.Assert(err, gc.IsNil)
 
 	expected := "(?sm).*^usage: juju action " +
-		regexp.QuoteMeta(subcmd.Info().Name) + " " +
-		"\\[options\\] " +
-		regexp.QuoteMeta(subcmd.Info().Args) + ".+"
+		regexp.QuoteMeta(subcmd.Info().Name) +
+		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
 	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
 
 	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
@@ -101,7 +100,6 @@ func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
 }
 
 type fakeAPIClient struct {
-	action.APIClient
 	actionResults      []params.ActionResult
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   map[string][]params.Entity

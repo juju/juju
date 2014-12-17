@@ -20,8 +20,9 @@ import (
 const FeatureFlag string = "action"
 
 var actionDoc = `
-"juju action" executes and manages actions on units, monitors their status,
-and retrieves their results.
+"juju action" executes and manages actions on units; it queues up new actions,
+monitors the status of the running actions, and retrieves the results of the
+completed actions.
 `
 
 var actionPurpose = "execute, manage, monitor, and retrieve results of actions"
