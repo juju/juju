@@ -1005,9 +1005,9 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{
-		network.SubnetInfo{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
-		network.SubnetInfo{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		network.SubnetInfo{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
 	}
 	c.Assert(netInfo, jc.SameContents, expectedInfo)
 }
