@@ -238,7 +238,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 		return nil, errors.Errorf("no allocatable IP addresses for subnet %v", s)
 	}
 
-	// convert low and high to decimals (dottedQuadToNum) as the bounds
+	// convert low and high to decimals as the bounds
 	lowDecimal, err := network.IPv4ToDecimal(low)
 	if err != nil {
 		// these addresses are validated so should never happen

@@ -848,7 +848,8 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
 			continue
 		}
-		// the first four addresses in a subnet are reserved
+		// the first four addresses in a subnet are reserved, see
+		// http://goo.gl/rrWTIo
 		allocatableLow := network.DecimalToIPv4(start + 4)
 
 		ones, bits := ipnet.Mask.Size()
