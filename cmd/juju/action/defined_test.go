@@ -142,15 +142,10 @@ func (s *DefinedSuite) TestRun(c *gc.C) {
 }
 
 func checkFullSchema(c *gc.C, expected *charm.Actions, actual []byte) {
-	expectYaml, err := yaml.Marshal(expected.ActionSpecs)
-	c.Assert(err, gc.IsNil)
-	// unmarshal and re-marshal to make sure we have same format
 	unmarshaledActual := map[string]interface{}{}
-	err = yaml.Unmarshal([]byte(actual), &unmarshaledActual)
+	err := yaml.Unmarshal([]byte(actual), &unmarshaledActual)
 	c.Assert(err, gc.IsNil)
-	actualResult, err := yaml.Marshal(unmarshaledActual)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(actualResult), gc.Equals, string(expectYaml))
+	c.Check(string(actual), jc.YAMLEquals, expected.ActionSpecs)
 }
 
 func checkSimpleSchema(c *gc.C, expected *charm.Actions, actualOutput []byte) {
