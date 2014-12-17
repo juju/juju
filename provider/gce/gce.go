@@ -244,7 +244,7 @@ func (gce *gceConnection) instances(env environs.Environ) ([]*compute.Instance, 
 	for {
 		raw, err := call.Do()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return results, errors.Trace(err)
 		}
 
 		for _, item := range raw.Items {

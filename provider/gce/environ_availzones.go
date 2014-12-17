@@ -48,16 +48,21 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 // rules as Environ.Instances.
 func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
 	instances, err := env.Instances(ids)
-	if err != nil {
+	if err != nil && err != environs.ErrPartialInstances && err != environs.ErrNoInstances {
 		return nil, errors.Trace(err)
 	}
+	// We let the two environs errors pass on through. However, we do
+	// not use errors.Trace in that case since callers may not call
+	// errors.Cause.
 
-	var results []string
-	for _, inst := range instances {
-		eInst := inst.(*environInstance)
-		results = append(results, eInst.zone)
+	results := make([]string, len(ids))
+	for i, inst := range instances {
+		if eInst := inst.(*environInstance); eInst != nil {
+			results[i] = eInst.zone
+		}
 	}
-	return results, nil
+
+	return results, err
 }
 
 func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
@@ -88,6 +93,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	logger.Infof("found %d zones: %v", len(zoneInstances), zoneInstances)
 
 	var zoneNames []string
 	region := env.ecfg.region()

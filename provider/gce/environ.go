@@ -145,23 +145,44 @@ func (env *environ) Destroy() error {
 var instStatuses = []string{statusPending, statusStaging, statusRunning}
 
 // Instances returns the available instances in the environment that
-// match the provided instance IDs.
+// match the provided instance IDs. For IDs that did not match any
+// instances, the result at the corresponding index will be nil. In that
+// case the error will be environs.ErrPartialInstances (or
+// ErrNoInstances if none of the IDs match an instance).
 func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	if len(ids) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
 	instances, err := env.instances()
 	if err != nil {
-		return nil, errors.Trace(err)
+		// We don't return the error since we need to pack one instance
+		// for each ID into the result. If there is a problem then we
+		// will return either ErrPartialInstances or ErrNoInstances.
+		// TODO(ericsnow) Skip returning here only for certain errors?
+		logger.Errorf("failed to get instances from GCE: %v", err)
+		err = errors.Trace(err)
 	}
 
 	// Build the result, matching the provided instance IDs.
-	var results []instance.Instance
-	for _, id := range ids {
+	numFound := 0 // This will never be greater than len(ids).
+	results := make([]instance.Instance, len(ids))
+	for i, id := range ids {
 		inst := findInst(id, instances)
 		if inst == nil {
-			return results, errors.NotFoundf("GCE inst %q", id)
+			numFound += 1
 		}
-		results = append(results, inst)
+		results[i] = inst
 	}
-	return results, nil
+
+	if numFound == 0 {
+		if err == nil {
+			err = environs.ErrNoInstances
+		}
+	} else if numFound != len(ids) {
+		err = environs.ErrPartialInstances
+	}
+	return results, err
 }
 
 func rawInstances(env *environ) ([]*compute.Instance, error) {
@@ -170,28 +191,28 @@ func rawInstances(env *environ) ([]*compute.Instance, error) {
 	// This is important because otherwise juju will see they are not
 	// tracked in state, assume they're stale/rogue, and shut them down.
 	instances, err := env.gce.instances(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// We further filter on the instance status.
+	err = errors.Trace(err)
+
+	// We further filter on the instance status, regardless of if there
+	// was any error.
 	instances = filterInstances(instances, instStatuses...)
-	return instances, nil
+	return instances, err
 }
 
 func (env *environ) instances() ([]instance.Instance, error) {
 	env = env.getSnapshot()
 
 	instances, err := rawInstances(env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	err = errors.Trace(err)
 
-	// Turn *compute.Instance values into *environInstance values.
+	// Turn *compute.Instance values into *environInstance values,
+	// whether or not we got an error.
 	var results []instance.Instance
 	for _, inst := range instances {
 		results = append(results, newInstance(inst, env))
 	}
-	return results, nil
+
+	return results, err
 }
 
 // StateServerInstances returns the IDs of the instances corresponding
