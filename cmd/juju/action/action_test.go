@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type ActionCommandSuite struct {
@@ -44,15 +44,7 @@ func (s *ActionCommandSuite) TestHelp(c *gc.C) {
 
 func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C, ctx *cmd.Context) {
 	var expectedSubCommmands = [][]string{
-		[]string{"defined", "TODO: show actions defined for a service"},
-		[]string{"do", "TODO: queue an action for execution"},
-		[]string{"fetch", "TODO: retrieve the results of an action"},
 		[]string{"help", "show help on a command or other topic"},
-		[]string{"kill", "TODO: remove an action from the queue"},
-		[]string{"log", "TODO: fetch logged action results"},
-		[]string{"queue", "TODO: show queued actions"},
-		[]string{"status", "TODO: show status of action by id"},
-		[]string{"wait", "TODO: wait for results of an action"},
 	}
 
 	// Check that we have registered all the sub commands by

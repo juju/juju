@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v4"
+
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"gopkg.in/juju/charm.v4"
 )
 
 // FeatureFlag is the name of the feature for the JUJU_DEV_FEATURE_FLAGS
@@ -34,14 +35,6 @@ func NewSuperCommand() cmd.Command {
 			UsagePrefix: "juju",
 			Purpose:     actionPurpose,
 		})
-	actionCmd.Register(envcmd.Wrap(&DefinedCommand{}))
-	actionCmd.Register(envcmd.Wrap(&DoCommand{}))
-	actionCmd.Register(envcmd.Wrap(&WaitCommand{}))
-	actionCmd.Register(envcmd.Wrap(&QueueCommand{}))
-	actionCmd.Register(envcmd.Wrap(&KillCommand{}))
-	actionCmd.Register(envcmd.Wrap(&StatusCommand{}))
-	actionCmd.Register(envcmd.Wrap(&LogCommand{}))
-	actionCmd.Register(envcmd.Wrap(&FetchCommand{}))
 	return actionCmd
 }
 
