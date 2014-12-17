@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
@@ -16,6 +17,13 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+)
+
+const (
+	metadataKeyRole      = "juju-machine-role"
+	metadataKeyCloudInit = "metadata.cloud-init:user-data"
+
+	roleState = "state"
 )
 
 type environ struct {
@@ -144,10 +152,8 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return results, nil
 }
 
-func (env *environ) instances() ([]instance.Instance, error) {
-	env = env.getSnapshot()
-
-	// instances() only returns instances that are part of the
+func rawInstances(env *environ) ([]*compute.Instance, error) {
+	// rawInstances() only returns instances that are part of the
 	// environment (instance IDs matches "juju-<env name>-machine-*").
 	// This is important because otherwise juju will see they are not
 	// tracked in state, assume they're stale/rogue, and shut them down.
@@ -157,6 +163,16 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	}
 	// We further filter on the instance status.
 	instances = filterInstances(instances, instStatuses...)
+	return instances, nil
+}
+
+func (env *environ) instances() ([]instance.Instance, error) {
+	env = env.getSnapshot()
+
+	instances, err := rawInstances(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Turn *compute.Instance values into *environInstance values.
 	var results []instance.Instance
@@ -169,7 +185,21 @@ func (env *environ) instances() ([]instance.Instance, error) {
 // StateServerInstances returns the IDs of the instances corresponding
 // to juju state servers.
 func (env *environ) StateServerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(env, env.Storage())
+	env = env.getSnapshot()
+
+	instances, err := rawInstances(env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []instance.Id
+	for _, inst := range instances {
+		role, ok := unpackMetadata(inst.Metadata)[metadataKeyRole]
+		if ok && role == roleState {
+			results = append(results, instance.Id(inst.Name))
+		}
+	}
+	return results, nil
 }
 
 func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, error) {

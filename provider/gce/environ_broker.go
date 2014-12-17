@@ -48,10 +48,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	inst.update(env, raw)
 	logger.Infof("started instance %q in %q", inst.Id(), raw.Zone)
 
-	// Handle the new instance.
-
-	env.handleStateMachine(args, raw)
-
 	// Build the result.
 
 	hwc := env.getHardwareCharacteristics(spec, raw)
@@ -120,6 +116,14 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
+
+	// Handle state machines.
+	var role string
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		role = roleState
+	}
+
+	// Compose the instance.
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
 	instance := &compute.Instance{
@@ -127,12 +131,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		// MachineType is set in the env.gce.newInstance call.
 		Disks: disks,
 		// We don't set NetworkInterfaces (we use the default).
-		// We store a snapshot of what information was used to create
-		// this instance. It is only informational.
-		Metadata: &compute.Metadata{Items: []*compute.MetadataItems{{
-			Key:   "metadata.cloud-init:user-data",
-			Value: string(userData),
-		}}},
+		Metadata: packMetadata(map[string]string{
+			metadataKeyRole: role,
+			// We store a snapshot of what information was used to create
+			// this instance. It is only informational.
+			metadataKeyCloudInit: string(userData),
+		}),
 	}
 
 	availabilityZones, err := env.parseAvailabilityZones(args)
@@ -163,15 +167,6 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.A
 	return []*compute.AttachedDisk{rootDisk}
 }
 
-func (env *environ) handleStateMachine(args environs.StartInstanceParams, raw *compute.Instance) {
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
-		err := common.AddStateInstance(env.Storage(), instance.Id(raw.Name))
-		if err != nil {
-			logger.Errorf("could not record instance in provider-state: %v", err)
-		}
-	}
-}
-
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, raw *compute.Instance) *instance.HardwareCharacteristics {
 	rawSize := raw.Disks[0].InitializeParams.DiskSizeGb
 	rootDiskSize := uint64(rawSize) * 1024
@@ -199,9 +194,6 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	for _, id := range instances {
 		ids = append(ids, string(id))
 	}
-	if err := env.gce.removeInstances(env, ids...); err != nil {
-		return errors.Trace(err)
-	}
-
-	return common.RemoveStateInstances(env.Storage(), instances...)
+	err := env.gce.removeInstances(env, ids...)
+	return errors.Trace(err)
 }

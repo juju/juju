@@ -465,3 +465,27 @@ func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 	}
 	return &firewall
 }
+
+func packMetadata(data map[string]string) *compute.Metadata {
+	var items []*compute.MetadataItems
+	for key, value := range data {
+		item := compute.MetadataItems{
+			Key:   key,
+			Value: value,
+		}
+		items = append(items, &item)
+	}
+	return &compute.Metadata{Items: items}
+}
+
+func unpackMetadata(data *compute.Metadata) map[string]string {
+	if data == nil {
+		return nil
+	}
+
+	var result map[string]string
+	for _, item := range data.Items {
+		result[item.Key] = item.Value
+	}
+	return result
+}
