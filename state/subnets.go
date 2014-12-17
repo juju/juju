@@ -242,12 +242,12 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	lowDecimal, err := network.IPv4ToDecimal(low)
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPLow %q for subnet %v", low, s)
+		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %v", low, s)
 	}
 	highDecimal, err := network.IPv4ToDecimal(high)
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPHigh %q for subnet %v", high, s)
+		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %v", high, s)
 	}
 
 	// find all addresses for this subnet and convert them to decimals
