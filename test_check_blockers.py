@@ -34,6 +34,15 @@ class CheckBlockers(TestCase):
                 gj.assert_called_with(
                     (check_blockers.LP_BUGS.format('juju-core/1.20')))
 
+    def test_get_lp_bugs_with_B1_21(self):
+        args = check_blockers.parse_args(['1.21', '17'])
+        with patch('check_blockers.get_json') as gj:
+            data = {'entries': []}
+            gj.return_value = data
+            check_blockers.get_lp_bugs(args)
+            gj.assert_called_with(
+                (check_blockers.LP_BUGS.format('juju-core/1.21')))
+
     def test_get_lp_bugs_without_blocking_bugs(self):
         args = check_blockers.parse_args(['master', '17'])
         with patch('check_blockers.get_json') as gj:

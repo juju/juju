@@ -9,6 +9,7 @@ import sys
 
 
 DEVEL = 'juju-core'
+B1_21 = 'juju-core/1.21'
 STABLE = 'juju-core/1.20'
 LP_BUGS = (
     'https://api.launchpad.net/devel/{}'
@@ -42,6 +43,8 @@ def get_lp_bugs(args):
     bugs = {}
     if args.branch == 'master':
         target = DEVEL
+    elif args.branch == '1.21':
+        target = B1_21
     else:
         target = STABLE
     uri = LP_BUGS.format(target)
