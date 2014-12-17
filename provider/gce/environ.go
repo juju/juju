@@ -208,6 +208,9 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 			results = append(results, instance.Id(inst.Name))
 		}
 	}
+	if len(results) == 0 {
+		return nil, environs.ErrNotBootstrapped
+	}
 	return results, nil
 }
 
