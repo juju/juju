@@ -1178,7 +1178,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		// XXX need to fill in AllocatableIPLow & High
+		// TODO: (mfoord 2014-12-17) need to fill in AllocatableIPLow & High
 		netInfo := network.SubnetInfo{
 			CIDR:       netCIDR.String(),
 			VLANTag:    netw.VLANTag,
