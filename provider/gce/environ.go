@@ -22,9 +22,14 @@ import (
 
 const (
 	metadataKeyRole      = "juju-machine-role"
-	metadataKeyCloudInit = "metadata.cloud-init:user-data"
+	metadataKeyCloudInit = "metadata_cloud-init_user-data"
 
 	roleState = "state"
+
+	// See https://cloud.google.com/compute/docs/operating-systems/linux-os#ubuntu
+	// TODO(ericsnow) Should this be handled in cloud-images (i.e.
+	// simplestreams)?
+	imageBasePath = "projects/ubuntu-os-cloud/global/images/"
 )
 
 var (

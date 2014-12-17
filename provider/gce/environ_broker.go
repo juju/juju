@@ -157,7 +157,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.A
 	}
 	dSpec := diskSpec{
 		sizeHint: size,
-		imageURL: spec.Image.Id,
+		imageURL: imageBasePath + spec.Image.Id,
 		boot:     true,
 	}
 	rootDisk := dSpec.newAttached()
