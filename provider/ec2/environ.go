@@ -842,6 +842,7 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
 			continue
 		}
+		// ec2 only uses IPv4 addresses for subnets
 		start, err := network.IPv4ToDecimal(ip.String())
 		if err != nil {
 			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)

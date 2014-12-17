@@ -6,9 +6,10 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"sort"
+
+	"github.com/juju/errors"
 )
 
 // Private network ranges for IPv4 and IPv6.
@@ -449,7 +450,7 @@ func DecimalToIPv4(addr uint32) string {
 func IPv4ToDecimal(ipv4Addr string) (uint32, error) {
 	ip := net.ParseIP(ipv4Addr).To4()
 	if ip == nil {
-		return 0, fmt.Errorf("%q is not a valid IPv4 address", ipv4Addr)
+		return 0, errors.Errorf("%q is not a valid IPv4 address", ipv4Addr)
 	}
 	return binary.BigEndian.Uint32([]byte(ip)), nil
 }

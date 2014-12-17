@@ -801,7 +801,7 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 
 	defaultSubnets := []network.SubnetInfo{
 		// this is defined in the test server for the default-vpc
-		network.SubnetInfo{
+		{
 			CIDR:              "10.10.0.0/20",
 			ProviderId:        "subnet-0",
 			VLANTag:           0,
