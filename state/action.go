@@ -17,6 +17,10 @@ import (
 
 var actionLogger = loggo.GetLogger("juju.state.action")
 
+// NewUUID wraps the utils.NewUUID() call, and exposes it as a var to
+// facilitate patching.
+var NewUUID = func() (utils.UUID, error) { return utils.NewUUID() }
+
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
 
@@ -216,7 +220,7 @@ func newAction(st *State, adoc actionDoc) *Action {
 // newActionDoc builds the actionDoc with the given name and parameters.
 func newActionDoc(st *State, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
-	actionId, err := utils.NewUUID()
+	actionId, err := NewUUID()
 	if err != nil {
 		return actionDoc{}, actionNotificationDoc{}, err
 	}
@@ -247,7 +251,7 @@ func (st *State) Action(id string) (*Action, error) {
 	defer closer()
 
 	doc := actionDoc{}
-	err := actions.FindId(st.docID(id)).One(&doc)
+	err := actions.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action %q", id)
 	}
@@ -278,8 +282,9 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 	iter := actions.Find(bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}).Iter()
 	for iter.Next(&doc) {
 		actionLogger.Tracef("FindActionTagsByPrefix() iter doc %+v", doc)
-		if names.IsValidAction(doc.Id) {
-			results = append(results, names.NewActionTag(st.localID(doc.Id)))
+		localID := st.localID(doc.Id)
+		if names.IsValidAction(localID) {
+			results = append(results, names.NewActionTag(localID))
 		}
 	}
 	actionLogger.Tracef("FindActionTagsByPrefix() %q found %+v", prefix, results)
@@ -288,6 +293,10 @@ func (st *State) FindActionTagsByPrefix(prefix string) []names.ActionTag {
 
 // EnqueueAction
 func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (*Action, error) {
+	if len(actionName) == 0 {
+		return nil, errors.New("action name required")
+	}
+
 	receiverCollectionName, receiverId, err := st.tagToCollectionAndId(receiver)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -315,7 +324,7 @@ func (st *State) EnqueueAction(receiver names.Tag, actionName string, payload ma
 	}}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(st.db, receiverCollectionName, receiverId); err != nil {
+		if notDead, err := isNotDead(st, receiverCollectionName, receiverId); err != nil {
 			return nil, err
 		} else if !notDead {
 			return nil, ErrDead
@@ -343,10 +352,7 @@ func (st *State) matchingActionsByReceiverId(id string) ([]*Action, error) {
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", id}}
-	iter := actionsCollection.Find(sel).Iter()
-
+	iter := actionsCollection.Find(bson.D{{"receiver", id}}).Iter()
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
@@ -366,10 +372,7 @@ func (st *State) matchingActionNotificationsByReceiverId(id string) ([]names.Act
 	notificationCollection, closer := st.getCollection(actionNotificationsC)
 	defer closer()
 
-	envuuid := st.EnvironUUID()
-	sel := bson.D{{"$and", []bson.D{{{"env-uuid", envuuid}, {"receiver", id}}}}}
-	iter := notificationCollection.Find(sel).Iter()
-
+	iter := notificationCollection.Find(bson.D{{"receiver", id}}).Iter()
 	for iter.Next(&doc) {
 		tags = append(tags, newActionTagFromNotification(doc))
 	}
@@ -403,10 +406,7 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	envuuid := st.EnvironUUID()
-
-	condition := []bson.D{{{"env-uuid", envuuid}}, {{"receiver", tag.Id()}}, statusCondition}
-	sel := bson.D{{"$and", condition}}
+	sel := append(bson.D{{"receiver", tag.Id()}}, statusCondition...)
 	iter := actionsCollection.Find(sel).Iter()
 
 	for iter.Next(&doc) {

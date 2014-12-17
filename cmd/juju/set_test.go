@@ -122,6 +122,20 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 	})
 }
 
+func (s *SetSuite) TestBlockSetConfig(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+	ctx := coretesting.ContextForDir(c, s.dir)
+	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, []string{
+		"--config",
+		"testconfig.yaml",
+	}...))
+	c.Check(code, gc.Equals, 1)
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
+}
+
 // assertSetSuccess sets configuration options and checks the expected settings.
 func assertSetSuccess(c *gc.C, dir string, svc *state.Service, args []string, expect charm.Settings) {
 	ctx := coretesting.ContextForDir(c, dir)

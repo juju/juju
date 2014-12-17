@@ -12,6 +12,53 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
+const boilerplateConfig = `
+# https://juju.ubuntu.com/docs/config-aws.html
+amazon:
+    type: ec2
+
+    # region specifies the EC2 region. It defaults to us-east-1.
+    #
+    # region: us-east-1
+
+    # access-key holds the EC2 access key. It defaults to the
+    # environment variable AWS_ACCESS_KEY_ID.
+    #
+    # access-key: <secret>
+
+    # secret-key holds the EC2 secret key. It defaults to the
+    # environment variable AWS_SECRET_ACCESS_KEY.
+    #
+    # secret-key: <secret>
+
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
+    # image-stream: "released"
+
+    # agent-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # agent-stream: "released"
+
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of true is recommended for use
+    # in production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-upgrade: true
+
+`
+
 var configFields = schema.Fields{
 	"access-key":     schema.String(),
 	"secret-key":     schema.String(),
@@ -54,7 +101,7 @@ func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	return &environConfig{valid, valid.UnknownAttrs()}, nil
 }
 
-func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
@@ -64,6 +111,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		return nil, err
 	}
 	ecfg := &environConfig{cfg, validated}
+
 	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
 		auth, err := aws.EnvAuth()
 		if err != nil || ecfg.accessKey() != "" || ecfg.secretKey() != "" {
@@ -90,7 +138,5 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if !ecfg.SSLHostnameVerification() {
 		return nil, fmt.Errorf("disabling ssh-hostname-verification is not supported")
 	}
-
-	// Apply the coerced unknown values back into the config.
-	return cfg.Apply(ecfg.attrs)
+	return ecfg, nil
 }

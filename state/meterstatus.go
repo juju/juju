@@ -111,7 +111,7 @@ func (u *Unit) getMeterStatusDoc() (*meterStatusDoc, error) {
 	meterStatuses, closer := u.st.getCollection(meterStatusC)
 	defer closer()
 	var status meterStatusDoc
-	err := meterStatuses.FindId(u.st.docID(u.globalKey())).One(&status)
+	err := meterStatuses.FindId(u.globalKey()).One(&status)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -28,7 +28,10 @@ func (s *steps122Suite) TestStateStepsFor122(c *gc.C) {
 		"prepend the environment UUID to the ID of all statuses docs",
 		"prepend the environment UUID to the ID of all annotations docs",
 		"prepend the environment UUID to the ID of all constraints docs",
+		"prepend the environment UUID to the ID of all meterStatus docs",
+		"prepend the environment UUID to the ID of all openPorts docs",
 		"update system identity in state",
+		"set AvailZone in instanceData",
 	}
 	assertStateSteps(c, version.MustParse("1.22.0"), expected)
 }

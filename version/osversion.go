@@ -4,8 +4,7 @@
 package version
 
 import (
-	"bufio"
-	"os"
+	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -38,22 +37,54 @@ func MustOSFromSeries(series string) OSType {
 	return operatingSystem
 }
 
-func readSeries(releaseFile string) (string, error) {
-	f, err := os.Open(releaseFile)
+func readOSRelease() (map[string]string, error) {
+	values := map[string]string{}
+
+	contents, err := ioutil.ReadFile(osReleaseFile)
+	if err != nil {
+		return values, err
+	}
+	releaseDetails := strings.Split(string(contents), "\n")
+	for _, val := range releaseDetails {
+		c := strings.SplitN(val, "=", 2)
+		if len(c) != 2 {
+			continue
+		}
+		values[c[0]] = strings.Trim(c[1], "\t '\"")
+	}
+	_, ok := values["ID"]
+	if !ok {
+		return values, errors.New("OS release file is missing ID")
+	}
+	_, ok = values["VERSION_ID"]
+	if !ok {
+		return values, errors.New("OS release file is missing VERSION_ID")
+	}
+	return values, nil
+}
+
+func getValue(from map[string]string, val string) (string, error) {
+	for serie, ver := range from {
+		if ver == val {
+			return serie, nil
+		}
+	}
+	return "unknown", errors.New("Could not determine series")
+}
+
+func readSeries() (string, error) {
+	values, err := readOSRelease()
 	if err != nil {
 		return "unknown", err
 	}
-	defer f.Close()
-
-	s := bufio.NewScanner(f)
-	for s.Scan() {
-		line := s.Text()
-		const prefix = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\""), s.Err()
-		}
+	switch values["ID"] {
+	case strings.ToLower(Ubuntu.String()):
+		return getValue(ubuntuSeries, values["VERSION_ID"])
+	case strings.ToLower(CentOS.String()):
+		return getValue(centosSeries, values["VERSION_ID"])
+	default:
+		return "unknown", nil
 	}
-	return "unknown", s.Err()
 }
 
 // kernelToMajor takes a dotted version and returns just the Major portion

@@ -6,6 +6,7 @@ package testing
 import (
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -67,6 +68,11 @@ func PatchAttemptStrategies(strategies ...*utils.AttemptStrategy) func() {
 	// The one irregularity here is that LongAttempt goes on the list of
 	// strategies that need patching.  To keep testing simple, we treat
 	// the given attempts and LongAttempt as a single slice from here on.
-	combinedStrategies := append(strategies, &common.LongAttempt, &common.ShortAttempt)
+	combinedStrategies := append(
+		strategies,
+		&common.LongAttempt,
+		&common.ShortAttempt,
+		&environs.AddressesRefreshAttempt,
+	)
 	return internalPatchAttemptStrategies(combinedStrategies)
 }

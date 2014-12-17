@@ -176,6 +176,54 @@ func (u *uniterBaseAPI) PrivateAddress(args params.Entities) (params.StringResul
 	return result, nil
 }
 
+// TODO(ericsnow) Factor out the common code amongst the many methods here.
+
+var getZone = func(st *state.State, tag names.Tag) (string, error) {
+	unit, err := st.Unit(tag.Id())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	zone, err := unit.AvailabilityZone()
+	return zone, errors.Trace(err)
+}
+
+// AvailabilityZone returns the availability zone for each given unit, if applicable.
+func (u *uniterBaseAPI) AvailabilityZone(args params.Entities) (params.StringResults, error) {
+	var results params.StringResults
+
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+
+	// Prep the results.
+	results = params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+
+	// Collect the zones. No zone will be collected for any entity where
+	// the tag is invalid or not authorized. Instead the corresponding
+	// result will be updated with the error.
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			var zone string
+			zone, err = getZone(u.st, tag)
+			if err == nil {
+				results.Results[i].Result = zone
+			}
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+
+	return results, nil
+}
+
 // Resolved returns the current resolved setting for each given unit.
 func (u *uniterBaseAPI) Resolved(args params.Entities) (params.ResolvedModeResults, error) {
 	result := params.ResolvedModeResults{

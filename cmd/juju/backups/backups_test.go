@@ -19,6 +19,7 @@ var expectedSubCommmandNames = []string{
 	"info",
 	"list",
 	"remove",
+	"upload",
 }
 
 type backupsSuite struct {

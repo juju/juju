@@ -173,7 +173,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	}
 
 	// Extract current and provisioned state servers.
-	instanceData, closer := info.st.getCollection(instanceDataC)
+	instanceData, closer := info.st.getRawCollection(instanceDataC)
 	defer closer()
 
 	// If instanceData has the env UUID upgrade query using the
@@ -200,7 +200,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 }
 
 func (info *UpgradeInfo) isEnvUUIDUpgradeDone() (bool, error) {
-	instanceData, closer := info.st.getCollection(instanceDataC)
+	instanceData, closer := info.st.getRawCollection(instanceDataC)
 	defer closer()
 
 	query := instanceData.Find(bson.D{{"env-uuid", bson.D{{"$exists", true}}}})
@@ -324,7 +324,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 }
 
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
-	instanceData, closer := st.getCollection(instanceDataC)
+	instanceData, closer := st.getRawCollection(instanceDataC)
 	defer closer()
 
 	for _, id := range []string{st.docID(machineId), machineId} {

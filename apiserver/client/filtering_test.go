@@ -16,14 +16,19 @@ type filteringUnitTests struct {
 
 var _ = gc.Suite(&filteringUnitTests{})
 
-func (f *filteringUnitTests) TestMatchPorts(c *gc.C) {
+func (f *filteringUnitTests) TestMatchPortRanges(c *gc.C) {
 
-	match, ok, err := client.MatchPorts([]string{"80/tcp"}, network.Port{"tcp", 80})
+	match, ok, err := client.MatchPortRanges([]string{"80/tcp"}, network.PortRange{80, 80, "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsTrue)
 
-	match, ok, err = client.MatchPorts([]string{"90/tcp"}, network.Port{"tcp", 80})
+	match, ok, err = client.MatchPortRanges([]string{"80-90/tcp"}, network.PortRange{80, 90, "tcp"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(ok, jc.IsTrue)
+	c.Check(match, jc.IsTrue)
+
+	match, ok, err = client.MatchPortRanges([]string{"90/tcp"}, network.PortRange{80, 90, "tcp"})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(ok, jc.IsTrue)
 	c.Check(match, jc.IsFalse)

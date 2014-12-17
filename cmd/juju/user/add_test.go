@@ -6,14 +6,15 @@ package user_test
 import (
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
@@ -92,19 +93,26 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 	}
 }
 
+// serializedCACert adjusts the testing.CACert for the test below.
+func serializedCACert() string {
+	parts := strings.Split(testing.CACert, "\n")
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+	return strings.Join(parts[:len(parts)-1], "\n")
+}
+
 func assertJENVContents(c *gc.C, filename, username, password string) {
 	raw, err := ioutil.ReadFile(filename)
 	c.Assert(err, jc.ErrorIsNil)
-	details := map[string]interface{}{}
-	err = goyaml.Unmarshal(raw, &details)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(details["user"], gc.Equals, username)
-	c.Assert(details["password"], gc.Equals, password)
-	c.Assert(details["state-servers"], gc.DeepEquals, []interface{}{"localhost:12345"})
-	c.Assert(details["ca-cert"], gc.DeepEquals, testing.CACert)
-	c.Assert(details["environ-uuid"], gc.Equals, "env-uuid")
-	_, found := details["bootstrap-config"]
-	c.Assert(found, jc.IsFalse)
+	expected := map[string]interface{}{
+		"user":          username,
+		"password":      password,
+		"state-servers": []interface{}{"127.0.0.1:12345"},
+		"ca-cert":       serializedCACert(),
+		"environ-uuid":  "env-uuid",
+	}
+	c.Assert(string(raw), jc.YAMLEquals, expected)
 }
 
 func (s *UserAddCommandSuite) AssertJENVContents(c *gc.C, filename string) {
@@ -136,6 +144,16 @@ func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplayname(c *gc.C) {
 	expected := `user "Foo Bar (foobar)" added`
 	c.Assert(testing.Stdout(context), jc.Contains, expected)
 	s.AssertJENVContents(c, context.AbsPath("foobar.jenv"))
+}
+
+func (s *UserAddCommandSuite) TestBlockAddUser(c *gc.C) {
+	// Block operation
+	s.mockAPI.blocked = true
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
@@ -186,9 +204,17 @@ type mockAddUserAPI struct {
 
 	shareFailMsg string
 	sharedUsers  []names.UserTag
+	blocked      bool
 }
 
 func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, error) {
+	if m.blocked {
+		return names.UserTag{}, &params.Error{
+			Code:    params.CodeOperationBlocked,
+			Message: "The operation has been blocked.",
+		}
+	}
+
 	m.username = username
 	m.displayname = displayname
 	m.password = password

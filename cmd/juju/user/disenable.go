@@ -6,6 +6,7 @@ package user
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/juju/cmd/juju/block"
 )
 
 const disableUserDoc = `
@@ -100,7 +101,7 @@ func (c *DisableCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 	err = client.DisableUser(c.user)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("User %q disabled", c.user)
 	return nil
@@ -115,7 +116,7 @@ func (c *EnableCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 	err = client.EnableUser(c.user)
 	if err != nil {
-		return err
+		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	ctx.Infof("User %q enabled", c.user)
 	return nil

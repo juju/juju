@@ -11,18 +11,25 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/agent"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgrader"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"path/filepath"
 )
 
 var agentLogger = loggo.GetLogger("juju.jujud")
@@ -31,9 +38,11 @@ var agentLogger = loggo.GetLogger("juju.jujud")
 type UnitAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
-	AgentConf
-	UnitName string
-	runner   worker.Runner
+	agentcmd.AgentConf
+	UnitName     string
+	runner       worker.Runner
+	setupLogging func(agent.Config) error
+	logToStdErr  bool
 }
 
 // Info returns usage information for the command.
@@ -47,12 +56,13 @@ func (a *UnitAgent) Info() *cmd.Info {
 func (a *UnitAgent) SetFlags(f *gnuflag.FlagSet) {
 	a.AgentConf.AddFlags(f)
 	f.StringVar(&a.UnitName, "unit-name", "", "name of the unit to run")
+	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "whether to log to standard error instead of log files")
 }
 
 // Init initializes the command for running.
 func (a *UnitAgent) Init(args []string) error {
 	if a.UnitName == "" {
-		return requiredError("unit-name")
+		return cmdutil.RequiredError("unit-name")
 	}
 	if !names.IsValidUnit(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
@@ -60,7 +70,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
-	a.runner = worker.NewRunner(isFatal, moreImportant)
+	a.runner = worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 	return nil
 }
 
@@ -77,13 +87,28 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentConfig := a.CurrentConfig()
-	if err := setupLogging(agentConfig); err != nil {
-		return err
+
+	if !a.logToStdErr {
+		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
+
+		log := &lumberjack.Logger{
+			Filename:   filename,
+			MaxSize:    300, // megabytes
+			MaxBackups: 2,
+		}
+
+		if err := cmdutil.SwitchProcessToRollingLogs(log); err != nil {
+			return err
+		}
 	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	if flags := featureflag.String(); flags != "" {
+		logger.Warningf("developer feature flags enabled: %s", flags)
+	}
+
 	network.InitializeFromConfig(agentConfig)
 	a.runner.StartWorker("api", a.APIWorkers)
-	err := agentDone(a.runner.Wait())
+	err := cmdutil.AgentDone(logger, a.runner.Wait())
 	a.tomb.Kill(err)
 	return err
 }
@@ -91,11 +116,11 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	dataDir := agentConfig.DataDir()
-	hookLock, err := hookExecutionLock(dataDir)
+	hookLock, err := cmdutil.HookExecutionLock(dataDir)
 	if err != nil {
 		return nil, err
 	}
-	st, entity, err := openAPIState(agentConfig, a)
+	st, entity, err := agentcmd.OpenAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +132,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot set unit agent version")
 	}
 
-	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(
 			st.Upgrader(),
@@ -130,6 +155,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		}
 		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
 	})
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), false), nil
+	})
+
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()
 		if err != nil {
@@ -138,9 +167,9 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
 	})
-	return newCloseWorker(runner, st), nil
+	return cmdutil.NewCloseWorker(logger, runner, st), nil
 }
 
 func (a *UnitAgent) Tag() names.Tag {

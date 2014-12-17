@@ -6,30 +6,28 @@ package operation
 import (
 	"fmt"
 
-	"github.com/juju/juju/worker/uniter/context"
+	"github.com/juju/juju/worker/uniter/runner"
 )
 
 type runCommands struct {
-	commands       string
-	relationId     int
-	remoteUnitName string
-	sendResponse   CommandResponseFunc
+	args         CommandArgs
+	sendResponse CommandResponseFunc
 
-	callbacks      Callbacks
-	contextFactory context.Factory
+	callbacks     Callbacks
+	runnerFactory runner.Factory
 
-	context context.Context
+	runner runner.Runner
 }
 
 // String is part of the Operation interface.
 func (rc *runCommands) String() string {
 	suffix := ""
-	if rc.relationId != -1 {
+	if rc.args.RelationId != -1 {
 		infix := ""
-		if rc.remoteUnitName != "" {
-			infix = "; " + rc.remoteUnitName
+		if rc.args.RemoteUnitName != "" {
+			infix = "; " + rc.args.RemoteUnitName
 		}
-		suffix = fmt.Sprintf(" (%d%s)", rc.relationId, infix)
+		suffix = fmt.Sprintf(" (%d%s)", rc.args.RelationId, infix)
 	}
 	return "run commands" + suffix
 }
@@ -37,11 +35,15 @@ func (rc *runCommands) String() string {
 // Prepare ensures the commands can be run. It never returns a state change.
 // Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(state State) (*State, error) {
-	ctx, err := rc.contextFactory.NewRunContext(rc.relationId, rc.remoteUnitName)
+	rnr, err := rc.runnerFactory.NewCommandRunner(runner.CommandInfo{
+		RelationId:      rc.args.RelationId,
+		RemoteUnitName:  rc.args.RemoteUnitName,
+		ForceRemoteUnit: rc.args.ForceRemoteUnit,
+	})
 	if err != nil {
 		return nil, err
 	}
-	rc.context = ctx
+	rc.runner = rnr
 	return nil, nil
 }
 
@@ -55,13 +57,12 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 	}
 	defer unlock()
 
-	runner := rc.callbacks.GetRunner(rc.context)
-	response, err := runner.RunCommands(rc.commands)
+	response, err := rc.runner.RunCommands(rc.args.Commands)
 	switch err {
-	case context.ErrRequeueAndReboot:
+	case runner.ErrRequeueAndReboot:
 		logger.Warningf("cannot requeue external commands")
 		fallthrough
-	case context.ErrReboot:
+	case runner.ErrReboot:
 		err = ErrNeedsReboot
 	}
 	rc.sendResponse(response, err)

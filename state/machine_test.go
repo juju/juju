@@ -803,6 +803,43 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 	c.Assert(*md, gc.DeepEquals, *expected)
 }
 
+func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
+	zone := "a_zone"
+	hwc := &instance.HardwareCharacteristics{
+		AvailabilityZone: &zone,
+	}
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, err = s.machine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zone, gc.Equals, "a_zone")
+}
+
+func (s *MachineSuite) TestMachineAvailabilityZoneEmpty(c *gc.C) {
+	zone := ""
+	hwc := &instance.HardwareCharacteristics{
+		AvailabilityZone: &zone,
+	}
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, err = s.machine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zone, gc.Equals, "")
+}
+
+func (s *MachineSuite) TestMachineAvailabilityZoneMissing(c *gc.C) {
+	zone := "a_zone"
+	hwc := &instance.HardwareCharacteristics{}
+	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", hwc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	zone, err = s.machine.AvailabilityZone()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(zone, gc.Equals, "")
+}
+
 func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	// Check before provisioning.
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
@@ -1638,30 +1675,51 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := network.NewAddresses(
-		"127.0.0.1", "8.8.8.8", "fc00::1", "::1", "", "example.org",
+	providerAddresses := network.NewAddresses(
+		"127.0.0.2",
+		"8.8.8.8",
+		"fc00::1",
+		"::1",
+		"",
+		"2001:db8::1",
+		"127.0.0.2",
+		"example.org",
 	)
-	err = machine.SetAddresses(addresses...)
+	err = machine.SetAddresses(providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineAddresses := network.NewAddresses(
-		"127.0.0.1", "localhost", "192.168.0.1", "fe80::1", "::1", "fd00::1",
+		"127.0.0.1",
+		"localhost",
+		"2001:db8::1",
+		"192.168.0.1",
+		"fe80::1",
+		"::1",
+		"fd00::1",
 	)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Before setting the addresses coming from either the provider or
+	// the machine itself, they are sorted to prefer public IPs on
+	// top, then hostnames, cloud-local, machine-local, link-local.
+	// Duplicates are removed, then when calling Addresses() both
+	// sources are merged while preservig the provider addresses
+	// order.
 	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
-		"example.org",
 		"8.8.8.8",
-		"127.0.0.1",
+		"2001:db8::1",
+		"example.org",
 		"fc00::1",
+		"127.0.0.2",
 		"::1",
-		"192.168.0.1",
 		"localhost",
-		"fe80::1",
+		"192.168.0.1",
 		"fd00::1",
+		"127.0.0.1",
+		"fe80::1",
 	))
 
 	// Now simulate prefer-ipv6: true
@@ -1673,22 +1731,24 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		gc.IsNil,
 	)
 
-	err = machine.SetAddresses(addresses...)
+	err = machine.SetAddresses(providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
-		"::1",
-		"fc00::1",
-		"example.org",
+		"2001:db8::1",
 		"8.8.8.8",
-		"127.0.0.1",
-		"fd00::1",
-		"fe80::1",
+		"example.org",
+		"fc00::1",
+		"::1",
+		"127.0.0.2",
 		"localhost",
+		"fd00::1",
 		"192.168.0.1",
+		"127.0.0.1",
+		"fe80::1",
 	))
 }
 

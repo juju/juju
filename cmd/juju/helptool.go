@@ -12,7 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 // dummyHookContext implements jujuc.Context,
@@ -29,6 +29,9 @@ func (dummyHookContext) PublicAddress() (string, bool) {
 	return "", false
 }
 func (dummyHookContext) PrivateAddress() (string, bool) {
+	return "", false
+}
+func (dummyHookContext) AvailabilityZone() (string, bool) {
 	return "", false
 }
 func (dummyHookContext) OpenPort(protocol string, port int) error {

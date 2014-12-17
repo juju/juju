@@ -4,5 +4,5 @@
 package version
 
 func osVersion() (string, error) {
-	return readSeries(lsbReleaseFile)
+	return readSeries()
 }

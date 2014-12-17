@@ -336,7 +336,6 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer f.maybeStopWatcher(meterStatusw)
-	var addressChanges <-chan struct{}
 	addressesw, err := f.unit.WatchAddresses()
 	if err != nil {
 		return err
@@ -344,9 +343,25 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 	defer watcher.Stop(addressesw, &f.tomb)
 
 	// Config events cannot be meaningfully discarded until one is available;
-	// once we receive the initial change, we unblock discard requests by
-	// setting this channel to its namesake on f.
+	// once we receive the initial config and address changes, we unblock
+	// discard requests by setting this channel to its namesake on f.
 	var discardConfig chan struct{}
+	var seenConfigChange bool
+	var seenAddressChange bool
+	maybePrepareConfigEvent := func() {
+		if !seenAddressChange {
+			filterLogger.Debugf("no address change seen yet, skipping config event")
+			return
+		}
+		if !seenConfigChange {
+			filterLogger.Debugf("no config change seen yet, skipping config event")
+			return
+		}
+		filterLogger.Debugf("preparing new config event")
+		f.outConfig = f.outConfigOn
+		discardConfig = f.discardConfig
+	}
+
 	for {
 		var ok bool
 		select {
@@ -375,18 +390,15 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return watcher.EnsureErr(configw)
 			}
-			if addressChanges == nil {
-				// We start reacting to address changes after the
-				// first config-changed is processed, ignoring the
-				// initial address changed event.
-				addressChanges = addressesw.Changes()
-				if _, ok := <-addressChanges; !ok {
-					return watcher.EnsureErr(addressesw)
-				}
+			seenConfigChange = true
+			maybePrepareConfigEvent()
+		case _, ok = <-addressesw.Changes():
+			filterLogger.Debugf("got address change")
+			if !ok {
+				return watcher.EnsureErr(addressesw)
 			}
-			filterLogger.Debugf("preparing new config event")
-			f.outConfig = f.outConfigOn
-			discardConfig = f.discardConfig
+			seenAddressChange = true
+			maybePrepareConfigEvent()
 		case _, ok = <-meterStatusw.Changes():
 			filterLogger.Debugf("got meter status change")
 			if !ok {
@@ -395,14 +407,6 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 			if err = f.meterStatusChanged(); err != nil {
 				return errors.Trace(err)
 			}
-		case _, ok = <-addressChanges:
-			filterLogger.Debugf("got address change")
-			if !ok {
-				return watcher.EnsureErr(addressesw)
-			}
-			// address change causes config-changed event
-			filterLogger.Debugf("preparing new config event")
-			f.outConfig = f.outConfigOn
 		case ids, ok := <-actionsw.Changes():
 			filterLogger.Debugf("got %d actions", len(ids))
 			if !ok {
@@ -429,6 +433,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			f.relationsChanged(ids)
+
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
 			filterLogger.Debugf("sent upgrade event")
@@ -449,6 +454,7 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case f.outMeterStatus <- nothing:
 			filterLogger.Debugf("sent meter status change event")
 			f.outMeterStatus = nil
+
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
 			filterLogger.Debugf("changing charm to %q", curl)

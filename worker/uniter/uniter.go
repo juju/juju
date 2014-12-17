@@ -1,5 +1,4 @@
 // Copyright 2012-2014 Canonical Ltd.
-
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -20,18 +19,16 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
-	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/juju/worker/uniter/context"
-	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/filter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
-	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/runner"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -97,14 +94,12 @@ type deployerProxy struct {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb          tomb.Tomb
-	st            *uniter.State
-	paths         Paths
-	f             filter.Filter
-	unit          *uniter.Unit
-	service       *uniter.Service
-	relationers   map[int]*Relationer
-	relationHooks chan hook.Info
+	tomb      tomb.Tomb
+	st        *uniter.State
+	paths     Paths
+	f         filter.Filter
+	unit      *uniter.Unit
+	relations Relations
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
@@ -150,13 +145,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	}
 	defer u.runListener.Close()
 	logger.Infof("unit %q started", u.unit)
-
-	environWatcher, err := u.st.WatchForEnvironConfigChanges()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(environWatcher, &u.tomb)
-	u.watchForProxyChanges(environWatcher)
 
 	// Start filtering state change events for consumption by modes.
 	u.f, err = filter.NewFilter(u.st, unitTag)
@@ -224,18 +212,13 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	u.service, err = u.st.Service(u.unit.ServiceTag())
+	relations, err := newRelations(u.st, unitTag, u.paths, u.tomb.Dying())
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot create relations")
 	}
-
-	u.relationers = map[int]*Relationer{}
-	u.relationHooks = make(chan hook.Info)
-	if err := u.restoreRelations(); err != nil {
-		return err
-	}
+	u.relations = relations
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,
@@ -243,18 +226,18 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		charm.NewBundlesDir(u.paths.State.BundlesDir),
 	)
 	if err != nil {
-		return fmt.Errorf("cannot create deployer: %v", err)
+		return errors.Annotatef(err, "cannot create deployer")
 	}
 	u.deployer = &deployerProxy{deployer}
-	contextFactory, err := context.NewFactory(
-		u.st, unitTag, u.getRelationInfos, u.getCharm,
+	runnerFactory, err := runner.NewFactory(
+		u.st, unitTag, u.relations.GetInfo, u.paths,
 	)
 	if err != nil {
 		return err
 	}
 	u.operationFactory = operation.NewFactory(
 		u.deployer,
-		contextFactory,
+		runnerFactory,
 		&operationCallbacks{u},
 		u.tomb.Dying(),
 	)
@@ -296,24 +279,13 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
-	relationInfos := map[int]*context.RelationInfo{}
-	for id, r := range u.relationers {
-		relationInfos[id] = r.ContextInfo()
-	}
-	return relationInfos
-}
-
-func (u *Uniter) getCharm() (corecharm.Charm, error) {
-	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
+func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
+	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
+	service, err := u.st.Service(u.unit.ServiceTag())
 	if err != nil {
 		return nil, err
 	}
-	return ch, nil
-}
-
-func (u *Uniter) getServiceCharmURL() (*corecharm.URL, error) {
-	charmURL, _, err := u.service.CharmURL()
+	charmURL, _, err := service.CharmURL()
 	return charmURL, err
 }
 
@@ -343,7 +315,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // initializeMetricsCollector enables the periodic collect-metrics hook
 // for charms that declare metrics.
 func (u *Uniter) initializeMetricsCollector() error {
-	charm, err := u.getCharm()
+	charm, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 	if err != nil {
 		return err
 	}
@@ -366,11 +338,6 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	// is reasonably bounded in a way that this one is not).
 	logger.Tracef("run commands: %s", args.Commands)
 
-	remoteUnitName, err := InferRemoteUnit(u.relationers, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	type responseInfo struct {
 		response *exec.ExecResponse
 		err      error
@@ -380,7 +347,13 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		responseChan <- responseInfo{response, err}
 	}
 
-	op, err := u.operationFactory.NewCommands(args.Commands, args.RelationId, remoteUnitName, sendResponse)
+	commandArgs := operation.CommandArgs{
+		Commands:        args.Commands,
+		RelationId:      args.RelationId,
+		RemoteUnitName:  args.RemoteUnitName,
+		ForceRemoteUnit: args.ForceRemoteUnit,
+	}
+	op, err := u.operationFactory.NewCommands(commandArgs, sendResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -433,193 +406,6 @@ func (u *Uniter) skipHook(hi hook.Info) (err error) {
 	return u.operationExecutor.Skip(op)
 }
 
-// getJoinedRelations finds out what relations the unit is *really* part of,
-// working around the fact that pre-1.19 (1.18.1?) unit agents don't write a
-// state dir for a relation until a remote unit joins.
-func (u *Uniter) getJoinedRelations() (map[int]*uniter.Relation, error) {
-	var joinedRelationTags []names.RelationTag
-	for {
-		var err error
-		joinedRelationTags, err = u.unit.JoinedRelations()
-		if err == nil {
-			break
-		}
-		if params.IsCodeNotImplemented(err) {
-			logger.Infof("waiting for state server to be upgraded")
-			select {
-			case <-u.tomb.Dying():
-				return nil, tomb.ErrDying
-			case <-time.After(15 * time.Second):
-				continue
-			}
-		}
-		return nil, err
-	}
-	joinedRelations := make(map[int]*uniter.Relation)
-	for _, tag := range joinedRelationTags {
-		relation, err := u.st.Relation(tag)
-		if err != nil {
-			return nil, err
-		}
-		joinedRelations[relation.Id()] = relation
-	}
-	return joinedRelations, nil
-}
-
-// restoreRelations reconciles the local relation state dirs with the
-// remote state of the corresponding relations.
-func (u *Uniter) restoreRelations() error {
-	joinedRelations, err := u.getJoinedRelations()
-	if err != nil {
-		return err
-	}
-	knownDirs, err := relation.ReadAllStateDirs(u.paths.State.RelationsDir)
-	if err != nil {
-		return err
-	}
-	for id, dir := range knownDirs {
-		if rel, ok := joinedRelations[id]; ok {
-			if err := u.addRelation(rel, dir); err != nil {
-				return err
-			}
-		} else if err := dir.Remove(); err != nil {
-			return err
-		}
-	}
-	for id, rel := range joinedRelations {
-		if _, ok := knownDirs[id]; ok {
-			continue
-		}
-		dir, err := relation.ReadStateDir(u.paths.State.RelationsDir, id)
-		if err != nil {
-			return err
-		}
-		if err := u.addRelation(rel, dir); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// updateRelations responds to changes in the life states of the relations
-// with the supplied ids. If any id corresponds to an alive relation not
-// known to the unit, the uniter will join that relation and return its
-// relationer in the added list.
-func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
-	for _, id := range ids {
-		if r, found := u.relationers[id]; found {
-			rel := r.ru.Relation()
-			if err := rel.Refresh(); err != nil {
-				return nil, fmt.Errorf("cannot update relation %q: %v", rel, err)
-			}
-			if rel.Life() == params.Dying {
-				if err := r.SetDying(); err != nil {
-					return nil, err
-				} else if r.IsImplicit() {
-					delete(u.relationers, id)
-				}
-			}
-			continue
-		}
-		// Relations that are not alive are simply skipped, because they
-		// were not previously known anyway.
-		rel, err := u.st.RelationById(id)
-		if err != nil {
-			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-				continue
-			}
-			return nil, err
-		}
-		if rel.Life() != params.Alive {
-			continue
-		}
-		// Make sure we ignore relations not implemented by the unit's charm.
-		ch, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
-		if err != nil {
-			return nil, err
-		}
-		if ep, err := rel.Endpoint(); err != nil {
-			return nil, err
-		} else if !ep.ImplementedBy(ch) {
-			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
-			continue
-		}
-		dir, err := relation.ReadStateDir(u.paths.State.RelationsDir, id)
-		if err != nil {
-			return nil, err
-		}
-		err = u.addRelation(rel, dir)
-		if err == nil {
-			added = append(added, u.relationers[id])
-			continue
-		}
-		e := dir.Remove()
-		if !params.IsCodeCannotEnterScope(err) {
-			return nil, err
-		}
-		if e != nil {
-			return nil, e
-		}
-	}
-	if ok, err := u.unit.IsPrincipal(); err != nil {
-		return nil, err
-	} else if ok {
-		return added, nil
-	}
-	// If no Alive relations remain between a subordinate unit's service
-	// and its principal's service, the subordinate must become Dying.
-	keepAlive := false
-	for _, r := range u.relationers {
-		scope := r.ru.Endpoint().Scope
-		if scope == corecharm.ScopeContainer && !r.dying {
-			keepAlive = true
-			break
-		}
-	}
-	if !keepAlive {
-		if err := u.unit.Destroy(); err != nil {
-			return nil, err
-		}
-	}
-	return added, nil
-}
-
-// addRelation causes the unit agent to join the supplied relation, and to
-// store persistent state in the supplied dir.
-func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error {
-	logger.Infof("joining relation %q", rel)
-	ru, err := rel.Unit(u.unit)
-	if err != nil {
-		return err
-	}
-	r := NewRelationer(ru, dir, u.relationHooks)
-	w, err := u.unit.Watch()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(w, &u.tomb)
-	for {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
-			if !ok {
-				return watcher.EnsureErr(w)
-			}
-			err := r.Join()
-			if params.IsCodeCannotEnterScopeYet(err) {
-				logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
-				continue
-			} else if err != nil {
-				return err
-			}
-			logger.Infof("joined relation %q", rel)
-			u.relationers[rel.Id()] = r
-			return nil
-		}
-	}
-}
-
 // fixDeployer replaces the uniter's git-based charm deployer with a manifest-
 // based one, if necessary. It should not be called unless the existing charm
 // deployment is known to be in a stable state.
@@ -628,98 +414,4 @@ func (u *Uniter) fixDeployer() error {
 		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
 	}
 	return nil
-}
-
-// watchForProxyChanges kicks off a go routine to listen to the watcher and
-// update the proxy settings.
-func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
-	// TODO(fwereade) 23-10-2014 bug 1384565
-	// Uniter shouldn't be responsible for this at all: we should rename
-	// MachineEnvironmentWorker and run one of those (that eschews rewriting
-	// system files).
-	go func() {
-		for {
-			select {
-			case <-u.tomb.Dying():
-				return
-			case _, ok := <-environWatcher.Changes():
-				logger.Debugf("new environment change")
-				if !ok {
-					return
-				}
-				environConfig, err := u.st.EnvironConfig()
-				if err != nil {
-					logger.Errorf("cannot load environment configuration: %v", err)
-				} else {
-					proxySettings := environConfig.ProxySettings()
-					logger.Debugf("Updating proxy settings: %#v", proxySettings)
-					proxySettings.SetEnvironmentValues()
-				}
-			}
-		}
-	}()
-}
-
-// InferRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
-// remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
-// the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
-// a given relationId an error is returned for display to the user.
-func InferRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
-	if args.RelationId == -1 {
-		if len(args.RemoteUnitName) > 0 {
-			return "", errors.Errorf("remote unit: %s, provided without a relation", args.RemoteUnitName)
-		}
-		return "", nil
-	}
-
-	remoteUnit := args.RemoteUnitName
-	noRemoteUnit := len(remoteUnit) == 0
-
-	relationer, found := relationers[args.RelationId]
-	if !found {
-		return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
-	}
-
-	remoteUnits := relationer.ContextInfo().MemberNames
-	numRemoteUnits := len(remoteUnits)
-
-	if !args.ForceRemoteUnit {
-		if noRemoteUnit {
-			var err error
-			switch numRemoteUnits {
-			case 0:
-				err = errors.Errorf("no remote unit found for relation id: %d, override to execute commands", args.RelationId)
-			case 1:
-				remoteUnit = remoteUnits[0]
-			default:
-				err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
-			}
-
-			if err != nil {
-				return "", errors.Trace(err)
-			}
-		} else {
-			found := false
-			for _, value := range remoteUnits {
-				if value == remoteUnit {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return "", errors.Errorf("no remote unit found: %s, override to execute command", remoteUnit)
-			}
-		}
-	}
-
-	if noRemoteUnit && args.ForceRemoteUnit {
-		return remoteUnit, nil
-	}
-
-	if !names.IsValidUnit(remoteUnit) {
-		return "", errors.Errorf(`"%s" is not a valid remote unit name`, remoteUnit)
-	}
-
-	unitTag := names.NewUnitTag(remoteUnit)
-	return unitTag.Id(), nil
 }

@@ -34,7 +34,9 @@ func LegacyStorage(st *state.State) (storage.Storage, error) {
 	return nil, errors.NewNotSupported(nil, errmsg)
 }
 
-var longAttempt = utils.AttemptStrategy{
+// AddressesRefreshAttempt is the attempt strategy used when
+// refreshing instance addresses.
+var AddressesRefreshAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
 }
@@ -67,7 +69,7 @@ func waitAnyInstanceAddresses(
 	instanceIds []instance.Id,
 ) ([]network.Address, error) {
 	var addrs []network.Address
-	for a := longAttempt.Start(); len(addrs) == 0 && a.Next(); {
+	for a := AddressesRefreshAttempt.Start(); len(addrs) == 0 && a.Next(); {
 		instances, err := env.Instances(instanceIds)
 		if err != nil && err != ErrPartialInstances {
 			logger.Debugf("error getting state instances: %v", err)
@@ -99,10 +101,7 @@ func APIInfo(env Environ) (*api.Info, error) {
 		return nil, errors.New("config has no CACert")
 	}
 	apiPort := config.APIPort()
-	apiAddrs := make([]string, len(addrs))
-	for i, hp := range network.AddressesWithPort(addrs, apiPort) {
-		apiAddrs[i] = hp.NetAddr()
-	}
+	apiAddrs := network.HostPortsToStrings(network.AddressesWithPort(addrs, apiPort))
 	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert}
 	return apiInfo, nil
 }

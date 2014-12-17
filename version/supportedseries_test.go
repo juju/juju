@@ -39,6 +39,9 @@ var getOSFromSeriesTests = []struct {
 }, {
 	series: "mountainlion",
 	want:   version.OSX,
+}, {
+	series: "centos7",
+	want:   version.CentOS,
 }}
 
 func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
@@ -55,13 +58,16 @@ func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 
 func (s *supportedSeriesSuite) TestOSSupportedSeries(c *gc.C) {
 	version.SetSeriesVersions(map[string]string{
-		"trusty": "14.04",
-		"utopic": "14.10",
-		"win7":   "win7",
-		"win81":  "win81",
+		"trusty":  "14.04",
+		"utopic":  "14.10",
+		"win7":    "win7",
+		"win81":   "win81",
+		"centos7": "centos7",
 	})
 	series := version.OSSupportedSeries(version.Ubuntu)
 	c.Assert(series, jc.SameContents, []string{"trusty", "utopic"})
 	series = version.OSSupportedSeries(version.Windows)
 	c.Assert(series, jc.SameContents, []string{"win7", "win81"})
+	series = version.OSSupportedSeries(version.CentOS)
+	c.Assert(series, jc.SameContents, []string{"centos7"})
 }

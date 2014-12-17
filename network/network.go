@@ -102,6 +102,6 @@ type PreferIPv6Getter interface {
 // or agent configuration is available to configure networking
 // settings.
 func InitializeFromConfig(config PreferIPv6Getter) {
-	preferIPv6 = config.PreferIPv6()
-	logger.Infof("setting prefer-ipv6 to %v", preferIPv6)
+	globalPreferIPv6 = config.PreferIPv6()
+	logger.Infof("setting prefer-ipv6 to %v", globalPreferIPv6)
 }

@@ -423,6 +423,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 		hc.CpuPower = inst.instType.CpuPower
 		// tags not currently supported on openstack
 	}
+	hc.AvailabilityZone = &inst.serverDetail.AvailabilityZone
 	return hc
 }
 

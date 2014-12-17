@@ -16,9 +16,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -33,28 +37,28 @@ import (
 
 type UnitSuite struct {
 	coretesting.GitSuite
-	agentSuite
+	agenttesting.AgentSuite
 }
 
 var _ = gc.Suite(&UnitSuite{})
 
 func (s *UnitSuite) SetUpSuite(c *gc.C) {
 	s.GitSuite.SetUpSuite(c)
-	s.agentSuite.SetUpSuite(c)
+	s.AgentSuite.SetUpSuite(c)
 }
 
 func (s *UnitSuite) TearDownSuite(c *gc.C) {
-	s.agentSuite.TearDownSuite(c)
+	s.AgentSuite.TearDownSuite(c)
 	s.GitSuite.TearDownSuite(c)
 }
 
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
-	s.agentSuite.SetUpTest(c)
+	s.AgentSuite.SetUpTest(c)
 }
 
 func (s *UnitSuite) TearDownTest(c *gc.C) {
-	s.agentSuite.TearDownTest(c)
+	s.AgentSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
 
@@ -76,30 +80,39 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, id)
+	err = machine.SetProvisioned(inst.Id(), agent.BootstrapNonce, md)
+	c.Assert(err, jc.ErrorIsNil)
+	conf, tools := s.PrimeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	a := &UnitAgent{}
-	s.initAgent(c, a, "--unit-name", unit.Name())
+	s.InitAgent(c, a, "--unit-name", unit.Name(), "--log-to-stderr=true")
 	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
 }
 
 func (s *UnitSuite) TestParseSuccess(c *gc.C) {
-	create := func() (cmd.Command, *AgentConf) {
-		a := &UnitAgent{}
-		return a, &a.AgentConf
-	}
-	uc := CheckAgentCommand(c, create, []string{"--unit-name", "w0rd-pre55/1"})
-	c.Assert(uc.(*UnitAgent).UnitName, gc.Equals, "w0rd-pre55/1")
+	a := &UnitAgent{}
+	err := coretesting.InitCommand(a, []string{
+		"--data-dir", "jd",
+		"--unit-name", "w0rd-pre55/1",
+	})
+
+	c.Assert(err, gc.IsNil)
+	c.Check(a.AgentConf.DataDir, gc.Equals, "jd")
+	c.Check(a.UnitName, gc.Equals, "w0rd-pre55/1")
 }
 
 func (s *UnitSuite) TestParseMissing(c *gc.C) {
 	uc := &UnitAgent{}
-	err := ParseAgentCommand(uc, []string{})
+	err := coretesting.InitCommand(uc, []string{
+		"--data-dir", "jc",
+	})
+
 	c.Assert(err, gc.ErrorMatches, "--unit-name option must be set")
 }
 
@@ -111,15 +124,17 @@ func (s *UnitSuite) TestParseNonsense(c *gc.C) {
 		{"--unit-name", "wordpress/wild/9"},
 		{"--unit-name", "20/20"},
 	} {
-		err := ParseAgentCommand(&UnitAgent{}, args)
-		c.Assert(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
+		err := coretesting.InitCommand(&UnitAgent{}, append(args, "--data-dir", "jc"))
+		c.Check(err, gc.ErrorMatches, `--unit-name option expects "<service>/<n>" argument`)
 	}
 }
 
 func (s *UnitSuite) TestParseUnknown(c *gc.C) {
-	uc := &UnitAgent{}
-	err := ParseAgentCommand(uc, []string{"--unit-name", "wordpress/1", "thundering typhoons"})
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
+	err := coretesting.InitCommand(&UnitAgent{}, []string{
+		"--unit-name", "wordpress/1",
+		"thundering typhoons",
+	})
+	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
 func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
@@ -220,12 +235,43 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
-	s.testOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
+	s.RunTestOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
+}
+
+func (s *UnitSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd agentcmd.Agent, initialPassword string) {
+	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	conf.SetPassword("")
+	err = conf.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that it starts initially and changes the password
+	assertOpen := func(conf agent.Config) {
+		st, gotEnt, err := agentcmd.OpenAPIState(conf, agentCmd)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(st, gc.NotNil)
+		st.Close()
+		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
+	}
+	assertOpen(conf)
+
+	// Check that the initial password is no longer valid.
+	err = ent.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ent.PasswordValid(initialPassword), jc.IsFalse)
+
+	// Read the configuration and check that we can connect with it.
+	conf, err = agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
+	//conf = refreshConfig(c, conf)
+	c.Assert(err, gc.IsNil)
+	// Check we can open the API with the new configuration.
+	assertOpen(conf)
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.agentSuite.primeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
-	_, _, err := openAPIState(conf, nil)
+	conf, _ := s.PrimeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
+	_, _, err := agentcmd.OpenAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -237,7 +283,7 @@ func (f *fakeUnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(f.unitName)
 }
 
-func (f *fakeUnitAgent) ChangeConfig(AgentConfigMutator) error {
+func (f *fakeUnitAgent) ChangeConfig(agentcmd.AgentConfigMutator) error {
 	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 
@@ -245,7 +291,7 @@ func (s *UnitSuite) TestOpenAPIStateWithDeadEntityTerminates(c *gc.C) {
 	_, unit, conf, _ := s.primeAgent(c)
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = openAPIState(conf, &fakeUnitAgent{"wordpress/0"})
+	_, _, err = agentcmd.OpenAPIState(conf, &fakeUnitAgent{"wordpress/0"})
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -258,12 +304,12 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	waitForUnitStarted(s.State, unit, c)
 
-	s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }
 
 func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})
@@ -318,9 +364,9 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]network.HostPort{network.AddressesWithPort(
-		network.NewAddresses("localhost"), 1234,
-	)}
+	updatedServers := [][]network.HostPort{
+		network.NewHostPorts(1234, "localhost"),
+	}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -334,4 +380,32 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+type runner interface {
+	Run(*cmd.Context) error
+	Stop() error
+}
+
+// runWithTimeout runs an agent and waits
+// for it to complete within a reasonable time.
+func runWithTimeout(r runner) error {
+	done := make(chan error)
+	go func() {
+		done <- r.Run(nil)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(coretesting.LongWait):
+	}
+	err := r.Stop()
+	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
+}
+
+func newDummyWorker() worker.Worker {
+	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
+		<-stop
+		return nil
+	})
 }

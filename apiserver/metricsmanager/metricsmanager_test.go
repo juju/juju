@@ -76,7 +76,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C)
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
-	metric := state.Metric{"pings", "5", newTime, []byte{}}
+	metric := state.Metric{"pings", "5", newTime}
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &oldTime, Metrics: []state.Metric{metric}})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &newTime, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
@@ -120,7 +120,7 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	var sender metricsender.MockSender
 	metricsmanager.PatchSender(&sender)
 	now := time.Now()
-	metric := state.Metric{"pings", "5", now, []byte{}}
+	metric := state.Metric{"pings", "5", now}
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
 	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{

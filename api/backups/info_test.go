@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -27,7 +28,7 @@ func (s *infoSuite) TestInfo(c *gc.C) {
 			c.Check(p.ID, gc.Equals, "spam")
 
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.Meta)
+				*result = apiserverbackups.ResultFromMetadata(s.Meta)
 			} else {
 				c.Fatalf("wrong output structure")
 			}

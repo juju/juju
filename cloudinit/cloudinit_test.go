@@ -30,91 +30,92 @@ func Test1(t *testing.T) {
 
 var ctests = []struct {
 	name      string
-	expect    string
+	expect    map[string]interface{}
 	setOption func(cfg *cloudinit.Config)
 }{
 	{
 		"User",
-		"user: me\n",
+		map[string]interface{}{"user": "me"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetUser("me")
 		},
 	},
 	{
 		"AptUpgrade",
-		"apt_upgrade: true\n",
+		map[string]interface{}{"apt_upgrade": true},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptUpgrade(true)
 		},
 	},
 	{
 		"AptUpdate",
-		"apt_update: true\n",
+		map[string]interface{}{"apt_update": true},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptUpdate(true)
 		},
 	},
 	{
 		"AptProxy",
-		"apt_proxy: http://foo.com\n",
+		map[string]interface{}{"apt_proxy": "http://foo.com"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptProxy("http://foo.com")
 		},
 	},
 	{
 		"AptMirror",
-		"apt_mirror: http://foo.com\n",
+		map[string]interface{}{"apt_mirror": "http://foo.com"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptMirror("http://foo.com")
 		},
 	},
 	{
 		"AptPreserveSourcesList",
-		"apt_mirror: true\n",
+		map[string]interface{}{"apt_mirror": true},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptPreserveSourcesList(true)
 		},
 	},
 	{
 		"DebconfSelections",
-		"debconf_selections: '# Force debconf priority to critical.\n\n  debconf debconf/priority select critical\n\n'\n",
+		map[string]interface{}{"debconf_selections": "# Force debconf priority to critical.\ndebconf debconf/priority select critical\n"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetDebconfSelections("# Force debconf priority to critical.\ndebconf debconf/priority select critical\n")
 		},
 	},
 	{
 		"DisableEC2Metadata",
-		"disable_ec2_metadata: true\n",
+		map[string]interface{}{"disable_ec2_metadata": true},
 		func(cfg *cloudinit.Config) {
 			cfg.SetDisableEC2Metadata(true)
 		},
 	},
 	{
 		"FinalMessage",
-		"final_message: goodbye\n",
+		map[string]interface{}{"final_message": "goodbye"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetFinalMessage("goodbye")
 		},
 	},
 	{
 		"Locale",
-		"locale: en_us\n",
+		map[string]interface{}{"locale": "en_us"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetLocale("en_us")
 		},
 	},
 	{
 		"DisableRoot",
-		"disable_root: false\n",
+		map[string]interface{}{"disable_root": false},
 		func(cfg *cloudinit.Config) {
 			cfg.SetDisableRoot(false)
 		},
 	},
 	{
 		"SSHAuthorizedKeys",
-		fmt.Sprintf(
-			"ssh_authorized_keys:\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
-			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key),
+		map[string]interface{}{"ssh_authorized_keys": []string{
+			fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyOne.Key),
+			fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyTwo.Key),
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyOne.Key + " Juju:user@host")
 			cfg.AddSSHAuthorizedKeys(sshtesting.ValidKeyTwo.Key + " another@host")
@@ -122,9 +123,11 @@ var ctests = []struct {
 	},
 	{
 		"SSHAuthorizedKeys",
-		fmt.Sprintf(
-			"ssh_authorized_keys:\n- %s\n  Juju:sshkey\n- %s\n  Juju:user@host\n- %s\n  Juju:another@host\n",
-			sshtesting.ValidKeyOne.Key, sshtesting.ValidKeyTwo.Key, sshtesting.ValidKeyThree.Key),
+		map[string]interface{}{"ssh_authorized_keys": []string{
+			fmt.Sprintf("%s Juju:sshkey", sshtesting.ValidKeyOne.Key),
+			fmt.Sprintf("%s Juju:user@host", sshtesting.ValidKeyTwo.Key),
+			fmt.Sprintf("%s Juju:another@host", sshtesting.ValidKeyThree.Key),
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHAuthorizedKeys("#command\n" + sshtesting.ValidKeyOne.Key)
 			cfg.AddSSHAuthorizedKeys(
@@ -135,70 +138,88 @@ var ctests = []struct {
 	},
 	{
 		"SSHKeys RSAPrivate",
-		"ssh_keys:\n  rsa_private: key1data\n",
+		map[string]interface{}{"ssh_keys": map[string]interface{}{
+			"rsa_private": "key1data",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.RSAPrivate, "key1data")
 		},
 	},
 	{
 		"SSHKeys RSAPublic",
-		"ssh_keys:\n  rsa_public: key2data\n",
+		map[string]interface{}{"ssh_keys": map[string]interface{}{
+			"rsa_public": "key2data",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.RSAPublic, "key2data")
 		},
 	},
 	{
 		"SSHKeys DSAPublic",
-		"ssh_keys:\n  dsa_public: key1data\n",
+		map[string]interface{}{"ssh_keys": map[string]interface{}{
+			"dsa_public": "key1data",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.DSAPublic, "key1data")
 		},
 	},
 	{
 		"SSHKeys DSAPrivate",
-		"ssh_keys:\n  dsa_private: key2data\n",
+		map[string]interface{}{"ssh_keys": map[string]interface{}{
+			"dsa_private": "key2data",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddSSHKey(cloudinit.DSAPrivate, "key2data")
 		},
 	},
 	{
 		"Output",
-		"output:\n  all:\n  - '>foo'\n  - '|bar'\n",
+		map[string]interface{}{"output": map[string]interface{}{
+			"all": []string{">foo", "|bar"},
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.SetOutput("all", ">foo", "|bar")
 		},
 	},
 	{
 		"Output",
-		"output:\n  all: '>foo'\n",
+		map[string]interface{}{"output": map[string]interface{}{
+			"all": ">foo",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.SetOutput(cloudinit.OutAll, ">foo", "")
 		},
 	},
 	{
 		"AptSources",
-		"apt_sources:\n- source: keyName\n  key: someKey\n",
+		map[string]interface{}{"apt_sources": []map[string]interface{}{
+			{
+				"source": "keyName",
+				"key":    "someKey",
+			},
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddAptSource("keyName", "someKey", nil)
 		},
 	},
 	{
 		"AptSources with preferences",
-		`apt_sources:
-- source: keyName
-  key: someKey
-bootcmd:
-- install -D -m 644 /dev/null '/some/path'
-- 'printf ''%s\n'' ''Explanation: test
-
-  Package: *
-
-  Pin: release n=series
-
-  Pin-Priority: 123
-
-  '' > ''/some/path'''
-`,
+		map[string]interface{}{
+			"apt_sources": []map[string]interface{}{
+				{
+					"source": "keyName",
+					"key":    "someKey",
+				},
+			},
+			"bootcmd": []string{
+				"install -D -m 644 /dev/null '/some/path'",
+				"printf '%s\\n' 'Explanation: test\n" +
+					"Package: *\n" +
+					"Pin: release n=series\n" +
+					"Pin-Priority: 123\n" +
+					"' > '/some/path'",
+			},
+		},
 		func(cfg *cloudinit.Config) {
 			prefs := &cloudinit.AptPreferences{
 				Path:        "/some/path",
@@ -212,7 +233,10 @@ bootcmd:
 	},
 	{
 		"Packages",
-		"packages:\n- juju\n- ubuntu\n",
+		map[string]interface{}{"packages": []string{
+			"juju",
+			"ubuntu",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddPackage("juju")
 			cfg.AddPackage("ubuntu")
@@ -220,14 +244,19 @@ bootcmd:
 	},
 	{
 		"Packages with --target-release",
-		"packages:\n- --target-release 'precise-updates/cloud-tools' 'mongodb-server'\n",
+		map[string]interface{}{"packages": []string{
+			"--target-release 'precise-updates/cloud-tools' 'mongodb-server'",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddPackageFromTargetRelease("mongodb-server", "precise-updates/cloud-tools")
 		},
 	},
 	{
 		"BootCmd",
-		"bootcmd:\n- ls > /dev\n- - ls\n  - '>with space'\n",
+		map[string]interface{}{"bootcmd": []interface{}{
+			"ls > /dev",
+			[]string{"ls", ">with space"},
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddBootCmd("ls > /dev")
 			cfg.AddBootCmdArgs("ls", ">with space")
@@ -235,7 +264,10 @@ bootcmd:
 	},
 	{
 		"Mounts",
-		"mounts:\n- - x\n  - \"y\"\n- - z\n  - w\n",
+		map[string]interface{}{"mounts": [][]string{
+			{"x", "y"},
+			{"z", "w"},
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddMount("x", "y")
 			cfg.AddMount("z", "w")
@@ -243,21 +275,26 @@ bootcmd:
 	},
 	{
 		"Attr",
-		"arbitraryAttr: someValue\n",
+		map[string]interface{}{"arbitraryAttr": "someValue"},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAttr("arbitraryAttr", "someValue")
 		},
 	},
 	{
 		"RunCmd",
-		"runcmd:\n- ifconfig\n",
+		map[string]interface{}{"runcmd": []string{
+			"ifconfig",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddRunCmd("ifconfig")
 		},
 	},
 	{
 		"AddScripts",
-		"runcmd:\n- echo 'Hello World'\n- ifconfig\n",
+		map[string]interface{}{"runcmd": []string{
+			"echo 'Hello World'",
+			"ifconfig",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddScripts(
 				"echo 'Hello World'",
@@ -267,7 +304,10 @@ bootcmd:
 	},
 	{
 		"AddTextFile",
-		addTextFileExpected,
+		map[string]interface{}{"runcmd": []string{
+			"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'",
+			"printf '%s\\n' '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddTextFile(
 				"/etc/apt/apt.conf.d/99proxy",
@@ -278,7 +318,10 @@ bootcmd:
 	},
 	{
 		"AddBinaryFile",
-		addBinaryFileExpected,
+		map[string]interface{}{"runcmd": []string{
+			"install -D -m 644 /dev/null '/dev/nonsense'",
+			"printf %s AAECAw== | base64 -d > '/dev/nonsense'",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.AddBinaryFile(
 				"/dev/nonsense",
@@ -288,28 +331,34 @@ bootcmd:
 		},
 	},
 	{
+		"AddBootTextFile",
+		map[string]interface{}{"bootcmd": []string{
+			"install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'",
+			"printf '%s\\n' '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'",
+		}},
+		func(cfg *cloudinit.Config) {
+			cfg.AddBootTextFile(
+				"/etc/apt/apt.conf.d/99proxy",
+				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
+	{
 		"SetAptGetWrapper",
-		"apt_get_wrapper:\n  command: eatmydata\n  enabled: auto\n",
+		map[string]interface{}{"apt_get_wrapper": map[string]interface{}{
+			"command": "eatmydata",
+			"enabled": "auto",
+		}},
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptGetWrapper("eatmydata")
 		},
 	},
 }
 
-const (
-	header              = "#cloud-config\n"
-	addTextFileExpected = `runcmd:
-- install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
-- printf '%s\n' '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
-`
-	addBinaryFileExpected = `runcmd:
-- install -D -m 644 /dev/null '/dev/nonsense'
-- printf %s AAECAw== | base64 -d > '/dev/nonsense'
-`
-)
-
 func (S) TestOutput(c *gc.C) {
-	for _, t := range ctests {
+	for i, t := range ctests {
+		c.Logf("test %d: %s", i, t.name)
 		cfg := cloudinit.New()
 		t.setOption(cfg)
 		renderer, err := cloudinit.NewRenderer("quantal")
@@ -317,7 +366,7 @@ func (S) TestOutput(c *gc.C) {
 		data, err := renderer.Render(cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(data, gc.NotNil)
-		c.Assert(string(data), gc.Equals, header+t.expect, gc.Commentf("test %q output differs", t.name))
+		c.Assert(string(data), jc.YAMLEquals, t.expect)
 	}
 }
 

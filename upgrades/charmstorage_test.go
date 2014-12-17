@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/upgrades"
 )
 
@@ -98,7 +99,7 @@ func (s *migrateCharmStorageSuite) testMigrateCharmStorage(c *gc.C, curl *charm.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 
-	storage := s.State.Storage()
+	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	r, length, err := storage.Get(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.NotNil)
