@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"regexp"
 
-	yaml "gopkg.in/yaml.v1"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/names"
+	yaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // DoCommand enqueues an Action for running on the given unit with given
@@ -25,7 +25,6 @@ type DoCommand struct {
 	paramsYAML cmd.FileVar
 	async      bool
 	out        cmd.Output
-	undefinedActionCommand
 }
 
 const doDoc = `
@@ -164,41 +163,3 @@ func (c *DoCommand) Run(ctx *cmd.Context) error {
 	output := map[string]string{"Action queued with id": tag.Id()}
 	return c.out.Write(ctx, output)
 }
-
-// err = c.out.Write(ctx, map[string]string{"Action queued with id": tag})
-// if err != nil {
-// 	return err
-// }
-
-// for _ = range time.Tick(1 * time.Second) {
-// 	completed, err := api.ListCompleted(params.Entities{
-// 		Entities: []params.Entity{{c.unitTag.String()}},
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	if len(completed.Actions) != 1 {
-// 		return errors.New("only one result must be received")
-// 	}
-// 	err = completed.Actions[0].Error
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	results := completed.Actions[0].Actions
-// 	if len(results) == 0 {
-// 		continue
-// 	}
-// 	if len(results) > 1 {
-// 		return errors.New("too many action results")
-// 	}
-
-// 	err = displayActionResult(results[0], ctx, c.out)
-// 	if err != nil {
-// 		return err
-// 	}
-// }
-
-// return nil
-//}
