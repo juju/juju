@@ -43,7 +43,7 @@ func (s *SetSuite) TestInit(c *gc.C) {
 			errorMatch: "agent-version must be set via upgrade-juju",
 		},
 	} {
-		c.Log("test %d", i)
+		c.Logf("test %d", i)
 		setCmd := &environment.SetCommand{}
 		err := testing.InitCommand(setCmd, test.args)
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
