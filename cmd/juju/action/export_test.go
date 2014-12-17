@@ -32,7 +32,3 @@ func (c *DoCommand) ActionName() string {
 func (c *DoCommand) ParamsYAMLPath() string {
 	return c.paramsYAML.Path
 }
-
-func (c *DoCommand) IsAsync() bool {
-	return c.async
-}

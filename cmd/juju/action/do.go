@@ -23,14 +23,12 @@ type DoCommand struct {
 	unitTag    names.UnitTag
 	actionName string
 	paramsYAML cmd.FileVar
-	async      bool
 	out        cmd.Output
 }
 
 const doDoc = `
 Queue an Action for execution on a given unit, with a given set of params.
 Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
-The command will wait until it receives a result unless --async is used.
 
 Params are validated according to the charm for the unit's service.  The 
 valid params can be seen using "juju action defined <service>".  Params must
@@ -38,11 +36,7 @@ be in a yaml file which is passed with the --params flag.
 
 Examples:
 
-$ juju do mysql/2 pause
-
-finished
-
-$ juju do mysql/3 backup --async
+$ juju do mysql/3 backup 
 action: <UUID>
 
 $ juju status <UUID>
@@ -53,15 +47,17 @@ result:
     units: GB
     name: foo.sql
 
-$ juju do mysql/3 backup --async --params parameters.yml
+$ juju do mysql/3 backup --params parameters.yml
 ...
 `
+
+// actionNameRule describes the format an action name must match to be valid.
+var actionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 
 // SetFlags offers an option for YAML output.
 func (c *DoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(&c.paramsYAML, "params", "path to yaml-formatted params file")
-	f.BoolVar(&c.async, "async", false, "run in the background")
 }
 
 func (c *DoCommand) Info() *cmd.Info {
@@ -86,13 +82,11 @@ func (c *DoCommand) Init(args []string) error {
 			return errors.Errorf("invalid unit name %q", unitName)
 		}
 		actionName := args[1]
-		actionNameRule := regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 		if valid := actionNameRule.MatchString(actionName); !valid {
 			return fmt.Errorf("invalid action name %q", actionName)
 		}
 		c.unitTag = names.NewUnitTag(unitName)
 		c.actionName = actionName
-
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -142,7 +136,7 @@ func (c *DoCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if len(results.Results) != 1 {
-		return errors.New("only one result must be received")
+		return errors.New("illegal number of results returned")
 	}
 
 	result := results.Results[0]

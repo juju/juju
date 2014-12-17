@@ -39,7 +39,6 @@ func (s *DoSuite) TestInit(c *gc.C) {
 		args                 []string
 		expectUnit           names.UnitTag
 		expectAction         string
-		expectAsync          bool
 		expectParamsYamlPath string
 		expectOutput         string
 		expectError          string
@@ -69,25 +68,10 @@ func (s *DoSuite) TestInit(c *gc.C) {
 		expectUnit:   names.NewUnitTag(validUnitId),
 		expectAction: "valid-action-name",
 	}, {
-		should:       "handle --async properly",
-		args:         []string{"--async", validUnitId, "valid-action-name"},
-		expectAsync:  true,
-		expectUnit:   names.NewUnitTag(validUnitId),
-		expectAction: "valid-action-name",
-	}, {
 		should:       "handle --params properly",
-		args:         []string{"--async", validUnitId, "valid-action-name"},
-		expectAsync:  true,
+		args:         []string{validUnitId, "valid-action-name"},
 		expectUnit:   names.NewUnitTag(validUnitId),
 		expectAction: "valid-action-name",
-	}, {
-		should: "handle both --params and --async properly",
-		args: []string{"--async", "--params=somefile.yaml",
-			validUnitId, "valid-action-name"},
-		expectAsync:          true,
-		expectParamsYamlPath: "somefile.yaml",
-		expectUnit:           names.NewUnitTag(validUnitId),
-		expectAction:         "valid-action-name",
 	}}
 
 	for i, t := range tests {
@@ -98,7 +82,6 @@ func (s *DoSuite) TestInit(c *gc.C) {
 		if t.expectError == "" {
 			c.Check(s.subcommand.UnitTag(), gc.Equals, t.expectUnit)
 			c.Check(s.subcommand.ActionName(), gc.Equals, t.expectAction)
-			c.Check(s.subcommand.IsAsync(), gc.Equals, t.expectAsync)
 			c.Check(s.subcommand.ParamsYAMLPath(), gc.Equals, t.expectParamsYamlPath)
 		} else {
 			c.Check(err, gc.ErrorMatches, t.expectError)
