@@ -264,7 +264,7 @@ func (gce *gceConnection) instances(env environs.Environ) ([]*compute.Instance, 
 func (gce *gceConnection) availabilityZones(region string) ([]*compute.Zone, error) {
 	call := gce.Zones.List(gce.projectID)
 	if region != "" {
-		call = call.Filter("name eq " + region + "-")
+		call = call.Filter("name eq " + region + "-.*")
 	}
 	// TODO(ericsnow) Add a timeout?
 	var results []*compute.Zone
