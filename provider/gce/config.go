@@ -113,7 +113,7 @@ func (c *environConfig) projectID() string {
 	return c.attrs[cfgProjectID].(string)
 }
 
-func (c *environConfig) imageURL() string {
+func (c *environConfig) imageEndpoint() string {
 	return c.attrs[cfgImageEndpoint].(string)
 }
 

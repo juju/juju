@@ -69,7 +69,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
-		Endpoint: env.ecfg.imageURL(),
+		Endpoint: env.ecfg.imageEndpoint(),
 	}
 	return cloudSpec, nil
 }
