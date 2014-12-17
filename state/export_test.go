@@ -41,6 +41,7 @@ var (
 	CurrentUpgradeId      = currentUpgradeId
 	NowToTheSecond        = nowToTheSecond
 	MultiEnvCollections   = multiEnvCollections
+	PickAddress           = &pickAddress
 )
 
 type (

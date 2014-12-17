@@ -19,6 +19,7 @@ const (
 	Ubuntu
 	Windows
 	OSX
+	CentOS
 )
 
 func (t OSType) String() string {
@@ -29,6 +30,8 @@ func (t OSType) String() string {
 		return "Windows"
 	case OSX:
 		return "OSX"
+	case CentOS:
+		return "CentOS"
 	}
 	return "Unknown"
 }
@@ -45,6 +48,7 @@ var seriesVersions = map[string]string{
 	"saucy":       "13.10",
 	"trusty":      "14.04",
 	"utopic":      "14.10",
+	"vivid":       "15.04",
 	"win2012hvr2": "win2012hvr2",
 	"win2012hv":   "win2012hv",
 	"win2012r2":   "win2012r2",
@@ -52,16 +56,21 @@ var seriesVersions = map[string]string{
 	"win7":        "win7",
 	"win8":        "win8",
 	"win81":       "win81",
+	"centos7":     "7",
 }
 
-var ubuntuSeries = []string{
-	"precise",
-	"quantal",
-	"raring",
-	"saucy",
-	"trusty",
-	"utopic",
-	"vivid",
+var centosSeries = map[string]string{
+	"centos7": "7",
+}
+
+var ubuntuSeries = map[string]string{
+	"precise": "12.04",
+	"quantal": "12.10",
+	"raring":  "13.04",
+	"saucy":   "13.10",
+	"trusty":  "14.04",
+	"utopic":  "14.10",
+	"vivid":   "15.04",
 }
 
 // windowsVersions is a mapping consisting of the output from
@@ -89,10 +98,11 @@ var distroInfo = "/usr/share/distro-info/ubuntu.csv"
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
 func GetOSFromSeries(series string) (OSType, error) {
-	for _, val := range ubuntuSeries {
-		if val == series {
-			return Ubuntu, nil
-		}
+	if _, ok := ubuntuSeries[series]; ok {
+		return Ubuntu, nil
+	}
+	if _, ok := centosSeries[series]; ok {
+		return CentOS, nil
 	}
 	for _, val := range windowsVersions {
 		if val == series {
@@ -204,6 +214,7 @@ func updateDistroInfo() error {
 		// the numeric version may contain a LTS moniker so strip that out.
 		seriesInfo := strings.Split(parts[0], " ")
 		seriesVersions[series] = seriesInfo[0]
+		ubuntuSeries[series] = seriesInfo[0]
 	}
 	return nil
 }
