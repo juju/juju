@@ -18,7 +18,7 @@ type StatusCommand struct {
 }
 
 const statusDoc = `
-Show the status of an Action by identifier.
+Show the status of an Action by its identifier.
 `
 
 // Set up the YAML output.
@@ -31,8 +31,8 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
-		Args:    "<action id>",
-		Purpose: "WIP: show results of an action by UUID",
+		Args:    "<action identifier>",
+		Purpose: "WIP: show results of an action by identifier",
 		Doc:     statusDoc,
 	}
 }
@@ -40,7 +40,7 @@ func (c *StatusCommand) Info() *cmd.Info {
 func (c *StatusCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no action UUID specified")
+		return errors.New("no action identifier specified")
 	case 1:
 		c.requestedId = args[0]
 		return nil
@@ -63,16 +63,16 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 	results, ok := tags.Matches[c.requestedId]
 	if !ok || len(results) < 1 {
-		return errors.Errorf("actions for id %q not found", c.requestedId)
+		return errors.Errorf("actions for identifier %q not found", c.requestedId)
 	}
 
 	actiontags, rejects := getActionTags(results)
 	if len(rejects) > 0 {
-		return errors.Errorf("id %q got unrecognized entity tags %v", c.requestedId, rejects)
+		return errors.Errorf("identifier %q got unrecognized entity tags %v", c.requestedId, rejects)
 	}
 
 	if len(actiontags) > 1 {
-		return errors.Errorf("id %q matched multiple actions %v", c.requestedId, actiontags)
+		return errors.Errorf("identifier %q matched multiple actions %v", c.requestedId, actiontags)
 	}
 
 	actionTag := actiontags[0]
@@ -86,7 +86,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	actionResults := actions.Results
 	numActionResults := len(actionResults)
 	if numActionResults == 0 {
-		return errors.Errorf("id %q matched action %q, but found no results", c.requestedId, actionTag.Id())
+		return errors.Errorf("identifier %q matched action %q, but found no results", c.requestedId, actionTag.Id())
 	}
 	if numActionResults != 1 {
 		return errors.Errorf("too many results for action %s", actionTag.Id())
@@ -99,5 +99,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, struct {
 		Id     string
 		Status string
-	}{Id: actionTag.Id(), Status: result.Status})
+	}{
+		Id:     actionTag.Id(),
+		Status: result.Status,
+	})
 }

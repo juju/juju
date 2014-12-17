@@ -41,11 +41,11 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	args := []string{prefix}
 	result := []params.ActionResult{{Status: fakestatus}}
 
-	errNotSpecified := "no action UUID specified"
-	errNotFound := `actions for id "` + prefix + `" not found`
-	errNotRecognized := `id "` + prefix + `" got unrecognized entity tags .*`
-	errMultipleMatches := `id "` + prefix + `" matched multiple actions .*`
-	errNoResults := `id "` + prefix + `" matched action "` + fakeid + `", but found no results`
+	errNotSpecified := "no action identifier specified"
+	errNotFound := `actions for identifier "` + prefix + `" not found`
+	errNotRecognized := `identifier "` + prefix + `" got unrecognized entity tags .*`
+	errMultipleMatches := `identifier "` + prefix + `" matched multiple actions .*`
+	errNoResults := `identifier "` + prefix + `" matched action "` + fakeid + `", but found no results`
 
 	tests := []statusTestCase{
 		{expectError: errNotSpecified},
