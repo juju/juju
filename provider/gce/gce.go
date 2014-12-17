@@ -244,35 +244,50 @@ func (gce *gceConnection) instances(env environs.Environ) ([]*compute.Instance, 
 	// env won't be nil.
 	prefix := common.MachineFullName(env, "")
 
-	// TODO(ericsnow) MaxResults arg defaults to 500... (call.MaxResults()).
 	call := gce.Instances.AggregatedList(gce.projectID)
 	call = call.Filter("name eq " + prefix + ".*")
-	// TODO(ericsnow) If we can use multiple filters, filter on status here.
-	raw, err := call.Do()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	var results []*compute.Instance
-	for _, item := range raw.Items {
-		for _, inst := range item.Instances {
-			results = append(results, inst)
+	for {
+		raw, err := call.Do()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+
+		for _, item := range raw.Items {
+			results = append(results, item.Instances...)
+		}
+
+		if raw.NextPageToken == "" {
+			break
+		}
+		call = call.PageToken(raw.NextPageToken)
 	}
+
 	return results, nil
 }
 
 func (gce *gceConnection) availabilityZones(region string) ([]*compute.Zone, error) {
-	//TODO(wwtizel3) support paging requests if we receive a truncated result.
 	call := gce.Zones.List(gce.projectID)
 	if region != "" {
 		call = call.Filter("name eq " + region + "-")
 	}
-	raw, err := call.Do()
-	if err != nil {
-		return nil, errors.Trace(err)
+	var results []*compute.Zone
+	for {
+		raw, err := call.Do()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		results = append(results, raw.Items...)
+
+		if raw.NextPageToken == "" {
+			break
+		}
+		call = call.PageToken(raw.NextPageToken)
 	}
-	return raw.Items, nil
+
+	return results, nil
 }
 
 func (gce *gceConnection) removeInstance(id, zone string) error {
@@ -366,12 +381,6 @@ func (gce *gceConnection) setFirewall(name string, firewall *compute.Firewall) e
 }
 
 func filterInstances(instances []*compute.Instance, statuses ...string) []*compute.Instance {
-	// TODO(ericsnow) Filter in-place?
-	// TODO(ericsnow) Also filter metadata (or tags)? While highly
-	// unlikely (due to our choice of instance ID), it is possible that
-	// the filter in gce.instances() results in a false positive.
-	// An additional filter on the metadata would address that
-	// possibility.
 	var results []*compute.Instance
 	for _, inst := range instances {
 		if !checkInstStatus(inst, statuses...) {
