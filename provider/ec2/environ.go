@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -824,10 +825,51 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the EC2 provider yet.
-func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
+// yet (i.e. when called initially or when a new subnet was created).
+func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+	ec2Inst := e.ec2()
+	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
+	resp, err := ec2Inst.Subnets(nil, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
+	}
+
+	var results []network.SubnetInfo
+	for _, subnet := range resp.Subnets {
+		cidr := subnet.CIDRBlock
+		ip, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
+			continue
+		}
+		// ec2 only uses IPv4 addresses for subnets
+		start, err := network.IPv4ToDecimal(ip)
+		if err != nil {
+			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
+			continue
+		}
+		// the first four addresses in a subnet are reserved, see
+		// http://goo.gl/rrWTIo
+		allocatableLow := network.DecimalToIPv4(start + 4)
+
+		ones, bits := ipnet.Mask.Size()
+		zeros := bits - ones
+		numIPs := uint32(1) << uint32(zeros)
+		highIP := start + numIPs - 1
+		// the last address in a subnet is reserved
+		allocatableHigh := network.DecimalToIPv4(highIP - 1)
+
+		// No VLANTag available
+		info := network.SubnetInfo{
+			CIDR:              cidr,
+			ProviderId:        network.Id(subnet.Id),
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
+		}
+		results = append(results, info)
+	}
+
+	return results, nil
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

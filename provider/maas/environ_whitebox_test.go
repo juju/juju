@@ -1004,12 +1004,12 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.BasicInfo{
-		network.BasicInfo{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
-		network.BasicInfo{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		network.BasicInfo{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
+	expectedInfo := []network.SubnetInfo{
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
 	}
-	c.Assert(netInfo, jc.SameContents, expectedInfo)
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {

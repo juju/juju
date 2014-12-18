@@ -191,7 +191,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := []network.BasicInfo{
+	expectInfo := []network.SubnetInfo{
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
@@ -261,7 +261,7 @@ func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation,
 	}
 }
 
-func assertSubnets(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.BasicInfo) {
+func assertSubnets(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInfo []network.SubnetInfo) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpListNetworks)
