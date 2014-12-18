@@ -238,36 +238,27 @@ juju-reboot --now || action-set reboot-now="good"
 
 func (ctx *context) writeActionsYaml(c *gc.C, path string, names ...string) {
 	var actionsYaml = map[string]string{
-		"base": `
-actions:
-`[1:],
+		"base": "",
 		"snapshot": `
-   snapshot:
-      description: Take a snapshot of the database.                           
-      params:                                                                 
-         title: "Snapshot"                                                    
-         type: "object"                                                       
-         properties:                                                          
-            outfile:                                                          
-               description: "The file to write out to."                       
-               type: string                                                   
-         required: ["outfile"]
+snapshot:
+   description: Take a snapshot of the database.
+   params:
+      outfile:
+         description: "The file to write out to."
+         type: string
+   required: ["outfile"]
 `[1:],
 		"action-log": `
-   action-log:
-      params:
+action-log:
 `[1:],
 		"action-log-fail": `
-   action-log-fail:
-      params:
+action-log-fail:
 `[1:],
 		"action-log-fail-error": `
-   action-log-fail-error:
-      params:
+action-log-fail-error:
 `[1:],
 		"action-reboot": `
-   action-reboot:
-      params:
+action-reboot:
 `[1:],
 	}
 	actionsYamlPath := filepath.Join(path, "actions.yaml")
