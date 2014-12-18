@@ -92,8 +92,12 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 	return nil
 }
 
+// assign to variables for testing purposes.
+var mongoDefaultDialOpts = mongo.DefaultDialOpts
+var environsNewStatePolicy = environs.NewStatePolicy
+
 // newStateConnection tries to connect to the newly restored state server.
-func newStateConnection(agentConf agent.Config) (*state.State, error) {
+func newStateConnection(info *mongo.MongoInfo) (*state.State, error) {
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
@@ -101,13 +105,9 @@ func newStateConnection(agentConf agent.Config) (*state.State, error) {
 		st  *state.State
 		err error
 	)
-	info, ok := agentConf.MongoInfo()
-	if !ok {
-		return nil, errors.Errorf("cannot retrieve info to connect to mongo")
-	}
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+		st, err = state.Open(info, mongoDefaultDialOpts(), environsNewStatePolicy())
 		if err == nil {
 			return st, nil
 		}
@@ -202,7 +202,7 @@ func runMachineUpdate(allAddr []network.Address, sshArg string) error {
 	return runViaSSH(addr, sshArg)
 }
 
-// sshCommand hods ssh.Command type for testing purposes
+// sshCommand hods ssh.Command type for testing purposes.
 var sshCommand = ssh.Command
 
 // runViaSSH runs script in the remote machine with address addr.

@@ -213,6 +213,9 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 	return databases, nil
 }
 
+var osStat = os.Stat
+var execLookPath = exec.LookPath
+
 // mongorestorePath will look for mongorestore binary on the system
 // and return it if mongorestore actually exists.
 // it will look first for the juju provided one and if not found make a
@@ -220,11 +223,11 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 func mongorestorePath() (string, error) {
 	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"
 
-	if _, err := os.Stat(mongoRestoreFullPath); err == nil {
+	if _, err := osStat(mongoRestoreFullPath); err == nil {
 		return mongoRestoreFullPath, nil
 	}
 
-	path, err := exec.LookPath("mongorestore")
+	path, err := execLookPath("mongorestore")
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -233,7 +236,7 @@ func mongorestorePath() (string, error) {
 
 // mongoRestoreArgsForVersion returns a string slice containing the args to be used
 // to call mongo restore since these can change depending on the backup method.
-// Version 0: a dump made with --db, stoping the state server.
+// Version 0: a dump made with --db, stopping the state server.
 // Version 1: a dump made with --oplog with a running state server.
 // TODO (perrito666) change versions to use metadata version
 func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, error) {

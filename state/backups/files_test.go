@@ -1,6 +1,8 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// +build !windows
+
 package backups_test
 
 import (
@@ -132,24 +134,24 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	recreatableFolder := filepath.Join(s.root, "recreate_me")
 	os.MkdirAll(recreatableFolder, os.FileMode(0755))
 	recreatableFolderInfo, err := os.Stat(recreatableFolder)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	recreatableFolder1 := filepath.Join(recreatableFolder, "recreate_me_too")
 	os.MkdirAll(recreatableFolder1, os.FileMode(0755))
 	recreatableFolder1Info, err := os.Stat(recreatableFolder1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	deletableFolder := filepath.Join(recreatableFolder, "dont_recreate_me")
 	os.MkdirAll(deletableFolder, os.FileMode(0755))
 
 	deletableFile := filepath.Join(recreatableFolder, "delete_me")
 	fh, err := os.Create(deletableFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer fh.Close()
 
 	deletableFile1 := filepath.Join(recreatableFolder1, "delete_me.too")
 	fhr, err := os.Create(deletableFile1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer fhr.Close()
 
 	s.PatchValue(backups.ReplaceableFolders, func() (map[string]os.FileMode, error) {
@@ -168,19 +170,19 @@ func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
 	})
 
 	err = backups.PrepareMachineForRestore()
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(deletableFolder)
 	c.Assert(err, gc.Not(gc.IsNil))
 	c.Assert(os.IsNotExist(err), gc.Equals, true)
 
 	recreatedFolderInfo, err := os.Stat(recreatableFolder)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recreatableFolderInfo.Mode(), gc.Equals, recreatedFolderInfo.Mode())
 	c.Assert(recreatableFolderInfo.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolderInfo.Sys().(*syscall.Stat_t).Ino)
 
 	recreatedFolder1Info, err := os.Stat(recreatableFolder1)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(recreatableFolder1Info.Mode(), gc.Equals, recreatedFolder1Info.Mode())
 	c.Assert(recreatableFolder1Info.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolder1Info.Sys().(*syscall.Stat_t).Ino)
 }

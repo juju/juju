@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -244,6 +246,39 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	n, err = query.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 1)
+}
+
+// TestingDialOpts returns configuration parameters for
+// connecting to the testing state server.
+func TestingDialOpts() mongo.DialOpts {
+	return mongo.DialOpts{
+		Timeout: coretesting.LongWait,
+	}
+}
+
+func (r *RestoreSuite) TestNewConnection(c *gc.C) {
+	server := &gitjujutesting.MgoInstance{}
+	err := server.Start(coretesting.Certs)
+	c.Assert(err, jc.ErrorIsNil)
+	defer server.DestroyWithLog()
+
+	mgoinfo := &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{server.Addr()},
+			CACert: coretesting.CACert,
+		},
+	}
+
+	cfg := coretesting.EnvironConfig(c)
+	st, err := state.Initialize(names.NewLocalUserTag("test-admin"), mgoinfo, cfg, TestingDialOpts(), &statetesting.MockPolicy{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Close(), gc.IsNil)
+
+	r.PatchValue(&mongoDefaultDialOpts, TestingDialOpts)
+	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return state.Policy(nil) })
+	st, err = newStateConnection(mgoinfo)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st.Close(), gc.IsNil)
 }
 
 func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {

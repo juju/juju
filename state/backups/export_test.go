@@ -162,3 +162,8 @@ func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadat
 		return errors.New(failure)
 	}
 }
+
+// Export for patching in tests
+var OsStat = &osStat
+var ExecLookPath = &execLookPath
+var MongorestorePath = mongorestorePath

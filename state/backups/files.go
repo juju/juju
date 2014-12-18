@@ -135,11 +135,11 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 	return backupFiles, nil
 }
 
-// replaceableFolders for testing purposes
+// replaceableFolders for testing purposes.
 var replaceableFolders = replaceableFoldersFunc
 
 // replaceableFoldersFunc will return a map with the folders that need to
-// be replace so they can be deleted prior to a restore.
+// be replaced so they can be deleted prior to a restore.
 func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 	replaceables := map[string]os.FileMode{}
 
@@ -157,13 +157,14 @@ func replaceableFoldersFunc() (map[string]os.FileMode, error) {
 	return replaceables, nil
 }
 
+// TODO (perrito666) make this version sensitive when these files change, it would
+// also be a good idea to save these instead of deleting them.
+
 // PrepareMachineForRestore deletes all files from the re-bootstrapped
 // machine that are to be replaced by the backup and recreates those
 // directories that are to contain new files; this is to avoid
 // possible mixup from new/old files that lead to an inconsistent
 // restored state machine.
-// TODO make this version sensitive when these files change, it would
-// also be a good idea to save these instead of deleting them.
 func PrepareMachineForRestore() error {
 	replaceFolders, err := replaceableFolders()
 	if err != nil {

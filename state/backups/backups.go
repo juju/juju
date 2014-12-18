@@ -57,9 +57,10 @@ const (
 	// FilenameTemplate is used with time.Time.Format to generate a filename.
 	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
 
-	// Machine 0 agent config.
 	// TODO(perrito666) get this from an authoritative source and avoid assuming
 	// machine 0.
+
+	// Serveragentconf is the location for agent.conf in machine 0.
 	ServerAgentConf = "/var/lib/juju/agents/machine-0/agent.conf"
 )
 
@@ -110,7 +111,7 @@ type Backups interface {
 	Remove(id string) error
 
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(string, string, instance.Id) error
+	Restore(backupId string, privateAddress string, newInstId instance.Id) error
 }
 
 type backups struct {
@@ -302,7 +303,12 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	}
 
 	// From here we work with the restored state server
-	st, err := newStateConnection(agentConfig)
+	mgoInfo, ok := agentConfig.MongoInfo()
+	if !ok {
+		return errors.Errorf("cannot retrieve info to connect to mongo")
+	}
+
+	st, err := newStateConnection(mgoInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
