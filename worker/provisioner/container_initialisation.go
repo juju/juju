@@ -29,6 +29,7 @@ import (
 type ContainerSetup struct {
 	runner              worker.Runner
 	supportedContainers []instance.ContainerType
+	imageURLGetter      container.ImageURLGetter
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
@@ -44,20 +45,30 @@ type ContainerSetup struct {
 	numberProvisioners int32
 }
 
+// ContainerSetupParams are used to initialise a container setup handler.
+type ContainerSetupParams struct {
+	Runner              worker.Runner
+	WorkerName          string
+	SupportedContainers []instance.ContainerType
+	ImageURLGetter      container.ImageURLGetter
+	Machine             *apiprovisioner.Machine
+	Provisioner         *apiprovisioner.State
+	Config              agent.Config
+	InitLock            *fslock.Lock
+}
+
 // NewContainerSetupHandler returns a StringsWatchHandler which is notified when
 // containers are created on the given machine.
-func NewContainerSetupHandler(runner worker.Runner, workerName string, supportedContainers []instance.ContainerType,
-	machine *apiprovisioner.Machine, provisioner *apiprovisioner.State,
-	config agent.Config, initLock *fslock.Lock) worker.StringsWatchHandler {
-
+func NewContainerSetupHandler(params ContainerSetupParams) worker.StringsWatchHandler {
 	return &ContainerSetup{
-		runner:              runner,
-		machine:             machine,
-		supportedContainers: supportedContainers,
-		provisioner:         provisioner,
-		config:              config,
-		workerName:          workerName,
-		initLock:            initLock,
+		runner:              params.Runner,
+		imageURLGetter:      params.ImageURLGetter,
+		machine:             params.Machine,
+		supportedContainers: params.SupportedContainers,
+		provisioner:         params.Provisioner,
+		config:              params.Config,
+		workerName:          params.WorkerName,
+		initLock:            params.InitLock,
 	}
 }
 
@@ -168,7 +179,7 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig)
+		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig, cs.imageURLGetter)
 		if err != nil {
 			return nil, nil, err
 		}

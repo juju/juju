@@ -30,7 +30,7 @@ gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9
 gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/goamz	bzr	martin.packman@canonical.com-20140813150539-umttn7s536u85eiz	49
-launchpad.net/golxc	bzr	ian.booth@canonical.com-20140730020217-xa1jyuytye6g1qie	12
+launchpad.net/golxc	bzr	ian.booth@canonical.com-20141121040613-ztm1q0iy9rune3zt	13
 launchpad.net/gomaasapi	bzr	raphael.badin@canonical.com-20141030154602-5noqak0jfeao9opr	58
 launchpad.net/goose	bzr	tarmac-20140908075634-5iinsru19k3d8w55	128
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141203072923-27pcp2hckqyezbfe	242

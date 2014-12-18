@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
@@ -19,6 +20,8 @@ import (
 	corecloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 )
 
 const (
@@ -108,6 +111,7 @@ func EnsureCloneTemplate(
 	aptMirror string,
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
+	imageURLGetter container.ImageURLGetter,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
@@ -146,25 +150,31 @@ func EnsureCloneTemplate(
 		return nil, err
 	}
 
-	configFile, err := writeLxcConfig(network, containerDirectory)
-	if err != nil {
-		logger.Errorf("failed to write config file: %v", err)
-		return nil, err
-	}
 	templateParams := []string{
 		"--debug",                      // Debug errors in the cloud image
 		"--userdata", userDataFilename, // Our groovey cloud-init
 		"--hostid", name, // Use the container name as the hostid
 		"-r", series,
 	}
+	var caCert []byte
+	if imageURLGetter != nil {
+		arch := arch.HostArch()
+		imageURL, err := imageURLGetter.ImageURL(instance.LXC, series, arch)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot determine cached image URL")
+		}
+		templateParams = append(templateParams, "-T", imageURL)
+		caCert = imageURLGetter.CACert()
+	}
 	var extraCreateArgs []string
 	if backingFilesystem == Btrfs {
 		extraCreateArgs = append(extraCreateArgs, "-B", Btrfs)
 	}
+
 	// Create the container.
-	logger.Tracef("create the container")
-	if err := lxcContainer.Create(configFile, defaultTemplate, extraCreateArgs, templateParams); err != nil {
-		logger.Errorf("lxc container creation failed: %v", err)
+	logger.Tracef("create the template container")
+	if err := createContainer(lxcContainer, network, containerDirectory, extraCreateArgs, templateParams, caCert); err != nil {
+		logger.Errorf("lxc template container creation failed: %v", err)
 		return nil, err
 	}
 	// Make sure that the mount dir has been created.

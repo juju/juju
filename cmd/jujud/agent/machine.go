@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
@@ -691,16 +692,31 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	// Start the watcher to fire when a container is first requested on the machine.
+	envUUID, err := st.EnvironTag()
+	if err != nil {
+		return err
+	}
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	handler := provisioner.NewContainerSetupHandler(
-		runner,
-		watcherName,
-		containers,
-		machine,
-		pr,
-		agentConfig,
-		initLock,
-	)
+	// There may not be a CA certificate private key available, and without
+	// it we can't ensure that other Juju nodes can connect securely, so only
+	// use an image URL getter if there's a private key.
+	var imageURLGetter container.ImageURLGetter
+	if servingInfo, ok := agentConfig.StateServingInfo(); ok {
+		if servingInfo.CAPrivateKey != "" {
+			imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
+		}
+	}
+	params := provisioner.ContainerSetupParams{
+		Runner:              runner,
+		WorkerName:          watcherName,
+		SupportedContainers: containers,
+		ImageURLGetter:      imageURLGetter,
+		Machine:             machine,
+		Provisioner:         pr,
+		Config:              agentConfig,
+		InitLock:            initLock,
+	}
+	handler := provisioner.NewContainerSetupHandler(params)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
