@@ -65,7 +65,7 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 			})
 	}
 
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }
 
 // AddStateUsersAsEnvironUsers loops through all users stored in state and
@@ -342,7 +342,7 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 			unit, rangesToMigrate, machinePorts.GlobalKey(), ops,
 		)
 
-		if err = st.runTransaction(ops); err != nil {
+		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
 		}
 
@@ -396,12 +396,10 @@ func CreateUnitMeterStatus(st *State) error {
 			upgradesLogger.Infof("meter status doc already exists for unit %q", unit)
 			continue
 		}
-
-		msdoc := meterStatusDoc{
-			Code: MeterNotSet,
+		ops := []txn.Op{
+			createMeterStatusOp(st, unit.globalKey(), &meterStatusDoc{Code: MeterNotSet}),
 		}
-		ops := []txn.Op{createMeterStatusOp(st, unit.globalKey(), msdoc)}
-		if err = st.runTransaction(ops); err != nil {
+		if err = st.runRawTransaction(ops); err != nil {
 			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
 		}
 	}
@@ -426,7 +424,7 @@ func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 		}}},
 	}}
 
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }
 
 // AddCharmStoragePaths adds storagepath fields
@@ -446,7 +444,7 @@ func AddCharmStoragePaths(st *State, storagePaths map[*charm.URL]string) error {
 		}
 		ops = append(ops, op)
 	}
-	err := st.runTransaction(ops)
+	err := st.runRawTransaction(ops)
 	if err == txn.ErrAborted {
 		return errors.NotFoundf("charms")
 	}
@@ -477,7 +475,7 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 			{"owner", owner.Username()},
 		}}},
 	}}
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }
 
 // MigrateMachineInstanceIdToInstanceData migrates the deprecated "instanceid"
@@ -538,7 +536,7 @@ func MigrateMachineInstanceIdToInstanceData(st *State) error {
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)
 	}
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }
 
 // AddAvailabilityZoneToInstanceData sets the AvailZone field on
@@ -670,7 +668,7 @@ func AddEnvUUIDToNetworkInterfaces(st *State) error {
 	if err := iter.Err(); err != nil {
 		return errors.Trace(err)
 	}
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }
 
 // AddEnvUUIDToCharms prepends the environment UUID to the ID of
@@ -796,7 +794,7 @@ func addEnvUUIDToEntityCollection(st *State, collName string, updates ...updateF
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)
 	}
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }
 
 type updateFunc func(bson.M) error
@@ -868,6 +866,5 @@ func MigrateJobManageNetworking(st *State) error {
 		})
 	}
 
-	// Run transaction.
-	return st.runTransaction(ops)
+	return st.runRawTransaction(ops)
 }

@@ -286,7 +286,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Id:     machine.doc.DocID,
 		Assert: txn.DocExists,
 	}}
-	if err := st.runTransaction(ops); err == nil {
+	if err := st.runRawTransaction(ops); err == nil {
 		return &UpgradeInfo{st: st, doc: doc}, nil
 	} else if err != txn.ErrAborted {
 		return nil, errors.Annotate(err, "cannot create upgrade info")
