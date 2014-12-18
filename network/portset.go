@@ -86,12 +86,11 @@ func collapsePorts(protocol string, ports ...int) (result []PortRange) {
 			toPort = port
 		} else {
 			// break in port range
-			result = append(result,
-				PortRange{
-					Protocol: protocol,
-					FromPort: fromPort,
-					ToPort:   toPort,
-				})
+			result = append(result, PortRange{
+				Protocol: protocol,
+				FromPort: fromPort,
+				ToPort:   toPort,
+			})
 			fromPort = port
 			toPort = port
 		}
