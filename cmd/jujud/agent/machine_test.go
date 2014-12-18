@@ -1,15 +1,17 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/juju/cmd"
@@ -34,6 +36,8 @@ import (
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
+	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -66,50 +70,95 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
+var (
+	_ = gc.Suite(&MachineSuite{})
+	_ = gc.Suite(&MachineWithCharmsSuite{})
+	_ = gc.Suite(&mongoSuite{})
+)
+
+func TestPackage(t *testing.T) {
+	// Change the default init dir in worker/deployer,
+	// so the deployer doesn't try to remove upstart
+	// jobs from tests.
+	restore := gitjujutesting.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
+	defer restore()
+
+	// TODO(waigani) 2014-03-19 bug 1294458
+	// Refactor to use base suites
+
+	// Change the path to "juju-run", so that the
+	// tests don't try to write to /usr/local/bin.
+	JujuRun = mktemp("juju-run", "")
+	defer os.Remove(JujuRun)
+
+	coretesting.MgoTestPackage(t)
+}
+
+type runner interface {
+	Run(*cmd.Context) error
+	Stop() error
+}
+
+// runWithTimeout runs an agent and waits
+// for it to complete within a reasonable time.
+func runWithTimeout(r runner) error {
+	done := make(chan error)
+	go func() {
+		done <- r.Run(nil)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(coretesting.LongWait):
+	}
+	err := r.Stop()
+	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
+}
+
 type commonMachineSuite struct {
-	agentSuite
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
-	fakeEnsureMongo fakeEnsure
+	fakeEnsureMongo agenttesting.FakeEnsure
+	AgentSuite
 }
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
-	s.agentSuite.SetUpSuite(c)
+	s.AgentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 	s.TestSuite.TearDownSuite(c)
-	s.agentSuite.TearDownSuite(c)
+	s.AgentSuite.TearDownSuite(c)
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
-	s.agentSuite.SetUpTest(c)
+	s.AgentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
-	s.agentSuite.PatchValue(&charm.CacheDir, c.MkDir())
-	s.agentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
+	s.AgentSuite.PatchValue(&charm.CacheDir, c.MkDir())
+	s.AgentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
 
-	os.Remove(jujuRun) // ignore error; may not exist
+	os.Remove(JujuRun) // ignore error; may not exist
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	s.agentSuite.PatchValue(&authenticationworker.SSHUser, "")
+	s.AgentSuite.PatchValue(&authenticationworker.SSHUser, "")
 
 	testpath := c.MkDir()
-	s.agentSuite.PatchEnvPathPrepend(testpath)
+	s.AgentSuite.PatchEnvPathPrepend(testpath)
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.agentSuite.PatchValue(&upstart.InitDir, c.MkDir())
+	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
 	s.singularRecord = &singularRunnerRecord{startedWorkers: make(set.Strings)}
-	s.agentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
-	s.fakeEnsureMongo = fakeEnsure{}
-	s.agentSuite.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
-	s.agentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
+	s.fakeEnsureMongo = agenttesting.FakeEnsure{}
+	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, s.fakeEnsureMongo.FakeEnsureMongo)
+	s.AgentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.FakeInitiateMongo)
 }
 
 func fakeCmd(path string) {
@@ -121,7 +170,7 @@ func fakeCmd(path string) {
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 	s.TestSuite.TearDownTest(c)
-	s.agentSuite.TearDownTest(c)
+	s.AgentSuite.TearDownTest(c)
 }
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
@@ -167,14 +216,14 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, jc.ErrorIsNil)
-		agentConfig, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.AgentSuite.PrimeStateAgent(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
-		ssi := paramsStateServingInfoToStateStateServingInfo(info)
+		ssi := cmdutil.ParamsStateServingInfoToStateStateServingInfo(info)
 		err = s.State.SetStateServingInfo(ssi)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
-		agentConfig, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.PrimeAgent(c, tag, initialMachinePassword, vers)
 	}
 	err = agentConfig.Write()
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +233,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	a := &MachineAgent{}
-	s.initAgent(c, a, "--machine-id", m.Id())
+	s.InitAgent(c, a, "--machine-id", m.Id(), "--log-to-stderr=true")
 	err := a.ReadConfig(m.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 	return a
@@ -203,8 +252,6 @@ type MachineSuite struct {
 	commonMachineSuite
 	metricAPI *mockMetricAPI
 }
-
-var _ = gc.Suite(&MachineSuite{})
 
 const initialMachinePassword = "machine-password-1234567890"
 
@@ -467,7 +514,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 
 func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
 	started := make(chan struct{}, 1)
-	s.agentSuite.PatchValue(&newFirewaller, func(st *apifirewaller.State) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&newFirewaller, func(st *apifirewaller.State) (worker.Worker, error) {
 		select {
 		case started <- struct{}{}:
 		default:
@@ -488,7 +535,7 @@ func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
-	s.agentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
+	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(
@@ -530,7 +577,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 
 func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	started := make(chan struct{}, 1)
-	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		select {
 		case started <- struct{}{}:
@@ -559,7 +606,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	calledChan := make(chan struct{}, 1)
-	s.agentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
+	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
 	// Now, start the agent, and observe that a JobManageEnviron agent
 	// calls UseMultipleCPUs
 	a := s.newAgent(c, m)
@@ -713,7 +760,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	// need to check for that here, like in assertJobWithState.
 
 	agentAPIs := make(chan eitherState, 1)
-	s.agentSuite.PatchValue(reportOpened, func(st eitherState) {
+	s.AgentSuite.PatchValue(reportOpened, func(st eitherState) {
 		select {
 		case agentAPIs <- st:
 		default:
@@ -761,10 +808,13 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 		case <-timeout:
 			c.Fatalf("timeout while waiting for agent version to be set")
 		case <-time.After(coretesting.ShortWait):
+			c.Log("Refreshing")
 			err := m.Refresh()
 			c.Assert(err, jc.ErrorIsNil)
+			c.Log("Fetching agent tools")
 			agentTools, err := m.AgentTools()
 			c.Assert(err, jc.ErrorIsNil)
+			c.Logf("(%v vs. %v)", agentTools.Version, version.Current)
 			if agentTools.Version.Minor != version.Current.Minor {
 				continue
 			}
@@ -904,38 +954,38 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 
 func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
+	s.RunTestOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
-		s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
 
 func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
-		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
+		s.AssertCanOpenState(c, conf.Tag(), conf.DataDir())
 	})
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
-	_, err := os.Stat(jujuRun)
+	_, err := os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		// juju-run should have been created
-		_, err := os.Stat(jujuRun)
+		_, err := os.Stat(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
 	})
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	err := symlink.New("/nowhere/special", jujuRun)
+	err := symlink.New("/nowhere/special", JujuRun)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = os.Stat(jujuRun)
+	_, err = os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
 		// juju-run should have been recreated
-		_, err := os.Stat(jujuRun)
+		_, err := os.Stat(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
-		link, err := symlink.Read(jujuRun)
+		link, err := symlink.Read(JujuRun)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
 	})
@@ -949,7 +999,7 @@ func (s *MachineSuite) TestProxyUpdater(c *gc.C) {
 func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) {
 	// Patch out the func that decides whether we should write system files.
 	var gotConf agent.Config
-	s.agentSuite.PatchValue(&shouldWriteProxyFiles, func(conf agent.Config) bool {
+	s.AgentSuite.PatchValue(&shouldWriteProxyFiles, func(conf agent.Config) bool {
 		gotConf = conf
 		return expectWriteSystemFiles
 	})
@@ -980,7 +1030,7 @@ func (s *MachineSuite) assertProxyUpdater(c *gc.C, expectWriteSystemFiles bool) 
 			return nil
 		})
 	}
-	s.agentSuite.PatchValue(&proxyupdater.New, mockNew)
+	s.AgentSuite.PatchValue(&proxyupdater.New, mockNew)
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
@@ -1004,7 +1054,7 @@ func (s *MachineSuite) TestMachineAgentUninstall(c *gc.C) {
 	err = runWithTimeout(a)
 	c.Assert(err, jc.ErrorIsNil)
 	// juju-run should have been removed on termination
-	_, err = os.Stat(jujuRun)
+	_, err = os.Stat(JujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	// data-dir should have been removed on termination
 	_, err = os.Stat(ac.DataDir())
@@ -1021,7 +1071,7 @@ func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
 
 func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.agentSuite.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.AgentSuite.PatchValue(&cmdutil.NewRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})
@@ -1222,7 +1272,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 		c.Logf("test #%d: %s", i, test.about)
 
 		modeCh := make(chan bool, 1)
-		s.agentSuite.PatchValue(&newNetworker, func(
+		s.AgentSuite.PatchValue(&newNetworker, func(
 			st *apinetworker.State,
 			conf agent.Config,
 			intrusiveMode bool,
@@ -1267,14 +1317,14 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.agentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
+	s.AgentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
 		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
 		c.Assert(err, jc.ErrorIsNil)
 		return true, nil
 	})
 
 	stateOpened := make(chan eitherState, 1)
-	s.agentSuite.PatchValue(&reportOpenedState, func(st eitherState) {
+	s.AgentSuite.PatchValue(&reportOpenedState, func(st eitherState) {
 		select {
 		case stateOpened <- st:
 		default:
@@ -1293,8 +1343,8 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 		c.Fatalf("state not opened")
 	}
 	s.waitStopped(c, state.JobManageEnviron, a, done)
-	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
-	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
@@ -1353,8 +1403,6 @@ type MachineWithCharmsSuite struct {
 	machine *state.Machine
 }
 
-var _ = gc.Suite(&MachineWithCharmsSuite{})
-
 func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 	s.commonMachineSuite.SetUpSuite(c)
 	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
@@ -1403,8 +1451,6 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 type mongoSuite struct {
 	coretesting.BaseSuite
 }
-
-var _ = gc.Suite(&mongoSuite{})
 
 func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *gc.C) {
 	s.testStateWorkerDialSetsWriteMajority(c, true)
@@ -1586,4 +1632,25 @@ func (m *mockMetricAPI) SendCalled() <-chan struct{} {
 
 func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 	return m.cleanUpCalled
+}
+
+func mkdtemp(prefix string) string {
+	d, err := ioutil.TempDir("", prefix)
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
+func mktemp(prefix string, content string) string {
+	f, err := ioutil.TempFile("", prefix)
+	if err != nil {
+		panic(err)
+	}
+	_, err = f.WriteString(content)
+	if err != nil {
+		panic(err)
+	}
+	f.Close()
+	return f.Name()
 }

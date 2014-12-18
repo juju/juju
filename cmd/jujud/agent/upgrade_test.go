@@ -1,13 +1,14 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package agent
 
 import (
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -44,6 +46,7 @@ type UpgradeSuite struct {
 	logWriter       loggo.TestWriter
 	connectionDead  bool
 	machineIsMaster bool
+	aptMutex        sync.Mutex
 }
 
 var _ = gc.Suite(&UpgradeSuite{})
@@ -58,15 +61,32 @@ var (
 const fails = true
 const succeeds = false
 
+func (s *UpgradeSuite) setAptCmds(cmd *exec.Cmd) []*exec.Cmd {
+	s.aptMutex.Lock()
+	defer s.aptMutex.Unlock()
+	if cmd == nil {
+		s.aptCmds = nil
+	} else {
+		s.aptCmds = append(s.aptCmds, cmd)
+	}
+	return s.aptCmds
+}
+
+func (s *UpgradeSuite) getAptCmds() []*exec.Cmd {
+	s.aptMutex.Lock()
+	defer s.aptMutex.Unlock()
+	return s.aptCmds
+}
+
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
 	// Capture all apt commands.
 	s.aptCmds = nil
-	aptCmds := s.agentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
+	aptCmds := s.AgentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
-			s.aptCmds = append(s.aptCmds, cmd)
+			s.setAptCmds(cmd)
 		}
 	}()
 
@@ -80,7 +100,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Allow tests to make the API connection appear to be dead.
 	s.connectionDead = false
-	s.PatchValue(&connectionIsDead, func(pinger) bool {
+	s.PatchValue(&cmdutil.ConnectionIsDead, func(loggo.Logger, cmdutil.Pinger) bool {
 		return s.connectionDead
 	})
 
@@ -464,7 +484,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 
 	// Start the API server and upgrade-steps works just as the agent would.
-	runner := worker.NewRunner(isFatal, moreImportant)
+	runner := worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
 	defer func() {
 		close(abort)
 		runner.Kill()
@@ -607,9 +627,9 @@ func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 	agent *fakeUpgradingMachineAgent,
 	jobs ...multiwatcher.MachineJob,
 ) (error, *upgradeWorkerContext) {
+	s.setInstantRetryStrategy(c)
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, jobs)
-	s.setInstantRetryStrategy(c)
 	return worker.Wait(), context
 }
 
@@ -751,8 +771,9 @@ func (s *UpgradeSuite) keyFile() string {
 
 func (s *UpgradeSuite) assertCommonUpgrades(c *gc.C) {
 	// rsyslog-gnutls should have been installed.
-	c.Assert(s.aptCmds, gc.HasLen, 1)
-	args := s.aptCmds[0].Args
+	cmds := s.getAptCmds()
+	c.Assert(cmds, gc.HasLen, 1)
+	args := cmds[0].Args
 	c.Assert(len(args), jc.GreaterThan, 1)
 	c.Assert(args[0], gc.Equals, "apt-get")
 	c.Assert(args[len(args)-1], gc.Equals, "rsyslog-gnutls")

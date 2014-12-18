@@ -134,7 +134,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 
 	// The server certificates must report "juju-apiserver" as a DNS name
 	// for backwards-compatibility with API clients.
-	c.Assert(srvCert.DNSNames, gc.DeepEquals, []string{"juju-apiserver"})
+	c.Assert(srvCert.DNSNames, gc.DeepEquals, []string{"localhost", "juju-apiserver"})
 }
 
 type mockStateServingGetterNoCAKey struct{}

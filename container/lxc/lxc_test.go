@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -146,7 +147,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		})
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -193,7 +194,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(params)
+	manager, err := lxc.NewContainerManager(params, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
@@ -202,7 +203,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	})
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
@@ -307,6 +308,9 @@ func (s *LxcSuite) ensureTemplateStopped(name string) <-chan struct{} {
 func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, id string) {
 	c.Assert(event.Action, gc.Equals, expected)
 	c.Assert(event.InstanceId, gc.Equals, id)
+	if expected == mock.Created {
+		c.Assert(event.EnvArgs, gc.Not(gc.HasLen), 0)
+	}
 }
 
 func (s *LxcSuite) TestCreateContainerEvents(c *gc.C) {
@@ -351,10 +355,16 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		aptMirror,
 		true,
 		true,
+		&containertesting.MockURLGetter{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
-	s.AssertEvent(c, <-s.events, mock.Created, name)
+
+	createEvent := <-s.events
+	c.Assert(createEvent.Action, gc.Equals, mock.Created)
+	c.Assert(createEvent.InstanceId, gc.Equals, name)
+	argsSet := set.NewStrings(createEvent.TemplateArgs...)
+	c.Assert(argsSet.Contains("imageURL"), jc.IsTrue)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 	s.AssertEvent(c, <-s.events, mock.Stopped, name)
 

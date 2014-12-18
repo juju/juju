@@ -191,45 +191,6 @@ func (st *State) MongoSession() *mgo.Session {
 
 type closeFunc func()
 
-// txnRunner returns a jujutxn.Runner instance.
-//
-// If st.transactionRunner is non-nil, then that will be
-// returned and the session argument will be ignored. This
-// is the case in tests only, when we want to test concurrent
-// operations.
-//
-// If st.transactionRunner is nil, then we create a new
-// transaction runner with the provided session and return
-// that.
-func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	runnerDb := st.db.With(session)
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb})
-}
-
-// runTransaction is a convenience method delegating to transactionRunner.
-func (st *State) runTransaction(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).RunTransaction(ops)
-}
-
-// run is a convenience method delegating to transactionRunner.
-func (st *State) run(transactions jujutxn.TransactionSource) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).Run(transactions)
-}
-
-// ResumeTransactions resumes all pending transactions.
-func (st *State) ResumeTransactions() error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).ResumeTransactions()
-}
-
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
 	if st.allManager == nil {

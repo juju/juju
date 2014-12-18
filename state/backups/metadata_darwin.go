@@ -1,8 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !windows
-
 package backups
 
 import (
@@ -15,7 +13,7 @@ func creationTime(fi os.FileInfo) time.Time {
 	rawstat := fi.Sys()
 	if rawstat != nil {
 		if stat, ok := rawstat.(*syscall.Stat_t); ok {
-			return time.Unix(int64(stat.Ctim.Sec), 0)
+			return time.Unix(int64(stat.Ctimespec.Sec), 0)
 		}
 	}
 	return time.Time{}

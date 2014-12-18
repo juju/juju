@@ -327,7 +327,7 @@ func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
 		container.ConfigName:   namespace,
 		container.ConfigLogDir: "logdir",
 		"use-clone":            "false",
-	})
+	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine1 := containertesting.CreateContainer(c, manager, "1")

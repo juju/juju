@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
@@ -792,6 +793,22 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	err = env.ReleaseAddress(instId, "", addr)
 	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
+}
+
+func (t *localServerSuite) TestSubnets(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets("")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaultSubnets := []network.SubnetInfo{{
+		// this is defined in the test server for the default-vpc
+		CIDR:              "10.10.0.0/20",
+		ProviderId:        "subnet-0",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.15.254").To4(),
+	}}
+	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {

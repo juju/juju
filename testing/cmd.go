@@ -6,6 +6,7 @@ package testing
 import (
 	"bytes"
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -96,4 +97,17 @@ func TestInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
+}
+
+// ExtractCommandsFromHelpOutput takes the standard output from the
+// command context and looks for the "commands:" string and returns the
+// commands output after that.
+func ExtractCommandsFromHelpOutput(ctx *cmd.Context) []string {
+	var namesFound []string
+	commandHelp := strings.SplitAfter(Stdout(ctx), "commands:")[1]
+	commandHelp = strings.TrimSpace(commandHelp)
+	for _, line := range strings.Split(commandHelp, "\n") {
+		namesFound = append(namesFound, strings.TrimSpace(strings.Split(line, " - ")[0]))
+	}
+	return namesFound
 }

@@ -170,7 +170,7 @@ type OpReleaseAddress struct {
 
 type OpListNetworks struct {
 	Env  string
-	Info []network.BasicInfo
+	Info []network.SubnetInfo
 }
 
 type OpStartInstance struct {
@@ -1046,7 +1046,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1058,7 +1058,7 @@ func (env *environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
-	netInfo := []network.BasicInfo{
+	netInfo := []network.SubnetInfo{
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}

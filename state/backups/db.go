@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/imagestorage"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
@@ -45,8 +46,9 @@ type DBInfo struct {
 // ignoredDatabases is the list of databases that should not be
 // backed up.
 var ignoredDatabases = set.NewStrings(
-	"backups",
+	storageDBName,
 	"presence",
+	imagestorage.ImagesDB,
 )
 
 type DBSession interface {

@@ -4,8 +4,6 @@
 package state
 
 import (
-	"encoding/binary"
-	"fmt"
 	"math/rand"
 	"net"
 
@@ -240,16 +238,16 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 		return nil, errors.Errorf("no allocatable IP addresses for subnet %v", s)
 	}
 
-	// convert low and high to decimals (dottedQuadToNum) as the bounds
-	lowDecimal, err := ipToDecimal(low)
+	// convert low and high to decimals as the bounds
+	lowDecimal, err := network.IPv4ToDecimal(net.ParseIP(low))
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPLow %q for subnet %v", low, s)
+		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %v", low, s)
 	}
-	highDecimal, err := ipToDecimal(high)
+	highDecimal, err := network.IPv4ToDecimal(net.ParseIP(high))
 	if err != nil {
 		// these addresses are validated so should never happen
-		return nil, errors.Errorf("invalid AllocatableIPHigh %q for subnet %v", high, s)
+		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %v", high, s)
 	}
 
 	// find all addresses for this subnet and convert them to decimals
@@ -264,7 +262,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
 	for iter.Next(&doc) {
 		// skip invalid values. Can't happen anyway as we validate.
-		value, err := ipToDecimal(doc.Value)
+		value, err := network.IPv4ToDecimal(net.ParseIP(doc.Value))
 		if err != nil {
 			continue
 		}
@@ -283,8 +281,8 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	newDecimal := pickAddress(lowDecimal, highDecimal, allocated)
 
 	// convert it back to a dotted-quad
-	newIP := decimalToIP(newDecimal)
-	newAddr := network.NewAddress(newIP, network.ScopeUnknown)
+	newIP := network.DecimalToIPv4(newDecimal)
+	newAddr := network.NewAddress(newIP.String(), network.ScopeUnknown)
 
 	// and create a new IPAddress from it and return it
 	return s.st.AddIPAddress(newAddr, s.ID())
@@ -312,18 +310,4 @@ var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
 			return value
 		}
 	}
-}
-
-func decimalToIP(addr uint32) string {
-	bytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(bytes, addr)
-	return net.IP(bytes).String()
-}
-
-func ipToDecimal(ipv4Addr string) (uint32, error) {
-	ip := net.ParseIP(ipv4Addr).To4()
-	if ip == nil {
-		return 0, fmt.Errorf("%q is not a valid IPv4 Address.", ipv4Addr)
-	}
-	return binary.BigEndian.Uint32([]byte(ip)), nil
 }

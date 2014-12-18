@@ -13,8 +13,10 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
@@ -141,9 +143,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&UnsetCommand{}))
 	r.Register(wrapEnvCommand(&GetConstraintsCommand{}))
 	r.Register(wrapEnvCommand(&SetConstraintsCommand{}))
-	r.Register(wrapEnvCommand(&GetEnvironmentCommand{}))
-	r.Register(wrapEnvCommand(&SetEnvironmentCommand{}))
-	r.Register(wrapEnvCommand(&UnsetEnvironmentCommand{}))
 	r.Register(wrapEnvCommand(&ExposeCommand{}))
 	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
 	r.Register(wrapEnvCommand(&UnexposeCommand{}))
@@ -171,6 +170,20 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("remove-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 	r.RegisterSuperAlias("destroy-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
 	r.RegisterSuperAlias("terminate-machine", "machine", "remove", twoDotOhDeprecation("machine remove"))
+
+	// Mangage environment
+	r.Register(environment.NewSuperCommand())
+	r.RegisterSuperAlias("get-environment", "environment", "get", twoDotOhDeprecation("environment get"))
+	r.RegisterSuperAlias("get-env", "environment", "get", twoDotOhDeprecation("environment get"))
+	r.RegisterSuperAlias("set-environment", "environment", "set", twoDotOhDeprecation("environment set"))
+	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
+	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
+	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
+
+	// Manage and control actions.
+	if featureflag.Enabled(action.FeatureFlag) {
+		r.Register(action.NewSuperCommand())
+	}
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))

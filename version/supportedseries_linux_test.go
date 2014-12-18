@@ -15,6 +15,10 @@ import (
 )
 
 func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
+	// There is no distro-info on Windows or CentOS.
+	if version.Current.OS != version.Ubuntu {
+		c.Skip("This test is only relevant on Ubuntu.")
+	}
 	vers, err := version.SeriesVersion("precise")
 	if err != nil && err.Error() == `invalid series "precise"` {
 		c.Fatalf(`Unable to lookup series "precise", you may need to: apt-get install distro-info`)

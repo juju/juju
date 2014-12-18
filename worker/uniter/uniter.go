@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -33,39 +32,12 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.uniter")
 
-const (
-	// interval at which the unit's metrics should be collected
-	metricsPollInterval = 5 * time.Minute
-)
-
 // A UniterExecutionObserver gets the appropriate methods called when a hook
 // is executed and either succeeds or fails.  Missing hooks don't get reported
 // in this way.
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
-}
-
-// CollectMetricsSignal is the signature of the function used to generate a collect-metrics
-// signal.
-type CollectMetricsSignal func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time
-
-// collectMetricsTimer returns a channel that will signal the collect metrics hook
-// as close to metricsPollInterval after the last run as possible.
-func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
-	waitDuration := interval - now.Sub(lastRun)
-	logger.Debugf("waiting for %v", waitDuration)
-	return time.After(waitDuration)
-}
-
-// activeMetricsTimer is the timer function used to generate metrics collections
-// signals for metrics-enabled charms.
-var activeMetricsTimer CollectMetricsSignal = collectMetricsTimer
-
-// inactiveMetricsTimer is the default metrics signal generation function, that returns no signal.
-// It will be used in charms that do not declare metrics.
-func inactiveMetricsTimer(_, _ time.Time, _ time.Duration) <-chan time.Time {
-	return nil
 }
 
 // deployerProxy exists because we're not yet comfortable that we can safely
@@ -319,23 +291,16 @@ func (u *Uniter) initializeMetricsCollector() error {
 	if err != nil {
 		return err
 	}
-	if metrics := charm.Metrics(); metrics != nil && len(metrics.Metrics) > 0 {
-		u.collectMetricsAt = activeMetricsTimer
-	}
+	u.collectMetricsAt = getMetricsTimer(charm)
 	return nil
 }
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	// TODO(fwereade): this is *still* all sorts of messed-up and not remotely
+	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
 	// goroutine-safe, but that's not what I'm fixing at the moment. We'll deal
 	// with that when we get a sane ops queue and are no longer depending on the
 	// uniter mode funcs for all the rest of our scheduling.
-	// In particular, we should probably defer InferRemoteUnit until much later;
-	// it's currently quite plausible that the relation state could change a fair
-	// amount between entering this method and actually acquiring the execution
-	// lock (and it could change more after that, too, but at least that window
-	// is reasonably bounded in a way that this one is not).
 	logger.Tracef("run commands: %s", args.Commands)
 
 	type responseInfo struct {
