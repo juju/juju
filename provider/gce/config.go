@@ -98,14 +98,6 @@ func (c *environConfig) clientEmail() string {
 }
 
 func (c *environConfig) region() string {
-	// TODO(ericsnow) Drop the strip after fixing simplestreams index.
-	region := c.attrs[cfgRegion].(string)
-	return region[:len(region)-2]
-	//return c.attrs[cfgRegion].(string)
-}
-
-// TODO(ericsnow) Drop this after fixing simplestreams index.
-func (c *environConfig) region_broken() string {
 	return c.attrs[cfgRegion].(string)
 }
 

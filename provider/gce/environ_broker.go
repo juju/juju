@@ -58,8 +58,7 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
 	spec, err := env.findInstanceSpec(env.Config().ImageStream(), &instances.InstanceConstraint{
-		// TODO(ericsnow) Change this back to region after fixing simplestreams index.
-		Region:      env.ecfg.region_broken(),
+		Region:      env.ecfg.region(),
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
