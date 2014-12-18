@@ -106,34 +106,14 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 }
 
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*compute.Instance, error) {
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot make user data")
-	}
-	logger.Debugf("GCE user data; %d bytes", len(userData))
-
-	// Handle state machines.
-	var role string
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
-		role = roleState
-	}
-
 	// Compose the instance.
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
 	networkInterfaces := getNetworkInterfaces()
-	authKeys, err := gceSSHKeys()
+	metadata, err := getMetadata(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	metadata := packMetadata(map[string]string{
-		metadataKeyRole: role,
-		// We store a snapshot of what information was used to create
-		// this instance. It is only informational.
-		metadataKeyCloudInit: string(userData),
-		metadataKeySSHKeys:   authKeys,
-	})
 
 	instance := &compute.Instance{
 		// MachineType is set in the env.gce.newInstance call.
@@ -156,6 +136,33 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		instance.Disks[0].InitializeParams = diskInit
 	}
 	return instance, nil
+}
+
+func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot make user data")
+	}
+	logger.Debugf("GCE user data; %d bytes", len(userData))
+
+	authKeys, err := gceSSHKeys()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Handle state machines.
+	var role string
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		role = roleState
+	}
+
+	return packMetadata(map[string]string{
+		metadataKeyRole: role,
+		// We store a snapshot of what information was used to create
+		// this instance. It is only informational.
+		metadataKeyCloudInit: string(userData),
+		metadataKeySSHKeys:   authKeys,
+	}), nil
 }
 
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
