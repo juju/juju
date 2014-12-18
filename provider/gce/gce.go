@@ -169,9 +169,9 @@ func (gce *gceConnection) verifyCredentials() error {
 }
 
 func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
-	opID := operation.ClientOperationId
+	opName := operation.Name
 
-	logger.Infof("GCE operation %q, waiting...", opID)
+	logger.Infof("GCE operation %q, waiting...", opName)
 	for a := operationAttempts.Start(); a.Next(); {
 		var err error
 		if operation.Status == statusDone {
@@ -179,7 +179,7 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 		}
 		// TODO(ericsnow) We may also need to support gce.ZoneOperations
 		// and gce.RegionOperations.
-		call := gce.GlobalOperations.Get(gce.projectID, opID)
+		call := gce.GlobalOperations.Get(gce.projectID, opName)
 		operation, err = call.Do()
 		if err != nil {
 			return errors.Annotate(err, "waiting for operation to complete")
@@ -193,10 +193,10 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 		for _, err := range operation.Error.Errors {
 			logger.Errorf("GCE operation failed: (%s) %s", err.Code, err.Message)
 		}
-		return errors.Errorf("GCE operation %q failed", opID)
+		return errors.Errorf("GCE operation %q failed", opName)
 	}
 
-	logger.Infof("GCE operation %q finished", opID)
+	logger.Infof("GCE operation %q finished", opName)
 	return nil
 }
 
