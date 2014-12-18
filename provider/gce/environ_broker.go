@@ -127,11 +127,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	// Compose the instance.
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
+	networkInterfaces := getNetworkInterfaces()
 	instance := &compute.Instance{
-		Name: machineID,
 		// MachineType is set in the env.gce.newInstance call.
-		Disks: disks,
-		// We don't set NetworkInterfaces (we use the default).
+		Name:              machineID,
+		Disks:             disks,
+		NetworkInterfaces: networkInterfaces,
 		Metadata: packMetadata(map[string]string{
 			metadataKeyRole: role,
 			// We store a snapshot of what information was used to create
@@ -166,6 +167,17 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.A
 		logger.Infof(msg, *cons.RootDisk, minDiskSize)
 	}
 	return []*compute.AttachedDisk{rootDisk}
+}
+
+func getNetworkInterfaces() []*compute.NetworkInterface {
+	// TODO(ericsnow) Use the env ID for the network name
+	// (instead of default)?
+	// TODO(ericsnow) Make the network name configurable?
+	// TODO(ericsnow) Support multiple networks?
+	spec := networkSpec{}
+	// TODO(ericsnow) Use a different name? Configurable?
+	rootIF := spec.newInterface("External NAT")
+	return []*compute.NetworkInterface{rootIF}
 }
 
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, raw *compute.Instance) *instance.HardwareCharacteristics {

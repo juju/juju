@@ -35,6 +35,10 @@ const (
 	diskModeRW         = "READ_WRITE"
 	diskModeRO         = "READ_ONLY"
 
+	networkDefaultName       = "default"
+	networkPathRoot          = "global/networks/"
+	networkAccessOneToOneNAT = "ONE_TO_ONE_NAT"
+
 	statusDone         = "DONE"
 	statusDown         = "DOWN"
 	statusPending      = "PENDING"
@@ -173,6 +177,8 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 		if operation.Status == statusDone {
 			break
 		}
+		// TODO(ericsnow) We may also need to support gce.ZoneOperations
+		// and gce.RegionOperations.
 		call := gce.GlobalOperations.Get(gce.projectID, opID)
 		operation, err = call.Do()
 		if err != nil {
@@ -436,6 +442,36 @@ func (ds *diskSpec) newAttached() *compute.AttachedDisk {
 		// DeviceName (GCE sets this, persistent disk only)
 	}
 	return &disk
+}
+
+type networkSpec struct {
+	name string
+	// TODO(ericsnow) support a CIDR for internal IP addr range?
+}
+
+func (ns *networkSpec) path() string {
+	name := ns.name
+	if name == "" {
+		name = networkDefaultName
+	}
+	return networkPathRoot + name
+}
+
+func (ns *networkSpec) newInterface(name string) *compute.NetworkInterface {
+	var access []*compute.AccessConfig
+	if name != "" {
+		// This interface has an internet connection.
+		access = append(access, &compute.AccessConfig{
+			Name: name,
+			Type: networkAccessOneToOneNAT, // the default
+			// NatIP (only set if using a reserved public IP)
+		})
+		// TODO(ericsnow) Will we need to support more access configs?
+	}
+	return &compute.NetworkInterface{
+		Network:       ns.path(),
+		AccessConfigs: access,
+	}
 }
 
 // firewallSpec expands a port range set in to compute.FirewallAllowed
