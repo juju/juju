@@ -440,15 +440,15 @@ func SortAddresses(addrs []Address, preferIPv6 bool) {
 }
 
 // DecimalToIPv4 converts a decimal to the dotted quad IP address format.
-func DecimalToIPv4(addr uint32) string {
+func DecimalToIPv4(addr uint32) net.IP {
 	bytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(bytes, addr)
-	return net.IP(bytes).String()
+	return net.IP(bytes)
 }
 
 // IPv4ToDecimal converts a dotted quad IP address to its decimal equivalent.
-func IPv4ToDecimal(ipv4Addr string) (uint32, error) {
-	ip := net.ParseIP(ipv4Addr).To4()
+func IPv4ToDecimal(ipv4Addr net.IP) (uint32, error) {
+	ip := ipv4Addr.To4()
 	if ip == nil {
 		return 0, errors.Errorf("%q is not a valid IPv4 address", ipv4Addr)
 	}

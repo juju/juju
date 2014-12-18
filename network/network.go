@@ -5,6 +5,7 @@ package network
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/juju/loggo"
 )
@@ -41,8 +42,8 @@ type SubnetInfo struct {
 	// portion of the subnet. The provider will only permit allocation
 	// between these limits. If they are empty then none of the subnet is
 	// allocatable.
-	AllocatableIPLow  string
-	AllocatableIPHigh string
+	AllocatableIPLow  net.IP
+	AllocatableIPHigh net.IP
 }
 
 // Info describes a single network interface available on an instance.

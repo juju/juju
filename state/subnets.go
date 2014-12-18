@@ -239,12 +239,12 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	}
 
 	// convert low and high to decimals as the bounds
-	lowDecimal, err := network.IPv4ToDecimal(low)
+	lowDecimal, err := network.IPv4ToDecimal(net.ParseIP(low))
 	if err != nil {
 		// these addresses are validated so should never happen
 		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %v", low, s)
 	}
-	highDecimal, err := network.IPv4ToDecimal(high)
+	highDecimal, err := network.IPv4ToDecimal(net.ParseIP(high))
 	if err != nil {
 		// these addresses are validated so should never happen
 		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %v", high, s)
@@ -262,7 +262,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
 	for iter.Next(&doc) {
 		// skip invalid values. Can't happen anyway as we validate.
-		value, err := network.IPv4ToDecimal(doc.Value)
+		value, err := network.IPv4ToDecimal(net.ParseIP(doc.Value))
 		if err != nil {
 			continue
 		}
@@ -282,7 +282,7 @@ func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
 
 	// convert it back to a dotted-quad
 	newIP := network.DecimalToIPv4(newDecimal)
-	newAddr := network.NewAddress(newIP, network.ScopeUnknown)
+	newAddr := network.NewAddress(newIP.String(), network.ScopeUnknown)
 
 	// and create a new IPAddress from it and return it
 	return s.st.AddIPAddress(newAddr, s.ID())

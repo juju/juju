@@ -843,7 +843,7 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 			continue
 		}
 		// ec2 only uses IPv4 addresses for subnets
-		start, err := network.IPv4ToDecimal(ip.String())
+		start, err := network.IPv4ToDecimal(ip)
 		if err != nil {
 			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
 			continue
