@@ -387,19 +387,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	reportOpenedAPI(st)
 
-	// Check if the network management is disabled.
-	envConfig, err := st.Environment().EnvironConfig()
-	if err != nil {
-		return nil, fmt.Errorf("cannot read environment config: %v", err)
-	}
-	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
-	if disableNetworkManagement {
-		logger.Infof("network management is disabled")
-	}
-	// Check if firewall-mode is "none" to disable the firewaller.
-	firewallMode := envConfig.FirewallMode()
-	disableFirewaller := firewallMode == config.FwNone
-
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
 	for _, job := range entity.Jobs() {
@@ -420,21 +407,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 
-	rsyslogMode := rsyslog.RsyslogModeForwarding
-	runner := newRunner(connectionIsFatal(st), moreImportant)
-	var singularRunner worker.Runner
-	for _, job := range entity.Jobs() {
-		if job == params.JobManageEnviron {
-			rsyslogMode = rsyslog.RsyslogModeAccumulate
-			conn := singularAPIConn{st, st.Agent()}
-			singularRunner, err = newSingularRunner(runner, conn)
-			if err != nil {
-				return nil, fmt.Errorf("cannot make singular API Runner: %v", err)
-			}
-			break
-		}
-	}
-
 	// Before starting any workers, ensure we record the Juju version this machine
 	// agent is running.
 	currentTools := &coretools.Tools{Version: version.Current}
@@ -442,7 +414,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
-	providerType := agentConfig.Value(agent.ProviderType)
+	runner := newRunner(connectionIsFatal(st), moreImportant)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
@@ -458,12 +430,41 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
 	})
 
-	// All other workers must wait for the upgrade steps to complete
-	// before starting.
-	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
+	// All other workers must wait for the upgrade steps to complete before starting.
+	a.startWorkerAfterUpgrade(runner, "api-post-upgrade", func() (worker.Worker, error) {
+		return a.postUpgradeAPIWorker(st, agentConfig, entity)
+	})
+
+	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+func (a *MachineAgent) postUpgradeAPIWorker(
+	st *api.State,
+	agentConfig agent.Config,
+	entity *apiagent.Entity,
+) (worker.Worker, error) {
+
+	runner := newRunner(connectionIsFatal(st), moreImportant)
+
+	rsyslogMode := rsyslog.RsyslogModeForwarding
+	var singularRunner worker.Runner
+	var err error
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageEnviron {
+			rsyslogMode = rsyslog.RsyslogModeAccumulate
+			conn := singularAPIConn{st, st.Agent()}
+			singularRunner, err = newSingularRunner(runner, conn)
+			if err != nil {
+				return nil, fmt.Errorf("cannot make singular API Runner: %v", err)
+			}
+			break
+		}
+	}
+
+	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "reboot", func() (worker.Worker, error) {
+	runner.StartWorker("reboot", func() (worker.Worker, error) {
 		reboot, err := st.Reboot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -474,18 +475,31 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 		return rebootworker.NewReboot(reboot, agentConfig, lock)
 	})
-	a.startWorkerAfterUpgrade(runner, "apiaddressupdater", func() (worker.Worker, error) {
+	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "logger", func() (worker.Worker, error) {
+	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
+	runner.StartWorker("machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
+	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+
+	// Check if the network management is disabled.
+	envConfig, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
+	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
+	if disableNetworkManagement {
+		logger.Infof("network management is disabled")
+	}
+	// Check if firewall-mode is "none" to disable the firewaller.
+	firewallMode := envConfig.FirewallMode()
+	disableFirewaller := firewallMode == config.FwNone
 
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
@@ -496,14 +510,15 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 	intrusiveMode = intrusiveMode && !disableNetworkManagement
-	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+	runner.StartWorker("networker", func() (worker.Worker, error) {
 		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
 	})
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
+	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
-		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
+		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 		})
 	}
@@ -519,13 +534,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
+			runner.StartWorker("deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
+			singularRunner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
 			// TODO(axw) 2013-09-24 bug #1229506
@@ -533,24 +548,24 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// environments are capable of managing ports
 			// centrally.
 			if !disableFirewaller {
-				a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
+				singularRunner.StartWorker("firewaller", func() (worker.Worker, error) {
 					return newFirewaller(st.Firewaller())
 				})
 			} else {
 				logger.Debugf("not starting firewaller worker - firewall-mode is %q", config.FwNone)
 			}
-			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
+			singularRunner.StartWorker("charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
 
 			logger.Infof("starting metric workers")
-			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
+			runner.StartWorker("metriccleanupworker", func() (worker.Worker, error) {
 				return metricworker.NewCleanup(getMetricAPI(st)), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
+			runner.StartWorker("metricsenderworker", func() (worker.Worker, error) {
 				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "identity-file-writer", func() (worker.Worker, error) {
+			runner.StartWorker("identity-file-writer", func() (worker.Worker, error) {
 				inner := func(<-chan struct{}) error {
 					agentConfig := a.CurrentConfig()
 					return agent.WriteSystemIdentityFile(agentConfig)
@@ -564,6 +579,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// the API, report "unknown job type" here.
 		}
 	}
+
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
