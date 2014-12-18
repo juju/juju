@@ -1108,37 +1108,86 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 	for i, test := range []struct {
 		about                 string
-		assertIsolatedChanges func(*State, *Multiwatcher, *Multiwatcher)
+		assertIsolatedChanges func(testWatcher, testWatcher)
 	}{
 		{
 			about: "Add a machine in both environments",
-			assertIsolatedChanges: func(st *State, w1 *Multiwatcher, w2 *Multiwatcher) {
-				m0, err := st.AddMachine("trusty", JobHostUnits)
+			assertIsolatedChanges: func(w1 testWatcher, w2 testWatcher) {
+				m0, err := w1.st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m0.Id(), gc.Equals, "0")
-				s.AssertNoChange(c, w2)
-				s.AssertChange(c, w1)
+
+				w2.AssertNoChange()
+				w1.AssertChange()
+				w1.AssertNoChange()
+			},
+		},
+		{
+			about: "Add a service in both environments",
+			assertIsolatedChanges: func(w1 testWatcher, w2 testWatcher) {
+				AddTestingService(c, w1.st, "wordpress", AddTestingCharm(c, w1.st, "wordpress"), s.owner)
+
+				w2.AssertNoChange()
+				w1.AssertChange()
+				w1.AssertNoChange()
 			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
 		st1 := s.State
-		st2 := s.OtherState
-
 		b1 := newAllWatcherStateBacking(st1)
-		b2 := newAllWatcherStateBacking(st2)
 		aw1 := newStoreManager(b1)
-		defer aw1.Stop()
+		w1 := testWatcher{
+			st: st1,
+			w:  NewMultiwatcher(aw1),
+			c:  c,
+		}
+
+		st2 := s.OtherState
+		b2 := newAllWatcherStateBacking(st2)
 		aw2 := newStoreManager(b2)
-		defer aw2.Stop()
-		w1 := NewMultiwatcher(aw1)
-		w2 := NewMultiwatcher(aw2)
+		w2 := testWatcher{
+			st: st2,
+			w:  NewMultiwatcher(aw2),
+			c:  c,
+		}
 
 		c.Logf("Making changes to environment %s", st1.EnvironUUID())
-		test.assertIsolatedChanges(st1, w1, w2)
+		test.assertIsolatedChanges(w1, w2)
 		c.Logf("Making changes to environment %s", st2.EnvironUUID())
-		test.assertIsolatedChanges(st2, w2, w1)
+		test.assertIsolatedChanges(w2, w1)
+
+		aw1.Stop()
+		aw2.Stop()
+		s.Reset(c)
 	}
+}
+
+type testWatcher struct {
+	w  *Multiwatcher
+	st *State
+	c  *gc.C
+}
+
+func (w *testWatcher) AssertNoChange() {
+	w.c.Assert(w.getChanges(), gc.HasLen, 0)
+}
+
+func (w *testWatcher) AssertChange() {
+	w.c.Assert(len(w.getChanges()), jc.GreaterThan, 0)
+}
+
+func (w *testWatcher) getChanges() (deltas []multiwatcher.Delta) {
+	w.st.StartSync()
+	for {
+		d, err := getNext(w.c, w.w, 1*time.Second) // testing.ShortWait)
+		if err == errTimeout {
+			break
+		}
+		w.c.Assert(err, jc.ErrorIsNil)
+		deltas = append(deltas, d...)
+	}
+	return deltas
 }
 
 func (s *storeManagerStateSuite) newState(c *gc.C) *State {
@@ -1173,22 +1222,6 @@ func (s entityInfoSlice) Less(i, j int) bool {
 }
 
 var errTimeout = errors.New("no change received in sufficient time")
-
-func (s *storeManagerStateSuite) AssertNoChange(c *gc.C, w *Multiwatcher) {
-	s.State.StartSync()
-	s.OtherState.StartSync()
-	d, err := getNext(c, w, testing.ShortWait)
-	c.Assert(err, gc.ErrorMatches, "no change received in sufficient time")
-	c.Assert(d, gc.IsNil)
-}
-
-func (s *storeManagerStateSuite) AssertChange(c *gc.C, w *Multiwatcher) {
-	s.State.StartSync()
-	s.OtherState.StartSync()
-	d, err := getNext(c, w, testing.ShortWait)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(d, gc.NotNil)
-}
 
 func getNext(c *gc.C, w *Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
 	var deltas []multiwatcher.Delta

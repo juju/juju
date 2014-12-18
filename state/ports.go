@@ -229,7 +229,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 		if ports.areNew {
 			// Create a new document.
 			assert := txn.DocMissing
-			return addPortsDocOps(p.st, ports.doc, assert, portRange)
+			return addPortsDocOps(p.st, &ports.doc, assert, portRange)
 		} else {
 			// Update an existing document.
 			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
@@ -389,7 +389,7 @@ func (m *Machine) AllPorts() ([]*Ports, error) {
 // statement for on the openedPorts collection op.
 var addPortsDocOps = addPortsDocOpsFunc
 
-func addPortsDocOpsFunc(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+func addPortsDocOpsFunc(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
 	pDoc.Ports = ports
 	return []txn.Op{{
 		C:      machinesC,

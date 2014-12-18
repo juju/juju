@@ -46,12 +46,9 @@ func (m *Machine) setFlag() error {
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 	}, {
-		C:  rebootC,
-		Id: m.doc.DocID,
-		Insert: rebootDoc{
-			Id:      m.Id(),
-			EnvUUID: m.st.EnvironUUID(),
-		},
+		C:      rebootC,
+		Id:     m.doc.DocID,
+		Insert: &rebootDoc{Id: m.Id()},
 	}}
 	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {

@@ -78,7 +78,7 @@ func (u *Unit) SetMeterStatus(codeRaw, info string) error {
 
 // createMeterStatusOp returns the operation needed to create the meter status
 // document associated with the given globalKey.
-func createMeterStatusOp(st *State, globalKey string, doc meterStatusDoc) txn.Op {
+func createMeterStatusOp(st *State, globalKey string, doc *meterStatusDoc) txn.Op {
 	doc.EnvUUID = st.EnvironUUID()
 	return txn.Op{
 		C:      meterStatusC,
