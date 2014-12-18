@@ -16,3 +16,7 @@ func (c *DefinedCommand) ServiceTag() names.ServiceTag {
 func (c *DefinedCommand) FullSchema() bool {
 	return c.fullSchema
 }
+
+func (c *FetchCommand) ActionTag() names.ActionTag {
+	return c.actionTag
+}
