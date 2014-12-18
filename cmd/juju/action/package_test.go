@@ -76,6 +76,14 @@ func (s *BaseActionSuite) SetUpTest(c *gc.C) {
 	s.command = action.NewSuperCommand()
 }
 
+func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
+	return jujutesting.PatchValue(action.NewActionAPIClient,
+		func(c *action.ActionCommandBase) (action.APIClient, error) {
+			return client, nil
+		},
+	)
+}
+
 func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
 	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
 	c.Assert(err, gc.IsNil)
