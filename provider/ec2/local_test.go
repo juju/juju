@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
@@ -804,8 +805,8 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 		CIDR:              "10.10.0.0/20",
 		ProviderId:        "subnet-0",
 		VLANTag:           0,
-		AllocatableIPLow:  "10.10.0.4",
-		AllocatableIPHigh: "10.10.15.254",
+		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.15.254").To4(),
 	}}
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
