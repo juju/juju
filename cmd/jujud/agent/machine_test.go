@@ -94,27 +94,6 @@ func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type runner interface {
-	Run(*cmd.Context) error
-	Stop() error
-}
-
-// runWithTimeout runs an agent and waits
-// for it to complete within a reasonable time.
-func runWithTimeout(r runner) error {
-	done := make(chan error)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(coretesting.LongWait):
-	}
-	err := r.Stop()
-	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
-}
-
 type commonMachineSuite struct {
 	singularRecord *singularRunnerRecord
 	lxctesting.TestSuite
@@ -232,20 +211,26 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 
 // newAgent returns a new MachineAgent instance
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
-	a := &MachineAgent{}
-	s.InitAgent(c, a, "--machine-id", m.Id(), "--log-to-stderr=true")
-	err := a.ReadConfig(m.Tag().String())
-	c.Assert(err, jc.ErrorIsNil)
-	return a
+	agentConf := AgentConf{DataDir: s.DataDir()}
+	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
+	machineAgentFactory := MachineAgentFactoryFn(&agentConf, &agentConf)
+	return machineAgentFactory(m.Id())
 }
 
 func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	create := func() (cmd.Command, *AgentConf) {
-		a := &MachineAgent{}
-		return a, &a.AgentConf
+		agentConf := AgentConf{DataDir: s.DataDir()}
+		a := NewMachineAgentCmd(
+			MachineAgentFactoryFn(&agentConf, &agentConf),
+			&agentConf,
+			func() agent.Config { return nil },
+		)
+		a.(*machineAgentCmd).logToStdErr = true
+
+		return a, &agentConf
 	}
 	a := CheckAgentCommand(c, create, []string{"--machine-id", "42"})
-	c.Assert(a.(*MachineAgent).MachineId, gc.Equals, "42")
+	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
 }
 
 type MachineSuite struct {
@@ -274,13 +259,15 @@ func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 		{},
 		{"--machine-id", "-4004"},
 	} {
-		err := ParseAgentCommand(&MachineAgent{}, args)
+		var agentConf AgentConf
+		err := ParseAgentCommand(&machineAgentCmd{agentInitializer: &agentConf}, args)
 		c.Assert(err, gc.ErrorMatches, "--machine-id option must be set, and expects a non-negative integer")
 	}
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	a := &MachineAgent{}
+	var agentConf AgentConf
+	a := &machineAgentCmd{agentInitializer: &agentConf}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
@@ -954,7 +941,8 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 
 func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C) {
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	s.RunTestOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
+	a := s.newAgent(c, m)
+	s.RunTestOpenAPIState(c, m, a, initialMachinePassword)
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
 		s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 	})
@@ -1210,6 +1198,7 @@ func (s *MachineSuite) TestCertificateUpdateWorkerUpdatesCertificate(c *gc.C) {
 	// Set up the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
+	a.ReadConfig(names.NewMachineTag(m.Id()).String())
 
 	// Set up check that certificate has been updated.
 	updated := make(chan struct{})
@@ -1653,4 +1642,25 @@ func mktemp(prefix string, content string) string {
 	}
 	f.Close()
 	return f.Name()
+}
+
+type runner interface {
+	Run(*cmd.Context) error
+	Stop() error
+}
+
+// runWithTimeout runs an agent and waits
+// for it to complete within a reasonable time.
+func runWithTimeout(r runner) error {
+	done := make(chan error)
+	go func() {
+		done <- r.Run(nil)
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(coretesting.LongWait):
+	}
+	err := r.Stop()
+	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
