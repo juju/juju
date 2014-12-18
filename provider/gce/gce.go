@@ -6,6 +6,7 @@ package gce
 import (
 	"net/http"
 	"net/mail"
+	"path"
 	"time"
 
 	"code.google.com/p/goauth2/oauth"
@@ -168,6 +169,10 @@ func (gce *gceConnection) verifyCredentials() error {
 	return nil
 }
 
+type operationDoer interface {
+	Do() (*compute.Operation, error)
+}
+
 func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 	opName := operation.Name
 
@@ -177,9 +182,15 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 		if operation.Status == statusDone {
 			break
 		}
-		// TODO(ericsnow) We may also need to support gce.ZoneOperations
-		// and gce.RegionOperations.
-		call := gce.GlobalOperations.Get(gce.projectID, opName)
+
+		var call operationDoer
+		if operation.Zone != "" {
+			call = gce.ZoneOperations.Get(gce.projectID, path.Base(operation.Zone), opName)
+		} else if operation.Region != "" {
+			call = gce.RegionOperations.Get(gce.projectID, path.Base(operation.Region), opName)
+		} else {
+			call = gce.GlobalOperations.Get(gce.projectID, opName)
+		}
 		operation, err = call.Do()
 		if err != nil {
 			return errors.Annotate(err, "waiting for operation to complete")
@@ -321,7 +332,7 @@ func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) e
 	for _, instID := range ids {
 		for _, inst := range instances {
 			if inst.Name == instID {
-				if err := gce.removeInstance(instID, inst.Zone); err != nil {
+				if err := gce.removeInstance(instID, path.Base(inst.Zone)); err != nil {
 					failed = append(failed, instID)
 					logger.Errorf("while removing instance %q: %v", instID, err)
 				}
