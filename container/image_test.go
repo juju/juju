@@ -24,7 +24,7 @@ func (s *imageURLSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageURLSuite) TestImageURL(c *gc.C) {
-	imageURLGetter := container.NewImageURLGetter("https://host:port", "12345", []byte("cert"))
+	imageURLGetter := container.NewImageURLGetter("host:port", "12345", []byte("cert"))
 	imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageURL, gc.Equals, "https://host:port/environment/12345/images/lxc/trusty/amd64/trusty-released-amd64-root.tar.gz")

@@ -31,7 +31,6 @@ const (
 )
 
 var (
-	GetManagedStorage      = (*State).getManagedStorage
 	ToolstorageNewStorage  = &toolstorageNewStorage
 	ImageStorageNewStorage = &imageStorageNewStorage
 	MachineIdLessThan      = machineIdLessThan
