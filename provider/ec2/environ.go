@@ -829,12 +829,12 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	ec2Inst := e.ec2()
 	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
-	resp, err := ec2Inst.Subnets([]string{}, nil)
+	resp, err := ec2Inst.Subnets(nil, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 	}
 
-	results := []network.SubnetInfo{}
+	var results []network.SubnetInfo
 	for _, subnet := range resp.Subnets {
 		cidr := subnet.CIDRBlock
 		ip, ipnet, err := net.ParseCIDR(cidr)
