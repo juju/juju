@@ -131,7 +131,8 @@ func (ps PortSet) PortNumbers(protocol string) []int {
 }
 
 // PortStrings returns a list of stringified ports in the set
-// for the given protocol.
+// for the given protocol. This is strictly a convenience method
+// for situations where another API requires a list of strings.
 func (ps PortSet) PortStrings(protocol string) []string {
 	ports, ok := ps.values[protocol]
 	if !ok {
