@@ -12,13 +12,13 @@ import (
 
 // PortSet is a set-like container of Port values.
 type PortSet struct {
-	values map[string]set.Strings
+	values map[string]set.Ints
 }
 
 // NewPortSet creates a map of protocols to sets of stringified port numbers.
 func NewPortSet(portRanges ...PortRange) PortSet {
 	var result PortSet
-	result.values = make(map[string]set.Strings)
+	result.values = make(map[string]set.Ints)
 	result.AddRanges(portRanges...)
 	return result
 }
@@ -123,16 +123,11 @@ func (ps PortSet) Ports(protocols ...string) []Port {
 // PortNumbers returns a list of all the port numbers in the set for
 // the given protocol.
 func (ps PortSet) PortNumbers(protocol string) []int {
-	var result []int
 	ports, ok := ps.values[protocol]
 	if !ok {
 		return nil
 	}
-	for _, port := range ports.Values() {
-		portNum, _ := strconv.Atoi(port)
-		result = append(result, portNum)
-	}
-	return result
+	return ports.Values()
 }
 
 // PortStrings returns a list of stringified ports in the set
@@ -142,7 +137,12 @@ func (ps PortSet) PortStrings(protocol string) []string {
 	if !ok {
 		return nil
 	}
-	return ports.Values()
+	var result []string
+	for _, port := range ports.Values() {
+		portStr := strconv.Itoa(port)
+		result = append(result, portStr)
+	}
+	return result
 }
 
 // Add adds a port to the PortSet.
@@ -150,12 +150,11 @@ func (ps *PortSet) Add(protocol string, port int) {
 	if ps.values == nil {
 		panic("uninitalised set")
 	}
-	portNum := strconv.Itoa(port)
 	ports, ok := ps.values[protocol]
 	if !ok {
-		ps.values[protocol] = set.NewStrings(portNum)
+		ps.values[protocol] = set.NewInts(port)
 	} else {
-		ports.Add(portNum)
+		ports.Add(port)
 	}
 }
 
@@ -172,8 +171,7 @@ func (ps *PortSet) AddRanges(portRanges ...PortRange) {
 func (ps *PortSet) Remove(protocol string, port int) {
 	ports, ok := ps.values[protocol]
 	if ok {
-		portNum := strconv.Itoa(port)
-		ports.Remove(portNum)
+		ports.Remove(port)
 	}
 }
 
@@ -196,8 +194,7 @@ func (ps *PortSet) Contains(protocol string, port int) bool {
 	if !ok {
 		return false
 	}
-	portNum := strconv.Itoa(port)
-	return ports.Contains(portNum)
+	return ports.Contains(port)
 }
 
 // ContainsRanges returns true if the provided port ranges are
@@ -209,8 +206,7 @@ func (ps *PortSet) ContainsRanges(portRanges ...PortRange) bool {
 			return false
 		}
 		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
-			portNum := strconv.Itoa(p)
-			if !ports.Contains(portNum) {
+			if !ports.Contains(p) {
 				return false
 			}
 		}
