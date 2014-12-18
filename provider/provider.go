@@ -11,6 +11,7 @@ const (
 	Azure     = "azure"
 	Dummy     = "dummy"
 	EC2       = "ec2"
+	GCE       = "gce"
 	Joyent    = "joyent"
 	Local     = "local"
 	MAAS      = "maas"
