@@ -37,6 +37,7 @@ func NewSuperCommand() cmd.Command {
 			Purpose:     actionPurpose,
 		})
 	actionCmd.Register(envcmd.Wrap(&DefinedCommand{}))
+	actionCmd.Register(envcmd.Wrap(&DoCommand{}))
 	actionCmd.Register(envcmd.Wrap(&FetchCommand{}))
 	return actionCmd
 }
