@@ -122,17 +122,25 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 	disks := getDisks(spec, args.Constraints)
 	networkInterfaces := getNetworkInterfaces()
+	authKeys, err := gceSSHKeys()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	metadata := packMetadata(map[string]string{
+		metadataKeyRole: role,
+		// We store a snapshot of what information was used to create
+		// this instance. It is only informational.
+		metadataKeyCloudInit: string(userData),
+		metadataKeySSHKeys:   authKeys,
+	})
+
 	instance := &compute.Instance{
 		// MachineType is set in the env.gce.newInstance call.
 		Name:              machineID,
 		Disks:             disks,
 		NetworkInterfaces: networkInterfaces,
-		Metadata: packMetadata(map[string]string{
-			metadataKeyRole: role,
-			// We store a snapshot of what information was used to create
-			// this instance. It is only informational.
-			metadataKeyCloudInit: string(userData),
-		}),
+		Metadata:          metadata,
 	}
 
 	availabilityZones, err := env.parseAvailabilityZones(args)

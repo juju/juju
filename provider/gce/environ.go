@@ -23,6 +23,9 @@ import (
 const (
 	metadataKeyRole      = "juju-machine-role"
 	metadataKeyCloudInit = "metadata_cloud-init_user-data"
+	// GCE uses this specific key for authentication (*handwaving*)
+	// https://cloud.google.com/compute/docs/instances#sshkeys
+	metadataKeySSHKeys = "sshKeys"
 
 	roleState = "state"
 

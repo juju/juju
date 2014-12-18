@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/mail"
 	"path"
+	"strings"
 	"time"
 
 	"code.google.com/p/goauth2/oauth"
@@ -505,6 +506,27 @@ func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 		firewall.Allowed = append(firewall.Allowed, &allowed)
 	}
 	return &firewall
+}
+
+// gceSSHKeys returns our authorizedKeys with
+// the username prepended to it. This is the format that
+// GCE uses for its sshKeys metadata.
+func gceSSHKeys() (string, error) {
+	var userKeys string
+	// TODO(wwitzel3) is this the only username we need?
+	users := []string{"ubuntu"}
+	allKeys, err := config.ReadAuthorizedKeys("")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	keys := strings.Split(allKeys, "\n")
+	for _, key := range keys {
+		for _, user := range users {
+			userKeys += user + ":" + key + "\n"
+		}
+	}
+	return userKeys, nil
 }
 
 func packMetadata(data map[string]string) *compute.Metadata {
