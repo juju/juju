@@ -157,9 +157,10 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.A
 		size = int64(common.MiBToGiB(*cons.RootDisk))
 	}
 	dSpec := diskSpec{
-		sizeHint: size,
-		imageURL: imageBasePath + spec.Image.Id,
-		boot:     true,
+		sizeHint:   size,
+		imageURL:   imageBasePath + spec.Image.Id,
+		boot:       true,
+		autoDelete: true,
 	}
 	rootDisk := dSpec.newAttached()
 	if cons.RootDisk != nil && dSpec.size() == int64(minDiskSize) {

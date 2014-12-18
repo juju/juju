@@ -311,10 +311,6 @@ func (gce *gceConnection) removeInstance(id, zone string) error {
 	if err := gce.waitOperation(operation); err != nil {
 		return errors.Trace(err)
 	}
-
-	// Clean up the instance's root disk.
-	// TODO(ericsnow) Set the instance's disk auto-delete instead?
-	err = gce.removeDisk(id, zone)
 	return errors.Trace(err)
 }
 
@@ -415,11 +411,12 @@ func checkInstStatus(inst *compute.Instance, statuses ...string) bool {
 
 type diskSpec struct {
 	// sizeHint is the requested disk size in Gigabytes.
-	sizeHint int64
-	imageURL string
-	boot     bool
-	scratch  bool
-	readonly bool
+	sizeHint   int64
+	imageURL   string
+	boot       bool
+	scratch    bool
+	readonly   bool
+	autoDelete bool
 }
 
 func (ds *diskSpec) size() int64 {
@@ -441,9 +438,10 @@ func (ds *diskSpec) newAttached() *compute.AttachedDisk {
 	}
 
 	disk := compute.AttachedDisk{
-		Type: diskType,
-		Boot: ds.boot,
-		Mode: mode,
+		Type:       diskType,
+		Boot:       ds.boot,
+		Mode:       mode,
+		AutoDelete: ds.autoDelete,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
 			// DiskName (defaults to instance name)
 			DiskSizeGb: ds.size(),
