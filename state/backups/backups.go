@@ -229,12 +229,11 @@ func (b *backups) Remove(id string) error {
 // old instances
 // * updates config in all agents.
 func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id) error {
-	// TODO(perrito666) when upload is properly coded files will be added
-	// to the backups index and this method can just leave.
-	backupReader, err := backupFile(backupId, b)
+	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
-		return errors.Annotate(err, "cannot obtain a backup")
+		return errors.Annotatef(err, "could not fetch backup %q", backupId)
 	}
+
 	defer backupReader.Close()
 
 	workspace, err := NewArchiveWorkspaceReader(backupReader)
@@ -243,10 +242,6 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	}
 	defer workspace.Close()
 
-	meta, err := workspace.Metadata()
-	if err != nil {
-		return errors.Annotatef(err, "cannot read metadata file, this backup is either too old or corrupt")
-	}
 	// TODO(perrito666) Create a compatibility table of sorts.
 	version := meta.Origin.Version
 

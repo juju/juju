@@ -8,9 +8,7 @@ package backups
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 	"text/template"
 	"time"
 
@@ -218,29 +216,4 @@ func runViaSSH(addr string, script string) error {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())
 	}
 	return nil
-}
-
-// backupFile is due to be obsoleted when upload supports adding
-// files to the backups db and Backups.Get becoms the only way
-// to obtain a backup file handler.
-func backupFile(backupId string, backup Backups) (io.ReadCloser, error) {
-	var (
-		fileHandler io.ReadCloser
-		err         error
-	)
-	switch {
-	case strings.HasPrefix(backupId, FilenamePrefix):
-		fileName := strings.TrimPrefix(backupId, FilenamePrefix)
-		fileName = restoreUserHome + fileName
-		if fileHandler, err = os.Open(fileName); err != nil {
-			return nil, errors.Annotatef(err, "error opening %q", fileName)
-		}
-	case backupId == "":
-		return nil, errors.Errorf("no backup file or id given")
-	default:
-		if _, fileHandler, err = backup.Get(backupId); err != nil {
-			return nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
-		}
-	}
-	return fileHandler, nil
 }

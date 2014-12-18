@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&mongoRestoreSuite{})
@@ -33,4 +34,69 @@ func (s *mongoRestoreSuite) TestMongorestorePathNoDefaultMongo(c *gc.C) {
 	mongoPath, err := backups.MongorestorePath()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
+}
+
+func (s *mongoRestoreSuite) TestMongoRestoreArgsForVersion(c *gc.C) {
+	versionNumber := version.Number{}
+	versionNumber.Major = 1
+	versionNumber.Minor = 21
+	args, err := backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(args, gc.DeepEquals, []string{"--drop", "--dbpath", "/var/lib/juju/db", "/some/fake/path"})
+
+	versionNumber.Major = 1
+	versionNumber.Minor = 22
+	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(args, gc.DeepEquals, []string{"--drop", "--oplogReplay", "--dbpath", "/var/lib/juju/db", "/some/fake/path"})
+
+	versionNumber.Major = 0
+	versionNumber.Minor = 0
+	args, err = backups.MongoRestoreArgsForVersion(versionNumber, "/some/fake/path")
+	c.Assert(err, gc.ErrorMatches, "this backup file is incompatible with the current version of juju")
+}
+
+func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
+	var argsVersion version.Number
+	var newMongoDumpPath string
+	ranArgs := make([][]string, 0, 3)
+	ranCommands := []string{}
+
+	restorePathCalled := false
+
+	runCommand := func(command string, mongoRestoreArgs ...string) error {
+		mgoArgs := make([]string, len(mongoRestoreArgs), len(mongoRestoreArgs))
+		for i, v := range mongoRestoreArgs {
+			mgoArgs[i] = v
+		}
+		ranArgs = append(ranArgs, mgoArgs)
+		ranCommands = append(ranCommands, command)
+		return nil
+	}
+	s.PatchValue(backups.RunCommand, runCommand)
+
+	restorePath := func() (string, error) {
+		restorePathCalled = true
+		return "/fake/mongo/restore/path", nil
+	}
+	s.PatchValue(backups.RestorePath, restorePath)
+
+	ver := version.Number{Major: 1, Minor: 22}
+	args := []string{"a", "set", "of", "args"}
+	restoreArgsForVersion := func(versionNumber version.Number, mongoDumpPath string) ([]string, error) {
+		newMongoDumpPath = mongoDumpPath
+		argsVersion = versionNumber
+		return args, nil
+	}
+	s.PatchValue(backups.RestoreArgsForVersion, restoreArgsForVersion)
+
+	err := backups.PlaceNewMongo("fakemongopath", ver)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(argsVersion, gc.DeepEquals, ver)
+	c.Assert(newMongoDumpPath, gc.Equals, "fakemongopath")
+	expectedCommands := []string{"initctl", "/fake/mongo/restore/path", "initctl"}
+	c.Assert(ranCommands, gc.DeepEquals, expectedCommands)
+	c.Assert(len(ranArgs), gc.Equals, 3)
+	expectedArgs := [][]string{[]string{"stop", "juju-db"}, []string{"a", "set", "of", "args"}, []string{"start", "juju-db"}}
+	c.Assert(ranArgs, gc.DeepEquals, expectedArgs)
 }

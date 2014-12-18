@@ -167,3 +167,7 @@ func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadat
 var OsStat = &osStat
 var ExecLookPath = &execLookPath
 var MongorestorePath = mongorestorePath
+var PlaceNewMongo = placeNewMongo
+var MongoRestoreArgsForVersion = mongoRestoreArgsForVersion
+var RestorePath = &restorePath
+var RestoreArgsForVersion = &restoreArgsForVersion

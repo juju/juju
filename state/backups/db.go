@@ -253,15 +253,18 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	}
 }
 
+var restorePath = mongorestorePath
+var restoreArgsForVersion = mongoRestoreArgsForVersion
+
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.
 func placeNewMongo(newMongoDumpPath string, ver version.Number) error {
-	mongoRestore, err := mongorestorePath()
+	mongoRestore, err := restorePath()
 	if err != nil {
 		return errors.Annotate(err, "mongorestore not available")
 	}
 
-	mgoRestoreArgs, err := mongoRestoreArgsForVersion(ver, newMongoDumpPath)
+	mgoRestoreArgs, err := restoreArgsForVersion(ver, newMongoDumpPath)
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
