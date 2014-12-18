@@ -223,7 +223,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		a := NewMachineAgentCmd(
 			MachineAgentFactoryFn(&agentConf, &agentConf),
 			&agentConf,
-			func() agent.Config { return nil },
+			&agentConf,
 		)
 		a.(*machineAgentCmd).logToStdErr = true
 
@@ -709,7 +709,7 @@ func (s *MachineSuite) assertJobWithAPI(
 	job state.MachineJob,
 	test func(agent.Config, *api.State),
 ) {
-	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st eitherState) {
+	s.assertAgentOpensState(c, &reportOpenedAPI, job, func(cfg agent.Config, st interface{}) {
 		test(cfg, st.(*api.State))
 	})
 }
@@ -723,7 +723,7 @@ func (s *MachineSuite) assertJobWithState(
 	if !paramsJob.NeedsState() {
 		c.Fatalf("%v does not use state", paramsJob)
 	}
-	s.assertAgentOpensState(c, &reportOpenedState, job, func(cfg agent.Config, st eitherState) {
+	s.assertAgentOpensState(c, &reportOpenedState, job, func(cfg agent.Config, st interface{}) {
 		test(cfg, st.(*state.State))
 	})
 }
@@ -734,9 +734,9 @@ func (s *MachineSuite) assertJobWithState(
 // passed to the test function for further checking.
 func (s *MachineSuite) assertAgentOpensState(
 	c *gc.C,
-	reportOpened *func(eitherState),
+	reportOpened *func(interface{}),
 	job state.MachineJob,
-	test func(agent.Config, eitherState),
+	test func(agent.Config, interface{}),
 ) {
 	stm, conf, _ := s.primeAgent(c, version.Current, job)
 	a := s.newAgent(c, stm)
@@ -746,8 +746,8 @@ func (s *MachineSuite) assertAgentOpensState(
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
 
-	agentAPIs := make(chan eitherState, 1)
-	s.AgentSuite.PatchValue(reportOpened, func(st eitherState) {
+	agentAPIs := make(chan interface{}, 1)
+	s.AgentSuite.PatchValue(reportOpened, func(st interface{}) {
 		select {
 		case agentAPIs <- st:
 		default:
@@ -1312,8 +1312,8 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 		return true, nil
 	})
 
-	stateOpened := make(chan eitherState, 1)
-	s.AgentSuite.PatchValue(&reportOpenedState, func(st eitherState) {
+	stateOpened := make(chan interface{}, 1)
+	s.AgentSuite.PatchValue(&reportOpenedState, func(st interface{}) {
 		select {
 		case stateOpened <- st:
 		default:

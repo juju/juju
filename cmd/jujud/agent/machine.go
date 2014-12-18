@@ -93,7 +93,6 @@ var (
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions.
 	useMultipleCPUs          = utils.UseMultipleCPUs
-	NewRunner                = worker.NewRunner
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
@@ -102,8 +101,8 @@ var (
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-	reportOpenedState        = func(eitherState) {}
-	reportOpenedAPI          = func(eitherState) {}
+	reportOpenedState        = func(interface{}) {}
+	reportOpenedAPI          = func(interface{}) {}
 	getMetricAPI             = metricAPI
 )
 
@@ -126,20 +125,28 @@ func init() {
 	}
 }
 
-// eitherState can be either a *state.State or a *api.State.
-type eitherState interface{}
-
+// AgentInitializer handles initializing a type for use as a Jujud
+// agent.
 type AgentInitializer interface {
 	AddFlags(*gnuflag.FlagSet)
 	CheckArgs([]string) error
 }
 
+// AgentConfigWriter encapsulates disk I/O operations with the agent
+// config.
 type AgentConfigWriter interface {
+	// ReadConfig reads the config for the given tag from disk.
 	ReadConfig(tag string) error
+	// ChangeConfig executes the given AgentConfigMutator in a
+	// thread-safe context.
 	ChangeConfig(AgentConfigMutator) error
+	// CurrentConfig returns a copy of the in-memory agent config.
 	CurrentConfig() agent.Config
 }
 
+// NewMachineAgentCmd creates a Command which handles parsing
+// command-line arguments and instantiating and running a
+// MachineAgent.
 func NewMachineAgentCmd(
 	machineAgentFactory func(string) *MachineAgent,
 	agentInitializer AgentInitializer,
@@ -160,9 +167,11 @@ type machineAgentCmd struct {
 	currentConfig       AgentConfigWriter
 	machineAgentFactory func(string) *MachineAgent
 
-	// The following are set via command-line flags
+	// This group is for debugging purposes.
 	logToStdErr bool
-	machineId   string
+
+	// The following are set via command-line flags.
+	machineId string
 }
 
 // Init is called by the cmd system to initialize the structure for
@@ -202,12 +211,13 @@ func (a *machineAgentCmd) Init(args []string) error {
 	return cmdutil.SwitchProcessToRollingLogs(log)
 }
 
+// Run instantiates a MachineAgent and runs it.
 func (a *machineAgentCmd) Run(c *cmd.Context) error {
-
 	machineAgent := a.machineAgentFactory(a.machineId)
 	return machineAgent.Run(c)
 }
 
+// SetFlags adds the requisite flags to run this command.
 func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
@@ -221,18 +231,24 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 	}
 }
 
-func MachineAgentFactoryFn(agentConfWriter AgentConfigWriter, apiAddressSetter apiaddressupdater.APIAddressSetter) func(string) *MachineAgent {
+// MachineAgentFactoryFn returns a function which instantiates a
+// MachineAgent given a machineId.
+func MachineAgentFactoryFn(
+	agentConfWriter AgentConfigWriter,
+	apiAddressSetter apiaddressupdater.APIAddressSetter,
+) func(string) *MachineAgent {
 	return func(machineId string) *MachineAgent {
 		return NewMachineAgent(
 			machineId,
 			agentConfWriter,
 			apiAddressSetter,
 			NewUpgradeWorkerContext(),
-			NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
+			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
 		)
 	}
 }
 
+// NewMachineAgent instantiates a new MachineAgent.
 func NewMachineAgent(
 	machineId string,
 	agentConfWriter AgentConfigWriter,
@@ -251,7 +267,8 @@ func NewMachineAgent(
 	}
 }
 
-// MachineAgent is a cmd.Command responsible for running a machine agent.
+// MachineAgent is responsible for tying together all functionality
+// needed to orchestarte a Jujud instance which controls a machine.
 type MachineAgent struct {
 	AgentConfigWriter
 
@@ -537,7 +554,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
-	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
@@ -565,7 +582,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
 
-	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	var singularRunner worker.Runner
@@ -597,7 +614,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return rebootworker.NewReboot(reboot, agentConfig, lock)
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
+		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a.apiAddressSetter), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
@@ -650,7 +667,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
+	if providerType != provider.Local || a.machineId != bootstrapMachineId {
 		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 		})
@@ -842,7 +859,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	registerSimplestreamsDataSource(stor)
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
-	runner := NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 	singularRunner, err := newSingularRunner(runner, singularStateConn)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
