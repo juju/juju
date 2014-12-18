@@ -825,7 +825,7 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
+// yet (i.e. when called initially or when a new subnet was created).
 func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	ec2Inst := e.ec2()
 	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
