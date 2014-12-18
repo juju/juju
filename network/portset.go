@@ -104,7 +104,8 @@ func collapsePorts(protocol string, ports ...int) (result []PortRange) {
 }
 
 // PortNumbers returns a list of all the port numbers in the set for
-// the given protocol.
+// the given protocols. If no protocols are provided then all known
+// protocols in the set are used.
 func (ps PortSet) Ports(protocols ...string) []Port {
 	if len(protocols) == 0 {
 		protocols = ps.Protocols()
