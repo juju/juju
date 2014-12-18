@@ -799,15 +799,14 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	subnets, err := env.Subnets("")
 	c.Assert(err, jc.ErrorIsNil)
 
-	defaultSubnets := []network.SubnetInfo{
+	defaultSubnets := []network.SubnetInfo{{
 		// this is defined in the test server for the default-vpc
-		{
-			CIDR:              "10.10.0.0/20",
-			ProviderId:        "subnet-0",
-			VLANTag:           0,
-			AllocatableIPLow:  "10.10.0.4",
-			AllocatableIPHigh: "10.10.15.254",
-		}}
+		CIDR:              "10.10.0.0/20",
+		ProviderId:        "subnet-0",
+		VLANTag:           0,
+		AllocatableIPLow:  "10.10.0.4",
+		AllocatableIPHigh: "10.10.15.254",
+	}}
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
