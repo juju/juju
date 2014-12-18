@@ -302,6 +302,7 @@ func (gce *gceConnection) removeInstance(id, zone string) error {
 	}
 
 	// Clean up the instance's root disk.
+	// TODO(ericsnow) Set the instance's disk auto-delete instead?
 	err = gce.removeDisk(id, zone)
 	return errors.Trace(err)
 }
