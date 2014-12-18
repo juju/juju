@@ -324,7 +324,10 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	// A "raw" transaction is needed here because this function gets
+	// called before database migraions have run so we don't
+	// necessarily want the env UUID added to the id.
+	if err := m.st.runRawTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
 	m.doc.Tools = tools
