@@ -23,7 +23,7 @@ github.com/juju/testing	git	839334678c08487fb1c6ab032893fc8c85d74756
 github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	
 github.com/juju/utils	git	37016f78b9989f99222a5e09a26e25db124c1b17	2014-12-05T10:56:08+08:00
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	
-gopkg.in/juju/charm.v4	git	f7e5613ff75457d2700d1c3269546cc903ea0471	
+gopkg.in/juju/charm.v4	git	fc2ec430f9825a89900f35c825b9e0292c4136d4	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
 gopkg.in/natefinch/lumberjack.v2	git	d28785c2f27cd682d872df46ccd8232843629f54	
 gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	
