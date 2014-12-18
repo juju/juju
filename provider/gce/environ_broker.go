@@ -145,8 +145,13 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(ericsnow) Is there a better way to do this?
+	diskInit := instance.Disks[0].InitializeParams
 	if err := env.gce.addInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if instance.Disks[0].InitializeParams == nil {
+		instance.Disks[0].InitializeParams = diskInit
 	}
 	return instance, nil
 }
