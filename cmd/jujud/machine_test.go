@@ -1338,6 +1338,9 @@ func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn sing
 	if err != nil {
 		return nil, err
 	}
+	if r.startedWorkers == nil {
+		r.startedWorkers = set.NewStrings()
+	}
 	return &fakeSingularRunner{
 		Runner: sr,
 		record: r,

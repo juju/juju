@@ -602,7 +602,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	var expectedSeries set.Strings
+	expectedSeries := set.NewStrings()
 	if exploded {
 		for _, series := range version.SupportedSeries() {
 			os, err := version.GetOSFromSeries(series)

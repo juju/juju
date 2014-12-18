@@ -33,6 +33,9 @@ type fakeContext struct {
 
 func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
 	ctx.mu.Lock()
+	if ctx.deployed == nil {
+		ctx.deployed = set.NewStrings()
+	}
 	ctx.deployed.Add(unitName)
 	ctx.mu.Unlock()
 	return nil
@@ -40,7 +43,9 @@ func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
 
 func (ctx *fakeContext) RecallUnit(unitName string) error {
 	ctx.mu.Lock()
-	ctx.deployed.Remove(unitName)
+	if ctx.deployed != nil {
+		ctx.deployed.Remove(unitName)
+	}
 	ctx.mu.Unlock()
 	return nil
 }

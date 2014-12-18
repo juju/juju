@@ -170,7 +170,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		}
 		env.supportedArchitectures = supportedArchitectures
 	} else {
-		var architectures set.Strings
+		architectures := set.NewStrings()
 		for _, image := range bootImages {
 			architectures.Add(image.architecture)
 		}
@@ -196,7 +196,7 @@ func (env *maasEnviron) allBootImages() ([]bootImage, error) {
 		return nil, err
 	}
 	var allBootImages []bootImage
-	var seen set.Strings
+	seen := set.NewStrings()
 	for _, nodegroup := range nodegroups {
 		bootImages, err := env.nodegroupBootImages(nodegroup)
 		if err != nil {
@@ -296,7 +296,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var architectures set.Strings
+	architectures := set.NewStrings()
 	for _, inst := range allInstances {
 		inst := inst.(*maasInstance)
 		arch, _, err := inst.architecture()

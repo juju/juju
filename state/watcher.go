@@ -271,7 +271,7 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	coll, closer := w.coll()
 	defer closer()
 
-	var ids set.Strings
+	ids := set.NewStrings()
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
@@ -418,7 +418,7 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (set.Strings, error) {
-	var serviceNames set.Strings
+	serviceNames := set.NewStrings()
 	var doc minUnitsDoc
 	newMinUnits, closer := w.st.getCollection(minUnitsC)
 	defer closer()
@@ -708,6 +708,7 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 		sw:            ru.WatchScope(),
 		updates:       make(chan watcher.Change),
 		out:           make(chan params.RelationUnitsChange),
+		watching:      set.NewStrings(),
 	}
 	go func() {
 		defer w.finish()
@@ -1658,7 +1659,7 @@ func (w *idPrefixWatcher) Changes() <-chan []string {
 // responding to Changes requests
 func (w *idPrefixWatcher) loop() error {
 	var (
-		changes set.Strings
+		changes = set.NewStrings()
 		in      = (<-chan watcher.Change)(w.source)
 		out     = (chan<- []string)(w.sink)
 	)
@@ -1729,7 +1730,7 @@ func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(in
 // initial pre-loads the id's that have already been added to the
 // collection that would not normally trigger the watcher
 func (w *idPrefixWatcher) initial() (set.Strings, error) {
-	var ids set.Strings
+	ids := set.NewStrings()
 	var doc struct {
 		DocId string `bson:"_id"`
 	}

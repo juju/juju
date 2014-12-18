@@ -68,20 +68,12 @@ func (m *Metadata) Finish(size int64, checksum string) error {
 	format := ChecksumFormat
 	finished := time.Now().UTC()
 
-	if err := m.SetFile(size, checksum, format); err != nil {
+	if err := m.SetFileInfo(size, checksum, format); err != nil {
 		return errors.Annotate(err, "unexpected failure")
 	}
 	m.Finished = &finished
 
 	return nil
-}
-
-// Copy returns a deep copy of the metadata.
-func (m *Metadata) Copy() filestorage.Document {
-	fileMeta := m.FileMetadata.Copy().(*filestorage.FileMetadata)
-	copied := *m
-	copied.FileMetadata = *fileMeta
-	return &copied
 }
 
 type flatMetadata struct {

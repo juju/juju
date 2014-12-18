@@ -92,7 +92,7 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 	// so we can see if we need to build any locally. If we need
 	// to, only then do we validate that we can upload (which
 	// involves a potentially expensive SupportedArchitectures call).
-	var archSeries set.Strings
+	archSeries := set.NewStrings()
 	for _, tools := range toolsList {
 		archSeries.Add(tools.Version.Arch + tools.Version.Series)
 	}

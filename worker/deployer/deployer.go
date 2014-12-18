@@ -56,8 +56,9 @@ type Context interface {
 // via ctx, taking a machine id to operate on.
 func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 	d := &Deployer{
-		st:  st,
-		ctx: ctx,
+		st:       st,
+		ctx:      ctx,
+		deployed: set.NewStrings(),
 	}
 	return worker.NewStringsWorker(d)
 }
