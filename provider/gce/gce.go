@@ -514,7 +514,7 @@ func unpackMetadata(data *compute.Metadata) map[string]string {
 		return nil
 	}
 
-	var result map[string]string
+	result := make(map[string]string)
 	for _, item := range data.Items {
 		result[item.Key] = item.Value
 	}
