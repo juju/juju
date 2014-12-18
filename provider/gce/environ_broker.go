@@ -40,13 +40,8 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 
-	inst := &environInstance{
-		id:   instance.Id(raw.Name),
-		env:  env,
-		zone: raw.Zone,
-	}
-	inst.update(env, raw)
-	logger.Infof("started instance %q in %q", inst.Id(), raw.Zone)
+	inst := newInstance(raw, env)
+	logger.Infof("started instance %q in zone %q", inst.Id(), inst.zone)
 
 	// Build the result.
 

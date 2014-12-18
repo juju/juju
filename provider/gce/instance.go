@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"path"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
@@ -22,10 +24,11 @@ type environInstance struct {
 var _ instance.Instance = (*environInstance)(nil)
 
 func newInstance(raw *compute.Instance, env *environ) *environInstance {
+	// TODO(ericsnow) Is using path.Base on the zone the right approach?
 	return &environInstance{
 		id:   instance.Id(raw.Name),
 		env:  env,
-		zone: raw.Zone,
+		zone: path.Base(raw.Zone),
 		gce:  raw,
 	}
 }
