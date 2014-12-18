@@ -68,6 +68,7 @@ type Event struct {
 	InstanceId   string
 	Args         []string
 	TemplateArgs []string
+	EnvArgs      []string
 }
 
 type ContainerFactory interface {
@@ -122,7 +123,7 @@ func (mock *mockContainer) configFilename() string {
 }
 
 // Create creates a new container based on the given template.
-func (mock *mockContainer) Create(configFile, template string, extraArgs []string, templateArgs []string) error {
+func (mock *mockContainer) Create(configFile, template string, extraArgs []string, templateArgs []string, envArgs []string) error {
 	if mock.getState() != golxc.StateUnknown {
 		return fmt.Errorf("container is already created")
 	}
@@ -136,7 +137,7 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 		return err
 	}
 	mock.setState(golxc.StateStopped)
-	mock.factory.notify(eventArgs(Created, mock.name, extraArgs, templateArgs))
+	mock.factory.notify(eventArgs(Created, mock.name, extraArgs, templateArgs, envArgs))
 	return nil
 }
 
@@ -201,7 +202,7 @@ func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs [
 		return nil, err
 	}
 
-	mock.factory.notify(eventArgs(Cloned, mock.name, extraArgs, templateArgs))
+	mock.factory.notify(eventArgs(Cloned, mock.name, extraArgs, templateArgs, nil))
 	return container, nil
 }
 
@@ -315,11 +316,11 @@ func (mock *mockFactory) List() (result []golxc.Container, err error) {
 }
 
 func event(action Action, instanceId string) Event {
-	return Event{action, instanceId, nil, nil}
+	return Event{action, instanceId, nil, nil, nil}
 }
 
-func eventArgs(action Action, instanceId string, args []string, template []string) Event {
-	return Event{action, instanceId, args, template}
+func eventArgs(action Action, instanceId string, args, template, envArgs []string) Event {
+	return Event{action, instanceId, args, template, envArgs}
 }
 
 func (mock *mockFactory) notify(event Event) {

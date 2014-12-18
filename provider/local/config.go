@@ -123,6 +123,10 @@ func (c *environConfig) bootstrapIPAddress() string {
 	return addr
 }
 
+func (c *environConfig) stateServerAddr() string {
+	return fmt.Sprintf("localhost:%d", c.Config.APIPort())
+}
+
 func (c *environConfig) storagePort() int {
 	return c.attrs["storage-port"].(int)
 }
