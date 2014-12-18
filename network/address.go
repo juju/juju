@@ -450,7 +450,7 @@ func DecimalToIPv4(addr uint32) net.IP {
 func IPv4ToDecimal(ipv4Addr net.IP) (uint32, error) {
 	ip := ipv4Addr.To4()
 	if ip == nil {
-		return 0, errors.Errorf("%q is not a valid IPv4 address", ipv4Addr)
+		return 0, errors.Errorf("%q is not a valid IPv4 address", ipv4Addr.String())
 	}
 	return binary.BigEndian.Uint32([]byte(ip)), nil
 }
