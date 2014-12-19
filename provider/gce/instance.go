@@ -22,12 +22,13 @@ type environInstance struct {
 var _ instance.Instance = (*environInstance)(nil)
 
 func newInstance(raw *compute.Instance, env *environ) *environInstance {
-	return &environInstance{
+	inst := environInstance{
 		id:   instance.Id(raw.Name),
 		env:  env,
 		zone: zoneName(raw),
-		gce:  raw,
 	}
+	inst.update(env, raw)
+	return &inst
 }
 
 func (inst *environInstance) getInstance() *compute.Instance {
