@@ -186,7 +186,7 @@ func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
 
 		var call operationDoer
 		if operation.Zone != "" {
-			call = gce.ZoneOperations.Get(gce.projectID, path.Base(operation.Zone), opName)
+			call = gce.ZoneOperations.Get(gce.projectID, zoneName(operation), opName)
 		} else if operation.Region != "" {
 			call = gce.RegionOperations.Get(gce.projectID, path.Base(operation.Region), opName)
 		} else {
@@ -329,7 +329,7 @@ func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) e
 	for _, instID := range ids {
 		for _, inst := range instances {
 			if inst.Name == instID {
-				if err := gce.removeInstance(instID, path.Base(inst.Zone)); err != nil {
+				if err := gce.removeInstance(instID, zoneName(inst)); err != nil {
 					failed = append(failed, instID)
 					logger.Errorf("while removing instance %q: %v", instID, err)
 				}
@@ -453,6 +453,20 @@ func (ds *diskSpec) newAttached() *compute.AttachedDisk {
 		// DeviceName (GCE sets this, persistent disk only)
 	}
 	return &disk
+}
+
+func zoneName(value interface{}) string {
+	// We trust that path.Base will always give the right answer
+	// when used.
+	switch typed := value.(type) {
+	case *compute.Instance:
+		return path.Base(typed.Zone)
+	case *compute.Operation:
+		return path.Base(typed.Zone)
+	default:
+		// TODO(ericsnow) Fail?
+		return ""
+	}
 }
 
 type networkSpec struct {

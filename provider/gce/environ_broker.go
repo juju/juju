@@ -205,14 +205,15 @@ func getNetworkInterfaces() []*compute.NetworkInterface {
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, raw *compute.Instance) *instance.HardwareCharacteristics {
 	rawSize := raw.Disks[0].InitializeParams.DiskSizeGb
 	rootDiskSize := uint64(rawSize) * 1024
+	zone := zoneName(raw)
 	hwc := instance.HardwareCharacteristics{
-		Arch:     &spec.Image.Arch,
-		Mem:      &spec.InstanceType.Mem,
-		CpuCores: &spec.InstanceType.CpuCores,
-		CpuPower: spec.InstanceType.CpuPower,
-		RootDisk: &rootDiskSize,
+		Arch:             &spec.Image.Arch,
+		Mem:              &spec.InstanceType.Mem,
+		CpuCores:         &spec.InstanceType.CpuCores,
+		CpuPower:         spec.InstanceType.CpuPower,
+		RootDisk:         &rootDiskSize,
+		AvailabilityZone: &zone,
 		// Tags: not supported in GCE.
-		AvailabilityZone: &raw.Zone,
 	}
 	return &hwc
 }
