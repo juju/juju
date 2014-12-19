@@ -25,7 +25,7 @@ var logger = loggo.GetLogger("juju.worker.certupdater")
 type CertificateUpdater struct {
 	addressWatcher AddressWatcher
 	getter         StateServingInfoGetter
-	setter         func(info params.StateServingInfo) error
+	setter         StateServingInfoSetter
 	configGetter   EnvironConfigGetter
 }
 
