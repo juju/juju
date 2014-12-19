@@ -45,7 +45,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// Build the result.
 
 	inst := newInstance(raw, env)
-	hwc := env.getHardwareCharacteristics(spec, raw)
+	hwc := env.getHardwareCharacteristics(spec, inst)
 
 	result := environs.StartInstanceResult{
 		Instance: inst,
@@ -127,7 +127,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(ericsnow) Is there a better way to do this?
+	// TODO(ericsnow) Drop carrying InitializeParams over once
+	// gceConnection.disk is working?
 	diskInit := instance.Disks[0].InitializeParams
 	if err := env.gce.addInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
 		return nil, errors.Trace(err)
@@ -201,17 +202,14 @@ func getNetworkInterfaces() []*compute.NetworkInterface {
 	return []*compute.NetworkInterface{rootIF}
 }
 
-func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, raw *compute.Instance) *instance.HardwareCharacteristics {
-	rawSize := raw.Disks[0].InitializeParams.DiskSizeGb
-	rootDiskSize := uint64(rawSize) * 1024
-	zone := zoneName(raw)
+func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	hwc := instance.HardwareCharacteristics{
 		Arch:             &spec.Image.Arch,
 		Mem:              &spec.InstanceType.Mem,
 		CpuCores:         &spec.InstanceType.CpuCores,
 		CpuPower:         spec.InstanceType.CpuPower,
-		RootDisk:         &rootDiskSize,
-		AvailabilityZone: &zone,
+		RootDisk:         &inst.rootDiskMB,
+		AvailabilityZone: &inst.zone,
 		// Tags: not supported in GCE.
 	}
 	return &hwc
