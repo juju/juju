@@ -21,7 +21,11 @@ import (
 )
 
 const (
-	metadataKeyRole      = "juju-machine-role"
+	metadataKeyRole = "juju-machine-role"
+	// This is defined by the cloud-init code:
+	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
+	// http://cloudinit.readthedocs.org/en/latest/
+	// https://cloud.google.com/compute/docs/metadata
 	metadataKeyCloudInit = "user-data"
 	// GCE uses this specific key for authentication (*handwaving*)
 	// https://cloud.google.com/compute/docs/instances#sshkeys
