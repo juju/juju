@@ -40,12 +40,11 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	inst := newInstance(raw, env)
-	logger.Infof("started instance %q in zone %q", inst.Id(), inst.zone)
+	logger.Infof("started instance %q in zone %q", raw.Name, zoneName(raw))
 
 	// Build the result.
 
+	inst := newInstance(raw, env)
 	hwc := env.getHardwareCharacteristics(spec, raw)
 
 	result := environs.StartInstanceResult{
