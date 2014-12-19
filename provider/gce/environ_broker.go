@@ -141,8 +141,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 
 func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
-	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
-
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -159,12 +157,18 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 		role = roleState
 	}
 
+	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
 	return packMetadata(map[string]string{
 		metadataKeyRole: role,
-		// We store a snapshot of what information was used to create
-		// this instance. It is only informational.
+		// We store a gz snapshop of information that is used by
+		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
+		// for the instance. Due to a limitation with GCE and binary blobs
+		// we base64 encode the data before storing it.
 		metadataKeyCloudInit: b64UserData,
-		metadataKeySSHKeys:   authKeys,
+		// Valid encoding values are determined by the cloudinit GCE data source.
+		// See: http://cloudinit.readthedocs.org
+		metadataKeyEncoding: "base64",
+		metadataKeySSHKeys:  authKeys,
 	}), nil
 }
 

@@ -27,6 +27,7 @@ const (
 	// http://cloudinit.readthedocs.org/en/latest/
 	// https://cloud.google.com/compute/docs/metadata
 	metadataKeyCloudInit = "user-data"
+	metadataKeyEncoding  = "user-data-encoding"
 	// GCE uses this specific key for authentication (*handwaving*)
 	// https://cloud.google.com/compute/docs/instances#sshkeys
 	metadataKeySSHKeys = "sshKeys"
