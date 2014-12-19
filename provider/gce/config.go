@@ -157,7 +157,8 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
 
-	// TODO(ericsnow) Follow up with someone on this.
+	// TODO(ericsnow) Follow up with someone on if it is appropriate
+	// to call Apply here.
 	cfg, err = ecfg.Config.Apply(ecfg.attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
