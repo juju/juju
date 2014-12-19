@@ -795,6 +795,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return worker.NewSimpleWorker(workerLoop), nil
 			})
 			certChangedChan := make(chan params.StateServingInfo)
+			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
@@ -803,8 +804,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return nil
 				})
 			}
-			newApiserverWorker := a.apiserverWorkerStarter(st, certChangedChan)
-			runner.StartWorker("apiserver", newApiserverWorker)
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
 				return newCertificateUpdater(m, agentConfig, st, stateServingSetter), nil
 			})
@@ -840,7 +839,7 @@ func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged <-cha
 	return func() (worker.Worker, error) { return a.newApiserverWorker(st, certChanged) }
 }
 
-func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged <-chan params.StateServingInfo) (*apiserver.Server, error) {
+func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged <-chan params.StateServingInfo) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	// If the configuration does not have the required information,
 	// it is currently not a recoverable error, so we kill the whole
