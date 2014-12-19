@@ -820,9 +820,19 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 		{
 			about: "retrieves charm info",
 			// Use wordpress for tests so that we can compare Provides and Requires.
-			charm:           "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: nil},
-			url:             "local:quantal/wordpress-3",
+			charm: "wordpress",
+			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
+				"fakeaction": charm.ActionSpec{
+					Description: "No description",
+					Params: map[string]interface{}{
+						"type":        "object",
+						"title":       "fakeaction",
+						"description": "No description",
+						"properties":  map[string]interface{}{},
+					},
+				},
+			}},
+			url: "local:quantal/wordpress-3",
 		},
 		{
 			about:           "invalid URL",

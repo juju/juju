@@ -507,7 +507,8 @@ func getAssertActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func(ids []
 
 func getAddAction(s *FilterSuite, c *gc.C) func(name string) string {
 	return func(name string) string {
-		newAction, err := s.unit.AddAction(name, nil)
+		newAction, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
+		// newAction, err := s.unit.AddAction(name, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		newId := newAction.Id()
 		return newId
@@ -528,13 +529,13 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	assertNoChange()
 
 	// Add a new action; event occurs
-	testId := addAction("snapshot")
+	testId := addAction("fakeaction")
 	assertChange([]string{testId})
 
 	// Make sure bundled events arrive properly.
 	testIds := make([]string, 5)
 	for i := 0; i < 5; i++ {
-		testIds[i] = addAction("name" + string(i))
+		testIds[i] = addAction("fakeaction")
 	}
 
 	assertChange(testIds)

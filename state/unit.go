@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -1560,10 +1560,51 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	return nil
 }
 
+// ActionSpecsByName is a map of action names to their respective ActionSpec.
+type ActionSpecsByName map[string]charm.ActionSpec
+
 // AddAction adds a new Action of type name and using arguments payload to
-// this Unit, and returns its ID
+// this Unit, and returns its ID.
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	specs, err := u.ActionSpecs()
+	if err != nil {
+		return nil, err
+	}
+	spec, ok := specs[name]
+	if !ok {
+		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+	}
+	_, err = spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
 	return u.st.EnqueueAction(u.Tag(), name, payload)
+}
+
+// ActionSpecs gets the ActionSpec map for the Unit's charm.
+func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
+	none := ActionSpecsByName{}
+	curl, _ := u.CharmURL()
+	if curl == nil {
+		// If unit charm URL is not yet set, fall back to service
+		svc, err := u.Service()
+		if err != nil {
+			return none, err
+		}
+		curl, _ = svc.CharmURL()
+		if curl == nil {
+			return none, errors.Errorf("no URL set for service %q", svc.Name())
+		}
+	}
+	ch, err := u.st.Charm(curl)
+	if err != nil {
+		return none, errors.Annotatef(err, "unable to get charm with URL %q", curl.String())
+	}
+	chActions := ch.Actions()
+	if chActions == nil || len(chActions.ActionSpecs) == 0 {
+		return none, errors.Errorf("no actions defined on charm %q", ch.String())
+	}
+	return chActions.ActionSpecs, nil
 }
 
 // CancelAction removes a pending Action from the queue for this

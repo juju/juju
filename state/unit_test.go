@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -1683,27 +1683,66 @@ func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }
 
-func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
-	// Add simple service and two units
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+func (s *UnitSuite) TestActionSpecs(c *gc.C) {
+	basicActions := `
+snapshot:
+  params:
+    outfile:
+      type: string
+`[1:]
 
-	unit1, err := mysql.AddUnit()
+	wordpress := s.AddTestingService(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
+	unit1, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	specs, err := unit1.ActionSpecs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(specs, jc.DeepEquals, state.ActionSpecsByName{
+		"snapshot": charm.ActionSpec{
+			Description: "No description",
+			Params: map[string]interface{}{
+				"type":        "object",
+				"title":       "snapshot",
+				"description": "No description",
+				"properties": map[string]interface{}{
+					"outfile": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
+	// An actions.yaml which permits actions by the following names
+	basicActions := `
+action-a-a:
+action-a-b:
+action-a-c:
+action-b-a:
+action-b-b:
+`[1:]
+
+	// Add simple service and two units
+	dummy := s.AddTestingService(c, "dummy", s.AddActionsCharm(c, "dummy", basicActions, 1))
+
+	unit1, err := dummy.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := mysql.AddUnit()
+	unit2, err := dummy.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
-	_, err = unit1.AddAction("action1.1", nil)
+	_, err = unit1.AddAction("action-a-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction("action1.2", nil)
+	_, err = unit1.AddAction("action-a-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction("action1.3", nil)
+	_, err = unit1.AddAction("action-a-c", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = unit2.AddAction("action2.1", nil)
+	_, err = unit2.AddAction("action-b-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit2.AddAction("action2.2", nil)
+	_, err = unit2.AddAction("action-b-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only
@@ -1712,7 +1751,7 @@ func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions1), gc.Equals, 3)
 	for _, action := range actions1 {
-		c.Assert(action.Name(), gc.Matches, "^action1\\..")
+		c.Assert(action.Name(), gc.Matches, "^action-a-.")
 	}
 
 	// Verify that calling Actions on unit2 returns only
@@ -1721,6 +1760,6 @@ func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions2), gc.Equals, 2)
 	for _, action := range actions2 {
-		c.Assert(action.Name(), gc.Matches, "^action2\\..")
+		c.Assert(action.Name(), gc.Matches, "^action-b-.")
 	}
 }

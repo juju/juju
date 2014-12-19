@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -2518,7 +2518,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction("fakeaction", nil)
+	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.State.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))
