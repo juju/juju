@@ -62,7 +62,7 @@ type ServerConfig struct {
 	DataDir     string
 	LogDir      string
 	Validator   LoginValidator
-	CertChanged <-chan params.StateServingInfo
+	CertChanged chan params.StateServingInfo
 }
 
 // changeCertListener wraps a TLS net.Listener.
@@ -70,18 +70,30 @@ type ServerConfig struct {
 // blocked while the TLS certificate is updated.
 type changeCertListener struct {
 	net.Listener
+	tomb tomb.Tomb
 
 	// A mutex used to block accept operations.
 	m sync.Mutex
 
 	// A channel used to pass in new certificate information.
-	certChanged <-chan params.StateServingInfo
+	certChanged chan params.StateServingInfo
 
 	// The config to update with any new certificate.
 	config *tls.Config
+}
 
-	// Used to stop the certificate update routine.
-	stop chan bool
+func newChangeCertListener(tlsListener net.Listener, certChanged chan params.StateServingInfo, config *tls.Config) changeCertListener {
+	cl := changeCertListener{
+		Listener:    tlsListener,
+		certChanged: certChanged,
+		config:      config,
+	}
+	go func() {
+		defer cl.tomb.Done()
+		defer close(cl.certChanged)
+		cl.tomb.Kill(cl.processCertChanges())
+	}()
+	return cl
 }
 
 // Accept waits for and returns the next connection to the listener.
@@ -93,21 +105,20 @@ func (cl changeCertListener) Accept() (c net.Conn, err error) {
 
 // Close closes the listener.
 func (cl changeCertListener) Close() error {
-	close(cl.stop)
+	cl.tomb.Kill(nil)
 	return cl.Listener.Close()
 }
 
 // processCertChanges receives new certificate information and
 // calls a method to update the listener's certificate.
-func (cl changeCertListener) processCertChanges() {
-	go func() {
-		select {
-		case info := <-cl.certChanged:
-			cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
-		case <-cl.stop:
-			return
-		}
-	}()
+func (cl changeCertListener) processCertChanges() error {
+	select {
+	case info := <-cl.certChanged:
+		cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
+	case <-cl.tomb.Dying():
+		return tomb.ErrDying
+	}
+	return nil
 }
 
 // updateCertificate generates a new TLS certificate and assigns it
@@ -155,12 +166,7 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		Certificates: []tls.Certificate{tlsCert},
 	}
 	tlsListener := tls.NewListener(lis, &tlsConfig)
-	changeCertListener := changeCertListener{
-		Listener:    tlsListener,
-		certChanged: cfg.CertChanged,
-		config:      &tlsConfig,
-	}
-	changeCertListener.processCertChanges()
+	changeCertListener := newChangeCertListener(tlsListener, cfg.CertChanged, &tlsConfig)
 	go srv.run(changeCertListener)
 	return srv, nil
 }

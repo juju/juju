@@ -835,11 +835,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
 
-func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged <-chan params.StateServingInfo) func() (worker.Worker, error) {
+func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged chan params.StateServingInfo) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) { return a.newApiserverWorker(st, certChanged) }
 }
 
-func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged <-chan params.StateServingInfo) (worker.Worker, error) {
+func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	// If the configuration does not have the required information,
 	// it is currently not a recoverable error, so we kill the whole
