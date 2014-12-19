@@ -31,10 +31,6 @@ func newInstance(raw *compute.Instance, env *environ) *environInstance {
 	return &inst
 }
 
-func (inst *environInstance) getInstance() *compute.Instance {
-	return inst.gce
-}
-
 func (inst *environInstance) Id() instance.Id {
 	return inst.id
 }
