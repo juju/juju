@@ -15,10 +15,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 )
+
+// Note: This provider/environment does *not* implement storage.
 
 const (
 	metadataKeyRole = "juju-machine-role"
@@ -53,9 +54,8 @@ type environ struct {
 
 	name string
 
-	lock    sync.Mutex
-	ecfg    *environConfig
-	storage storage.Storage
+	lock sync.Mutex
+	ecfg *environConfig
 
 	gce *gceConnection
 }
@@ -103,13 +103,6 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	}
 	env.ecfg = &environConfig{cfg, cfg.UnknownAttrs()}
 
-	// Build storage.
-	storage, err := newStorage(env.ecfg)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	env.storage = storage
-
 	// Connect and authenticate.
 	env.gce = env.ecfg.newConnection()
 	err = env.gce.connect(env.ecfg.auth())
@@ -132,11 +125,6 @@ func (env *environ) getSnapshot() *environ {
 // Config returns the configuration data with which the env was created.
 func (env *environ) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
-}
-
-// Storage returns storage specific to the environment.
-func (env *environ) Storage() storage.Storage {
-	return env.getSnapshot().storage
 }
 
 // Bootstrap creates a new instance, chosing the series and arch out of
