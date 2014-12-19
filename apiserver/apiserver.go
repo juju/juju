@@ -56,12 +56,71 @@ type LoginValidator func(params.LoginRequest) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Cert      []byte
-	Key       []byte
-	Tag       names.Tag
-	DataDir   string
-	LogDir    string
-	Validator LoginValidator
+	Cert        []byte
+	Key         []byte
+	Tag         names.Tag
+	DataDir     string
+	LogDir      string
+	Validator   LoginValidator
+	CertChanged <-chan params.StateServingInfo
+}
+
+// changeCertListener wraps a TLS net.Listener.
+// It allows the acceptance of new connections to be
+// blocked while the TLS certificate is updated.
+type changeCertListener struct {
+	net.Listener
+
+	// A mutex used to block accept operations.
+	m sync.Mutex
+
+	// A channel used to pass in new certificate information.
+	certChanged <-chan params.StateServingInfo
+
+	// The config to update with any new certificate.
+	config *tls.Config
+
+	// Used to stop the certificate update routine.
+	stop chan bool
+}
+
+// Accept waits for and returns the next connection to the listener.
+func (cl changeCertListener) Accept() (c net.Conn, err error) {
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	return cl.Listener.Accept()
+}
+
+// Close closes the listener.
+func (cl changeCertListener) Close() error {
+	close(cl.stop)
+	return cl.Listener.Close()
+}
+
+// processCertChanges receives new certificate information and
+// calls a method to update the listener's certificate.
+func (cl changeCertListener) processCertChanges() {
+	go func() {
+		select {
+		case info := <-cl.certChanged:
+			cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
+		case <-cl.stop:
+			return
+		}
+	}()
+}
+
+// updateCertificate generates a new TLS certificate and assigns it
+// to the TLS listener.
+func (cl changeCertListener) updateCertificate(cert, key []byte) {
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	if tlsCert, err := tls.X509KeyPair(cert, key); err != nil {
+		logger.Errorf("cannot create new TLS certificate: %v", err)
+	} else {
+		logger.Infof("updating api server certificate")
+		cl.config.Certificates = []tls.Certificate{tlsCert}
+	}
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -92,10 +151,17 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
-	lis = tls.NewListener(lis, &tls.Config{
+	tlsConfig := tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
-	})
-	go srv.run(lis)
+	}
+	tlsListener := tls.NewListener(lis, &tlsConfig)
+	changeCertListener := changeCertListener{
+		Listener:    tlsListener,
+		certChanged: cfg.CertChanged,
+		config:      &tlsConfig,
+	}
+	changeCertListener.processCertChanges()
+	go srv.run(changeCertListener)
 	return srv, nil
 }
 
