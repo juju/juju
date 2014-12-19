@@ -221,8 +221,9 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	// Turn *compute.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
-	for _, inst := range instances {
-		results = append(results, newInstance(inst, env))
+	for _, raw := range instances {
+		inst := newInstance(raw, env)
+		results = append(results, inst)
 	}
 
 	return results, err
