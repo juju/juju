@@ -52,7 +52,8 @@ const (
 	statusTerminated   = "TERMINATED"
 	statusUp           = "UP"
 
-	operationTimeout = 60 // seconds
+	// TODO(ericsnow) Tune this timeout.
+	operationTimeout = 300 // 5 minutes
 
 	// minDiskSize is the minimum/default size (in megabytes) for GCE
 	// disks. GCE does not currently have a minimum disk size.
@@ -62,7 +63,8 @@ const (
 var (
 	operationAttempts = utils.AttemptStrategy{
 		Total: operationTimeout * time.Second,
-		Delay: 10 * time.Second,
+		// TODO(ericsnow) Tune this delay.
+		Delay: 1 * time.Second,
 	}
 )
 
