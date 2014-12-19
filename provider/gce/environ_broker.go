@@ -5,6 +5,7 @@ package gce
 
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"
+	"encoding/base64"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
@@ -140,6 +141,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 
 func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
+
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -160,7 +163,7 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 		metadataKeyRole: role,
 		// We store a snapshot of what information was used to create
 		// this instance. It is only informational.
-		metadataKeyCloudInit: string(userData),
+		metadataKeyCloudInit: b64UserData,
 		metadataKeySSHKeys:   authKeys,
 	}), nil
 }
