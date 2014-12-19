@@ -343,6 +343,13 @@ func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) e
 	return nil
 }
 
+func (gce *gceConnection) disk(name string) (*compute.Disk, error) {
+	name = path.Base(name) // In case the disk's resource URL is passed in.
+
+	// TODO(ericsnow) Use the disk API.
+	return nil, errNotImplemented
+}
+
 func (gce *gceConnection) removeDisk(id, zone string) error {
 	call := gce.Disks.Delete(gce.projectID, zone, id)
 	operation, err := call.Do()
