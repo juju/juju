@@ -171,6 +171,8 @@ func (gce *gceConnection) verifyCredentials() error {
 }
 
 type operationDoer interface {
+	// Do starts some operation and returns a description of it. If an
+	// error is returned then the operation was not initiated.
 	Do() (*compute.Operation, error)
 }
 
