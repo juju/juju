@@ -85,21 +85,27 @@ type changeCertListener struct {
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (cl changeCertListener) Accept() (c net.Conn, err error) {
+func (cl *changeCertListener) Accept() (c net.Conn, err error) {
 	cl.m.Lock()
 	defer cl.m.Unlock()
 	return cl.Listener.Accept()
 }
 
 // Close closes the listener.
-func (cl changeCertListener) Close() error {
+func (cl *changeCertListener) Close() error {
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	if cl.stop == nil {
+		return nil
+	}
 	close(cl.stop)
+	cl.stop = nil
 	return cl.Listener.Close()
 }
 
 // processCertChanges receives new certificate information and
 // calls a method to update the listener's certificate.
-func (cl changeCertListener) processCertChanges() {
+func (cl *changeCertListener) processCertChanges() {
 	go func() {
 		select {
 		case info := <-cl.certChanged:
@@ -112,7 +118,7 @@ func (cl changeCertListener) processCertChanges() {
 
 // updateCertificate generates a new TLS certificate and assigns it
 // to the TLS listener.
-func (cl changeCertListener) updateCertificate(cert, key []byte) {
+func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 	cl.m.Lock()
 	defer cl.m.Unlock()
 	if tlsCert, err := tls.X509KeyPair(cert, key); err != nil {
@@ -155,10 +161,11 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		Certificates: []tls.Certificate{tlsCert},
 	}
 	tlsListener := tls.NewListener(lis, &tlsConfig)
-	changeCertListener := changeCertListener{
+	changeCertListener := &changeCertListener{
 		Listener:    tlsListener,
 		certChanged: cfg.CertChanged,
 		config:      &tlsConfig,
+		stop:        make(chan bool),
 	}
 	changeCertListener.processCertChanges()
 	go srv.run(changeCertListener)

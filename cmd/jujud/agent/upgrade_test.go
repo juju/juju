@@ -490,7 +490,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		runner.Kill()
 		runner.Wait()
 	}()
-	runner.StartWorker("apiserver", a.apiserverWorkerStarter(s.State))
+	runner.StartWorker("apiserver", a.apiserverWorkerStarter(s.State, nil))
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(
 		s.APIState,
 		[]multiwatcher.MachineJob{multiwatcher.JobManageEnviron},
