@@ -455,6 +455,24 @@ func (ds *diskSpec) newAttached() *compute.AttachedDisk {
 	return &disk
 }
 
+func rootDisk(inst *compute.Instance) *compute.AttachedDisk {
+	return inst.Disks[0]
+}
+
+func diskSizeGB(disk interface{}) (int64, error) {
+	switch typed := disk.(type) {
+	case *compute.Disk:
+		return typed.SizeGb, nil
+	case *compute.AttachedDisk:
+		if typed.InitializeParams == nil {
+			return 0, errors.Errorf("attached disk missing init params: %v", disk)
+		}
+		return typed.InitializeParams.DiskSizeGb, nil
+	default:
+		return 0, errors.Errorf("disk has unrecognized type: %v", disk)
+	}
+}
+
 func zoneName(value interface{}) string {
 	// We trust that path.Base will always give the right answer
 	// when used.
