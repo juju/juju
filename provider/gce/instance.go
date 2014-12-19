@@ -27,7 +27,7 @@ func newInstance(raw *compute.Instance, env *environ) *environInstance {
 		env:  env,
 		zone: zoneName(raw),
 	}
-	inst.update(env, raw)
+	inst.update(raw)
 	return &inst
 }
 
@@ -39,19 +39,19 @@ func (inst *environInstance) Status() string {
 	return inst.gce.Status
 }
 
-func (inst *environInstance) update(env *environ, newInst *compute.Instance) {
+func (inst *environInstance) update(newInst *compute.Instance) {
 	inst.gce = newInst
 }
 
 func (inst *environInstance) Refresh() error {
 	env := inst.env.getSnapshot()
 
-	gInst, err := env.gce.instance(inst.zone, string(inst.id))
+	raw, err := env.gce.instance(inst.zone, string(inst.id))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	inst.update(env, gInst)
+	inst.update(raw)
 	return nil
 }
 
