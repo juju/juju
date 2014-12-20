@@ -76,13 +76,13 @@ type changeCertListener struct {
 	m sync.Mutex
 
 	// A channel used to pass in new certificate information.
-	certChanged chan params.StateServingInfo
+	certChanged <-chan params.StateServingInfo
 
 	// The config to update with any new certificate.
 	config *tls.Config
 }
 
-func newChangeCertListener(tlsListener net.Listener, certChanged chan params.StateServingInfo, config *tls.Config) changeCertListener {
+func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) changeCertListener {
 	cl := changeCertListener{
 		Listener:    tlsListener,
 		certChanged: certChanged,
@@ -90,7 +90,6 @@ func newChangeCertListener(tlsListener net.Listener, certChanged chan params.Sta
 	}
 	go func() {
 		defer cl.tomb.Done()
-		defer close(cl.certChanged)
 		cl.tomb.Kill(cl.processCertChanges())
 	}()
 	return cl

@@ -1161,7 +1161,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter,
+		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
@@ -1185,7 +1185,7 @@ func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer
 func (s *MachineSuite) TestMachineAgentDoesNotRunsCertificateUpdateWorkerForNonStateServer(c *gc.C) {
 	started := make(chan struct{})
 	newUpdater := func(certupdater.AddressWatcher, certupdater.StateServingInfoGetter, certupdater.EnvironConfigGetter,
-		certupdater.StateServingInfoSetter,
+		certupdater.StateServingInfoSetter, chan params.StateServingInfo,
 	) worker.Worker {
 		close(started)
 		return worker.NewNoOpWorker()
