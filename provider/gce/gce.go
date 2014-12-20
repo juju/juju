@@ -52,18 +52,19 @@ const (
 	statusTerminated   = "TERMINATED"
 	statusUp           = "UP"
 
-	// TODO(ericsnow) Tune this timeout.
-	operationTimeout = 300 // 5 minutes
-
 	// minDiskSize is the minimum/default size (in megabytes) for GCE
 	// disks. GCE does not currently have a minimum disk size.
 	minDiskSize int64 = 0
 )
 
 var (
-	operationAttempts = utils.AttemptStrategy{
-		Total: operationTimeout * time.Second,
-		// TODO(ericsnow) Tune this delay.
+	// TODO(ericsnow) Tune the timeouts and delays.
+	attemptsLong = utils.AttemptStrategy{
+		Total: 300 * time.Second, // 5 minutes
+		Delay: 2 * time.Second,
+	}
+	attemptsShort = utils.AttemptStrategy{
+		Total: 60 * time.Second,
 		Delay: 1 * time.Second,
 	}
 )
@@ -178,41 +179,51 @@ type operationDoer interface {
 	Do() (*compute.Operation, error)
 }
 
-func (gce *gceConnection) waitOperation(operation *compute.Operation) error {
-	opName := operation.Name
+func (gce *gceConnection) checkOperation(op *compute.Operation) (*compute.Operation, error) {
+	var call operationDoer
+	if op.Zone != "" {
+		zone := zoneName(op)
+		call = gce.ZoneOperations.Get(gce.projectID, zone, op.Name)
+	} else if op.Region != "" {
+		region := path.Base(op.Region)
+		call = gce.RegionOperations.Get(gce.projectID, region, op.Name)
+	} else {
+		call = gce.GlobalOperations.Get(gce.projectID, op.Name)
+	}
 
-	logger.Infof("GCE operation %q, waiting...", opName)
-	for a := operationAttempts.Start(); a.Next(); {
-		var err error
-		if operation.Status == statusDone {
+	updated, err := call.Do()
+	if err != nil {
+		return nil, errors.Annotatef(err, "request for GCE operation %q failed", op.Name)
+	}
+	return updated, nil
+}
+
+func (gce *gceConnection) waitOperation(op *compute.Operation, attempts utils.AttemptStrategy) error {
+	started := time.Now()
+	logger.Infof("GCE operation %q, waiting...", op.Name)
+	for a := attempts.Start(); a.Next(); {
+		if op.Status == statusDone {
 			break
 		}
 
-		var call operationDoer
-		if operation.Zone != "" {
-			call = gce.ZoneOperations.Get(gce.projectID, zoneName(operation), opName)
-		} else if operation.Region != "" {
-			call = gce.RegionOperations.Get(gce.projectID, path.Base(operation.Region), opName)
-		} else {
-			call = gce.GlobalOperations.Get(gce.projectID, opName)
-		}
-		operation, err = call.Do()
+		var err error
+		op, err = gce.checkOperation(op)
 		if err != nil {
-			return errors.Annotate(err, "waiting for operation to complete")
+			return errors.Trace(err)
 		}
 	}
-	if operation.Status != statusDone {
-		msg := "timed out after %d seconds waiting for GCE operation to finish"
-		return errors.Errorf(msg, operationTimeout)
+	if op.Status != statusDone {
+		msg := "GCE operation %q failed: timed out after %d seconds"
+		return errors.Errorf(msg, op.Name, time.Now().Sub(started)/time.Second)
 	}
-	if operation.Error != nil {
-		for _, err := range operation.Error.Errors {
-			logger.Errorf("GCE operation failed: (%s) %s", err.Code, err.Message)
+	if op.Error != nil {
+		for _, err := range op.Error.Errors {
+			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
 		}
-		return errors.Errorf("GCE operation %q failed", opName)
+		return errors.Errorf("GCE operation %q failed", op.Name)
 	}
 
-	logger.Infof("GCE operation %q finished", opName)
+	logger.Infof("GCE operation %q finished", op.Name)
 	return nil
 }
 
@@ -235,7 +246,7 @@ func (gce *gceConnection) addInstance(inst *compute.Instance, machineType string
 			// We are guaranteed the insert failed at the point.
 			return errors.Annotate(err, "sending new instance request")
 		}
-		waitErr := gce.waitOperation(operation)
+		waitErr := gce.waitOperation(operation, attemptsLong)
 
 		// Check if the instance was created.
 		realized, err := gce.instance(zoneName, inst.Name)
@@ -313,7 +324,7 @@ func (gce *gceConnection) removeInstance(id, zone string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := gce.waitOperation(operation); err != nil {
+	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(err)
@@ -360,7 +371,7 @@ func (gce *gceConnection) removeDisk(id, zone string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = gce.waitOperation(operation)
+	err = gce.waitOperation(operation, attemptsLong)
 	return errors.Trace(err)
 }
 
@@ -395,7 +406,7 @@ func (gce *gceConnection) setFirewall(name string, firewall *compute.Firewall) e
 			return errors.Trace(err)
 		}
 	}
-	if err := gce.waitOperation(operation); err != nil {
+	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
