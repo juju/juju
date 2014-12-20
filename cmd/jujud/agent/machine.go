@@ -794,19 +794,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				workerLoop := lease.WorkerLoop(st)
 				return worker.NewSimpleWorker(workerLoop), nil
 			})
-			newApiserverWorker := a.apiserverWorkerStarter(st)
-			runner.StartWorker("apiserver", newApiserverWorker)
+			certChangedChan := make(chan params.StateServingInfo, 1)
+			runner.StartWorker("apiserver", a.apiserverWorkerStarter(st, certChangedChan))
 			var stateServingSetter certupdater.StateServingInfoSetter = func(info params.StateServingInfo) error {
 				return a.ChangeConfig(func(config agent.ConfigSetter) error {
 					config.SetStateServingInfo(info)
-					logger.Debugf("stop api server worker")
-					runner.StopWorker("apiserver")
-					logger.Debugf("start new apiserver worker with new certificate")
-					return runner.StartWorker("apiserver", newApiserverWorker)
+					logger.Infof("update apiserver worker with new certificate")
+					certChangedChan <- info
+					return nil
 				})
 			}
 			a.startWorkerAfterUpgrade(runner, "certupdater", func() (worker.Worker, error) {
-				return newCertificateUpdater(m, agentConfig, st, stateServingSetter), nil
+				return newCertificateUpdater(m, agentConfig, st, stateServingSetter, certChangedChan), nil
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -836,11 +835,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // journaling is enabled.
 var stateWorkerDialOpts mongo.DialOpts
 
-func (a *MachineAgent) apiserverWorkerStarter(st *state.State) func() (worker.Worker, error) {
-	return func() (worker.Worker, error) { return a.newApiserverWorker(st) }
+func (a *MachineAgent) apiserverWorkerStarter(st *state.State, certChanged chan params.StateServingInfo) func() (worker.Worker, error) {
+	return func() (worker.Worker, error) { return a.newApiserverWorker(st, certChanged) }
 }
 
-func (a *MachineAgent) newApiserverWorker(st *state.State) (worker.Worker, error) {
+func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan params.StateServingInfo) (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 	// If the configuration does not have the required information,
 	// it is currently not a recoverable error, so we kill the whole
@@ -866,12 +865,13 @@ func (a *MachineAgent) newApiserverWorker(st *state.State) (worker.Worker, error
 		return nil, err
 	}
 	return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-		Cert:      cert,
-		Key:       key,
-		Tag:       tag,
-		DataDir:   dataDir,
-		LogDir:    logDir,
-		Validator: a.limitLogins,
+		Cert:        cert,
+		Key:         key,
+		Tag:         tag,
+		DataDir:     dataDir,
+		LogDir:      logDir,
+		Validator:   a.limitLogins,
+		CertChanged: certChanged,
 	})
 }
 
