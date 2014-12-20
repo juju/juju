@@ -111,11 +111,15 @@ func (cl changeCertListener) Close() error {
 // processCertChanges receives new certificate information and
 // calls a method to update the listener's certificate.
 func (cl changeCertListener) processCertChanges() error {
-	select {
-	case info := <-cl.certChanged:
-		cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
-	case <-cl.tomb.Dying():
-		return tomb.ErrDying
+	for {
+		select {
+		case info := <-cl.certChanged:
+			if info.Cert != "" {
+				cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
+			}
+		case <-cl.tomb.Dying():
+			return tomb.ErrDying
+		}
 	}
 	return nil
 }
