@@ -176,6 +176,7 @@ func StartInstanceWithParams(
 		machineNonce,
 		imagemetadata.ReleasedStream,
 		series,
+		true,
 		networks,
 		stateInfo,
 		apiInfo,

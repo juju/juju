@@ -5,9 +5,11 @@ package apiserver
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,7 +68,7 @@ type ServerConfig struct {
 }
 
 // changeCertListener wraps a TLS net.Listener.
-// It allows the acceptance of new connections to be
+// It allows connection handshakes to be
 // blocked while the TLS certificate is updated.
 type changeCertListener struct {
 	net.Listener
@@ -80,6 +82,22 @@ type changeCertListener struct {
 
 	// The config to update with any new certificate.
 	config *tls.Config
+}
+
+// changeCertConn wraps a TLS net.Conn.
+// It allows connection handshakes to be
+// blocked while the TLS certificate is updated.
+type changeCertConn struct {
+	net.Conn
+	m *sync.Mutex
+}
+
+// Handshake runs the client or server handshake
+// protocol if it has not yet been run.
+func (c *changeCertConn) Handshake() error {
+	c.m.Lock()
+	defer c.m.Unlock()
+	return c.Conn.(*tls.Conn).Handshake()
 }
 
 func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
@@ -97,9 +115,13 @@ func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.S
 
 // Accept waits for and returns the next connection to the listener.
 func (cl *changeCertListener) Accept() (c net.Conn, err error) {
-	cl.m.Lock()
-	defer cl.m.Unlock()
-	return cl.Listener.Accept()
+	if c, err = cl.Listener.Accept(); err != nil {
+		return c, err
+	}
+	// Create a wrapped connection so we can
+	// control the handshakes.
+	conn := changeCertConn{c, &cl.m}
+	return conn, err
 }
 
 // Close closes the listener.
@@ -133,6 +155,14 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 		logger.Errorf("cannot create new TLS certificate: %v", err)
 	} else {
 		logger.Infof("updating api server certificate")
+		x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+		if err == nil {
+			var addr []string
+			for _, ip := range x509Cert.IPAddresses {
+				addr = append(addr, ip.String())
+			}
+			logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+		}
 		cl.config.Certificates = []tls.Certificate{tlsCert}
 	}
 }

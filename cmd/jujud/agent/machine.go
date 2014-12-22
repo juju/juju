@@ -717,10 +717,8 @@ func (a *MachineAgent) updateSupportedContainers(
 	// it we can't ensure that other Juju nodes can connect securely, so only
 	// use an image URL getter if there's a private key.
 	var imageURLGetter container.ImageURLGetter
-	if servingInfo, ok := agentConfig.StateServingInfo(); ok {
-		if servingInfo.CAPrivateKey != "" {
-			imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
-		}
+	if agentConfig.Value(agent.AllowsSecureConnection) == "true" {
+		imageURLGetter = container.NewImageURLGetter(st.Addr(), envUUID.Id(), []byte(agentConfig.CACert()))
 	}
 	params := provisioner.ContainerSetupParams{
 		Runner:              runner,
