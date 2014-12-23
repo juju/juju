@@ -1,3 +1,7 @@
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package service
 
 import (
@@ -6,16 +10,15 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/coreos/go-systemd/dbus"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
 )
-
-var _ Service = (*upstart.Service)(nil)
-var _ Service = (*windows.Service)(nil)
 
 // Service represents a service running on the current system
 type Service interface {
@@ -47,9 +50,12 @@ type Service interface {
 // for the current system
 func NewService(name string, conf common.Conf) Service {
 	switch version.Current.OS {
+	case version.Ubuntu:
+		return upstart.NewService(name, conf)
+	case version.CentOS:
+		return systemd.NewService(name, conf)
 	case version.Windows:
-		svc := windows.NewService(name, conf)
-		return svc
+		return windows.NewService(name, conf)
 	default:
 		return upstart.NewService(name, conf)
 	}
@@ -85,14 +91,37 @@ func upstartListServices(initDir string) ([]string, error) {
 	return services, nil
 }
 
+func systemdListServices() ([]string, error) {
+	var services []string
+
+	conn, err := dbus.New()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	units, err := conn.ListUnits()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, unit := range units {
+		services = append(services, unit.Name)
+	}
+
+	return services, nil
+}
+
 // ListServices lists all installed services on the running system
 func ListServices(initDir string) ([]string, error) {
 	switch version.Current.OS {
 	case version.Ubuntu:
 		return upstartListServices(initDir)
+	case version.CentOS:
+		return systemdListServices()
 	case version.Windows:
 		return windowsListServices()
 	default:
-		return upstartListServices(initDir)
+		return nil, fmt.Errorf("unrecognized OS version, cannot list services")
 	}
 }
