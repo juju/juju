@@ -122,6 +122,32 @@ func tabbedString(inputs [][]string, sep string) (string, error) {
 	return b.String(), nil
 }
 
+// getActionTagFromPrefix uses the APIClient to get an ActionTag from a prefix.
+func getActionTagFromPrefix(api APIClient, prefix string) (names.ActionTag, error) {
+	tag := names.ActionTag{}
+	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
+	if err != nil {
+		return tag, err
+	}
+
+	results, ok := tags.Matches[prefix]
+	if !ok || len(results) < 1 {
+		return tag, errors.Errorf("actions for identifier %q not found", prefix)
+	}
+
+	actiontags, rejects := getActionTags(results)
+	if len(rejects) > 0 {
+		return tag, errors.Errorf("identifier %q got unrecognized entity tags %v", prefix, rejects)
+	}
+
+	if len(actiontags) > 1 {
+		return tag, errors.Errorf("identifier %q matched multiple actions %v", prefix, actiontags)
+	}
+
+	tag = actiontags[0]
+	return tag, nil
+}
+
 // getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and
 // also populates a slice of strings for the params.Entity.Tag that are not a valid
 // names.ActionTag.

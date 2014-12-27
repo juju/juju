@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
-	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -17,9 +16,9 @@ import (
 // FetchCommand fetches the results of an action by UUID.
 type FetchCommand struct {
 	ActionCommandBase
-	actionTag  names.ActionTag
-	fullSchema bool
-	out        cmd.Output
+	out         cmd.Output
+	requestedId string
+	fullSchema  bool
 }
 
 const fetchDoc = `
@@ -49,10 +48,7 @@ func (c *FetchCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no action UUID specified")
 	case 1:
-		if !names.IsValidAction(args[0]) {
-			return errors.Errorf("invalid action ID %q", args[0])
-		}
-		c.actionTag = names.NewActionTag(args[0])
+		c.requestedId = args[0]
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -67,8 +63,13 @@ func (c *FetchCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
+	actionTag, err := getActionTagFromPrefix(api, c.requestedId)
+	if err != nil {
+		return err
+	}
+
 	actions, err := api.Actions(params.Entities{
-		Entities: []params.Entity{{c.actionTag.String()}},
+		Entities: []params.Entity{{actionTag.String()}},
 	})
 	if err != nil {
 		return err
@@ -76,10 +77,10 @@ func (c *FetchCommand) Run(ctx *cmd.Context) error {
 	actionResults := actions.Results
 	numActionResults := len(actionResults)
 	if numActionResults == 0 {
-		return c.out.Write(ctx, fmt.Sprintf("No results for action %s", c.actionTag.Id()))
+		return c.out.Write(ctx, fmt.Sprintf("no results for action %s", c.requestedId))
 	}
 	if numActionResults != 1 {
-		return errors.Errorf("too many results for action %s", c.actionTag.Id())
+		return errors.Errorf("too many results for action %s", c.requestedId)
 	}
 
 	result := actionResults[0]

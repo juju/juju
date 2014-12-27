@@ -5,7 +5,9 @@
 // i.e., the function cannot be exported via a var
 package action
 
-import gc "gopkg.in/check.v1"
+import (
+	gc "gopkg.in/check.v1"
+)
 
 type CommonSuite struct{}
 

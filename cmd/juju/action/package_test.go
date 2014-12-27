@@ -102,6 +102,14 @@ var someCharmActions = &charm.Actions{
 	},
 }
 
+func tagsForId(prefix string, tags ...string) map[string][]params.Entity {
+	var entities []params.Entity
+	for _, t := range tags {
+		entities = append(entities, params.Entity{Tag: t})
+	}
+	return map[string][]params.Entity{prefix: entities}
+}
+
 type fakeAPIClient struct {
 	actionResults      []params.ActionResult
 	actionsByReceivers []params.ActionsByReceiver

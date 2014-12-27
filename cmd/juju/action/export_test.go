@@ -17,10 +17,6 @@ func (c *DefinedCommand) FullSchema() bool {
 	return c.fullSchema
 }
 
-func (c *FetchCommand) ActionTag() names.ActionTag {
-	return c.actionTag
-}
-
 func (c *DoCommand) UnitTag() names.UnitTag {
 	return c.unitTag
 }
