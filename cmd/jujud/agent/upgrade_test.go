@@ -490,7 +490,8 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		runner.Kill()
 		runner.Wait()
 	}()
-	runner.StartWorker("apiserver", a.apiserverWorkerStarter(s.State))
+	certChangedChan := make(chan params.StateServingInfo)
+	runner.StartWorker("apiserver", a.apiserverWorkerStarter(s.State, certChangedChan))
 	runner.StartWorker("upgrade-steps", a.upgradeStepsWorkerStarter(
 		s.APIState,
 		[]multiwatcher.MachineJob{multiwatcher.JobManageEnviron},

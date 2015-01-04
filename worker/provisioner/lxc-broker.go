@@ -24,8 +24,14 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 }
 
-func NewLxcBroker(api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig) (environs.InstanceBroker, error) {
-	manager, err := lxc.NewContainerManager(managerConfig)
+// Override for testing.
+var NewLxcBroker = newLxcBroker
+
+func newLxcBroker(
+	api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
+	imageURLGetter container.ImageURLGetter,
+) (environs.InstanceBroker, error) {
+	manager, err := lxc.NewContainerManager(managerConfig, imageURLGetter)
 	if err != nil {
 		return nil, err
 	}

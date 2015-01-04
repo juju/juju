@@ -29,6 +29,45 @@ const (
 	invalidServiceId       = "something-strange-"
 )
 
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
+}
+
+type BaseActionSuite struct {
+	jujutesting.IsolationSuite
+	command cmd.Command
+}
+
+var _ = gc.Suite(&FetchSuite{})
+
+func (s *BaseActionSuite) SetUpTest(c *gc.C) {
+	s.command = action.NewSuperCommand()
+}
+
+func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
+	return jujutesting.PatchValue(action.NewActionAPIClient,
+		func(c *action.ActionCommandBase) (action.APIClient, error) {
+			return client, nil
+		},
+	)
+}
+
+func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
+	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
+	c.Assert(err, gc.IsNil)
+
+	expected := "(?sm).*^usage: juju action " +
+		regexp.QuoteMeta(subcmd.Info().Name) +
+		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
+	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
+
+	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
+	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
+
+	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
+	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
+}
+
 var someCharmActions = &charm.Actions{
 	ActionSpecs: map[string]charm.ActionSpec{
 		"snapshot": charm.ActionSpec{
@@ -63,43 +102,6 @@ var someCharmActions = &charm.Actions{
 	},
 }
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
-
-type BaseActionSuite struct {
-	jujutesting.IsolationSuite
-	command cmd.Command
-}
-
-func (s *BaseActionSuite) SetUpTest(c *gc.C) {
-	s.command = action.NewSuperCommand()
-}
-
-func (s *BaseActionSuite) patchAPIClient(client *fakeAPIClient) func() {
-	return jujutesting.PatchValue(action.NewActionAPIClient,
-		func(c *action.ActionCommandBase) (action.APIClient, error) {
-			return client, nil
-		},
-	)
-}
-
-func (s *BaseActionSuite) checkHelp(c *gc.C, subcmd envcmd.EnvironCommand) {
-	ctx, err := coretesting.RunCommand(c, s.command, subcmd.Info().Name, "--help")
-	c.Assert(err, gc.IsNil)
-
-	expected := "(?sm).*^usage: juju action " +
-		regexp.QuoteMeta(subcmd.Info().Name) +
-		` \[options\] ` + regexp.QuoteMeta(subcmd.Info().Args) + ".+"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^purpose: " + regexp.QuoteMeta(subcmd.Info().Purpose) + "$.*"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-
-	expected = "(?sm).*^" + regexp.QuoteMeta(subcmd.Info().Doc) + "$.*"
-	c.Check(coretesting.Stdout(ctx), gc.Matches, expected)
-}
-
 type fakeAPIClient struct {
 	actionResults      []params.ActionResult
 	actionsByReceivers []params.ActionsByReceiver
@@ -107,6 +109,8 @@ type fakeAPIClient struct {
 	charmActions       *charm.Actions
 	apiErr             error
 }
+
+var _ action.APIClient = (*fakeAPIClient)(nil)
 
 func (c *fakeAPIClient) Close() error {
 	return nil

@@ -94,7 +94,7 @@ func (r *Reboot) runningContainers() ([]instance.Instance, error) {
 			managerConfig[container.ConfigName] = namespace
 		}
 		cfg := container.ManagerConfig(managerConfig)
-		manager, err := factory.NewContainerManager(val, cfg)
+		manager, err := factory.NewContainerManager(val, cfg, nil)
 		if err != nil {
 			logger.Warningf("Failed to get manager for container type %v: %v", val, err)
 			continue

@@ -56,12 +56,85 @@ type LoginValidator func(params.LoginRequest) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Cert      []byte
-	Key       []byte
-	Tag       names.Tag
-	DataDir   string
-	LogDir    string
-	Validator LoginValidator
+	Cert        []byte
+	Key         []byte
+	Tag         names.Tag
+	DataDir     string
+	LogDir      string
+	Validator   LoginValidator
+	CertChanged chan params.StateServingInfo
+}
+
+// changeCertListener wraps a TLS net.Listener.
+// It allows the acceptance of new connections to be
+// blocked while the TLS certificate is updated.
+type changeCertListener struct {
+	net.Listener
+	tomb tomb.Tomb
+
+	// A mutex used to block accept operations.
+	m sync.Mutex
+
+	// A channel used to pass in new certificate information.
+	certChanged <-chan params.StateServingInfo
+
+	// The config to update with any new certificate.
+	config *tls.Config
+}
+
+func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
+	cl := &changeCertListener{
+		Listener:    tlsListener,
+		certChanged: certChanged,
+		config:      config,
+	}
+	go func() {
+		defer cl.tomb.Done()
+		cl.tomb.Kill(cl.processCertChanges())
+	}()
+	return cl
+}
+
+// Accept waits for and returns the next connection to the listener.
+func (cl *changeCertListener) Accept() (c net.Conn, err error) {
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	return cl.Listener.Accept()
+}
+
+// Close closes the listener.
+func (cl *changeCertListener) Close() error {
+	cl.tomb.Kill(nil)
+	return cl.Listener.Close()
+}
+
+// processCertChanges receives new certificate information and
+// calls a method to update the listener's certificate.
+func (cl *changeCertListener) processCertChanges() error {
+	for {
+		select {
+		case info := <-cl.certChanged:
+			if info.Cert != "" {
+				cl.updateCertificate([]byte(info.Cert), []byte(info.PrivateKey))
+			}
+		case <-cl.tomb.Dying():
+			return tomb.ErrDying
+		}
+	}
+	return nil
+}
+
+// updateCertificate generates a new TLS certificate and assigns it
+// to the TLS listener.
+func (cl *changeCertListener) updateCertificate(cert, key []byte) {
+	cl.m.Lock()
+	defer cl.m.Unlock()
+	if tlsCert, err := tls.X509KeyPair(cert, key); err != nil {
+		logger.Errorf("cannot create new TLS certificate: %v", err)
+	} else {
+		logger.Infof("updating api server certificate")
+		cl.config.Certificates = []tls.Certificate{tlsCert}
+	}
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -92,10 +165,12 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
-	lis = tls.NewListener(lis, &tls.Config{
+	tlsConfig := tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
-	})
-	go srv.run(lis)
+	}
+	tlsListener := tls.NewListener(lis, &tlsConfig)
+	changeCertListener := newChangeCertListener(tlsListener, cfg.CertChanged, &tlsConfig)
+	go srv.run(changeCertListener)
 	return srv, nil
 }
 
@@ -238,6 +313,9 @@ func (srv *Server) run(lis net.Listener) {
 		&backupHandler{httpHandler{state: srv.state}},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
+		&imagesDownloadHandler{httpHandler{state: srv.state}},
+	)
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{

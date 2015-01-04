@@ -4,6 +4,8 @@
 package network_test
 
 import (
+	"net"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -683,4 +685,29 @@ func (*AddressSuite) TestSortAddresses(c *gc.C) {
 		// Finally, link-local IPv4 addresses.
 		"169.254.1.2",
 	))
+}
+
+func (*AddressSuite) TestIPv4ToDecimal(c *gc.C) {
+	zeroIP, err := network.IPv4ToDecimal(net.ParseIP("0.0.0.0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(zeroIP, gc.Equals, uint32(0))
+
+	nilIP := net.ParseIP("bad format")
+	_, err = network.IPv4ToDecimal(nilIP)
+	c.Assert(err, gc.ErrorMatches, `"<nil>" is not a valid IPv4 address`)
+
+	_, err = network.IPv4ToDecimal(net.ParseIP("2001:db8::1"))
+	c.Assert(err, gc.ErrorMatches, `"2001:db8::1" is not a valid IPv4 address`)
+
+	nonZeroIP, err := network.IPv4ToDecimal(net.ParseIP("192.168.1.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nonZeroIP, gc.Equals, uint32(3232235777))
+}
+
+func (*AddressSuite) TestDecimalToIPv4(c *gc.C) {
+	addr := network.DecimalToIPv4(uint32(0))
+	c.Assert(addr.String(), gc.Equals, "0.0.0.0")
+
+	addr = network.DecimalToIPv4(uint32(3232235777))
+	c.Assert(addr.String(), gc.Equals, "192.168.1.1")
 }

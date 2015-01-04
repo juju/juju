@@ -20,3 +20,15 @@ func (c *DefinedCommand) FullSchema() bool {
 func (c *FetchCommand) ActionTag() names.ActionTag {
 	return c.actionTag
 }
+
+func (c *DoCommand) UnitTag() names.UnitTag {
+	return c.unitTag
+}
+
+func (c *DoCommand) ActionName() string {
+	return c.actionName
+}
+
+func (c *DoCommand) ParamsYAMLPath() string {
+	return c.paramsYAML.Path
+}

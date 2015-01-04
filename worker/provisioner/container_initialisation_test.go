@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/fslock"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/container"
+	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -76,6 +78,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (worker.StringsWatchHandler, worker.Runner) {
+	testing.PatchExecutable(c, s, "ubuntu-cloudimg-query", containertesting.FakeLxcURLScript)
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
@@ -85,7 +88,17 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	cfg := s.AgentConfigForTag(c, tag)
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	handler := provisioner.NewContainerSetupHandler(runner, watcherName, instance.ContainerTypes, machine, pr, cfg, s.initLock)
+	params := provisioner.ContainerSetupParams{
+		Runner:              runner,
+		WorkerName:          watcherName,
+		SupportedContainers: instance.ContainerTypes,
+		ImageURLGetter:      &containertesting.MockURLGetter{},
+		Machine:             machine,
+		Provisioner:         pr,
+		Config:              cfg,
+		InitLock:            s.initLock,
+	}
+	handler := provisioner.NewContainerSetupHandler(params)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
@@ -152,6 +165,35 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
+}
+
+func (s *ContainerSetupSuite) TestLxcContainerUesImageURL(c *gc.C) {
+	// create a machine to host the container.
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetSupportedContainers([]instance.ContainerType{instance.LXC, instance.KVM})
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, jc.ErrorIsNil)
+
+	brokerCalled := false
+	newlxcbroker := func(api provisioner.APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig,
+		imageURLGetter container.ImageURLGetter) (environs.InstanceBroker, error) {
+		imageURL, err := imageURLGetter.ImageURL(instance.LXC, "trusty", "amd64")
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(imageURL, gc.Equals, "imageURL")
+		c.Assert(imageURLGetter.CACert(), gc.DeepEquals, []byte("cert"))
+		brokerCalled = true
+		return nil, fmt.Errorf("lxc broker error")
+	}
+	s.PatchValue(&provisioner.NewLxcBroker, newlxcbroker)
+	s.createContainer(c, m, instance.LXC)
+	c.Assert(brokerCalled, jc.IsTrue)
+
 }
 
 func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
