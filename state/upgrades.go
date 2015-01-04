@@ -868,3 +868,31 @@ func MigrateJobManageNetworking(st *State) error {
 
 	return st.runRawTransaction(ops)
 }
+
+// FixMinUnitsEnvUUID sets the env-uuid field on documents in the
+// minUnits collection where the field is blank. This is needed
+// because a code change was missed with the env UUID migration was
+// done for this collection (in 1.21).
+func FixMinUnitsEnvUUID(st *State) error {
+	minUnits, closer := st.getRawCollection(minUnitsC)
+	defer closer()
+
+	iter := minUnits.Find(bson.D{{"env-uuid", ""}}).Select(bson.D{{"_id", 1}}).Iter()
+	defer iter.Close()
+
+	uuid := st.EnvironUUID()
+	ops := []txn.Op{}
+	var doc bson.M
+	for iter.Next(&doc) {
+		ops = append(ops, txn.Op{
+			C:      minUnitsC,
+			Id:     doc["_id"],
+			Update: bson.D{{"$set", bson.D{{"env-uuid", uuid}}}},
+			Assert: txn.DocExists,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+	return st.runRawTransaction(ops)
+}
