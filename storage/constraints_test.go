@@ -8,9 +8,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/storage"
+	"github.com/juju/juju/testing"
 )
 
-type ConstraintsSuite struct{}
+type ConstraintsSuite struct {
+	testing.BaseSuite
+}
 
 var _ = gc.Suite(&ConstraintsSuite{})
 

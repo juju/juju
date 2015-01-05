@@ -15,11 +15,6 @@ import (
 
 var logger = loggo.GetLogger("juju.storage")
 
-const (
-	persistentConstraint = "persistent"
-	iopsConstraintPrefix = "iops:"
-)
-
 // Constraints describes a set of storage constraints.
 type Constraints struct {
 	// Pool is the name of the storage pool (ebs, ceph, custompool, ...)
