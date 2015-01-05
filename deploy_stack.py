@@ -451,7 +451,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                         with scoped_environ():
                             os.environ['PATH'] = new_path
                             test_upgrade(env)
-                except:
+                except (Exception, KeyboardInterrupt, SystemExit):
                     if host is not None:
                         dump_env_logs(
                             env.client.get_env_client(env), host, log_dir,
