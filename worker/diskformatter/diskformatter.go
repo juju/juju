@@ -23,6 +23,11 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.diskformatter")
 
+// defaultFilesystemType is the default filesystem type to
+// create on a managed block device for a "filesystem" type
+// datastore.
+const defaultFilesystemType = "ext4"
+
 // AttachedBlockDeviceWatcher is an interface used to watch and retrieve details of
 // the block devices attached to datastores owned by the authenticated unit agent.
 type AttachedBlockDeviceWatcher interface {
@@ -127,9 +132,8 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 			logger.Errorf("cannot get path for block device %q: %v", blockDevices[i].Name, err)
 			continue
 		}
-		pref := createFilesystem(devicePath, datastore.Specification)
-		if pref == nil {
-			logger.Errorf("failed to create filesystem on block device %q", blockDevices[i].Name)
+		if err := createFilesystem(devicePath); err != nil {
+			logger.Errorf("failed to create filesystem on block device %q: %v", blockDevices[i].Name, err)
 			continue
 		}
 		filesystems = append(filesystems, params.BlockDeviceFilesystem{
@@ -137,7 +141,7 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 			// blockdevice is unassigned or reassigned to another datastore.
 			DiskTag:    blockDeviceTags[i].String(),
 			Datastore:  datastore.Name,
-			Filesystem: pref.Filesystem,
+			Filesystem: storage.Filesystem{Type: defaultFilesystemType},
 		})
 	}
 
@@ -167,28 +171,18 @@ func (f *diskFormatter) attachedBlockDevices(tags []names.DiskTag) ([]storage.Bl
 	return blockDevices, nil
 }
 
-func createFilesystem(devicePath string, spec *storage.Specification) *storage.FilesystemPreference {
-	prefs := spec.FilesystemPreferences
-	prefs = append(prefs, storage.FilesystemPreference{
-		Filesystem: storage.Filesystem{
-			Type: storage.DefaultFilesystemType,
-		},
-	})
-	for _, pref := range prefs {
-		logger.Debugf("attempting to create %q filesystem on %q", pref.Type, devicePath)
-		if err := maybeCreateFilesystem(devicePath, pref); err == nil {
-			logger.Infof("created %q filesystem on %q", pref.Type, devicePath)
-			return &pref
-		}
+func createFilesystem(devicePath string) error {
+	logger.Debugf("attempting to create filesystem on %q", devicePath)
+	if err := maybeCreateFilesystem(devicePath); err != nil {
+		return err
 	}
+	logger.Infof("created filesystem on %q", devicePath)
 	return nil
 }
 
-func maybeCreateFilesystem(path string, fs storage.FilesystemPreference) error {
-	mkfscmd := "mkfs." + fs.Type
-	args := append([]string{}, fs.MkfsOptions...)
-	args = append(args, path)
-	output, err := exec.Command(mkfscmd, args...).CombinedOutput()
+func maybeCreateFilesystem(path string) error {
+	mkfscmd := "mkfs." + defaultFilesystemType
+	output, err := exec.Command(mkfscmd, path).CombinedOutput()
 	if err != nil {
 		return errors.Annotatef(err, "%s failed (%q)", mkfscmd, bytes.TrimSpace(output))
 	}
