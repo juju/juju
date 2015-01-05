@@ -14,18 +14,19 @@ type ConstraintsSuite struct{}
 
 var _ = gc.Suite(&ConstraintsSuite{})
 
-func (s *ConstraintsSuite) TestParseConstraintsStorageSource(c *gc.C) {
-	s.testParse(c, "provider:1M", storage.Constraints{
-		Source: "provider",
+func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
+	s.testParse(c, "pool,1M", storage.Constraints{
+		Pool: "pool",
 		Preferred: storage.ConstraintValues{
 			Count: 1,
 			Size:  1,
 		},
 	})
-	s.testParse(c, "provider0123:", storage.Constraints{
-		Source: "provider0123",
+	s.testParse(c, "pool,", storage.Constraints{
+		Pool: "pool",
 	})
-	s.testParse(c, ":", storage.Constraints{})
+	s.testParse(c, "", storage.Constraints{})
+	s.testParse(c, ",", storage.Constraints{})
 	s.testParse(c, "1M", storage.Constraints{
 		Preferred: storage.ConstraintValues{
 			Size:  1,
@@ -35,22 +36,22 @@ func (s *ConstraintsSuite) TestParseConstraintsStorageSource(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsCountSize(c *gc.C) {
-	s.testParse(c, "s:1G", storage.Constraints{
-		Source: "s",
+	s.testParse(c, "p,1G", storage.Constraints{
+		Pool: "p",
 		Preferred: storage.ConstraintValues{
 			Count: 1,
 			Size:  1024,
 		},
 	})
-	s.testParse(c, "s:1x0.5T", storage.Constraints{
-		Source: "s",
+	s.testParse(c, "p,1,0.5T", storage.Constraints{
+		Pool: "p",
 		Preferred: storage.ConstraintValues{
 			Count: 1,
 			Size:  1024 * 512,
 		},
 	})
-	s.testParse(c, "s:3x0.125P", storage.Constraints{
-		Source: "s",
+	s.testParse(c, "p,0.125P,3", storage.Constraints{
+		Pool: "p",
 		Preferred: storage.ConstraintValues{
 			Count: 3,
 			Size:  1024 * 1024 * 128,
@@ -59,46 +60,26 @@ func (s *ConstraintsSuite) TestParseConstraintsCountSize(c *gc.C) {
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
-	s.testParse(c, "s:1M,", storage.Constraints{
-		Source: "s",
+	s.testParse(c, "p,1M,", storage.Constraints{
+		Pool: "p",
 		Preferred: storage.ConstraintValues{
 			Count: 1,
 			Size:  1,
 		},
 	})
-	s.testParse(c, "s:anyoldjunk", storage.Constraints{
-		Source: "s",
-	})
-	s.testParse(c, "s:persistent", storage.Constraints{
-		Source: "s",
-		Preferred: storage.ConstraintValues{
-			Persistent: true,
-		},
-	})
-	s.testParse(c, "s:persistent,iops:10000", storage.Constraints{
-		Source: "s",
-		Preferred: storage.ConstraintValues{
-			Persistent: true,
-			IOPS:       10000,
-		},
-	})
-	s.testParse(c, "s:iops:10000,persistent", storage.Constraints{
-		Source: "s",
-		Preferred: storage.ConstraintValues{
-			Persistent: true,
-			IOPS:       10000,
-		},
+	s.testParse(c, "p,anyoldjunk", storage.Constraints{
+		Pool: "p",
 	})
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
-	s.testParseError(c, "s:0x100M", `count must be greater than zero, got "0"`)
-	s.testParseError(c, "s:00x100M", `count must be greater than zero, got "00"`)
-	s.testParseError(c, "s:-1x100M", `count must be greater than zero, got "-1"`)
+	s.testParseError(c, "p,0,100M", `cannot parse count: count must be greater than zero, got "0"`)
+	s.testParseError(c, "p,00,100M", `cannot parse count: count must be greater than zero, got "00"`)
+	s.testParseError(c, "p,-1,100M", `cannot parse count: count must be greater than zero, got "-1"`)
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsSizeRange(c *gc.C) {
-	s.testParseError(c, "s:-100M", `cannot parse size: expected a non-negative number, got "-100M"`)
+	s.testParseError(c, "p,-100M", `cannot parse size: expected a non-negative number, got "-100M"`)
 }
 
 func (*ConstraintsSuite) testParse(c *gc.C, s string, expect storage.Constraints) {
