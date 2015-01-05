@@ -75,6 +75,12 @@ func stateStepsFor122() []Step {
 				return state.AddEnvUUIDToOpenPorts(context.State())
 			},
 		}, &upgradeStep{
+			description: "fix environment UUID for minUnits docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.FixMinUnitsEnvUUID(context.State())
+			},
+		}, &upgradeStep{
 			description: "update system identity in state",
 			targets:     []Target{DatabaseMaster},
 			run:         ensureSystemSSHKeyRedux,

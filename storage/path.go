@@ -30,5 +30,5 @@ func BlockDevicePath(device BlockDevice) (string, error) {
 	if device.DeviceName != "" {
 		return filepath.Join("/dev", device.DeviceName), nil
 	}
-	return "", errors.Errorf("could not determine path for block device %q", device.Id)
+	return "", errors.Errorf("could not determine path for block device %q", device.Name)
 }

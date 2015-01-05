@@ -1899,3 +1899,43 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 		s.tearDownJobManageNetworking(c)
 	}
 }
+
+func (s *upgradesSuite) TestFixMinUnitsEnvUUID(c *gc.C) {
+	minUnits, closer := s.state.getRawCollection(minUnitsC)
+	defer closer()
+
+	uuid := s.state.EnvironUUID()
+
+	err := minUnits.Insert(
+		// This record should be left untouched.
+		bson.D{
+			{"_id", uuid + ":bar"},
+			{"servicename", "bar"},
+			{"env-uuid", uuid},
+		},
+		// This record should have its env-uuid field set.
+		bson.D{
+			{"_id", uuid + ":foo"},
+			{"servicename", "foo"},
+			{"env-uuid", ""},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = FixMinUnitsEnvUUID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var docs []minUnitsDoc
+	err = minUnits.Find(nil).Sort("_id").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.DeepEquals, []minUnitsDoc{{
+		DocID:       uuid + ":bar",
+		ServiceName: "bar",
+		EnvUUID:     uuid,
+	}, {
+		DocID:       uuid + ":foo",
+		ServiceName: "foo",
+		EnvUUID:     uuid,
+	}})
+
+}

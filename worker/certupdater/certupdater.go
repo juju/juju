@@ -25,8 +25,9 @@ var logger = loggo.GetLogger("juju.worker.certupdater")
 type CertificateUpdater struct {
 	addressWatcher AddressWatcher
 	getter         StateServingInfoGetter
-	setter         func(info params.StateServingInfo) error
+	setter         StateServingInfoSetter
 	configGetter   EnvironConfigGetter
+	certChanged    chan params.StateServingInfo
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -56,13 +57,14 @@ type StateServingInfoSetter func(info params.StateServingInfo) error
 // machine addresses and then generates a new state server certificate with those
 // addresses in the certificate's SAN value.
 func NewCertificateUpdater(addressWatcher AddressWatcher, getter StateServingInfoGetter,
-	configGetter EnvironConfigGetter, setter StateServingInfoSetter,
+	configGetter EnvironConfigGetter, setter StateServingInfoSetter, certChanged chan params.StateServingInfo,
 ) worker.Worker {
 	return worker.NewNotifyWorker(&CertificateUpdater{
 		addressWatcher: addressWatcher,
 		configGetter:   configGetter,
 		getter:         getter,
 		setter:         setter,
+		certChanged:    certChanged,
 	})
 }
 
@@ -126,5 +128,6 @@ func (c *CertificateUpdater) Handle() error {
 
 // TearDown is defined on the NotifyWatchHandler interface.
 func (c *CertificateUpdater) TearDown() error {
+	close(c.certChanged)
 	return nil
 }

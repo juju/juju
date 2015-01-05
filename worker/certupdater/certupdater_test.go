@@ -94,8 +94,9 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 		return nil
 	}
 	changes := make(chan struct{})
+	certChangedChan := make(chan params.StateServingInfo)
 	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockStateServingGetter{}, &mockConfigGetter{}, setter,
+		&mockMachine{changes}, &mockStateServingGetter{}, &mockConfigGetter{}, setter, certChangedChan,
 	)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -118,8 +119,9 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		return nil
 	}
 	changes := make(chan struct{})
+	certChangedChan := make(chan params.StateServingInfo)
 	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockStateServingGetter{}, &mockConfigGetter{}, setter,
+		&mockMachine{changes}, &mockStateServingGetter{}, &mockConfigGetter{}, setter, certChangedChan,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -156,8 +158,9 @@ func (s *CertUpdaterSuite) TestAddressChangeNoCAKey(c *gc.C) {
 		return nil
 	}
 	changes := make(chan struct{})
+	certChangedChan := make(chan params.StateServingInfo)
 	worker := certupdater.NewCertificateUpdater(
-		&mockMachine{changes}, &mockStateServingGetterNoCAKey{}, &mockConfigGetter{}, setter,
+		&mockMachine{changes}, &mockStateServingGetterNoCAKey{}, &mockConfigGetter{}, setter, certChangedChan,
 	)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
