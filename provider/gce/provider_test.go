@@ -10,11 +10,11 @@ import (
 	"github.com/juju/juju/provider/gce"
 )
 
-type gceSuite struct{}
+type providerSuite struct{}
 
-var _ = gc.Suite(&gceSuite{})
+var _ = gc.Suite(&providerSuite{})
 
-func (*gceSuite) TestRegistered(c *gc.C) {
+func (*providerSuite) TestRegistered(c *gc.C) {
 	provider, err := environs.Provider("gce")
 	c.Assert(err, gc.IsNil)
 	c.Assert(provider, gc.Equals, gce.Provider)
