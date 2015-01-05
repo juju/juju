@@ -453,8 +453,9 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                             test_upgrade(env)
                 except:
                     if host is not None:
-                        dump_logs(env.client.get_env_client(env), host,
-                                  log_dir, bootstrap_id)
+                        dump_env_logs(
+                            env.client.get_env_client(env), host, log_dir,
+                            host_id=bootstrap_id)
                     raise
             finally:
                 env.destroy_environment()
