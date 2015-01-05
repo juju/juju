@@ -35,8 +35,8 @@ func (s *BlockDevicePathSuite) TestBlockDevicePathDeviceName(c *gc.C) {
 }
 
 func (s *BlockDevicePathSuite) TestBlockDevicePathError(c *gc.C) {
-	_, err := storage.BlockDevicePath(storage.BlockDevice{Id: "woop"})
-	c.Assert(err, gc.ErrorMatches, `could not determine path for block device "woop"`)
+	_, err := storage.BlockDevicePath(storage.BlockDevice{Name: "0"})
+	c.Assert(err, gc.ErrorMatches, `could not determine path for block device "0"`)
 }
 
 func testBlockDevicePath(c *gc.C, dev storage.BlockDevice, expect string) {

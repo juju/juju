@@ -5,7 +5,6 @@ package diskmanager
 
 import (
 	"reflect"
-
 	"time"
 
 	"github.com/juju/loggo"
