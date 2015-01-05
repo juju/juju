@@ -83,22 +83,16 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var logger = loggo.GetLogger("juju.cmd.jujud")
-
-var newRunner = worker.NewRunner
-
 const bootstrapMachineId = "0"
 
-// eitherState can be either a *state.State or a *api.State.
-type eitherState interface{}
-
 var (
-	retryDelay      = 3 * time.Second
-	JujuRun         = paths.MustSucceed(paths.JujuRun(version.Current.Series))
-	useMultipleCPUs = utils.UseMultipleCPUs
+	logger     = loggo.GetLogger("juju.cmd.jujud")
+	retryDelay = 3 * time.Second
+	JujuRun    = paths.MustSucceed(paths.JujuRun(version.Current.Series))
 
-	// The following are defined as variables to
-	// allow the tests to intercept calls to the functions.
+	// The following are defined as variables to allow the tests to
+	// intercept calls to the functions.
+	useMultipleCPUs          = utils.UseMultipleCPUs
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
@@ -107,17 +101,191 @@ var (
 	newFirewaller            = firewaller.NewFirewaller
 	newDiskManager           = diskmanager.NewWorker
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
-
-	// reportOpenedAPI is exposed for tests to know when
-	// the State has been successfully opened.
-	reportOpenedState = func(eitherState) {}
-
-	// reportOpenedAPI is exposed for tests to know when
-	// the API has been successfully opened.
-	reportOpenedAPI = func(eitherState) {}
-
-	getMetricAPI = metricAPI
+	reportOpenedState        = func(interface{}) {}
+	reportOpenedAPI          = func(interface{}) {}
+	getMetricAPI             = metricAPI
 )
+
+func init() {
+	stateWorkerDialOpts = mongo.DefaultDialOpts()
+	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
+		safe := mgo.Safe{
+			// Wait for group commit if journaling is enabled,
+			// which is always true in production.
+			J: true,
+		}
+		_, err := replicaset.CurrentConfig(session)
+		if err == nil {
+			// set mongo to write-majority (writes only returned after
+			// replicated to a majority of replica-set members).
+			safe.WMode = "majority"
+		}
+		session.SetSafe(&safe)
+		return nil
+	}
+}
+
+// AgentInitializer handles initializing a type for use as a Jujud
+// agent.
+type AgentInitializer interface {
+	AddFlags(*gnuflag.FlagSet)
+	CheckArgs([]string) error
+}
+
+// AgentConfigWriter encapsulates disk I/O operations with the agent
+// config.
+type AgentConfigWriter interface {
+	// ReadConfig reads the config for the given tag from disk.
+	ReadConfig(tag string) error
+	// ChangeConfig executes the given AgentConfigMutator in a
+	// thread-safe context.
+	ChangeConfig(AgentConfigMutator) error
+	// CurrentConfig returns a copy of the in-memory agent config.
+	CurrentConfig() agent.Config
+}
+
+// NewMachineAgentCmd creates a Command which handles parsing
+// command-line arguments and instantiating and running a
+// MachineAgent.
+func NewMachineAgentCmd(
+	machineAgentFactory func(string) *MachineAgent,
+	agentInitializer AgentInitializer,
+	configFetcher AgentConfigWriter,
+) cmd.Command {
+	return &machineAgentCmd{
+		machineAgentFactory: machineAgentFactory,
+		agentInitializer:    agentInitializer,
+		currentConfig:       configFetcher,
+	}
+}
+
+type machineAgentCmd struct {
+	cmd.CommandBase
+
+	// This group of arguments is required.
+	agentInitializer    AgentInitializer
+	currentConfig       AgentConfigWriter
+	machineAgentFactory func(string) *MachineAgent
+
+	// This group is for debugging purposes.
+	logToStdErr bool
+
+	// The following are set via command-line flags.
+	machineId string
+}
+
+// Init is called by the cmd system to initialize the structure for
+// running.
+func (a *machineAgentCmd) Init(args []string) error {
+
+	if !names.IsValidMachine(a.machineId) {
+		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
+	}
+	if err := a.agentInitializer.CheckArgs(args); err != nil {
+		return err
+	}
+
+	// Due to changes in the logging, and needing to care about old
+	// environments that have been upgraded, we need to explicitly remove the
+	// file writer if one has been added, otherwise we will get duplicate
+	// lines of all logging in the log file.
+	loggo.RemoveWriter("logfile")
+
+	if a.logToStdErr {
+		return nil
+	}
+
+	err := a.currentConfig.ReadConfig(names.NewMachineTag(a.machineId).String())
+	if err != nil {
+		return errors.Annotate(err, "cannot read agent configuration")
+	}
+	agentConfig := a.currentConfig.CurrentConfig()
+	filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
+
+	log := &lumberjack.Logger{
+		Filename:   filename,
+		MaxSize:    300, // megabytes
+		MaxBackups: 2,
+	}
+
+	return cmdutil.SwitchProcessToRollingLogs(log)
+}
+
+// Run instantiates a MachineAgent and runs it.
+func (a *machineAgentCmd) Run(c *cmd.Context) error {
+	machineAgent := a.machineAgentFactory(a.machineId)
+	return machineAgent.Run(c)
+}
+
+// SetFlags adds the requisite flags to run this command.
+func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
+	a.agentInitializer.AddFlags(f)
+	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
+}
+
+// Info returns usage information for the command.
+func (a *machineAgentCmd) Info() *cmd.Info {
+	return &cmd.Info{
+		Name:    "machine",
+		Purpose: "run a juju machine agent",
+	}
+}
+
+// MachineAgentFactoryFn returns a function which instantiates a
+// MachineAgent given a machineId.
+func MachineAgentFactoryFn(
+	agentConfWriter AgentConfigWriter,
+	apiAddressSetter apiaddressupdater.APIAddressSetter,
+) func(string) *MachineAgent {
+	return func(machineId string) *MachineAgent {
+		return NewMachineAgent(
+			machineId,
+			agentConfWriter,
+			apiAddressSetter,
+			NewUpgradeWorkerContext(),
+			worker.NewRunner(cmdutil.IsFatal, cmdutil.MoreImportant),
+		)
+	}
+}
+
+// NewMachineAgent instantiates a new MachineAgent.
+func NewMachineAgent(
+	machineId string,
+	agentConfWriter AgentConfigWriter,
+	apiAddressSetter apiaddressupdater.APIAddressSetter,
+	upgradeWorkerContext *upgradeWorkerContext,
+	runner worker.Runner,
+) *MachineAgent {
+
+	return &MachineAgent{
+		machineId:            machineId,
+		AgentConfigWriter:    agentConfWriter,
+		apiAddressSetter:     apiAddressSetter,
+		workersStarted:       make(chan struct{}),
+		upgradeWorkerContext: upgradeWorkerContext,
+		runner:               runner,
+	}
+}
+
+// MachineAgent is responsible for tying together all functionality
+// needed to orchestarte a Jujud instance which controls a machine.
+type MachineAgent struct {
+	AgentConfigWriter
+
+	tomb                 tomb.Tomb
+	machineId            string
+	previousAgentVersion version.Number
+	apiAddressSetter     apiaddressupdater.APIAddressSetter
+	runner               worker.Runner
+	configChangedVal     voyeur.Value
+	upgradeWorkerContext *upgradeWorkerContext
+	restoreMode          bool
+	restoring            bool
+	workersStarted       chan struct{}
+
+	mongoInitMutex   sync.Mutex
+	mongoInitialized bool
+}
 
 // IsRestorePreparing returns bool representing if we are in restore mode
 // but not running restore.
@@ -129,55 +297,6 @@ func (a *MachineAgent) IsRestorePreparing() bool {
 // and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
-}
-
-// MachineAgent is a cmd.Command responsible for running a machine agent.
-type MachineAgent struct {
-	cmd.CommandBase
-	tomb tomb.Tomb
-	AgentConf
-	MachineId            string
-	previousAgentVersion version.Number
-	runner               worker.Runner
-	configChangedVal     voyeur.Value
-	upgradeWorkerContext *upgradeWorkerContext
-	restoreMode          bool
-	restoring            bool
-	workersStarted       chan struct{}
-
-	mongoInitMutex   sync.Mutex
-	mongoInitialized bool
-
-	logToStdErr bool
-}
-
-// Info returns usage information for the command.
-func (a *MachineAgent) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "machine",
-		Purpose: "run a juju machine agent",
-	}
-}
-
-func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
-	a.AgentConf.AddFlags(f)
-	f.StringVar(&a.MachineId, "machine-id", "", "id of the machine to run")
-	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "whether to log to standard error instead of log files")
-}
-
-// Init initializes the command for running.
-func (a *MachineAgent) Init(args []string) error {
-
-	if !names.IsValidMachine(a.MachineId) {
-		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
-	}
-	if err := a.AgentConf.CheckArgs(args); err != nil {
-		return err
-	}
-	a.runner = newRunner(cmdutil.IsFatal, cmdutil.MoreImportant)
-	a.workersStarted = make(chan struct{})
-	a.upgradeWorkerContext = NewUpgradeWorkerContext()
-	return nil
 }
 
 // Wait waits for the machine agent to finish.
@@ -199,31 +318,13 @@ func (a *MachineAgent) Dying() <-chan struct{} {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(*cmd.Context) error {
-	// Due to changes in the logging, and needing to care about old
-	// environments that have been upgraded, we need to explicitly remove the
-	// file writer if one has been added, otherwise we will get duplicate
-	// lines of all logging in the log file.
-	loggo.RemoveWriter("logfile")
+
 	defer a.tomb.Done()
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 	agentConfig := a.CurrentConfig()
 
-	if !a.logToStdErr {
-
-		filename := filepath.Join(agentConfig.LogDir(), agentConfig.Tag().String()+".log")
-
-		log := &lumberjack.Logger{
-			Filename:   filename,
-			MaxSize:    300, // megabytes
-			MaxBackups: 2,
-		}
-
-		if err := cmdutil.SwitchProcessToRollingLogs(log); err != nil {
-			return err
-		}
-	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if flags := featureflag.String(); flags != "" {
 		logger.Warningf("developer feature flags enabled: %s", flags)
@@ -291,7 +392,7 @@ func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error
 }
 
 func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
-	err := a.AgentConf.ChangeConfig(mutate)
+	err := a.AgentConfigWriter.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
 	if err != nil {
 		return errors.Trace(err)
@@ -453,7 +554,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
-	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
@@ -481,7 +582,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	entity *apiagent.Entity,
 ) (worker.Worker, error) {
 
-	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	var singularRunner worker.Runner
@@ -513,7 +614,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		return rebootworker.NewReboot(reboot, agentConfig, lock)
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
+		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a.apiAddressSetter), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
@@ -566,7 +667,7 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
-	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
+	if providerType != provider.Local || a.machineId != bootstrapMachineId {
 		runner.StartWorker("authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
 		})
@@ -758,7 +859,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	registerSimplestreamsDataSource(stor)
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
-	runner := newRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
 	singularRunner, err := newSingularRunner(runner, singularStateConn)
 	if err != nil {
 		return nil, fmt.Errorf("cannot make singular State Runner: %v", err)
@@ -873,25 +974,6 @@ func (a *MachineAgent) newApiserverWorker(st *state.State, certChanged chan para
 		Validator:   a.limitLogins,
 		CertChanged: certChanged,
 	})
-}
-
-func init() {
-	stateWorkerDialOpts = mongo.DefaultDialOpts()
-	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
-		safe := mgo.Safe{
-			// Wait for group commit if journaling is enabled,
-			// which is always true in production.
-			J: true,
-		}
-		_, err := replicaset.CurrentConfig(session)
-		if err == nil {
-			// set mongo to write-majority (writes only returned after
-			// replicated to a majority of replica-set members).
-			safe.WMode = "majority"
-		}
-		session.SetSafe(&safe)
-		return nil
-	}
 }
 
 // limitLogins is called by the API server for each login attempt.
@@ -1180,7 +1262,7 @@ func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 }
 
 func (a *MachineAgent) Tag() names.Tag {
-	return names.NewMachineTag(a.MachineId)
+	return names.NewMachineTag(a.machineId)
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {
