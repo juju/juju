@@ -486,7 +486,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, diskConstraintMapping, err := getBlockDeviceMappings(
+	blockDeviceMappings, disks, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -523,6 +523,35 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		Instance: &instResp.Instances[0],
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
+	resourceIds := []string{inst.Instance.InstanceId}
+
+	// Map block devices to volume IDs.
+	for _, out := range inst.Instance.BlockDeviceMappings {
+		if out.VolumeId == "" {
+			logger.Warningf("volume ID not set for block device mapping")
+			continue
+		}
+		for i, in := range blockDeviceMappings {
+			if in.DeviceName == out.DeviceName {
+				disks[i].ProviderId = out.VolumeId
+				resourceIds = append(resourceIds, out.VolumeId)
+				break
+			}
+		}
+	}
+
+	// Tag created resources.
+	// FIXME(axw) uncomment below when we've migrated to go-amz/amz,
+	//            after implementing support for the CreateTags
+	//            action in the ec2 test server.
+	/*
+		// TODO(axw) expose EnvironTag directly in StartInstanceParams.
+		tag := ec2.Tag{"juju-env", args.MachineConfig.APIInfo.EnvironTag.Id()}
+		if _, err := e.ec2().CreateTags(resourceIds, []ec2.Tag{tag}); err != nil {
+			logger.Errorf("could not tag resources: %v", err)
+		}
+	*/
+	_ = resourceIds
 
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
@@ -542,7 +571,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &hc,
-		Disks:    diskConstraintMapping,
+		Disks:    disks,
 	}, nil
 }
 

@@ -68,7 +68,6 @@ var rootDiskTests = []RootDiskTest{
 func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
-		cons := constraints.Value{RootDisk: t.constraint}
 		args := &environs.StartInstanceParams{
 			Constraints: constraints.Value{RootDisk: t.constraint},
 		}
