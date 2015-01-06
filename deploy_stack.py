@@ -172,7 +172,7 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
-        logging.info("Retrieving logs for machine-%d", machine_id)
+        logging.info("Retrieving logs for machine-%s", machine_id)
         machine_directory = os.path.join(directory, str(machine_id))
         os.mkdir(machine_directory)
         dump_logs(client, addr, machine_directory)
