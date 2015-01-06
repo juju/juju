@@ -20,7 +20,13 @@ type sequenceDoc struct {
 func (s *State) sequence(name string) (int, error) {
 	query := s.db.C(sequenceC).FindId(s.docID(name))
 	inc := mgo.Change{
-		Update: bson.M{"$inc": bson.M{"counter": 1}},
+		Update: bson.M{
+			"$set": bson.M{
+				"name":     name,
+				"env-uuid": s.EnvironUUID(),
+			},
+			"$inc": bson.M{"counter": 1},
+		},
 		Upsert: true,
 	}
 	result := &sequenceDoc{}
