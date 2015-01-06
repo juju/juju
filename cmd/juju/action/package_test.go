@@ -102,18 +102,21 @@ var someCharmActions = &charm.Actions{
 	},
 }
 
-func tagsForId(prefix string, tags ...string) map[string][]params.Entity {
+// tagsForIdPrefix builds a params.FindTagResults for a given id prefix
+// and 0..n given tags. This is useful for stubbing out the API and
+// ensuring that the API returns expected tags for a given id prefix.
+func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
 	var entities []params.Entity
 	for _, t := range tags {
 		entities = append(entities, params.Entity{Tag: t})
 	}
-	return map[string][]params.Entity{prefix: entities}
+	return params.FindTagsResults{Matches: map[string][]params.Entity{prefix: entities}}
 }
 
 type fakeAPIClient struct {
 	actionResults      []params.ActionResult
 	actionsByReceivers []params.ActionsByReceiver
-	actionTagMatches   map[string][]params.Entity
+	actionTagMatches   params.FindTagsResults
 	charmActions       *charm.Actions
 	apiErr             error
 }
@@ -165,7 +168,5 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 }
 
 func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
-	return params.FindTagsResults{
-		Matches: c.actionTagMatches,
-	}, c.apiErr
+	return c.actionTagMatches, c.apiErr
 }

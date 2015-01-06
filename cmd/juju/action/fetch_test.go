@@ -62,7 +62,7 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 func (s *FetchSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should         string
-		withTags       map[string][]params.Entity
+		withTags       params.FindTagsResults
 		withResults    []params.ActionResult
 		withAPIError   string
 		expectedErr    string
@@ -73,24 +73,24 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 		expectedErr:  "api call error",
 	}, {
 		should:      "fail with no results",
-		withTags:    tagsForId(validActionId),
+		withTags:    tagsForIdPrefix(validActionId),
 		withResults: []params.ActionResult{},
 		expectedErr: `actions for identifier "` + validActionId + `" not found`,
 	}, {
 		should:      "error correctly with multiple results",
-		withTags:    tagsForId(validActionId, validActionTagString),
+		withTags:    tagsForIdPrefix(validActionId, validActionTagString),
 		withResults: []params.ActionResult{{}, {}},
 		expectedErr: "too many results for action " + validActionId,
 	}, {
 		should:   "pass through an error from the API server",
-		withTags: tagsForId(validActionId, validActionTagString),
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withResults: []params.ActionResult{{
 			Error: common.ServerError(errors.New("an apiserver error")),
 		}},
 		expectedErr: "an apiserver error",
 	}, {
 		should:   "pretty-print action output",
-		withTags: tagsForId(validActionId, validActionTagString),
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withResults: []params.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
