@@ -133,6 +133,13 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	tags := &compute.Tags{Items: []string{
+		env.globalFirewallName(),
+		machineID,
+	}}
+	if isStateServer(args.MachineConfig) {
+		tags.Items = append(tags.Items, roleState)
+	}
 
 	instance := &compute.Instance{
 		// MachineType is set in the env.gce.newInstance call.
@@ -140,6 +147,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		Disks:             disks,
 		NetworkInterfaces: networkInterfaces,
 		Metadata:          metadata,
+		Tags:              tags,
 	}
 
 	availabilityZones, err := env.parseAvailabilityZones(args)
