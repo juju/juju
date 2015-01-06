@@ -43,7 +43,9 @@ func (inst *environInstance) Status() string {
 
 func (inst *environInstance) update(raw *compute.Instance) {
 	inst.gce = raw
+}
 
+func (inst *environInstance) updateDisk(raw *compute.Instance) {
 	attached := rootDisk(raw)
 	if diskSize, ok := inst.diskSize(attached); ok {
 		inst.rootDiskMB = diskSize
@@ -73,10 +75,6 @@ func (inst *environInstance) Refresh() error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Drop the hack of carrying over InitializeParams?
-	if rootDisk(raw).InitializeParams == nil {
-		rootDisk(raw).InitializeParams = rootDisk(inst.gce).InitializeParams
-	}
 	inst.update(raw)
 	return nil
 }

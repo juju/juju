@@ -45,6 +45,8 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// Build the result.
 
 	inst := newInstance(raw, env)
+	inst.updateDisk(raw)
+	// TODO(ericsnow) Pass diskMB here (instead of using inst.rootDiskMB)?
 	hwc := env.getHardwareCharacteristics(spec, inst)
 
 	result := environs.StartInstanceResult{
