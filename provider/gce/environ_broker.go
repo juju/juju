@@ -129,12 +129,12 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	}
 	// TODO(ericsnow) Drop carrying InitializeParams over once
 	// gceConnection.disk is working?
-	diskInit := instance.Disks[0].InitializeParams
+	diskInit := rootDisk(instance).InitializeParams
 	if err := env.gce.addInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if instance.Disks[0].InitializeParams == nil {
-		instance.Disks[0].InitializeParams = diskInit
+	if rootDisk(instance).InitializeParams == nil {
+		rootDisk(instance).InitializeParams = diskInit
 	}
 	return instance, nil
 }
