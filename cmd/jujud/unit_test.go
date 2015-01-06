@@ -137,7 +137,7 @@ func (s *UnitSuite) TestParseUnknown(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
+func waitForUnitActive(stateConn *state.State, unit *state.Unit, c *gc.C) {
 	timeout := time.After(5 * time.Second)
 
 	for {
@@ -150,13 +150,13 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			st, info, data, err := unit.Status()
 			c.Assert(err, jc.ErrorIsNil)
 			switch st {
-			case state.StatusPending, state.StatusInstalled:
+			case state.StatusAllocating, state.StatusInstalling:
 				c.Logf("waiting...")
 				continue
-			case state.StatusStarted:
-				c.Logf("started!")
+			case state.StatusActive:
+				c.Logf("active!")
 				return
-			case state.StatusDown:
+			case state.StatusFailed:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
@@ -171,7 +171,7 @@ func (s *UnitSuite) TestRunStop(c *gc.C) {
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForUnitStarted(s.State, unit, c)
+	waitForUnitActive(s.State, unit, c)
 }
 
 func (s *UnitSuite) TestUpgrade(c *gc.C) {
@@ -302,7 +302,7 @@ func (s *UnitSuite) TestOpenStateFails(c *gc.C) {
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	waitForUnitStarted(s.State, unit, c)
+	waitForUnitActive(s.State, unit, c)
 
 	s.AssertCannotOpenState(c, conf.Tag(), conf.DataDir())
 }

@@ -1233,7 +1233,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -2213,8 +2213,8 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  multiwatcher.StatusPending,
-			Life:                    multiwatcher.Alive,
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
@@ -3542,7 +3542,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

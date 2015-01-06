@@ -598,7 +598,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToStatuses(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToStatuses, statusesC,
 		bson.M{
 			"_id":    "u#wordpress/0",
-			"status": StatusStarted,
+			"status": StatusActive,
 		},
 		bson.M{
 			"_id":        "m#0",
@@ -610,7 +610,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToStatuses(c *gc.C) {
 
 	var newDoc statusDoc
 	s.FindId(c, coll, newIDs[0], &newDoc)
-	c.Assert(newDoc.Status, gc.Equals, StatusStarted)
+	c.Assert(newDoc.Status, gc.Equals, StatusActive)
 	c.Assert(newDoc.StatusData, gc.IsNil)
 
 	s.FindId(c, coll, newIDs[1], &newDoc)

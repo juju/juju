@@ -1,11 +1,9 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -20,47 +18,105 @@ var (
 )
 
 // Status represents the status of an entity.
-// It could be a unit, machine or its agent.
+// It could be a service, unit, machine or its agent.
 type Status string
 
 const (
-	// The entity is not yet participating in the environment.
-	StatusPending Status = "pending"
-
-	// The unit has performed initial setup and is adapting itself to
-	// the environment. Not applicable to machines.
-	StatusInstalled Status = "installed"
-
-	// The entity is actively participating in the environment.
-	StatusStarted Status = "started"
-
-	// The entity's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped Status = "stopped"
+	// Status values common to machine and unit agents.
 
 	// The entity requires human intervention in order to operate
 	// correctly.
 	StatusError Status = "error"
+)
 
-	// The entity ought to be signalling activity, but it cannot be
+const (
+	// Status values specific to machine agents.
+
+	// The machine is not yet participating in the environment.
+	StatusPending Status = "pending"
+
+	// The machine is actively participating in the environment.
+	StatusStarted Status = "started"
+
+	// The machine's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
+
+	// The machine ought to be signalling activity, but it cannot be
 	// detected.
 	StatusDown Status = "down"
 )
 
-// Valid returns true if status has a known value.
-func (status Status) Valid() bool {
+const (
+	// Status values specific to unit agents.
+
+	// The machine on which a unit is to be hosted is still being
+	// spun up in the cloud.
+	StatusAllocating Status = "allocating"
+
+	// The unit agent is downloading the charm and running the install hook.
+	StatusInstalling Status = "installing"
+
+	// The agent is actively participating in the environment.
+	StatusActive Status = "active"
+
+	// The agent ought to be signalling activity, but it cannot be
+	// detected.
+	StatusFailed Status = "failed"
+)
+
+const (
+	// Status values specific to services and units, reflecting the
+	// state of the software itself.
+
+	// The unit is installed and has no problems but is busy getting itself
+	// ready to provide services.
+	StatusBusy Status = "busy"
+
+	// The unit is unable to offer services because it needs another
+	// service to be up.
+	StatusWaiting Status = "waiting"
+
+	// The unit needs manual intervention to get back to the Running state.
+	StatusBlocked Status = "blocked"
+
+	// The unit believes it is correctly offering all the services it has
+	// been asked to offer.
+	StatusRunning Status = "running"
+)
+
+// ValidAgentStatus returns true if status has a known value for an agent.
+// This is used by the status command to filter out
+// unknown status values.
+func (status Status) ValidAgentStatus() bool {
 	switch status {
 	case
 		StatusPending,
-		StatusInstalled,
 		StatusStarted,
 		StatusStopped,
 		StatusError,
-		StatusDown:
+		StatusDown,
+		StatusAllocating,
+		StatusInstalling,
+		StatusFailed,
+		StatusActive:
 	default:
 		return false
 	}
 	return true
+}
+
+// Matches returns true if the candidate matches status,
+// taking into account that the candidate may be a legacy
+// status value which has been deprecated.
+func (status Status) Matches(candidate Status) bool {
+	switch candidate {
+	case StatusDown:
+		candidate = StatusFailed
+	case StatusStarted:
+		candidate = StatusActive
+	}
+	return status == candidate
 }
 
 type StatusSetter interface {
@@ -82,26 +138,115 @@ type statusDoc struct {
 	StatusData map[string]interface{}
 }
 
-// validateSet returns an error if the statusDoc does not represent a sane
+type machineStatusDoc struct {
+	statusDoc
+}
+
+// newMachineStatusDoc creates a new machineAgentStatusDoc with the given status and other data.
+func newMachineStatusDoc(status Status, info string, data map[string]interface{},
+	allowPending bool,
+) (*machineStatusDoc, error) {
+	doc := &machineStatusDoc{statusDoc{
+		Status:     status,
+		StatusInfo: info,
+		StatusData: data,
+	}}
+	if err := doc.validateSet(allowPending); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// machineStatusValid returns true if status has a known value for machines.
+func machineStatusValid(status Status) bool {
+	switch status {
+	case
+		StatusPending,
+		StatusStarted,
+		StatusStopped,
+		StatusError,
+		StatusDown:
+	default:
+		return false
+	}
+	return true
+}
+
+// validateSet returns an error if the machineStatusDoc does not represent a sane
 // SetStatus operation.
-func (doc statusDoc) validateSet(allowPending bool) error {
-	if !doc.Status.Valid() {
-		return fmt.Errorf("cannot set invalid status %q", doc.Status)
+func (doc machineStatusDoc) validateSet(allowPending bool) error {
+	if !machineStatusValid(doc.Status) {
+		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	switch doc.Status {
 	case StatusPending:
 		if !allowPending {
-			return fmt.Errorf("cannot set status %q", doc.Status)
+			return errors.Errorf("cannot set status %q", doc.Status)
 		}
 	case StatusDown:
-		return fmt.Errorf("cannot set status %q", doc.Status)
+		return errors.Errorf("cannot set status %q", doc.Status)
 	case StatusError:
 		if doc.StatusInfo == "" {
-			return fmt.Errorf("cannot set status %q without info", doc.Status)
+			return errors.Errorf("cannot set status %q without info", doc.Status)
 		}
 	}
 	if doc.StatusData != nil && doc.Status != StatusError {
-		return fmt.Errorf("cannot set status data when status is %q", doc.Status)
+		return errors.Errorf("cannot set status data when status is %q", doc.Status)
+	}
+	return nil
+}
+
+type unitAgentStatusDoc struct {
+	statusDoc
+}
+
+// newUnitAgentStatusDoc creates a new unitAgentStatusDoc with the given status and other data.
+func newUnitAgentStatusDoc(status Status, info string, data map[string]interface{}) (*unitAgentStatusDoc, error) {
+	doc := &unitAgentStatusDoc{statusDoc{
+		Status:     status,
+		StatusInfo: info,
+		StatusData: data,
+	}}
+	if err := doc.validateSet(); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// unitAgentStatusValid returns true if status has a known value for unit agents.
+func unitAgentStatusValid(status Status) bool {
+	switch status {
+	case
+		StatusAllocating,
+		StatusInstalling,
+		StatusActive,
+		StatusFailed,
+		StatusError:
+	default:
+		return false
+	}
+	return true
+}
+
+// validateSet returns an error if the unitAgentStatusDoc does not represent a sane
+// SetStatus operation for a unit agent.
+func (doc *unitAgentStatusDoc) validateSet() error {
+	if !unitAgentStatusValid(doc.Status) {
+		return errors.Errorf("cannot set invalid status %q", doc.Status)
+	}
+	switch doc.Status {
+	// For safety; no code will use these deprecated values.
+	case StatusPending, StatusDown, StatusStarted:
+		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
+	case StatusAllocating, StatusFailed:
+		return errors.Errorf("cannot set status %q", doc.Status)
+	case StatusError:
+		if doc.StatusInfo == "" {
+			return errors.Errorf("cannot set status %q without info", doc.Status)
+		}
+	}
+	if doc.StatusData != nil && doc.Status != StatusError {
+		return errors.Errorf("cannot set status data when status is %q", doc.Status)
 	}
 	return nil
 }
@@ -119,7 +264,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 		return statusDoc{}, errors.NotFoundf("status")
 	}
 	if err != nil {
-		return statusDoc{}, fmt.Errorf("cannot get status %q: %v", globalKey, err)
+		return statusDoc{}, errors.Errorf("cannot get status %q: %v", globalKey, err)
 	}
 	return doc, nil
 }

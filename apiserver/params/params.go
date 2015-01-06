@@ -768,37 +768,68 @@ type RebootActionResult struct {
 type Life multiwatcher.Life
 
 const (
-	Alive = Life(multiwatcher.Alive)
-	Dying = Life(multiwatcher.Dying)
-	Dead  = Life(multiwatcher.Dead)
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
 )
 
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
 type Status multiwatcher.Status
 
+// TranslateLegacyStatus returns the status value clients expect to see for Juju 1.x.
+func TranslateLegacyStatus(in Status) Status {
+	switch in {
+	case StatusFailed:
+		return StatusDown
+	case StatusActive:
+		return StatusStarted
+	}
+	return in
+}
+
 const (
-	// The entity is not yet participating in the environment.
-	StatusPending = Status(multiwatcher.StatusPending)
-
-	// The unit has performed initial setup and is adapting itself to
-	// the environment. Not applicable to machines.
-	StatusInstalled = Status(multiwatcher.StatusInstalled)
-
-	// The entity is actively participating in the environment.
-	StatusStarted = Status(multiwatcher.StatusStarted)
-
-	// The entity's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped = Status(multiwatcher.StatusStopped)
+	// Status values common to machine and unit agents.
 
 	// The entity requires human intervention in order to operate
 	// correctly.
-	StatusError = Status(multiwatcher.StatusError)
+	StatusError Status = "error"
+)
 
-	// The entity ought to be signalling activity, but it cannot be
+const (
+	// Status values specific to machine agents.
+
+	// The machine is not yet participating in the environment.
+	StatusPending Status = "pending"
+
+	// The machine is actively participating in the environment.
+	StatusStarted Status = "started"
+
+	// The machine's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
+
+	// The machine ought to be signalling activity, but it cannot be
 	// detected.
-	StatusDown = Status(multiwatcher.StatusDown)
+	StatusDown Status = "down"
+)
+
+const (
+	// Status values specific to unit agents.
+
+	// The machine on which a unit is to be hosted is still being
+	// spun up in the cloud.
+	StatusAllocating Status = "allocating"
+
+	// The unit agent is downloading the charm and running the install hook.
+	StatusInstalling Status = "installing"
+
+	// The agent is actively participating in the environment.
+	StatusActive Status = "active"
+
+	// The agent ought to be signalling activity, but it cannot be
+	// detected.
+	StatusFailed Status = "failed"
 )
 
 // DatastoreResult holds the result of an API call to retrieve details

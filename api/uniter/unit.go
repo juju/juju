@@ -52,7 +52,7 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// SetStatus sets the status of the unit.
+// SetStatus sets the status of the unit agent.
 func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
