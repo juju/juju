@@ -263,6 +263,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigName:   env.config.namespace(),
 		container.ConfigLogDir: env.config.logDir(),
 	}
+	var imageURLGetter container.ImageURLGetter
 	if containerType == instance.LXC {
 		if useLxcClone, ok := cfg.LXCUseClone(); ok {
 			managerConfig["use-clone"] = fmt.Sprint(useLxcClone)
@@ -270,9 +271,18 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		if useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS(); ok {
 			managerConfig["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
 		}
+		// For lxc containers, we cache image tarballs in the environment storage, so here
+		// we construct a URL getter.
+		if uuid, ok := ecfg.UUID(); ok {
+			var caCert []byte = nil
+			if cert, ok := cfg.CACert(); ok {
+				caCert = []byte(cert)
+			}
+			imageURLGetter = container.NewImageURLGetter(ecfg.stateServerAddr(), uuid, caCert)
+		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
-		containerType, managerConfig)
+		containerType, managerConfig, imageURLGetter)
 	if err != nil {
 		return err
 	}
@@ -456,7 +466,7 @@ func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addre
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
-func (*localEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (*localEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("Subnets")
 }
 

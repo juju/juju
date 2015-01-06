@@ -117,7 +117,14 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	})
 	jujud.Log.Factory = &writerFactory{}
 	jujud.Register(&BootstrapCommand{})
-	jujud.Register(&agentcmd.MachineAgent{})
+
+	// TODO(katco-): AgentConf type is doing too much. The
+	// MachineAgent type has called out the seperate concerns; the
+	// AgentConf should be split up to follow suite.
+	var agentConf agentcmd.AgentConf
+	machineAgentFactory := agentcmd.MachineAgentFactoryFn(&agentConf, &agentConf)
+	jujud.Register(agentcmd.NewMachineAgentCmd(machineAgentFactory, &agentConf, &agentConf))
+
 	jujud.Register(&UnitAgent{})
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil

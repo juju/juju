@@ -14,14 +14,6 @@ var (
 	toolstorageNewStorage = toolstorage.NewStorage
 )
 
-// getManagedStorage returns a blobstore.ManagedStorage using the
-// specified UUID and mgo.Session.
-func (st *State) getManagedStorage(uuid string, session *mgo.Session) blobstore.ManagedStorage {
-	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
-	db := st.db.With(session)
-	return blobstore.NewManagedStorage(db, rs)
-}
-
 // ToolsStorage returns a new toolstorage.StorageCloser
 // that stores tools metadata in the "juju" database''
 // "toolsmetadata" collection.

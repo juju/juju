@@ -191,7 +191,7 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 			switch elem.Name {
 			case "_id":
 				if id, ok := elem.Value.(string); ok {
-					elem.Value = c.addEnvUUID(id)
+					elem.Value = addEnvUUID(c.envUUID, id)
 				}
 			case "env-uuid":
 				panic("env-uuid is added automatically and should not be provided")
@@ -210,7 +210,7 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 func (c *envStateCollection) mungeId(id interface{}) interface{} {
 	switch idv := id.(type) {
 	case string:
-		return c.addEnvUUID(idv)
+		return addEnvUUID(c.envUUID, idv)
 	case bson.ObjectId:
 		return idv
 	default:
@@ -218,8 +218,8 @@ func (c *envStateCollection) mungeId(id interface{}) interface{} {
 	}
 }
 
-func (c *envStateCollection) addEnvUUID(id string) string {
-	prefix := c.envUUID + ":"
+func addEnvUUID(envUUID, id string) string {
+	prefix := envUUID + ":"
 	if strings.HasPrefix(id, prefix) {
 		return id
 	}

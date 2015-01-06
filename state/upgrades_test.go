@@ -87,7 +87,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 			Insert: oldDoc,
 		},
 	}
-	err := s.state.runTransaction(ops)
+	err := s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = MigrateUserLastConnectionToLastLogin(s.state)
@@ -157,7 +157,7 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 			{"env-uuid", nil},
 		}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
 	stateServers, closer := s.state.getRawCollection(stateServersC)
@@ -981,7 +981,7 @@ func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M)
 		Assert: txn.DocMissing,
 		Insert: legacyDoc,
 	}}
-	err := s.state.runTransaction(ops)
+	err := s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1029,7 +1029,7 @@ func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
 			{"server-uuid", nil}, {"owner", nil},
 		}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure it has gone.
 	environments, closer := s.state.getRawCollection(environmentsC)
@@ -1073,7 +1073,7 @@ func openLegacyPort(c *gc.C, unit *Unit, number int, proto string) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err := unit.st.runTransaction(ops)
+	err := unit.st.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1174,15 +1174,30 @@ func (s *upgradesSuite) setUpPortsMigration(c *gc.C) ([]*Machine, map[int][]*Uni
 	// machines[2] (new-style port ranges):
 	// - 100-110/tcp (simulate a pre-existing range for units[2][1],
 	//   without opening the ports on the unit itself)
-	portRange, err := NewPortRange(units[2][1].Name(), 100, 110, "tcp")
-	c.Assert(err, jc.ErrorIsNil)
-	portsMachine2, err := GetOrCreatePorts(
-		s.state, machines[2].Id(), network.DefaultPublic,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = portsMachine2.OpenPorts(portRange)
-	c.Assert(err, jc.ErrorIsNil)
 	//
+	// This is done "manually" because doing it conventionally using
+	// State methods will mean that the document ID used will be env
+	// UUID prefixed and this migration runs before the openedPorts
+	// collection is migrated to using environment UUIDs. The
+	// migration step expects the openedPorts collection to be pre-env
+	// UUID migration.
+	err = s.state.runRawTransaction([]txn.Op{{
+		C:      openedPortsC,
+		Id:     portsGlobalKey("2", network.DefaultPublic),
+		Assert: txn.DocMissing,
+		Insert: bson.M{
+			"machine-id":   "2",
+			"network-name": network.DefaultPublic,
+			"ports": []bson.M{{
+				"unitname": units[2][1].Name(),
+				"fromport": 100,
+				"toport":   110,
+				"protocol": "tcp",
+			}},
+		},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// units[0][0] (on machines[0]):
 	// - no ports opened
 	//
@@ -1380,7 +1395,7 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPorts(c *gc.C) {
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
-	// except for macines[2].
+	// except for machines[2].
 	s.assertInitialMachinePorts(c, machines, units)
 
 	err := MigrateUnitPortsToOpenedPorts(s.state)
@@ -1400,7 +1415,7 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	machines, units := s.setUpPortsMigration(c)
 
 	// Ensure there are no new-style port ranges before the migration,
-	// except for macines[2].
+	// except for machines[2].
 	s.assertInitialMachinePorts(c, machines, units)
 
 	err := MigrateUnitPortsToOpenedPorts(s.state)
@@ -1468,7 +1483,7 @@ func (s *upgradesSuite) patchPortOptFuncs() {
 
 	s.PatchValue(
 		&addPortsDocOps,
-		func(st *State, pDoc portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
+		func(st *State, pDoc *portsDoc, portsAssert interface{}, ports ...PortRange) ([]txn.Op, error) {
 			pDoc.Ports = ports
 			return []txn.Op{{
 				C:      machinesC,
@@ -1558,7 +1573,7 @@ func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
 					Assert: isAliveDoc,
 					Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 				}}
-			err = s.state.runTransaction(ops)
+			err = s.state.runRawTransaction(ops)
 			c.Assert(err, jc.ErrorIsNil)
 			units[i*3+j], err = s.state.Unit(name)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1646,7 +1661,7 @@ func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instan
 			Insert: mDoc,
 		},
 	}
-	err := s.state.runTransaction(ops)
+	err := s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1712,7 +1727,7 @@ func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
 
 	// Ensure "availzone" isn't set.
 	var instanceMap bson.M
-	insts, closer := s.state.getRawCollection(instanceDataC)
+	insts, closer := s.state.getCollection(instanceDataC)
 	defer closer()
 	err = insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1724,7 +1739,7 @@ func (s *upgradesSuite) azSetUp(c *gc.C, machineID string, instID instance.Id) {
 // for the instance data associated with the machine.
 func (s *upgradesSuite) checkAvailabilityZone(c *gc.C, machineID string, expectedZone string) {
 	var instanceMap bson.M
-	insts, closer := s.state.getRawCollection(instanceDataC)
+	insts, closer := s.state.getCollection(instanceDataC)
 	defer closer()
 	err := insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1759,7 +1774,7 @@ func (s *upgradesSuite) setUpJobManageNetworking(c *gc.C, provider string, manua
 		})
 	}
 	// Run transaction.
-	err = s.state.runTransaction(ops)
+	err = s.state.runRawTransaction(ops)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1883,4 +1898,44 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 
 		s.tearDownJobManageNetworking(c)
 	}
+}
+
+func (s *upgradesSuite) TestFixMinUnitsEnvUUID(c *gc.C) {
+	minUnits, closer := s.state.getRawCollection(minUnitsC)
+	defer closer()
+
+	uuid := s.state.EnvironUUID()
+
+	err := minUnits.Insert(
+		// This record should be left untouched.
+		bson.D{
+			{"_id", uuid + ":bar"},
+			{"servicename", "bar"},
+			{"env-uuid", uuid},
+		},
+		// This record should have its env-uuid field set.
+		bson.D{
+			{"_id", uuid + ":foo"},
+			{"servicename", "foo"},
+			{"env-uuid", ""},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = FixMinUnitsEnvUUID(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var docs []minUnitsDoc
+	err = minUnits.Find(nil).Sort("_id").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.DeepEquals, []minUnitsDoc{{
+		DocID:       uuid + ":bar",
+		ServiceName: "bar",
+		EnvUUID:     uuid,
+	}, {
+		DocID:       uuid + ":foo",
+		ServiceName: "foo",
+		EnvUUID:     uuid,
+	}})
+
 }
