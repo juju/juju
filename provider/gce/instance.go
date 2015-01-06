@@ -50,8 +50,7 @@ func (inst *environInstance) update(raw *compute.Instance) {
 	}
 }
 
-func (inst *environInstance) diskSize(attached *compute.AttachedDisk) (uint64,
-	bool) {
+func (inst *environInstance) diskSize(attached *compute.AttachedDisk) (uint64, bool) {
 	diskSizeGB, err := diskSizeGB(attached)
 	if err != nil {
 		logger.Errorf("error while getting root disk size: %v", err)
