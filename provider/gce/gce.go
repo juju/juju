@@ -551,9 +551,9 @@ func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 		// Description is not set.
 		Name: name,
 		// Network: (defaults to global)
-		// SourceRanges is not set.
-		SourceTags: []string{name},
-		// TargetTags is not set.
+		// SourceTags is not set.
+		TargetTags:   []string{name},
+		SourceRanges: []string{"0.0.0.0/0"},
 	}
 
 	for _, protocol := range ps.Protocols() {
