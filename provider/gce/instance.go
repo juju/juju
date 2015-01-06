@@ -53,10 +53,10 @@ func (inst *environInstance) update(raw *compute.Instance) {
 func (inst *environInstance) diskSize(attached *compute.AttachedDisk) (uint64, bool) {
 	diskSizeGB, err := diskSizeGB(attached)
 	if err != nil {
-		logger.Errorf("error while getting root disk size: %v", err)
+		logger.Warningf("error while getting root disk size: %v", err)
 		disk, err := inst.env.gce.disk(attached.Source)
 		if err != nil {
-			logger.Errorf("error while getting root disk: %v", err)
+			logger.Warningf("error while getting root disk: %v", err)
 			// Leave it what it was.
 			return 0, false
 		}
