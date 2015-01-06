@@ -451,11 +451,12 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                         with scoped_environ():
                             os.environ['PATH'] = new_path
                             test_upgrade(env)
-                except:
+                except BaseException as e:
+                    logging.exception(e)
                     if host is not None:
                         dump_logs(env.client.get_env_client(env), host,
                                   log_dir, bootstrap_id)
-                    raise
+                    sys.exit(1)
             finally:
                 env.destroy_environment()
         finally:
