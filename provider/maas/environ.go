@@ -260,6 +260,49 @@ func (env *maasEnviron) getNodegroups() ([]string, error) {
 	return nodegroups, nil
 }
 
+func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][]string {
+	nodegroupsObject := env.getMAASClient().GetSubObject("nodegroups")
+
+	nodegroupsInterfacesMap := make(map[string][]string)
+	for _, uuid := range nodegroups {
+		interfacesObject := nodegroupsObject.GetSubObject(uuid).GetSubObject("interfaces")
+		interfacesResult, err := interfacesObject.CallGet("list", nil)
+		if err != nil {
+			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			continue
+		}
+		interfaces, err := interfacesResult.GetArray()
+		if err != nil {
+			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			continue
+		}
+		for _, interfaceResult := range interfaces {
+			nic, err := interfaceResult.GetMap()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			ip, err := nic["ip"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_low, err := nic["static_ip_range_low"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_high, err := nic["static_ip_range_high"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			nodegroupsInterfacesMap[ip] = []string{static_low, static_high}
+		}
+	}
+	return nodegroupsInterfacesMap
+}
+
 type bootImage struct {
 	architecture string
 	release      string
@@ -1172,17 +1215,33 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", instId, networks)
+
+	nodegroups, err := environ.getNodegroups()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getNodegroups failed")
+	}
+	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
 	var networkInfo []network.SubnetInfo
 	for _, netw := range networks {
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		// TODO: (mfoord 2014-12-17) need to fill in AllocatableIPLow & High
+		var allocatableHigh, allocatableLow string
+		for ip, bounds := range nodegroupInterfaces {
+			contained := netCIDR.Contains(net.ParseIP(ip))
+			if contained {
+				allocatableLow = bounds[0]
+				allocatableHigh = bounds[1]
+				break
+			}
+		}
 		netInfo := network.SubnetInfo{
-			CIDR:       netCIDR.String(),
-			VLANTag:    netw.VLANTag,
-			ProviderId: network.Id(netw.Name),
+			CIDR:              netCIDR.String(),
+			VLANTag:           netw.VLANTag,
+			ProviderId:        network.Id(netw.Name),
+			AllocatableIPLow:  net.ParseIP(allocatableLow),
+			AllocatableIPHigh: net.ParseIP(allocatableHigh),
 		}
 
 		// Verify we filled-in everything for all networks
