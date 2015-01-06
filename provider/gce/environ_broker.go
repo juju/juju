@@ -107,6 +107,10 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
+func isStateServer(mcfg cloudinit.MachineConfig) bool {
+	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
+}
+
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*compute.Instance, error) {
 	// Compose the instance.
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
@@ -155,7 +159,7 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 
 	// Handle state machines.
 	var role string
-	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if isStateServer(args.MachineConfig) {
 		role = roleState
 	}
 
