@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 type environInstance struct {
@@ -126,16 +127,19 @@ func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRange) error {
+	// TODO(ericsnow) Make sure machineId matches inst.Id()?
+	name := common.MachineFullName(inst.env, machineId)
 	env := inst.env.getSnapshot()
-	err := env.openPorts(machineId, ports)
+	err := env.openPorts(name, ports)
 	return errors.Trace(err)
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
 func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRange) error {
+	name := common.MachineFullName(inst.env, machineId)
 	env := inst.env.getSnapshot()
-	err := env.closePorts(machineId, ports)
+	err := env.closePorts(name, ports)
 	return errors.Trace(err)
 }
 
@@ -143,7 +147,8 @@ func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRa
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
 func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error) {
+	name := common.MachineFullName(inst.env, machineId)
 	env := inst.env.getSnapshot()
-	ports, err := env.ports(machineId)
+	ports, err := env.ports(name)
 	return ports, errors.Trace(err)
 }
