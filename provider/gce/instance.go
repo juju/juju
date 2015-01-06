@@ -73,6 +73,10 @@ func (inst *environInstance) Refresh() error {
 		return errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Drop the hack of carrying over InitializeParams?
+	if rootDisk(raw).InitializeParams == nil {
+		rootDisk(raw).InitializeParams = rootDisk(inst.gce).InitializeParams
+	}
 	inst.update(raw)
 	return nil
 }
