@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -38,9 +39,11 @@ type StartInstanceParams struct {
 	// high availability.
 	DistributionGroup func() ([]instance.Id, error)
 
-	// Disks is a set of constraints for requested disks. Constraints
-	// specify the minimum and preferred values for each variable.
-	Disks []storage.Constraints
+	// Disks is a set of parameters for disks that must be created.
+	// Constraints specify the minimum and preferred values for each
+	// variable. If any of the disks cannot be created, StartInstance
+	// will return an error.
+	Disks []storage.DiskParams
 }
 
 // StartInstanceResult holds the result of an
@@ -56,9 +59,10 @@ type StartInstanceResult struct {
 	// NetworkInfo contains information about configured networks.
 	NetworkInfo []network.Info
 
-	// Disks contains a mapping from storage constraints to a list
-	// of block devices that were created to satisfy those constraints.
-	Disks map[storage.Constraints][]storage.BlockDevice
+	// Disks contains a list of block devices created, each one
+	// corresponding to the DiskParams in the same position of
+	// StartInstanceParams.Disks.
+	Disks []storage.BlockDevice
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops
