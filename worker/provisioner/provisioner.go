@@ -133,6 +133,10 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		return nil, errors.Annotate(err, "could not retrieve the environment config.")
 	}
 
+	secureServerConnection := false
+	if info, ok := p.agentConfig.StateServingInfo(); ok {
+		secureServerConnection = info.CAPrivateKey != ""
+	}
 	task := NewProvisionerTask(
 		machineTag,
 		harvestMode,
@@ -143,6 +147,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 		p.broker,
 		auth,
 		envCfg.ImageStream(),
+		secureServerConnection,
 	)
 	return task, nil
 }

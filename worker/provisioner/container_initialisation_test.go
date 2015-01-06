@@ -106,7 +106,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 }
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
-	inst := s.checkStartInstance(c, host)
+	inst := s.checkStartInstanceNoSecureConnection(c, host)
 	s.setupContainerWorker(c, host.Tag().(names.MachineTag))
 
 	// make a container on the host machine
