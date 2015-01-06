@@ -180,3 +180,34 @@ func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	}
 	return nil
 }
+
+// EnvironmentsForUser returns a list of enviroments that the user
+// is able to access.
+func (st *State) EnvironmentsForUser(user names.UserTag) ([]*Environment, error) {
+
+	// Since there are no groups at this stage, the simplest way to get all
+	// the environments that a particular user can see is to look through the
+	// environment user collection (specifically the raw collection) so as to
+	// find all the environments the user can see.
+	envUsers, userCloser := st.getRawCollection(envUsersC)
+	defer userCloser()
+
+	// TODO: consider adding an index to the envUsers collection on the username.
+	var userSlice []envUserDoc
+	err := envUsers.Find(bson.D{{"user", user.Username()}}).All(&userSlice)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []*Environment
+	for _, doc := range userSlice {
+		envTag := names.NewEnvironTag(doc.EnvUUID)
+		env, err := st.GetEnvironment(envTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = append(result, env)
+	}
+
+	return result, nil
+}

@@ -9,9 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -89,4 +91,64 @@ func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	// to check for after now as well as equal.
 	c.Assert(envUser.LastConnection().After(now) ||
 		envUser.LastConnection().Equal(now), jc.IsTrue)
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserNone(c *gc.C) {
+	tag := names.NewUserTag("non-existent@remote")
+	environments, err := s.State.EnvironmentsForUser(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 0)
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserNewLocalUser(c *gc.C) {
+	user := s.factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	environments, err := s.State.EnvironmentsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 0)
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
+	user := s.factory.MakeUser(c, nil)
+	environments, err := s.State.EnvironmentsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	c.Assert(environments[0].UUID(), gc.Equals, s.State.EnvironUUID())
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
+	userTag := names.NewUserTag("external@remote")
+	// Don't use the factory to call MakeEnvironment because it may at some
+	// time in the future be modified to do additional things.  Instead call
+	// the state method directly to create an environment to make sure that
+	// the owner is able to access the environment.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": "new-env",
+		"uuid": uuid.String(),
+	})
+	env, st, err := s.State.NewEnvironment(cfg, userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	environments, err := s.State.EnvironmentsForUser(userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	c.Assert(environments[0].UUID(), gc.Equals, env.UUID())
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
+	userTag := names.NewUserTag("external@remote")
+	envState := s.factory.MakeEnvironment(c, nil)
+	defer envState.Close()
+	newEnv, err := envState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = envState.AddEnvironmentUser(userTag, newEnv.Owner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	environments, err := s.State.EnvironmentsForUser(userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	c.Assert(environments[0].UUID(), gc.Equals, newEnv.UUID())
 }
