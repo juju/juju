@@ -141,10 +141,10 @@ func NewHookContext(
 	return ctx, nil
 }
 
-// NewEnvironmentHookContext exists purely to set the fields used in hookVars.
+// NewEnvironmentHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
 func NewEnvironmentHookContext(
-	id, envUUID, envName, unitName, meterCode, meterInfo string,
+	id, envUUID, envName, unitName, meterCode, meterInfo, availZone string,
 	apiAddresses []string, proxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
@@ -161,6 +161,7 @@ func NewEnvironmentHookContext(
 		},
 		relationId:         -1,
 		assignedMachineTag: machineTag,
+		availabilityzone:   availZone,
 	}
 }
 
