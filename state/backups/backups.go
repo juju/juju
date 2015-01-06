@@ -42,10 +42,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -56,12 +58,6 @@ const (
 
 	// FilenameTemplate is used with time.Time.Format to generate a filename.
 	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
-
-	// TODO(perrito666) get this from an authoritative source and avoid assuming
-	// machine 0.
-
-	// Serveragentconf is the location for agent.conf in machine 0.
-	ServerAgentConf = "/var/lib/juju/agents/machine-0/agent.conf"
 )
 
 var logger = loggo.GetLogger("juju.state.backups")
@@ -111,7 +107,7 @@ type Backups interface {
 	Remove(id string) error
 
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(backupId string, privateAddress string, newInstId instance.Id) error
+	Restore(backupId string, privateAddress string, newInstId instance.Id, newInstTag names.Tag, newInstSeries string) error
 }
 
 type backups struct {
@@ -228,7 +224,7 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id) error {
+func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id, newInstTag names.Tag, newInstSeries string) error {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return errors.Annotatef(err, "could not fetch backup %q", backupId)
@@ -244,6 +240,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 
 	// TODO(perrito666) Create a compatibility table of sorts.
 	version := meta.Origin.Version
+	backupMachine := names.NewMachineTag(meta.Origin.Machine)
 
 	// delete all the files to be replaced
 	if err := PrepareMachineForRestore(); err != nil {
@@ -254,15 +251,24 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
 
+	if err := updateBackupMachineTag(backupMachine, newInstTag); err != nil {
+		return errors.Annotate(err, "cannot update paths to reflect current machine id")
+	}
+
 	var agentConfig agent.ConfigSetterWriter
-	if agentConfig, err = agent.ReadConfig(ServerAgentConf); err != nil {
+	datadir, err := paths.DataDir(newInstSeries)
+	if err != nil {
+		return errors.Annotate(err, "cannot determine DataDir for the restored machine")
+	}
+	agentConfigFile := agent.ConfigPath(datadir, newInstTag)
+	if agentConfig, err = agent.ReadConfig(agentConfigFile); err != nil {
 		return errors.Annotate(err, "cannot load agent config from disk")
 	}
 	ssi, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return errors.Errorf("cannot determine state serving info")
 	}
-
+	agentConfig.SetValue("tag", newInstTag.String())
 	APIHostPort := network.HostPort{
 		Address: network.Address{
 			Value: privateAddress,
@@ -292,6 +298,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	}
 
 	// Update entries for machine 0 to point to the newest instance
+	// FIXME: this needs to update the machine tag too
 	err = updateMongoEntries(newInstId, dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot update mongo entries")

@@ -9,15 +9,21 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -146,9 +152,10 @@ func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 	return nil
 }
 
-// agentAddressTemplate is the template used to replace the api server data
-// in the agents for the new ones if the machine has been rebootstraped.
-var agentAddressTemplate = template.Must(template.New("").Parse(`
+// agentAddressAndRelationsTemplate is the template used to replace the api server data
+// in the agents for the new ones if the machine has been rebootstraped it will also reset
+// the relations so hooks will re-fire.
+var agentAddressAndRelationsTemplate = template.Must(template.New("").Parse(`
 set -xu
 cd /var/lib/juju/agents
 for agent in *
@@ -182,7 +189,7 @@ done
 // setAgentAddressScript generates an ssh script argument to update state addresses.
 func setAgentAddressScript(stateAddr string) string {
 	var buf bytes.Buffer
-	err := agentAddressTemplate.Execute(&buf, struct {
+	err := agentAddressAndRelationsTemplate.Execute(&buf, struct {
 		Address string
 	}{stateAddr})
 	if err != nil {
@@ -216,4 +223,24 @@ func runViaSSH(addr string, script string) error {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())
 	}
 	return nil
+}
+
+func updateBackupMachineTag(oldTag, newTag names.Tag) error {
+	oldTagString := oldTag.String()
+	newTagString := newTag.String()
+
+	if oldTagString == newTagString {
+		return nil
+	}
+	oldTagPath := path.Join(agent.DefaultDataDir, oldTagString)
+	newTagPath := path.Join(agent.DefaultDataDir, newTagString)
+
+	oldToolsDir := tools.ToolsDir(agent.DefaultDataDir, oldTagString)
+	oldLink, err := filepath.EvalSymlinks(oldToolsDir)
+
+	os.Rename(oldTagPath, newTagPath)
+	newToolsDir := tools.ToolsDir(agent.DefaultDataDir, newTagString)
+	newToolsPath := strings.Replace(oldLink, oldTagPath, newTagPath, -1)
+	err = symlink.Replace(newToolsDir, newToolsPath)
+	return errors.Annotatef(err, "cannot set the new tools path")
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/instance"
 	jc "github.com/juju/testing/checkers"
@@ -97,7 +98,7 @@ func (b *FakeBackups) Remove(id string) error {
 }
 
 // Restore restores a machine to a backed up status.
-func (b *FakeBackups) Restore(bkpId, privateAddress string, newInstId instance.Id) error {
+func (b *FakeBackups) Restore(bkpId, privateAddress string, newInstId instance.Id, newInstTag names.Tag, newInstSeries string) error {
 	b.Calls = append(b.Calls, "Restore")
 	b.PrivateAddr = privateAddress
 	b.InstanceId = newInstId
