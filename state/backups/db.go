@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/imagestorage"
 	"github.com/juju/juju/utils"
@@ -215,27 +216,6 @@ func listDatabases(dumpDir string) (set.Strings, error) {
 	return databases, nil
 }
 
-var osStat = os.Stat
-var execLookPath = exec.LookPath
-
-// mongorestorePath will look for mongorestore binary on the system
-// and return it if mongorestore actually exists.
-// it will look first for the juju provided one and if not found make a
-// try at a system one.
-func mongorestorePath() (string, error) {
-	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"
-
-	if _, err := osStat(mongoRestoreFullPath); err == nil {
-		return mongoRestoreFullPath, nil
-	}
-
-	path, err := execLookPath("mongorestore")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return path, nil
-}
-
 // mongoRestoreArgsForVersion returns a string slice containing the args to be used
 // to call mongo restore since these can change depending on the backup method.
 // Version 0: a dump made with --db, stopping the state server.
@@ -253,7 +233,7 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	}
 }
 
-var restorePath = mongorestorePath
+var restorePath = paths.MongorestorePath
 var restoreArgsForVersion = mongoRestoreArgsForVersion
 
 // placeNewMongo tries to use mongorestore to replace an existing
