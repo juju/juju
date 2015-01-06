@@ -34,7 +34,7 @@ func (s *environInstanceSuite) SetUpSuite(c *gc.C) {
 
 	attrs := testing.Attrs{
 		"name":     "testname",
-		"uuid":		"f54aac3a-9dcd-4a0c-86b5-24091478478c",
+		"uuid":     "f54aac3a-9dcd-4a0c-86b5-24091478478c",
 		"region":   mock.Endpoint(""),
 		"username": mock.TestUser,
 		"password": mock.TestPassword,
@@ -67,12 +67,12 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 	s.PatchValue(&newStorage, func(*environConfig, *environClient) (*environStorage, error) {
 		return &emptyStorage, nil
 	})
-	s.PatchValue(&findInstanceImage, func (env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
-			img :=  &imagemetadata.ImageMetadata{
-					Id: validImageId,
-				}
-			return img, nil
-		})
+	s.PatchValue(&findInstanceImage, func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
+		img := &imagemetadata.ImageMetadata{
+			Id: validImageId,
+		}
+		return img, nil
+	})
 	if cfg == nil {
 		cfg = s.baseConfig
 	}
@@ -160,50 +160,41 @@ func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 func (s *environInstanceSuite) TestAllocateAddress(c *gc.C) {
 	environ := s.createEnviron(c, nil)
 
-	addr, err := environ.AllocateAddress(instance.Id(""), network.Id(""))
-	c.Check(addr, gc.Equals, network.Address{})
+	err := environ.AllocateAddress(instance.Id(""), network.Id(""), network.Address{})
 	c.Check(err, gc.ErrorMatches, "AllocateAddress not supported")
 }
 
 func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	environ := s.createEnviron(c, nil)
 
-	inst, hw, ni, err := environ.StartInstance(environs.StartInstanceParams{})
-	c.Check(inst, gc.IsNil)
-	c.Check(hw, gc.IsNil)
-	c.Check(ni, gc.IsNil)
+	res, err := environ.StartInstance(environs.StartInstanceParams{})
+	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "machine configuration is nil")
 
-	toolsVal :=  &tools.Tools{
+	toolsVal := &tools.Tools{
 		Version: version.Binary{
 			Series: "trusty",
 		},
 	}
-	inst, hw, ni, err = environ.StartInstance(environs.StartInstanceParams{
+	res, err = environ.StartInstance(environs.StartInstanceParams{
 		MachineConfig: &cloudinit.MachineConfig{
 			Networks: []string{"value"},
-			Tools:toolsVal,
+			Tools:    toolsVal,
 		},
 	})
-	c.Check(inst, gc.IsNil)
-	c.Check(hw, gc.IsNil)
-	c.Check(ni, gc.IsNil)
+	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "starting instances with networks is not supported yet")
 
-	inst, hw, ni, err = environ.StartInstance(environs.StartInstanceParams{
+	res, err = environ.StartInstance(environs.StartInstanceParams{
 		MachineConfig: &cloudinit.MachineConfig{},
 	})
-	c.Check(inst, gc.IsNil)
-	c.Check(hw, gc.IsNil)
-	c.Check(ni, gc.IsNil)
+	c.Check(res, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "tools not found")
 
-	inst, hw, ni, err = environ.StartInstance(environs.StartInstanceParams{
-		Tools: tools.List{toolsVal},
-		MachineConfig: &cloudinit.MachineConfig{Tools:toolsVal},
+	res, err = environ.StartInstance(environs.StartInstanceParams{
+		Tools:         tools.List{toolsVal},
+		MachineConfig: &cloudinit.MachineConfig{Tools: toolsVal},
 	})
-	c.Check(inst, gc.IsNil)
-	c.Check(hw, gc.IsNil)
-	c.Check(ni, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "failed start instance:.*")
+	c.Check(res, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot make user data: invalid series \"\"")
 }

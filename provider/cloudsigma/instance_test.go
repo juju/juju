@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Altoros/gosigma"
-	"github.com/juju/juju/juju/arch"
 	"github.com/Altoros/gosigma/data"
 	"github.com/Altoros/gosigma/mock"
 	"github.com/juju/juju/instance"
@@ -80,7 +79,9 @@ func (s *instanceSuite) TestInstanceEmpty(c *gc.C) {
 	c.Check(name, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "invalid instance")
 
-	c.Check(e.hardware("64", 0), gc.IsNil)
+	hw, err := e.hardware("64", 0)
+	c.Check(hw, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "Server is not initialized.")
 }
 
 func (s *instanceSuite) TestInstanceId(c *gc.C) {
@@ -158,10 +159,11 @@ func (s *instanceSuite) TestInstancePorts(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceHardware(c *gc.C) {
-	hw := s.inst.hardware("64", 1000000)
+	hw, err := s.inst.hardware("64", 1000000)
+	c.Assert(err, gc.IsNil)
 	c.Assert(hw, gc.NotNil)
 
-	c.Check(*hw.Arch, gc.Equals, arch.AMD64)
+	c.Check(*hw.Arch, gc.Equals, "64")
 
 	c.Check(hw.Mem, gc.NotNil)
 	if hw.Mem != nil {

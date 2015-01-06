@@ -25,13 +25,16 @@ const (
 
 // This file contains the core of the Environ implementation.
 type environ struct {
+	common.SupportsUnitPlacementPolicy
 	name string
 
-	lock sync.Mutex
+	lock      sync.Mutex
+	archMutex sync.Mutex
 
-	ecfg    *environConfig
-	client  *environClient
-	storage *environStorage
+	ecfg                   *environConfig
+	client                 *environClient
+	storage                *environStorage
+	supportedArchitectures []string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -107,11 +110,11 @@ func (env environ) Storage() storage.Storage {
 // Bootstrap is responsible for selecting the appropriate tools,
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, finalizer environs.BootstrapFinalizer, err error) {
-	arch, series, finalizer, err = common.Bootstrap(ctx, env, params)
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+	arch, series, finalizer, err := common.Bootstrap(ctx, env, params)
 
 	if err != nil {
-		return
+		return "", "", nil, err
 	}
 
 	newFinalizer := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) (err error) {

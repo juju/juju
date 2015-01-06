@@ -45,19 +45,20 @@ func (s *environSuite) TestBase(c *gc.C) {
 	})
 
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
-	environ, err := environs.New(baseConfig)
+	env, err := environs.New(baseConfig)
 	c.Assert(err, gc.IsNil)
+	env.(*environ).supportedArchitectures = []string{arch.AMD64}
 
-	cfg := environ.Config()
+	cfg := env.Config()
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
 
-	environstrage, ok := environ.(environs.EnvironStorage)
+	environstrage, ok := env.(environs.EnvironStorage)
 	c.Check(environstrage.Storage(), gc.Equals, &emptyStorage)
 
-	c.Check(environ.PrecheckInstance("", constraints.Value{}, ""), gc.IsNil)
+	c.Check(env.PrecheckInstance("", constraints.Value{}, ""), gc.IsNil)
 
-	hasRegion, ok := environ.(simplestreams.HasRegion)
+	hasRegion, ok := env.(simplestreams.HasRegion)
 	c.Check(ok, gc.Equals, true)
 	c.Assert(hasRegion, gc.NotNil)
 
@@ -66,23 +67,23 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Check(cloudSpec.Region, gc.Not(gc.Equals), "")
 	c.Check(cloudSpec.Endpoint, gc.Not(gc.Equals), "")
 
-	archs, err := environ.SupportedArchitectures()
+	archs, err := env.SupportedArchitectures()
 	c.Check(err, gc.IsNil)
 	c.Assert(archs, gc.NotNil)
 	c.Assert(archs, gc.HasLen, 1)
 	c.Check(archs[0], gc.Equals, arch.AMD64)
 
-	validator, err := environ.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
 	c.Check(validator, gc.NotNil)
 	c.Check(err, gc.IsNil)
 
-	c.Check(environ.SupportNetworks(), gc.Equals, false)
-	c.Check(environ.SupportsUnitPlacement(), gc.IsNil)
+	c.Check(env.SupportNetworks(), gc.Equals, false)
+	c.Check(env.SupportsUnitPlacement(), gc.IsNil)
 
-	c.Check(environ.OpenPorts(nil), gc.IsNil)
-	c.Check(environ.ClosePorts(nil), gc.IsNil)
+	c.Check(env.OpenPorts(nil), gc.IsNil)
+	c.Check(env.ClosePorts(nil), gc.IsNil)
 
-	ports, err := environ.Ports()
+	ports, err := env.Ports()
 	c.Check(ports, gc.IsNil)
 	c.Check(err, gc.IsNil)
 }

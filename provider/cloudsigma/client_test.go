@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 )
 
@@ -191,8 +192,9 @@ func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	server, drive, err := cli.newInstance(params, img)
+	server, drive, arch, err := cli.newInstance(params, img, nil)
 	c.Check(server, gc.IsNil)
+	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "invalid configuration for new instance")
 }
@@ -215,8 +217,9 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: "invalid-id",
 	}
-	server, drive, err := cli.newInstance(params, img)
+	server, drive, arch, err := cli.newInstance(params, img, nil)
 	c.Check(server, gc.IsNil)
+	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "query drive template: 404 Not Found.*")
 }
@@ -249,7 +252,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	templateDrive := &data.Drive{
 		Resource: data.Resource{URI: "uri", UUID: cs.driveTemplate},
 		LibraryDrive: data.LibraryDrive{
-			Arch:      "arch",
+			Arch:      "64",
 			ImageType: "image-type",
 			OS:        "os",
 			Paid:      true,
@@ -260,8 +263,10 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	mock.ResetDrives()
 	mock.LibDrives.Add(templateDrive)
 
-	server, drive, err := cli.newInstance(params, img)
+	server, drive, arch, err := cli.newInstance(params, img, utils.Gzip([]byte{}))
 	c.Check(server, gc.NotNil)
 	c.Check(drive, gc.NotNil)
+	c.Check(arch, gc.NotNil)
+	fmt.Printf("%v", err)
 	c.Check(err, gc.IsNil)
 }

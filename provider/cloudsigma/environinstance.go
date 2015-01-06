@@ -14,9 +14,10 @@ import (
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/tools"
 )
 
 //
@@ -31,18 +32,16 @@ var findInstanceImage = func(
 		return nil, err
 	}
 
-
 	matchingImages, _, err := imagemetadata.Fetch(sources, ic, false)
 	if err != nil {
 		return nil, err
 	}
 	if len(matchingImages) == 0 {
-		return nil, fmt.Errorf("no matching image meta data");
+		return nil, fmt.Errorf("no matching image meta data")
 	}
 
-	return matchingImages[0], nil;
+	return matchingImages[0], nil
 }
-
 
 // StartInstance asks for a new instance to be created, associated with
 // the provided config in machineConfig. The given config describes the juju
@@ -50,46 +49,67 @@ var findInstanceImage = func(
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine id.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+	*environs.StartInstanceResult, error) {
 	logger.Infof("sigmaEnviron.StartInstance...")
 
 	if args.MachineConfig == nil {
-		return nil, nil, nil, fmt.Errorf("machine configuration is nil")
+		return nil, fmt.Errorf("machine configuration is nil")
 	}
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet")
+		return nil, fmt.Errorf("starting instances with networks is not supported yet")
 	}
 
 	if len(args.Tools) == 0 {
-		return nil, nil, nil, fmt.Errorf("tools not found")
+		return nil, fmt.Errorf("tools not found")
 	}
 
 	region, _ := env.Region()
 	img, err := findInstanceImage(env, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-			CloudSpec: region,
-			Series:    args.Tools.AllSeries(),
-			Arches:    args.Tools.Arches(),
-			Stream:    env.Config().ImageStream(),
-		}))
+		CloudSpec: region,
+		Series:    args.Tools.AllSeries(),
+		Arches:    args.Tools.Arches(),
+		Stream:    env.Config().ImageStream(),
+	}))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
-	client := env.client
-	server, rootdrive, err := client.newInstance(args, img)
+	tools, err := args.Tools.Match(tools.Filter{Arch: img.Arch})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed start instance: %v", err)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", img.Arch, args.Tools.Arches())
+	}
+
+	args.MachineConfig.Tools = tools[0]
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
+		return nil, err
+	}
+	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot make user data")
+	}
+
+	logger.Debugf("cloudsigma user data; %d bytes", len(userData))
+
+	client := env.client
+	server, rootdrive, arch, err := client.newInstance(args, img, userData)
+	if err != nil {
+		return nil, fmt.Errorf("failed start instance: %v", err)
 	}
 
 	inst := &sigmaInstance{server: server}
 
 	// prepare hardware characteristics
-	hwch := inst.hardware(rootdrive.Arch(), rootdrive.Size())
+	hwch, err := inst.hardware(arch, rootdrive.Size())
+	if err != nil {
+		return nil, err
+	}
 
 	logger.Tracef("hardware: %v", hwch)
-
-	return inst, hwch, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: hwch,
+	}, nil
 }
 
 // AllInstances returns all instances currently known to the broker.
@@ -212,8 +232,14 @@ func (env *environ) prepareStorage(addr string, mcfg *cloudinit.MachineConfig) e
 
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network.
-func (env *environ) AllocateAddress(instID instance.Id, netID network.Id) (network.Address, error) {
-	return network.Address{}, errors.NotSupportedf("AllocateAddress")
+func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
+	return errors.NotSupportedf("AllocateAddress")
+}
+func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+	return errors.NotSupportedf("ReleaseAddress")
+}
+func (env *environ) Subnets(inst instance.Id) ([]network.BasicInfo, error) {
+	return nil, errors.NotSupportedf("Subnets")
 }
 
 // ListNetworks returns basic information about all networks known

@@ -4,14 +4,35 @@
 package cloudsigma
 
 import (
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
-// SupportedArchitectures returns the image architectures which can
-// be hosted by this environment.
 func (env *environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64}, nil
+	env.archMutex.Lock()
+	defer env.archMutex.Unlock()
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+	logger.Debugf("Getting supported architectures from simplestream.")
+	cloudSpec, err := env.Region()
+	if err != nil {
+		return nil, err
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    env.Config().ImageStream(),
+	})
+	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
+	logger.Debugf("Supported architectures: %v", env.supportedArchitectures)
+	return env.supportedArchitectures, err
+}
+
+func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 var unsupportedConstraints = []string{

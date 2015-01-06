@@ -5,10 +5,9 @@ package cloudsigma
 
 import (
 	"fmt"
+	"github.com/Altoros/gosigma"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	ar "github.com/juju/juju/juju/arch"
-	"github.com/Altoros/gosigma"
 )
 
 var _ instance.Instance = (*sigmaInstance)(nil)
@@ -128,9 +127,9 @@ func (i sigmaInstance) findIPv4() string {
 	return addrs[0]
 }
 
-func (i *sigmaInstance) hardware(arch string, driveSize uint64) *instance.HardwareCharacteristics {
+func (i *sigmaInstance) hardware(arch string, driveSize uint64) (*instance.HardwareCharacteristics, error) {
 	if i.server == nil {
-		return nil
+		return nil, fmt.Errorf("Server is not initialized.")
 	}
 	memory := i.server.Mem() / gosigma.Megabyte
 	cores := uint64(i.server.SMP())
@@ -139,24 +138,13 @@ func (i *sigmaInstance) hardware(arch string, driveSize uint64) *instance.Hardwa
 		Mem:      &memory,
 		CpuCores: &cores,
 		CpuPower: &cpu,
+		Arch:     &arch,
 	}
 
-	// populate root drive hardware characteristics
-	switch arch {
-	case "64":
-		a := ar.AMD64
-		hw.Arch = &a
-	case "32":
-		a := ar.I386
-		hw.Arch = &a
-	default:
-		logger.Debugf("uncnown arch: %v", arch)
-	}
-
-	diskSpace :=driveSize / gosigma.Megabyte
+	diskSpace := driveSize / gosigma.Megabyte
 	if diskSpace > 0 {
 		hw.RootDisk = &diskSpace
 	}
 
-	return &hw
+	return &hw, nil
 }

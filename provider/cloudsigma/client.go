@@ -4,6 +4,7 @@
 package cloudsigma
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
+	ar "github.com/juju/juju/juju/arch"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 )
@@ -20,6 +22,7 @@ type environClient struct {
 	conn    *gosigma.Client
 	uuid    string
 	storage *environStorage
+	config  *environConfig
 }
 
 type tracer struct{}
@@ -50,8 +53,9 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	}
 
 	client = &environClient{
-		conn: conn,
-		uuid: uuid,
+		conn:   conn,
+		uuid:   uuid,
+		config: cfg,
 	}
 
 	return
@@ -63,6 +67,8 @@ const (
 	jujuMetaInstanceServer      = "server"
 
 	jujuMetaEnvironment = "juju-environment"
+	jujuMetaCoudInit    = "cloudinit-user-data"
+	jujuMetaBase64      = "base64_fields"
 )
 
 func (c *environClient) isMyEnvironment(s gosigma.Server) bool {
@@ -164,7 +170,7 @@ func (c *environClient) stopInstance(id instance.Id) error {
 }
 
 // start new instance
-func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata) (srv gosigma.Server, drv gosigma.Drive, err error) {
+func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata, userData []byte) (srv gosigma.Server, drv gosigma.Drive, arch string, err error) {
 
 	cleanup := func() {
 		if err == nil {
@@ -217,9 +223,9 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		}
 	}
 
-	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv)
+	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv, userData)
 	if err != nil {
-		return nil, drv, err
+		return
 	}
 
 	if srv, err = c.conn.CreateServer(cc); err != nil {
@@ -229,12 +235,23 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 
 	if err = srv.Start(); err != nil {
 		err = fmt.Errorf("error booting new instance: %v", err)
+		return
+	}
+
+	// populate root drive hardware characteristics
+	switch originalDrive.Arch() {
+	case "64":
+		arch = ar.AMD64
+	case "32":
+		arch = ar.I386
+	default:
+		err = fmt.Errorf("unknown arch: %v", arch)
 	}
 
 	return
 }
 
-func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive) (cc gosigma.Components, err error) {
+func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive, userData []byte) (cc gosigma.Components, err error) {
 	cc.SetName(baseName)
 	cc.SetDescription(baseName)
 	cc.SetSMP(constraints.cores)
@@ -247,8 +264,8 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 		return
 	}
 	cc.SetVNCPassword(vncpass)
-
-	cc.SetSSHPublicKey(args.MachineConfig.AuthorizedKeys)
+	logger.Debugf("Setting ssh key: %s end", c.config.AuthorizedKeys())
+	cc.SetSSHPublicKey(c.config.AuthorizedKeys())
 	cc.AttachDrive(1, "0:0", "virtio", drv.UUID())
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 
@@ -259,6 +276,12 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	}
 
 	cc.SetMeta(jujuMetaEnvironment, c.uuid)
+	data, err := utils.Gunzip(userData)
+	if err != nil {
+		return
+	}
+	cc.SetMeta(jujuMetaCoudInit, base64.StdEncoding.EncodeToString(data))
+	cc.SetMeta(jujuMetaBase64, jujuMetaCoudInit)
 
 	return
 }
