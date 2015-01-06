@@ -10,14 +10,20 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
+
+func isStateServer(mcfg *cloudinit.MachineConfig) bool {
+	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
+}
 
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Please note that in order to fulfil the demands made of Instances and
@@ -25,7 +31,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	// keep track of which instances were actually started by juju.
 	env = env.getSnapshot()
 
-	// Start a new raw instance.
+	// Start a new instance.
 
 	if args.MachineConfig.HasNetworks() {
 		return nil, errors.New("starting instances with networks is not supported yet")
@@ -41,11 +47,22 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("started instance %q in zone %q", raw.Name, zoneName(raw))
-
-	// Build the result.
-
 	inst := newInstance(raw, env)
 	inst.updateDisk(raw)
+
+	// Open API port on state server.
+	if isStateServer(args.MachineConfig) {
+		ports := []network.PortRange{{
+			FromPort: args.MachineConfig.StateServingInfo.APIPort,
+			ToPort:   args.MachineConfig.StateServingInfo.APIPort,
+			Protocol: "tcp",
+		}}
+		if err := env.openPorts(string(inst.Id()), ports); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// Build the result.
 	// TODO(ericsnow) Pass diskMB here (instead of using inst.rootDiskMB)?
 	hwc := env.getHardwareCharacteristics(spec, inst)
 
@@ -107,10 +124,6 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
-func isStateServer(mcfg cloudinit.MachineConfig) bool {
-	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
-}
-
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*compute.Instance, error) {
 	// Compose the instance.
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
@@ -142,6 +155,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	if rootDisk(instance).InitializeParams == nil {
 		rootDisk(instance).InitializeParams = diskInit
 	}
+
 	return instance, nil
 }
 
