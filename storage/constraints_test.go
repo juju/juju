@@ -19,11 +19,9 @@ var _ = gc.Suite(&ConstraintsSuite{})
 
 func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
 	s.testParse(c, "pool,1M", storage.Constraints{
-		Pool: "pool",
-		Preferred: storage.ConstraintValues{
-			Count: 1,
-			Size:  1,
-		},
+		Pool:  "pool",
+		Count: 1,
+		Size:  1,
 	})
 	s.testParse(c, "pool,", storage.Constraints{
 		Pool: "pool",
@@ -31,44 +29,34 @@ func (s *ConstraintsSuite) TestParseConstraintsStoragePool(c *gc.C) {
 	s.testParse(c, "", storage.Constraints{})
 	s.testParse(c, ",", storage.Constraints{})
 	s.testParse(c, "1M", storage.Constraints{
-		Preferred: storage.ConstraintValues{
-			Size:  1,
-			Count: 1,
-		},
+		Size:  1,
+		Count: 1,
 	})
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsCountSize(c *gc.C) {
 	s.testParse(c, "p,1G", storage.Constraints{
-		Pool: "p",
-		Preferred: storage.ConstraintValues{
-			Count: 1,
-			Size:  1024,
-		},
+		Pool:  "p",
+		Count: 1,
+		Size:  1024,
 	})
 	s.testParse(c, "p,1,0.5T", storage.Constraints{
-		Pool: "p",
-		Preferred: storage.ConstraintValues{
-			Count: 1,
-			Size:  1024 * 512,
-		},
+		Pool:  "p",
+		Count: 1,
+		Size:  1024 * 512,
 	})
 	s.testParse(c, "p,0.125P,3", storage.Constraints{
-		Pool: "p",
-		Preferred: storage.ConstraintValues{
-			Count: 3,
-			Size:  1024 * 1024 * 128,
-		},
+		Pool:  "p",
+		Count: 3,
+		Size:  1024 * 1024 * 128,
 	})
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 	s.testParse(c, "p,1M,", storage.Constraints{
-		Pool: "p",
-		Preferred: storage.ConstraintValues{
-			Count: 1,
-			Size:  1,
-		},
+		Pool:  "p",
+		Count: 1,
+		Size:  1,
 	})
 	s.testParse(c, "p,anyoldjunk", storage.Constraints{
 		Pool: "p",
@@ -86,9 +74,6 @@ func (s *ConstraintsSuite) TestParseConstraintsSizeRange(c *gc.C) {
 }
 
 func (*ConstraintsSuite) testParse(c *gc.C, s string, expect storage.Constraints) {
-	// ParseConstraints should always return min=preferred. Avoid repetitious
-	// tests by setting the expectation here.
-	expect.Minimum = expect.Preferred
 	cons, err := storage.ParseConstraints(s)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cons, gc.DeepEquals, expect)

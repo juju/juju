@@ -22,17 +22,7 @@ type Constraints struct {
 	// used.
 	Pool string
 
-	// Minimum is the minimum acceptable values for each constraint variable.
-	Minimum ConstraintValues
-
-	// Preferred is the preferred values for each constraint variable.
-	Preferred ConstraintValues
-}
-
-// ConstraintValues describes the constraints on individual storage
-// characteristics.
-type ConstraintValues struct {
-	// Size is the size of the storage in MiB.
+	// Size is the minimum size of the storage in MiB.
 	Size uint64
 
 	// Count is the number of instances of the storage to create.
@@ -82,25 +72,21 @@ func ParseConstraints(s string) (Constraints, error) {
 			if err != nil {
 				return cons, errors.Annotate(err, "cannot parse count")
 			}
-			cons.Preferred.Count = count
+			cons.Count = count
 			continue
 		}
 		if size, ok, err := parseSize(field); ok {
 			if err != nil {
 				return cons, errors.Annotate(err, "cannot parse size")
 			}
-			cons.Preferred.Size = size
+			cons.Size = size
 			continue
 		}
 		logger.Warningf("ignoring unknown storage constraint %q", field)
 	}
-	if cons.Preferred.Count == 0 && cons.Preferred.Size > 0 {
-		cons.Preferred.Count = 1
+	if cons.Count == 0 && cons.Size > 0 {
+		cons.Count = 1
 	}
-
-	// Explicitly specified constraints are always required;
-	// the minimum is the same as the preferred.
-	cons.Minimum = cons.Preferred
 	return cons, nil
 }
 
