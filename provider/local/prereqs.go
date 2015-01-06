@@ -28,6 +28,11 @@ installed to enable the local provider:
 
     sudo apt-get install lxc`
 
+const installCloudImageUtils = `
+cloud-image-utils must be installed to enable the local provider:
+
+    sudo apt-get install cloud-image-utils`
+
 const installJujuLocalUbuntu = `
 juju-local must be installed to enable the local provider:
 
@@ -78,7 +83,14 @@ func verifyLxc() error {
 	if err != nil {
 		return wrapLxcNotFound(err)
 	}
-	return nil
+	return verifyCloudImageUtils()
+}
+
+func verifyCloudImageUtils() error {
+	if isPackageInstalled("cloud-image-utils") {
+		return nil
+	}
+	return errors.New(installCloudImageUtils)
 }
 
 func verifyJujuLocal() error {
