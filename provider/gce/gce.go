@@ -376,12 +376,16 @@ func (gce *gceConnection) removeDisk(id, zone string) error {
 }
 
 func (gce *gceConnection) firewall(name string) (*compute.Firewall, error) {
-	call := gce.Firewalls.Get(gce.projectID, name)
-	firewall, err := call.Do()
+	call := gce.Firewalls.List(gce.projectID)
+	call = call.Filter("name eq " + name)
+	firewallList, err := call.Do()
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting firewall from GCE")
 	}
-	return firewall, nil
+	if len(firewallList.Items) == 0 {
+		return nil, errors.NotFoundf("firewall %q", name)
+	}
+	return firewallList.Items[0], nil
 }
 
 func (gce *gceConnection) setFirewall(name string, firewall *compute.Firewall) error {

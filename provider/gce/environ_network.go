@@ -116,6 +116,9 @@ func (env *environ) closePorts(name string, ports []network.PortRange) error {
 
 func (env *environ) ports(name string) ([]network.PortRange, error) {
 	firewall, err := env.gce.firewall(name)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting ports from GCE")
 	}
