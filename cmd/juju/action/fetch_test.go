@@ -1,4 +1,4 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action_test
@@ -43,14 +43,6 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 		args:        []string{},
 		expectError: "no action UUID specified",
 	}, {
-		should:      "fail properly with a bad ID",
-		args:        []string{invalidActionId},
-		expectError: "invalid action ID \"" + invalidActionId + "\"",
-	}, {
-		should:    "init properly with single arg",
-		args:      []string{validActionId},
-		expectTag: names.NewActionTag(validActionId),
-	}, {
 		should:      "fail with multiple args",
 		args:        []string{"12345", "54321"},
 		expectError: `unrecognized args: \["54321"\]`,
@@ -61,9 +53,7 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 		c.Logf("test %d: it should %s: juju actions fetch %s", i,
 			t.should, strings.Join(t.args, " "))
 		err := testing.InitCommand(s.subcommand, t.args)
-		if t.expectError == "" {
-			c.Check(s.subcommand.ActionTag(), gc.Equals, t.expectTag)
-		} else {
+		if t.expectError != "" {
 			c.Check(err, gc.ErrorMatches, t.expectError)
 		}
 	}
@@ -72,6 +62,7 @@ func (s *FetchSuite) TestInit(c *gc.C) {
 func (s *FetchSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should         string
+		withTags       params.FindTagsResults
 		withResults    []params.ActionResult
 		withAPIError   string
 		expectedErr    string
@@ -81,21 +72,25 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 		withAPIError: "api call error",
 		expectedErr:  "api call error",
 	}, {
-		should:         "fail gracefully with no results",
-		withResults:    []params.ActionResult{},
-		expectedOutput: "No results for action " + validActionId + "\n",
+		should:      "fail with no results",
+		withTags:    tagsForIdPrefix(validActionId),
+		withResults: []params.ActionResult{},
+		expectedErr: `actions for identifier "` + validActionId + `" not found`,
 	}, {
 		should:      "error correctly with multiple results",
+		withTags:    tagsForIdPrefix(validActionId, validActionTagString),
 		withResults: []params.ActionResult{{}, {}},
 		expectedErr: "too many results for action " + validActionId,
 	}, {
-		should: "pass through an error from the API server",
+		should:   "pass through an error from the API server",
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withResults: []params.ActionResult{{
 			Error: common.ServerError(errors.New("an apiserver error")),
 		}},
 		expectedErr: "an apiserver error",
 	}, {
-		should: "pretty-print action output",
+		should:   "pretty-print action output",
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withResults: []params.ActionResult{{
 			Status:  "complete",
 			Message: "oh dear",
@@ -114,17 +109,18 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 
 	for i, t := range tests {
 		func() { // for the defer of restoring patch function
-			s.subcommand = &action.FetchCommand{}
-			c.Logf("test %d: it should %s", i, t.should)
 			client := &fakeAPIClient{
-				actionResults: t.withResults,
+				actionTagMatches: t.withTags,
+				actionResults:    t.withResults,
 			}
 			if t.withAPIError != "" {
 				client.apiErr = errors.New(t.withAPIError)
 			}
-			restore := s.BaseActionSuite.patchAPIClient(client)
-			defer restore()
-			//args := fmt.Sprintf("%s %s", s.subcommand.Info().Name, "some-action-id")
+			defer s.BaseActionSuite.patchAPIClient(client)()
+
+			s.subcommand = &action.FetchCommand{}
+			c.Logf("test %d: it should %s", i, t.should)
+
 			ctx, err := testing.RunCommand(c, s.subcommand, validActionId)
 			if t.expectedErr != "" || t.withAPIError != "" {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
