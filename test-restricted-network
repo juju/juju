@@ -1,6 +1,37 @@
 #!/bin/bash
 set -eu
+JUJU_HOME="$HOME/.juju"
+AMI_IMAGE=""
+SERIES=""
+while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
+    case $1 in
+        --juju-home)
+            shift
+            JUJU_HOME=$(cd $1; pwd)
+            ;;
+        --ami-image)
+            shift
+            AMI_IMAGE=$1
+            ;;
+        --series)
+            shift
+            SERIES=$1
+            ;;
+    esac
+    shift
+done
+
+if [[ -z $AMI_IMAGE || -z $SERIES ]]; then
+    echo "--ami-image and --series are required"
+    exit 2
+fi
+
+export JUJU_HOME
+export AMI_IMAGE
+export SERIES
+
 SCRIPTS=$(readlink -f $(dirname $0))
+: ${JENKINS_URL="http://juju-ci.vapour.ws:8080/"}
 : ${JOB_NAME="testy"}
 export JOB_NAME
 export PATH="$SCRIPTS:$PATH"
@@ -8,14 +39,13 @@ source $JUJU_HOME/ec2rc
 ec2-terminate-job-instances
 set -x
 export INSTANCE_TYPE=m1.large
-export AMI_IMAGE=ami-36aa4d5e
 instance_id=$(ec2-run-instance-get-id)
 ec2-tag-job-instances $instance_id
 instance_name=$(ec2-get-name $instance_id)
 wait-for-port $instance_name 22
 set +e
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    ubuntu@$instance_name  "JENKINS_URL=$JENKINS_URL bash"<<"EOT"
+    ubuntu@$instance_name "JENKINS_URL=$JENKINS_URL SERIES=$SERIES bash"<<"EOT"
 set -eux
 for attempt in $(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
@@ -25,10 +55,15 @@ for attempt in $(seq 10); do
   fi
   sleep 10
 done
-sudo add-apt-repository cloud-archive:tools
+if [[ $SERIES == "precise" ]]; then
+    sudo add-apt-repository cloud-archive:tools
+    CONNTRACK=""
+else
+    CONNTRACK="conntrack"
+fi
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr $CONNTRACK
 
 # prevent spurious failure on success
 rm .bash_logout
@@ -46,8 +81,8 @@ sudo dpkg -i $juju_core_deb $juju_local_deb
 set -e
 sudo apt-get install -y -f
 export JUJU_REPOSITORY="$HOME/repo"
-mkdir -p $JUJU_REPOSITORY/precise
-bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
+mkdir -p $JUJU_REPOSITORY/$SERIES
+bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/$SERIES/ubuntu
 mkdir ~/.juju
 cat > ~/.juju/environments.yaml <<EOT2
 default: local
@@ -58,8 +93,8 @@ environments:
 EOT2
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 #juju sync-tools --show-log
-login_ip=$(sudo cat /proc/net/ip_conntrack|\
-  sed -nr 's/.*src=([^ ]*) .*dport=22 .*/\1/p')
+login_ip=$(sudo cat /proc/net/ip_conntrack || sudo conntrack -L | \
+  sed -nr 's/.*src=([^ ]*) .*dport=22 .*/\1/p' | uniq)
 gateway=$(route -n | sed -rn 's/^0.0.0.0 *([0-7.]*) .*/\1/p')
 nameservers="$(sed /etc/resolv.conf -nr -e 's/nameserver (.*)/\1/p')"
 for ns in $nameservers; do
@@ -74,7 +109,7 @@ sudo route add -net 172.16.0.0 netmask 255.240.0.0 gw $gateway
 sudo route del default gw $gateway
 juju bootstrap --show-log
 for x in $(seq 6); do
-  if juju deploy --show-log local:precise/ubuntu; then
+  if juju deploy --show-log local:$SERIES/ubuntu; then
     break
   elif [ "$x" == "6" ]; then
     exit 0;
