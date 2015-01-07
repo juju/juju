@@ -13,10 +13,9 @@ import (
 )
 
 type environInstance struct {
-	id         instance.Id
-	env        *environ
-	zone       string
-	rootDiskMB uint64
+	id   instance.Id
+	env  *environ
+	zone string
 
 	raw *compute.Instance
 }
@@ -45,26 +44,19 @@ func (inst *environInstance) update(raw *compute.Instance) {
 	inst.raw = raw
 }
 
-func (inst *environInstance) updateDisk(raw *compute.Instance) {
-	attached := rootDisk(raw)
-	if diskSize, ok := inst.diskSize(attached); ok {
-		inst.rootDiskMB = diskSize
-	}
-}
-
-func (inst *environInstance) diskSize(attached *compute.AttachedDisk) (uint64, bool) {
+func (inst *environInstance) rootDiskMB() (uint64, error) {
+	attached := rootDisk(inst.raw)
 	diskSizeGB, err := diskSizeGB(attached)
 	if err != nil {
 		logger.Warningf("error while getting root disk size: %v", err)
+		// Fall back to making an API request.
 		disk, err := inst.env.gce.disk(attached.Source)
 		if err != nil {
-			logger.Warningf("error while getting root disk: %v", err)
-			// Leave it what it was.
-			return 0, false
+			return 0, errors.Annotatef(err, "failed to get root disk info")
 		}
 		diskSizeGB = disk.SizeGb
 	}
-	return uint64(diskSizeGB) * 1024, true
+	return uint64(diskSizeGB) * 1024, nil
 }
 
 func (inst *environInstance) Refresh() error {

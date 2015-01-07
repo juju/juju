@@ -48,7 +48,6 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 	logger.Infof("started instance %q in zone %q", raw.Name, zoneName(raw))
 	inst := newInstance(raw, env)
-	inst.updateDisk(raw)
 
 	// Open API port on state server.
 	if isStateServer(args.MachineConfig) {
@@ -63,9 +62,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 
 	// Build the result.
-	// TODO(ericsnow) Pass diskMB here (instead of using inst.rootDiskMB)?
 	hwc := env.getHardwareCharacteristics(spec, inst)
-
 	result := environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: hwc,
@@ -232,10 +229,20 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 		Mem:              &spec.InstanceType.Mem,
 		CpuCores:         &spec.InstanceType.CpuCores,
 		CpuPower:         spec.InstanceType.CpuPower,
-		RootDisk:         &inst.rootDiskMB,
 		AvailabilityZone: &inst.zone,
 		// Tags: not supported in GCE.
 	}
+
+	rootDiskMB, err := inst.rootDiskMB()
+	if err != nil {
+		logger.Errorf("could not get root disk size: %v", err)
+		// We simply skip RootDisk in favor of getting the rest of the
+		// HW characteristics out.
+		// TODO(ericsnow) Is this okay?
+	} else {
+		hwc.RootDisk = &rootDiskMB
+	}
+
 	return &hwc
 }
 
