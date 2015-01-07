@@ -596,6 +596,12 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.Network(id)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
+	case names.CharmTag:
+		if url, err := charm.ParseURL(id); err != nil {
+			return nil, errors.Annotatef(err, "could not find charm %q in state", id)
+		} else {
+			return st.Charm(url)
+		}
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -635,6 +641,9 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
+		id = tag.Id()
+	case names.CharmTag:
+		coll = charmsC
 		id = tag.Id()
 	default:
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
