@@ -262,7 +262,7 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
-						"agent-state":                "allocating",
+						"agent-state":                "pending",
 						"dns-name":                   "dummyenv-0.dns",
 						"instance-id":                "dummyenv-0",
 						"series":                     "quantal",
@@ -450,7 +450,7 @@ var statusTests = []testCase{
 					"0": M{
 						"instance-state":             "missing",
 						"instance-id":                "i-missing",
-						"agent-state":                "allocating",
+						"agent-state":                "pending",
 						"series":                     "quantal",
 						"hardware":                   "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 						"state-server-member-status": "adding-vote",
