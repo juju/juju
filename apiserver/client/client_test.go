@@ -940,6 +940,25 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestClientNoCharmAnnotations(c *gc.C) {
+	// Set up charm.
+	charm := s.AddTestingCharm(c, "dummy")
+	id := charm.Tag().Id()
+	for i, t := range clientAnnotationsTests {
+		c.Logf("test %d. %s. entity %s", i, t.about, id)
+		// Add annotations using the API call.
+		err := s.APIState.Client().SetAnnotations(id, t.input)
+		// Should not be able to annotate charm with this client
+		c.Assert(err, gc.Not(jc.ErrorIsNil))
+
+		// Retrieve annotations using the API call.
+		ann, err := s.APIState.Client().GetAnnotations(id)
+		// Should not be able to get annotations from charm using this client
+		c.Assert(err, gc.Not(jc.ErrorIsNil))
+		c.Assert(ann, gc.IsNil)
+	}
+}
+
 func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
 	expected := `".*" is not a valid( [a-z]+)? tag`
