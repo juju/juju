@@ -327,7 +327,12 @@ func (gce *gceConnection) removeInstance(id, zone string) error {
 	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(err)
+
+	if err := gce.deleteFirewall(id); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 func (gce *gceConnection) removeInstances(env environs.Environ, ids ...string) error {
