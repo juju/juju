@@ -1251,16 +1251,12 @@ func (m *Machine) Status() (status Status, info string, data map[string]interfac
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc := statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}
 	// If a machine is not yet provisioned, we allow its status
 	// to be set back to pending (when a retry is to occur).
 	_, err := m.InstanceId()
 	allowPending := IsNotProvisionedError(err)
-	if err := doc.validateSet(allowPending); err != nil {
+	doc, err := newMachineStatusDoc(status, info, data, allowPending)
+	if err != nil {
 		return err
 	}
 	ops := []txn.Op{{
@@ -1268,9 +1264,9 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 	},
-		updateStatusOp(m.st, m.globalKey(), doc),
+		updateStatusOp(m.st, m.globalKey(), doc.statusDoc),
 	}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err = m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil

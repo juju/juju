@@ -86,7 +86,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	asserter.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetStatus(state.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +140,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	}
 	dyingAsserter.AssertNoReceive()
 
-	err = s.unit.SetStatus(state.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)

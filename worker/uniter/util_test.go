@@ -616,7 +616,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusStarted})
+	step(c, ctx, waitUnit{status: params.StatusActive})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
@@ -639,7 +639,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusStarted})
+	step(c, ctx, waitUnit{status: params.StatusActive})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -920,7 +920,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusStarted,
+			status: params.StatusActive,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -961,7 +961,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetStatus(state.StatusStarted, "", nil)
+			ctx.unit.SetStatus(state.StatusActive, "", nil)
 		}},
 		startUniter{},
 	}
@@ -1507,7 +1507,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusStarted,
+			status: params.StatusActive,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
