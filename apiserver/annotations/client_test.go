@@ -111,15 +111,15 @@ func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	entities := params.Entities{[]params.Entity{entity}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
-	setResult := s.annotationsApi.SetEntitiesAnnotations(
-		params.SetEntitiesAnnotations{
+	setResult := s.annotationsApi.Set(
+		params.AnnotationsSet{
 			Collection:  entities,
 			Annotations: annotations,
 		})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
 
-	getResults := s.annotationsApi.GetEntitiesAnnotations(entities)
-	c.Assert(len(getResults.Results), gc.Equals, 1)
+	getResults := s.annotationsApi.Get(entities)
+	c.Assert(getResults.Results, gc.HasLen, 1)
 
 	aResult := getResults.Results[0]
 	c.Assert(aResult.Entity, gc.DeepEquals, entity)
@@ -140,12 +140,12 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
-	setResult := s.annotationsApi.SetEntitiesAnnotations(
-		params.SetEntitiesAnnotations{
+	setResult := s.annotationsApi.Set(
+		params.AnnotationsSet{
 			Collection:  entities,
 			Annotations: annotations,
 		})
-	c.Assert(len(setResult.Results), gc.Equals, 2)
+	c.Assert(setResult.Results, gc.HasLen, 2)
 	var rSet, sSet bool
 	for _, anErr := range setResult.Results {
 		if anErr.Error != nil {
@@ -160,8 +160,8 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	c.Assert(sSet, jc.IsTrue)
 	c.Assert(rSet, jc.IsTrue)
 
-	getResults := s.annotationsApi.GetEntitiesAnnotations(entities)
-	c.Assert(len(getResults.Results), gc.Equals, 2)
+	getResults := s.annotationsApi.Get(entities)
+	c.Assert(getResults.Results, gc.HasLen, 2)
 
 	var rGet, sGet bool
 	for _, aResult := range getResults.Results {
@@ -196,8 +196,8 @@ func (s *annotationSuite) testSetGetEntitiesAnnotations(c *gc.C, tag names.Tag) 
 
 func (s *annotationSuite) setupEntity(c *gc.C, entities params.Entities, initialAnnotations map[string]string) {
 	if initialAnnotations != nil {
-		initialResult := s.annotationsApi.SetEntitiesAnnotations(
-			params.SetEntitiesAnnotations{
+		initialResult := s.annotationsApi.Set(
+			params.AnnotationsSet{
 				Collection:  entities,
 				Annotations: initialAnnotations,
 			})
@@ -209,8 +209,8 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 	entities params.Entities,
 	annotations map[string]string,
 	expectedError string) {
-	setResult := s.annotationsApi.SetEntitiesAnnotations(
-		params.SetEntitiesAnnotations{
+	setResult := s.annotationsApi.Set(
+		params.AnnotationsSet{
 			Collection:  entities,
 			Annotations: annotations,
 		})
@@ -224,9 +224,9 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 func (s *annotationSuite) assertGetEntityAnnotations(c *gc.C,
 	entities params.Entities,
 	entity params.Entity,
-	expected map[string]string) params.GetEntitiesAnnotationsResult {
-	getResults := s.annotationsApi.GetEntitiesAnnotations(entities)
-	c.Assert(len(getResults.Results), gc.Equals, 1)
+	expected map[string]string) params.AnnotationsGetResult {
+	getResults := s.annotationsApi.Get(entities)
+	c.Assert(getResults.Results, gc.HasLen, 1)
 
 	aResult := getResults.Results[0]
 	c.Assert(aResult.Entity, gc.DeepEquals, entity)
@@ -236,13 +236,13 @@ func (s *annotationSuite) assertGetEntityAnnotations(c *gc.C,
 
 func (s *annotationSuite) cleanupEntityAnnotations(c *gc.C,
 	entities params.Entities,
-	aResult params.GetEntitiesAnnotationsResult) {
+	aResult params.AnnotationsGetResult) {
 	cleanup := make(map[string]string)
 	for key := range aResult.Annotations {
 		cleanup[key] = ""
 	}
-	cleanupResult := s.annotationsApi.SetEntitiesAnnotations(
-		params.SetEntitiesAnnotations{
+	cleanupResult := s.annotationsApi.Set(
+		params.AnnotationsSet{
 			Collection:  entities,
 			Annotations: cleanup,
 		})
