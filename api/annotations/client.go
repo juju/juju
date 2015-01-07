@@ -4,6 +4,8 @@
 package annotations
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -22,15 +24,22 @@ func NewClient(st *api.State) *Client {
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
-// GetEntitiesAnnotations returns annotations that have been set on the given entities.
-func (c *Client) GetEntitiesAnnotations(args params.Entities) (params.GetEntitiesAnnotationsResults, error) {
-	annotations := params.GetEntitiesAnnotationsResults{}
-	err := c.facade.FacadeCall("GetEntitiesAnnotations", args, &annotations)
-	return annotations, err
+// Get returns annotations that have been set on the given entities.
+func (c *Client) Get(args params.Entities) (params.AnnotationsGetResults, error) {
+	annotations := params.AnnotationsGetResults{}
+	if err := c.facade.FacadeCall("Get", args, &annotations); err != nil {
+		return annotations, errors.Trace(err)
+	} else {
+		return annotations, nil
+	}
 }
 
-// SetEntitiesAnnotations sets the same annotation pairs on all given entities.
-func (c *Client) SetEntitiesAnnotations(entities params.Entities, pairs map[string]string) error {
-	args := params.SetEntitiesAnnotations{entities, pairs}
-	return c.facade.FacadeCall("SetEntitiesAnnotations", args, nil)
+// Set sets the same annotation pairs on all given entities.
+func (c *Client) Set(entities params.Entities, pairs map[string]string) error {
+	args := params.AnnotationsSet{entities, pairs}
+	if err := c.facade.FacadeCall("Set", args, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+
 }
