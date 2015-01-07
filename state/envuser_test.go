@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -115,8 +116,7 @@ func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
 	c.Assert(environments[0].UUID(), gc.Equals, s.State.EnvironUUID())
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
-	userTag := names.NewUserTag("external@remote")
+func (s *EnvUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Environment {
 	// Don't use the factory to call MakeEnvironment because it may at some
 	// time in the future be modified to do additional things.  Instead call
 	// the state method directly to create an environment to make sure that
@@ -124,31 +124,74 @@ func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
-		"name": "new-env",
+		"name": name,
 		"uuid": uuid.String(),
 	})
-	env, st, err := s.State.NewEnvironment(cfg, userTag)
+	env, st, err := s.State.NewEnvironment(cfg, owner)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
-
-	environments, err := s.State.EnvironmentsForUser(userTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environments, gc.HasLen, 1)
-	c.Assert(environments[0].UUID(), gc.Equals, env.UUID())
+	return env
 }
 
-func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
-	userTag := names.NewUserTag("external@remote")
-	envState := s.factory.MakeEnvironment(c, nil)
+func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	env := s.newEnvWithOwner(c, "test-env", owner)
+
+	environments, err := s.State.EnvironmentsForUser(owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	s.checkSameEnvironment(c, environments[0], env)
+}
+
+func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Environment) {
+	c.Check(env1.Name(), gc.Equals, env2.Name())
+	c.Check(env1.UUID(), gc.Equals, env2.UUID())
+}
+
+func (s *EnvUserSuite) newEnvAsUser(c *gc.C, name string, user names.UserTag) *state.Environment {
+	envState := s.factory.MakeEnvironment(c, &factory.EnvParams{Name: name})
 	defer envState.Close()
 	newEnv, err := envState.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = envState.AddEnvironmentUser(userTag, newEnv.Owner())
+	_, err = envState.AddEnvironmentUser(user, newEnv.Owner())
 	c.Assert(err, jc.ErrorIsNil)
+	return newEnv
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
+	userTag := names.NewUserTag("external@remote")
+	env := s.newEnvAsUser(c, "test-env", userTag)
 
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(environments, gc.HasLen, 1)
-	c.Assert(environments[0].UUID(), gc.Equals, newEnv.UUID())
+	s.checkSameEnvironment(c, environments[0], env)
 }
+
+func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
+	userTag := names.NewUserTag("external@remote")
+	expected := []*state.Environment{
+		s.newEnvAsUser(c, "user1", userTag),
+		s.newEnvAsUser(c, "user2", userTag),
+		s.newEnvAsUser(c, "user3", userTag),
+		s.newEnvWithOwner(c, "owner1", userTag),
+		s.newEnvWithOwner(c, "owner2", userTag),
+	}
+	sort.Sort(UUIDOrder(expected))
+
+	environments, err := s.State.EnvironmentsForUser(userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, len(expected))
+	sort.Sort(UUIDOrder(environments))
+	for i := range expected {
+		s.checkSameEnvironment(c, environments[i], expected[i])
+	}
+}
+
+// UUIDOrder is used to sort the environments into a stable order
+type UUIDOrder []*state.Environment
+
+func (a UUIDOrder) Len() int           { return len(a) }
+func (a UUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a UUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }

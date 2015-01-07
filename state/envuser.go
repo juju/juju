@@ -187,8 +187,8 @@ func (st *State) EnvironmentsForUser(user names.UserTag) ([]*Environment, error)
 
 	// Since there are no groups at this stage, the simplest way to get all
 	// the environments that a particular user can see is to look through the
-	// environment user collection (specifically the raw collection) so as to
-	// find all the environments the user can see.
+	// environment user collection. A raw collection is required to support
+	// queries across multiple environments.
 	envUsers, userCloser := st.getRawCollection(envUsersC)
 	defer userCloser()
 
