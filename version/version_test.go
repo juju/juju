@@ -333,42 +333,55 @@ func (s *suite) TestUseFastLXC(c *gc.C) {
 	}{{
 		message: "missing release file",
 	}, {
-		message:        "missing prefix in file",
+		message:        "OS release file is missing ID",
 		releaseContent: "some junk\nand more junk",
 	}, {
 		message: "precise release",
 		releaseContent: `
-DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.04
-DISTRIB_CODENAME=precise
-DISTRIB_DESCRIPTION="Ubuntu 12.04.3 LTS"
+NAME="Ubuntu"
+VERSION="12.04 LTS, Precise"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 12.04.3 LTS"
+VERSION_ID="12.04"
 `,
 		expected: "12.04",
 	}, {
 		message: "trusty release",
 		releaseContent: `
-DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=14.04
-DISTRIB_CODENAME=trusty
-DISTRIB_DESCRIPTION="Ubuntu Trusty Tahr (development branch)"
+NAME="Ubuntu"
+VERSION="14.04.1 LTS, Trusty Tahr"
+ID=ubuntu
+ID_LIKE=debian
+PRETTY_NAME="Ubuntu 14.04.1 LTS"
+VERSION_ID="14.04"
 `,
 		expected: "14.04",
 	}, {
-		message:        "minimal trusty release",
-		releaseContent: `DISTRIB_RELEASE=14.04`,
-		expected:       "14.04",
+		message: "minimal trusty release",
+		releaseContent: `
+ID=ubuntu
+VERSION_ID="14.04"
+`,
+		expected: "14.04",
 	}, {
-		message:        "minimal unstable unicorn",
-		releaseContent: `DISTRIB_RELEASE=14.10`,
-		expected:       "14.10",
+		message: "minimal unstable unicorn",
+		releaseContent: `
+ID=ubuntu
+VERSION_ID="14.10"
+`,
+		expected: "14.10",
 	}, {
-		message:        "minimal jaunty",
-		releaseContent: `DISTRIB_RELEASE=9.10`,
-		expected:       "9.10",
+		message: "minimal jaunty",
+		releaseContent: `
+ID=ubuntu
+VERSION_ID="9.10"
+`,
+		expected: "9.10",
 	}} {
 		c.Logf("%v: %v", i, test.message)
-		filename := filepath.Join(c.MkDir(), "lsbRelease")
-		s.PatchValue(version.LSBReleaseFileVar, filename)
+		filename := filepath.Join(c.MkDir(), "os-release")
+		s.PatchValue(version.OSReleaseFile, filename)
 		if test.releaseContent != "" {
 			err := ioutil.WriteFile(filename, []byte(test.releaseContent+"\n"), 0644)
 			c.Assert(err, jc.ErrorIsNil)

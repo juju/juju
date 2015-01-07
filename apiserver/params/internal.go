@@ -69,6 +69,11 @@ type PortsResults struct {
 // of network.Port or an error.
 type PortsResult struct {
 	Error *Error
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	Ports []network.Port
 }
 
@@ -84,7 +89,11 @@ type MachinePorts struct {
 type MachinePortRange struct {
 	UnitTag     string
 	RelationTag string
-	PortRange   network.PortRange
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// string instead in order to break the dependency on the network
+	// package, as this potentially introduces hard to catch and debug
+	// wire-format changes in the protocol when the type changes!
+	PortRange network.PortRange
 }
 
 // MachinePortsParams holds the arguments for making a
@@ -419,7 +428,12 @@ type RequestedNetworksResults struct {
 // MachineNetworkInfoResult holds network info for a single machine.
 type MachineNetworkInfoResult struct {
 	Error *Error
-	Info  []network.Info
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []NetworkInfo (locally defined) instead in order to break the
+	// dependency on the network package, as this potentially
+	// introduces hard to catch and debug wire-format changes in the
+	// protocol when the type changes!
+	Info []network.Info
 }
 
 // MachineNetworkInfoResults holds network info for multiple machines.
@@ -458,7 +472,12 @@ type StatusResults struct {
 
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
-	Tag       string
+	Tag string
+	// TODO(dimitern): Add explicit JSON serialization tags and use
+	// []string instead in order to break the dependency on the
+	// network package, as this potentially introduces hard to catch
+	// and debug wire-format changes in the protocol when the type
+	// changes!
 	Addresses []network.Address
 }
 
@@ -692,9 +711,29 @@ type BlockDeviceResults struct {
 	Results []BlockDeviceResult `json:"results,omitempty"`
 }
 
-// DatastoreFilesystem holds the parameters for recording information about
-// the filesystem corresponding to the specified datastore.
-type DatastoreFilesystem struct {
-	DatastoreId storage.DatastoreId `json:"datastoreid"`
-	Filesystem  storage.Filesystem  `json:"filesystem"`
+// BlockDevicesResult holds the result of an API call to retrieve details
+// of all block devices relating to some entity.
+type BlockDevicesResult struct {
+	Result []storage.BlockDevice `json:"result"`
+	Error  *Error                `json:"error,omitempty"`
+}
+
+// BlockDevicseResults holds the result of an API call to retrieve details
+// of all block devices relating to some entities.
+type BlockDevicesResults struct {
+	Results []BlockDevicesResult `json:"results,omitempty"`
+}
+
+// BlockDeviceFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified block device.
+type BlockDeviceFilesystem struct {
+	DiskTag    string             `json:"disktag"`
+	Datastore  string             `json:"datastore"`
+	Filesystem storage.Filesystem `json:"filesystem"`
+}
+
+// SetBlockDeviceFilesystem holds the parameters for recording information about
+// the filesystems corresponding to the specified block devices.
+type SetBlockDeviceFilesystem struct {
+	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
 }

@@ -159,16 +159,18 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		setIfNotBlank(config.FtpProxyKey, proxySettings.Ftp)
 		setIfNotBlank(config.NoProxyKey, proxySettings.NoProxy)
 	}
-	if cfg.AptHttpProxy() == "" &&
-		cfg.AptHttpsProxy() == "" &&
-		cfg.AptFtpProxy() == "" {
-		proxySettings, err := detectAptProxies()
-		if err != nil {
-			return nil, err
+	if version.Current.OS == version.Ubuntu {
+		if cfg.AptHttpProxy() == "" &&
+			cfg.AptHttpsProxy() == "" &&
+			cfg.AptFtpProxy() == "" {
+			proxySettings, err := detectAptProxies()
+			if err != nil {
+				return nil, err
+			}
+			setIfNotBlank(config.AptHttpProxyKey, proxySettings.Http)
+			setIfNotBlank(config.AptHttpsProxyKey, proxySettings.Https)
+			setIfNotBlank(config.AptFtpProxyKey, proxySettings.Ftp)
 		}
-		setIfNotBlank(config.AptHttpProxyKey, proxySettings.Http)
-		setIfNotBlank(config.AptHttpsProxyKey, proxySettings.Https)
-		setIfNotBlank(config.AptFtpProxyKey, proxySettings.Ftp)
 	}
 	if len(attrs) > 0 {
 		cfg, err = cfg.Apply(attrs)

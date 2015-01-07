@@ -6,10 +6,14 @@ import (
 )
 
 var (
-	ProviderConnectDelay = &providerConnectDelay
-	GetConfig            = getConfig
-	CacheChangedAPIInfo  = cacheChangedAPIInfo
-	EnvironInfoUserTag   = environInfoUserTag
+	ProviderConnectDelay   = &providerConnectDelay
+	GetConfig              = getConfig
+	CacheChangedAPIInfo    = cacheChangedAPIInfo
+	CacheAPIInfo           = cacheAPIInfo
+	EnvironInfoUserTag     = environInfoUserTag
+	MaybePreferIPv6        = &maybePreferIPv6
+	ResolveOrDropHostnames = &resolveOrDropHostnames
+	ServerAddress          = &serverAddress
 )
 
 type APIState apiState

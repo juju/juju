@@ -296,6 +296,13 @@ func (u *Unit) Destroy() (err error) {
 	return err
 }
 
+var unitNotInstalled = bson.D{
+	{"$or", []bson.D{
+		{{"status", StatusPending}},
+		{{"status", StatusAllocating}},
+		{{"status", StatusInstalling}},
+	}}}
+
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
@@ -346,13 +353,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	if sdoc.Status != StatusPending {
+	if sdoc.Status != StatusPending && sdoc.Status != StatusAllocating && sdoc.Status != StatusInstalling {
 		return setDyingOps, nil
 	}
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(sdocId),
-		Assert: bson.D{{"status", StatusPending}},
+		Assert: unitNotInstalled,
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
 	removeOps, err := u.removeOps(removeAsserts)
@@ -720,15 +727,11 @@ func (u *Unit) Status() (status Status, info string, data map[string]interface{}
 	return
 }
 
-// SetStatus sets the status of the unit. The optional values
+// SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc := statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}
-	if err := doc.validateSet(false); err != nil {
+	doc, err := newUnitAgentStatusDoc(status, info, data)
+	if err != nil {
 		return err
 	}
 	ops := []txn.Op{{
@@ -736,9 +739,9 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 	},
-		updateStatusOp(u.st, u.globalKey(), doc),
+		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
 	}
-	err := u.st.runTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}

@@ -13,8 +13,7 @@ func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 }
 
 var (
-	ActiveMetricsTimer  = &activeMetricsTimer
-	CollectMetricsTimer = collectMetricsTimer
+	ActiveMetricsTimer = &activeMetricsTimer
 )
 
 // manualTicker will be used to generate collect-metrics events

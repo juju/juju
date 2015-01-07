@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -109,7 +110,26 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
 		return nil, err
 	}
-	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
+
+	// This is a hack that ensures that instances can communicate over
+	// the internal network. Joyent sometimes gives instances
+	// different 10.x.x.x/21 networks and adding this route allows
+	// them to talk despite this. See:
+	// https://bugs.launchpad.net/juju-core/+bug/1401130
+	cloudcfg := cloudinit.New()
+	ifupScript := `
+#!/bin/bash
+
+# These guards help to ensure that this hack only runs if Joyent's
+# internal network still works as it does at time of writing.
+[ "$IFACE" == "eth1" ] || [ "$IFACE" == "--all" ] || exit 0
+/sbin/ip -4 --oneline addr show dev eth1 | fgrep --quiet " inet 10." || exit 0
+
+/sbin/ip route add 10.0.0.0/8 dev eth1
+`[1:]
+	cloudcfg.AddBootTextFile("/etc/network/if-up.d/joyent", ifupScript, 0755)
+
+	userData, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
@@ -253,7 +273,7 @@ func (*joyentEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addr
 // the provider for the environment. They may be unknown to juju yet
 // (i.e. when called initially or when a new network was created).
 // This is not implemented on the Joyent provider yet.
-func (*joyentEnviron) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
+func (*joyentEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotImplementedf("Subnets")
 }
 

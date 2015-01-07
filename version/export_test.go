@@ -9,7 +9,7 @@ var (
 	KernelToMajor                 = kernelToMajor
 	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion
 	MacOSXSeriesFromMajorVersion  = macOSXSeriesFromMajorVersion
-	LSBReleaseFileVar             = &lsbReleaseFile
+	OSReleaseFile                 = &osReleaseFile
 )
 
 func SetSeriesVersions(value map[string]string) func() {

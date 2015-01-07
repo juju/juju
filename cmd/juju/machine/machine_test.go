@@ -4,8 +4,6 @@
 package machine_test
 
 import (
-	"strings"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -32,14 +30,6 @@ func (s *MachineCommandSuite) TestHelp(c *gc.C) {
 	// Check the help output
 	ctx, err := testing.RunCommand(c, machine.NewSuperCommand(), "--help")
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that we have registered all the sub commands by
-	// inspecting the help output.
-	var namesFound []string
-	commandHelp := strings.SplitAfter(testing.Stdout(ctx), "commands:")[1]
-	commandHelp = strings.TrimSpace(commandHelp)
-	for _, line := range strings.Split(commandHelp, "\n") {
-		namesFound = append(namesFound, strings.TrimSpace(strings.Split(line, " - ")[0]))
-	}
+	namesFound := testing.ExtractCommandsFromHelpOutput(ctx)
 	c.Assert(namesFound, gc.DeepEquals, expectedCommmandNames)
 }

@@ -95,8 +95,9 @@ type MetricParams struct {
 }
 
 type EnvParams struct {
-	Name  string
-	Owner names.Tag
+	Name        string
+	Owner       names.Tag
+	ConfigAttrs testing.Attrs
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -413,7 +414,7 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
-	})
+	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
 	return st

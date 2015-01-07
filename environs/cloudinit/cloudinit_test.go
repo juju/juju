@@ -208,7 +208,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju/locks
-\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
+\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
@@ -312,7 +312,7 @@ printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
 test -e /proc/self/fd/9 \|\| exec 9>&2
 \(\[ ! -e /home/ubuntu/\.profile \] \|\| grep -q '.juju-proxy' /home/ubuntu/.profile\) \|\| printf .* >> /home/ubuntu/.profile
 mkdir -p /var/lib/juju/locks
-\[ -e /home/ubuntu \] && chown ubuntu:ubuntu /var/lib/juju/locks
+\(id ubuntu &> /dev/null\) && chown ubuntu:ubuntu /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
@@ -977,7 +977,7 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
@@ -1040,7 +1040,7 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 		`export HTTP_PROXY=http://user@10.0.0.1`,
 		`export no_proxy=localhost,10.0.3.1`,
 		`export NO_PROXY=localhost,10.0.3.1`,
-		`[ -e /home/ubuntu ] && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
+		`(id ubuntu &> /dev/null) && (printf '%s\n' 'export http_proxy=http://user@10.0.0.1
 export HTTP_PROXY=http://user@10.0.0.1
 export no_proxy=localhost,10.0.3.1
 export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:ubuntu /home/ubuntu/.juju-proxy)`,

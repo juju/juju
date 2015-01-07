@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -324,7 +323,10 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	// A "raw" transaction is needed here because this function gets
+	// called before database migraions have run so we don't
+	// necessarily want the env UUID added to the id.
+	if err := m.st.runRawTransaction(ops); err != nil {
 		return onAbort(err, ErrDead)
 	}
 	m.doc.Tools = tools
@@ -646,7 +648,6 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
-		removeBlockDevicesOp(m.st, m.Id()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
@@ -659,8 +660,13 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	blockDeviceOps, err := removeMachineBlockDevicesOps(m.st, m.Id())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
+	ops = append(ops, blockDeviceOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -939,10 +945,10 @@ func IsNotProvisionedError(err error) bool {
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
 	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	providerValues := make(set.Strings)
+	providerValues := set.NewStrings()
 	for _, address := range providerAddresses {
 		// Older versions of Juju may have stored an empty address so ignore it here.
-		if address.Value == "" {
+		if address.Value == "" || providerValues.Contains(address.Value) {
 			continue
 		}
 		providerValues.Add(address.Value)
@@ -960,8 +966,9 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []network.Ad
 // determined both by the machine itself, and by asking the provider.
 //
 // The addresses returned by the provider shadow any of the addresses
-// that the machine reported with the same address value. Provider-reported
-// addresses always come before machine-reported addresses.
+// that the machine reported with the same address value.
+// Provider-reported addresses always come before machine-reported
+// addresses. Duplicates are removed.
 func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
@@ -1244,16 +1251,12 @@ func (m *Machine) Status() (status Status, info string, data map[string]interfac
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc := statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}
 	// If a machine is not yet provisioned, we allow its status
 	// to be set back to pending (when a retry is to occur).
 	_, err := m.InstanceId()
 	allowPending := IsNotProvisionedError(err)
-	if err := doc.validateSet(allowPending); err != nil {
+	doc, err := newMachineStatusDoc(status, info, data, allowPending)
+	if err != nil {
 		return err
 	}
 	ops := []txn.Op{{
@@ -1261,9 +1264,9 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 	},
-		updateStatusOp(m.st, m.globalKey(), doc),
+		updateStatusOp(m.st, m.globalKey(), doc.statusDoc),
 	}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err = m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil
@@ -1371,12 +1374,20 @@ func (m *Machine) markInvalidContainers() error {
 }
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
-func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
-	return setMachineBlockDevices(m.st, m.Id(), devices)
+func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
+	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
 // BlockDevices gets the aggregated list of block devices attached to the
 // machine.
-func (m *Machine) BlockDevices() ([]storage.BlockDevice, error) {
-	return getBlockDevices(m.st, m.Id())
+func (m *Machine) BlockDevices() ([]BlockDevice, error) {
+	devices, err := getMachineBlockDevices(m.st, m.Id())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]BlockDevice, len(devices))
+	for i, dev := range devices {
+		result[i] = dev
+	}
+	return result, nil
 }

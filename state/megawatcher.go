@@ -87,6 +87,20 @@ func (m *backingMachine) mongoId() interface{} {
 
 type backingUnit unitDoc
 
+// translateLegacyUnitAgentStatus returns the status value the current GUI expects to see.
+// This is a short term requirement until the GUI is updated to be able to handle
+// the new values.
+// We use string literals here to avoid import loops and lots of messy refactoring.
+func translateLegacyUnitAgentStatus(in multiwatcher.Status) multiwatcher.Status {
+	switch in {
+	case multiwatcher.Status("failed"):
+		return multiwatcher.Status("down")
+	case multiwatcher.Status("active"):
+		return multiwatcher.Status("started")
+	}
+	return in
+}
+
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.UnitInfo{
 		Name:        u.Name,
@@ -108,6 +122,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 			return err
 		}
 		info.Status = multiwatcher.Status(sdoc.Status)
+		info.Status = translateLegacyUnitAgentStatus(info.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -299,6 +314,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id interfac
 	case *multiwatcher.UnitInfo:
 		newInfo := *info
 		newInfo.Status = multiwatcher.Status(s.Status)
+		newInfo.Status = translateLegacyUnitAgentStatus(newInfo.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo

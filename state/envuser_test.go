@@ -5,13 +5,16 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -90,3 +93,105 @@ func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	c.Assert(envUser.LastConnection().After(now) ||
 		envUser.LastConnection().Equal(now), jc.IsTrue)
 }
+
+func (s *EnvUserSuite) TestEnvironmentsForUserNone(c *gc.C) {
+	tag := names.NewUserTag("non-existent@remote")
+	environments, err := s.State.EnvironmentsForUser(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 0)
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserNewLocalUser(c *gc.C) {
+	user := s.factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	environments, err := s.State.EnvironmentsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 0)
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUser(c *gc.C) {
+	user := s.factory.MakeUser(c, nil)
+	environments, err := s.State.EnvironmentsForUser(user.UserTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	c.Assert(environments[0].UUID(), gc.Equals, s.State.EnvironUUID())
+}
+
+func (s *EnvUserSuite) newEnvWithOwner(c *gc.C, name string, owner names.UserTag) *state.Environment {
+	// Don't use the factory to call MakeEnvironment because it may at some
+	// time in the future be modified to do additional things.  Instead call
+	// the state method directly to create an environment to make sure that
+	// the owner is able to access the environment.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": name,
+		"uuid": uuid.String(),
+	})
+	env, st, err := s.State.NewEnvironment(cfg, owner)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+	return env
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserEnvOwner(c *gc.C) {
+	owner := names.NewUserTag("external@remote")
+	env := s.newEnvWithOwner(c, "test-env", owner)
+
+	environments, err := s.State.EnvironmentsForUser(owner)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	s.checkSameEnvironment(c, environments[0], env)
+}
+
+func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Environment) {
+	c.Check(env1.Name(), gc.Equals, env2.Name())
+	c.Check(env1.UUID(), gc.Equals, env2.UUID())
+}
+
+func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) *state.Environment {
+	envState := s.factory.MakeEnvironment(c, &factory.EnvParams{Name: name})
+	defer envState.Close()
+	newEnv, err := envState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = envState.AddEnvironmentUser(user, newEnv.Owner())
+	c.Assert(err, jc.ErrorIsNil)
+	return newEnv
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
+	userTag := names.NewUserTag("external@remote")
+	env := s.newEnvWithUser(c, "test-env", userTag)
+
+	environments, err := s.State.EnvironmentsForUser(userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, 1)
+	s.checkSameEnvironment(c, environments[0], env)
+}
+
+func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
+	userTag := names.NewUserTag("external@remote")
+	expected := []*state.Environment{
+		s.newEnvWithUser(c, "user1", userTag),
+		s.newEnvWithUser(c, "user2", userTag),
+		s.newEnvWithUser(c, "user3", userTag),
+		s.newEnvWithOwner(c, "owner1", userTag),
+		s.newEnvWithOwner(c, "owner2", userTag),
+	}
+	sort.Sort(UUIDOrder(expected))
+
+	environments, err := s.State.EnvironmentsForUser(userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(environments, gc.HasLen, len(expected))
+	sort.Sort(UUIDOrder(environments))
+	for i := range expected {
+		s.checkSameEnvironment(c, environments[i], expected[i])
+	}
+}
+
+// UUIDOrder is used to sort the environments into a stable order
+type UUIDOrder []*state.Environment
+
+func (a UUIDOrder) Len() int           { return len(a) }
+func (a UUIDOrder) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a UUIDOrder) Less(i, j int) bool { return a[i].UUID() < a[j].UUID() }

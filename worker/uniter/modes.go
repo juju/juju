@@ -32,7 +32,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// Resume interrupted deployment operations.
 	if opState.Kind == operation.Install {
 		logger.Infof("resuming charm install")
-		return ModeInstalling(opState.CharmURL), nil
+		return ModeInstalling(u, opState.CharmURL)
 	} else if opState.Kind == operation.Upgrade {
 		logger.Infof("resuming charm upgrade")
 		return ModeUpgrading(opState.CharmURL), nil
@@ -92,7 +92,11 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
-func ModeInstalling(curl *charm.URL) Mode {
+func ModeInstalling(u *Uniter, curl *charm.URL) (next Mode, err error) {
+	// First up, set the unit status to Installing.
+	if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
+		return nil, err
+	}
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
@@ -100,7 +104,7 @@ func ModeInstalling(curl *charm.URL) Mode {
 			return nil, err
 		}
 		return ModeContinue, nil
-	}
+	}, nil
 }
 
 // ModeUpgrading is responsible for upgrading the charm.
@@ -122,7 +126,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.operationState().Started {
-		if err = u.unit.SetStatus(params.StatusInstalled, "", nil); err != nil {
+		if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
 			return nil, err
 		}
 	}
@@ -157,7 +161,7 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(params.StatusStopped, "", nil); err != nil {
+	if err = u.unit.SetStatus(params.StatusStopping, "", nil); err != nil {
 		return nil, err
 	}
 	w, err := u.unit.Watch()
@@ -211,7 +215,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err := u.fixDeployer(); err != nil {
 		return nil, err
 	}
-	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
+	if err = u.unit.SetStatus(params.StatusActive, "", nil); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)

@@ -787,7 +787,8 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
-							"description": "this boilerplate is insane, we have to fix it",
+							"title":       "snapshot",
+							"description": "Take a snapshot of the database.",
 							"properties": map[string]interface{}{
 								"outfile": map[string]interface{}{
 									"default":     "foo.bz2",
@@ -1233,7 +1234,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -2213,8 +2214,8 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  multiwatcher.StatusPending,
-			Life:                    multiwatcher.Alive,
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
@@ -2450,209 +2451,152 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private")
 }
 
-func (s *clientSuite) TestClientEnvironmentGet(c *gc.C) {
+func (s *serverSuite) TestClientEnvironmentGet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	attrs, err := s.APIState.Client().EnvironmentGet()
+	result, err := s.client.EnvironmentGet()
 	c.Assert(err, jc.ErrorIsNil)
-	allAttrs := envConfig.AllAttrs()
-	// We cannot simply use DeepEquals, because after the
-	// map[string]interface{} result of EnvironmentGet is
-	// serialized to JSON, integers are converted to floats.
-	for key, apiValue := range attrs {
-		envValue, found := allAttrs[key]
-		c.Check(found, jc.IsTrue)
-		switch apiValue.(type) {
-		case float64, float32:
-			c.Check(fmt.Sprintf("%v", envValue), gc.Equals, fmt.Sprintf("%v", apiValue))
-		default:
-			c.Check(envValue, gc.Equals, apiValue)
-		}
-	}
+	c.Assert(result.Config, gc.DeepEquals, envConfig.AllAttrs())
 }
 
-func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
+func (s *serverSuite) assertEnvValue(c *gc.C, key string, expected interface{}) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()["some-key"]
-	c.Assert(found, jc.IsFalse)
-
-	args := map[string]interface{}{"some-key": "value"}
-	err = s.APIState.Client().EnvironmentSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	value, found := envConfig.AllAttrs()["some-key"]
+	value, found := envConfig.AllAttrs()[key]
 	c.Assert(found, jc.IsTrue)
-	c.Assert(value, gc.Equals, "value")
+	c.Assert(value, gc.Equals, expected)
 }
 
-func (s *clientSuite) setupEnvironmentSet(c *gc.C) {
+func (s *serverSuite) assertEnvValueMissing(c *gc.C, key string) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	_, found := envConfig.AllAttrs()[key]
+	c.Assert(found, jc.IsFalse)
+}
+
+func (s *serverSuite) TestClientEnvironmentSet(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsFalse)
-}
 
-func (s *clientSuite) assertEnvironmentSetBlocked(c *gc.C, blocked bool, args map[string]interface{}) {
-	err := s.APIState.Client().EnvironmentSet(args)
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		envConfig, err := s.State.EnvironConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		value, found := envConfig.AllAttrs()["some-key"]
-		c.Assert(found, jc.IsTrue)
-		c.Assert(value, gc.Equals, "value")
+	params := params.EnvironmentSet{
+		Config: map[string]interface{}{
+			"some-key":  "value",
+			"other-key": "other value"},
 	}
+	err = s.client.EnvironmentSet(params)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnvValue(c, "some-key", "value")
+	s.assertEnvValue(c, "other-key", "other value")
 }
 
-func (s *clientSuite) TestBlockDestroyClientEnvironmentSet(c *gc.C) {
-	s.setupEnvironmentSet(c)
-	s.blockDestroyEnvironment(c)
-	s.assertEnvironmentSetBlocked(c, false, map[string]interface{}{"some-key": "value"})
+func (s *serverSuite) TestClientEnvironmentSetImmutable(c *gc.C) {
+	// The various immutable config values are tested in
+	// environs/config/config_test.go, so just choosing one here.
+	params := params.EnvironmentSet{
+		Config: map[string]interface{}{"state-port": "1"},
+	}
+	err := s.client.EnvironmentSet(params)
+	c.Check(err, gc.ErrorMatches, `cannot change state-port from .* to 1`)
 }
 
-func (s *clientSuite) TestBlockRemoveClientEnvironmentSet(c *gc.C) {
-	s.setupEnvironmentSet(c)
-	s.blockRemoveObject(c)
-	s.assertEnvironmentSetBlocked(c, false, map[string]interface{}{"some-key": "value"})
+func (s *serverSuite) assertEnvironmentSetBlocked(c *gc.C, args map[string]interface{}) {
+	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
 
-func (s *clientSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
-	s.setupEnvironmentSet(c)
+func (s *serverSuite) assertEnvironmentSetNotBlocked(c *gc.C, args map[string]interface{}) {
+	err := s.client.EnvironmentSet(params.EnvironmentSet{args})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnvValue(c, "some-key", "value")
+}
+
+func (s *serverSuite) TestBlockChangesClientEnvironmentSet(c *gc.C) {
 	s.blockAllChanges(c)
 	args := map[string]interface{}{"some-key": "value"}
-	s.assertEnvironmentSetBlocked(c, true, args)
+	s.assertEnvironmentSetBlocked(c, args)
 
 	// Make sure just mentioning variable does not unblock env.
 	// Need right value to unblock properly.
 	args[config.PreventAllChangesKey] = true
-	s.assertEnvironmentSetBlocked(c, true, args)
+	s.assertEnvironmentSetBlocked(c, args)
 
 	// But make sure that can unblock block-changes with right value.
 	args[config.PreventAllChangesKey] = false
-	s.assertEnvironmentSetBlocked(c, false, args)
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	value, found := envConfig.AllAttrs()[config.PreventAllChangesKey]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(value, jc.IsFalse)
+	s.assertEnvironmentSetNotBlocked(c, args)
+	s.assertEnvValue(c, config.PreventAllChangesKey, false)
 }
 
-func (s *clientSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
+func (s *serverSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	url := envConfig.AllAttrs()["agent-metadata-url"]
 	c.Assert(url, gc.Equals, "")
 
-	args := map[string]interface{}{"tools-metadata-url": "value"}
-	err = s.APIState.Client().EnvironmentSet(args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	value, found := envConfig.AllAttrs()["agent-metadata-url"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(value, gc.Equals, "value")
-	value, found = envConfig.AllAttrs()["tools-metadata-url"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(value, gc.Equals, "value")
-}
-
-func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
-	args := map[string]interface{}{"agent-version": "9.9.9"}
-	err := s.APIState.Client().EnvironmentSet(args)
-	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
-	// It's okay to pass env back with the same agent-version.
-	cfg, err := s.APIState.Client().EnvironmentGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["agent-version"], gc.NotNil)
-	err = s.APIState.Client().EnvironmentSet(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *clientSuite) TestClientEnvironmentUnset(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()["abc"]
-	c.Assert(found, jc.IsTrue)
-
-	err = s.APIState.Client().EnvironmentUnset("abc")
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found = envConfig.AllAttrs()["abc"]
-	c.Assert(found, jc.IsFalse)
-}
-
-func (s *clientSuite) setupEnvironmentUnset(c *gc.C) {
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()["abc"]
-	c.Assert(found, jc.IsTrue)
-}
-
-func (s *clientSuite) assertEnvironmentUnsetBlocked(c *gc.C, blocked bool) {
-	err := s.APIState.Client().EnvironmentUnset("abc")
-	if blocked {
-		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-		envConfig, err := s.State.EnvironConfig()
-		c.Assert(err, jc.ErrorIsNil)
-		_, found := envConfig.AllAttrs()["abc"]
-		c.Assert(found, jc.IsFalse)
+	args := params.EnvironmentSet{
+		Config: map[string]interface{}{"tools-metadata-url": "value"},
 	}
+	err = s.client.EnvironmentSet(args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertEnvValue(c, "agent-metadata-url", "value")
+	s.assertEnvValue(c, "tools-metadata-url", "value")
 }
 
-func (s *clientSuite) TestBlockDestroyClientEnvironmentUnset(c *gc.C) {
-	s.setupEnvironmentUnset(c)
-	s.blockDestroyEnvironment(c)
-	s.assertEnvironmentUnsetBlocked(c, false)
-}
+func (s *serverSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
+	args := params.EnvironmentSet{
+		map[string]interface{}{"agent-version": "9.9.9"},
+	}
+	err := s.client.EnvironmentSet(args)
+	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
 
-func (s *clientSuite) TestBlockRemoveClientEnvironmentUnset(c *gc.C) {
-	s.setupEnvironmentUnset(c)
-	s.blockRemoveObject(c)
-	s.assertEnvironmentUnsetBlocked(c, false)
-}
-
-func (s *clientSuite) TestBlockClientEnvironmentUnset(c *gc.C) {
-	s.setupEnvironmentUnset(c)
-	s.blockAllChanges(c)
-	s.assertEnvironmentUnsetBlocked(c, true)
-}
-
-func (s *clientSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
-	// It's okay to unset a non-existent attribute.
-	err := s.APIState.Client().EnvironmentUnset("not_there")
+	// It's okay to pass env back with the same agent-version.
+	result, err := s.client.EnvironmentGet()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Config["agent-version"], gc.NotNil)
+	args.Config["agent-version"] = result.Config["agent-version"]
+	err = s.client.EnvironmentSet(args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
+func (s *serverSuite) TestClientEnvironmentUnset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	envConfig, err := s.State.EnvironConfig()
+
+	args := params.EnvironmentUnset{[]string{"abc"}}
+	err = s.client.EnvironmentUnset(args)
 	c.Assert(err, jc.ErrorIsNil)
-	_, found := envConfig.AllAttrs()["abc"]
-	c.Assert(found, jc.IsTrue)
+	s.assertEnvValueMissing(c, "abc")
+}
+
+func (s *serverSuite) TestBlockClientEnvironmentUnset(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.blockAllChanges(c)
+
+	args := params.EnvironmentUnset{[]string{"abc"}}
+	err = s.client.EnvironmentUnset(args)
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrOperationBlocked)
+}
+
+func (s *serverSuite) TestClientEnvironmentUnsetMissing(c *gc.C) {
+	// It's okay to unset a non-existent attribute.
+	args := params.EnvironmentUnset{[]string{"not_there"}}
+	err := s.client.EnvironmentUnset(args)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestClientEnvironmentUnsetError(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"abc": 123}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// "type" may not be removed, and this will cause an error.
 	// If any one attribute's removal causes an error, there
 	// should be no change.
-	err = s.APIState.Client().EnvironmentUnset("abc", "type")
+	args := params.EnvironmentUnset{[]string{"abc", "type"}}
+	err = s.client.EnvironmentUnset(args)
 	c.Assert(err, gc.ErrorMatches, "type: expected string, got nothing")
-	envConfig, err = s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	_, found = envConfig.AllAttrs()["abc"]
-	c.Assert(found, jc.IsTrue)
+	s.assertEnvValue(c, "abc", 123)
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
@@ -3599,7 +3543,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

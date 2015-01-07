@@ -74,6 +74,7 @@ func (s *EnvSuite) getContext() (ctx *runner.HookContext, expectVars []string) {
 			"this-unit/123",
 			"PURPLE",
 			"proceed with care",
+			"some-zone",
 			[]string{"he.re:12345", "the.re:23456"},
 			proxy.Settings{
 				Http:    "some-http-proxy",
@@ -91,6 +92,7 @@ func (s *EnvSuite) getContext() (ctx *runner.HookContext, expectVars []string) {
 			"JUJU_METER_INFO=proceed with care",
 			"JUJU_API_ADDRESSES=he.re:12345 the.re:23456",
 			"JUJU_MACHINE_ID=42",
+			"JUJU_AVAILABILITY_ZONE=some-zone",
 			"http_proxy=some-http-proxy",
 			"HTTP_PROXY=some-http-proxy",
 			"https_proxy=some-https-proxy",

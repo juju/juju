@@ -4,12 +4,15 @@
 package state
 
 import (
+	"math/rand"
 	"net"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/network"
 )
 
 // SubnetInfo describes a single subnet.
@@ -208,4 +211,103 @@ func (s *Subnet) Refresh() error {
 		return errors.Errorf("cannot refresh subnet %v: %v", s, err)
 	}
 	return nil
+}
+
+// PickNewAddress returns a new IPAddress that isn't in use for the subnet.
+// The address starts with AddressStateUnknown, for later allocation.
+func (s *Subnet) PickNewAddress() (*IPAddress, error) {
+	for {
+		addr, err := s.attemptToPickNewAddress()
+		if err == nil {
+			return addr, err
+		}
+		if !errors.IsAlreadyExists(err) {
+			return addr, err
+		}
+	}
+}
+
+// attemptToPickNewAddress will try to pick a new address. It can fail with
+// AlreadyExists due to a race condition between fetching the list of addresses
+// already in use and allocating a new one. It is called in a loop by
+// PickNewAddress until it gets one or there are no more available!
+func (s *Subnet) attemptToPickNewAddress() (*IPAddress, error) {
+	high := s.doc.AllocatableIPHigh
+	low := s.doc.AllocatableIPLow
+	if low == "" || high == "" {
+		return nil, errors.Errorf("no allocatable IP addresses for subnet %v", s)
+	}
+
+	// convert low and high to decimals as the bounds
+	lowDecimal, err := network.IPv4ToDecimal(net.ParseIP(low))
+	if err != nil {
+		// these addresses are validated so should never happen
+		return nil, errors.Annotatef(err, "invalid AllocatableIPLow %q for subnet %v", low, s)
+	}
+	highDecimal, err := network.IPv4ToDecimal(net.ParseIP(high))
+	if err != nil {
+		// these addresses are validated so should never happen
+		return nil, errors.Annotatef(err, "invalid AllocatableIPHigh %q for subnet %v", high, s)
+	}
+
+	// find all addresses for this subnet and convert them to decimals
+	addresses, closer := s.st.getCollection(ipaddressesC)
+	defer closer()
+
+	id := s.ID()
+	var doc struct {
+		Value string
+	}
+	allocated := make(map[uint32]bool)
+	iter := addresses.Find(bson.D{{"subnetid", id}}).Iter()
+	for iter.Next(&doc) {
+		// skip invalid values. Can't happen anyway as we validate.
+		value, err := network.IPv4ToDecimal(net.ParseIP(doc.Value))
+		if err != nil {
+			continue
+		}
+		allocated[value] = true
+	}
+
+	// Check that the number of addresses in use is less than the
+	// difference between low and high - i.e. we haven't exhausted all
+	// possible addresses.
+	if len(allocated) >= int(highDecimal-lowDecimal)+1 {
+		return nil, errors.Errorf("allocatable IP addresses exhausted for subnet %v", s)
+	}
+
+	// pick a new random decimal between the low and high bounds that
+	// doesn't match an existing one
+	newDecimal := pickAddress(lowDecimal, highDecimal, allocated)
+
+	// convert it back to a dotted-quad
+	newIP := network.DecimalToIPv4(newDecimal)
+	newAddr := network.NewAddress(newIP.String(), network.ScopeUnknown)
+
+	// and create a new IPAddress from it and return it
+	return s.st.AddIPAddress(newAddr, s.ID())
+}
+
+// pickAddress will pick a number, representing an IPv4 address, between low
+// and high (inclusive) that isn't in the allocated map. There must be at least
+// one available address between low and high and not in allocated.
+// e.g. pickAddress(uint32(2700), uint32(2800), map[uint32]bool{uint32(2701): true})
+// The allocated map is just being used as a set of unavailable addresses, so
+// the bool value isn't significant.
+var pickAddress = func(low, high uint32, allocated map[uint32]bool) uint32 {
+	// +1 because Int63n will pick a number up to, but not including, the
+	// bounds we provide.
+	bounds := uint32(high-low) + 1
+	if bounds == 1 {
+		// we've already checked that there is a free IP address, so
+		// this must be it!
+		return low
+	}
+	for {
+		inBounds := rand.Int63n(int64(bounds))
+		value := uint32(inBounds) + low
+		if _, ok := allocated[value]; !ok {
+			return value
+		}
+	}
 }

@@ -96,6 +96,21 @@ func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+const jujuLocalInstalled = `#!/bin/sh
+if [ "$2" = "juju-local" ]; then return 0; else return 1; fi
+`
+
+func (s *prereqsSuite) TestCloudImageUtilsPrereq(c *gc.C) {
+	err := os.Remove(filepath.Join(s.tmpdir, "dpkg-query"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(s.tmpdir, "dpkg-query"), []byte(jujuLocalInstalled), 0777)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = VerifyPrerequisites(instance.LXC)
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*cloud-image-utils must be installed(.|\n)*")
+	c.Assert(err, gc.ErrorMatches, "(.|\n)*apt-get install cloud-image-utils(.|\n)*")
+}
+
 func (s *prereqsSuite) TestJujuLocalPrereq(c *gc.C) {
 	err := os.Remove(filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, jc.ErrorIsNil)

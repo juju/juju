@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/environs"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/deployer"
@@ -61,8 +62,8 @@ func TestPackage(t *stdtesting.T) {
 
 	// Change the path to "juju-run", so that the
 	// tests don't try to write to /usr/local/bin.
-	jujuRun = mktemp("juju-run", "")
-	defer os.Remove(jujuRun)
+	agentcmd.JujuRun = mktemp("juju-run", "")
+	defer os.Remove(agentcmd.JujuRun)
 
 	// Create a CA certificate available for all tests.
 	caCertFile = mktemp("juju-test-cert", coretesting.CACert)

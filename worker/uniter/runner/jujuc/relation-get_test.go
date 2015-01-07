@@ -73,25 +73,10 @@ var relationGetTests = []struct {
 		code:    1,
 		out:     `unknown unit bad/0`,
 	}, {
-		summary: "all keys with implicit member",
-		relid:   1,
-		unit:    "m/0",
-		out:     "pew: 'pew\n\n  pew\n\n'",
-	}, {
-		summary: "all keys with explicit member",
-		relid:   1,
-		args:    []string{"-", "m/0"},
-		out:     "pew: 'pew\n\n  pew\n\n'",
-	}, {
 		summary: "all keys with explicit non-member",
 		relid:   1,
 		args:    []string{"-", "u/1"},
 		out:     `value: "12345"`,
-	}, {
-		summary: "all keys with explicit local",
-		relid:   0,
-		args:    []string{"-", "u/0"},
-		out:     "private-address: 'foo: bar\n\n'",
 	}, {
 		summary: "specific key with implicit member",
 		relid:   1,
@@ -114,11 +99,26 @@ var relationGetTests = []struct {
 		args:    []string{"private-address", "u/0"},
 		out:     "foo: bar\n",
 	}, {
+		summary: "all keys with implicit member",
+		relid:   1,
+		unit:    "m/0",
+		out:     "pew: |\n  pew\n  pew",
+	}, {
+		summary: "all keys with explicit member",
+		relid:   1,
+		args:    []string{"-", "m/0"},
+		out:     "pew: |\n  pew\n  pew",
+	}, {
+		summary: "all keys with explicit local",
+		relid:   0,
+		args:    []string{"-", "u/0"},
+		out:     "private-address: |\n  foo: bar",
+	}, {
 		summary: "explicit smart formatting 1",
 		relid:   1,
 		unit:    "m/0",
 		args:    []string{"--format", "smart"},
-		out:     "pew: 'pew\n\n  pew\n\n'",
+		out:     "pew: |\n  pew\n  pew",
 	}, {
 		summary: "explicit smart formatting 2",
 		relid:   1,
@@ -135,50 +135,6 @@ var relationGetTests = []struct {
 		relid:   1,
 		args:    []string{"missing", "u/1", "--format", "smart"},
 		out:     "",
-	}, {
-		summary: "json formatting 1",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"--format", "json"},
-		out:     `{"pew":"pew\npew\n"}`,
-	}, {
-		summary: "json formatting 2",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"pew", "--format", "json"},
-		out:     `"pew\npew\n"`,
-	}, {
-		summary: "json formatting 3",
-		relid:   1,
-		args:    []string{"value", "u/1", "--format", "json"},
-		out:     `"12345"`,
-	}, {
-		summary: "json formatting 4",
-		relid:   1,
-		args:    []string{"missing", "u/1", "--format", "json"},
-		out:     `null`,
-	}, {
-		summary: "yaml formatting 1",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"--format", "yaml"},
-		out:     "pew: 'pew\n\n  pew\n\n'",
-	}, {
-		summary: "yaml formatting 2",
-		relid:   1,
-		unit:    "m/0",
-		args:    []string{"pew", "--format", "yaml"},
-		out:     "'pew\n\n  pew\n\n'",
-	}, {
-		summary: "yaml formatting 3",
-		relid:   1,
-		args:    []string{"value", "u/1", "--format", "yaml"},
-		out:     `"12345"`,
-	}, {
-		summary: "yaml formatting 4",
-		relid:   1,
-		args:    []string{"missing", "u/1", "--format", "yaml"},
-		out:     ``,
 	},
 }
 
@@ -204,6 +160,57 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
+}
+
+var relationGetFormatTests = []struct {
+	summary string
+	relid   int
+	unit    string
+	args    []string
+	out     interface{}
+}{
+	{
+		summary: "formatting 1",
+		relid:   1,
+		unit:    "m/0",
+		out:     map[string]interface{}{"pew": "pew\npew\n"},
+	}, {
+		summary: "formatting 2",
+		relid:   1,
+		unit:    "m/0",
+		args:    []string{"pew"},
+		out:     "pew\npew\n",
+	}, {
+		summary: "formatting 3",
+		relid:   1,
+		args:    []string{"value", "u/1"},
+		out:     "12345",
+	}, {
+		summary: "formatting 4",
+		relid:   1,
+		args:    []string{"missing", "u/1"},
+		out:     nil,
+	},
+}
+
+func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
+	testFormat := func(format string, checker gc.Checker) {
+		for i, t := range relationGetFormatTests {
+			c.Logf("test %d: %s %s", i, format, t.summary)
+			hctx := s.GetHookContext(c, t.relid, t.unit)
+			com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
+			c.Assert(err, jc.ErrorIsNil)
+			ctx := testing.Context(c)
+			args := append(t.args, "--format", format)
+			code := cmd.Main(com, ctx, args)
+			c.Check(code, gc.Equals, 0)
+			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+			stdout := bufferString(ctx.Stdout)
+			c.Check(stdout, checker, t.out)
+		}
+	}
+	testFormat("yaml", jc.YAMLEquals)
+	testFormat("json", jc.JSONEquals)
 }
 
 var helpTemplate = `

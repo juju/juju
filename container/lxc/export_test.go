@@ -11,6 +11,7 @@ var (
 	ContainerConfigFilename = containerConfigFilename
 	ContainerDirFilesystem  = containerDirFilesystem
 	GenerateNetworkConfig   = generateNetworkConfig
+	DiscoverHostNIC         = &discoverHostNIC
 	NetworkConfigTemplate   = networkConfigTemplate
 	RestartSymlink          = restartSymlink
 	ReleaseVersion          = &releaseVersion

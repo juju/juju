@@ -61,7 +61,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
-		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, nil, nil, nil)
+		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}

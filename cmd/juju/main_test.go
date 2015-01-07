@@ -7,13 +7,16 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/action"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
@@ -173,6 +176,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 }
 
 var commandNames = []string{
+	"action",
 	"add-machine",
 	"add-relation",
 	"add-unit",
@@ -193,6 +197,7 @@ var commandNames = []string{
 	"destroy-unit",
 	"ensure-availability",
 	"env", // alias for switch
+	"environment",
 	"expose",
 	"generate-config", // alias for init
 	"get",
@@ -234,9 +239,31 @@ var commandNames = []string{
 }
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
-	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
+	// First check default commands, and then check commands that are
+	// activated by feature flags.
+
+	// remove "action" for the first test because the feature is not
+	// enabled.
+	var commandNamesWithoutAction []string
+	sort.Strings(commandNames)
+	index := sort.SearchStrings(commandNames, "action")
+	copy(commandNamesWithoutAction, commandNames[:index])
+	commandNamesWithoutAction = append(commandNamesWithoutAction, commandNames[index+1:]...)
+
+	// 1. Default Commands. Disable all features.
+	setFeatureFlags("")
+	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNamesWithoutAction)
+
+	// 2. Enable Action feature, and test again.
+	setFeatureFlags(action.FeatureFlag)
+	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNames)
+}
+
+func getHelpCommandNames(c *gc.C) []string {
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -247,8 +274,14 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 		}
 		names = append(names, f[0])
 	}
-	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(names, jc.DeepEquals, commandNames)
+	return names
+}
+
+func setFeatureFlags(flags string) {
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 var topicNames = []string{
