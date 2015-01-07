@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -920,7 +921,11 @@ func patchEC2ForTesting() func() {
 	ec2.UseTestRegionData(ec2.TestRegions)
 	restoreTimeouts := envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	restoreCreateTags := gitjujutesting.PatchValue(ec2.CreateTags, func(*amzec2.EC2, []string, []amzec2.Tag) (*amzec2.SimpleResp, error) {
+		return &amzec2.SimpleResp{}, nil
+	})
 	return func() {
+		restoreCreateTags()
 		restoreFinishBootstrap()
 		restoreTimeouts()
 		ec2.UseTestImageData(nil)

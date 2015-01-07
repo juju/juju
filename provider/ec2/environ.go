@@ -541,17 +541,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 
 	// Tag created resources.
-	// FIXME(axw) uncomment below when we've migrated to go-amz/amz,
-	//            after implementing support for the CreateTags
 	//            action in the ec2 test server.
-	/*
-		// TODO(axw) expose EnvironTag directly in StartInstanceParams.
-		tag := ec2.Tag{"juju-env", args.MachineConfig.APIInfo.EnvironTag.Id()}
-		if _, err := e.ec2().CreateTags(resourceIds, []ec2.Tag{tag}); err != nil {
-			logger.Errorf("could not tag resources: %v", err)
-		}
-	*/
-	_ = resourceIds
+	// TODO(axw) expose EnvironTag directly in StartInstanceParams.
+	tag := ec2.Tag{"juju-env", args.MachineConfig.APIInfo.EnvironTag.Id()}
+	if _, err := createTags(e.ec2(), resourceIds, []ec2.Tag{tag}); err != nil {
+		logger.Errorf("could not tag resources: %v", err)
+	}
 
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
@@ -575,7 +570,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}, nil
 }
 
-var runInstances = _runInstances
+var (
+	runInstances = _runInstances
+	createTags   = (*ec2.EC2).CreateTags
+)
 
 // runInstances calls ec2.RunInstances for a fixed number of attempts until
 // RunInstances returns an error code that does not indicate an error that
