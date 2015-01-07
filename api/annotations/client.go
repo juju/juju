@@ -25,9 +25,10 @@ func NewClient(st *api.State) *Client {
 }
 
 // Get returns annotations that have been set on the given entities.
-func (c *Client) Get(args params.Entities) (params.AnnotationsGetResults, error) {
+func (c *Client) Get(tags []string) (params.AnnotationsGetResults, error) {
 	annotations := params.AnnotationsGetResults{}
-	if err := c.facade.FacadeCall("Get", args, &annotations); err != nil {
+
+	if err := c.facade.FacadeCall("Get", entitiesFromTags(tags), &annotations); err != nil {
 		return annotations, errors.Trace(err)
 	} else {
 		return annotations, nil
@@ -35,11 +36,19 @@ func (c *Client) Get(args params.Entities) (params.AnnotationsGetResults, error)
 }
 
 // Set sets the same annotation pairs on all given entities.
-func (c *Client) Set(entities params.Entities, pairs map[string]string) error {
-	args := params.AnnotationsSet{entities, pairs}
+func (c *Client) Set(tags []string, pairs map[string]string) error {
+	args := params.AnnotationsSet{entitiesFromTags(tags), pairs}
 	if err := c.facade.FacadeCall("Set", args, nil); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 
+}
+
+func entitiesFromTags(tags []string) params.Entities {
+	entities := []params.Entity{}
+	for _, tag := range tags {
+		entities = append(entities, params.Entity{tag})
+	}
+	return params.Entities{entities}
 }
