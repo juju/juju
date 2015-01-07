@@ -6,6 +6,7 @@ package state
 import (
 	"net/url"
 
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 )
 
@@ -49,6 +50,24 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 		cdoc.Config = unescapedConfig
 	}
 	return &Charm{st: st, doc: *cdoc}
+}
+
+// Tag returns a tag identifying the charm.
+// Implementing state.GlobalEntity interface.
+func (c *Charm) Tag() names.Tag {
+	return names.NewCharmTag(c.URL().String())
+}
+
+// charmGlobalKey returns the global database key for the charm
+// with the given url.
+func charmGlobalKey(charmURL *charm.URL) string {
+	return "c#" + charmURL.String()
+}
+
+// GlobalKey returns the global database key for the charm.
+// Implementing state.GlobalEntity interface.
+func (c *Charm) globalKey() string {
+	return charmGlobalKey(c.doc.URL)
 }
 
 func (c *Charm) String() string {
