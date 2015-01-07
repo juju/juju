@@ -33,7 +33,8 @@ const (
 	// https://cloud.google.com/compute/docs/instances#sshkeys
 	metadataKeySSHKeys = "sshKeys"
 
-	roleState = "state"
+	roleState   = "state"
+	roleNoState = "nostate"
 
 	// See https://cloud.google.com/compute/docs/operating-systems/linux-os#ubuntu
 	// TODO(ericsnow) Should this be handled in cloud-images (i.e.

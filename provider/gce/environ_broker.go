@@ -180,7 +180,7 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 	}
 
 	// Handle state machines.
-	var role string
+	role := roleNoState
 	if isStateServer(args.MachineConfig) {
 		role = roleState
 	}
