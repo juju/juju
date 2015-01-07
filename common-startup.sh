@@ -2,7 +2,7 @@ set -eu
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 export PATH="$SCRIPTS:$PATH"
 
-export JUJU_HOME=$HOME/cloud-city
+export JUJU_HOME=${JUJU_HOME:-$HOME/cloud-city}
 if [ "$ENV" = "manual" ]; then
   source $HOME/cloud-city/ec2rc
 fi

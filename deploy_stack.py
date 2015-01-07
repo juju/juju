@@ -172,7 +172,7 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None):
     machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
-        logging.info("Retrieving logs for machine-%d", machine_id)
+        logging.info("Retrieving logs for machine-%s", machine_id)
         machine_directory = os.path.join(directory, str(machine_id))
         os.mkdir(machine_directory)
         dump_logs(client, addr, machine_directory)
@@ -188,13 +188,6 @@ def get_machines_for_logs(client, bootstrap_host):
     # provided.
     if bootstrap_host:
         machine_addrs['0'] = bootstrap_host
-
-    if client.env.local and machine_addrs:
-        # As per above, we only need one machine for the local
-        # provider. Use machine-0 if possible.
-        machine_id = min(machine_addrs)
-        return {machine_id: machine_addrs[machine_id]}
-
     return machine_addrs
 
 
@@ -454,8 +447,9 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 except BaseException as e:
                     logging.exception(e)
                     if host is not None:
-                        dump_logs(env.client.get_env_client(env), host,
-                                  log_dir, bootstrap_id)
+                        dump_env_logs(
+                            env.client.get_env_client(env), host, log_dir,
+                            host_id=bootstrap_id)
                     sys.exit(1)
             finally:
                 env.destroy_environment()
