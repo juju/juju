@@ -67,7 +67,7 @@ func ServiceInstances(st *State, service string) ([]instance.Id, error) {
 		instanceId, err := machine.InstanceId()
 		if err == nil {
 			instanceIds = append(instanceIds, instanceId)
-		} else if IsNotProvisionedError(err) {
+		} else if errors.IsNotProvisioned(err) {
 			continue
 		} else {
 			return nil, err

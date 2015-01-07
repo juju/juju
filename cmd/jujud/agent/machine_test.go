@@ -647,7 +647,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 				c.Logf("unit provisioned with instance %s", instId)
 				return m, instId
 			} else {
-				c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
+				c.Check(err, jc.Satisfies, errors.IsNotProvisioned)
 			}
 		}
 	}

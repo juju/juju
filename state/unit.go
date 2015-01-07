@@ -1479,7 +1479,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
 		instance, err := m.InstanceId()
-		if IsNotProvisionedError(err) {
+		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
 			assignContextf(&err, u, context)

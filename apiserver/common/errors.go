@@ -133,7 +133,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeHasAssignedUnits
 	case IsNoAddressSetError(err):
 		code = params.CodeNoAddressSet
-	case state.IsNotProvisionedError(err):
+	case errors.IsNotProvisioned(err):
 		code = params.CodeNotProvisioned
 	case state.IsUpgradeInProgressError(err):
 		code = params.CodeUpgradeInProgress

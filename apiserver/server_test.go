@@ -168,7 +168,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	assertNotProvisioned := func(err error) {
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-		c.Assert(err, gc.ErrorMatches, `machine \d+ is not provisioned`)
+		c.Assert(err, gc.ErrorMatches, `machine \d+ not provisioned`)
 	}
 	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
