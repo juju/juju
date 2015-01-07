@@ -794,6 +794,13 @@ const (
 	// The entity requires human intervention in order to operate
 	// correctly.
 	StatusError Status = "error"
+
+	// The entity is actively participating in the environment.
+	// For unit agents, this is a state we preserve for backwards
+	// compatibility with scripts during the life of Juju 1.x.
+	// In Juju 2.x, the agent-state will remain “active” and scripts
+	// will watch the unit-state instead for signals of service readiness.
+	StatusStarted Status = "started"
 )
 
 const (
@@ -801,9 +808,6 @@ const (
 
 	// The machine is not yet participating in the environment.
 	StatusPending Status = "pending"
-
-	// The machine is actively participating in the environment.
-	StatusStarted Status = "started"
 
 	// The machine's agent will perform no further action, other than
 	// to set the unit to Dead at a suitable moment.
@@ -827,9 +831,33 @@ const (
 	// The agent is actively participating in the environment.
 	StatusActive Status = "active"
 
-	// The agent ought to be signalling activity, but it cannot be
-	// detected.
+	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
+	// In Juju 2.x this will describe the state of the agent rather than a unit.
+	StatusStopping Status = "stopping"
+
+	// The unit agent has failed in some way,eg the agent ought to be signalling
+	// activity, but it cannot be detected.
 	StatusFailed Status = "failed"
+)
+
+const (
+	// Status values specific to services and units, reflecting the
+	// state of the software itself.
+
+	// The unit is installed and has no problems but is busy getting itself
+	// ready to provide services.
+	StatusBusy Status = "busy"
+
+	// The unit is unable to offer services because it needs another
+	// service to be up.
+	StatusWaiting Status = "waiting"
+
+	// The unit needs manual intervention to get back to the Running state.
+	StatusBlocked Status = "blocked"
+
+	// The unit believes it is correctly offering all the services it has
+	// been asked to offer.
+	StatusRunning Status = "running"
 )
 
 // DatastoreResult holds the result of an API call to retrieve details

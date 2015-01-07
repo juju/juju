@@ -27,6 +27,13 @@ const (
 	// The entity requires human intervention in order to operate
 	// correctly.
 	StatusError Status = "error"
+
+	// The entity is actively participating in the environment.
+	// For unit agents, this is a state we preserve for backwards
+	// compatibility with scripts during the life of Juju 1.x.
+	// In Juju 2.x, the agent-state will remain “active” and scripts
+	// will watch the unit-state instead for signals of service readiness.
+	StatusStarted Status = "started"
 )
 
 const (
@@ -34,9 +41,6 @@ const (
 
 	// The machine is not yet participating in the environment.
 	StatusPending Status = "pending"
-
-	// The machine is actively participating in the environment.
-	StatusStarted Status = "started"
 
 	// The machine's agent will perform no further action, other than
 	// to set the unit to Dead at a suitable moment.
@@ -60,8 +64,12 @@ const (
 	// The agent is actively participating in the environment.
 	StatusActive Status = "active"
 
-	// The agent ought to be signalling activity, but it cannot be
-	// detected.
+	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
+	// In Juju 2.x this will describe the state of the agent rather than a unit.
+	StatusStopping Status = "stopping"
+
+	// The unit agent has failed in some way,eg the agent ought to be signalling
+	// activity, but it cannot be detected.
 	StatusFailed Status = "failed"
 )
 
@@ -99,7 +107,8 @@ func (status Status) ValidAgentStatus() bool {
 		StatusAllocating,
 		StatusInstalling,
 		StatusFailed,
-		StatusActive:
+		StatusActive,
+		StatusStopping:
 	default:
 		return false
 	}
@@ -115,6 +124,8 @@ func (status Status) Matches(candidate Status) bool {
 		candidate = StatusFailed
 	case StatusStarted:
 		candidate = StatusActive
+	case StatusStopped:
+		candidate = StatusStopping
 	}
 	return status == candidate
 }
@@ -220,6 +231,7 @@ func unitAgentStatusValid(status Status) bool {
 		StatusAllocating,
 		StatusInstalling,
 		StatusActive,
+		StatusStopping,
 		StatusFailed,
 		StatusError:
 	default:
@@ -236,7 +248,7 @@ func (doc *unitAgentStatusDoc) validateSet() error {
 	}
 	switch doc.Status {
 	// For safety; no code will use these deprecated values.
-	case StatusPending, StatusDown, StatusStarted:
+	case StatusPending, StatusDown, StatusStarted, StatusStopped:
 		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
 	case StatusAllocating, StatusFailed:
 		return errors.Errorf("cannot set status %q", doc.Status)

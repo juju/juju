@@ -161,6 +161,9 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
+	if err = u.unit.SetStatus(params.StatusStopping, "", nil); err != nil {
+		return nil, err
+	}
 	w, err := u.unit.Watch()
 	if err != nil {
 		return nil, err

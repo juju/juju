@@ -887,6 +887,8 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		state.StatusActive, "",
 	}, {
 		state.StatusError, "blah",
+	}, {
+		state.StatusStopping, "",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
