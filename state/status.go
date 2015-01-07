@@ -109,10 +109,10 @@ func (status Status) ValidAgentStatus() bool {
 		StatusFailed,
 		StatusActive,
 		StatusStopping:
+		return true
 	default:
 		return false
 	}
-	return true
 }
 
 // Matches returns true if the candidate matches status,
@@ -177,10 +177,10 @@ func machineStatusValid(status Status) bool {
 		StatusStopped,
 		StatusError,
 		StatusDown:
+		return true
 	default:
 		return false
 	}
-	return true
 }
 
 // validateSet returns an error if the machineStatusDoc does not represent a sane
@@ -234,10 +234,10 @@ func unitAgentStatusValid(status Status) bool {
 		StatusStopping,
 		StatusFailed,
 		StatusError:
+		return true
 	default:
 		return false
 	}
-	return true
 }
 
 // validateSet returns an error if the unitAgentStatusDoc does not represent a sane
@@ -276,7 +276,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 		return statusDoc{}, errors.NotFoundf("status")
 	}
 	if err != nil {
-		return statusDoc{}, errors.Errorf("cannot get status %q: %v", globalKey, err)
+		return statusDoc{}, errors.Annotatef(err, "cannot get status %q", globalKey)
 	}
 	return doc, nil
 }

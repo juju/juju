@@ -784,8 +784,9 @@ func TranslateLegacyStatus(in Status) Status {
 		return StatusDown
 	case StatusActive:
 		return StatusStarted
+	default:
+		return in
 	}
-	return in
 }
 
 const (
