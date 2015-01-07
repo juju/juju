@@ -40,9 +40,8 @@ type StartInstanceParams struct {
 	DistributionGroup func() ([]instance.Id, error)
 
 	// Disks is a set of parameters for disks that must be created.
-	// Constraints specify the minimum and preferred values for each
-	// variable. If any of the disks cannot be created, StartInstance
-	// will return an error.
+	// If any of the disks cannot be created, StartInstance must
+	// return an error.
 	Disks []storage.DiskParams
 }
 
