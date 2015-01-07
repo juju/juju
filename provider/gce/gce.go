@@ -569,15 +569,9 @@ func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 // gceSSHKeys returns our authorizedKeys with
 // the username prepended to it. This is the format that
 // GCE uses for its sshKeys metadata.
-func gceSSHKeys() (string, error) {
+func gceSSHKeys(allKeys string) (string, error) {
 	var userKeys string
-	// TODO(wwitzel3) is this the only username we need?
 	users := []string{"ubuntu"}
-	allKeys, err := config.ReadAuthorizedKeys("")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
 	keys := strings.Split(allKeys, "\n")
 	for _, key := range keys {
 		for _, user := range users {

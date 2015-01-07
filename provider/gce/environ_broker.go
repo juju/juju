@@ -174,7 +174,7 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
-	authKeys, err := gceSSHKeys()
+	authKeys, err := gceSSHKeys(args.MachineConfig.AuthorizedKeys)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
