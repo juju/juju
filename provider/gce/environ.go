@@ -22,7 +22,7 @@ import (
 // Note: This provider/environment does *not* implement storage.
 
 const (
-	metadataKeyRole = "juju-machine-role"
+	metadataKeyIsState = "juju-is-state"
 	// This is defined by the cloud-init code:
 	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
 	// http://cloudinit.readthedocs.org/en/latest/
@@ -33,8 +33,8 @@ const (
 	// https://cloud.google.com/compute/docs/instances#sshkeys
 	metadataKeySSHKeys = "sshKeys"
 
-	roleState   = "state"
-	roleNoState = "nostate"
+	metadataValueTrue  = "true"
+	metadataValueFalse = "false"
 
 	// See https://cloud.google.com/compute/docs/operating-systems/linux-os#ubuntu
 	// TODO(ericsnow) Should this be handled in cloud-images (i.e.
@@ -230,8 +230,8 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 
 	var results []instance.Id
 	for _, inst := range instances {
-		role, ok := unpackMetadata(inst.Metadata)[metadataKeyRole]
-		if ok && role == roleState {
+		isState, ok := unpackMetadata(inst.Metadata)[metadataKeyIsState]
+		if ok && isState == metadataValueTrue {
 			results = append(results, instance.Id(inst.Name))
 		}
 	}

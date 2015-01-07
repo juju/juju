@@ -137,9 +137,6 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		env.globalFirewallName(),
 		machineID,
 	}}
-	if isStateServer(args.MachineConfig) {
-		tags.Items = append(tags.Items, roleState)
-	}
 
 	instance := &compute.Instance{
 		// MachineType is set in the env.gce.newInstance call.
@@ -179,15 +176,9 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// Handle state machines.
-	role := roleNoState
-	if isStateServer(args.MachineConfig) {
-		role = roleState
-	}
-
 	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
-	return packMetadata(map[string]string{
-		metadataKeyRole: role,
+	metadata := map[string]string{
+		metadataKeyIsState: metadataValueFalse,
 		// We store a gz snapshop of information that is used by
 		// cloud-init and unpacked in to the /var/lib/cloud/instances folder
 		// for the instance. Due to a limitation with GCE and binary blobs
@@ -197,7 +188,12 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 		// See: http://cloudinit.readthedocs.org
 		metadataKeyEncoding: "base64",
 		metadataKeySSHKeys:  authKeys,
-	}), nil
+	}
+	if isStateServer(args.MachineConfig) {
+		metadata[metadataKeyIsState] = metadataValueTrue
+	}
+
+	return packMetadata(metadata), nil
 }
 
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
