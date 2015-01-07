@@ -30,7 +30,7 @@ class TestDescribeSubstrate(TestCase):
             {
                 'type': 'openstack',
                 'auth-url':
-                    'https://keystone.canonistack.canonical.com:443/v2.0/'}))
+                'https://keystone.canonistack.canonical.com:443/v2.0/'}))
 
     def test_describe_substrate_aws(self):
         self.assertEqual('AWS', describe_substrate({'type': 'ec2'}))

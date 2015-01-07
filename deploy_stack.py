@@ -188,13 +188,6 @@ def get_machines_for_logs(client, bootstrap_host):
     # provided.
     if bootstrap_host:
         machine_addrs['0'] = bootstrap_host
-
-    if client.env.local and machine_addrs:
-        # As per above, we only need one machine for the local
-        # provider. Use machine-0 if possible.
-        machine_id = min(machine_addrs)
-        return {machine_id: machine_addrs[machine_id]}
-
     return machine_addrs
 
 
