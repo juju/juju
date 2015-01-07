@@ -3,6 +3,8 @@
 
 package gce
 
+// TODO(ericsnow) Split into a subpackage?
+
 import (
 	"net/http"
 	"net/mail"
