@@ -21,11 +21,11 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	return errors.Trace(errNotImplemented)
 }
 
-func (env *environ) Subnets(inst instance.Id) ([]network.BasicInfo, error) {
+func (env *environ) Subnets(inst instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
 
-func (env *environ) ListNetworks(inst instance.Id) ([]network.BasicInfo, error) {
+func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
 
@@ -126,11 +126,12 @@ func (env *environ) ports(name string) ([]network.PortRange, error) {
 	var ports []network.PortRange
 	for _, allowed := range firewall.Allowed {
 		for _, portRangeStr := range allowed.Ports {
-			portRange, err := network.ParsePortRangePorts(portRangeStr, allowed.IPProtocol)
+			portRange, err := network.ParsePortRange(portRangeStr)
 			if err != nil {
 				return ports, errors.Annotate(err, "bad ports from GCE")
 			}
-			ports = append(ports, portRange)
+			portRange.Protocol = allowed.IPProtocol
+			ports = append(ports, *portRange)
 		}
 	}
 
