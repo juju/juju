@@ -1939,3 +1939,70 @@ func (s *upgradesSuite) TestFixMinUnitsEnvUUID(c *gc.C) {
 	}})
 
 }
+
+func (s *upgradesSuite) TestFixSequenceFields(c *gc.C) {
+	sequence, closer := s.state.getRawCollection(sequenceC)
+	defer closer()
+
+	uuid := s.state.EnvironUUID()
+
+	err := sequence.Insert(
+		// This record should be left untouched.
+		bson.D{
+			{"_id", uuid + ":ok"},
+			{"name", "ok"},
+			{"env-uuid", uuid},
+			{"counter", 1},
+		},
+		// This record should have its env-uuid and name fields set.
+		bson.D{
+			{"_id", uuid + ":foobar"},
+			{"name", ""},
+			{"env-uuid", ""},
+			{"counter", 2},
+		},
+		// This record should have its env-uuid field set.
+		bson.D{
+			{"_id", uuid + ":foo"},
+			{"name", "foo"},
+			{"env-uuid", ""},
+			{"counter", 3},
+		},
+		// This record should have its name field set.
+		bson.D{
+			{"_id", uuid + ":bar"},
+			{"name", ""},
+			{"env-uuid", uuid},
+			{"counter", 4},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = FixSequenceFields(s.state)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var docs []sequenceDoc
+	err = sequence.Find(nil).Sort("counter").All(&docs)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(docs, jc.DeepEquals, []sequenceDoc{{
+		DocID:   uuid + ":ok",
+		Name:    "ok",
+		EnvUUID: uuid,
+		Counter: 1,
+	}, {
+		DocID:   uuid + ":foobar",
+		Name:    "foobar",
+		EnvUUID: uuid,
+		Counter: 2,
+	}, {
+		DocID:   uuid + ":foo",
+		Name:    "foo",
+		EnvUUID: uuid,
+		Counter: 3,
+	}, {
+		DocID:   uuid + ":bar",
+		Name:    "bar",
+		EnvUUID: uuid,
+		Counter: 4,
+	}})
+}
