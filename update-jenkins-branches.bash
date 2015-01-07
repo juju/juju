@@ -12,12 +12,9 @@ export JUJU_ENV="juju-ci3"
 update_jenkins() {
     host=$1
     echo "updating $host"
-    set +e
     if [[ "$CLOUD_CITY" == "true" ]]; then
-        set +e
         bzr branch lp:~juju-qa/+junk/cloud-city \
             bzr+ssh://jenkins@$host/var/lib/jenkins/cloud-city.new
-        set -e
     fi
     ssh jenkins@$host << EOT
 #!/bin/bash
@@ -29,7 +26,6 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
 fi
 cd ~/juju-release-tools
 bzr pull
-sudo apt-get update || "! $host is not setup for sudo"
 cd ~/juju-ci-tools
 bzr pull
 make install-deps
@@ -37,25 +33,15 @@ if [[ -d ~/ci-director ]]; then
     cd ~/ci-director
     bzr pull
 fi
-
-
-if [[ "$NEW_JUJU" == "true" ]]; then
-    sudo apt-get install -y juju-local juju || echo \
-            "! Could not update juju on $host"
-fi
 EOT
 }
 
 
 CLOUD_CITY="false"
-NEW_JUJU="false"
 while [[ "${1-}" != "" ]]; do
     case $1 in
         --cloud-city)
             CLOUD_CITY="true"
-            ;;
-        --new-juju)
-            NEW_JUJU="true"
             ;;
     esac
     shift
