@@ -81,6 +81,12 @@ func stateStepsFor122() []Step {
 				return state.FixMinUnitsEnvUUID(context.State())
 			},
 		}, &upgradeStep{
+			description: "fix sequence documents",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.FixSequenceFields(context.State())
+			},
+		}, &upgradeStep{
 			description: "update system identity in state",
 			targets:     []Target{DatabaseMaster},
 			run:         ensureSystemSSHKeyRedux,
