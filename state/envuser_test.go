@@ -148,7 +148,7 @@ func (s *EnvUserSuite) checkSameEnvironment(c *gc.C, env1, env2 *state.Environme
 	c.Check(env1.UUID(), gc.Equals, env2.UUID())
 }
 
-func (s *EnvUserSuite) newEnvAsUser(c *gc.C, name string, user names.UserTag) *state.Environment {
+func (s *EnvUserSuite) newEnvWithUser(c *gc.C, name string, user names.UserTag) *state.Environment {
 	envState := s.factory.MakeEnvironment(c, &factory.EnvParams{Name: name})
 	defer envState.Close()
 	newEnv, err := envState.Environment()
@@ -161,7 +161,7 @@ func (s *EnvUserSuite) newEnvAsUser(c *gc.C, name string, user names.UserTag) *s
 
 func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
-	env := s.newEnvAsUser(c, "test-env", userTag)
+	env := s.newEnvWithUser(c, "test-env", userTag)
 
 	environments, err := s.State.EnvironmentsForUser(userTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,9 +172,9 @@ func (s *EnvUserSuite) TestEnvironmentsForUserOfNewEnv(c *gc.C) {
 func (s *EnvUserSuite) TestEnvironmentsForUserMultiple(c *gc.C) {
 	userTag := names.NewUserTag("external@remote")
 	expected := []*state.Environment{
-		s.newEnvAsUser(c, "user1", userTag),
-		s.newEnvAsUser(c, "user2", userTag),
-		s.newEnvAsUser(c, "user3", userTag),
+		s.newEnvWithUser(c, "user1", userTag),
+		s.newEnvWithUser(c, "user2", userTag),
+		s.newEnvWithUser(c, "user3", userTag),
 		s.newEnvWithOwner(c, "owner1", userTag),
 		s.newEnvWithOwner(c, "owner2", userTag),
 	}
