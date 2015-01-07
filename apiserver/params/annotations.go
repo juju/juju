@@ -3,20 +3,20 @@
 
 package params
 
-// GetEntitiesAnnotationsResult holds entity annotations or retrieval error.
-type GetEntitiesAnnotationsResult struct {
+// AnnotationsGetResult holds entity annotations or retrieval error.
+type AnnotationsGetResult struct {
 	Entity      Entity
 	Annotations map[string]string
 	Error       ErrorResult
 }
 
-// GetEntitiesAnnotationsResults holds annotations associated with entities.
-type GetEntitiesAnnotationsResults struct {
-	Results []GetEntitiesAnnotationsResult
+// AnnotationsGetResults holds annotations associated with entities.
+type AnnotationsGetResults struct {
+	Results []AnnotationsGetResult
 }
 
-// SetEntitiesAnnotations stores parameters for making the SetEntitiesAnnotations call.
-type SetEntitiesAnnotations struct {
+// AnnotationsSet stores parameters for making the SetEntitiesAnnotations call.
+type AnnotationsSet struct {
 	Collection  Entities
 	Annotations map[string]string
 }
