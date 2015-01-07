@@ -101,7 +101,13 @@ if [[ $(lsb_release -sc) == "trusty" ]]; then
     (cd $WORKPACKAGE && GOPATH=$WORK $CHECKSCRIPT)
 fi
 
+VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
+    $WORKPACKAGE/version/version.go)
+
 # Remove godeps, non-free data, and any binaries.
+if [[ $VERSION =~ ^1.2[0-1].*$ ]]; then
+    rm -rf $WORK/src/golang.org/x/crypto
+fi
 rm -r $WORK/src/launchpad.net/godeps
 rm -rf $WORK/src/github.com/kisielk/gotool
 rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
@@ -116,8 +122,6 @@ $SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
     "$WORKPACKAGE/dependencies.tsv" "$WORK/src"
 
 # Change the generic release to the proper juju-core version.
-VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
-    $WORKPACKAGE/version/version.go)
 mv $WORK $TMP_DIR/juju-core_${VERSION}/
 
 # Tar it up.
