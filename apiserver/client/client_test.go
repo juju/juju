@@ -787,8 +787,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
-							"title":       "snapshot",
-							"description": "Take a snapshot of the database.",
+							"description": "this boilerplate is insane, we have to fix it",
 							"properties": map[string]interface{}{
 								"outfile": map[string]interface{}{
 									"default":     "foo.bz2",
