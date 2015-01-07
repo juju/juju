@@ -837,7 +837,8 @@ const (
 	StatusStopping Status = "stopping"
 
 	// The unit agent has failed in some way,eg the agent ought to be signalling
-	// activity, but it cannot be detected.
+	// activity, but it cannot be detected. It might also be that the unit agent
+	// detected an unrecoverable condition and managed to tell the Juju server about it.
 	StatusFailed Status = "failed"
 )
 
