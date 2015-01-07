@@ -22,8 +22,8 @@ func init() {
 
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
-	GetEntitiesAnnotations(args params.Entities) params.GetEntitiesAnnotationsResults
-	SetEntitiesAnnotations(args params.SetEntitiesAnnotations) params.ErrorResults
+	Get(args params.Entities) params.AnnotationsGetResults
+	Set(args params.AnnotationsSet) params.ErrorResults
 }
 
 // API implements the service interface and is the concrete
@@ -57,13 +57,13 @@ func NewAPI(
 	}, nil
 }
 
-// GetEntitiesAnnotations returns annotations for given entities.
+// Get returns annotations for given entities.
 // If annotations cannot be retrieved for a given entity, an error is returned.
 // Each entity is treated independently and, hence, will fail or succeed independently.
-func (api *API) GetEntitiesAnnotations(args params.Entities) params.GetEntitiesAnnotationsResults {
-	entityResults := []params.GetEntitiesAnnotationsResult{}
+func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
+	entityResults := []params.AnnotationsGetResult{}
 	for _, entity := range args.Entities {
-		anEntityResult := params.GetEntitiesAnnotationsResult{Entity: entity}
+		anEntityResult := params.AnnotationsGetResult{Entity: entity}
 		if annts, err := api.getEntityAnnotations(entity.Tag); err != nil {
 			logger.Warningf("Could not get annotations for entity [%v] because %v", entity.Tag, err)
 			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag)}
@@ -73,11 +73,11 @@ func (api *API) GetEntitiesAnnotations(args params.Entities) params.GetEntitiesA
 		}
 		entityResults = append(entityResults, anEntityResult)
 	}
-	return params.GetEntitiesAnnotationsResults{Results: entityResults}
+	return params.AnnotationsGetResults{Results: entityResults}
 }
 
-// SetAnnotations stores annotations for given entities
-func (api *API) SetEntitiesAnnotations(args params.SetEntitiesAnnotations) params.ErrorResults {
+// Set stores annotations for given entities
+func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	allErrors := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Collection.Entities)),
 	}
@@ -91,7 +91,10 @@ func (api *API) SetEntitiesAnnotations(args params.SetEntitiesAnnotations) param
 }
 
 func annotateError(err error, tag string) *params.Error {
-	return common.ServerError(errors.Annotatef(err, "while setting annotations to %q", tag))
+	return common.ServerError(
+		errors.Trace(
+			errors.Annotatef(
+				err, "while setting annotations to %q", tag)))
 }
 
 func (api *API) getEntityAnnotations(entityTag string) (map[string]string, error) {

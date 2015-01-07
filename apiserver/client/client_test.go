@@ -949,12 +949,12 @@ func (s *clientSuite) TestClientNoCharmAnnotations(c *gc.C) {
 		// Add annotations using the API call.
 		err := s.APIState.Client().SetAnnotations(id, t.input)
 		// Should not be able to annotate charm with this client
-		c.Assert(err, gc.Not(jc.ErrorIsNil))
+		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
 
 		// Retrieve annotations using the API call.
 		ann, err := s.APIState.Client().GetAnnotations(id)
 		// Should not be able to get annotations from charm using this client
-		c.Assert(err, gc.Not(jc.ErrorIsNil))
+		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
 		c.Assert(ann, gc.IsNil)
 	}
 }
