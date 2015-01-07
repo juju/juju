@@ -18,8 +18,7 @@ type environInstance struct {
 	zone       string
 	rootDiskMB uint64
 
-	// TODO(ericsnow) rename this to "raw"?
-	gce *compute.Instance
+	raw *compute.Instance
 }
 
 var _ instance.Instance = (*environInstance)(nil)
@@ -39,11 +38,11 @@ func (inst *environInstance) Id() instance.Id {
 }
 
 func (inst *environInstance) Status() string {
-	return inst.gce.Status
+	return inst.raw.Status
 }
 
 func (inst *environInstance) update(raw *compute.Instance) {
-	inst.gce = raw
+	inst.raw = raw
 }
 
 func (inst *environInstance) updateDisk(raw *compute.Instance) {
@@ -83,7 +82,7 @@ func (inst *environInstance) Refresh() error {
 func (inst *environInstance) Addresses() ([]network.Address, error) {
 	var addresses []network.Address
 
-	for _, netif := range inst.gce.NetworkInterfaces {
+	for _, netif := range inst.raw.NetworkInterfaces {
 		// Add public addresses.
 		for _, accessConfig := range netif.AccessConfigs {
 			if accessConfig.NatIP == "" {
