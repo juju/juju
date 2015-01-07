@@ -180,6 +180,21 @@ func (e *Environment) Owner() names.UserTag {
 	return names.NewUserTag(e.doc.Owner)
 }
 
+// Config returns the config for the environment.
+func (e *Environment) Config() (*config.Config, error) {
+	if e.st.environTag.Id() == e.UUID() {
+		return e.st.EnvironConfig()
+	}
+	// The active environment isn't the same as the environment
+	// we are querying.
+	envState, err := e.st.ForEnviron(e.ServerTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer envState.Close()
+	return envState.EnvironConfig()
+}
+
 // globalKey returns the global database key for the environment.
 func (e *Environment) globalKey() string {
 	return environGlobalKey

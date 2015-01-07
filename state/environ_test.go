@@ -120,3 +120,26 @@ func (s *EnvironSuite) createTestEnvConfig(c *gc.C) (*config.Config, string) {
 		"uuid": uuid.String(),
 	}), uuid.String()
 }
+
+func (s *EnvironSuite) TestEnvironmentConfigSameEnvAsState(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid, exists := cfg.UUID()
+	c.Assert(exists, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, s.State.EnvironUUID())
+}
+
+func (s *EnvironSuite) TestEnvironmentConfigDifferentEnvThanState(c *gc.C) {
+	otherState := s.factory.MakeEnvironment(c, nil)
+	defer otherState.Close()
+	env, err := otherState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := env.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid, exists := cfg.UUID()
+	c.Assert(exists, jc.IsTrue)
+	c.Assert(uuid, gc.Equals, env.UUID())
+	c.Assert(uuid, gc.Not(gc.Equals), s.State.EnvironUUID())
+}

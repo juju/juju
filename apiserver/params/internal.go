@@ -143,6 +143,37 @@ type EnvironmentResult struct {
 	UUID  string
 }
 
+// EnvironmentCreateArgs holds the arguments that are necessary to create
+// and environment.
+type EnvironmentCreateArgs struct {
+	// OwnerTag represents the user that will own the new environment.
+	// The OwnerTag must be a valid user tag.  If the user tag represents
+	// a local user, that user must exist.
+	OwnerTag string
+
+	// Account holds the provider specific account details neccary to
+	// interact with the provider to create, list and destroy machines.
+	Account map[string]interface{}
+
+	// Config defines the environment config, which includes the name of the
+	// environment.  An environment UUID is allocated by the API server during
+	// the creation of the environment.
+	Config map[string]interface{}
+}
+
+// Environment holds the result of an API call returning a name and UUID
+// for an environment.
+type Environment struct {
+	Name     string
+	UUID     string
+	OwnerTag string
+}
+
+// EnvironmentList holds information about a list of environments.
+type EnvironmentList struct {
+	Environments []Environment
+}
+
 // ResolvedModeResult holds a resolved mode or an error.
 type ResolvedModeResult struct {
 	Error *Error
