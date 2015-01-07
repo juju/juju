@@ -15,20 +15,20 @@ import (
 
 type annotationsSuite struct {
 	jujutesting.JujuConnSuite
-	client *annotations.Client
+	annotationsClient *annotations.Client
 }
 
 var _ = gc.Suite(&annotationsSuite{})
 
 func (s *annotationsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.client = annotations.NewClient(s.APIState)
-	c.Assert(s.client, gc.NotNil)
+	s.annotationsClient = annotations.NewClient(s.APIState)
+	c.Assert(s.annotationsClient, gc.NotNil)
 }
 
 func (s *annotationsSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
-	s.client.ClientFacade.Close()
+	s.annotationsClient.ClientFacade.Close()
 }
 
 func (s *annotationsSuite) TestSetEntitiesAnnotation(c *gc.C) {
@@ -40,16 +40,16 @@ func (s *annotationsSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			{"serviceB"},
 		},
 	}
-	annotations.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	annotations.PatchFacadeCall(s, s.annotationsClient, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "SetEntitiesAnnotations")
-		args, ok := a.(params.SetEntitiesAnnotations)
+		c.Assert(request, gc.Equals, "Set")
+		args, ok := a.(params.AnnotationsSet)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Annotations, gc.DeepEquals, annts)
 		c.Assert(args.Collection, gc.DeepEquals, entities)
 		return nil
 	})
-	err := s.client.SetEntitiesAnnotations(entities, annts)
+	err := s.annotationsClient.Set(entities, annts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -58,26 +58,26 @@ func (s *annotationsSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	var called bool
 	testEntity := params.Entity{"charm"}
 
-	annotations.PatchFacadeCall(s, s.client, func(request string, a, response interface{}) error {
+	annotations.PatchFacadeCall(s, s.annotationsClient, func(request string, a, response interface{}) error {
 		called = true
-		c.Assert(request, gc.Equals, "GetEntitiesAnnotations")
+		c.Assert(request, gc.Equals, "Get")
 		args, ok := a.(params.Entities)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Entities, gc.HasLen, 1)
 		c.Assert(args.Entities[0], gc.DeepEquals, testEntity)
 
-		result := response.(*params.GetEntitiesAnnotationsResults)
+		result := response.(*params.AnnotationsGetResults)
 		facadeAnnts := map[string]string{
 			"annotations": "test",
 		}
-		entitiesAnnts := params.GetEntitiesAnnotationsResult{
+		entitiesAnnts := params.AnnotationsGetResult{
 			Entity:      params.Entity{"charm"},
 			Annotations: facadeAnnts,
 		}
-		result.Results = []params.GetEntitiesAnnotationsResult{entitiesAnnts}
+		result.Results = []params.AnnotationsGetResult{entitiesAnnts}
 		return nil
 	})
-	annts, err := s.client.GetEntitiesAnnotations(params.Entities{[]params.Entity{testEntity}})
+	annts, err := s.annotationsClient.Get(params.Entities{[]params.Entity{testEntity}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(annts.Results, gc.HasLen, 1)
@@ -92,10 +92,10 @@ func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
 			{charm.Tag().String()},
 		},
 	}
-	err := s.client.SetEntitiesAnnotations(entities, annts)
+	err := s.annotationsClient.Set(entities, annts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := s.client.GetEntitiesAnnotations(entities)
+	found, err := s.annotationsClient.Get(entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 }

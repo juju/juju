@@ -69,15 +69,15 @@ func SetAnnotations(entity GlobalEntity, st *State, annotations map[string]strin
 			if attempt != 0 {
 				return nil, fmt.Errorf("%s no longer exists", entity.Tag())
 			}
-			return insertAnnotations(entity, st, toInsert)
+			return insertAnnotationsOps(entity, st, toInsert)
 		}
 		return updateAnnotations(entity, st, toUpdate, toRemove), nil
 	}
 	return st.run(buildTxn)
 }
 
-// insertAnnotations returns the operations required to insert annotations in MongoDB.
-func insertAnnotations(entity GlobalEntity, st *State, toInsert map[string]string) ([]txn.Op, error) {
+// insertAnnotationsOps returns the operations required to insert annotations in MongoDB.
+func insertAnnotationsOps(entity GlobalEntity, st *State, toInsert map[string]string) ([]txn.Op, error) {
 	tag := entity.Tag()
 	ops := []txn.Op{{
 		C:      annotationsC,
@@ -98,7 +98,7 @@ func insertAnnotations(entity GlobalEntity, st *State, toInsert map[string]strin
 	// removal and annotation creation.
 	coll, id, err := st.tagToCollectionAndId(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return append(ops, txn.Op{
 		C:      coll,
@@ -128,7 +128,7 @@ func Annotations(entity GlobalEntity, st *State) (map[string]string, error) {
 		return make(map[string]string), nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return doc.Annotations, nil
 }
@@ -138,7 +138,7 @@ func Annotations(entity GlobalEntity, st *State) (map[string]string, error) {
 func Annotation(entity GlobalEntity, st *State, key string) (string, error) {
 	ann, err := Annotations(entity, st)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	return ann[key], nil
 }
