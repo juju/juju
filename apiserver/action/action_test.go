@@ -543,9 +543,10 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 
 func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
-		"outfile": map[string]interface{}{
+		"snapshot": map[string]interface{}{
 			"type":        "object",
-			"description": "this boilerplate is insane, we have to fix it",
+			"title":       "snapshot",
+			"description": "Take a snapshot of the database.",
 			"properties": map[string]interface{}{
 				"outfile": map[string]interface{}{
 					"description": "The file to write out to.",
@@ -568,7 +569,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 						ActionSpecs: map[string]charm.ActionSpec{
 							"snapshot": charm.ActionSpec{
 								Description: "Take a snapshot of the database.",
-								Params:      actionSchemas["outfile"],
+								Params:      actionSchemas["snapshot"],
 							},
 						},
 					},
