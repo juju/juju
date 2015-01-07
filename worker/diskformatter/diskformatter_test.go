@@ -69,19 +69,6 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		Result: storage.Datastore{
 			Name: "needs-a-filesystem",
 			Kind: storage.DatastoreKindFilesystem,
-			Specification: &storage.Specification{
-				FilesystemPreferences: []storage.FilesystemPreference{{
-					Filesystem: storage.Filesystem{
-						Type: "afs",
-					},
-				}, {
-					Filesystem: storage.Filesystem{
-						Type:         "btrfs",
-						MountOptions: []string{"autodefrag"},
-					},
-					MkfsOptions: []string{"--mixed"},
-				}},
-			},
 		},
 	}, {
 		Result: storage.Datastore{
@@ -131,24 +118,21 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		return params.DatastoreResults{blockDeviceDatastoreResults}, nil
 	}
 
-	testing.PatchExecutableThrowError(c, s, "mkfs.afs", 1)
-	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.btrfs")
-
 	done := make(chan struct{})
 	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
 		c.Assert(fs, gc.DeepEquals, []params.BlockDeviceFilesystem{{
 			DiskTag:   "disk-0",
 			Datastore: "needs-a-filesystem",
 			Filesystem: storage.Filesystem{
-				Type:         "btrfs",
-				MountOptions: []string{"autodefrag"},
+				Type: "ext4",
 			},
 		}})
-		testing.AssertEchoArgs(c, "mkfs.btrfs", "--mixed", "/dev/disk/by-label/dev0-label")
+		testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
 		close(done)
 		return nil
 	}
 
+	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
 	w := diskformatter.NewWorker(watcher, getter, setter)
 	defer w.Wait()
 	defer w.Kill()
@@ -179,11 +163,6 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 			Result: storage.Datastore{
 				Name: "needs-a-filesystem",
 				Kind: storage.DatastoreKindFilesystem,
-				Specification: &storage.Specification{
-					FilesystemPreferences: []storage.FilesystemPreference{{
-						Filesystem: storage.Filesystem{Type: "afs"},
-					}},
-				},
 			},
 		}}}, nil
 	}
@@ -192,14 +171,13 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 		c.Assert(fs, gc.DeepEquals, []params.BlockDeviceFilesystem{{
 			DiskTag:    "disk-0",
 			Datastore:  "needs-a-filesystem",
-			Filesystem: storage.Filesystem{Type: storage.DefaultFilesystemType},
+			Filesystem: storage.Filesystem{Type: "ext4"},
 		}})
 		called = true
 		return nil
 	}
 
-	testing.PatchExecutableThrowError(c, s, "mkfs.afs", 1)
-	testing.PatchExecutableAsEchoArgs(c, s, "mkfs."+storage.DefaultFilesystemType)
+	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
 	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.IsNil)
@@ -256,16 +234,15 @@ func (s *DiskFormatterWorkerSuite) TestSetBlockDeviceFilesystemsError(c *gc.C) {
 	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
 		return params.DatastoreResults{[]params.DatastoreResult{{
 			Result: storage.Datastore{
-				Name:          "needs-a-filesystem",
-				Kind:          storage.DatastoreKindFilesystem,
-				Specification: &storage.Specification{},
+				Name: "needs-a-filesystem",
+				Kind: storage.DatastoreKindFilesystem,
 			},
 		}}}, nil
 	}
 	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
 		return errors.New("SetBlockDeviceFilesystems failed")
 	}
-	testing.PatchExecutableAsEchoArgs(c, s, "mkfs."+storage.DefaultFilesystemType)
+	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
 	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.ErrorMatches, "cannot set filesystems: SetBlockDeviceFilesystems failed")
@@ -282,9 +259,8 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
 		return params.DatastoreResults{[]params.DatastoreResult{{
 			Result: storage.Datastore{
-				Name:          "needs-a-filesystem",
-				Kind:          storage.DatastoreKindFilesystem,
-				Specification: &storage.Specification{},
+				Name: "needs-a-filesystem",
+				Kind: storage.DatastoreKindFilesystem,
 			},
 		}}}, nil
 	}
@@ -295,7 +271,7 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 	// Failure to create a filesystem should not cause the handler to error;
 	// we should not see a SetBlockDeviceFilesystems call for that block device's
 	// datastore though.
-	testing.PatchExecutableThrowError(c, s, "mkfs."+storage.DefaultFilesystemType, 1)
+	testing.PatchExecutableThrowError(c, s, "mkfs.ext4", 1)
 	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.IsNil)
