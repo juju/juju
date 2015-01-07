@@ -388,27 +388,35 @@ func (gce *gceConnection) firewall(name string) (*compute.Firewall, error) {
 	return firewallList.Items[0], nil
 }
 
-func (gce *gceConnection) setFirewall(name string, firewall *compute.Firewall) error {
-	var err error
-	var operation *compute.Operation
-	if firewall == nil {
-		call := gce.Firewalls.Delete(gce.projectID, name)
-		operation, err = call.Do()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else if name == "" {
-		call := gce.Firewalls.Insert(gce.projectID, firewall)
-		operation, err = call.Do()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
-		call := gce.Firewalls.Update(gce.projectID, name, firewall)
-		operation, err = call.Do()
-		if err != nil {
-			return errors.Trace(err)
-		}
+func (gce *gceConnection) insertFirewall(firewall *compute.Firewall) error {
+	call := gce.Firewalls.Insert(gce.projectID, firewall)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := gce.waitOperation(operation, attemptsLong); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (gce *gceConnection) updateFirewall(name string, firewall *compute.Firewall) error {
+	call := gce.Firewalls.Update(gce.projectID, name, firewall)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := gce.waitOperation(operation, attemptsLong); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (gce *gceConnection) deleteFirewall(name string) error {
+	call := gce.Firewalls.Delete(gce.projectID, name)
+	operation, err := call.Do()
+	if err != nil {
+		return errors.Trace(err)
 	}
 	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)

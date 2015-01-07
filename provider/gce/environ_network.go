@@ -73,14 +73,14 @@ func (env *environ) openPorts(name string, ports []network.PortRange) error {
 	// Send the request, depending on the current ports.
 	if currentPortsSet.IsEmpty() {
 		firewall := firewallSpec(name, inputPortsSet)
-		if err := env.gce.setFirewall("", firewall); err != nil {
+		if err := env.gce.insertFirewall(firewall); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", ports)
 		}
 
 	} else {
 		newPortsSet := currentPortsSet.Union(inputPortsSet)
 		firewall := firewallSpec(name, newPortsSet)
-		if err := env.gce.setFirewall(name, firewall); err != nil {
+		if err := env.gce.updateFirewall(name, firewall); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", ports)
 		}
 	}
@@ -102,12 +102,12 @@ func (env *environ) closePorts(name string, ports []network.PortRange) error {
 
 	// Send the request, depending on the current ports.
 	if newPortsSet.IsEmpty() {
-		if err := env.gce.setFirewall(name, nil); err != nil {
+		if err := env.gce.deleteFirewall(name); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
 	} else {
 		firewall := firewallSpec(name, newPortsSet)
-		if err := env.gce.setFirewall(name, firewall); err != nil {
+		if err := env.gce.updateFirewall(name, firewall); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
 	}
