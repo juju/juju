@@ -554,7 +554,7 @@ func networkConfigTemplate(networkType, networkLink string) string {
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, values); err != nil {
-		logger.Errorf("cannot render container config: %v")
+		logger.Errorf("cannot render container config: %v", err)
 		return ""
 	}
 	return buf.String()
