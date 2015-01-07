@@ -34,37 +34,35 @@ func (s *annotationsSuite) TearDownTest(c *gc.C) {
 func (s *annotationsSuite) TestSetEntitiesAnnotation(c *gc.C) {
 	var called bool
 	annts := map[string]string{"annotation": "test"}
-	entities := params.Entities{
-		[]params.Entity{
-			{"charmA"},
-			{"serviceB"},
-		},
-	}
 	annotations.PatchFacadeCall(s, s.annotationsClient, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "Set")
 		args, ok := a.(params.AnnotationsSet)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Annotations, gc.DeepEquals, annts)
-		c.Assert(args.Collection, gc.DeepEquals, entities)
+		expected := params.Entities{
+			[]params.Entity{
+				{"charmA"},
+				{"serviceB"},
+			},
+		}
+		c.Assert(args.Collection, gc.DeepEquals, expected)
 		return nil
 	})
-	err := s.annotationsClient.Set(entities, annts)
+	err := s.annotationsClient.Set([]string{"charmA", "serviceB"}, annts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
 func (s *annotationsSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	var called bool
-	testEntity := params.Entity{"charm"}
-
 	annotations.PatchFacadeCall(s, s.annotationsClient, func(request string, a, response interface{}) error {
 		called = true
 		c.Assert(request, gc.Equals, "Get")
 		args, ok := a.(params.Entities)
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(args.Entities, gc.HasLen, 1)
-		c.Assert(args.Entities[0], gc.DeepEquals, testEntity)
+		c.Assert(args.Entities[0], gc.DeepEquals, params.Entity{"charm"})
 
 		result := response.(*params.AnnotationsGetResults)
 		facadeAnnts := map[string]string{
@@ -77,7 +75,7 @@ func (s *annotationsSuite) TestGetEntitiesAnnotations(c *gc.C) {
 		result.Results = []params.AnnotationsGetResult{entitiesAnnts}
 		return nil
 	})
-	annts, err := s.annotationsClient.Get(params.Entities{[]params.Entity{testEntity}})
+	annts, err := s.annotationsClient.Get([]string{"charm"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(annts.Results, gc.HasLen, 1)
@@ -87,15 +85,10 @@ func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 
 	annts := map[string]string{"annotation": "test"}
-	entities := params.Entities{
-		[]params.Entity{
-			{charm.Tag().String()},
-		},
-	}
-	err := s.annotationsClient.Set(entities, annts)
+	err := s.annotationsClient.Set([]string{charm.Tag().String()}, annts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := s.annotationsClient.Get(entities)
+	found, err := s.annotationsClient.Get([]string{charm.Tag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 }
