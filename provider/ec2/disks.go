@@ -14,11 +14,11 @@ import (
 const (
 	ebsStorageSource = "ebs"
 
-	// minRootDiskSize is the minimum/default size (in mebibytes) for ec2 root disks.
-	minRootDiskSize uint64 = 8 * 1024
+	// minRootDiskSizeMiB is the minimum/default size (in mebibytes) for ec2 root disks.
+	minRootDiskSizeMiB uint64 = 8 * 1024
 
-	// volumeSizeMax is the maximum disk size (in mebibytes) for EBS volumes.
-	volumeSizeMax = 1024 * 1024 // 1024 GiB
+	// volumeSizeMaxMiB is the maximum disk size (in mebibytes) for EBS volumes.
+	volumeSizeMaxMiB = 1024 * 1024 // 1024 GiB
 )
 
 // getBlockDeviceMappings translates a StartInstanceParams into
@@ -32,15 +32,15 @@ func getBlockDeviceMappings(
 ) (
 	[]ec2.BlockDeviceMapping, []storage.BlockDevice, error,
 ) {
-	rootDiskSize := minRootDiskSize
+	rootDiskSizeMiB := minRootDiskSizeMiB
 	if args.Constraints.RootDisk != nil {
-		if *args.Constraints.RootDisk >= minRootDiskSize {
-			rootDiskSize = *args.Constraints.RootDisk
+		if *args.Constraints.RootDisk >= minRootDiskSizeMiB {
+			rootDiskSizeMiB = *args.Constraints.RootDisk
 		} else {
 			logger.Infof(
 				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
 				*args.Constraints.RootDisk,
-				minRootDiskSize,
+				minRootDiskSizeMiB,
 			)
 		}
 	}
@@ -48,7 +48,7 @@ func getBlockDeviceMappings(
 	// The first block device is for the root disk.
 	blockDeviceMappings := []ec2.BlockDeviceMapping{{
 		DeviceName: "/dev/sda1",
-		VolumeSize: int64(mibToGib(rootDiskSize)),
+		VolumeSize: int64(mibToGib(rootDiskSizeMiB)),
 	}}
 
 	// Not all machines have this many instance stores.
@@ -105,8 +105,8 @@ func getBlockDeviceMappings(
 
 // validateDiskParams validates the disk parameters.
 func validateDiskParams(params storage.DiskParams) error {
-	if params.Size > volumeSizeMax {
-		return errors.Errorf("%d MiB exceeds the maximum of %d MiB", params.Size, volumeSizeMax)
+	if params.Size > volumeSizeMaxMiB {
+		return errors.Errorf("%d MiB exceeds the maximum of %d MiB", params.Size, volumeSizeMaxMiB)
 	}
 	return nil
 }
