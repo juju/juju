@@ -245,7 +245,6 @@ func (env *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	// TODO(wwitzel3) Cleanup stateServer APIPort firewall
 	env = env.getSnapshot()
 
 	var ids []string
