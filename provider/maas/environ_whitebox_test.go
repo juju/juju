@@ -995,6 +995,9 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+
+	// needed for getNodeGroups to work
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
 	return test_instance
 }
 
