@@ -1032,7 +1032,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
-	test_instance := suite.getInstance("node1")
+	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
