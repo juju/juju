@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Annotations", 0, NewAPI)
+	common.RegisterStandardFacade("Annotations", 1, NewAPI)
 }
 
 var getState = func(st *state.State) annotationAccess {
@@ -69,11 +69,11 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 // Set stores annotations for given entities
 func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	allErrors := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Collection.Entities)),
+		Results: make([]params.ErrorResult, len(args.Annotations)),
 	}
-	for i, entity := range args.Collection.Entities {
-		if err := api.setEntityAnnotations(entity.Tag, args.Annotations); err != nil {
-			allErrors.Results[i].Error = annotateError(err, entity.Tag, "setting")
+	for i, entityAnnotations := range args.Annotations {
+		if err := api.setEntityAnnotations(entityAnnotations.Entity.Tag, entityAnnotations.Annotations); err != nil {
+			allErrors.Results[i].Error = annotateError(err, entityAnnotations.Entity.Tag, "setting")
 		}
 	}
 	return allErrors
