@@ -20,10 +20,10 @@ import (
 // Annotations/Annotation below.
 // Note also the correspondence with AnnotationInfo in apiserver/params.
 type annotatorDoc struct {
-	EnvUUID     string `bson:"env-uuid"`
-	GlobalKey   string `bson:"globalkey"`
-	Tag         string
-	Annotations map[string]string
+	EnvUUID     string            `bson:"env-uuid"`
+	GlobalKey   string            `bson:"globalkey"`
+	Tag         string            `bson:"tag"`
+	Annotations map[string]string `bson:"annotations"`
 }
 
 // GlobalEntity specifies needed entity methods for annotating.
