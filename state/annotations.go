@@ -26,12 +26,6 @@ type annotatorDoc struct {
 	Annotations map[string]string `bson:"annotations"`
 }
 
-// GlobalEntity specifies needed entity methods for annotating.
-type GlobalEntity interface {
-	globalKey() string
-	Tag() names.Tag
-}
-
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
 func SetAnnotations(entity GlobalEntity, st *State, annotations map[string]string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot update annotations on %s", entity.Tag())

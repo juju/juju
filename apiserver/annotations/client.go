@@ -33,14 +33,6 @@ type API struct {
 	authorizer common.Authorizer
 }
 
-var (
-	_ state.GlobalEntity = (*state.Machine)(nil)
-	_ state.GlobalEntity = (*state.Unit)(nil)
-	_ state.GlobalEntity = (*state.Service)(nil)
-	_ state.GlobalEntity = (*state.Charm)(nil)
-	_ state.GlobalEntity = (*state.Environment)(nil)
-)
-
 // NewAPI returns a new charm annotator API facade.
 func NewAPI(
 	st *state.State,
