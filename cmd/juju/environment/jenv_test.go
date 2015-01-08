@@ -173,7 +173,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot read environments: .*: permission denied`)
+	c.Assert(err, gc.ErrorMatches, `cannot switch to the new environment "testing": cannot get the default environment: .*: permission denied`)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
 }
 

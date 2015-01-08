@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -179,28 +178,12 @@ func switchEnvironment(envName string) (string, error) {
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return "", errors.Errorf("cannot switch when %s is overriding the environment (set to %q)", osenv.JujuEnvEnvKey, defaultEnv)
 	}
-	currentEnv, err := currentEnvironmentName()
+	currentEnv, err := envcmd.GetDefaultEnvironment()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Annotate(err, "cannot get the default environment")
 	}
 	if err := envcmd.WriteCurrentEnvironment(envName); err != nil {
 		return "", errors.Trace(err)
 	}
 	return currentEnv, nil
-}
-
-// currentEnvironmentName returns the name of the current default environment,
-// or an empty string if no default environment is set.
-func currentEnvironmentName() (string, error) {
-	if currentEnv := envcmd.ReadCurrentEnvironment(); currentEnv != "" {
-		return currentEnv, nil
-	}
-	envs, err := environs.ReadEnvirons("")
-	if environs.IsNoEnv(err) {
-		return "", nil
-	}
-	if err != nil {
-		return "", errors.Annotate(err, "cannot read environments")
-	}
-	return envs.Default, nil
 }
