@@ -27,9 +27,8 @@ func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 	annotations := params.AnnotationsGetResults{}
 	if err := c.facade.FacadeCall("Get", entitiesFromTags(tags), &annotations); err != nil {
 		return annotations.Results, errors.Trace(err)
-	} else {
-		return annotations.Results, nil
 	}
+	return annotations.Results, nil
 }
 
 // Set sets the same annotation pairs on all given entities.
