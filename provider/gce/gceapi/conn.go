@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 )
 
@@ -32,16 +31,6 @@ type Connection struct {
 
 	Region    string
 	ProjectID string
-}
-
-func (gc Connection) Validate() error {
-	if gc.Region == "" {
-		return &config.InvalidConfigValue{Key: OSEnvRegion}
-	}
-	if gc.ProjectID == "" {
-		return &config.InvalidConfigValue{Key: OSEnvProjectID}
-	}
-	return nil
 }
 
 func (gc *Connection) Connect(auth Auth) error {
