@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package gceapi
+package client
 
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"

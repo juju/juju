@@ -12,13 +12,13 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/gceapi"
+	"github.com/juju/juju/provider/gce/client"
 )
 
 var instStatuses = []string{
-	gceapi.StatusPending,
-	gceapi.StatusStaging,
-	gceapi.StatusRunning,
+	client.StatusPending,
+	client.StatusStaging,
+	client.StatusRunning,
 }
 
 // Instances returns the available instances in the environment that
@@ -74,7 +74,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	instances, err := env.gce.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
-	// Turn gceapi.Instance values into *environInstance values,
+	// Turn client.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {
@@ -110,7 +110,7 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return results, nil
 }
 
-func (env *environ) parsePlacement(placement string) (*gceapi.AvailabilityZone, error) {
+func (env *environ) parsePlacement(placement string) (*client.AvailabilityZone, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, errors.Errorf("unknown placement directive: %v", placement)
@@ -124,7 +124,7 @@ func (env *environ) parsePlacement(placement string) (*gceapi.AvailabilityZone, 
 		}
 		for _, z := range zones {
 			if z.Name() == zoneName {
-				return z.(*gceapi.AvailabilityZone), nil
+				return z.(*client.AvailabilityZone), nil
 			}
 		}
 		return nil, errors.Errorf("invalid availability zone %q", zoneName)

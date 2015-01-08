@@ -9,17 +9,17 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/gceapi"
+	"github.com/juju/juju/provider/gce/client"
 )
 
 type environInstance struct {
-	base *gceapi.Instance
+	base *client.Instance
 	env  *environ
 }
 
 var _ instance.Instance = (*environInstance)(nil)
 
-func newInstance(base *gceapi.Instance, env *environ) *environInstance {
+func newInstance(base *client.Instance, env *environ) *environInstance {
 	return &environInstance{
 		base: base,
 		env:  env,
