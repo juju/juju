@@ -14,8 +14,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.annotations")
-
 func init() {
 	common.RegisterStandardFacade("Annotations", 0, NewAPI)
 }
@@ -57,10 +55,8 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 	for _, entity := range args.Entities {
 		anEntityResult := params.AnnotationsGetResult{Entity: entity}
 		if annts, err := api.getEntityAnnotations(entity.Tag); err != nil {
-			logger.Warningf("Could not get annotations for entity [%v] because %v", entity.Tag, err)
-			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag)}
+			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag, "getting")}
 		} else {
-			logger.Infof("Annotations for entity [%v] are %v", entity.Tag, annts)
 			anEntityResult.Annotations = annts
 		}
 		entityResults = append(entityResults, anEntityResult)
@@ -75,18 +71,17 @@ func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	}
 	for i, entity := range args.Collection.Entities {
 		if err := api.setEntityAnnotations(entity.Tag, args.Annotations); err != nil {
-			logger.Warningf("Could not set annotations for entity [%v] because %v", entity.Tag, err)
-			allErrors.Results[i].Error = annotateError(err, entity.Tag)
+			allErrors.Results[i].Error = annotateError(err, entity.Tag, "setting")
 		}
 	}
 	return allErrors
 }
 
-func annotateError(err error, tag string) *params.Error {
+func annotateError(err error, tag, op string) *params.Error {
 	return common.ServerError(
 		errors.Trace(
 			errors.Annotatef(
-				err, "while setting annotations to %q", tag)))
+				err, "while %v annotations to %q", op, tag)))
 }
 
 func (api *API) getEntityAnnotations(entityTag string) (map[string]string, error) {
