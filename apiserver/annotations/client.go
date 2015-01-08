@@ -20,10 +20,6 @@ var getState = func(st *state.State) annotationAccess {
 	return stateShim{st}
 }
 
-var getState = func(st *state.State) annotationAccess {
-	return stateShim{st}
-}
-
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
 	Get(args params.Entities) params.AnnotationsGetResults
