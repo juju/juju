@@ -8,9 +8,12 @@ package api
 // of known versions that the API server tells us it is capable of supporting.
 // This map should be updated whenever the API server exposes a new version (so
 // that the client will use it whenever it is available).
+// New facades should start at 1.
+// Facades that existed before versioning start at 0.
 var facadeVersions = map[string]int{
 	"Agent":                1,
 	"AllWatcher":           0,
+	"Annotations":          1,
 	"Backups":              0,
 	"Deployer":             0,
 	"DiskManager":          1,
