@@ -4,104 +4,45 @@
 package gce
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/gceapi"
 )
 
 type environInstance struct {
-	id   instance.Id
+	base *gceapi.Instance
 	env  *environ
-	zone string
-
-	raw *compute.Instance
 }
 
 var _ instance.Instance = (*environInstance)(nil)
 
-func newInstance(raw *compute.Instance, env *environ) *environInstance {
-	inst := environInstance{
-		id:   instance.Id(raw.Name),
+func newInstance(base *gceapi.Instance, env *environ) *environInstance {
+	return &environInstance{
+		base: base,
 		env:  env,
-		zone: zoneName(raw),
 	}
-	inst.update(raw)
-	return &inst
 }
 
 func (inst *environInstance) Id() instance.Id {
-	return inst.id
+	return instance.Id(inst.base.ID)
 }
 
 func (inst *environInstance) Status() string {
-	return inst.raw.Status
-}
-
-func (inst *environInstance) update(raw *compute.Instance) {
-	inst.raw = raw
-}
-
-func (inst *environInstance) rootDiskMB() (uint64, error) {
-	attached := rootDisk(inst.raw)
-	diskSizeGB, err := diskSizeGB(attached)
-	if err != nil {
-		logger.Warningf("error while getting root disk size: %v", err)
-		// Fall back to making an API request.
-		disk, err := inst.env.gce.disk(attached.Source)
-		if err != nil {
-			return 0, errors.Annotatef(err, "failed to get root disk info")
-		}
-		diskSizeGB = disk.SizeGb
-	}
-	return uint64(diskSizeGB) * 1024, nil
+	return inst.base.Status()
 }
 
 func (inst *environInstance) Refresh() error {
 	env := inst.env.getSnapshot()
-
-	raw, err := env.gce.instance(inst.zone, string(inst.id))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	inst.update(raw)
-	return nil
+	err := inst.base.Refresh(env.gce)
+	return errors.Trace(err)
 }
 
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	var addresses []network.Address
-
-	for _, netif := range inst.raw.NetworkInterfaces {
-		// Add public addresses.
-		for _, accessConfig := range netif.AccessConfigs {
-			if accessConfig.NatIP == "" {
-				continue
-			}
-			address := network.Address{
-				Value: accessConfig.NatIP,
-				Type:  network.IPv4Address,
-				Scope: network.ScopePublic,
-			}
-			addresses = append(addresses, address)
-
-		}
-
-		// Add private address.
-		if netif.NetworkIP == "" {
-			continue
-		}
-		address := network.Address{
-			Value: netif.NetworkIP,
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		}
-		addresses = append(addresses, address)
-	}
-
-	return addresses, nil
+	result, err := inst.base.Addresses()
+	return result, errors.Trace(err)
 }
 
 func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
@@ -121,7 +62,7 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 	// TODO(ericsnow) Make sure machineId matches inst.Id()?
 	name := common.MachineFullName(inst.env, machineId)
 	env := inst.env.getSnapshot()
-	err := env.openPorts(name, ports)
+	err := env.gce.OpenPorts(name, ports)
 	return errors.Trace(err)
 }
 
@@ -130,7 +71,7 @@ func (inst *environInstance) OpenPorts(machineId string, ports []network.PortRan
 func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	name := common.MachineFullName(inst.env, machineId)
 	env := inst.env.getSnapshot()
-	err := env.closePorts(name, ports)
+	err := env.gce.ClosePorts(name, ports)
 	return errors.Trace(err)
 }
 
@@ -140,6 +81,6 @@ func (inst *environInstance) ClosePorts(machineId string, ports []network.PortRa
 func (inst *environInstance) Ports(machineId string) ([]network.PortRange, error) {
 	name := common.MachineFullName(inst.env, machineId)
 	env := inst.env.getSnapshot()
-	ports, err := env.ports(name)
+	ports, err := env.gce.Ports(name)
 	return ports, errors.Trace(err)
 }

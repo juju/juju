@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/juju/arch"
 )
@@ -133,8 +131,4 @@ var allInstanceTypes = []instances.InstanceType{
 		Mem:      1700,
 		VirtType: &vtype,
 	},
-}
-
-func resolveMachineType(zone, name string) string {
-	return fmt.Sprintf(partialMachineType, zone, name)
 }

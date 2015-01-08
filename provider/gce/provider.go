@@ -40,7 +40,7 @@ func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config
 	}
 
 	if ctx.ShouldVerifyCredentials() {
-		if err := env.(*environ).gce.verifyCredentials(); err != nil {
+		if err := env.(*environ).gce.VerifyCredentials(); err != nil {
 			return nil, err
 		}
 	}

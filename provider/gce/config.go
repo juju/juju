@@ -8,17 +8,10 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/gce/gceapi"
 )
 
 const (
-	// These are not GCE-official environment variable names.
-	osEnvPrivateKey    = "GCE_PRIVATE_KEY"
-	osEnvClientID      = "GCE_CLIENT_ID"
-	osEnvClientEmail   = "GCE_CLIENT_EMAIL"
-	osEnvRegion        = "GCE_REGION"
-	osEnvProjectID     = "GCE_PROJECT_ID"
-	osEnvImageEndpoint = "GCE_IMAGE_URL"
-
 	cfgPrivateKey    = "private-key"
 	cfgClientID      = "client-id"
 	cfgClientEmail   = "client-email"
@@ -45,12 +38,12 @@ gce:
 `[1:]
 
 var osEnvFields = map[string]string{
-	osEnvPrivateKey:    cfgPrivateKey,
-	osEnvClientID:      cfgClientID,
-	osEnvClientEmail:   cfgClientEmail,
-	osEnvRegion:        cfgRegion,
-	osEnvProjectID:     cfgProjectID,
-	osEnvImageEndpoint: cfgImageEndpoint,
+	gceapi.OSEnvPrivateKey:    cfgPrivateKey,
+	gceapi.OSEnvClientID:      cfgClientID,
+	gceapi.OSEnvClientEmail:   cfgClientEmail,
+	gceapi.OSEnvRegion:        cfgRegion,
+	gceapi.OSEnvProjectID:     cfgProjectID,
+	gceapi.OSEnvImageEndpoint: cfgImageEndpoint,
 }
 
 var configFields = schema.Fields{
@@ -109,18 +102,18 @@ func (c *environConfig) imageEndpoint() string {
 	return c.attrs[cfgImageEndpoint].(string)
 }
 
-func (c *environConfig) auth() gceAuth {
-	return gceAuth{
-		clientID:    c.attrs[cfgClientID].(string),
-		clientEmail: c.attrs[cfgClientEmail].(string),
-		privateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
+func (c *environConfig) auth() gceapi.Auth {
+	return gceapi.Auth{
+		ClientID:    c.attrs[cfgClientID].(string),
+		ClientEmail: c.attrs[cfgClientEmail].(string),
+		PrivateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
 	}
 }
 
-func (c *environConfig) newConnection() *gceConnection {
-	return &gceConnection{
-		region:    c.attrs[cfgRegion].(string),
-		projectID: c.attrs[cfgProjectID].(string),
+func (c *environConfig) newConnection() *gceapi.Connection {
+	return &gceapi.Connection{
+		Region:    c.attrs[cfgRegion].(string),
+		ProjectID: c.attrs[cfgProjectID].(string),
 	}
 }
 
@@ -150,10 +143,10 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	}
 
 	// Check sanity of GCE fields.
-	if err := ecfg.auth().validate(); err != nil {
+	if err := ecfg.auth().Validate(); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
-	if err := ecfg.newConnection().validate(); err != nil {
+	if err := ecfg.newConnection().Validate(); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
 

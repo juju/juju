@@ -4,7 +4,6 @@
 package gce
 
 import (
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"encoding/base64"
 	"github.com/juju/errors"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/gceapi"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
@@ -46,7 +46,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q in zone %q", raw.Name, zoneName(raw))
+	logger.Infof("started instance %q in zone %q", raw.ID, raw.Zone)
 	inst := newInstance(raw, env)
 
 	// Open API port on state server.
@@ -56,7 +56,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 			ToPort:   args.MachineConfig.StateServingInfo.APIPort,
 			Protocol: "tcp",
 		}}
-		if err := env.openPorts(string(inst.Id()), ports); err != nil {
+		if err := env.gce.OpenPorts(raw.ID, ports); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -121,54 +121,48 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
-func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*compute.Instance, error) {
-	// Compose the instance.
+func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*gceapi.Instance, error) {
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
-	disks := getDisks(spec, args.Constraints)
-	networkInterfaces := getNetworkInterfaces()
+
 	metadata, err := getMetadata(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	tags := &compute.Tags{Items: []string{
+	tags := []string{
 		env.globalFirewallName(),
 		machineID,
-	}}
-
-	instance := &compute.Instance{
-		// MachineType is set in the env.gce.newInstance call.
-		Name:              machineID,
-		Disks:             disks,
-		NetworkInterfaces: networkInterfaces,
+	}
+	// TODO(ericsnow) Use the env ID for the network name (instead of default)?
+	// TODO(ericsnow) Make the network name configurable?
+	// TODO(ericsnow) Support multiple networks?
+	// TODO(ericsnow) Use a different net interface name? Configurable?
+	instSpec := gceapi.InstanceSpec{
+		ID:                machineID,
+		Type:              spec.InstanceType.Name,
+		Disks:             getDisks(spec, args.Constraints),
+		NetworkInterfaces: []string{"ExternalNAT"},
 		Metadata:          metadata,
 		Tags:              tags,
+		// Network is omitted (left empty).
 	}
 
-	availabilityZones, err := env.parseAvailabilityZones(args)
+	zones, err := env.parseAvailabilityZones(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO(ericsnow) Drop carrying InitializeParams over once
-	// gceConnection.disk is working?
-	diskInit := rootDisk(instance).InitializeParams
-	if err := env.gce.addInstance(instance, spec.InstanceType.Name, availabilityZones); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if rootDisk(instance).InitializeParams == nil {
-		rootDisk(instance).InitializeParams = diskInit
-	}
 
-	return instance, nil
+	inst, err := instSpec.Create(env.gce, zones)
+	return inst, errors.Trace(err)
 }
 
-func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
+func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
-	authKeys, err := gceSSHKeys(args.MachineConfig.AuthorizedKeys)
+	authKeys, err := gceapi.FormatAuthorizedKeys(args.MachineConfig.AuthorizedKeys, "ubuntu")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -190,59 +184,38 @@ func getMetadata(args environs.StartInstanceParams) (*compute.Metadata, error) {
 		metadata[metadataKeyIsState] = metadataValueTrue
 	}
 
-	return packMetadata(metadata), nil
+	return metadata, nil
 }
 
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []*compute.AttachedDisk {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []gceapi.DiskSpec {
 	size := common.MinRootDiskSizeGiB
 	if cons.RootDisk != nil && *cons.RootDisk > uint64(size) {
 		size = int64(common.MiBToGiB(*cons.RootDisk))
 	}
-	dSpec := diskSpec{
-		sizeHint:   size,
-		imageURL:   imageBasePath + spec.Image.Id,
-		boot:       true,
-		autoDelete: true,
+	dSpec := gceapi.DiskSpec{
+		SizeHintGB: size,
+		ImageURL:   imageBasePath + spec.Image.Id,
+		Boot:       true,
+		AutoDelete: true,
 	}
-	rootDisk := dSpec.newAttached()
-	if cons.RootDisk != nil && dSpec.size() == int64(minDiskSize) {
-		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dM"
-		logger.Infof(msg, *cons.RootDisk, minDiskSize)
+	if cons.RootDisk != nil && dSpec.TooSmall() {
+		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
+		logger.Infof(msg, *cons.RootDisk, gceapi.MinDiskSizeGB)
 	}
-	return []*compute.AttachedDisk{rootDisk}
-}
-
-func getNetworkInterfaces() []*compute.NetworkInterface {
-	// TODO(ericsnow) Use the env ID for the network name
-	// (instead of default)?
-	// TODO(ericsnow) Make the network name configurable?
-	// TODO(ericsnow) Support multiple networks?
-	spec := networkSpec{}
-	// TODO(ericsnow) Use a different name? Configurable?
-	rootIF := spec.newInterface("External NAT")
-	return []*compute.NetworkInterface{rootIF}
+	return []gceapi.DiskSpec{dSpec}
 }
 
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
+	rootDiskMB := uint64(inst.base.RootDiskGB()) * 1024
 	hwc := instance.HardwareCharacteristics{
 		Arch:             &spec.Image.Arch,
 		Mem:              &spec.InstanceType.Mem,
 		CpuCores:         &spec.InstanceType.CpuCores,
 		CpuPower:         spec.InstanceType.CpuPower,
-		AvailabilityZone: &inst.zone,
+		RootDisk:         &rootDiskMB,
+		AvailabilityZone: &inst.base.Zone,
 		// Tags: not supported in GCE.
 	}
-
-	rootDiskMB, err := inst.rootDiskMB()
-	if err != nil {
-		logger.Errorf("could not get root disk size: %v", err)
-		// We simply skip RootDisk in favor of getting the rest of the
-		// HW characteristics out.
-		// TODO(ericsnow) Is this okay?
-	} else {
-		hwc.RootDisk = &rootDiskMB
-	}
-
 	return &hwc
 }
 
@@ -258,6 +231,8 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	for _, id := range instances {
 		ids = append(ids, string(id))
 	}
-	err := env.gce.removeInstances(env, ids...)
+
+	prefix := common.MachineFullName(env, "")
+	err := env.gce.RemoveInstances(prefix, ids...)
 	return errors.Trace(err)
 }

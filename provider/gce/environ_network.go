@@ -38,7 +38,7 @@ func (env *environ) globalFirewallName() string {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) OpenPorts(ports []network.PortRange) error {
-	err := env.openPorts(env.globalFirewallName(), ports)
+	err := env.gce.OpenPorts(env.globalFirewallName(), ports)
 	return errors.Trace(err)
 }
 
@@ -46,7 +46,7 @@ func (env *environ) OpenPorts(ports []network.PortRange) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) ClosePorts(ports []network.PortRange) error {
-	err := env.closePorts(env.globalFirewallName(), ports)
+	err := env.gce.ClosePorts(env.globalFirewallName(), ports)
 	return errors.Trace(err)
 }
 
@@ -54,86 +54,6 @@ func (env *environ) ClosePorts(ports []network.PortRange) error {
 // Must only be used if the environment was setup with the
 // FwGlobal firewall mode.
 func (env *environ) Ports() ([]network.PortRange, error) {
-	ports, err := env.ports(env.globalFirewallName())
+	ports, err := env.gce.Ports(env.globalFirewallName())
 	return ports, errors.Trace(err)
-}
-
-func (env *environ) openPorts(name string, ports []network.PortRange) error {
-	// Compose the full set of open ports.
-	currentPorts, err := env.ports(name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	inputPortsSet := network.NewPortSet(ports...)
-	if inputPortsSet.IsEmpty() {
-		return nil
-	}
-	currentPortsSet := network.NewPortSet(currentPorts...)
-
-	// Send the request, depending on the current ports.
-	if currentPortsSet.IsEmpty() {
-		firewall := firewallSpec(name, inputPortsSet)
-		if err := env.gce.insertFirewall(firewall); err != nil {
-			return errors.Annotatef(err, "opening port(s) %+v", ports)
-		}
-
-	} else {
-		newPortsSet := currentPortsSet.Union(inputPortsSet)
-		firewall := firewallSpec(name, newPortsSet)
-		if err := env.gce.updateFirewall(name, firewall); err != nil {
-			return errors.Annotatef(err, "opening port(s) %+v", ports)
-		}
-	}
-	return nil
-}
-
-func (env *environ) closePorts(name string, ports []network.PortRange) error {
-	// Compose the full set of open ports.
-	currentPorts, err := env.ports(name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	inputPortsSet := network.NewPortSet(ports...)
-	if inputPortsSet.IsEmpty() {
-		return nil
-	}
-	currentPortsSet := network.NewPortSet(currentPorts...)
-	newPortsSet := currentPortsSet.Difference(inputPortsSet)
-
-	// Send the request, depending on the current ports.
-	if newPortsSet.IsEmpty() {
-		if err := env.gce.deleteFirewall(name); err != nil {
-			return errors.Annotatef(err, "closing port(s) %+v", ports)
-		}
-	} else {
-		firewall := firewallSpec(name, newPortsSet)
-		if err := env.gce.updateFirewall(name, firewall); err != nil {
-			return errors.Annotatef(err, "closing port(s) %+v", ports)
-		}
-	}
-	return nil
-}
-
-func (env *environ) ports(name string) ([]network.PortRange, error) {
-	firewall, err := env.gce.firewall(name)
-	if errors.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "while getting ports from GCE")
-	}
-
-	var ports []network.PortRange
-	for _, allowed := range firewall.Allowed {
-		for _, portRangeStr := range allowed.Ports {
-			portRange, err := network.ParsePortRange(portRangeStr)
-			if err != nil {
-				return ports, errors.Annotate(err, "bad ports from GCE")
-			}
-			portRange.Protocol = allowed.IPProtocol
-			ports = append(ports, *portRange)
-		}
-	}
-
-	return ports, nil
 }

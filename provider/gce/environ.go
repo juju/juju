@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/gceapi"
 )
 
 // Note: This provider/environment does *not* implement storage.
@@ -58,7 +58,7 @@ type environ struct {
 	lock sync.Mutex
 	ecfg *environConfig
 
-	gce *gceConnection
+	gce *gceapi.Connection
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -106,7 +106,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 
 	// Connect and authenticate.
 	env.gce = env.ecfg.newConnection()
-	err = env.gce.connect(env.ecfg.auth())
+	err = env.gce.Connect(env.ecfg.auth())
 
 	return errors.Trace(err)
 }
@@ -153,7 +153,11 @@ func (env *environ) Destroy() error {
 
 // instance stuff
 
-var instStatuses = []string{statusPending, statusStaging, statusRunning}
+var instStatuses = []string{
+	gceapi.StatusPending,
+	gceapi.StatusStaging,
+	gceapi.StatusRunning,
+}
 
 // Instances returns the available instances in the environment that
 // match the provided instance IDs. For IDs that did not match any
@@ -196,31 +200,23 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return results, err
 }
 
-func rawInstances(env *environ) ([]*compute.Instance, error) {
-	// rawInstances() only returns instances that are part of the
+func (env *environ) instances() ([]instance.Instance, error) {
+	// instances() only returns instances that are part of the
 	// environment (instance IDs matches "juju-<env name>-machine-*").
 	// This is important because otherwise juju will see they are not
 	// tracked in state, assume they're stale/rogue, and shut them down.
-	instances, err := env.gce.instances(env)
-	err = errors.Trace(err)
 
-	// We further filter on the instance status, regardless of if there
-	// was any error.
-	instances = filterInstances(instances, instStatuses...)
-	return instances, err
-}
-
-func (env *environ) instances() ([]instance.Instance, error) {
 	env = env.getSnapshot()
 
-	instances, err := rawInstances(env)
+	prefix := common.MachineFullName(env, "")
+	instances, err := env.gce.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
-	// Turn *compute.Instance values into *environInstance values,
+	// Turn gceapi.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
-	for _, raw := range instances {
-		inst := newInstance(raw, env)
+	for _, base := range instances {
+		inst := newInstance(&base, env)
 		results = append(results, inst)
 	}
 
@@ -232,16 +228,18 @@ func (env *environ) instances() ([]instance.Instance, error) {
 func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	env = env.getSnapshot()
 
-	instances, err := rawInstances(env)
+	prefix := common.MachineFullName(env, "")
+	instances, err := env.gce.Instances(prefix, instStatuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var results []instance.Id
 	for _, inst := range instances {
-		isState, ok := unpackMetadata(inst.Metadata)[metadataKeyIsState]
+		metadata := inst.Metadata()
+		isState, ok := metadata[metadataKeyIsState]
 		if ok && isState == metadataValueTrue {
-			results = append(results, instance.Id(inst.Name))
+			results = append(results, instance.Id(inst.ID))
 		}
 	}
 	if len(results) == 0 {
@@ -250,7 +248,7 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return results, nil
 }
 
-func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, error) {
+func (env *environ) parsePlacement(placement string) (*gceapi.AvailabilityZone, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, errors.Errorf("unknown placement directive: %v", placement)
@@ -264,7 +262,7 @@ func (env *environ) parsePlacement(placement string) (*gceAvailabilityZone, erro
 		}
 		for _, z := range zones {
 			if z.Name() == zoneName {
-				return z.(*gceAvailabilityZone), nil
+				return z.(*gceapi.AvailabilityZone), nil
 			}
 		}
 		return nil, errors.Errorf("invalid availability zone %q", zoneName)
