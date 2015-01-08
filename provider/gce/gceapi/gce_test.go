@@ -10,41 +10,15 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
 )
 
-type gceSuite struct {
-	testing.BaseSuite
-
-	auth Auth
+type authSuite struct {
+	baseSuite
 }
 
-var _ = gc.Suite(&gceSuite{})
+var _ = gc.Suite(&authSuite{})
 
-func (s *gceSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.auth = Auth{
-		ClientID:    "spam",
-		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
-	}
-}
-
-func (s *gceSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes string, token *oauth.Token) {
-	if expectedScopes == "" {
-		expectedScopes = "https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.full_control"
-	}
-	if token == nil {
-		token = &oauth.Token{}
-	}
-	s.PatchValue(&newToken, func(auth Auth, scopes string) (*oauth.Token, error) {
-		c.Check(auth, jc.DeepEquals, expectedAuth)
-		c.Check(scopes, gc.Equals, expectedScopes)
-		return token, nil
-	})
-}
-
-func (*gceSuite) TestAuthValidate(c *gc.C) {
+func (*authSuite) TestAuthValidate(c *gc.C) {
 	auth := Auth{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
@@ -55,7 +29,7 @@ func (*gceSuite) TestAuthValidate(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (*gceSuite) TestAuthValidateMissingID(c *gc.C) {
+func (*authSuite) TestAuthValidateMissingID(c *gc.C) {
 	auth := Auth{
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
@@ -66,7 +40,7 @@ func (*gceSuite) TestAuthValidateMissingID(c *gc.C) {
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_ID")
 }
 
-func (*gceSuite) TestAuthValidateBadEmail(c *gc.C) {
+func (*authSuite) TestAuthValidateBadEmail(c *gc.C) {
 	auth := Auth{
 		ClientID:    "spam",
 		ClientEmail: "bad_email",
@@ -78,7 +52,7 @@ func (*gceSuite) TestAuthValidateBadEmail(c *gc.C) {
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_EMAIL")
 }
 
-func (*gceSuite) TestAuthValidateMissingKey(c *gc.C) {
+func (*authSuite) TestAuthValidateMissingKey(c *gc.C) {
 	auth := Auth{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
@@ -89,7 +63,7 @@ func (*gceSuite) TestAuthValidateMissingKey(c *gc.C) {
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
 }
 
-func (s *gceSuite) TestAuthNewTransport(c *gc.C) {
+func (s *authSuite) TestAuthNewTransport(c *gc.C) {
 	token := &oauth.Token{}
 	s.patchNewToken(c, s.auth, "", token)
 	transport, err := s.auth.newTransport()
@@ -105,14 +79,14 @@ func (s *gceSuite) TestAuthNewTransport(c *gc.C) {
 // Testing the newToken valid case would require valid credentials, so
 // we don't bother.
 
-func (s *gceSuite) TestAuthNewTokenBadCredentials(c *gc.C) {
+func (s *authSuite) TestAuthNewTokenBadCredentials(c *gc.C) {
 	// Makes an HTTP request to the GCE API.
 	_, err := newToken(s.auth, "")
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "Invalid Key")
 }
 
-func (s *gceSuite) TestAuthNewConnection(c *gc.C) {
+func (s *authSuite) TestAuthNewConnection(c *gc.C) {
 	s.patchNewToken(c, s.auth, "", nil)
 	service, err := s.auth.newConnection()
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +94,7 @@ func (s *gceSuite) TestAuthNewConnection(c *gc.C) {
 	c.Check(service, gc.NotNil)
 }
 
-func (s *gceSuite) TestAuthNewService(c *gc.C) {
+func (s *authSuite) TestAuthNewService(c *gc.C) {
 	s.patchNewToken(c, s.auth, "", nil)
 
 	transport, err := s.auth.newTransport()
