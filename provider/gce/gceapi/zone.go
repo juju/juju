@@ -4,6 +4,8 @@
 package gceapi
 
 import (
+	"path"
+
 	"code.google.com/p/google-api-go-client/compute/v1"
 )
 
@@ -22,4 +24,18 @@ func (z AvailabilityZone) Status() string {
 func (z AvailabilityZone) Available() bool {
 	// https://cloud.google.com/compute/docs/reference/latest/zones#status
 	return z.Status() == StatusUp
+}
+
+func zoneName(value interface{}) string {
+	// We trust that path.Base will always give the right answer
+	// when used.
+	switch typed := value.(type) {
+	case *compute.Instance:
+		return path.Base(typed.Zone)
+	case *compute.Operation:
+		return path.Base(typed.Zone)
+	default:
+		// TODO(ericsnow) Fail?
+		return ""
+	}
 }
