@@ -118,10 +118,10 @@ func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 		})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
 
-	getResults := s.annotationsApi.Get(entities)
-	c.Assert(getResults.Results, gc.HasLen, 1)
+	got := s.annotationsApi.Get(entities)
+	c.Assert(got.Results, gc.HasLen, 1)
 
-	aResult := getResults.Results[0]
+	aResult := got.Results[0]
 	c.Assert(aResult.Entity, gc.DeepEquals, entity)
 	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
 }
@@ -160,11 +160,11 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	c.Assert(sSet, jc.IsTrue)
 	c.Assert(rSet, jc.IsTrue)
 
-	getResults := s.annotationsApi.Get(entities)
-	c.Assert(getResults.Results, gc.HasLen, 2)
+	got := s.annotationsApi.Get(entities)
+	c.Assert(got.Results, gc.HasLen, 2)
 
 	var rGet, sGet bool
-	for _, aResult := range getResults.Results {
+	for _, aResult := range got.Results {
 		if aResult.Entity.Tag == rTag.String() {
 			rGet = true
 			c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
@@ -225,10 +225,10 @@ func (s *annotationSuite) assertGetEntityAnnotations(c *gc.C,
 	entities params.Entities,
 	entity params.Entity,
 	expected map[string]string) params.AnnotationsGetResult {
-	getResults := s.annotationsApi.Get(entities)
-	c.Assert(getResults.Results, gc.HasLen, 1)
+	got := s.annotationsApi.Get(entities)
+	c.Assert(got.Results, gc.HasLen, 1)
 
-	aResult := getResults.Results[0]
+	aResult := got.Results[0]
 	c.Assert(aResult.Entity, gc.DeepEquals, entity)
 	c.Assert(aResult.Annotations, gc.DeepEquals, expected)
 	return aResult
