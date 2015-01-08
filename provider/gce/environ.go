@@ -106,9 +106,13 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 
 	// Connect and authenticate.
 	env.gce = env.ecfg.newConnection()
-	err = env.gce.Connect(env.ecfg.auth())
+	err = connect(env.gce, env.ecfg.auth())
 
 	return errors.Trace(err)
+}
+
+var connect = func(conn *gceapi.Connection, auth gceapi.Auth) error {
+	return conn.Connect(auth)
 }
 
 func (env *environ) getSnapshot() *environ {

@@ -16,28 +16,28 @@ import (
 type gceSuite struct {
 	testing.BaseSuite
 
-	auth gceAuth
+	auth Auth
 }
 
 var _ = gc.Suite(&gceSuite{})
 
 func (s *gceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.auth = gceAuth{
-		clientID:    "spam",
-		clientEmail: "user@mail.com",
-		privateKey:  []byte("non-empty"),
+	s.auth = Auth{
+		ClientID:    "spam",
+		ClientEmail: "user@mail.com",
+		PrivateKey:  []byte("non-empty"),
 	}
 }
 
-func (s *gceSuite) patchNewToken(c *gc.C, expectedAuth gceAuth, expectedScopes string, token *oauth.Token) {
+func (s *gceSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes string, token *oauth.Token) {
 	if expectedScopes == "" {
 		expectedScopes = "https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.full_control"
 	}
 	if token == nil {
 		token = &oauth.Token{}
 	}
-	s.PatchValue(&newToken, func(auth gceAuth, scopes string) (*oauth.Token, error) {
+	s.PatchValue(&newToken, func(auth Auth, scopes string) (*oauth.Token, error) {
 		c.Check(auth, jc.DeepEquals, expectedAuth)
 		c.Check(scopes, gc.Equals, expectedScopes)
 		return token, nil
@@ -45,45 +45,45 @@ func (s *gceSuite) patchNewToken(c *gc.C, expectedAuth gceAuth, expectedScopes s
 }
 
 func (*gceSuite) TestAuthValidate(c *gc.C) {
-	auth := gceAuth{
-		clientID:    "spam",
-		clientEmail: "user@mail.com",
-		privateKey:  []byte("non-empty"),
+	auth := Auth{
+		ClientID:    "spam",
+		ClientEmail: "user@mail.com",
+		PrivateKey:  []byte("non-empty"),
 	}
-	err := auth.validate()
+	err := auth.Validate()
 
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*gceSuite) TestAuthValidateMissingID(c *gc.C) {
-	auth := gceAuth{
-		clientEmail: "user@mail.com",
-		privateKey:  []byte("non-empty"),
+	auth := Auth{
+		ClientEmail: "user@mail.com",
+		PrivateKey:  []byte("non-empty"),
 	}
-	err := auth.validate()
+	err := auth.Validate()
 
 	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_ID")
 }
 
 func (*gceSuite) TestAuthValidateBadEmail(c *gc.C) {
-	auth := gceAuth{
-		clientID:    "spam",
-		clientEmail: "bad_email",
-		privateKey:  []byte("non-empty"),
+	auth := Auth{
+		ClientID:    "spam",
+		ClientEmail: "bad_email",
+		PrivateKey:  []byte("non-empty"),
 	}
-	err := auth.validate()
+	err := auth.Validate()
 
 	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_EMAIL")
 }
 
 func (*gceSuite) TestAuthValidateMissingKey(c *gc.C) {
-	auth := gceAuth{
-		clientID:    "spam",
-		clientEmail: "user@mail.com",
+	auth := Auth{
+		ClientID:    "spam",
+		ClientEmail: "user@mail.com",
 	}
-	err := auth.validate()
+	err := auth.Validate()
 
 	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
