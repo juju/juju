@@ -25,7 +25,6 @@ func NewClient(st base.APICallCloser) *Client {
 // Get returns annotations that have been set on the given entities.
 func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 	annotations := params.AnnotationsGetResults{}
-
 	if err := c.facade.FacadeCall("Get", entitiesFromTags(tags), &annotations); err != nil {
 		return annotations.Results, errors.Trace(err)
 	} else {
@@ -40,7 +39,6 @@ func (c *Client) Set(tags []string, pairs map[string]string) error {
 		return errors.Trace(err)
 	}
 	return nil
-
 }
 
 func entitiesFromTags(tags []string) params.Entities {
