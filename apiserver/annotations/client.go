@@ -116,6 +116,9 @@ func (api *API) getEntityAnnotations(entityTag string) (map[string]string, error
 func (api *API) findEntity(tag names.Tag) (state.GlobalEntity, error) {
 	entity0, err := api.state.FindEntity(tag)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, common.ErrPerm
+		}
 		return nil, err
 	}
 	entity, ok := entity0.(state.GlobalEntity)
