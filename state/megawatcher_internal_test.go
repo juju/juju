@@ -4,7 +4,6 @@
 package state
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -997,12 +996,12 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
-	b := newAllWatcherStateBacking(s.State)
-	aw := newStoreManager(b)
-	defer aw.Stop()
-	w := NewMultiwatcher(aw)
-	s.State.StartSync()
-	checkNext(c, w, []multiwatcher.Delta{{
+	tw := newTestWatcher(s.State, c)
+	defer tw.Stop()
+
+	// Expect to see events for the already created machines first.
+	deltas := tw.All()
+	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:        "0",
 			Status:    multiwatcher.Status("pending"),
@@ -1020,7 +1019,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
-	}}, "")
+	}})
 
 	// Make some changes to the state.
 	arch := "amd64"
@@ -1049,19 +1048,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	err = wu.AssignToMachine(m2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.State.StartSync()
-
-	// Check that we see the changes happen within a
-	// reasonable time.
-	var deltas []multiwatcher.Delta
-	for {
-		d, err := getNext(c, w, 1*time.Second)
-		if err == errTimeout {
-			break
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		deltas = append(deltas, d...)
-	}
+	// Look for the state changes from the allwatcher.
+	deltas = tw.All()
 	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      "0",
@@ -1109,12 +1097,6 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    "allocating",
 		},
 	}})
-
-	err = w.Stop()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = w.Next()
-	c.Assert(err, gc.ErrorMatches, ErrStopped.Error())
 }
 
 func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
@@ -1124,85 +1106,124 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 		assertIsolatedChanges func(*testWatcher, *testWatcher)
 	}{
 		{
-			about: "Add a machine in both environments",
+			about: "machines",
 			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
 				m0, err := w1.st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m0.Id(), gc.Equals, "0")
 
 				w2.AssertNoChange()
-				w1.AssertChange()
+				w1.AssertChanges()
 				w1.AssertNoChange()
 			},
-		},
-		{
-			about: "Add a service in both environments",
+		}, {
+			about: "services",
 			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
 				AddTestingService(c, w1.st, "wordpress", AddTestingCharm(c, w1.st, "wordpress"), s.owner)
 				w2.AssertNoChange()
-				w1.AssertChange()
+				w1.AssertChanges()
+				w1.AssertNoChange()
+			},
+		}, {
+			about: "annotations",
+			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
+				m, err := w1.st.AddMachine("trusty", JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				// Consume event from machine creation
+				w1.AssertChanges()
+				w1.AssertNoChange()
+
+				// Now set annotation on the machine and check that the
+				// event is only seen on the correct watcher.
+				err = m.SetAnnotations(map[string]string{"foo": "bar"})
+				c.Assert(err, jc.ErrorIsNil)
+				w2.AssertNoChange()
+				w1.AssertChanges()
 				w1.AssertNoChange()
 			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
-		w1 := &testWatcher{
-			st: s.State,
-			c:  c,
-		}
-		w2 := &testWatcher{
-			st: s.OtherState,
-			c:  c,
-		}
 
-		c.Logf("Making changes to environment %s", w1.st.EnvironUUID())
-		test.assertIsolatedChanges(w1, w2)
-		c.Logf("Making changes to environment %s", w2.st.EnvironUUID())
-		test.assertIsolatedChanges(w2, w1)
+		func() {
+			w1 := newTestWatcher(s.State, c)
+			defer w1.Stop()
+			w2 := newTestWatcher(s.OtherState, c)
+			defer w2.Stop()
+
+			c.Logf("Making changes to environment %s", w1.st.EnvironUUID())
+			test.assertIsolatedChanges(w1, w2)
+
+			c.Logf("Making changes to environment %s", w2.st.EnvironUUID())
+			test.assertIsolatedChanges(w2, w1)
+		}()
 
 		s.Reset(c)
 	}
 }
 
 type testWatcher struct {
-	st    *State
-	c     *gc.C
-	revno int64
+	st     *State
+	c      *gc.C
+	w      *Multiwatcher
+	deltas chan []multiwatcher.Delta
+}
+
+func newTestWatcher(st *State, c *gc.C) *testWatcher {
+	b := newAllWatcherStateBacking(st)
+	sm := newStoreManager(b)
+	w := NewMultiwatcher(sm)
+	tw := &testWatcher{
+		st:     st,
+		c:      c,
+		w:      w,
+		deltas: make(chan []multiwatcher.Delta),
+	}
+	go func() {
+		for {
+			deltas, err := tw.w.Next()
+			if err != nil {
+				break
+			}
+			tw.deltas <- deltas
+		}
+	}()
+	return tw
+}
+
+func (tw *testWatcher) Next(timeout time.Duration) []multiwatcher.Delta {
+	select {
+	case d := <-tw.deltas:
+		return d
+	case <-time.After(timeout):
+		return nil
+	}
+}
+
+func (tw *testWatcher) All() []multiwatcher.Delta {
+	var allDeltas []multiwatcher.Delta
+	tw.st.StartSync()
+	for {
+		deltas := tw.Next(testing.ShortWait)
+		if len(deltas) == 0 {
+			break
+		}
+		allDeltas = append(allDeltas, deltas...)
+	}
+	return allDeltas
+}
+
+func (tw *testWatcher) Stop() {
+	tw.c.Assert(tw.w.Stop(), jc.ErrorIsNil)
 }
 
 func (tw *testWatcher) AssertNoChange() {
-	tw.c.Assert(tw.getChanges(), gc.HasLen, 0)
+	tw.c.Assert(tw.All(), gc.HasLen, 0)
 }
 
-func (tw *testWatcher) AssertChange() {
-	tw.c.Assert(len(tw.getChanges()), jc.GreaterThan, 0)
-}
-
-func (tw *testWatcher) newWatcher() *Multiwatcher {
-	b := newAllWatcherStateBacking(tw.st)
-	sm := newStoreManager(b)
-	w := NewMultiwatcher(sm)
-	if tw.revno > w.revno {
-		w.revno = tw.revno
-	}
-	return w
-}
-
-func (tw *testWatcher) getChanges() (deltas []multiwatcher.Delta) {
-	tw.st.StartSync()
-	for {
-		w := tw.newWatcher()
-		d, err := getNext(tw.c, w, testing.ShortWait)
-		if err == errTimeout {
-			break
-		}
-		tw.c.Assert(err, jc.ErrorIsNil)
-		deltas = append(deltas, d...)
-		tw.revno = w.revno
-		tw.c.Assert(w.Stop(), jc.ErrorIsNil)
-		tw.c.Assert(w.all.Stop(), jc.ErrorIsNil)
-	}
-	return deltas
+func (tw *testWatcher) AssertChanges() {
+	tw.c.Assert(len(tw.All()), jc.GreaterThan, 0)
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo
@@ -1222,36 +1243,8 @@ func (s entityInfoSlice) Less(i, j int) bool {
 	panic("unexpected entity id type")
 }
 
-var errTimeout = errors.New("no change received in sufficient time")
-
-func getNext(c *gc.C, w *Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
-	var deltas []multiwatcher.Delta
-	var err error
-	ch := make(chan struct{}, 1)
-	go func() {
-		deltas, err = w.Next()
-		ch <- struct{}{}
-	}()
-	select {
-	case <-ch:
-		return deltas, err
-	case <-time.After(timeout):
-	}
-	return nil, errTimeout
-}
-
-func checkNext(c *gc.C, w *Multiwatcher, deltas []multiwatcher.Delta, expectErr string) {
-	d, err := getNext(c, w, 1*time.Second)
-	if expectErr != "" {
-		c.Check(err, gc.ErrorMatches, expectErr)
-		return
-	}
-	checkDeltasEqual(c, d, deltas)
-}
-
-// deltas are returns in arbitrary order, so we compare
-// them as sets.
 func checkDeltasEqual(c *gc.C, d0, d1 []multiwatcher.Delta) {
+	// Deltas are returned in arbitrary order, so we compare them as maps.
 	c.Check(deltaMap(d0), jc.DeepEquals, deltaMap(d1))
 }
 
