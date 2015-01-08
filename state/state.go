@@ -598,7 +598,8 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.ActionByTag(tag)
 	case names.CharmTag:
 		if url, err := charm.ParseURL(id); err != nil {
-			return nil, errors.Annotatef(err, "could not find charm %q in state", id)
+			logger.Warningf("Parsing charm URL %q failed: %v", id, err)
+			return nil, errors.NotFoundf("could not find charm %q in state", id)
 		} else {
 			return st.Charm(url)
 		}
