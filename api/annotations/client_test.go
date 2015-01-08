@@ -30,16 +30,17 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		c.Check(objType, gc.Equals, "Annotations")
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "Set")
+
 		args, ok := a.(params.AnnotationsSet)
 		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Annotations, gc.DeepEquals, annts)
-		expected := params.Entities{
-			[]params.Entity{
-				{"charmA"},
-				{"serviceB"},
-			},
-		}
-		c.Assert(args.Collection, gc.DeepEquals, expected)
+		expected := params.AnnotationsSet{
+			Annotations: []params.EntityAnnotations{
+				{Entity: params.Entity{"charmA"},
+					Annotations: annts},
+				{Entity: params.Entity{"serviceB"},
+					Annotations: annts},
+			}}
+		c.Assert(args, gc.DeepEquals, expected)
 		return nil
 	})
 	annotationsClient := annotations.NewClient(apiCaller)
