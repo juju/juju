@@ -97,7 +97,10 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 
 		result := params.ClaimLeadershipResults{}
 
-		if !m.authorizer.AuthUnitAgent() {
+		// In the future, situations may arise wherein units will make
+		// leadership claims for other units. For now, units can only
+		// claim leadership for themselves.
+		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(p.UnitTag) {
 			result.Error = common.ServerError(common.ErrPerm)
 		} else if result.Error = claim(p.ServiceTag, p.UnitTag).Error; result.Error == nil {
 			result.ClaimDurationInSec = dur.Seconds()
@@ -117,7 +120,11 @@ func (m *leadershipService) ReleaseLeadership(args params.ReleaseLeadershipBulkP
 	}
 
 	for paramIdx, p := range args.Params {
-		if !m.authorizer.AuthUnitAgent() {
+
+		// In the future, situations may arise wherein units will make
+		// leadership claims for other units. For now, units can only
+		// claim leadership for themselves.
+		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(p.UnitTag) {
 			results.Results[paramIdx].Error = common.ServerError(common.ErrPerm)
 			continue
 		}

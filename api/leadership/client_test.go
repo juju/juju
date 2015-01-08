@@ -127,7 +127,7 @@ func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 
 			typedR, ok := response.(*params.ReleaseLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ErrorResult{params.ErrorResult{}}
+			typedR.Results = []params.ErrorResult{{}}
 
 			c.Assert(typedP.Params, gc.HasLen, 1)
 			c.Check(typedP.Params[0].ServiceTag.Id(), gc.Equals, StubServiceNm)

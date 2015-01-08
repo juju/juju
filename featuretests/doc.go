@@ -1,3 +1,6 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 /*
 This package is for functional testing only. Each feature-set of
 Juju should have it's own file in which all the happy-paths are
