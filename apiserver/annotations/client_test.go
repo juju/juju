@@ -61,6 +61,27 @@ func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
 	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
 }
 
+func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
+	entity := params.Entity{"charm-invalid"}
+	entities := params.Entities{[]params.Entity{entity}}
+	annotations := map[string]string{"mykey": "myvalue"}
+
+	setResult := s.annotationsApi.Set(
+		params.AnnotationsSet{
+			Collection:  entities,
+			Annotations: annotations,
+		})
+	c.Assert(setResult.OneError().Error(), gc.Matches, ".*permission denied.*")
+
+	got := s.annotationsApi.Get(entities)
+	c.Assert(got.Results, gc.HasLen, 1)
+
+	aResult := got.Results[0]
+	c.Assert(aResult.Entity, gc.DeepEquals, entity)
+	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*permission denied.*")
+
+}
+
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
