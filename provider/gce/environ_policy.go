@@ -66,6 +66,6 @@ func (env *environ) SupportNetworks() bool {
 // SupportAddressAllocation takes a network.Id and returns a bool
 // and an error. The bool indicates whether that network supports
 // static ip address allocation.
-func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+func (env *environ) SupportAddressAllocation(netID network.Id) (bool, error) {
 	return false, nil
 }

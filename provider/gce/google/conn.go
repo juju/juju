@@ -91,16 +91,16 @@ type operationDoer interface {
 // checkOperation requests a new copy of the given operation from the
 // GCE API and returns it. The new copy will have the operation's
 // current status.
-func (gce *Connection) checkOperation(op *compute.Operation) (*compute.Operation, error) {
+func (gc *Connection) checkOperation(op *compute.Operation) (*compute.Operation, error) {
 	var call operationDoer
 	if op.Zone != "" {
 		zone := zoneName(op)
-		call = gce.raw.ZoneOperations.Get(gce.ProjectID, zone, op.Name)
+		call = gc.raw.ZoneOperations.Get(gc.ProjectID, zone, op.Name)
 	} else if op.Region != "" {
 		region := path.Base(op.Region)
-		call = gce.raw.RegionOperations.Get(gce.ProjectID, region, op.Name)
+		call = gc.raw.RegionOperations.Get(gc.ProjectID, region, op.Name)
 	} else {
-		call = gce.raw.GlobalOperations.Get(gce.ProjectID, op.Name)
+		call = gc.raw.GlobalOperations.Get(gc.ProjectID, op.Name)
 	}
 
 	updated, err := call.Do()
@@ -113,7 +113,7 @@ func (gce *Connection) checkOperation(op *compute.Operation) (*compute.Operation
 // waitOperation waits for the provided operation to reach the "done"
 // status. It follows the given attempt strategy (e.g. wait time between
 // attempts) and may time out.
-func (gce *Connection) waitOperation(op *compute.Operation, attempts utils.AttemptStrategy) error {
+func (gc *Connection) waitOperation(op *compute.Operation, attempts utils.AttemptStrategy) error {
 	started := time.Now()
 	logger.Infof("GCE operation %q, waiting...", op.Name)
 	for a := attempts.Start(); a.Next(); {
@@ -122,7 +122,7 @@ func (gce *Connection) waitOperation(op *compute.Operation, attempts utils.Attem
 		}
 
 		var err error
-		op, err = gce.checkOperation(op)
+		op, err = gc.checkOperation(op)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -145,8 +145,8 @@ func (gce *Connection) waitOperation(op *compute.Operation, attempts utils.Attem
 // AvailabilityZones returns the list of availability zones for a given
 // GCE region. If none are found the the list is empty. Any failure in
 // the low-level request is returned as an error.
-func (gce *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
-	call := gce.raw.Zones.List(gce.ProjectID)
+func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
+	call := gc.raw.Zones.List(gc.ProjectID)
 	if region != "" {
 		call = call.Filter("name eq " + region + "-.*")
 	}

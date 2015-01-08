@@ -49,7 +49,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	for i, id := range ids {
 		inst := findInst(id, instances)
 		if inst != nil {
-			numFound += 1
+			numFound++
 		}
 		results[i] = inst
 	}
