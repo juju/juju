@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"fmt"
 	"github.com/juju/juju/apiserver/annotations"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -17,6 +18,7 @@ import (
 )
 
 type annotationSuite struct {
+	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
 
 	annotationsApi *annotations.API
@@ -147,7 +149,8 @@ func constructSetParameters(
 	result := []params.EntityAnnotations{}
 	for _, entity := range entities.Entities {
 		one := params.EntityAnnotations{
-			Entity:      entity,
+			Entities: params.Entities{
+				[]params.Entity{entity}},
 			Annotations: annotations,
 		}
 		result = append(result, one)
@@ -171,20 +174,12 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 
 	setResult := s.annotationsApi.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
-	c.Assert(setResult.Results, gc.HasLen, 2)
-	var rSet, sSet bool
-	for _, anErr := range setResult.Results {
-		if anErr.Error != nil {
-			c.Assert(anErr.Error.Error(), gc.Matches, ".*does not support annotations.*")
-			rSet = true
-		} else {
-			// service annotations should have succeeded
-			sSet = true
-		}
-	}
-	// Both entities should have processed
-	c.Assert(sSet, jc.IsTrue)
-	c.Assert(rSet, jc.IsTrue)
+	c.Assert(setResult.Results, gc.HasLen, 1)
+
+	oneError := setResult.Results[0].Error.Error()
+	// Only attempt at annotate relation should have erred
+	c.Assert(oneError, gc.Matches, fmt.Sprintf(".*%q.*", rTag))
+	c.Assert(oneError, gc.Matches, ".*does not support annotations.*")
 
 	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 2)
@@ -220,12 +215,15 @@ func (s *annotationSuite) testSetGetEntitiesAnnotations(c *gc.C, tag names.Tag) 
 	}
 }
 
-func (s *annotationSuite) setupEntity(c *gc.C, entities params.Entities, initialAnnotations map[string]string) {
+func (s *annotationSuite) setupEntity(
+	c *gc.C,
+	entities params.Entities,
+	initialAnnotations map[string]string) {
 	if initialAnnotations != nil {
 		initialResult := s.annotationsApi.Set(
 			params.AnnotationsSet{
 				Annotations: constructSetParameters(entities, initialAnnotations)})
-		c.Assert(initialResult.OneError(), jc.ErrorIsNil)
+		c.Assert(initialResult.Combine(), jc.ErrorIsNil)
 	}
 }
 
@@ -238,7 +236,7 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 	if expectedError != "" {
 		c.Assert(setResult.OneError().Error(), gc.Matches, expectedError)
 	} else {
-		c.Assert(setResult.OneError(), jc.ErrorIsNil)
+		c.Assert(setResult.Combine(), jc.ErrorIsNil)
 	}
 }
 
@@ -264,7 +262,7 @@ func (s *annotationSuite) cleanupEntityAnnotations(c *gc.C,
 	}
 	cleanupResult := s.annotationsApi.Set(
 		params.AnnotationsSet{Annotations: constructSetParameters(entities, cleanup)})
-	c.Assert(cleanupResult.OneError(), jc.ErrorIsNil)
+	c.Assert(cleanupResult.Combine(), jc.ErrorIsNil)
 }
 
 var clientAnnotationsTests = []struct {
