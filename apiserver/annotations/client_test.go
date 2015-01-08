@@ -4,11 +4,12 @@
 package annotations_test
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"fmt"
 	"github.com/juju/juju/apiserver/annotations"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
