@@ -19,3 +19,7 @@ func (APICallerFunc) BestFacadeVersion(facade string) int {
 func (APICallerFunc) EnvironTag() (names.EnvironTag, error) {
 	return names.NewEnvironTag(""), nil
 }
+
+func (APICallerFunc) Close() error {
+	return nil
+}

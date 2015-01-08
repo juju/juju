@@ -752,6 +752,32 @@ type FindToolsResult struct {
 	Error *Error
 }
 
+// ImageFilterParams holds the parameters used to specify images to delete.
+type ImageFilterParams struct {
+	Images []ImageSpec `json:"images"`
+}
+
+// ImageSpec defines the parameters to select images list or delete.
+type ImageSpec struct {
+	Kind   string `json:"kind"`
+	Arch   string `json:"arch"`
+	Series string `json:"series"`
+}
+
+// ListImageResult holds the results of querying images.
+type ListImageResult struct {
+	Result []ImageMetadata `json:"result"`
+}
+
+// ImageMetadata represents an image in storage.
+type ImageMetadata struct {
+	Kind    string    `json:"kind"`
+	Arch    string    `json:"arch"`
+	Series  string    `json:"series"`
+	URL     string    `json:"url"`
+	Created time.Time `json:"created"`
+}
+
 // RebootActionResults holds a list of RebootActionResult and any error.
 type RebootActionResults struct {
 	Results []RebootActionResult `json:"results,omitempty"`

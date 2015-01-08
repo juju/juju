@@ -20,6 +20,7 @@ var facadeVersions = map[string]int{
 	"Networker":            0,
 	"StringsWatcher":       0,
 	"Environment":          0,
+	"ImageManager":         1,
 	"KeyManager":           0,
 	"Logger":               0,
 	"MetricsManager":       0,

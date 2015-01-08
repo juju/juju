@@ -16,6 +16,7 @@ import (
 	_ "github.com/juju/juju/apiserver/diskmanager"
 	_ "github.com/juju/juju/apiserver/environment"
 	_ "github.com/juju/juju/apiserver/firewaller"
+	_ "github.com/juju/juju/apiserver/imagemanager"
 	_ "github.com/juju/juju/apiserver/keymanager"
 	_ "github.com/juju/juju/apiserver/keyupdater"
 	_ "github.com/juju/juju/apiserver/logger"
