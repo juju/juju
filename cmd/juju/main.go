@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/user"
@@ -163,6 +164,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage users and access
 	r.Register(user.NewSuperCommand())
+
+	// Manage cached images
+	r.Register(cachedimages.NewSuperCommand())
 
 	// Manage machines
 	r.Register(machine.NewSuperCommand())
