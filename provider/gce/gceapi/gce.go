@@ -375,48 +375,6 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 	return nil
 }
 
-/*
-func (gce *Connection) disk(name string) (*compute.Disk, error) {
-	name = path.Base(name) // In case the disk's resource URL is passed in.
-
-	// TODO(ericsnow) Use the disk API.
-	return nil, errors.New("getting disk info from API not supported")
-}
-
-func (gce *Connection) removeDisk(id, zone string) error {
-	call := gce.Disks.Delete(gce.ProjectID, zone, id)
-	operation, err := call.Do()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = gce.waitOperation(operation, attemptsLong)
-	return errors.Trace(err)
-}
-
-func (gce Connection) rootDiskGB(inst *compute.Instance) (uint64, error) {
-	attached := rootDisk(inst)
-	diskSizeGB, err := diskSizeGB(attached)
-	if err != nil {
-		logger.Warningf("error while getting root disk size: %v", err)
-		// Fall back to making an API request.
-		disk, err := gce.Disk(attached.Source)
-		if err != nil {
-			return 0, errors.Annotatef(err, "failed to get root disk info")
-		}
-		diskSizeGB = disk.SizeGb
-	}
-	return diskSizeGB, nil
-}
-
-func (gce Connection) RootDiskMB(inst *compute.Instance) (uint64, error) {
-	diskSizeGB, err := gce.rootDiskGB(inst)
-	if err != nil {
-		return 0, errors.Trace(err)
-	}
-	return uint64(diskSizeGB) * 1024, nil
-}
-*/
-
 func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
 	call := gce.Firewalls.List(gce.ProjectID)
 	call = call.Filter("name eq " + name)
