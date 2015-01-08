@@ -143,10 +143,10 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	}
 
 	// Check sanity of GCE fields.
-	if err := ecfg.auth().Validate(); err != nil {
+	if err := gceapi.ValidateAuth(ecfg.auth()); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
-	if err := ecfg.newConnection().Validate(); err != nil {
+	if err := gceapi.ValidateConnection(ecfg.newConnection()); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
 

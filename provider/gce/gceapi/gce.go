@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 )
 
@@ -44,14 +43,6 @@ const (
 	// MinDiskSize is the minimum/default size (in megabytes) for GCE
 	// disks. GCE does not currently have a minimum disk size.
 	MinDiskSizeGB int64 = 0
-
-	// These are not GCE-official environment variable names.
-	OSEnvPrivateKey    = "GCE_PRIVATE_KEY"
-	OSEnvClientID      = "GCE_CLIENT_ID"
-	OSEnvClientEmail   = "GCE_CLIENT_EMAIL"
-	OSEnvRegion        = "GCE_REGION"
-	OSEnvProjectID     = "GCE_PROJECT_ID"
-	OSEnvImageEndpoint = "GCE_IMAGE_URL"
 )
 
 var (
@@ -73,16 +64,6 @@ type Connection struct {
 
 	Region    string
 	ProjectID string
-}
-
-func (gc Connection) Validate() error {
-	if gc.Region == "" {
-		return &config.InvalidConfigValue{Key: OSEnvRegion}
-	}
-	if gc.ProjectID == "" {
-		return &config.InvalidConfigValue{Key: OSEnvProjectID}
-	}
-	return nil
 }
 
 func (gc *Connection) Connect(auth Auth) error {

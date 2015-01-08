@@ -5,14 +5,11 @@ package gceapi
 
 import (
 	"net/http"
-	"net/mail"
 
 	"code.google.com/p/goauth2/oauth"
 	"code.google.com/p/goauth2/oauth/jwt"
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/environs/config"
 )
 
 const (
@@ -28,22 +25,6 @@ type Auth struct {
 	ClientID    string
 	ClientEmail string
 	PrivateKey  []byte
-}
-
-func (ga Auth) Validate() error {
-	if ga.ClientID == "" {
-		return &config.InvalidConfigValue{Key: OSEnvClientID}
-	}
-	if ga.ClientEmail == "" {
-		return &config.InvalidConfigValue{Key: OSEnvClientEmail}
-	} else if _, err := mail.ParseAddress(ga.ClientEmail); err != nil {
-		err = errors.Trace(err)
-		return &config.InvalidConfigValue{OSEnvClientEmail, ga.ClientEmail, err}
-	}
-	if len(ga.PrivateKey) == 0 {
-		return &config.InvalidConfigValue{Key: OSEnvPrivateKey}
-	}
-	return nil
 }
 
 func (ga Auth) newTransport() (*oauth.Transport, error) {

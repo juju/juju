@@ -11,15 +11,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type baseSuite struct {
+type BaseSuite struct {
 	testing.BaseSuite
 
 	auth Auth
 }
 
-var _ = gc.Suite(&baseSuite{})
+var _ = gc.Suite(&BaseSuite{})
 
-func (s *baseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.auth = Auth{
 		ClientID:    "spam",
@@ -28,7 +28,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *baseSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes string, token *oauth.Token) {
+func (s *BaseSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes string, token *oauth.Token) {
 	if expectedScopes == "" {
 		expectedScopes = "https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.full_control"
 	}

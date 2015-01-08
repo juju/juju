@@ -8,60 +8,13 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/environs/config"
 )
 
 type authSuite struct {
-	baseSuite
+	BaseSuite
 }
 
 var _ = gc.Suite(&authSuite{})
-
-func (*authSuite) TestAuthValidate(c *gc.C) {
-	auth := Auth{
-		ClientID:    "spam",
-		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
-	}
-	err := auth.Validate()
-
-	c.Check(err, jc.ErrorIsNil)
-}
-
-func (*authSuite) TestAuthValidateMissingID(c *gc.C) {
-	auth := Auth{
-		ClientEmail: "user@mail.com",
-		PrivateKey:  []byte("non-empty"),
-	}
-	err := auth.Validate()
-
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_ID")
-}
-
-func (*authSuite) TestAuthValidateBadEmail(c *gc.C) {
-	auth := Auth{
-		ClientID:    "spam",
-		ClientEmail: "bad_email",
-		PrivateKey:  []byte("non-empty"),
-	}
-	err := auth.Validate()
-
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_EMAIL")
-}
-
-func (*authSuite) TestAuthValidateMissingKey(c *gc.C) {
-	auth := Auth{
-		ClientID:    "spam",
-		ClientEmail: "user@mail.com",
-	}
-	err := auth.Validate()
-
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
-}
 
 func (s *authSuite) TestAuthNewTransport(c *gc.C) {
 	token := &oauth.Token{}
