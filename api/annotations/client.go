@@ -33,7 +33,7 @@ func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 
 // Set sets the same annotation pairs on all given entities.
 func (c *Client) Set(tags []string, pairs map[string]string) error {
-	args := params.AnnotationsSet{entitiesFromTags(tags), pairs}
+	args := params.AnnotationsSet{entitiesAnnotations(tags, pairs)}
 	if err := c.facade.FacadeCall("Set", args, nil); err != nil {
 		return errors.Trace(err)
 	}
@@ -46,4 +46,16 @@ func entitiesFromTags(tags []string) params.Entities {
 		entities = append(entities, params.Entity{tag})
 	}
 	return params.Entities{entities}
+}
+
+func entitiesAnnotations(tags []string, pairs map[string]string) []params.EntityAnnotations {
+	all := []params.EntityAnnotations{}
+	for _, tag := range tags {
+		one := params.EntityAnnotations{
+			Entity:      params.Entity{tag},
+			Annotations: pairs,
+		}
+		all = append(all, one)
+	}
+	return all
 }

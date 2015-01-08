@@ -17,6 +17,11 @@ type AnnotationsGetResults struct {
 
 // AnnotationsSet stores parameters for making the SetEntitiesAnnotations call.
 type AnnotationsSet struct {
-	Collection  Entities
+	Annotations []EntityAnnotations
+}
+
+// EntityAnnotations stores annotations for an individual Entity.
+type EntityAnnotations struct {
+	Entity      Entity
 	Annotations map[string]string
 }
