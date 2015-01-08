@@ -6,7 +6,6 @@ package annotations
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -15,13 +14,12 @@ import (
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	st     *api.State
 }
 
 // NewClient creates a new client for accessing the annotations API.
-func NewClient(st *api.State) *Client {
+func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Annotations")
-	return &Client{ClientFacade: frontend, st: st, facade: backend}
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // Get returns annotations that have been set on the given entities.
