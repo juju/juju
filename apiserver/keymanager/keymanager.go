@@ -232,20 +232,22 @@ func runSSHImportId(keyId string) (string, error) {
 
 // runSSHKeyImport uses ssh-import-id to find the ssh keys for the specified key ids.
 func runSSHKeyImport(keyIds []string) []importedSSHKey {
+	// zero-length slice to force append to overwrite from the start
 	keyInfo := make([]importedSSHKey, len(keyIds))[:0]
 	for _, keyId := range keyIds {
 		output, err := RunSSHImportId(keyId)
 		if err != nil {
 			keyInfo = append(keyInfo, importedSSHKey{err: err})
-			keyInfo[i].err = err
 			continue
 		}
 		lines := strings.Split(output, "\n")
+		hasKey := false
 		for _, line := range lines {
 			if !strings.HasPrefix(line, "ssh-") {
 				continue
 			}
-			fingerprint, _, err = ssh.KeyFingerprint(line)
+			hasKey = true
+			fingerprint, _, err := ssh.KeyFingerprint(line)
 			if err == nil {
 				keyInfo = append(keyInfo, importedSSHKey{
 				    key: line,
@@ -255,9 +257,14 @@ func runSSHKeyImport(keyIds []string) []importedSSHKey {
 				keyInfo = append(keyInfo, importedSSHKey{
 				    key: "",
 				    fingerprint: fingerprint,
-				    err: fmt.Errorf("invalid ssh key id: %s", keyId),
+				    err: fmt.Errorf("invalid ssh key for %s: %s", keyId, line),
 				})
 			}
+		}
+		if !hasKey {
+			keyInfo = append(keyInfo, importedSSHKey{
+			    err: fmt.Errorf("invalid ssh key id: %s", keyId),
+			})
 		}
 	}
 	return keyInfo
