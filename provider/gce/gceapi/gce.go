@@ -145,7 +145,7 @@ var newService = func(transport *oauth.Transport) (*compute.Service, error) {
 }
 
 type Connection struct {
-	*compute.Service
+	raw *compute.Service
 
 	Region    string
 	ProjectID string
@@ -162,7 +162,7 @@ func (gc Connection) Validate() error {
 }
 
 func (gc *Connection) Connect(auth Auth) error {
-	if gc.Service != nil {
+	if gc.raw != nil {
 		return errors.New("connect() failed (already connected)")
 	}
 
@@ -171,12 +171,12 @@ func (gc *Connection) Connect(auth Auth) error {
 		return errors.Trace(err)
 	}
 
-	gc.Service = service
+	gc.raw = service
 	return nil
 }
 
 func (gc Connection) VerifyCredentials() error {
-	call := gc.Projects.Get(gc.ProjectID)
+	call := gc.raw.Projects.Get(gc.ProjectID)
 	if _, err := call.Do(); err != nil {
 		return errors.Trace(err)
 	}
@@ -193,12 +193,12 @@ func (gce *Connection) checkOperation(op *compute.Operation) (*compute.Operation
 	var call operationDoer
 	if op.Zone != "" {
 		zone := zoneName(op)
-		call = gce.ZoneOperations.Get(gce.ProjectID, zone, op.Name)
+		call = gce.raw.ZoneOperations.Get(gce.ProjectID, zone, op.Name)
 	} else if op.Region != "" {
 		region := path.Base(op.Region)
-		call = gce.RegionOperations.Get(gce.ProjectID, region, op.Name)
+		call = gce.raw.RegionOperations.Get(gce.ProjectID, region, op.Name)
 	} else {
-		call = gce.GlobalOperations.Get(gce.ProjectID, op.Name)
+		call = gce.raw.GlobalOperations.Get(gce.ProjectID, op.Name)
 	}
 
 	updated, err := call.Do()
@@ -238,7 +238,7 @@ func (gce *Connection) waitOperation(op *compute.Operation, attempts utils.Attem
 }
 
 func (gce *Connection) instance(zone, id string) (*compute.Instance, error) {
-	call := gce.Service.Instances.Get(gce.ProjectID, zone, id)
+	call := gce.raw.Instances.Get(gce.ProjectID, zone, id)
 	inst, err := call.Do()
 	return inst, errors.Trace(err)
 }
@@ -246,7 +246,7 @@ func (gce *Connection) instance(zone, id string) (*compute.Instance, error) {
 func (gce *Connection) addInstance(inst *compute.Instance, machineType string, zones []string) error {
 	for _, zoneName := range zones {
 		inst.MachineType = resolveMachineType(zoneName, machineType)
-		call := gce.Service.Instances.Insert(
+		call := gce.raw.Instances.Insert(
 			gce.ProjectID,
 			zoneName,
 			inst,
@@ -277,7 +277,7 @@ func (gce *Connection) addInstance(inst *compute.Instance, machineType string, z
 }
 
 func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance, error) {
-	call := gce.Service.Instances.AggregatedList(gce.ProjectID)
+	call := gce.raw.Instances.AggregatedList(gce.ProjectID)
 	call = call.Filter("name eq " + prefix + ".*")
 
 	// TODO(ericsnow) Add a timeout?
@@ -305,7 +305,7 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 }
 
 func (gce *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
-	call := gce.Zones.List(gce.ProjectID)
+	call := gce.raw.Zones.List(gce.ProjectID)
 	if region != "" {
 		call = call.Filter("name eq " + region + "-.*")
 	}
@@ -331,7 +331,7 @@ func (gce *Connection) AvailabilityZones(region string) ([]AvailabilityZone, err
 }
 
 func (gce *Connection) removeInstance(id, zone string) error {
-	call := gce.Service.Instances.Delete(gce.ProjectID, zone, id)
+	call := gce.raw.Instances.Delete(gce.ProjectID, zone, id)
 	operation, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
@@ -376,7 +376,7 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 }
 
 func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
-	call := gce.Firewalls.List(gce.ProjectID)
+	call := gce.raw.Firewalls.List(gce.ProjectID)
 	call = call.Filter("name eq " + name)
 	firewallList, err := call.Do()
 	if err != nil {
@@ -389,7 +389,7 @@ func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
 }
 
 func (gce *Connection) insertFirewall(firewall *compute.Firewall) error {
-	call := gce.Firewalls.Insert(gce.ProjectID, firewall)
+	call := gce.raw.Firewalls.Insert(gce.ProjectID, firewall)
 	operation, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
@@ -401,7 +401,7 @@ func (gce *Connection) insertFirewall(firewall *compute.Firewall) error {
 }
 
 func (gce *Connection) updateFirewall(name string, firewall *compute.Firewall) error {
-	call := gce.Firewalls.Update(gce.ProjectID, name, firewall)
+	call := gce.raw.Firewalls.Update(gce.ProjectID, name, firewall)
 	operation, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
@@ -413,7 +413,7 @@ func (gce *Connection) updateFirewall(name string, firewall *compute.Firewall) e
 }
 
 func (gce *Connection) deleteFirewall(name string) error {
-	call := gce.Firewalls.Delete(gce.ProjectID, name)
+	call := gce.raw.Firewalls.Delete(gce.ProjectID, name)
 	operation, err := call.Do()
 	if err != nil {
 		return errors.Trace(err)
