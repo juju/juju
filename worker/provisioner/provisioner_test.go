@@ -379,7 +379,7 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, gc.Equals, expect)
 			return true
-		} else if !state.IsNotProvisionedError(err) {
+		} else if !errors.IsNotProvisioned(err) {
 			// We don't expect any errors.
 			panic(err)
 		}
@@ -1211,7 +1211,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {

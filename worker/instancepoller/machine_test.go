@@ -350,7 +350,7 @@ func (m *testMachine) Addresses() []network.Address {
 
 func (m *testMachine) InstanceId() (instance.Id, error) {
 	if m.instanceId == "" {
-		return "", state.NotProvisionedError(m.Id())
+		return "", errors.NotProvisionedf("machine %v", m.Id())
 	}
 	return m.instanceId, m.instanceIdErr
 }

@@ -77,7 +77,7 @@ var errorTransformTests = []struct {
 	code:       params.CodeUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
 }, {
-	err:        state.NotProvisionedError("0"),
+	err:        errors.NotProvisionedf("machine 0"),
 	code:       params.CodeNotProvisioned,
 	helperFunc: params.IsCodeNotProvisioned,
 }, {

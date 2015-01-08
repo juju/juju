@@ -753,13 +753,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(iid, gc.Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -775,7 +775,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -942,7 +942,7 @@ func (s *MachineSuite) TestNotProvisionedMachineSetInstanceStatus(c *gc.C) {
 
 func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
 	_, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {

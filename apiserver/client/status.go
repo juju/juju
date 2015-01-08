@@ -342,7 +342,7 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 		}
 		status.DNSName = network.SelectPublicAddress(machine.Addresses())
 	} else {
-		if state.IsNotProvisionedError(err) {
+		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
 		} else {
 			status.InstanceId = "error"
