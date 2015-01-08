@@ -39,7 +39,11 @@ func ValidateAuth(auth Auth) error {
 		return &config.InvalidConfigValue{Key: OSEnvClientEmail}
 	} else if _, err := mail.ParseAddress(auth.ClientEmail); err != nil {
 		err = errors.Trace(err)
-		return &config.InvalidConfigValue{OSEnvClientEmail, auth.ClientEmail, err}
+		return &config.InvalidConfigValue{
+			Key:    OSEnvClientEmail,
+			Value:  auth.ClientEmail,
+			Reason: err,
+		}
 	}
 	if len(auth.PrivateKey) == 0 {
 		return &config.InvalidConfigValue{Key: OSEnvPrivateKey}
