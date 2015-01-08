@@ -92,8 +92,8 @@ func (s *annotationsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *annotationsSuite) TearDownTest(c *gc.C) {
-	s.JujuConnSuite.TearDownTest(c)
 	s.annotationsClient.ClientFacade.Close()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
