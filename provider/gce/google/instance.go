@@ -74,8 +74,12 @@ func (is InstanceSpec) create(conn *Connection, zones []string) (*compute.Instan
 		Tags:              &compute.Tags{Items: is.Tags},
 		// MachineType is set in the addInstance call.
 	}
-	err := conn.addInstance(raw, is.Type, zones)
+	err := addInstance(conn, raw, is.Type, zones)
 	return raw, errors.Trace(err)
+}
+
+var addInstance = func(conn *Connection, raw *compute.Instance, typ string, zones []string) error {
+	return conn.addInstance(raw, typ, zones)
 }
 
 func (is InstanceSpec) disks() []*compute.AttachedDisk {
