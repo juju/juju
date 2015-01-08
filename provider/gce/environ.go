@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/client"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 // Note: This provider/environment does *not* implement storage.
@@ -25,7 +25,7 @@ type environ struct {
 	lock sync.Mutex
 	ecfg *environConfig
 
-	gce *client.Connection
+	gce *google.Connection
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -78,7 +78,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return errors.Trace(err)
 }
 
-var connect = func(conn *client.Connection, auth client.Auth) error {
+var connect = func(conn *google.Connection, auth google.Auth) error {
 	return conn.Connect(auth)
 }
 

@@ -12,13 +12,13 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/client"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 var instStatuses = []string{
-	client.StatusPending,
-	client.StatusStaging,
-	client.StatusRunning,
+	google.StatusPending,
+	google.StatusStaging,
+	google.StatusRunning,
 }
 
 // Instances returns the available instances in the environment that
@@ -110,7 +110,7 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return results, nil
 }
 
-func (env *environ) parsePlacement(placement string) (*client.AvailabilityZone, error) {
+func (env *environ) parsePlacement(placement string) (*google.AvailabilityZone, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, errors.Errorf("unknown placement directive: %v", placement)
@@ -124,7 +124,7 @@ func (env *environ) parsePlacement(placement string) (*client.AvailabilityZone, 
 		}
 		for _, z := range zones {
 			if z.Name() == zoneName {
-				return z.(*client.AvailabilityZone), nil
+				return z.(*google.AvailabilityZone), nil
 			}
 		}
 		return nil, errors.Errorf("invalid availability zone %q", zoneName)

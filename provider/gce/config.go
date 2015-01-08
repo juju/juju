@@ -8,7 +8,7 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/gce/client"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 const (
@@ -38,12 +38,12 @@ gce:
 `[1:]
 
 var osEnvFields = map[string]string{
-	client.OSEnvPrivateKey:    cfgPrivateKey,
-	client.OSEnvClientID:      cfgClientID,
-	client.OSEnvClientEmail:   cfgClientEmail,
-	client.OSEnvRegion:        cfgRegion,
-	client.OSEnvProjectID:     cfgProjectID,
-	client.OSEnvImageEndpoint: cfgImageEndpoint,
+	google.OSEnvPrivateKey:    cfgPrivateKey,
+	google.OSEnvClientID:      cfgClientID,
+	google.OSEnvClientEmail:   cfgClientEmail,
+	google.OSEnvRegion:        cfgRegion,
+	google.OSEnvProjectID:     cfgProjectID,
+	google.OSEnvImageEndpoint: cfgImageEndpoint,
 }
 
 var configFields = schema.Fields{
@@ -102,16 +102,16 @@ func (c *environConfig) imageEndpoint() string {
 	return c.attrs[cfgImageEndpoint].(string)
 }
 
-func (c *environConfig) auth() client.Auth {
-	return client.Auth{
+func (c *environConfig) auth() google.Auth {
+	return google.Auth{
 		ClientID:    c.attrs[cfgClientID].(string),
 		ClientEmail: c.attrs[cfgClientEmail].(string),
 		PrivateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
 	}
 }
 
-func (c *environConfig) newConnection() *client.Connection {
-	return &client.Connection{
+func (c *environConfig) newConnection() *google.Connection {
+	return &google.Connection{
 		Region:    c.attrs[cfgRegion].(string),
 		ProjectID: c.attrs[cfgProjectID].(string),
 	}
@@ -143,10 +143,10 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	}
 
 	// Check sanity of GCE fields.
-	if err := client.ValidateAuth(ecfg.auth()); err != nil {
+	if err := google.ValidateAuth(ecfg.auth()); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
-	if err := client.ValidateConnection(ecfg.newConnection()); err != nil {
+	if err := google.ValidateConnection(ecfg.newConnection()); err != nil {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
 

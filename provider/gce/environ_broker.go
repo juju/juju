@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/provider/gce/client"
+	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
@@ -121,7 +121,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
-func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*client.Instance, error) {
+func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 
 	metadata, err := getMetadata(args)
@@ -136,7 +136,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	// TODO(ericsnow) Make the network name configurable?
 	// TODO(ericsnow) Support multiple networks?
 	// TODO(ericsnow) Use a different net interface name? Configurable?
-	instSpec := client.InstanceSpec{
+	instSpec := google.InstanceSpec{
 		ID:                machineID,
 		Type:              spec.InstanceType.Name,
 		Disks:             getDisks(spec, args.Constraints),
@@ -162,7 +162,7 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	}
 	logger.Debugf("GCE user data; %d bytes", len(userData))
 
-	authKeys, err := client.FormatAuthorizedKeys(args.MachineConfig.AuthorizedKeys, "ubuntu")
+	authKeys, err := google.FormatAuthorizedKeys(args.MachineConfig.AuthorizedKeys, "ubuntu")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -187,12 +187,12 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	return metadata, nil
 }
 
-func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []client.DiskSpec {
+func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.DiskSpec {
 	size := common.MinRootDiskSizeGiB
 	if cons.RootDisk != nil && *cons.RootDisk > uint64(size) {
 		size = int64(common.MiBToGiB(*cons.RootDisk))
 	}
-	dSpec := client.DiskSpec{
+	dSpec := google.DiskSpec{
 		SizeHintGB: size,
 		ImageURL:   imageBasePath + spec.Image.Id,
 		Boot:       true,
@@ -200,9 +200,9 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []client.Dis
 	}
 	if cons.RootDisk != nil && dSpec.TooSmall() {
 		msg := "Ignoring root-disk constraint of %dM because it is smaller than the GCE image size of %dG"
-		logger.Infof(msg, *cons.RootDisk, client.MinDiskSizeGB)
+		logger.Infof(msg, *cons.RootDisk, google.MinDiskSizeGB)
 	}
-	return []client.DiskSpec{dSpec}
+	return []google.DiskSpec{dSpec}
 }
 
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {

@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package client
+package google
 
 import (
 	"code.google.com/p/goauth2/oauth"

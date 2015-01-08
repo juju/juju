@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/provider/gce/client"
+	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
 )
 
@@ -43,7 +43,7 @@ var _ = gc.Suite(&ConfigSuite{})
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.PatchValue(gce.Connect, func(*client.Connection, client.Auth) error {
+	s.PatchValue(gce.Connect, func(*google.Connection, google.Auth) error {
 		return nil
 	})
 }
