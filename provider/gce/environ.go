@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -17,35 +16,6 @@ import (
 )
 
 // Note: This provider/environment does *not* implement storage.
-
-const (
-	metadataKeyIsState = "juju-is-state"
-	// This is defined by the cloud-init code:
-	// http://bazaar.launchpad.net/~cloud-init-dev/cloud-init/trunk/view/head:/cloudinit/sources/DataSourceGCE.py
-	// http://cloudinit.readthedocs.org/en/latest/
-	// https://cloud.google.com/compute/docs/metadata
-	metadataKeyCloudInit = "user-data"
-	metadataKeyEncoding  = "user-data-encoding"
-	// GCE uses this specific key for authentication (*handwaving*)
-	// https://cloud.google.com/compute/docs/instances#sshkeys
-	metadataKeySSHKeys = "sshKeys"
-
-	metadataValueTrue  = "true"
-	metadataValueFalse = "false"
-
-	// See https://cloud.google.com/compute/docs/operating-systems/linux-os#ubuntu
-	// TODO(ericsnow) Should this be handled in cloud-images (i.e.
-	// simplestreams)?
-	imageBasePath = "projects/ubuntu-os-cloud/global/images/"
-)
-
-var (
-	logger = loggo.GetLogger("juju.provider.gce")
-
-	errNotImplemented = errors.NotImplementedf("gce provider functionality")
-
-	signedImageDataOnly = false
-)
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
