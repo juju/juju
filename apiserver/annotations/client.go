@@ -1,12 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package service contains api calls for accessing service functionality.
 package annotations
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,6 +16,10 @@ func init() {
 	common.RegisterStandardFacade("Annotations", 0, NewAPI)
 }
 
+var getState = func(st *state.State) annotationAccess {
+	return stateShim{st}
+}
+
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
 	Get(args params.Entities) params.AnnotationsGetResults
@@ -27,7 +29,7 @@ type Annotations interface {
 // API implements the service interface and is the concrete
 // implementation of the api end point.
 type API struct {
-	state      *state.State
+	access     annotationAccess
 	authorizer common.Authorizer
 }
 
@@ -42,7 +44,7 @@ func NewAPI(
 	}
 
 	return &API{
-		state:      st,
+		access:     getState(st),
 		authorizer: authorizer,
 	}, nil
 }
@@ -93,7 +95,7 @@ func (api *API) getEntityAnnotations(entityTag string) (map[string]string, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	annotations, err := state.Annotations(entity, api.state)
+	annotations, err := api.access.GetAnnotations(entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,7 +103,7 @@ func (api *API) getEntityAnnotations(entityTag string) (map[string]string, error
 }
 
 func (api *API) findEntity(tag names.Tag) (state.GlobalEntity, error) {
-	entity0, err := api.state.FindEntity(tag)
+	entity0, err := api.access.FindEntity(tag)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, common.ErrPerm
@@ -124,5 +126,5 @@ func (api *API) setEntityAnnotations(entityTag string, annotations map[string]st
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return state.SetAnnotations(entity, api.state, annotations)
+	return api.access.SetAnnotations(entity, annotations)
 }
