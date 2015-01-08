@@ -238,13 +238,13 @@ func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr n
 func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
 	return errors.NotSupportedf("ReleaseAddress")
 }
-func (env *environ) Subnets(inst instance.Id) ([]network.BasicInfo, error) {
+func (env *environ) Subnets(inst instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("Subnets")
 }
 
 // ListNetworks returns basic information about all networks known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
-func (env *environ) ListNetworks() ([]network.BasicInfo, error) {
+func (env *environ) ListNetworks() ([]network.SubnetInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
