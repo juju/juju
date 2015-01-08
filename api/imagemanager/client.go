@@ -22,7 +22,11 @@ func NewClient(st base.APICallCloser) *Client {
 
 // ListImages returns the images.
 func (c *Client) ListImages(kind, series, arch string) ([]params.ImageMetadata, error) {
-	p := params.ImageSpec{Kind: kind, Series: series, Arch: arch}
+	p := params.ImageFilterParams{
+		Images: []params.ImageSpec{
+			{Kind: kind, Series: series, Arch: arch},
+		},
+	}
 	var result params.ListImageResult
 	err := c.facade.FacadeCall("ListImages", p, &result)
 	return result.Result, err
@@ -30,7 +34,7 @@ func (c *Client) ListImages(kind, series, arch string) ([]params.ImageMetadata, 
 
 // DeleteImage deletes the specified image.
 func (c *Client) DeleteImage(kind, series, arch string) error {
-	p := params.DeleteImageParams{
+	p := params.ImageFilterParams{
 		Images: []params.ImageSpec{
 			{Kind: kind, Series: series, Arch: arch},
 		},

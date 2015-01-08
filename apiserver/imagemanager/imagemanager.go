@@ -21,8 +21,8 @@ func init() {
 
 // ImageManager defines the methods on the imagemanager API end point.
 type ImageManager interface {
-	ListImages(arg params.ImageSpec) (params.ListImageResult, error)
-	DeleteImages(arg params.DeleteImageParams) (params.ErrorResults, error)
+	ListImages(arg params.ImageFilterParams) (params.ListImageResult, error)
+	DeleteImages(arg params.ImageFilterParams) (params.ErrorResults, error)
 }
 
 // ImageManagerAPI implements the ImageManager interface and is the concrete
@@ -51,14 +51,20 @@ func NewImageManagerAPI(st *state.State, resources *common.Resources, authorizer
 }
 
 // ListImages returns images matching the specified filter.
-func (api *ImageManagerAPI) ListImages(arg params.ImageSpec) (params.ListImageResult, error) {
-	stor := api.state.ImageStorage()
-	filter := imagestorage.ImageFilter{
-		Kind:   arg.Kind,
-		Series: arg.Series,
-		Arch:   arg.Arch,
-	}
+func (api *ImageManagerAPI) ListImages(arg params.ImageFilterParams) (params.ListImageResult, error) {
 	var result params.ListImageResult
+	if len(arg.Images) > 1 {
+		return result, errors.New("image filter with multiple terms not supported")
+	}
+	filter := imagestorage.ImageFilter{}
+	if len(arg.Images) == 1 {
+		filter = imagestorage.ImageFilter{
+			Kind:   arg.Images[0].Kind,
+			Series: arg.Images[0].Series,
+			Arch:   arg.Images[0].Arch,
+		}
+	}
+	stor := api.state.ImageStorage()
 	metadata, err := stor.ListImages(filter)
 	if err != nil {
 		return result, nil
@@ -77,7 +83,7 @@ func (api *ImageManagerAPI) ListImages(arg params.ImageSpec) (params.ListImageRe
 }
 
 // DeleteImages deletes the images matching the specified filter.
-func (api *ImageManagerAPI) DeleteImages(arg params.DeleteImageParams) (params.ErrorResults, error) {
+func (api *ImageManagerAPI) DeleteImages(arg params.ImageFilterParams) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

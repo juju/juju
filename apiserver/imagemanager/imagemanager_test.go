@@ -78,9 +78,9 @@ func (s *imageManagerSuite) addImage(c *gc.C, content string) {
 	rdr.Close()
 }
 
-func (s *imageManagerSuite) TestListImages(c *gc.C) {
+func (s *imageManagerSuite) TestListAllImages(c *gc.C) {
 	s.addImage(c, "image")
-	args := params.ImageSpec{}
+	args := params.ImageFilterParams{}
 	result, err := s.imagemanager.ListImages(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.HasLen, 1)
@@ -91,9 +91,49 @@ func (s *imageManagerSuite) TestListImages(c *gc.C) {
 	})
 }
 
+func (s *imageManagerSuite) TestListImagesWithSingleFilter(c *gc.C) {
+	s.addImage(c, "image")
+	args := params.ImageFilterParams{
+		Images: []params.ImageSpec{
+			{
+				Kind:   "lxc",
+				Series: "trusty",
+				Arch:   "amd64",
+			},
+		},
+	}
+	result, err := s.imagemanager.ListImages(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Result, gc.HasLen, 1)
+	dummyTime := time.Now()
+	result.Result[0].Created = dummyTime
+	c.Assert(result.Result[0], gc.Equals, params.ImageMetadata{
+		Kind: "lxc", Arch: "amd64", Series: "trusty", URL: "http://lxc-trusty-amd64", Created: dummyTime,
+	})
+}
+
+func (s *imageManagerSuite) TestListImagesWithMultipleFiltersFails(c *gc.C) {
+	s.addImage(c, "image")
+	args := params.ImageFilterParams{
+		Images: []params.ImageSpec{
+			{
+				Kind:   "lxc",
+				Series: "trusty",
+				Arch:   "amd64",
+			}, {
+				Kind:   "lxc",
+				Series: "precise",
+				Arch:   "amd64",
+			},
+		},
+	}
+	_, err := s.imagemanager.ListImages(args)
+	c.Assert(err, gc.ErrorMatches, "image filter with multiple terms not supported")
+}
+
 func (s *imageManagerSuite) TestDeleteImages(c *gc.C) {
 	s.addImage(c, "image")
-	args := params.DeleteImageParams{
+	args := params.ImageFilterParams{
 		Images: []params.ImageSpec{
 			{
 				Kind:   "lxc",
@@ -121,7 +161,7 @@ func (s *imageManagerSuite) TestDeleteImages(c *gc.C) {
 
 func (s *imageManagerSuite) TestBlockDeleteImages(c *gc.C) {
 	s.addImage(c, "image")
-	args := params.DeleteImageParams{
+	args := params.ImageFilterParams{
 		Images: []params.ImageSpec{{
 			Kind:   "lxc",
 			Series: "trusty",

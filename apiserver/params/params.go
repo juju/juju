@@ -752,12 +752,12 @@ type FindToolsResult struct {
 	Error *Error
 }
 
-// DeleteImageParams holds the parameters used to specify images to delete.
-type DeleteImageParams struct {
+// ImageFilterParams holds the parameters used to specify images to delete.
+type ImageFilterParams struct {
 	Images []ImageSpec `json:"images"`
 }
 
-// ImageSpec defines the parameters to select an image to delete.
+// ImageSpec defines the parameters to select images list or delete.
 type ImageSpec struct {
 	Kind   string `json:"kind"`
 	Arch   string `json:"arch"`

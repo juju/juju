@@ -105,7 +105,7 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 		SHA256:    metadata.SHA256,
 		SourceURL: metadata.SourceURL,
 		Path:      path,
-		Created:   time.Now().Format(time.RFC3339),
+		Created:   time.Now(),
 	}
 
 	// Add or replace metadata. If replacing, record the
@@ -169,10 +169,6 @@ func (s *imageStorage) ListImages(filter ImageFilter) ([]*Metadata, error) {
 	}
 	result := make([]*Metadata, len(metadataDocs))
 	for i, metadataDoc := range metadataDocs {
-		created, err := time.Parse(time.RFC3339, metadataDoc.Created)
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot parse metadata created time")
-		}
 		result[i] = &Metadata{
 			EnvUUID:   s.envUUID,
 			Kind:      metadataDoc.Kind,
@@ -180,7 +176,7 @@ func (s *imageStorage) ListImages(filter ImageFilter) ([]*Metadata, error) {
 			Arch:      metadataDoc.Arch,
 			Size:      metadataDoc.Size,
 			SHA256:    metadataDoc.SHA256,
-			Created:   created,
+			Created:   metadataDoc.Created,
 			SourceURL: metadataDoc.SourceURL,
 		}
 	}
@@ -232,10 +228,6 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 	if err != nil {
 		return nil, nil, err
 	}
-	created, err := time.Parse(time.RFC3339, metadataDoc.Created)
-	if err != nil {
-		return nil, nil, err
-	}
 	session := s.blobDb.Session.Copy()
 	managedStorage := s.getManagedStorage(session)
 	image, err := s.imageBlob(managedStorage, metadataDoc.Path)
@@ -250,7 +242,7 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 		Size:      metadataDoc.Size,
 		SHA256:    metadataDoc.SHA256,
 		SourceURL: metadataDoc.SourceURL,
-		Created:   created,
+		Created:   metadataDoc.Created,
 	}
 	imageResult := &imageCloser{
 		image,
@@ -260,16 +252,16 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 }
 
 type imageMetadataDoc struct {
-	Id        string `bson:"_id"`
-	EnvUUID   string `bson:"envuuid"`
-	Kind      string `bson:"kind"`
-	Series    string `bson:"series"`
-	Arch      string `bson:"arch"`
-	Size      int64  `bson:"size"`
-	SHA256    string `bson:"sha256"`
-	Path      string `bson:"path"`
-	Created   string `bson:"created"`
-	SourceURL string `bson:"sourceurl"`
+	Id        string    `bson:"_id"`
+	EnvUUID   string    `bson:"envuuid"`
+	Kind      string    `bson:"kind"`
+	Series    string    `bson:"series"`
+	Arch      string    `bson:"arch"`
+	Size      int64     `bson:"size"`
+	SHA256    string    `bson:"sha256"`
+	Path      string    `bson:"path"`
+	Created   time.Time `bson:"created"`
+	SourceURL string    `bson:"sourceurl"`
 }
 
 func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (imageMetadataDoc, error) {

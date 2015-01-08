@@ -387,16 +387,16 @@ func (s *ImageSuite) TestDeleteNotExistentImage(c *gc.C) {
 
 func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int64, checksum, path, sourceURL string) {
 	doc := struct {
-		Id        string `bson:"_id"`
-		EnvUUID   string `bson:"envuuid"`
-		Kind      string `bson:"kind"`
-		Series    string `bson:"series"`
-		Arch      string `bson:"arch"`
-		Size      int64  `bson:"size"`
-		SHA256    string `bson:"sha256,omitempty"`
-		Path      string `bson:"path"`
-		Created   string `bson:"created"`
-		SourceURL string `bson:"sourceurl"`
+		Id        string    `bson:"_id"`
+		EnvUUID   string    `bson:"envuuid"`
+		Kind      string    `bson:"kind"`
+		Series    string    `bson:"series"`
+		Arch      string    `bson:"arch"`
+		Size      int64     `bson:"size"`
+		SHA256    string    `bson:"sha256,omitempty"`
+		Path      string    `bson:"path"`
+		Created   time.Time `bson:"created"`
+		SourceURL string    `bson:"sourceurl"`
 	}{
 		Id:        fmt.Sprintf("my-uuid-%s-%s-%s", kind, series, arch),
 		EnvUUID:   "my-uuid",
@@ -406,7 +406,7 @@ func (s *ImageSuite) addMetadataDoc(c *gc.C, kind, series, arch string, size int
 		Size:      size,
 		SHA256:    checksum,
 		Path:      path,
-		Created:   time.Now().Format(time.RFC3339),
+		Created:   time.Now(),
 		SourceURL: sourceURL,
 	}
 	err := s.metadataCollection.Insert(&doc)

@@ -33,10 +33,12 @@ func (s *imagemanagerSuite) TestListImages(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "ListImages")
-		c.Check(arg, gc.DeepEquals, params.ImageSpec{
-			Kind:   "lxc",
-			Series: "trusty",
-			Arch:   "amd64",
+		c.Check(arg, gc.DeepEquals, params.ImageFilterParams{
+			Images: []params.ImageSpec{{
+				Kind:   "lxc",
+				Series: "trusty",
+				Arch:   "amd64",
+			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ListImageResult{})
 		*(result.(*params.ListImageResult)) = params.ListImageResult{
@@ -74,7 +76,7 @@ func (s *imagemanagerSuite) TestDeleteImage(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "DeleteImages")
-		c.Check(arg, gc.DeepEquals, params.DeleteImageParams{
+		c.Check(arg, gc.DeepEquals, params.ImageFilterParams{
 			Images: []params.ImageSpec{{
 				Kind:   "lxc",
 				Series: "trusty",
