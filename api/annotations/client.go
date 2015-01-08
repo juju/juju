@@ -25,13 +25,13 @@ func NewClient(st *api.State) *Client {
 }
 
 // Get returns annotations that have been set on the given entities.
-func (c *Client) Get(tags []string) (params.AnnotationsGetResults, error) {
+func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 	annotations := params.AnnotationsGetResults{}
 
 	if err := c.facade.FacadeCall("Get", entitiesFromTags(tags), &annotations); err != nil {
-		return annotations, errors.Trace(err)
+		return annotations.Results, errors.Trace(err)
 	} else {
-		return annotations, nil
+		return annotations.Results, nil
 	}
 }
 
