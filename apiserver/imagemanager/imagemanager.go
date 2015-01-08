@@ -28,13 +28,17 @@ type ImageManager interface {
 // ImageManagerAPI implements the ImageManager interface and is the concrete
 // implementation of the api end point.
 type ImageManagerAPI struct {
-	state      *state.State
+	state      stateInterface
 	resources  *common.Resources
 	authorizer common.Authorizer
 	check      *common.BlockChecker
 }
 
 var _ ImageManager = (*ImageManagerAPI)(nil)
+
+var getState = func(st *state.State) stateInterface {
+	return stateShim{st}
+}
 
 // NewImageManagerAPI creates a new server-side imagemanager API end point.
 func NewImageManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ImageManagerAPI, error) {
@@ -43,7 +47,7 @@ func NewImageManagerAPI(st *state.State, resources *common.Resources, authorizer
 		return nil, common.ErrPerm
 	}
 	return &ImageManagerAPI{
-		state:      st,
+		state:      getState(st),
 		resources:  resources,
 		authorizer: authorizer,
 		check:      common.NewBlockChecker(st),
