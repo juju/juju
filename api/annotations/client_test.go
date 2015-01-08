@@ -75,10 +75,10 @@ func (s *annotationsSuite) TestGetEntitiesAnnotations(c *gc.C) {
 		result.Results = []params.AnnotationsGetResult{entitiesAnnts}
 		return nil
 	})
-	annts, err := s.annotationsClient.Get([]string{"charm"})
+	found, err := s.annotationsClient.Get([]string{"charm"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(annts.Results, gc.HasLen, 1)
+	c.Assert(found, gc.HasLen, 1)
 }
 
 func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
@@ -90,5 +90,5 @@ func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
 
 	found, err := s.annotationsClient.Get([]string{charm.Tag().String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found, gc.HasLen, 1)
 }
