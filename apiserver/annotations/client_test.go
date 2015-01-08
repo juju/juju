@@ -67,10 +67,7 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{
-			Collection:  entities,
-			Annotations: annotations,
-		})
+		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*permission denied.*")
 
 	got := s.annotationsApi.Get(entities)
@@ -133,10 +130,7 @@ func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{
-			Collection:  entities,
-			Annotations: annotations,
-		})
+		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
 
 	got := s.annotationsApi.Get(entities)
@@ -145,6 +139,20 @@ func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	aResult := got.Results[0]
 	c.Assert(aResult.Entity, gc.DeepEquals, entity)
 	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
+}
+
+func constructSetParameters(
+	entities params.Entities,
+	annotations map[string]string) []params.EntityAnnotations {
+	result := []params.EntityAnnotations{}
+	for _, entity := range entities.Entities {
+		one := params.EntityAnnotations{
+			Entity:      entity,
+			Annotations: annotations,
+		}
+		result = append(result, one)
+	}
+	return result
 }
 
 func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
@@ -162,10 +170,7 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{
-			Collection:  entities,
-			Annotations: annotations,
-		})
+		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
 	c.Assert(setResult.Results, gc.HasLen, 2)
 	var rSet, sSet bool
 	for _, anErr := range setResult.Results {
@@ -219,9 +224,7 @@ func (s *annotationSuite) setupEntity(c *gc.C, entities params.Entities, initial
 	if initialAnnotations != nil {
 		initialResult := s.annotationsApi.Set(
 			params.AnnotationsSet{
-				Collection:  entities,
-				Annotations: initialAnnotations,
-			})
+				Annotations: constructSetParameters(entities, initialAnnotations)})
 		c.Assert(initialResult.OneError(), jc.ErrorIsNil)
 	}
 }
@@ -231,10 +234,7 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 	annotations map[string]string,
 	expectedError string) {
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{
-			Collection:  entities,
-			Annotations: annotations,
-		})
+		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
 	if expectedError != "" {
 		c.Assert(setResult.OneError().Error(), gc.Matches, expectedError)
 	} else {
@@ -263,10 +263,7 @@ func (s *annotationSuite) cleanupEntityAnnotations(c *gc.C,
 		cleanup[key] = ""
 	}
 	cleanupResult := s.annotationsApi.Set(
-		params.AnnotationsSet{
-			Collection:  entities,
-			Annotations: cleanup,
-		})
+		params.AnnotationsSet{Annotations: constructSetParameters(entities, cleanup)})
 	c.Assert(cleanupResult.OneError(), jc.ErrorIsNil)
 }
 
