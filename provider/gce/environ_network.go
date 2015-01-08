@@ -11,24 +11,27 @@ import (
 	"github.com/juju/juju/provider/common"
 )
 
-// AllocateAddress requests a specific address to be allocated for the
-// given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+// AllocateAddress implements environs.Environ, but is not implmemented.
+func (env *environ) AllocateAddress(instID instance.Id, netID network.Id, addr network.Address) error {
 	return errors.Trace(errNotImplemented)
 }
 
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+// ReleaseAddress implements environs.Environ, but is not implmemented.
+func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr network.Address) error {
 	return errors.Trace(errNotImplemented)
 }
 
+// Subnets implements environs.Environ, but is not implmemented.
 func (env *environ) Subnets(inst instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
 
+// ListNetworks implements environs.Environ, but is not implmemented.
 func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
 
+// globalFirewallName returns the name to use for the global firewall.
 func (env *environ) globalFirewallName() string {
 	fwName := common.MachineFullName(env, "")
 	return fwName[:len(fwName)-1]

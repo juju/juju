@@ -7,6 +7,7 @@ import (
 	"github.com/juju/loggo"
 )
 
+// The various status values used by GCE.
 const (
 	StatusDone         = "DONE"
 	StatusDown         = "DOWN"

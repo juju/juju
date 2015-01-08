@@ -51,6 +51,12 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	return results, err
 }
 
+// parseAvailabilityZones returns the availability zones that should be
+// tried for the given instance spec. If a placement argument was
+// provided then only that one is returned. Otherwise the environment is
+// queried for available zones. In that case, the resulting list is
+// roughly ordered such that the environment's instances are spread
+// evenly across the region.
 func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.

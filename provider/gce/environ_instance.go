@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
+// instStatus is the list of statuses to accept when filtering
+// for "alive" instances.
 var instStatuses = []string{
 	google.StatusPending,
 	google.StatusStaging,
@@ -62,12 +64,12 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return results, err
 }
 
+// instances returns a list of all "alive" instances in the environment.
+// This means only instances where the IDs match
+// "juju-<env name>-machine-*". This is important because otherwise juju
+// will see they are not tracked in state, assume they're stale/rogue,
+// and shut them down.
 func (env *environ) instances() ([]instance.Instance, error) {
-	// instances() only returns instances that are part of the
-	// environment (instance IDs matches "juju-<env name>-machine-*").
-	// This is important because otherwise juju will see they are not
-	// tracked in state, assume they're stale/rogue, and shut them down.
-
 	env = env.getSnapshot()
 
 	prefix := common.MachineFullName(env, "")
@@ -110,6 +112,9 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return results, nil
 }
 
+// parsePlacement extracts the availability zone from the placement
+// string and returns it. If no zone is found there then an error is
+// returned.
 func (env *environ) parsePlacement(placement string) (*google.AvailabilityZone, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
@@ -132,6 +137,8 @@ func (env *environ) parsePlacement(placement string) (*google.AvailabilityZone, 
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
 
+// checkInstanceType is used to ensure the the provided constraints
+// specify a recognized instance type.
 func checkInstanceType(cons constraints.Value) bool {
 	// Constraint has an instance-type constraint so let's see if it is valid.
 	for _, itype := range allInstanceTypes {

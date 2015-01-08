@@ -8,31 +8,58 @@ import (
 	"github.com/juju/errors"
 )
 
+// The different types of disks supported by GCE.
 const (
 	diskTypeScratch    = "SCRATCH"
 	diskTypePersistent = "PERSISTENT"
-	diskModeRW         = "READ_WRITE"
-	diskModeRO         = "READ_ONLY"
+)
 
-	// MinDiskSize is the minimum/default size (in megabytes) for GCE
-	// disks. GCE does not currently have a minimum disk size.
+// The different disk modes supported by GCE.
+const (
+	diskModeRW = "READ_WRITE"
+	diskModeRO = "READ_ONLY"
+)
+
+const (
+	// MinDiskSizeGB is the minimum/default size (in megabytes) for
+	// GCE disks.
+	//
+	// Note: GCE does not currently have a minimum disk size.
 	MinDiskSizeGB int64 = 0
 )
 
+// DiskSpec holds all the data needed to request a new disk on GCE.
+// Some fields are used only for attached disks (i.e. in association
+// with instances).
 type DiskSpec struct {
-	// sizeHint is the requested disk size in Gigabytes.
+	// sizeHintGB is the requested disk size in Gigabytes.
 	SizeHintGB int64
-	ImageURL   string
-	Boot       bool
-	Scratch    bool
-	Readonly   bool
+	// ImageURL is the location of the image to which the disk should
+	// be initialized.
+	ImageURL string
+	// Boot indicates that this is a boot disk. An instance may only
+	// have one boot disk. (attached only)
+	Boot bool
+	// Scratch indicates that the disk should be a "scratch" disk
+	// instead of a "persistent" disk (the default).
+	Scratch bool
+	// Readonly indicates that the disk should not support writes.
+	Readonly bool
+	// AutoDelete indicates that the attached disk should be removed
+	// when the instance to which it is attached is removed.
 	AutoDelete bool
 }
 
+// TooSmall checks the spec's size hint and indicates whether or not
+// it is smaller than the minimum disk size.
 func (ds *DiskSpec) TooSmall() bool {
 	return ds.SizeHintGB < MinDiskSizeGB
 }
 
+// SizeGB returns the disk size to use for a new disk. The size hint
+// is returned if it isn't too small (otherwise the min size is
+// returned).
+// TODO(ericsnow) Return uint64?
 func (ds *DiskSpec) SizeGB() int64 {
 	size := ds.SizeHintGB
 	if ds.TooSmall() {
@@ -41,6 +68,10 @@ func (ds *DiskSpec) SizeGB() int64 {
 	return size
 }
 
+// newAttached builds a compute.AttachedDisk using the information in
+// the disk spec and returns it.
+//
+// Npte: Not all AttachedDisk fields are set.
 func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 	diskType := diskTypePersistent // The default.
 	if ds.Scratch {
@@ -68,6 +99,10 @@ func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 	return &disk
 }
 
+// rootDisk identifies the root disk for a given instance (or instance
+// spec) and returns it. If the root disk could not be determined then
+// nil is returned.
+// TODO(ericsnow) Return an error?
 func rootDisk(inst interface{}) *compute.AttachedDisk {
 	switch typed := inst.(type) {
 	case *compute.Instance:
@@ -84,6 +119,10 @@ func rootDisk(inst interface{}) *compute.AttachedDisk {
 	}
 }
 
+// diskSizeGB determines the size of the provided disk. This works both
+// with compute.Disk and compute.AttachedDisk. For attached disks the
+// size is pulled from the data used initialize it. If that data is not
+// available then an error is returned.
 func diskSizeGB(disk interface{}) (int64, error) {
 	switch typed := disk.(type) {
 	case *compute.Disk:

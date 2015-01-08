@@ -10,16 +10,21 @@ import (
 )
 
 const (
-	networkDefaultName       = "default"
-	networkPathRoot          = "global/networks/"
+	networkDefaultName = "default"
+	networkPathRoot    = "global/networks/"
+	// networkAccessOneToOneNAT is the default access rule type.
 	networkAccessOneToOneNAT = "ONE_TO_ONE_NAT"
 )
 
+// NetworkSpec holds all the information needed to identify and create
+// a GCE network.
 type NetworkSpec struct {
+	// Name is the unqualified name of the network.
 	Name string
 	// TODO(ericsnow) support a CIDR for internal IP addr range?
 }
 
+// path returns the qualified name of the network.
 func (ns *NetworkSpec) path() string {
 	name := ns.Name
 	if name == "" {
@@ -28,6 +33,8 @@ func (ns *NetworkSpec) path() string {
 	return networkPathRoot + name
 }
 
+// newInterface builds up all the data needed by the GCE API to create
+// a new interface connected to the network.
 func (ns *NetworkSpec) newInterface(name string) *compute.NetworkInterface {
 	var access []*compute.AccessConfig
 	if name != "" {

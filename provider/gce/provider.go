@@ -23,6 +23,7 @@ func init() {
 	environs.RegisterProvider("gce", providerInstance)
 }
 
+// Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// You should probably not change this method; prefer to cause SetConfig
 	// to completely configure an environment, regardless of the initial state.
@@ -33,6 +34,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
+// Prepare implements environs.EnvironProvider.
 func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	env, err := providerInstance.Open(cfg)
 	if err != nil {
@@ -47,6 +49,7 @@ func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config
 	return env, nil
 }
 
+// Validate implements environs.EnvironProvider.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// You should almost certainly not change this method; if you need to change
 	// how configs are validated, you should edit validateConfig itself, to ensure
@@ -67,6 +70,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return cfg.Apply(newEcfg.attrs)
 }
 
+// SecretAttrs implements environs.EnvironProvider.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
 	ecfg, err := validateConfig(cfg, nil)
 	if err != nil {
@@ -79,6 +83,7 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return secretAttrs, nil
 }
 
+// BoilerplateConfig implements environs.EnvironProvider.
 func (environProvider) BoilerplateConfig() string {
 	// boilerplateConfig is kept in config.go, in the hope that people editing
 	// config will keep it up to date.

@@ -25,6 +25,7 @@ func isStateServer(mcfg *cloudinit.MachineConfig) bool {
 	return multiwatcher.AnyJobNeedsState(mcfg.Jobs...)
 }
 
+// StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// Please note that in order to fulfil the demands made of Instances and
 	// AllInstances, it is imperative that some environment feature be used to
@@ -70,6 +71,9 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
+// finishMachineConfig builds an instance spec from the provided args
+// and returns it. This includes pulling the simplestreams data for the
+// machine type, region, and other constraints.
 func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
@@ -93,6 +97,10 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 	return spec, errors.Trace(err)
 }
 
+// findInstanceSpec initializes a new instance spec for the given stream
+// (and constraints) and returns it. This only covers populating the
+// initial data for the spec. However, it does include fetching the
+// correct simplestreams image data.
 func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
@@ -121,6 +129,9 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	return spec, errors.Trace(err)
 }
 
+// newRawInstance is where the new physical instance is actually
+// provisioned, relative to the provided args and spec. Info for that
+// low-level instance is returned.
 func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	machineID := common.MachineFullName(env, args.MachineConfig.MachineId)
 
@@ -155,6 +166,8 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 	return inst, errors.Trace(err)
 }
 
+// getMetadata builds the raw "user-defined" metadata for the new
+// instance (relative to the provided args) and returns it.
 func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
@@ -187,6 +200,10 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 	return metadata, nil
 }
 
+// getDisks builds the raw spec for the disks that should be attached to
+// the new instances and returns it. This will always include a root
+// disk with characteristics determined by the provides args and
+// constraints.
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.DiskSpec {
 	size := common.MinRootDiskSizeGiB
 	if cons.RootDisk != nil && *cons.RootDisk > uint64(size) {
@@ -205,6 +222,8 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.Dis
 	return []google.DiskSpec{dSpec}
 }
 
+// getHardwareCharacteristics compiles hardware-related details about
+// the given instance and relative to the provided spec and returns it.
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
 	rootDiskMB := uint64(inst.base.RootDiskGB()) * 1024
 	hwc := instance.HardwareCharacteristics{
@@ -219,11 +238,13 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 	return &hwc
 }
 
+// AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances() ([]instance.Instance, error) {
 	instances, err := env.instances()
 	return instances, errors.Trace(err)
 }
 
+// StopInstances implements environs.InstanceBroker.
 func (env *environ) StopInstances(instances ...instance.Id) error {
 	env = env.getSnapshot()
 

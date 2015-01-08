@@ -26,20 +26,24 @@ func newInstance(base *google.Instance, env *environ) *environInstance {
 	}
 }
 
+// Id implements instance.Instance.
 func (inst *environInstance) Id() instance.Id {
 	return instance.Id(inst.base.ID)
 }
 
+// Status implements instance.Instance.
 func (inst *environInstance) Status() string {
 	return inst.base.Status()
 }
 
+// Refresh implements instance.Instance.
 func (inst *environInstance) Refresh() error {
 	env := inst.env.getSnapshot()
 	err := inst.base.Refresh(env.gce)
 	return errors.Trace(err)
 }
 
+// Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
 	result, err := inst.base.Addresses()
 	return result, errors.Trace(err)

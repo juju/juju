@@ -21,12 +21,27 @@ const (
 	authURL = "https://accounts.google.com/o/oauth2/auth"
 )
 
+// Auth holds the information needed to authenticate on GCE.
 type Auth struct {
-	ClientID    string
+	// ClientID is the GCE account's OAuth ID. It is part of the OAuth
+	// config used in the OAuth-wrapping network transport.
+	ClientID string
+	// ClientEmail is the email address associatd with the GCE account.
+	// It is used to generate a new OAuth token to use in the
+	// OAuth-wrapping network transport.
 	ClientEmail string
-	PrivateKey  []byte
+	// PrivateKey is the private key that matches the public key
+	// associatd with the GCE account. It is used to generate a new
+	// OAuth token to use in the OAuth-wrapping network transport.
+	PrivateKey []byte
 }
 
+// newTransport builds a new network transport that wraps requests
+// with the GCE-required OAuth authentication/authorization. The
+// transport is built using the Auth values. The following GCE access
+// scopes are used:
+//   https://www.googleapis.com/auth/compute
+// 	 https://www.googleapis.com/auth/devstorage.full_control
 func (ga Auth) newTransport() (*oauth.Transport, error) {
 	token, err := newToken(ga, driverScopes)
 	if err != nil {
@@ -45,6 +60,9 @@ func (ga Auth) newTransport() (*oauth.Transport, error) {
 	return &transport, nil
 }
 
+// newToken generates a new OAuth token for use in the OAuth-wrapping
+// network transport and returns it. This involves network calls to the
+// GCE OAuth API.
 var newToken = func(auth Auth, scopes string) (*oauth.Token, error) {
 	jtok := jwt.NewToken(auth.ClientEmail, scopes, auth.PrivateKey)
 	jtok.ClaimSet.Aud = tokenURL
@@ -57,6 +75,9 @@ var newToken = func(auth Auth, scopes string) (*oauth.Token, error) {
 	return token, nil
 }
 
+// newConnection opens a new low-level connection to the GCE API using
+// the Auth's data and returns it. This includes building the
+// OAuth-wrapping network transport.
 func (ga Auth) newConnection() (*compute.Service, error) {
 	transport, err := ga.newTransport()
 	if err != nil {
@@ -66,6 +87,7 @@ func (ga Auth) newConnection() (*compute.Service, error) {
 	return service, errors.Trace(err)
 }
 
+// newService is a simple wrapper around compute.New for use in testing.
 var newService = func(transport *oauth.Transport) (*compute.Service, error) {
 	return compute.New(transport.Client())
 }

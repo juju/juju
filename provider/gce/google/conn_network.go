@@ -10,6 +10,9 @@ import (
 	"github.com/juju/juju/network"
 )
 
+// firewall sends an API request to GCE for the information about
+// the named firewall and returns it. If the firewall is not found,
+// errors.NotFound is returned.
 func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
 	call := gce.raw.Firewalls.List(gce.ProjectID)
 	call = call.Filter("name eq " + name)
@@ -23,6 +26,9 @@ func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
 	return firewallList.Items[0], nil
 }
 
+// insertFirewall requests GCE to add a firewall with the provided info.
+// If the firewall already exists then an error will be returned.
+// The call blocks until the firewall is added or the request fails.
 func (gce *Connection) insertFirewall(firewall *compute.Firewall) error {
 	call := gce.raw.Firewalls.Insert(gce.ProjectID, firewall)
 	operation, err := call.Do()
@@ -35,6 +41,10 @@ func (gce *Connection) insertFirewall(firewall *compute.Firewall) error {
 	return nil
 }
 
+// updateFirewall requests GCE to update the named firewall with the
+// provided info, overwriting the existing data. If the firewall does
+// not exist then an error will be returned. The call blocks until the
+// firewall is updated or the request fails.
 func (gce *Connection) updateFirewall(name string, firewall *compute.Firewall) error {
 	call := gce.raw.Firewalls.Update(gce.ProjectID, name, firewall)
 	operation, err := call.Do()
@@ -47,6 +57,9 @@ func (gce *Connection) updateFirewall(name string, firewall *compute.Firewall) e
 	return nil
 }
 
+// deleteFirewall removed the named firewall from the conenction's
+// project. If it does not exist then this is a noop. The call blocks
+// until the firewall is added or the request fails.
 func (gce *Connection) deleteFirewall(name string) error {
 	call := gce.raw.Firewalls.Delete(gce.ProjectID, name)
 	operation, err := call.Do()
@@ -59,6 +72,9 @@ func (gce *Connection) deleteFirewall(name string) error {
 	return nil
 }
 
+// Ports build a list of all open port ranges for a given firewall name
+// (within the Connection's project) and returns it. If the firewall
+// does not exist then the list will be empty and no error is returned.
 func (gce Connection) Ports(fwname string) ([]network.PortRange, error) {
 	firewall, err := gce.firewall(fwname)
 	if errors.IsNotFound(err) {
@@ -83,9 +99,17 @@ func (gce Connection) Ports(fwname string) ([]network.PortRange, error) {
 	return ports, nil
 }
 
-func (gce Connection) OpenPorts(name string, ports []network.PortRange) error {
+// OpenPorts sends a request to the GCE API to open the provided port
+// ranges on the named firewall. If the firewall does not exist yet it
+// is created, with the provided port ranges opened. Otherwise the
+// existing firewall is updated to add the provided port ranges to the
+// ports it already has open. The call blocks until the ports are
+// opened or the request fails.
+func (gce Connection) OpenPorts(fwname string, ports []network.PortRange) error {
+	// TODO(ericsnow) Short-circuit if ports is empty.
+
 	// Compose the full set of open ports.
-	currentPorts, err := gce.Ports(name)
+	currentPorts, err := gce.Ports(fwname)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -97,24 +121,30 @@ func (gce Connection) OpenPorts(name string, ports []network.PortRange) error {
 
 	// Send the request, depending on the current ports.
 	if currentPortsSet.IsEmpty() {
-		firewall := firewallSpec(name, inputPortsSet)
+		firewall := firewallSpec(fwname, inputPortsSet)
 		if err := gce.insertFirewall(firewall); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", ports)
 		}
 
 	} else {
 		newPortsSet := currentPortsSet.Union(inputPortsSet)
-		firewall := firewallSpec(name, newPortsSet)
-		if err := gce.updateFirewall(name, firewall); err != nil {
+		firewall := firewallSpec(fwname, newPortsSet)
+		if err := gce.updateFirewall(fwname, firewall); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", ports)
 		}
 	}
 	return nil
 }
 
-func (gce Connection) ClosePorts(name string, ports []network.PortRange) error {
+// ClosePorts sends a request to the GCE API to close the provided port
+// ranges on the named firewall. If the firewall does not exist nothing
+// happens. If the firewall is left with no ports then it is removed.
+// Otherwise it will be left with just the open ports it has that do not
+// match the provided port ranges. The call blocks until the ports are
+// closed or the request fails.
+func (gce Connection) ClosePorts(fwname string, ports []network.PortRange) error {
 	// Compose the full set of open ports.
-	currentPorts, err := gce.Ports(name)
+	currentPorts, err := gce.Ports(fwname)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,12 +157,13 @@ func (gce Connection) ClosePorts(name string, ports []network.PortRange) error {
 
 	// Send the request, depending on the current ports.
 	if newPortsSet.IsEmpty() {
-		if err := gce.deleteFirewall(name); err != nil {
+		// TODO(ericsnow) Handle case where firewall does not exist.
+		if err := gce.deleteFirewall(fwname); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
 	} else {
-		firewall := firewallSpec(name, newPortsSet)
-		if err := gce.updateFirewall(name, firewall); err != nil {
+		firewall := firewallSpec(fwname, newPortsSet)
+		if err := gce.updateFirewall(fwname, firewall); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", ports)
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
+// The GCE-specific config keys.
 const (
 	cfgPrivateKey    = "private-key"
 	cfgClientID      = "client-id"
@@ -37,6 +38,7 @@ gce:
   # image-endpoint: https://www.googleapis.com
 `[1:]
 
+// osEnvFields is the mapping from GCE env vars to config keys.
 var osEnvFields = map[string]string{
 	google.OSEnvPrivateKey:    cfgPrivateKey,
 	google.OSEnvClientID:      cfgClientID,
@@ -46,6 +48,7 @@ var osEnvFields = map[string]string{
 	google.OSEnvImageEndpoint: cfgImageEndpoint,
 }
 
+// configFields is the spec for each GCE config value's type.
 var configFields = schema.Fields{
 	cfgPrivateKey:    schema.String(),
 	cfgClientID:      schema.String(),
@@ -98,10 +101,13 @@ func (c *environConfig) projectID() string {
 	return c.attrs[cfgProjectID].(string)
 }
 
+// imageEndpoint identifies where the provider should look for
+// cloud images (i.e. for simplestreams).
 func (c *environConfig) imageEndpoint() string {
 	return c.attrs[cfgImageEndpoint].(string)
 }
 
+// auth build a new Auth based on the config and returns it.
 func (c *environConfig) auth() google.Auth {
 	return google.Auth{
 		ClientID:    c.attrs[cfgClientID].(string),
@@ -110,6 +116,8 @@ func (c *environConfig) auth() google.Auth {
 	}
 }
 
+// newConnection build a Connection based on the config and returns it.
+// The resulting connection must still have its Connect called.
 func (c *environConfig) newConnection() *google.Connection {
 	return &google.Connection{
 		Region:    c.attrs[cfgRegion].(string),
@@ -117,6 +125,11 @@ func (c *environConfig) newConnection() *google.Connection {
 	}
 }
 
+// validateConfig checks the provided config to ensure its values are
+// acceptable. If "old" is non-nil then then the config is also checked
+// to ensure immutable values have not changed. Default values are set
+// for missing values (for keys that have defaults). A new config is
+// returned containing the resulting valid-and-updated values.
 func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes and coerce the values (base config first
 	// then custom).
@@ -160,6 +173,9 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 	return ecfg, nil
 }
 
+// handleInvalidField converts a config.InvalidConfigValue into a new
+// error, translating a {provider/gce/google}.OSEnvVar* value into a
+// GCE config key in the new error.
 func handleInvalidField(err error) error {
 	vErr := err.(*config.InvalidConfigValue)
 	if vErr.Reason == nil && vErr.Value == "" {

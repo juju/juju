@@ -82,6 +82,9 @@ var connect = func(conn *google.Connection, auth google.Auth) error {
 	return conn.Connect(auth)
 }
 
+// getSnapshot returns a copy of the environment. This is useful for
+// ensuring the env you are using does not get changed by other code
+// while you are using it.
 func (env *environ) getSnapshot() *environ {
 	env.lock.Lock()
 	clone := *env

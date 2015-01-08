@@ -12,8 +12,10 @@ import (
 	"github.com/juju/utils"
 )
 
+// These are attempt strategies used in waitOperation.
 var (
 	// TODO(ericsnow) Tune the timeouts and delays.
+
 	attemptsLong = utils.AttemptStrategy{
 		Total: 300 * time.Second, // 5 minutes
 		Delay: 2 * time.Second,
@@ -24,13 +26,36 @@ var (
 	}
 )
 
+// TODO(ericsnow) Add specific error types for common failures
+// (e.g. BadRequest, RequestFailed, RequestError, ConnectionFailed)?
+
+// Connection provides methods for interacting with the GCE API. The
+// methods are limited to those needed by the juju GCE provider.
+//
+// Before calling any of the methods, the Connect method should be
+// called to authenticate and open the raw connection to the GCE API.
+// Otherwise a panic will result.
+//
+// Both Region and ProjectID should be set on the connection before
+// using it. Use ValidateConnection before using the connection to
+// ensure this is the case.
 type Connection struct {
 	raw *compute.Service
 
-	Region    string
+	// Region is the GCE region in which to operate for this connection.
+	Region string
+	// ProjectID is the project ID to use in all GCE API requests for
+	// this connection.
 	ProjectID string
 }
 
+// TODO(ericsnow) Verify in each method that Connection.raw is set?
+
+// Connect authenticates using the provided credentials and opens a
+// low-level connection to the GCE API for the Connection. Calling
+// Connect after a successful connection has already been made will
+// result in an error. All errors that happen while authenticating and
+// connecting are returned by Connect.
 func (gc *Connection) Connect(auth Auth) error {
 	if gc.raw != nil {
 		return errors.New("connect() failed (already connected)")
@@ -45,9 +70,13 @@ func (gc *Connection) Connect(auth Auth) error {
 	return nil
 }
 
+// VerifyCredentials ensures that the authentication credentials used
+// to connect are valid for use in the project and region defined for
+// the Connection. If they are not then an error is returned.
 func (gc Connection) VerifyCredentials() error {
 	call := gc.raw.Projects.Get(gc.ProjectID)
 	if _, err := call.Do(); err != nil {
+		// TODO(ericsnow) Wrap err with something about bad credentials?
 		return errors.Trace(err)
 	}
 	return nil
@@ -59,6 +88,9 @@ type operationDoer interface {
 	Do() (*compute.Operation, error)
 }
 
+// checkOperation requests a new copy of the given operation from the
+// GCE API and returns it. The new copy will have the operation's
+// current status.
 func (gce *Connection) checkOperation(op *compute.Operation) (*compute.Operation, error) {
 	var call operationDoer
 	if op.Zone != "" {
@@ -78,6 +110,9 @@ func (gce *Connection) checkOperation(op *compute.Operation) (*compute.Operation
 	return updated, nil
 }
 
+// waitOperation waits for the provided operation to reach the "done"
+// status. It follows the given attempt strategy (e.g. wait time between
+// attempts) and may time out.
 func (gce *Connection) waitOperation(op *compute.Operation, attempts utils.AttemptStrategy) error {
 	started := time.Now()
 	logger.Infof("GCE operation %q, waiting...", op.Name)
@@ -107,6 +142,9 @@ func (gce *Connection) waitOperation(op *compute.Operation, attempts utils.Attem
 	return nil
 }
 
+// AvailabilityZones returns the list of availability zones for a given
+// GCE region. If none are found the the list is empty. Any failure in
+// the low-level request is returned as an error.
 func (gce *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
 	call := gce.raw.Zones.List(gce.ProjectID)
 	if region != "" {
