@@ -385,7 +385,7 @@ def parse_args(args=None):
         '-o', '--old-age', default=OLD_MACHINE_AGE,
         help='Set old machine age to n hours.')
     parser_delete_old_machine.add_argument(
-        "contact-mail-address",
+        "contact_mail_address",
         help="Email address used in the Joyent support form")
     parser_list_tags = subparsers.add_parser(
         'list-tags', help='List tags of running machines')
