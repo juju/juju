@@ -61,3 +61,33 @@ func (*configSuite) TestValidateAuthMissingKey(c *gc.C) {
 	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
 	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
 }
+
+func (*configSuite) TestValidateConnection(c *gc.C) {
+	conn := google.Connection{
+		Region:    "spam",
+		ProjectID: "eggs",
+	}
+	err := google.ValidateConnection(&conn)
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (*configSuite) TestValidateConnectionMissingRegion(c *gc.C) {
+	conn := google.Connection{
+		ProjectID: "eggs",
+	}
+	err := google.ValidateConnection(&conn)
+
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
+	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_REGION")
+}
+
+func (*configSuite) TestValidateConnectionMissingProjectID(c *gc.C) {
+	conn := google.Connection{
+		Region: "spam",
+	}
+	err := google.ValidateConnection(&conn)
+
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
+	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PROJECT_ID")
+}
