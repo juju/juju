@@ -25,24 +25,31 @@ var _ = gc.Suite(&annotationsMockSuite{})
 func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 	var called bool
 	annts := map[string]string{"annotation": "test"}
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, a, result interface{}) error {
-		called = true
-		c.Check(objType, gc.Equals, "Annotations")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "Set")
+	apiCaller := basetesting.APICallerFunc(
+		func(
+			objType string,
+			version int,
+			id, request string,
+			a, result interface{}) error {
+			called = true
+			c.Check(objType, gc.Equals, "Annotations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Set")
 
-		args, ok := a.(params.AnnotationsSet)
-		c.Assert(ok, jc.IsTrue)
-		expected := params.AnnotationsSet{
-			Annotations: []params.EntityAnnotations{
-				{Entity: params.Entity{"charmA"},
-					Annotations: annts},
-				{Entity: params.Entity{"serviceB"},
-					Annotations: annts},
-			}}
-		c.Assert(args, gc.DeepEquals, expected)
-		return nil
-	})
+			args, ok := a.(params.AnnotationsSet)
+			c.Assert(ok, jc.IsTrue)
+			expected := params.AnnotationsSet{
+				Annotations: []params.EntityAnnotations{
+					{Entities: params.Entities{
+						[]params.Entity{params.Entity{"charmA"}}},
+						Annotations: annts},
+					{Entities: params.Entities{
+						[]params.Entity{params.Entity{"serviceB"}}},
+						Annotations: annts},
+				}}
+			c.Assert(args, gc.DeepEquals, expected)
+			return nil
+		})
 	annotationsClient := annotations.NewClient(apiCaller)
 	err := annotationsClient.Set([]string{"charmA", "serviceB"}, annts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,27 +58,32 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 
 func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	var called bool
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, a, response interface{}) error {
-		called = true
-		c.Check(objType, gc.Equals, "Annotations")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "Get")
-		args, ok := a.(params.Entities)
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(args.Entities, gc.HasLen, 1)
-		c.Assert(args.Entities[0], gc.DeepEquals, params.Entity{"charm"})
+	apiCaller := basetesting.APICallerFunc(
+		func(
+			objType string,
+			version int,
+			id, request string,
+			a, response interface{}) error {
+			called = true
+			c.Check(objType, gc.Equals, "Annotations")
+			c.Check(id, gc.Equals, "")
+			c.Check(request, gc.Equals, "Get")
+			args, ok := a.(params.Entities)
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(args.Entities, gc.HasLen, 1)
+			c.Assert(args.Entities[0], gc.DeepEquals, params.Entity{"charm"})
 
-		result := response.(*params.AnnotationsGetResults)
-		facadeAnnts := map[string]string{
-			"annotations": "test",
-		}
-		entitiesAnnts := params.AnnotationsGetResult{
-			Entity:      params.Entity{"charm"},
-			Annotations: facadeAnnts,
-		}
-		result.Results = []params.AnnotationsGetResult{entitiesAnnts}
-		return nil
-	})
+			result := response.(*params.AnnotationsGetResults)
+			facadeAnnts := map[string]string{
+				"annotations": "test",
+			}
+			entitiesAnnts := params.AnnotationsGetResult{
+				Entity:      params.Entity{"charm"},
+				Annotations: facadeAnnts,
+			}
+			result.Results = []params.AnnotationsGetResult{entitiesAnnts}
+			return nil
+		})
 	annotationsClient := annotations.NewClient(apiCaller)
 	found, err := annotationsClient.Get([]string{"charm"})
 	c.Assert(err, jc.ErrorIsNil)
