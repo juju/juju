@@ -96,14 +96,16 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 	}()
 
 	newDoc := imageMetadataDoc{
-		Id:      docId(metadata),
-		Kind:    metadata.Kind,
-		Series:  metadata.Series,
-		Arch:    metadata.Arch,
-		Size:    metadata.Size,
-		SHA256:  metadata.SHA256,
-		Path:    path,
-		Created: time.Now().Format(time.RFC3339),
+		Id:        docId(metadata),
+		EnvUUID:   s.envUUID,
+		Kind:      metadata.Kind,
+		Series:    metadata.Series,
+		Arch:      metadata.Arch,
+		Size:      metadata.Size,
+		SHA256:    metadata.SHA256,
+		SourceURL: metadata.SourceURL,
+		Path:      path,
+		Created:   time.Now().Format(time.RFC3339),
 	}
 
 	// Add or replace metadata. If replacing, record the
@@ -157,6 +159,32 @@ func (s *imageStorage) AddImage(r io.Reader, metadata *Metadata) (resultErr erro
 		}
 	}
 	return nil
+}
+
+// ListImages is defined on the Storage interface.
+func (s *imageStorage) ListImages(filter ImageFilter) ([]*Metadata, error) {
+	metadataDocs, err := s.listImageMetadataDocs(s.envUUID, filter.Kind, filter.Series, filter.Arch)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot list image metadata")
+	}
+	result := make([]*Metadata, len(metadataDocs))
+	for i, metadataDoc := range metadataDocs {
+		created, err := time.Parse(time.RFC3339, metadataDoc.Created)
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot parse metadata created time")
+		}
+		result[i] = &Metadata{
+			EnvUUID:   s.envUUID,
+			Kind:      metadataDoc.Kind,
+			Series:    metadataDoc.Series,
+			Arch:      metadataDoc.Arch,
+			Size:      metadataDoc.Size,
+			SHA256:    metadataDoc.SHA256,
+			Created:   created,
+			SourceURL: metadataDoc.SourceURL,
+		}
+	}
+	return result, nil
 }
 
 // DeleteImage is defined on the Storage interface.
@@ -215,13 +243,14 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 		return nil, nil, err
 	}
 	metadata := &Metadata{
-		EnvUUID: s.envUUID,
-		Kind:    metadataDoc.Kind,
-		Series:  metadataDoc.Series,
-		Arch:    metadataDoc.Arch,
-		Size:    metadataDoc.Size,
-		SHA256:  metadataDoc.SHA256,
-		Created: created,
+		EnvUUID:   s.envUUID,
+		Kind:      metadataDoc.Kind,
+		Series:    metadataDoc.Series,
+		Arch:      metadataDoc.Arch,
+		Size:      metadataDoc.Size,
+		SHA256:    metadataDoc.SHA256,
+		SourceURL: metadataDoc.SourceURL,
+		Created:   created,
 	}
 	imageResult := &imageCloser{
 		image,
@@ -231,14 +260,16 @@ func (s *imageStorage) Image(kind, series, arch string) (*Metadata, io.ReadClose
 }
 
 type imageMetadataDoc struct {
-	Id      string `bson:"_id"`
-	Kind    string `bson:"kind"`
-	Series  string `bson:"series"`
-	Arch    string `bson:"arch"`
-	Size    int64  `bson:"size"`
-	SHA256  string `bson:"sha256"`
-	Path    string `bson:"path"`
-	Created string `bson:"created"`
+	Id        string `bson:"_id"`
+	EnvUUID   string `bson:"envuuid"`
+	Kind      string `bson:"kind"`
+	Series    string `bson:"series"`
+	Arch      string `bson:"arch"`
+	Size      int64  `bson:"size"`
+	SHA256    string `bson:"sha256"`
+	Path      string `bson:"path"`
+	Created   string `bson:"created"`
+	SourceURL string `bson:"sourceurl"`
 }
 
 func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (imageMetadataDoc, error) {
@@ -253,6 +284,24 @@ func (s *imageStorage) imageMetadataDoc(envUUID, kind, series, arch string) (ima
 		return doc, err
 	}
 	return doc, nil
+}
+
+func (s *imageStorage) listImageMetadataDocs(envUUID, kind, series, arch string) ([]imageMetadataDoc, error) {
+	coll, closer := mongo.CollectionFromName(s.metadataCollection.Database, imagemetadataC)
+	defer closer()
+	imageDocs := []imageMetadataDoc{}
+	filter := bson.D{{"envuuid", envUUID}}
+	if kind != "" {
+		filter = append(filter, bson.DocElem{"kind", kind})
+	}
+	if series != "" {
+		filter = append(filter, bson.DocElem{"series", series})
+	}
+	if arch != "" {
+		filter = append(filter, bson.DocElem{"arch", arch})
+	}
+	err := coll.Find(filter).All(&imageDocs)
+	return imageDocs, err
 }
 
 func (s *imageStorage) imageBlob(managedStorage blobstore.ManagedStorage, path string) (io.ReadCloser, error) {

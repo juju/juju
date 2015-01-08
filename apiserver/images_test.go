@@ -86,6 +86,7 @@ func (s *imageSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	metadata, cachedData := s.getImageFromStorage(c, "lxc", "trusty", "amd64")
 	c.Assert(metadata.Size, gc.Equals, int64(len(s.imageData)))
 	c.Assert(metadata.SHA256, gc.Equals, s.imageChecksum)
+	c.Assert(metadata.SourceURL, gc.Equals, "test://cloud-images/trusty-released-amd64-root.tar.gz")
 	c.Assert(string(data), gc.Equals, string(s.imageData))
 	c.Assert(string(data), gc.Equals, string(cachedData))
 }
@@ -152,12 +153,13 @@ func (s *imageSuite) downloadRequest(c *gc.C, uuid, kind, series, arch string) (
 func (s *imageSuite) storeFakeImage(c *gc.C, uuid, kind, series, arch string) {
 	storage := s.State.ImageStorage()
 	metadata := &imagestorage.Metadata{
-		EnvUUID: uuid,
-		Kind:    kind,
-		Series:  series,
-		Arch:    arch,
-		Size:    int64(len(s.imageData)),
-		SHA256:  s.imageChecksum,
+		EnvUUID:   uuid,
+		Kind:      kind,
+		Series:    series,
+		Arch:      arch,
+		Size:      int64(len(s.imageData)),
+		SHA256:    s.imageChecksum,
+		SourceURL: "http://path",
 	}
 	err := storage.AddImage(strings.NewReader(s.imageData), metadata)
 	c.Assert(err, gc.IsNil)
