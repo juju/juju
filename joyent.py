@@ -382,7 +382,7 @@ def parse_args(args=None):
         'delete-old-machines',
         help='Delete machines older than %d hours' % OLD_MACHINE_AGE)
     parser_delete_old_machine.add_argument(
-        '-o', '--old-age', default=OLD_MACHINE_AGE,
+        '-o', '--old-age', default=OLD_MACHINE_AGE, type=int,
         help='Set old machine age to n hours.')
     parser_delete_old_machine.add_argument(
         "contact_mail_address",
