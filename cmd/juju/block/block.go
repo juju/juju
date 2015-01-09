@@ -77,6 +77,7 @@ all-changes includes all alteration commands
     authorised-keys import
     deploy
     destroy-environment
+    ensure-availability
     expose
     remove-machine
     remove-relation

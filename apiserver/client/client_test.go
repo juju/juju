@@ -113,6 +113,22 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 }
 
+func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.blockAllChanges(c)
+
+	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
+	results, err := s.client.EnsureAvailability(arg)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(results.Results, gc.HasLen, 0)
+
+	machines, err := s.State.AllMachines() //there
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+}
+
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{

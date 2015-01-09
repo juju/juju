@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -69,6 +70,22 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *EnsureAvailabilitySuite) TestBlockEnsureAvailability(c *gc.C) {
+	// Block operation
+	s.AssertConfigParameterUpdated(c, "block-all-changes", true)
+
+	_, err := runEnsureAvailability(c, "-n", "1")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+
+	m, err := s.State.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.Life(), gc.Equals, state.Alive)
+
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityPlacementError(c *gc.C) {
