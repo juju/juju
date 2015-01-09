@@ -124,7 +124,7 @@ func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 	c.Assert(results.Results, gc.HasLen, 0)
 
-	machines, err = s.State.AllMachines()
+	machines, err := s.State.AllMachines() //there
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 }
