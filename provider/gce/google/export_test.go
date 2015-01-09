@@ -10,8 +10,13 @@ import (
 var (
 	RootDisk   = rootDisk
 	DiskSizeGB = diskSizeGB
+	ZoneName   = zoneName
 )
 
 func NewAttached(spec DiskSpec) *compute.AttachedDisk {
 	return spec.newAttached()
+}
+
+func NewAvailabilityZone(zone *compute.Zone) AvailabilityZone {
+	return AvailabilityZone{zone: zone}
 }

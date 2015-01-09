@@ -75,6 +75,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.RawInstance = compute.Instance{
 		Name:              "spam",
 		Status:            "UP",
+		Zone:              "a-zone",
 		NetworkInterfaces: []*compute.NetworkInterface{&s.NetworkInterface},
 		Metadata:          &s.RawMetadata,
 		Disks:             []*compute.AttachedDisk{&s.AttachedDisk},
