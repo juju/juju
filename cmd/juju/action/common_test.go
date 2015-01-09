@@ -6,6 +6,7 @@
 package action
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -101,10 +102,10 @@ func (s *CommonSuite) TestConform(c *gc.C) {
 
 	for i, test := range goodInterfaceTests {
 		c.Logf("test %d: %s", i, test.description)
-		input := serialize(test.inputInterface)
+		input := test.inputInterface
 		cleansedInterfaceMap, err := conform(input)
 		if test.expectedError == "" {
-			if !c.Check(err, gc.IsNil) {
+			if !c.Check(err, jc.ErrorIsNil) {
 				continue
 			}
 			c.Check(cleansedInterfaceMap, gc.DeepEquals, test.expectedInterface)
@@ -114,65 +115,42 @@ func (s *CommonSuite) TestConform(c *gc.C) {
 	}
 }
 
-func (s *CommonSuite) TestTabbedString(c *gc.C) {
-	tests := []struct {
-		should    string
-		given     [][]string
-		sep       string
-		expected  string
-		errString string
+func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
+	for i, t := range []struct {
+		should       string
+		startingMap  map[string]interface{}
+		insertSlices [][]string
+		expectedMap  map[string]interface{}
 	}{{
-		should: "be empty with no args",
-		given:  [][]string{},
-	}, {
-		should:   "properly tab things out",
-		given:    [][]string{{"cat", "meow"}, {"dog", "woof"}},
-		sep:      " -- ",
-		expected: "cat\t -- meow\ndog\t -- woof",
-	}, {
-		should: "work for bigger strings",
-		given: [][]string{
-			{"something awfully long", "words"},
-			{"short", "more words"},
+		should: "insert a couple of values",
+		startingMap: map[string]interface{}{
+			"foo": "bar",
+			"bar": map[string]interface{}{
+				"baz": "bo",
+				"bur": "bor",
+			},
 		},
-		sep: " -- ",
-		expected: "something awfully long\t -- words\n" +
-			"short\t\t\t -- more words",
-	}, {
-		should:   "work with different first and sep",
-		given:    [][]string{{"a", "b"}},
-		sep:      ",",
-		expected: "a\t,b",
-	}, {
-		should:    "error on too many",
-		given:     [][]string{{"a", "b", "c"}},
-		sep:       " -- ",
-		errString: `row must have only two items, got \[\]string{"a", "b", "c"}`,
-	}, {
-		should:    "error on too few",
-		given:     [][]string{{"a"}},
-		sep:       " -- ",
-		errString: `row must have only two items, got \[\]string{"a"}`,
-	}}
-
-	for i, t := range tests {
+		insertSlices: [][]string{
+			{"well", "now", "5"},
+			{"foo", "kek"},
+		},
+		expectedMap: map[string]interface{}{
+			"foo": "kek",
+			"bar": map[string]interface{}{
+				"baz": "bo",
+				"bur": "bor",
+			},
+			"well": map[string]interface{}{
+				"now": "5",
+			},
+		},
+	}} {
 		c.Logf("test %d: should %s", i, t.should)
-		obtained, err := tabbedString(t.given, t.sep)
-		if t.errString != "" {
-			c.Check(err, gc.ErrorMatches, t.errString)
-		} else {
-			if !c.Check(err, gc.IsNil) {
-				continue
-			}
-			c.Check(obtained, gc.Equals, t.expected)
+		for _, thisSlice := range t.insertSlices {
+			valAt := len(thisSlice) - 1
+			addValueToMap(thisSlice[:valAt], thisSlice[valAt], t.startingMap)
 		}
+		// note addValueToMap mutates target.
+		c.Check(t.startingMap, jc.DeepEquals, t.expectedMap)
 	}
-}
-
-func serialize(input interface{}) interface{} {
-	// TODO(bodie) not sure how to serialize YAML/bson per your comment
-	// on conform.  I noticed the cleanse func in gopkg.in/juju/charm.v4
-	// is basically the same test as this test, but those tests don't
-	// test the serialization either.
-	return input
 }
