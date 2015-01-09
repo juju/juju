@@ -26,7 +26,7 @@ func MockMachineConfig(machineId string) (*cloudinit.MachineConfig, error) {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	if err != nil {
 		return nil, err
 	}

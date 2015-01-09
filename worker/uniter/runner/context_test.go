@@ -64,6 +64,13 @@ func (s *InterfaceSuite) TestUtils(c *gc.C) {
 	c.Assert(name, gc.Equals, "u/123")
 }
 
+func (s *InterfaceSuite) TestAvailabilityZone(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	zone, ok := ctx.AvailabilityZone()
+	c.Check(ok, jc.IsTrue)
+	c.Check(zone, gc.Equals, "a-zone")
+}
+
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	ctx := s.GetContext(c, -1, "")
 	pr, ok := ctx.PrivateAddress()

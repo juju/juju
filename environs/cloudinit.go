@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -46,6 +47,7 @@ func NewMachineConfig(
 	machineNonce,
 	imageStream,
 	series string,
+	secureServerConnections bool,
 	networks []string,
 	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
@@ -75,6 +77,9 @@ func NewMachineConfig(
 		MongoInfo:    mongoInfo,
 		APIInfo:      apiInfo,
 		ImageStream:  imageStream,
+		AgentEnvironment: map[string]string{
+			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
+		},
 	}
 	return mcfg, nil
 }
@@ -85,7 +90,7 @@ func NewMachineConfig(
 func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.MachineConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, nil, nil, nil)
+	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}

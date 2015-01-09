@@ -14,18 +14,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// annotatorDoc represents the internal state of annotations for an Entity in
-// MongoDB. Note that the annotations map is not maintained in local storage
-// due to the fact that it is not accessed directly, but through
-// Annotations/Annotation below.
-// Note also the correspondence with AnnotationInfo in apiserver/params.
-type annotatorDoc struct {
-	EnvUUID     string `bson:"env-uuid"`
-	GlobalKey   string `bson:"globalkey"`
-	Tag         string
-	Annotations map[string]string
-}
-
 // annotator implements annotation-related methods
 // for any entity that wishes to use it.
 type annotator struct {
@@ -143,14 +131,4 @@ func (a *annotator) Annotation(key string) (string, error) {
 		return "", err
 	}
 	return ann[key], nil
-}
-
-// annotationRemoveOp returns an operation to remove a given annotation
-// document from MongoDB.
-func annotationRemoveOp(st *State, id string) txn.Op {
-	return txn.Op{
-		C:      annotationsC,
-		Id:     st.docID(id),
-		Remove: true,
-	}
 }

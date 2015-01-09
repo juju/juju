@@ -174,18 +174,19 @@ type OpListNetworks struct {
 }
 
 type OpStartInstance struct {
-	Env           string
-	MachineId     string
-	MachineNonce  string
-	PossibleTools coretools.List
-	Instance      instance.Instance
-	Constraints   constraints.Value
-	Networks      []string
-	NetworkInfo   []network.Info
-	Info          *mongo.MongoInfo
-	Jobs          []multiwatcher.MachineJob
-	APIInfo       *api.Info
-	Secret        string
+	Env              string
+	MachineId        string
+	MachineNonce     string
+	PossibleTools    coretools.List
+	Instance         instance.Instance
+	Constraints      constraints.Value
+	Networks         []string
+	NetworkInfo      []network.Info
+	Info             *mongo.MongoInfo
+	Jobs             []multiwatcher.MachineJob
+	APIInfo          *api.Info
+	Secret           string
+	AgentEnvironment map[string]string
 }
 
 type OpStopInstances struct {
@@ -927,18 +928,19 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:           e.name,
-		MachineId:     machineId,
-		MachineNonce:  args.MachineConfig.MachineNonce,
-		PossibleTools: args.Tools,
-		Constraints:   args.Constraints,
-		Networks:      args.MachineConfig.Networks,
-		NetworkInfo:   networkInfo,
-		Instance:      i,
-		Jobs:          args.MachineConfig.Jobs,
-		Info:          args.MachineConfig.MongoInfo,
-		APIInfo:       args.MachineConfig.APIInfo,
-		Secret:        e.ecfg().secret(),
+		Env:              e.name,
+		MachineId:        machineId,
+		MachineNonce:     args.MachineConfig.MachineNonce,
+		PossibleTools:    args.Tools,
+		Constraints:      args.Constraints,
+		Networks:         args.MachineConfig.Networks,
+		NetworkInfo:      networkInfo,
+		Instance:         i,
+		Jobs:             args.MachineConfig.Jobs,
+		Info:             args.MachineConfig.MongoInfo,
+		APIInfo:          args.MachineConfig.APIInfo,
+		AgentEnvironment: args.MachineConfig.AgentEnvironment,
+		Secret:           e.ecfg().secret(),
 	}
 	return &environs.StartInstanceResult{
 		Instance:    i,

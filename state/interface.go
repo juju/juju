@@ -218,3 +218,17 @@ var (
 	// TODO(jcw4) - use when Actions can be queued for Services.
 	//_ ActionReceiver = (*Service)(nil)
 )
+
+// GlobalEntity specifies entity.
+type GlobalEntity interface {
+	globalKey() string
+	Tag() names.Tag
+}
+
+var (
+	_ GlobalEntity = (*Machine)(nil)
+	_ GlobalEntity = (*Unit)(nil)
+	_ GlobalEntity = (*Service)(nil)
+	_ GlobalEntity = (*Charm)(nil)
+	_ GlobalEntity = (*Environment)(nil)
+)

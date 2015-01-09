@@ -88,7 +88,15 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg, err := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(), networks, mongoInfo, apiInfo)
+	// Figure out if secure connections are supported.
+	info, err := st.StateServingInfo()
+	if err != nil {
+		return nil, err
+	}
+	secureServerConnection := info.CAPrivateKey != ""
+	mcfg, err := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(),
+		secureServerConnection, networks, mongoInfo, apiInfo,
+	)
 	if err != nil {
 		return nil, err
 	}

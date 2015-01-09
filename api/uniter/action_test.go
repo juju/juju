@@ -21,20 +21,19 @@ var _ = gc.Suite(&actionSuite{})
 var basicParams = map[string]interface{}{"outfile": "foo.txt"}
 
 func (s *actionSuite) TestAction(c *gc.C) {
-
 	var actionTests = []struct {
 		description string
 		action      params.Action
 	}{{
 		description: "A simple Action.",
 		action: params.Action{
-			Name:       "snapshot",
+			Name:       "fakeaction",
 			Parameters: basicParams,
 		},
 	}, {
 		description: "An Action with nested parameters.",
 		action: params.Action{
-			Name: "backup",
+			Name: "fakeaction",
 			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
@@ -85,7 +84,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, gc.DeepEquals, ([]*state.Action)(nil))
 
-	action, err := s.uniterSuite.wordpressUnit.AddAction("gabloxi", nil)
+	action, err := s.uniterSuite.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionResult := map[string]interface{}{"output": "it worked!"}
@@ -99,7 +98,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	res, errstr := completed[0].Results()
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res, gc.DeepEquals, actionResult)
-	c.Assert(completed[0].Name(), gc.Equals, "gabloxi")
+	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
 }
 
 func (s *actionSuite) TestActionFail(c *gc.C) {
@@ -107,7 +106,7 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, gc.DeepEquals, ([]*state.Action)(nil))
 
-	action, err := s.uniterSuite.wordpressUnit.AddAction("beebz", nil)
+	action, err := s.uniterSuite.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	errmsg := "it failed!"
@@ -121,5 +120,5 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	res, errstr := completed[0].Results()
 	c.Assert(errstr, gc.Equals, errmsg)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(completed[0].Name(), gc.Equals, "beebz")
+	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
 }

@@ -215,7 +215,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	instanceId, err := apiMachine.InstanceId()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
-	c.Assert(err, gc.ErrorMatches, "machine 1 is not provisioned")
+	c.Assert(err, gc.ErrorMatches, "machine 1 not provisioned")
 	c.Assert(instanceId, gc.Equals, instance.Id(""))
 
 	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")

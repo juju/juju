@@ -63,8 +63,8 @@ type MachineStatus struct {
 
 	// The following fields mirror fields in AgentStatus (introduced
 	// in 1.19.x). The old fields below are being kept for
-	// compatibility with old clients. They can be removed once API
-	// versioning lands or for 1.21, whichever comes first.
+	// compatibility with old clients.
+	// They can be removed once API versioning lands.
 	AgentState     params.Status
 	AgentStateInfo string
 	AgentVersion   string

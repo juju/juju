@@ -228,27 +228,27 @@ var scenarioStatus = &api.Status{
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": api.UnitStatus{
 							Agent: api.AgentStatus{
-								Status: "pending",
+								Status: "allocating",
 								Data:   make(map[string]interface{}),
 							},
-							AgentState: "pending",
+							AgentState: "allocating",
 						},
 					},
 				},
 				"wordpress/1": api.UnitStatus{
 					Agent: api.AgentStatus{
-						Status: "pending",
+						Status: "allocating",
 						Data:   make(map[string]interface{}),
 					},
-					AgentState: "pending",
+					AgentState: "allocating",
 					Machine:    "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": api.UnitStatus{
 							Agent: api.AgentStatus{
-								Status: "pending",
+								Status: "allocating",
 								Data:   make(map[string]interface{}),
 							},
-							AgentState: "pending",
+							AgentState: "allocating",
 						},
 					},
 				},

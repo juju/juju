@@ -1,11 +1,13 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // This is necessary since it must test a recursive unexported function,
 // i.e., the function cannot be exported via a var
 package action
 
-import gc "gopkg.in/check.v1"
+import (
+	gc "gopkg.in/check.v1"
+)
 
 type CommonSuite struct{}
 

@@ -198,7 +198,19 @@ func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error)
 	c.Assert(info.URL, gc.Equals, "local:quantal/wordpress-3")
 	c.Assert(info.Meta.Name, gc.Equals, "wordpress")
 	c.Assert(info.Revision, gc.Equals, 3)
-	c.Assert(info.Actions, jc.DeepEquals, &charm.Actions{ActionSpecs: nil})
+	c.Assert(info.Actions, jc.DeepEquals, &charm.Actions{
+		ActionSpecs: map[string]charm.ActionSpec{
+			"fakeaction": charm.ActionSpec{
+				Description: "No description",
+				Params: map[string]interface{}{
+					"type":        "object",
+					"description": "No description",
+					"properties":  map[string]interface{}{},
+					"title":       "fakeaction",
+				},
+			},
+		},
+	})
 	return func() {}, nil
 }
 

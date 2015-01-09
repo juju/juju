@@ -32,11 +32,6 @@ type Datastore struct {
 	// Kind is the kind of the datastore (block device, filesystem).
 	Kind DatastoreKind `yaml:"kind"`
 
-	// Specification describes parameters for creating the datastore if
-	// it is not yet attached. Exactly how the datastore is created is
-	// source-dependent.
-	Specification *Specification `yaml:"specification,omitempty"`
-
 	// Filesystem describes the filesystem properties of the datastore,
 	// for filesystem-type datastores. This will be non-nil only after
 	// the filesystem has been created.

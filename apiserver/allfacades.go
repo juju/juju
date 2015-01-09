@@ -9,6 +9,7 @@ package apiserver
 import (
 	_ "github.com/juju/juju/apiserver/action"
 	_ "github.com/juju/juju/apiserver/agent"
+	_ "github.com/juju/juju/apiserver/annotations"
 	_ "github.com/juju/juju/apiserver/backups"
 	_ "github.com/juju/juju/apiserver/charmrevisionupdater"
 	_ "github.com/juju/juju/apiserver/client"
@@ -16,6 +17,7 @@ import (
 	_ "github.com/juju/juju/apiserver/diskmanager"
 	_ "github.com/juju/juju/apiserver/environment"
 	_ "github.com/juju/juju/apiserver/firewaller"
+	_ "github.com/juju/juju/apiserver/imagemanager"
 	_ "github.com/juju/juju/apiserver/keymanager"
 	_ "github.com/juju/juju/apiserver/keyupdater"
 	_ "github.com/juju/juju/apiserver/logger"

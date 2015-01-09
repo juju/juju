@@ -14,5 +14,5 @@ type LeadershipService interface {
 	ReleaseLeadership(params params.ReleaseLeadershipBulkParams) (params.ReleaseLeadershipBulkResults, error)
 	// BlockUntilLeadershipReleased blocks the caller until leadership is
 	// released for the given service.
-	BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (err error)
+	BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (params.ErrorResult, error)
 }

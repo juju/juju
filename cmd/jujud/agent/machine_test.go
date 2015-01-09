@@ -363,7 +363,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetStatus(state.StatusStarted, "", nil)
+	err = u0.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -647,7 +647,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 				c.Logf("unit provisioned with instance %s", instId)
 				return m, instId
 			} else {
-				c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
+				c.Check(err, jc.Satisfies, errors.IsNotProvisioned)
 			}
 		}
 	}
