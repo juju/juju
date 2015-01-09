@@ -133,11 +133,14 @@ class Client:
     See https://github.com/joyent/python-manta
     """
 
-    def __init__(self, sdc_url, account, key_id,
+    def __init__(self, sdc_url, account, key_id, manta_url,
                  user_agent=USER_AGENT, dry_run=False, verbose=False):
         if sdc_url.endswith('/'):
             sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
+        if manta_url.endswith('/'):
+            manta_url = manta_url[1:]
+        self.manta_url = manta_url
         self.account = account
         self.key_id = key_id
         self.user_agent = user_agent
@@ -165,11 +168,16 @@ class Client:
         headers["User-Agent"] = USER_AGENT
         return headers
 
-    def _request(self, path, method="GET", body=None, headers=None):
+    def _request(self, path, method="GET", body=None, headers=None,
+                 is_manta=False):
         headers = self.make_request_headers(headers)
         if path.startswith('/'):
             path = path[1:]
-        uri = "{}/{}/{}".format(self.sdc_url, self.account, path)
+        if is_manta:
+            base_url = self.manta_url
+        else:
+            base_url = self.sdc_url
+        uri = "{}/{}/{}".format(base_url, self.account, path)
         if method == 'DELETE':
             request = DeleteRequest(uri, headers=headers)
         elif method == 'HEAD':
@@ -191,6 +199,22 @@ class Client:
         headers['status'] = str(response.getcode())
         headers['reason'] = response.msg
         return headers, content
+
+    def _list_objects(self, path):
+        headers, content = self._request(path, is_manta=True)
+        objects = []
+        for line in content.splitlines():
+            obj = json.loads(line)
+            obj['path'] = '%s/%s' % (path, obj['name'])
+            objects.append(obj)
+        if self.verbose:
+            print(objects)
+        return objects
+
+    def list_objects(self, path):
+        objects = self._list_objects(path)
+        for obj in objects:
+            print('{type} {mtime} {path}'.format(**obj))
 
     def _list_machines(self, machine_id=None):
         """Return a list of machine dicts."""
@@ -369,6 +393,10 @@ def parse_args(args=None):
         help="SDC URL. Environment: SDC_URL=URL",
         default=os.environ.get("SDC_URL"))
     parser.add_argument(
+        "-m", "--manta-url", dest="manta_url",
+        help="Manta URL. Environment: MANTA_URL=URL",
+        default=os.environ.get("MANTA_URL"))
+    parser.add_argument(
         "-a", "--account",
         help="Manta account. Environment: MANTA_USER=ACCOUNT",
         default=os.environ.get("MANTA_USER"))
@@ -390,6 +418,10 @@ def parse_args(args=None):
     parser_list_tags = subparsers.add_parser(
         'list-tags', help='List tags of running machines')
     parser_list_tags.add_argument('machine_id', help='The machine id.')
+    parser_list_objects = subparsers.add_parser(
+        'list-objects', help='List directories and files in manta')
+    parser_list_objects.add_argument('path', help='The path')
+
     return parser.parse_args()
 
 
@@ -399,12 +431,14 @@ def main(argv):
         print('SDC_URL must be sourced into the environment.')
         sys.exit(1)
     client = Client(
-        args.sdc_url, args.account, args.key_id,
+        args.sdc_url, args.account, args.key_id, args.manta_url,
         dry_run=args.dry_run, verbose=args.verbose)
     if args.command == 'list-machines':
         client.list_machines()
     elif args.command == 'list-tags':
         client.list_machine_tags(args.machine_id)
+    elif args.command == 'list-objects':
+        client.list_objects(args.path)
     elif args.command == 'delete-old-machines':
         client.delete_old_machines(args.old_age, args.contact_mail_address)
     else:
