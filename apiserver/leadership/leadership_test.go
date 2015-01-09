@@ -63,11 +63,17 @@ func (m *stubLeadershipManager) BlockUntilLeadershipReleased(serviceId string) e
 }
 
 type stubAuthorizer struct {
-	AuthOwnerFn func(names.Tag) bool
+	AuthOwnerFn     func(names.Tag) bool
+	AuthUnitAgentFn func() bool
 }
 
 func (m *stubAuthorizer) AuthMachineAgent() bool { return true }
-func (m *stubAuthorizer) AuthUnitAgent() bool    { return true }
+func (m *stubAuthorizer) AuthUnitAgent() bool {
+	if m.AuthUnitAgentFn != nil {
+		return m.AuthUnitAgentFn()
+	}
+	return true
+}
 func (m *stubAuthorizer) AuthOwner(tag names.Tag) bool {
 	if m.AuthOwnerFn != nil {
 		return m.AuthOwnerFn(tag)
@@ -132,14 +138,15 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
-	err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
+	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
 	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		AuthOwnerFn: func(names.Tag) bool { return false },
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
@@ -160,7 +167,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 
 func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		AuthOwnerFn: func(names.Tag) bool { return false },
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
@@ -181,11 +188,14 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		AuthOwnerFn: func(names.Tag) bool { return false },
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
-	err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
+	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
-	c.Check(err, gc.ErrorMatches, common.ErrPerm.Error())
+	// Overall function call should succeed, but operations should
+	// fail with a permissions issue.
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Error, gc.ErrorMatches, common.ErrPerm.Error())
 }
