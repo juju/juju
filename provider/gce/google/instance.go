@@ -150,7 +150,7 @@ func (gi *Instance) Refresh(conn *Connection) error {
 
 // Addresses identifies information about the network addresses
 // associated with the instance and returns it.
-func (gi Instance) Addresses() ([]network.Address, error) {
+func (gi Instance) Addresses() []network.Address {
 	var addresses []network.Address
 
 	for _, netif := range gi.raw.NetworkInterfaces {
@@ -180,7 +180,7 @@ func (gi Instance) Addresses() ([]network.Address, error) {
 		addresses = append(addresses, address)
 	}
 
-	return addresses, nil
+	return addresses
 }
 
 // Metadata returns the user-specified metadata for the instance.

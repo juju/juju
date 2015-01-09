@@ -45,8 +45,7 @@ func (inst *environInstance) Refresh() error {
 
 // Addresses implements instance.Instance.
 func (inst *environInstance) Addresses() ([]network.Address, error) {
-	result, err := inst.base.Addresses()
-	return result, errors.Trace(err)
+	return inst.base.Addresses(), nil
 }
 
 func findInst(id instance.Id, instances []instance.Instance) instance.Instance {
