@@ -40,12 +40,8 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			expected := params.AnnotationsSet{
 				Annotations: []params.EntityAnnotations{
-					{Entities: params.Entities{
-						[]params.Entity{params.Entity{"charmA"}}},
-						Annotations: annts},
-					{Entities: params.Entities{
-						[]params.Entity{params.Entity{"serviceB"}}},
-						Annotations: annts},
+					{Entity: params.Entity{"charmA"}, Annotations: annts},
+					{Entity: params.Entity{"serviceB"}, Annotations: annts},
 				}}
 			c.Assert(args, gc.DeepEquals, expected)
 			return nil

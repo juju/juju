@@ -69,13 +69,11 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 // Set stores annotations for given entities
 func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	setErrors := []params.ErrorResult{}
-	for _, entityAnnotations := range args.Annotations {
-		for _, entity := range entityAnnotations.Entities.Entities {
-			err := api.setEntityAnnotations(entity.Tag, entityAnnotations.Annotations)
-			if err != nil {
-				setErrors = append(setErrors,
-					params.ErrorResult{Error: annotateError(err, entity.Tag, "setting")})
-			}
+	for _, entityAnnotation := range args.Annotations {
+		err := api.setEntityAnnotations(entityAnnotation.Entity.Tag, entityAnnotation.Annotations)
+		if err != nil {
+			setErrors = append(setErrors,
+				params.ErrorResult{Error: annotateError(err, entityAnnotation.Entity.Tag, "setting")})
 		}
 	}
 	return params.ErrorResults{Results: setErrors}

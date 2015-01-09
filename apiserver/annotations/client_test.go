@@ -150,8 +150,7 @@ func constructSetParameters(
 	result := []params.EntityAnnotations{}
 	for _, entity := range entities.Entities {
 		one := params.EntityAnnotations{
-			Entities: params.Entities{
-				[]params.Entity{entity}},
+			Entity:      entity,
 			Annotations: annotations,
 		}
 		result = append(result, one)
