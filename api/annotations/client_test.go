@@ -47,7 +47,10 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			return nil
 		})
 	annotationsClient := annotations.NewClient(apiCaller)
-	err := annotationsClient.Set([]string{"charmA", "serviceB"}, annts)
+	err := annotationsClient.Set(
+		constructTestEntityAnnotations(
+			[]string{"charmA", "serviceB"},
+			annts))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -86,6 +89,13 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(found, gc.HasLen, 1)
 }
+func constructTestEntityAnnotations(tags []string, pairs map[string]string) map[string]map[string]string {
+	result := make(map[string]map[string]string)
+	for _, tag := range tags {
+		result[tag] = pairs
+	}
+	return result
+}
 
 type annotationsSuite struct {
 	jujutesting.JujuConnSuite
@@ -109,7 +119,9 @@ func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 
 	annts := map[string]string{"annotation": "test"}
-	err := s.annotationsClient.Set([]string{charm.Tag().String()}, annts)
+	err := s.annotationsClient.Set(
+		constructTestEntityAnnotations([]string{charm.Tag().String()},
+			annts))
 	c.Assert(err, jc.ErrorIsNil)
 
 	found, err := s.annotationsClient.Get([]string{charm.Tag().String()})
