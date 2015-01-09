@@ -63,7 +63,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		NetworkIP: "10.0.0.1",
 		AccessConfigs: []*compute.AccessConfig{{
 			Name: "somenetif",
-			Type: "ONE_TO_ONE_NAT",
+			Type: NetworkAccessOneToOneNAT,
 		}},
 	}
 	s.RawMetadata = compute.Metadata{Items: []*compute.MetadataItems{{

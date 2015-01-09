@@ -12,8 +12,11 @@ import (
 const (
 	networkDefaultName = "default"
 	networkPathRoot    = "global/networks/"
-	// networkAccessOneToOneNAT is the default access rule type.
-	networkAccessOneToOneNAT = "ONE_TO_ONE_NAT"
+)
+
+// The different kinds of network access.
+const (
+	NetworkAccessOneToOneNAT = "ONE_TO_ONE_NAT" // the default
 )
 
 // NetworkSpec holds all the information needed to identify and create
@@ -24,8 +27,8 @@ type NetworkSpec struct {
 	// TODO(ericsnow) support a CIDR for internal IP addr range?
 }
 
-// path returns the qualified name of the network.
-func (ns *NetworkSpec) path() string {
+// Path returns the qualified name of the network.
+func (ns *NetworkSpec) Path() string {
 	name := ns.Name
 	if name == "" {
 		name = networkDefaultName
@@ -41,13 +44,13 @@ func (ns *NetworkSpec) newInterface(name string) *compute.NetworkInterface {
 		// This interface has an internet connection.
 		access = append(access, &compute.AccessConfig{
 			Name: name,
-			Type: networkAccessOneToOneNAT, // the default
+			Type: NetworkAccessOneToOneNAT,
 			// NatIP (only set if using a reserved public IP)
 		})
 		// TODO(ericsnow) Will we need to support more access configs?
 	}
 	return &compute.NetworkInterface{
-		Network:       ns.path(),
+		Network:       ns.Path(),
 		AccessConfigs: access,
 	}
 }

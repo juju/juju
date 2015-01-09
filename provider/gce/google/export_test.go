@@ -18,6 +18,7 @@ var (
 	RootDisk           = rootDisk
 	DiskSizeGB         = diskSizeGB
 	ZoneName           = zoneName
+	FirewallSpec       = firewallSpec
 )
 
 func NewAttached(spec DiskSpec) *compute.AttachedDisk {
@@ -30,4 +31,8 @@ func NewAvailabilityZone(zone *compute.Zone) AvailabilityZone {
 
 func ExposeRawInstance(inst *Instance) *compute.Instance {
 	return &inst.raw
+}
+
+func NewNetInterface(spec NetworkSpec, name string) *compute.NetworkInterface {
+	return spec.newInterface(name)
 }
