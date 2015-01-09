@@ -5,6 +5,7 @@ package google
 
 import (
 	"code.google.com/p/goauth2/oauth"
+	"code.google.com/p/google-api-go-client/compute/v1"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -14,7 +15,15 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	auth Auth
+	auth             Auth
+	DiskSpec         DiskSpec
+	NetworkSpec      NetworkSpec
+	NetworkInterface compute.NetworkInterface
+	RawMetadata      compute.Metadata
+	Metadata         map[string]string
+	RawInstance      compute.Instance
+	InstanceSpec     InstanceSpec
+	Instance         Instance
 }
 
 var _ = gc.Suite(&BaseSuite{})
@@ -25,6 +34,53 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
+	}
+
+	s.DiskSpec = DiskSpec{
+		SizeHintGB: 1,
+		ImageURL:   "some/image/path",
+		Boot:       true,
+		Scratch:    false,
+		Readonly:   false,
+		AutoDelete: true,
+	}
+	s.NetworkSpec = NetworkSpec{
+		Name: "somenetwork",
+	}
+	s.NetworkInterface = compute.NetworkInterface{
+		Network: "global/networks/somenetwork",
+		AccessConfigs: []*compute.AccessConfig{{
+			Name: "somenetif",
+			Type: "ONE_TO_ONE_NAT",
+		}},
+	}
+	s.RawMetadata = compute.Metadata{Items: []*compute.MetadataItems{{
+		Key:   "x",
+		Value: "y",
+	}}}
+	s.Metadata = map[string]string{
+		"eggs": "steak",
+	}
+	s.RawInstance = compute.Instance{
+		Name:              "spam",
+		Status:            "UP",
+		NetworkInterfaces: []*compute.NetworkInterface{&s.NetworkInterface},
+		Metadata:          &s.RawMetadata,
+	}
+	s.InstanceSpec = InstanceSpec{
+		ID:                "spam",
+		Type:              "sometype",
+		Disks:             []DiskSpec{s.DiskSpec},
+		Network:           s.NetworkSpec,
+		NetworkInterfaces: []string{"somenetif"},
+		Metadata:          s.Metadata,
+		Tags:              []string{"spam"},
+	}
+	s.Instance = Instance{
+		ID:   "spam",
+		Zone: "a-zone",
+		raw:  s.RawInstance,
+		spec: &s.InstanceSpec,
 	}
 }
 
