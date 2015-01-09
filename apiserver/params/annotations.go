@@ -20,8 +20,8 @@ type AnnotationsSet struct {
 	Annotations []EntityAnnotations
 }
 
-// EntityAnnotations stores annotations for entities.
+// EntityAnnotations stores annotations for an entity.
 type EntityAnnotations struct {
-	Entities    Entities
+	Entity      Entity
 	Annotations map[string]string
 }

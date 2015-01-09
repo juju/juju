@@ -24,7 +24,8 @@ var _ = gc.Suite(&annotationsMockSuite{})
 
 func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 	var called bool
-	annts := map[string]string{"annotation": "test"}
+	annts := map[string]string{"annotation1": "test"}
+	annts2 := map[string]string{"annotation2": "test"}
 	apiCaller := basetesting.APICallerFunc(
 		func(
 			objType string,
@@ -40,18 +41,18 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			expected := params.AnnotationsSet{
 				Annotations: []params.EntityAnnotations{
-					{Entities: params.Entities{
-						[]params.Entity{params.Entity{"charmA"}}},
-						Annotations: annts},
-					{Entities: params.Entities{
-						[]params.Entity{params.Entity{"serviceB"}}},
-						Annotations: annts},
+					{Entity: params.Entity{"charmA"}, Annotations: annts},
+					{Entity: params.Entity{"serviceB"}, Annotations: annts2},
 				}}
 			c.Assert(args, gc.DeepEquals, expected)
 			return nil
 		})
 	annotationsClient := annotations.NewClient(apiCaller)
-	err := annotationsClient.Set([]string{"charmA", "serviceB"}, annts)
+	err := annotationsClient.Set(
+		map[string]map[string]string{
+			"charmA":   annts,
+			"serviceB": annts2,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
@@ -113,7 +114,10 @@ func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 
 	annts := map[string]string{"annotation": "test"}
-	err := s.annotationsClient.Set([]string{charm.Tag().String()}, annts)
+	err := s.annotationsClient.Set(
+		map[string]map[string]string{
+			charm.Tag().String(): annts,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	found, err := s.annotationsClient.Get([]string{charm.Tag().String()})
