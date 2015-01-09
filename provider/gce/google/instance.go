@@ -54,18 +54,6 @@ type InstanceSpec struct {
 // The instance will be created using the provided connection and in one
 // of the provided zones.
 func (is InstanceSpec) Create(conn *Connection, zones []string) (*Instance, error) {
-	raw, err := is.create(conn, zones)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	inst := newInstance(raw)
-	copied := is
-	inst.spec = &copied
-	return inst, nil
-}
-
-func (is InstanceSpec) create(conn *Connection, zones []string) (*compute.Instance, error) {
 	raw := &compute.Instance{
 		Name:              is.ID,
 		Disks:             is.disks(),
@@ -74,8 +62,14 @@ func (is InstanceSpec) create(conn *Connection, zones []string) (*compute.Instan
 		Tags:              &compute.Tags{Items: is.Tags},
 		// MachineType is set in the addInstance call.
 	}
-	err := addInstance(conn, raw, is.Type, zones)
-	return raw, errors.Trace(err)
+	if err := addInstance(conn, raw, is.Type, zones); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	inst := newInstance(raw)
+	copied := is
+	inst.spec = &copied
+	return inst, nil
 }
 
 var addInstance = func(conn *Connection, raw *compute.Instance, typ string, zones []string) error {
@@ -116,6 +110,11 @@ func newInstance(raw *compute.Instance) *Instance {
 		Zone: zoneName(raw),
 		raw:  *raw,
 	}
+}
+
+// Spec returns the spec that was used to create this instance.
+func (gi Instance) Spec() *InstanceSpec {
+	return gi.spec
 }
 
 // RootDiskGB returns the size of the instance's root disk. If it

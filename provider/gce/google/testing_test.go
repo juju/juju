@@ -59,15 +59,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Name: "somenetwork",
 	}
 	s.NetworkInterface = compute.NetworkInterface{
-		Network: "global/networks/somenetwork",
+		Network:   "global/networks/somenetwork",
+		NetworkIP: "10.0.0.1",
 		AccessConfigs: []*compute.AccessConfig{{
 			Name: "somenetif",
 			Type: "ONE_TO_ONE_NAT",
 		}},
 	}
 	s.RawMetadata = compute.Metadata{Items: []*compute.MetadataItems{{
-		Key:   "x",
-		Value: "y",
+		Key:   "eggs",
+		Value: "steak",
 	}}}
 	s.Metadata = map[string]string{
 		"eggs": "steak",
@@ -79,6 +80,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		NetworkInterfaces: []*compute.NetworkInterface{&s.NetworkInterface},
 		Metadata:          &s.RawMetadata,
 		Disks:             []*compute.AttachedDisk{&s.AttachedDisk},
+		Tags:              &compute.Tags{Items: []string{"spam"}},
 	}
 	s.InstanceSpec = InstanceSpec{
 		ID:                "spam",

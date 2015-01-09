@@ -8,9 +8,11 @@ import (
 )
 
 var (
-	RootDisk   = rootDisk
-	DiskSizeGB = diskSizeGB
-	ZoneName   = zoneName
+	AddInstance = &addInstance
+	NewInstance = newInstance
+	RootDisk    = rootDisk
+	DiskSizeGB  = diskSizeGB
+	ZoneName    = zoneName
 )
 
 func NewAttached(spec DiskSpec) *compute.AttachedDisk {
@@ -19,4 +21,8 @@ func NewAttached(spec DiskSpec) *compute.AttachedDisk {
 
 func NewAvailabilityZone(zone *compute.Zone) AvailabilityZone {
 	return AvailabilityZone{zone: zone}
+}
+
+func ExposeRawInstance(inst *Instance) *compute.Instance {
+	return &inst.raw
 }
