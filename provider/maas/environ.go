@@ -180,7 +180,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		return env.supportedArchitectures, nil
 	}
 	bootImages, err := env.allBootImages()
-	if err != nil {
+	if err != nil || len(bootImages) == 0 {
 		logger.Debugf("error querying boot-images: %v", err)
 		logger.Debugf("falling back to listing nodes")
 		supportedArchitectures, err := env.nodeArchitectures()
