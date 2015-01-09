@@ -229,8 +229,8 @@ def copy_local_logs(directory, client):
 
 def copy_remote_logs(host, directory):
     log_names = [
-        'juju/*.log',
         'cloud-init*.log',
+        'juju/*.log',
     ]
     source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
 
@@ -240,20 +240,28 @@ def copy_remote_logs(host, directory):
         logging.warning("Could not dump logs because port 22 was closed.")
         return
 
-    subprocess.check_call([
-        'timeout', '5m', 'ssh',
-        '-o', 'UserKnownHostsFile /dev/null',
-        '-o', 'StrictHostKeyChecking no',
-        'ubuntu@' + host,
-        'sudo chmod go+r /var/log/juju/*',
-    ])
+    try:
+        subprocess.check_call([
+            'timeout', '5m', 'ssh',
+            '-o', 'UserKnownHostsFile /dev/null',
+            '-o', 'StrictHostKeyChecking no',
+            'ubuntu@' + host,
+            'sudo chmod go+r /var/log/juju/*',
+        ])
+    except subprocess.CalledProcessError as e:
+        logging.warning("Could not change the permissing of juju logs:")
+        logging.warning(e.output)
 
-    subprocess.check_call([
-        'timeout', '5m', 'scp', '-C',
-        '-o', 'UserKnownHostsFile /dev/null',
-        '-o', 'StrictHostKeyChecking no',
-        source, directory,
-    ])
+    try:
+        subprocess.check_call([
+            'timeout', '5m', 'scp', '-C',
+            '-o', 'UserKnownHostsFile /dev/null',
+            '-o', 'StrictHostKeyChecking no',
+            source, directory,
+        ])
+    except subprocess.CalledProcessError as e:
+        logging.warning("Could not retrieve some or all logs:")
+        logging.warning(e.output)
 
 
 def dump_euca_console(host_id, directory):
