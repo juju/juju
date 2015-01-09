@@ -34,8 +34,8 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		func(objType string,
 			version int,
 			id, request string,
-			a, result interface{}) error {
-
+			a, result interface{},
+		) error {
 			called = true
 			c.Check(objType, gc.Equals, "Annotations")
 			c.Check(id, gc.Equals, "")
