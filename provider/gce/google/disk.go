@@ -115,6 +115,7 @@ func rootDisk(inst interface{}) *compute.AttachedDisk {
 	case *InstanceSpec:
 		return typed.Disks[0].newAttached()
 	default:
+		panic(inst)
 		return nil
 	}
 }
