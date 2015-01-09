@@ -17,6 +17,7 @@ type BaseSuite struct {
 
 	auth             Auth
 	DiskSpec         DiskSpec
+	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
 	NetworkInterface compute.NetworkInterface
 	RawMetadata      compute.Metadata
@@ -44,6 +45,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Readonly:   false,
 		AutoDelete: true,
 	}
+	s.AttachedDisk = compute.AttachedDisk{
+		Type:       "PERSISTENT",
+		Boot:       true,
+		Mode:       "READ_WRITE",
+		AutoDelete: true,
+		InitializeParams: &compute.AttachedDiskInitializeParams{
+			DiskSizeGb:  1,
+			SourceImage: "some/image/path",
+		},
+	}
 	s.NetworkSpec = NetworkSpec{
 		Name: "somenetwork",
 	}
@@ -66,6 +77,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Status:            "UP",
 		NetworkInterfaces: []*compute.NetworkInterface{&s.NetworkInterface},
 		Metadata:          &s.RawMetadata,
+		Disks:             []*compute.AttachedDisk{&s.AttachedDisk},
 	}
 	s.InstanceSpec = InstanceSpec{
 		ID:                "spam",
