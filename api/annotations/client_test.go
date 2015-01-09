@@ -26,6 +26,10 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 	var called bool
 	annts := map[string]string{"annotation1": "test"}
 	annts2 := map[string]string{"annotation2": "test"}
+	setParams := map[string]map[string]string{
+		"charmA":   annts,
+		"serviceB": annts2,
+	}
 	apiCaller := basetesting.APICallerFunc(
 		func(
 			objType string,
@@ -39,20 +43,18 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 
 			args, ok := a.(params.AnnotationsSet)
 			c.Assert(ok, jc.IsTrue)
-			expected := params.AnnotationsSet{
-				Annotations: []params.EntityAnnotations{
-					{Entity: params.Entity{"charmA"}, Annotations: annts},
-					{Entity: params.Entity{"serviceB"}, Annotations: annts2},
-				}}
-			c.Assert(args, gc.DeepEquals, expected)
+
+			for _, aParam := range args.Annotations {
+				// Since sometimes arrays returned on some
+				// architectures very the order within params.AnnotationsSet,
+				// simply assert that each entity has its own annotations.
+				// Bug 1409141
+				c.Assert(aParam.Annotations, gc.DeepEquals, setParams[aParam.Entity.Tag])
+			}
 			return nil
 		})
 	annotationsClient := annotations.NewClient(apiCaller)
-	err := annotationsClient.Set(
-		map[string]map[string]string{
-			"charmA":   annts,
-			"serviceB": annts2,
-		})
+	err := annotationsClient.Set(setParams)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
