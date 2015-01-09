@@ -36,10 +36,10 @@ be in a yaml file which is passed with the --params flag.
 
 Examples:
 
-$ juju do mysql/3 backup 
+$ juju action do mysql/3 backup 
 action: <UUID>
 
-$ juju status <UUID>
+$ juju action fetch <UUID>
 result:
   status: success
   file:
@@ -47,7 +47,7 @@ result:
     units: GB
     name: foo.sql
 
-$ juju do mysql/3 backup --params parameters.yml
+$ juju action do mysql/3 backup --params parameters.yml
 ...
 `
 
