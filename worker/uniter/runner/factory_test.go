@@ -457,7 +457,7 @@ func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunner(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
+	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": "/some/file.bz2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -479,8 +479,8 @@ func (s *FactorySuite) TestNewActionRunner(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.unit.AddAction("no-such-action", nil)
-	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
+	action, err := s.State.EnqueueAction(s.unit.Tag(), "no-such-action", nil)
+	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
@@ -489,7 +489,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
+	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": 123,
 	})
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
@@ -501,7 +501,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	action, err := s.unit.AddAction("snapshot", nil)
+	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, jc.ErrorIsNil)
@@ -515,7 +515,7 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	otherUnit, err := s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := otherUnit.AddAction("snapshot", nil)
+	action, err := s.State.EnqueueAction(otherUnit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
