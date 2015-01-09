@@ -23,6 +23,13 @@ func (s *diskSuite) TestDiskSpecTooSmall(c *gc.C) {
 	c.Check(tooSmall, jc.IsFalse)
 }
 
+func (s *diskSuite) TestDiskSpecTooSmallTrue(c *gc.C) {
+	s.DiskSpec.SizeHintGB = -1
+	tooSmall := s.DiskSpec.TooSmall()
+
+	c.Check(tooSmall, jc.IsTrue)
+}
+
 func (s *diskSuite) TestDiskSpecSizeGB(c *gc.C) {
 	size := s.DiskSpec.SizeGB()
 
