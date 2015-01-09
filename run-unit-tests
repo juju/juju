@@ -114,7 +114,7 @@ if [[ ! -f ~/.ssh/id_rsa ]]; then
 fi
 if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mkdir -m 777 /mnt/tmp
-    sudo mount -t tmpfs -o size=2G /mnt/tmp /mnt/tmp
+    sudo mount -t tmpfs -o size=3G /mnt/tmp /mnt/tmp
     export TMPDIR=/mnt/tmp
 fi
 tar -xzf $tarfile
