@@ -1359,8 +1359,8 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
-// BlockDevices gets the aggregated list of block devices attached to the
-// machine.
+// BlockDevices gets the aggregated list of block devices associated with
+// the machine, including unprovisioned ones.
 func (m *Machine) BlockDevices() ([]BlockDevice, error) {
 	devices, err := getMachineBlockDevices(m.st, m.Id())
 	if err != nil {

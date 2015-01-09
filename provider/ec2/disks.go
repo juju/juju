@@ -92,6 +92,7 @@ func getBlockDeviceMappings(
 			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
 		}
 		disk := storage.BlockDevice{
+			Name:       params.Name,
 			DeviceName: actualDeviceName,
 			Size:       gibToMib(uint64(mapping.VolumeSize)),
 			// ProviderId will be filled in once the instance has

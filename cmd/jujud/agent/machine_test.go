@@ -1140,7 +1140,9 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
-			c.Assert(devices[0].Info().DeviceName, gc.Equals, expected[0].DeviceName)
+			info, err := devices[0].Info()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(info.DeviceName, gc.Equals, expected[0].DeviceName)
 			return
 		}
 	}
