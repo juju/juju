@@ -96,14 +96,80 @@ func (s *storeManagerStateSuite) Reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
+func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
+	if len(got) == 0 {
+		got = nil
+	}
+	if len(want) == 0 {
+		want = nil
+	}
+	if reflect.DeepEqual(got, want) {
+		return
+	}
+	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
+	c.Logf("got:")
+	for _, e := range got {
+		c.Logf("\t%T %#v", e, e)
+	}
+	c.Logf("expected:")
+	for _, e := range want {
+		c.Logf("\t%T %#v", e, e)
+	}
+
+	if len(got) == len(want) {
+		for i := 0; i < len(got); i++ {
+			g := got[i]
+			w := want[i]
+			if !reflect.DeepEqual(g, w) {
+				c.Logf("")
+				c.Logf("first difference at position %d", i)
+				c.Logf("got:")
+				c.Logf("\t%T %#v", g, g)
+				c.Logf("expected:")
+				c.Logf("\t%T %#v", w, w)
+				break
+			}
+		}
+	}
+	c.FailNow()
+}
+
+func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
+	expectEntities := s.setUpScenario(c, s.State, 2)
+	s.checkGetAll(c, expectEntities)
+}
+
+func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
+	// Set up 2 environments and ensure that GetAll returns the
+	// entities for the first environment with no errors.
+	expectEntities := s.setUpScenario(c, s.State, 2)
+
+	// Use more units in the second env to ensure the number of
+	// entities will mismatch if environment filtering isn't in place.
+	s.setUpScenario(c, s.OtherState, 4)
+
+	s.checkGetAll(c, expectEntities)
+}
+
+func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
+	b := newAllWatcherStateBacking(s.State)
+	all := newStore()
+	err := b.GetAll(all)
+	c.Assert(err, jc.ErrorIsNil)
+	var gotEntities entityInfoSlice = all.All()
+	sort.Sort(gotEntities)
+	sort.Sort(expectEntities)
+	assertEntitiesEqual(c, gotEntities, expectEntities)
+}
+
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
-// allWatcherStateBacking.getAll.
-func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlice) {
+// allWatcherStateBacking.GetAll.
+func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
 	}
-	m, err := s.State.AddMachine("quantal", JobManageEnviron)
+	m, err := st.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// TODO(dfc) instance.Id should take a TAG!
@@ -119,15 +185,15 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Status:                  multiwatcher.Status("pending"),
 		Life:                    multiwatcher.Life("alive"),
 		Series:                  "quantal",
-		Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+		Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 	})
 
-	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 	err = wordpress.SetExposed()
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.SetMinUnits(3)
+	err = wordpress.SetMinUnits(units)
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +204,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		OwnerTag:    s.owner.String(),
 		Life:        multiwatcher.Life("alive"),
-		MinUnits:    3,
+		MinUnits:    units,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
@@ -151,7 +217,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Annotations: pairs,
 	})
 
-	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"), s.owner)
+	logging := AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
 	add(&multiwatcher.ServiceInfo{
 		Name:        "logging",
 		CharmURL:    serviceCharmURL(logging).String(),
@@ -161,9 +227,9 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Subordinate: true,
 	})
 
-	eps, err := s.State.InferEndpoints("logging", "wordpress")
+	eps, err := st.InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.RelationInfo{
 		Key: "logging:logging-directory wordpress:logging-dir",
@@ -173,12 +239,12 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 	})
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < units; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := s.State.AddMachine("quantal", JobHostUnits)
+		m, err := st.AddMachine("quantal", JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -231,7 +297,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		err = wru.EnterScope(nil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		lu, err := s.State.Unit(fmt.Sprintf("logging/%d", i))
+		lu, err := st.Unit(fmt.Sprintf("logging/%d", i))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(lu.IsPrincipal(), jc.IsFalse)
 		deployer, ok = lu.DeployerTag()
@@ -252,40 +318,6 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 func serviceCharmURL(svc *Service) *charm.URL {
 	url, _ := svc.CharmURL()
 	return url
-}
-
-func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
-	if len(got) == 0 {
-		got = nil
-	}
-	if len(want) == 0 {
-		want = nil
-	}
-	if reflect.DeepEqual(got, want) {
-		return
-	}
-	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
-	c.Logf("got:")
-	for _, e := range got {
-		c.Logf("\t%T %#v", e, e)
-	}
-	c.Logf("expected:")
-	for _, e := range want {
-		c.Logf("\t%T %#v", e, e)
-	}
-	c.FailNow()
-}
-
-func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
-	expectEntities := s.setUpScenario(c)
-	b := newAllWatcherStateBacking(s.State)
-	all := newStore()
-	err := b.GetAll(all)
-	c.Assert(err, jc.ErrorIsNil)
-	var gotEntities entityInfoSlice = all.All()
-	sort.Sort(gotEntities)
-	sort.Sort(expectEntities)
-	assertEntitiesEqual(c, gotEntities, expectEntities)
 }
 
 func setServiceConfigAttr(c *gc.C, svc *Service, attr string, val interface{}) {
