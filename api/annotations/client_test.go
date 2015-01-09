@@ -46,7 +46,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 
 			for _, aParam := range args.Annotations {
 				// Since sometimes arrays returned on some
-				// architectures very the order within params.AnnotationsSet,
+				// architectures vary the order within params.AnnotationsSet,
 				// simply assert that each entity has its own annotations.
 				// Bug 1409141
 				c.Assert(aParam.Annotations, gc.DeepEquals, setParams[aParam.Entity.Tag])
