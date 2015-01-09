@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
-
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -44,26 +43,26 @@ options:
 var _ = gc.Suite(&storeManagerStateSuite{})
 
 type storeManagerStateSuite struct {
-	testing.BaseSuite
 	gitjujutesting.MgoSuite
+	testing.BaseSuite
 	State      *State
 	OtherState *State
 	owner      names.UserTag
 }
 
 func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
 	s.owner = names.NewLocalUserTag("test-admin")
 	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
@@ -1102,63 +1101,131 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
 	for i, test := range []struct {
-		about                 string
-		assertIsolatedChanges func(*testWatcher, *testWatcher)
+		about        string
+		setUpState   func(*State)
+		triggerEvent func(*State)
 	}{
 		{
 			about: "machines",
-			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
-				m0, err := w1.st.AddMachine("trusty", JobHostUnits)
+			triggerEvent: func(st *State) {
+				m0, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m0.Id(), gc.Equals, "0")
-
-				w2.AssertNoChange()
-				w1.AssertChanges()
-				w1.AssertNoChange()
 			},
 		}, {
 			about: "services",
-			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
-				AddTestingService(c, w1.st, "wordpress", AddTestingCharm(c, w1.st, "wordpress"), s.owner)
-				w2.AssertNoChange()
-				w1.AssertChanges()
-				w1.AssertNoChange()
+			triggerEvent: func(st *State) {
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			},
+		}, {
+			about: "units",
+			setUpState: func(st *State) {
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			},
+			triggerEvent: func(st *State) {
+				svc, err := st.Service("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+
+				_, err = svc.AddUnit()
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "relations",
+			setUpState: func(st *State) {
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+				AddTestingService(c, st, "mysql", AddTestingCharm(c, st, "mysql"), s.owner)
+			},
+			triggerEvent: func(st *State) {
+				eps, err := st.InferEndpoints("mysql", "wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = st.AddRelation(eps...)
+				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
 			about: "annotations",
-			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
-				m, err := w1.st.AddMachine("trusty", JobHostUnits)
+			setUpState: func(st *State) {
+				m, err := st.AddMachine("trusty", JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
-				// Consume event from machine creation
-				w1.AssertChanges()
-				w1.AssertNoChange()
+			},
+			triggerEvent: func(st *State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
 
-				// Now set annotation on the machine and check that the
-				// event is only seen on the correct watcher.
 				err = m.SetAnnotations(map[string]string{"foo": "bar"})
 				c.Assert(err, jc.ErrorIsNil)
-				w2.AssertNoChange()
-				w1.AssertChanges()
-				w1.AssertNoChange()
+			},
+		}, {
+			about: "statuses",
+			setUpState: func(st *State) {
+				m, err := st.AddMachine("trusty", JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m.Id(), gc.Equals, "0")
+				err = m.SetProvisioned("inst-id", "fake_nonce", nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+			triggerEvent: func(st *State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = m.SetStatus("error", "pete tong", nil)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "constraints",
+			setUpState: func(st *State) {
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			},
+			triggerEvent: func(st *State) {
+				svc, err := st.Service("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+
+				cpuCores := uint64(99)
+				err = svc.SetConstraints(constraints.Value{CpuCores: &cpuCores})
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "settings",
+			setUpState: func(st *State) {
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			},
+			triggerEvent: func(st *State) {
+				svc, err := st.Service("wordpress")
+				c.Assert(err, jc.ErrorIsNil)
+
+				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "boring"})
+				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
 	} {
 		c.Logf("Test %d: %s", i, test.about)
-
 		func() {
+			checkIsolationForEnv := func(st *State, w, otherW *testWatcher) {
+				c.Logf("Making changes to environment %s", st.EnvironUUID())
+
+				if test.setUpState != nil {
+					test.setUpState(st)
+					// Consume events from setup.
+					w.AssertChanges()
+					w.AssertNoChange()
+					otherW.AssertNoChange()
+				}
+
+				test.triggerEvent(st)
+				// Check event was isolated to the correct watcher.
+				w.AssertChanges()
+				w.AssertNoChange()
+				otherW.AssertNoChange()
+			}
+
 			w1 := newTestWatcher(s.State, c)
 			defer w1.Stop()
 			w2 := newTestWatcher(s.OtherState, c)
 			defer w2.Stop()
 
-			c.Logf("Making changes to environment %s", w1.st.EnvironUUID())
-			test.assertIsolatedChanges(w1, w2)
-
-			c.Logf("Making changes to environment %s", w2.st.EnvironUUID())
-			test.assertIsolatedChanges(w2, w1)
+			checkIsolationForEnv(s.State, w1, w2)
+			checkIsolationForEnv(s.OtherState, w2, w1)
 		}()
-
 		s.Reset(c)
 	}
 }
