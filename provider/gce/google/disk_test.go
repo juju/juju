@@ -164,10 +164,30 @@ func (s *diskSuite) TestRootDiskUnknown(c *gc.C) {
 	c.Assert(attached, gc.IsNil)
 }
 
-func (s *diskSuite) TestDiskSizeGB(c *gc.C) {
-	attached := google.NewAttached(s.DiskSpec)
-	size, err := google.DiskSizeGB(attached)
+func (s *diskSuite) TestDiskSizeGBCompute(c *gc.C) {
+	disk := compute.Disk{SizeGb: 1}
+	size, err := google.DiskSizeGB(&disk)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(size, gc.Equals, int64(1))
+}
+
+func (s *diskSuite) TestDiskSizeGBAttached(c *gc.C) {
+	size, err := google.DiskSizeGB(&s.AttachedDisk)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(size, gc.Equals, int64(1))
+}
+
+func (s *diskSuite) TestDiskSizeGBAttachedNilInit(c *gc.C) {
+	s.AttachedDisk.InitializeParams = nil
+	_, err := google.DiskSizeGB(&s.AttachedDisk)
+
+	c.Assert(err, gc.ErrorMatches, `attached disk missing init params: .*`)
+}
+
+func (s *diskSuite) TestDiskSizeGBUnknown(c *gc.C) {
+	_, err := google.DiskSizeGB("unknown")
+
+	c.Assert(err, gc.ErrorMatches, `disk has unrecognized type: .*`)
 }
