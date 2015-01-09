@@ -265,19 +265,15 @@ func (s *instanceSuite) TestFormatAuthorizedKeys(c *gc.C) {
 }
 
 func (s *instanceSuite) TestFormatAuthorizedKeysEmpty(c *gc.C) {
-	formatted, err := google.FormatAuthorizedKeys("", "john")
-	c.Assert(err, jc.ErrorIsNil)
+	_, err := google.FormatAuthorizedKeys("", "john")
 
-	// XXX Is this right?
-	c.Check(formatted, gc.Equals, "john:\n")
+	c.Check(err, gc.ErrorMatches, "empty raw")
 }
 
 func (s *instanceSuite) TestFormatAuthorizedKeysNoUser(c *gc.C) {
-	formatted, err := google.FormatAuthorizedKeys("abcd", "")
-	c.Assert(err, jc.ErrorIsNil)
+	_, err := google.FormatAuthorizedKeys("abcd", "")
 
-	// XXX Is this right?
-	c.Check(formatted, gc.Equals, ":abcd\n")
+	c.Check(err, gc.ErrorMatches, "empty user")
 }
 
 func (s *instanceSuite) TestFormatAuthorizedKeysMultiple(c *gc.C) {
