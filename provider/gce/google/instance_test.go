@@ -126,14 +126,14 @@ func (s *instanceSuite) TestInstanceRootDiskGBNilSpec(c *gc.C) {
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 	status := s.Instance.Status()
 
-	c.Check(status, gc.Equals, "UP")
+	c.Check(status, gc.Equals, google.StatusRunning)
 }
 
 func (s *instanceSuite) TestInstanceStatusDown(c *gc.C) {
 	google.ExposeRawInstance(&s.Instance).Status = google.StatusDown
 	status := s.Instance.Status()
 
-	c.Check(status, gc.Equals, "DOWN")
+	c.Check(status, gc.Equals, google.StatusDown)
 }
 
 func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
@@ -171,22 +171,146 @@ func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceMetadata(c *gc.C) {
+	metadata := s.Instance.Metadata()
+
+	c.Check(metadata, jc.DeepEquals, map[string]string{"eggs": "steak"})
 }
 
 func (s *instanceSuite) TestFilterInstances(c *gc.C) {
+	instances := []google.Instance{s.Instance}
+	matched := google.FilterInstances(instances, google.StatusRunning)
+
+	c.Check(matched, jc.DeepEquals, instances)
+}
+
+func (s *instanceSuite) TestFilterInstancesEmpty(c *gc.C) {
+	matched := google.FilterInstances(nil, google.StatusRunning)
+
+	c.Check(matched, gc.HasLen, 0)
+}
+
+func (s *instanceSuite) TestFilterInstancesNoStatus(c *gc.C) {
+	instances := []google.Instance{s.Instance}
+	matched := google.FilterInstances(instances)
+
+	c.Check(matched, gc.HasLen, 0)
+}
+
+func (s *instanceSuite) TestFilterInstancesNoMatch(c *gc.C) {
+	instances := []google.Instance{s.Instance}
+	matched := google.FilterInstances(instances, google.StatusDown)
+
+	c.Check(matched, gc.HasLen, 0)
+}
+
+func (s *instanceSuite) TestFilterInstancesMixedStatus(c *gc.C) {
+	badInst := google.NewInstance(&compute.Instance{
+		Status: google.StatusDown,
+	})
+	instances := []google.Instance{
+		s.Instance,
+		*badInst,
+	}
+	matched := google.FilterInstances(instances, google.StatusRunning)
+
+	c.Check(matched, jc.DeepEquals, []google.Instance{s.Instance})
+}
+
+func (s *instanceSuite) TestFilterInstancesMultiStatus(c *gc.C) {
+	otherInst := google.NewInstance(&compute.Instance{
+		Status: google.StatusPending,
+	})
+	badInst := google.NewInstance(&compute.Instance{
+		Status: google.StatusDown,
+	})
+	instances := []google.Instance{
+		s.Instance,
+		*otherInst,
+		*badInst,
+	}
+	matched := google.FilterInstances(instances, google.StatusRunning, google.StatusPending)
+
+	c.Check(matched, jc.DeepEquals, []google.Instance{s.Instance, *otherInst})
 }
 
 func (s *instanceSuite) TestCheckInstStatus(c *gc.C) {
+	matched := google.CheckInstStatus(s.Instance, google.StatusRunning)
+
+	c.Check(matched, jc.IsTrue)
+}
+
+func (s *instanceSuite) TestCheckInstStatusNoMatch(c *gc.C) {
+	matched := google.CheckInstStatus(s.Instance, google.StatusPending)
+
+	c.Check(matched, jc.IsFalse)
+}
+
+func (s *instanceSuite) TestCheckInstStatusNoStatus(c *gc.C) {
+	matched := google.CheckInstStatus(s.Instance)
+
+	c.Check(matched, jc.IsFalse)
+}
+
+func (s *instanceSuite) TestCheckInstStatusMultiStatus(c *gc.C) {
+	matched := google.CheckInstStatus(s.Instance, google.StatusRunning, google.StatusPending)
+
+	c.Check(matched, jc.IsTrue)
 }
 
 func (s *instanceSuite) TestFormatAuthorizedKeys(c *gc.C) {
+	formatted, err := google.FormatAuthorizedKeys("abcd", "john")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(formatted, gc.Equals, "john:abcd\n")
+}
+
+func (s *instanceSuite) TestFormatAuthorizedKeysEmpty(c *gc.C) {
+	formatted, err := google.FormatAuthorizedKeys("", "john")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// XXX Is this right?
+	c.Check(formatted, gc.Equals, "john:\n")
+}
+
+func (s *instanceSuite) TestFormatAuthorizedKeysNoUser(c *gc.C) {
+	formatted, err := google.FormatAuthorizedKeys("abcd", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// XXX Is this right?
+	c.Check(formatted, gc.Equals, ":abcd\n")
+}
+
+func (s *instanceSuite) TestFormatAuthorizedKeysMultiple(c *gc.C) {
+	formatted, err := google.FormatAuthorizedKeys("abcd\ndcba\nqwer", "john")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(formatted, gc.Equals, "john:abcd\njohn:dcba\njohn:qwer\n")
 }
 
 func (s *instanceSuite) TestPackMetadata(c *gc.C) {
+	expected := compute.Metadata{Items: []*compute.MetadataItems{{
+		Key:   "spam",
+		Value: "eggs",
+	}}}
+	data := map[string]string{"spam": "eggs"}
+	packed := google.PackMetadata(data)
+
+	c.Check(packed, jc.DeepEquals, &expected)
 }
 
 func (s *instanceSuite) TestUnpackMetadata(c *gc.C) {
+	expected := map[string]string{"spam": "eggs"}
+	packed := compute.Metadata{Items: []*compute.MetadataItems{{
+		Key:   "spam",
+		Value: "eggs",
+	}}}
+	data := google.UnpackMetadata(&packed)
+
+	c.Check(data, jc.DeepEquals, expected)
 }
 
 func (s *instanceSuite) TestResolveMachineType(c *gc.C) {
+	resolved := google.ResolveMachineType("a-zone", "spam")
+
+	c.Check(resolved, gc.Equals, "zones/a-zone/machineTypes/spam")
 }

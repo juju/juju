@@ -8,11 +8,16 @@ import (
 )
 
 var (
-	AddInstance = &addInstance
-	NewInstance = newInstance
-	RootDisk    = rootDisk
-	DiskSizeGB  = diskSizeGB
-	ZoneName    = zoneName
+	AddInstance        = &addInstance
+	NewInstance        = newInstance
+	FilterInstances    = filterInstances
+	CheckInstStatus    = checkInstStatus
+	PackMetadata       = packMetadata
+	UnpackMetadata     = unpackMetadata
+	ResolveMachineType = resolveMachineType
+	RootDisk           = rootDisk
+	DiskSizeGB         = diskSizeGB
+	ZoneName           = zoneName
 )
 
 func NewAttached(spec DiskSpec) *compute.AttachedDisk {

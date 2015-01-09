@@ -210,6 +210,7 @@ func checkInstStatus(inst Instance, statuses ...string) bool {
 // FormatAuthorizedKeys returns our authorizedKeys with
 // the username prepended to it. This is the format that
 // GCE uses for its sshKeys metadata.
+// XXX Where is the error case?
 func FormatAuthorizedKeys(raw, user string) (string, error) {
 	var userKeys string
 	users := []string{user}
