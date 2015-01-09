@@ -175,7 +175,7 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None):
         logging.info("Retrieving logs for machine-%s", machine_id)
         machine_directory = os.path.join(directory, str(machine_id))
         os.mkdir(machine_directory)
-        dump_logs(client, addr, machine_directory)
+        dump_logs(client, addr, machine_directory, machine_id=machine_id)
 
     dump_euca_console(host_id, directory)
 
@@ -203,16 +203,15 @@ def get_machine_addrs(client):
             yield machine_id, hostname
 
 
-def dump_logs(client, host, directory, host_id=None):
+def dump_logs(client, host, directory, machine_id='0'):
     try:
-        if client.env.local:
+        if client.env.local and machine_id == '0':
             copy_local_logs(directory, client)
         else:
             copy_remote_logs(host, directory)
         subprocess.check_call(
             ['gzip', '-f'] +
             glob.glob(os.path.join(directory, '*.log')))
-        dump_euca_console(host_id, directory)
     except Exception as e:
         print_now("Failed to retrieve logs")
         print_now(str(e))
