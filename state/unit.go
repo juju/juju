@@ -1566,6 +1566,9 @@ type ActionSpecsByName map[string]charm.ActionSpec
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID.
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	if len(name) == 0 {
+		return nil, errors.New("no action name given")
+	}
 	specs, err := u.ActionSpecs()
 	if err != nil {
 		return nil, err
