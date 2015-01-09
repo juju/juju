@@ -248,7 +248,7 @@ def copy_remote_logs(host, directory):
             'sudo chmod go+r /var/log/juju/*',
         ])
     except subprocess.CalledProcessError as e:
-        logging.warning("Could not change the permissing of juju logs:")
+        logging.warning("Could not change the permission of the juju logs:")
         logging.warning(e.output)
 
     try:
