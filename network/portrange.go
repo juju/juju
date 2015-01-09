@@ -155,6 +155,16 @@ func ParsePortRange(portRangeStr string) (*PortRange, error) {
 	return portRange, portRange.Validate()
 }
 
+// MustParsePortRange converts a raw port-range string into a PortRange.
+// If the string is invalid, the function panics.
+func MustParsePortRange(portRangeStr string) PortRange {
+	portrange, err := ParsePortRange(portRangeStr)
+	if err != nil {
+		panic(err)
+	}
+	return *portrange
+}
+
 func parsePortRange(portRangeStr string) (*PortRange, error) {
 	var start, end int
 	parts := strings.Split(portRangeStr, "-")
