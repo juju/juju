@@ -23,7 +23,7 @@ type LeadershipManager interface {
 	ReleaseLeadership(serviceId, unitId string) (err error)
 	// BlockUntilLeadershipReleased blocks the caller until leadership is
 	// released for the given serviceId.
-	BlockUntilLeadershipReleased(serviceId string) error
+	BlockUntilLeadershipReleased(serviceId string) (err error)
 }
 
 type LeadershipLeaseManager interface {

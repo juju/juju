@@ -85,7 +85,7 @@ type leadershipService struct {
 }
 
 // ClaimLeadership implements the LeadershipService interface.
-func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (results params.ClaimLeadershipBulkResults, _ error) {
+func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
 	var dur time.Duration
 	claim := callWithIds(func(sid, uid string) (err error) {
@@ -93,46 +93,61 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		return err
 	})
 
-	for _, p := range args.Params {
+	results := make([]params.ClaimLeadershipResults, len(args.Params))
+	for pIdx, p := range args.Params {
 
-		result := params.ClaimLeadershipResults{}
+		result := &results[pIdx]
+		svcTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		if err != nil {
+			result.Error = err
+			continue
+		}
 
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
 		// claim leadership for themselves.
-		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(p.UnitTag) {
+		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
 			result.Error = common.ServerError(common.ErrPerm)
-		} else if result.Error = claim(p.ServiceTag, p.UnitTag).Error; result.Error == nil {
-			result.ClaimDurationInSec = dur.Seconds()
-			result.ServiceTag = p.ServiceTag
+			continue
+		} else if err := claim(svcTag, unitTag).Error; err != nil {
+			result.Error = err
+			continue
 		}
 
-		results.Results = append(results.Results, result)
+		result.ClaimDurationInSec = dur.Seconds()
+		result.ServiceTag = p.ServiceTag
 	}
-	return results, nil
+
+	return params.ClaimLeadershipBulkResults{results}, nil
 }
 
 // ReleaseLeadership implements the LeadershipService interface.
 func (m *leadershipService) ReleaseLeadership(args params.ReleaseLeadershipBulkParams) (params.ReleaseLeadershipBulkResults, error) {
+
 	release := callWithIds(m.LeadershipManager.ReleaseLeadership)
-	results := params.ReleaseLeadershipBulkResults{
-		Results: make([]params.ErrorResult, len(args.Params)),
-	}
+	results := make([]params.ErrorResult, len(args.Params))
 
 	for paramIdx, p := range args.Params {
+
+		result := &results[paramIdx]
+		svcTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		if err != nil {
+			result.Error = err
+			continue
+		}
 
 		// In the future, situations may arise wherein units will make
 		// leadership claims for other units. For now, units can only
 		// claim leadership for themselves.
-		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(p.UnitTag) {
-			results.Results[paramIdx].Error = common.ServerError(common.ErrPerm)
+		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
+			result.Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		results.Results[paramIdx] = release(p.ServiceTag, p.UnitTag)
+		result.Error = release(svcTag, unitTag).Error
 	}
 
-	return results, nil
+	return params.ReleaseLeadershipBulkResults{results}, nil
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
@@ -156,4 +171,20 @@ func callWithIds(fn func(string, string) error) func(st, ut names.Tag) params.Er
 		}
 		return result
 	}
+}
+
+func parseServiceAndUnitTags(
+	serviceTagString, unitTagString string,
+) (serviceTag names.ServiceTag, unitTag names.UnitTag, _ *params.Error) {
+	serviceTag, err := names.ParseServiceTag(serviceTagString)
+	if err != nil {
+		return serviceTag, unitTag, common.ServerError(err)
+	}
+
+	unitTag, err = names.ParseUnitTag(unitTagString)
+	if err != nil {
+		return serviceTag, unitTag, common.ServerError(err)
+	}
+
+	return serviceTag, unitTag, nil
 }
