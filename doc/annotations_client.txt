@@ -1,0 +1,52 @@
+===================
+ANNOTATION CLIENT
+===================
+
+A new annotations client is available from 1.22 effectively deprecating annotations in old client.
+
+New client provides functionality to annotate charms in addition to
+environment, machine, service and unit previously done through our old client.
+
+New annotations client also supports bulk calls.
+
+===================
+SET/GET ANNOTATIONS
+===================
+
+For the SET annotations call that looks similar to this:
+
+......{
+            "Type": "Annotations",
+            "Request": "Set",
+            "Params": {
+                 "Annotations": {{
+                    "Entity": a, "Annotations": pairs1
+                  },{
+                    "Entity": b, "Annotations": pairs2
+                  }}
+}}......
+
+corresponding GET annotations call may look like:
+
+......{
+            "Type": "Annotations",
+            "Request": "Get",
+            "Params": {
+                 "Entities": {{
+                    "Tag": a},{
+                    "Tag": b}}
+}}......
+
+Returning
+
+{
+    "Results": {
+          {"Entity": a, "Annotations": pairs1, "Error": nil},
+          {"Entity": b, "Annotations": pairs2, "Error": nil},
+
+    }
+
+}
+
+Note that where SET call returns an error, Error in GET call return is params.ErrorResult.
+
