@@ -140,7 +140,7 @@ type lifecycleWatcher struct {
 	commonWatcher
 	out chan []string
 
-	// coll is a function returning the mgo.Collection holding all
+	// coll is a function returning the stateCollection holding all
 	// interesting entities
 	coll     func() (stateCollection, func())
 	collName string
@@ -157,6 +157,12 @@ func collFactory(st *State, collName string) func() (stateCollection, func()) {
 	return func() (stateCollection, func()) {
 		return st.getCollection(collName)
 	}
+}
+
+// WatchEnvironments returns a StringsWatcher that notifies of changes
+// to the lifecycles of all environments.
+func (st *State) WatchEnvironments() StringsWatcher {
+	return newLifecycleWatcher(st, environmentsC, nil, nil)
 }
 
 // WatchServices returns a StringsWatcher that notifies of changes to

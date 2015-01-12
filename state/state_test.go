@@ -1632,6 +1632,68 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
+	// Alive environment...
+	alive, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Dying environment...
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	dying, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	dying.Destroy()
+
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	err = state.RemoveEnvironment(s.State, st2.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// All except the dead env are reported in initial event.
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(alive.UUID(), dying.UUID())
+	wc.AssertNoChange()
+
+	// Remove alive and dying and see changes reported.
+	err = alive.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.RemoveEnvironment(s.State, dying.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(alive.UUID(), dying.UUID())
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
+	// Initial event reports the state server environment.
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertNoChange()
+
+	// Add an environment: reported.
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	env, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+
+	// Make it Dying: reported.
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+
+	// Remove the environment: reported.
+	err = state.RemoveEnvironment(s.State, env.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	// Alive service...
 	dummyCharm := s.AddTestingCharm(c, "dummy")
@@ -1699,6 +1761,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.lifecycleWatcher,
 	// which is also used by:
+	//     State.WatchEnvironments
 	//     Service.WatchUnits
 	//     Service.WatchRelations
 	//     State.WatchEnviron
