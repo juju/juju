@@ -297,9 +297,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 		return errors.Annotate(err, "cannot reset replicaSet")
 	}
 
-	// Update entries for machine 0 to point to the newest instance
-	// FIXME: this needs to update the machine tag too
-	err = updateMongoEntries(newInstId, dialInfo)
+	err = updateMongoEntries(newInstId, newInstTag.Id(), dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot update mongo entries")
 	}

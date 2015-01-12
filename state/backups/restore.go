@@ -12,6 +12,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -79,7 +80,7 @@ func newDialInfo(privateAddr string, conf agent.Config) (*mgo.DialInfo, error) {
 // updateMongoEntries will update the machine entries in the restored mongo to
 // reflect the real machine instanceid in case it changed (a newly bootstraped
 // server).
-func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
+func updateMongoEntries(newInstId instance.Id, newMachineId string, dialInfo *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to mongo to update")
@@ -87,11 +88,11 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 	defer session.Close()
 	// TODO(perrito666): Take the Machine id from an autoritative source
 	err = session.DB("juju").C("machines").Update(
-		bson.M{"machineid": "0"},
+		bson.M{"machineid": newMachineId},
 		bson.M{"$set": bson.M{"instanceid": string(newInstId)}},
 	)
 	if err != nil {
-		return errors.Annotate(err, "cannot update machine 0 instance information")
+		return errors.Annotatef(err, "cannot update machine %s instance information", newMachineId)
 	}
 	return nil
 }
@@ -109,7 +110,11 @@ func newStateConnection(info *mongo.MongoInfo) (*state.State, error) {
 		st  *state.State
 		err error
 	)
-	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
+	const (
+		newStateConnDelay       = 15 * time.Second
+		newStateConnMinAttempts = 8
+	)
+	attempt := utils.AttemptStrategy{Delay: newStateConnDelay, Min: newStateConnMinAttempts}
 	for a := attempt.Start(); a.Next(); {
 		st, err = state.Open(info, mongoDefaultDialOpts(), environsNewStatePolicy())
 		if err == nil {
@@ -127,8 +132,7 @@ func newStateConnection(info *mongo.MongoInfo) (*state.State, error) {
 // we risk an inconsistent state server because of one unresponsive
 // agent, we should nevertheless return the err info to the user.
 func updateAllMachines(privateAddress string, machines []*state.Machine) error {
-	pendingMachineCount := 0
-	done := make(chan error)
+	var machineUpdating sync.WaitGroup
 	for key := range machines {
 		// key is used to have machine be scope bound to the loop iteration.
 		machine := machines[key]
@@ -137,17 +141,15 @@ func updateAllMachines(privateAddress string, machines []*state.Machine) error {
 		if machine.IsManager() || machine.Life() == state.Dead {
 			continue
 		}
-		pendingMachineCount++
+		machineUpdating.Add(1)
 		go func() {
+			defer machineUpdating.Done()
 			err := runMachineUpdate(machine.Addresses(), setAgentAddressScript(privateAddress))
-			done <- errors.Annotatef(err, "failed to update machine %s", machine)
+			logger.Errorf("failed updating machine: %v", err)
 		}()
 	}
-	for ; pendingMachineCount > 0; pendingMachineCount-- {
-		if updateErr := <-done; updateErr != nil {
-			logger.Errorf("failed updating machine: %v", updateErr)
-		}
-	}
+	machineUpdating.Wait()
+
 	// We should return errors encapsulated in a digest.
 	return nil
 }

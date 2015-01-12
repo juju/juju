@@ -225,7 +225,7 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	dialInfo := server.DialInfo()
 	mgoAddr := server.Addr()
 	dialInfo.Addrs = []string{mgoAddr}
-	err = updateMongoEntries("1234", dialInfo)
+	err = updateMongoEntries("1234", "0", dialInfo)
 	c.Assert(err, gc.ErrorMatches, "cannot update machine 0 instance information: not found")
 
 	session := server.MustDial()
@@ -239,7 +239,7 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(n, gc.Equals, 0)
 
-	err = updateMongoEntries("1234", dialInfo)
+	err = updateMongoEntries("1234", "0", dialInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	query = session.DB("juju").C("machines").Find(bson.M{"machineid": "0", "instanceid": "1234"})

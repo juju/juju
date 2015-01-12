@@ -21,16 +21,36 @@ type pathsSuite struct {
 }
 
 func (s *pathsSuite) TestMongorestorePathDefaultMongoExists(c *gc.C) {
-	s.PatchValue(paths.OsStat, func(string) (os.FileInfo, error) { return nil, nil })
+	calledWithPaths := []string{}
+	osStat := func(aPath string) (os.FileInfo, error) {
+		calledWithPaths = append(calledWithPaths, aPath)
+		return nil, nil
+	}
+	s.PatchValue(paths.OsStat, osStat)
 	mongoPath, err := paths.MongorestorePath()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/usr/lib/juju/bin/mongorestore")
+	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})
 }
 
 func (s *pathsSuite) TestMongorestorePathNoDefaultMongo(c *gc.C) {
-	s.PatchValue(paths.OsStat, func(string) (os.FileInfo, error) { return nil, fmt.Errorf("sorry no mongo") })
-	s.PatchValue(paths.ExecLookPath, func(string) (string, error) { return "/a/fake/mongo/path", nil })
+	calledWithPaths := []string{}
+	osStat := func(aPath string) (os.FileInfo, error) {
+		calledWithPaths = append(calledWithPaths, aPath)
+		return nil, fmt.Errorf("sorry no mongo")
+	}
+	s.PatchValue(paths.OsStat, osStat)
+
+	calledWithLookup := []string{}
+	execLookPath := func(aLookup string) (string, error) {
+		calledWithLookup = append(calledWithLookup, aLookup)
+		return "/a/fake/mongo/path", nil
+	}
+	s.PatchValue(paths.ExecLookPath, execLookPath)
+
 	mongoPath, err := paths.MongorestorePath()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
+	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})
+	c.Assert(calledWithLookup, gc.DeepEquals, []string{"mongorestore"})
 }
