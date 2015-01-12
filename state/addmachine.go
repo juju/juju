@@ -451,7 +451,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
 	}
 
-	diskOps, err := createMachineBlockDeviceOps(st, mdoc.Id, template.BlockDevices...)
+	diskOps, _, err := createMachineBlockDeviceOps(st, mdoc.Id, template.BlockDevices...)
 	if err != nil {
 		return nil, txn.Op{}, errors.Trace(err)
 	}

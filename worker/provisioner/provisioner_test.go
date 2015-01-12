@@ -791,7 +791,7 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 			continue
 		}
 		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `aborted instance "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
+		c.Assert(info, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
 	s.checkStopInstances(c, inst)

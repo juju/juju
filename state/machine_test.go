@@ -875,18 +875,47 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	assertNotProvisioned := func() {
+		c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	}
+
+	assertNotProvisioned()
 	invalidNetworks := []state.NetworkInfo{{Name: ""}}
-	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
+	assertNotProvisioned()
+
+	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	assertNotProvisioned()
+
+	invalidBlockDevices := map[string]state.BlockDeviceInfo{"1065": state.BlockDeviceInfo{}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
+	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
+	assertNotProvisioned()
+
+	// Create a disk associated with a different machine, and ensure that trying to SetInstanceInfo
+	// with that disk fails.
+	blockDeviceName := s.createBlockDeviceParams(c, s.machine0.Id(), state.BlockDeviceParams{Size: 1000})
+	invalidBlockDevices = map[string]state.BlockDeviceInfo{blockDeviceName: state.BlockDeviceInfo{}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
+	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
+	assertNotProvisioned()
+}
+
+func (s *MachineSuite) createBlockDeviceParams(c *gc.C, machineId string, params state.BlockDeviceParams) string {
+	ops, names, err := state.CreateMachineBlockDeviceOps(s.State, machineId, params)
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.RunTransaction(s.State, ops)
+	c.Assert(err, jc.ErrorIsNil)
+	return names[0]
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
+	// Must create the requested block device prior to SetInstanceInfo.
+	s.createBlockDeviceParams(c, s.machine.Id(), state.BlockDeviceParams{Size: 1000})
+
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
 		{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0},
@@ -894,7 +923,10 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	blockDeviceInfo := map[string]state.BlockDeviceInfo{
+		"0": state.BlockDeviceInfo{Size: 1234},
+	}
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, blockDeviceInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 	network, err := s.State.Network(networks[0].Name)
@@ -911,6 +943,12 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
 	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
+	blockDevices, err := s.machine.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 1)
+	info, err := blockDevices[0].Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.Equals, blockDeviceInfo["0"])
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
@@ -2003,7 +2041,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read dynamically generated document Ids.
@@ -2080,7 +2118,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
-	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2)
+	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces, gc.HasLen, 3)
 	wc.AssertNoChange()
