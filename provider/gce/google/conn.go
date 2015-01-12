@@ -57,6 +57,11 @@ type Services struct {
 	RegionOp *compute.RegionOperationsGetCall
 	GlobalOp *compute.GlobalOperationsGetCall
 
+	InstanceList   *compute.InstancesAggregatedListCall
+	InstanceGet    *compute.InstancesGetCall
+	InstanceInsert *compute.InstancesInsertCall
+	InstanceDelete *compute.InstancesDeleteCall
+
 	ProjectGet *compute.ProjectsGetCall
 
 	FirewallList   *compute.FirewallsListCall

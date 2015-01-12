@@ -11,8 +11,15 @@ import (
 // instance sends a request to GCE for a low-level snapshot of data
 // about an instance and returns it.
 func (gce *Connection) instance(zone, id string) (*compute.Instance, error) {
-	call := gce.raw.Instances.Get(gce.ProjectID, zone, id)
-	inst, err := call.Do()
+	svc := Services{
+		InstanceGet: gce.raw.Instances.Get(gce.ProjectID, zone, id),
+	}
+
+	result, err := doCall(svc)
+	inst, ok := result.(*compute.Instance)
+	if !ok {
+		err = errors.New("unable to convert result to compute.Instance")
+	}
 	return inst, errors.Trace(err)
 }
 
@@ -31,11 +38,18 @@ func (gce *Connection) addInstance(inst *compute.Instance, machineType string, z
 			zoneName,
 			inst,
 		)
-		operation, err := call.Do()
+		svc := Services{InstanceInsert: call}
+		result, err := doCall(svc)
 		if err != nil {
 			// We are guaranteed the insert failed at the point.
 			return errors.Annotate(err, "sending new instance request")
 		}
+
+		operation, ok := result.(*compute.Operation)
+		if !ok {
+			return errors.New("unable to convert result to compute.Operation")
+		}
+
 		waitErr := gce.waitOperation(operation, attemptsLong)
 
 		// Check if the instance was created.
@@ -65,11 +79,17 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 	call = call.Filter("name eq " + prefix + ".*")
 
 	// TODO(ericsnow) Add a timeout?
+	svc := Services{InstanceList: call}
 	var results []Instance
 	for {
-		raw, err := call.Do()
+		result, err := doCall(svc)
 		if err != nil {
 			return results, errors.Trace(err)
+		}
+
+		raw, ok := result.(*compute.InstanceAggregatedList)
+		if !ok {
+			return nil, errors.New("unable to convert result to compute.InstanceList")
 		}
 
 		for _, item := range raw.Items {
@@ -82,7 +102,7 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 		if raw.NextPageToken == "" {
 			break
 		}
-		call = call.PageToken(raw.NextPageToken)
+		svc.InstanceList = call.PageToken(raw.NextPageToken)
 	}
 
 	return filterInstances(results, statuses...), nil
@@ -92,10 +112,17 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 // with the provided ID (in the specified zone). The call blocks until
 // the instance is removed (or the request fails).
 func (gce *Connection) removeInstance(id, zone string) error {
-	call := gce.raw.Instances.Delete(gce.ProjectID, zone, id)
-	operation, err := call.Do()
+	svc := Services{
+		InstanceDelete: gce.raw.Instances.Delete(gce.ProjectID, zone, id),
+	}
+
+	result, err := doCall(svc)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	operation, ok := result.(*compute.Operation)
+	if !ok {
+		return errors.New("unable to convert result to compute.Operation")
 	}
 	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
