@@ -71,6 +71,18 @@ func (c *Client) DestroyEnvironment() error {
 		return err
 	}
 
+	// If this is not the state server environment, remove all documents from
+	// state associated with the environment.
+	st := c.api.state
+	ssinfo, err := st.StateServerInfo()
+	if err != nil {
+		return errors.Annotate(err, "could not get state server info")
+	}
+	ssuuid := ssinfo.EnvironmentTag.Id()
+	if st.EnvironUUID() != ssuuid {
+		st.RemoveAllEnvironDocs()
+	}
+
 	// Return to the caller. If it's the CLI, it will finish up
 	// by calling the provider's Destroy method, which will
 	// destroy the state servers, any straggler instances, and

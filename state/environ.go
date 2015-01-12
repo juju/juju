@@ -209,6 +209,10 @@ func (e *Environment) refresh(query *mgo.Query) error {
 // Destroy sets the environment's lifecycle to Dying, preventing
 // addition of services or machines to state.
 func (e *Environment) Destroy() error {
+	if err := e.ensureDestroyable(); err != nil {
+		return err
+	}
+
 	if e.Life() != Alive {
 		return nil
 	}
@@ -242,6 +246,33 @@ func (e *Environment) Destroy() error {
 	return err
 }
 
+// ensureDestroyable returns an error if there is more than one environment and the
+// environment to be destroyed is the state server environment.
+func (e *Environment) ensureDestroyable() error {
+	ssinfo, err := e.st.StateServerInfo()
+	if err != nil {
+		return errors.Annotate(err, "could not get state server info")
+	}
+	ssuuid := ssinfo.EnvironmentTag.Id()
+
+	// This is not the state server environment, so it can be destroyed
+	if ssuuid != e.UUID() {
+		return nil
+	}
+
+	environments, closer := e.st.getCollection(environmentsC)
+	defer closer()
+	n, err := environments.Count()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if n > 1 {
+		return errors.Errorf("state server environment cannot be destroyed before all other environments are destroyed")
+	}
+	return nil
+}
+
 // createEnvironmentOp returns the operation needed to create
 // an environment document with the given name and UUID.
 func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server string) txn.Op {
@@ -269,7 +300,7 @@ func (e *Environment) assertAliveOp() txn.Op {
 	}
 }
 
-// isEnvAlive is an Environment-specific versio nof isAliveDoc.
+// isEnvAlive is an Environment-specific version of isAliveDoc.
 //
 // Environment documents from versions of Juju prior to 1.17
 // do not have the life field; if it does not exist, it should
