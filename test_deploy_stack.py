@@ -3,6 +3,7 @@ import os
 from unittest import TestCase
 
 from deploy_stack import (
+    copy_remote_logs,
     dump_env_logs,
     dump_logs,
 )
@@ -89,3 +90,22 @@ class DumpEnvLogsTestCase(TestCase):
             self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
         self.assertEqual(0, cll_mock.call_count)
         self.assertEqual(('10.10.0.1', log_dir), crl_mock.call_args[0])
+
+    def test_copy_remote_logs(self):
+        with patch('deploy_stack.wait_for_port'):
+            with patch('subprocess.check_call') as cc_mock:
+                copy_remote_logs('10.10.0.1', '/foo')
+        self.assertEqual(
+            (['timeout', '5m', 'ssh',
+              '-o', 'UserKnownHostsFile /dev/null',
+              '-o', 'StrictHostKeyChecking no',
+              'ubuntu@10.10.0.1',
+              'sudo chmod go+r /var/log/juju/*'], ),
+            cc_mock.call_args_list[0][0])
+        self.assertEqual(
+            (['timeout', '5m', 'scp', '-C',
+              '-o', 'UserKnownHostsFile /dev/null',
+              '-o', 'StrictHostKeyChecking no',
+              'ubuntu@10.10.0.1:/var/log/{cloud-init*.log,juju/*.log}',
+              '/foo'],),
+            cc_mock.call_args_list[1][0])
