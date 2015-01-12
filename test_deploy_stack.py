@@ -51,11 +51,40 @@ class DumpEnvLogsTestCase(TestCase):
                     l.write('fake log')
                 with open(os.path.join(log_dir, 'extra'), 'w') as l:
                     l.write('not compressed')
-
             with patch('deploy_stack.copy_local_logs') as cll_mock:
                 with patch('deploy_stack.copy_remote_logs',
                            side_effect=make_fake_log) as crl_mock:
                     dump_logs(client, '10.10.0.1', log_dir, machine_id='0')
             self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
+        self.assertEqual(0, cll_mock.call_count)
+        self.assertEqual(('10.10.0.1', log_dir), crl_mock.call_args[0])
+
+    def test_dump_logs_with_local_0_env(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with temp_dir() as log_dir:
+            def make_fake_log(*args):
+                with open(os.path.join(log_dir, 'cloud.log'), 'w') as l:
+                    l.write('fake log')
+            with patch('deploy_stack.copy_local_logs',
+                       side_effect=make_fake_log) as cll_mock:
+                with patch('deploy_stack.copy_remote_logs') as crl_mock:
+                    dump_logs(client, '10.10.0.1', log_dir, machine_id='0')
+            self.assertEqual(['cloud.log.gz'], os.listdir(log_dir))
+        self.assertEqual((log_dir, client), cll_mock.call_args[0])
+        self.assertEqual(0, crl_mock.call_count)
+
+    def test_dump_logs_with_local_not_0_env(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with temp_dir() as log_dir:
+            def make_fake_log(*args):
+                with open(os.path.join(log_dir, 'cloud.log'), 'w') as l:
+                    l.write('fake log')
+            with patch('deploy_stack.copy_local_logs') as cll_mock:
+                with patch('deploy_stack.copy_remote_logs',
+                           side_effect=make_fake_log) as crl_mock:
+                    dump_logs(client, '10.10.0.1', log_dir, machine_id='1')
+            self.assertEqual(['cloud.log.gz'], os.listdir(log_dir))
         self.assertEqual(0, cll_mock.call_count)
         self.assertEqual(('10.10.0.1', log_dir), crl_mock.call_args[0])
