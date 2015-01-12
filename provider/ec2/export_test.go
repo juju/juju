@@ -46,6 +46,7 @@ var (
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
 	RunInstances                = &runInstances
 	BlockDeviceNamer            = blockDeviceNamer
+	GetBlockDeviceMappings      = getBlockDeviceMappings
 )
 
 // BucketStorage returns a storage instance addressing
