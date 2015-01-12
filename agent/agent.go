@@ -51,15 +51,16 @@ var DefaultDataDir = dataDir
 const SystemIdentity = "system-identity"
 
 const (
-	LxcBridge         = "LXC_BRIDGE"
-	ProviderType      = "PROVIDER_TYPE"
-	ContainerType     = "CONTAINER_TYPE"
-	Namespace         = "NAMESPACE"
-	StorageDir        = "STORAGE_DIR"
-	StorageAddr       = "STORAGE_ADDR"
-	AgentServiceName  = "AGENT_SERVICE_NAME"
-	MongoOplogSize    = "MONGO_OPLOG_SIZE"
-	NumaCtlPreference = "NUMA_CTL_PREFERENCE"
+	LxcBridge              = "LXC_BRIDGE"
+	ProviderType           = "PROVIDER_TYPE"
+	ContainerType          = "CONTAINER_TYPE"
+	Namespace              = "NAMESPACE"
+	StorageDir             = "STORAGE_DIR"
+	StorageAddr            = "STORAGE_ADDR"
+	AgentServiceName       = "AGENT_SERVICE_NAME"
+	MongoOplogSize         = "MONGO_OPLOG_SIZE"
+	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
+	AllowsSecureConnection = "SECURE_STATESERVER_CONNECTION"
 )
 
 // The Config interface is the sole way that the agent gets access to the

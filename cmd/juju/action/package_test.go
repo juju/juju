@@ -1,14 +1,16 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action_test
 
 import (
+	"io/ioutil"
 	"regexp"
 	"testing"
 
 	"github.com/juju/cmd"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -102,24 +104,52 @@ var someCharmActions = &charm.Actions{
 	},
 }
 
+// tagsForIdPrefix builds a params.FindTagResults for a given id prefix
+// and 0..n given tags. This is useful for stubbing out the API and
+// ensuring that the API returns expected tags for a given id prefix.
+func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
+	var entities []params.Entity
+	for _, t := range tags {
+		entities = append(entities, params.Entity{Tag: t})
+	}
+	return params.FindTagsResults{Matches: map[string][]params.Entity{prefix: entities}}
+}
+
+// setupValueFile creates a file containing one value for testing.
+// cf. cmd/juju/set_test.go
+func setupValueFile(c *gc.C, dir, filename, value string) string {
+	ctx := coretesting.ContextForDir(c, dir)
+	path := ctx.AbsPath(filename)
+	content := []byte(value)
+	err := ioutil.WriteFile(path, content, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	return path
+}
+
 type fakeAPIClient struct {
 	actionResults      []params.ActionResult
+	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
-	actionTagMatches   map[string][]params.Entity
+	actionTagMatches   params.FindTagsResults
 	charmActions       *charm.Actions
 	apiErr             error
 }
 
 var _ action.APIClient = (*fakeAPIClient)(nil)
 
+// EnqueuedActions is a testing method which shows what Actions got enqueued
+// by our Enqueue stub.
+func (c *fakeAPIClient) EnqueuedActions() params.Actions {
+	return c.enqueuedActions
+}
+
 func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) Enqueue(params.Actions) (params.ActionResults, error) {
-	return params.ActionResults{
-		Results: c.actionResults,
-	}, c.apiErr
+func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, error) {
+	c.enqueuedActions = args
+	return params.ActionResults{Results: c.actionResults}, c.apiErr
 }
 
 func (c *fakeAPIClient) ListAll(args params.Entities) (params.ActionsByReceivers, error) {
@@ -157,7 +187,5 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 }
 
 func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
-	return params.FindTagsResults{
-		Matches: c.actionTagMatches,
-	}, c.apiErr
+	return c.actionTagMatches, c.apiErr
 }

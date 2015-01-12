@@ -88,7 +88,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// Collect the operations necessary to enter scope, as follows:
 	// * Check unit and relation state, and incref the relation.
-	// * TODO(fwereade): check unit status == params.StatusStarted (this
+	// * TODO(fwereade): check unit status == params.StatusActive (this
 	//   breaks a bunch of tests in a boring but noisy-to-fix way, and is
 	//   being saved for a followup).
 	unitDocID, relationDocID := ru.unit.doc.DocID, ru.relation.doc.DocID

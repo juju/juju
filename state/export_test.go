@@ -289,3 +289,7 @@ func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) juju
 		envUUID:   envUUID,
 	}
 }
+
+func Sequence(st *State, name string) (int, error) {
+	return st.sequence(name)
+}

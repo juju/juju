@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action_test
@@ -50,11 +50,11 @@ func (s *StatusSuite) TestRun(c *gc.C) {
 	tests := []statusTestCase{
 		{expectError: errNotSpecified},
 		{args: args, expectError: errNotFound},
-		{args: args, expectError: errNotFound, tags: tagsForId(prefix)},
-		{args: args, expectError: errNotRecognized, tags: tagsForId(prefix, "bb", "bc")},
-		{args: args, expectError: errMultipleMatches, tags: tagsForId(prefix, faketag, faketag2)},
-		{args: args, expectError: errNoResults, tags: tagsForId(prefix, faketag)},
-		{args: args, tags: tagsForId(prefix, faketag), results: result},
+		{args: args, expectError: errNotFound, tags: tagsForIdPrefix(prefix)},
+		{args: args, expectError: errNotRecognized, tags: tagsForIdPrefix(prefix, "bb", "bc")},
+		{args: args, expectError: errMultipleMatches, tags: tagsForIdPrefix(prefix, faketag, faketag2)},
+		{args: args, expectError: errNoResults, tags: tagsForIdPrefix(prefix, faketag)},
+		{args: args, tags: tagsForIdPrefix(prefix, faketag), results: result},
 	}
 
 	for _, test := range tests {
@@ -84,14 +84,6 @@ func (s *StatusSuite) runTestCase(c *gc.C, tc statusTestCase) {
 type statusTestCase struct {
 	args        []string
 	expectError string
-	tags        map[string][]params.Entity
+	tags        params.FindTagsResults
 	results     []params.ActionResult
-}
-
-func tagsForId(prefix string, tags ...string) map[string][]params.Entity {
-	var entities []params.Entity
-	for _, t := range tags {
-		entities = append(entities, params.Entity{Tag: t})
-	}
-	return map[string][]params.Entity{prefix: entities}
 }

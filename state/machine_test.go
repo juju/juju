@@ -753,13 +753,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(iid, gc.Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -775,7 +775,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -942,7 +942,7 @@ func (s *MachineSuite) TestNotProvisionedMachineSetInstanceStatus(c *gc.C) {
 
 func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
 	_, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
@@ -1172,7 +1172,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.StatusStarted, "", nil)
+	err = mysql0.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1201,7 +1201,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.StatusStarted, "", nil)
+	err = logging0.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1276,7 +1276,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(state.StatusStarted, "", nil)
+	err = mysql0.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1306,7 +1306,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(state.StatusStarted, "", nil)
+	err = logging0.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

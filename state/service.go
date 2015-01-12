@@ -596,7 +596,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status:  StatusPending,
+		Status:  StatusAllocating,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{

@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -22,30 +22,64 @@ import (
 
 type ActionSuite struct {
 	ConnSuite
-	charm   *state.Charm
-	service *state.Service
-	unit    *state.Unit
-	unit2   *state.Unit
+	charm             *state.Charm
+	actionlessCharm   *state.Charm
+	service           *state.Service
+	actionlessService *state.Service
+	unit              *state.Unit
+	unit2             *state.Unit
+	charmlessUnit     *state.Unit
+	actionlessUnit    *state.Unit
 }
 
 var _ = gc.Suite(&ActionSuite{})
 
 func (s *ActionSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "wordpress")
 	var err error
-	s.service = s.AddTestingService(c, "wordpress", s.charm)
+
+	s.ConnSuite.SetUpTest(c)
+
+	s.charm = s.AddTestingCharm(c, "dummy")
+	s.actionlessCharm = s.AddTestingCharm(c, "actionless")
+
+	s.service = s.AddTestingService(c, "dummy", s.charm)
 	c.Assert(err, jc.ErrorIsNil)
+	s.actionlessService = s.AddTestingService(c, "actionless", s.actionlessCharm)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sUrl, _ := s.service.CharmURL()
+	c.Assert(sUrl, gc.NotNil)
+	actionlessSUrl, _ := s.actionlessService.CharmURL()
+	c.Assert(actionlessSUrl, gc.NotNil)
+
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+
+	err = s.unit.SetCharmURL(sUrl)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.unit2, err = s.service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
+
+	err = s.unit2.SetCharmURL(sUrl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.charmlessUnit, err = s.service.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.charmlessUnit.Series(), gc.Equals, "quantal")
+
+	s.actionlessUnit, err = s.actionlessService.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.actionlessUnit.Series(), gc.Equals, "quantal")
+
+	err = s.actionlessUnit.SetCharmURL(actionlessSUrl)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ActionSuite) TestActionTag(c *gc.C) {
-	action, err := s.unit.AddAction("fakeaction", nil)
+	action, err := s.unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tag := action.Tag()
@@ -66,42 +100,87 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 }
 
 func (s *ActionSuite) TestAddAction(c *gc.C) {
-	name := "fakeaction"
-	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
-	before := state.NowToTheSecond()
-	later := before.Add(testing.LongWait)
+	for i, t := range []struct {
+		should      string
+		name        string
+		params      map[string]interface{}
+		whichUnit   *state.Unit
+		expectedErr string
+	}{{
+		should:    "enqueue normally",
+		name:      "snapshot",
+		whichUnit: s.unit,
+		//params:    map[string]interface{}{"outfile": "outfile.tar.bz2"},
+	}, {
+		should:      "fail on actionless charms",
+		name:        "something",
+		whichUnit:   s.actionlessUnit,
+		expectedErr: "no actions defined on charm \"local:quantal/quantal-actionless-1\"",
+	}, {
+		should:      "fail on action not defined in schema",
+		whichUnit:   s.unit,
+		name:        "something-nonexistent",
+		expectedErr: "action \"something-nonexistent\" not defined on unit \"dummy/0\"",
+	}, {
+		should:    "invalidate with bad params",
+		whichUnit: s.unit,
+		name:      "snapshot",
+		params: map[string]interface{}{
+			"outfile": 5.0,
+		},
+		expectedErr: "JSON validation failed: \\(root\\)\\.outfile : must be of type string, given 5",
+	}} {
+		c.Logf("Test %d: should %s", i, t.should)
+		before := state.NowToTheSecond()
+		later := before.Add(testing.LongWait)
 
-	// verify can add an Action
-	a, err := s.unit.AddAction(name, params)
-	c.Assert(err, jc.ErrorIsNil)
+		// Copy params over into empty premade map for comparison later
+		params := make(map[string]interface{})
+		for k, v := range t.params {
+			params[k] = v
+		}
 
-	// verify we can get it back out by Id
-	action, err := s.State.Action(a.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(action, gc.NotNil)
-	c.Assert(action.Id(), gc.Equals, a.Id())
+		// Verify we can add an Action
+		a, err := t.whichUnit.AddAction(t.name, params)
 
-	// verify we get out what we put in
-	c.Assert(action.Name(), gc.Equals, name)
-	c.Assert(action.Parameters(), jc.DeepEquals, params)
+		if t.expectedErr == "" {
+			c.Assert(err, jc.ErrorIsNil)
+			curl, _ := t.whichUnit.CharmURL()
+			ch, _ := s.State.Charm(curl)
+			schema := ch.Actions()
+			c.Logf("Schema for unit %q:\n%#v", t.whichUnit.Name(), schema)
+			// verify we can get it back out by Id
+			action, err := s.State.Action(a.Id())
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(action, gc.NotNil)
+			c.Check(action.Id(), gc.Equals, a.Id())
 
-	// Enqueued time should be within a reasonable time of the beginning
-	// of the test
-	now := state.NowToTheSecond()
-	c.Check(action.Enqueued(), jc.TimeBetween(before, now))
-	c.Check(action.Enqueued(), jc.TimeBetween(before, later))
+			// verify we get out what we put in
+			c.Check(action.Name(), gc.Equals, t.name)
+			c.Check(action.Parameters(), jc.DeepEquals, params)
+
+			// Enqueued time should be within a reasonable time of the beginning
+			// of the test
+			now := state.NowToTheSecond()
+			c.Check(action.Enqueued(), jc.TimeBetween(before, now))
+			c.Check(action.Enqueued(), jc.TimeBetween(before, later))
+			continue
+		}
+
+		c.Check(err, gc.ErrorMatches, t.expectedErr)
+	}
 }
 
-func (s *ActionSuite) TestAddActionRequiresName(c *gc.C) {
+func (s *ActionSuite) TestEnqueueActionRequiresName(c *gc.C) {
 	name := ""
 
-	// verify can not add an Action without a name
+	// verify can not enqueue an Action without a name
 	_, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
 	c.Assert(err, gc.ErrorMatches, "action name required")
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
-	name := "fakeaction"
+	name := "snapshot"
 	params1 := map[string]interface{}{"outfile": "outfile.tar.bz2"}
 	params2 := map[string]interface{}{"infile": "infile.zip"}
 
@@ -146,7 +225,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// can add action to a dying unit
-	_, err = unit.AddAction("fakeaction1", map[string]interface{}{})
+	_, err = unit.AddAction("snapshot", map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure unit is dead
@@ -154,7 +233,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// cannot add action to a dead unit
-	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
+	_, err = unit.AddAction("snapshot", map[string]interface{}{})
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -171,7 +250,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	}
 	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
-	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
+	_, err = unit.AddAction("snapshot", map[string]interface{}{})
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -181,7 +260,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	a, err := unit.AddAction("action1", nil)
+	a, err := unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.State.Action(a.Id())
@@ -228,7 +307,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	a, err := unit.AddAction("action1", nil)
+	a, err := unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.State.Action(a.Id())
@@ -304,18 +383,21 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	// clients of it's initial state
 
 	// preamble
-	unit1, err := s.State.Unit(s.unit.Name())
+	svc := s.AddTestingService(c, "dummy3", s.charm)
+	unit, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	preventUnitDestroyRemove(c, unit1)
+	u, err := s.State.Unit(unit.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, u)
 
 	// queue up actions
-	a1, err := unit1.AddAction("fakeaction", nil)
+	a1, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	a2, err := unit1.AddAction("fakeaction", nil)
+	a2, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// start watcher but don't consume Changes() yet
-	w := unit1.WatchActionNotifications()
+	w := u.WatchActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 
@@ -342,9 +424,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	preventUnitDestroyRemove(c, unit2)
 
 	// queue some actions before starting the watcher
-	fa1, err := unit1.AddAction("fakeaction", nil)
+	fa1, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	fa2, err := unit1.AddAction("fakeaction", nil)
+	fa2, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// set up watcher on first unit
@@ -365,7 +447,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
-	fa3, err := unit2.AddAction("fakeaction", nil)
+	fa3, err := unit2.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	expect2 := expectActionIds(fa3)
@@ -373,9 +455,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
-	fa4, err := unit1.AddAction("fakeaction", nil)
+	fa4, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	fa5, err := unit1.AddAction("fakeaction", nil)
+	fa5, err := unit1.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect = expectActionIds(fa4, fa5)
@@ -508,7 +590,7 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 }
 
 func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
-	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	svc := s.AddTestingService(c, "dummy2", s.charm)
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -519,11 +601,11 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertNoChange()
 
 	// add 3 actions
-	fa1, err := u.AddAction("fakeaction1", nil)
+	fa1, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	fa2, err := u.AddAction("fakeaction2", nil)
+	fa2, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	fa3, err := u.AddAction("fakeaction3", nil)
+	fa3, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// fail the middle one
@@ -544,14 +626,14 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 		name     string
 		status   state.ActionStatus
 	}{
-		{s.unit, "fake-action-1", state.ActionCancelled},
-		{s.unit2, "poseur-3", state.ActionCancelled},
-		{s.unit, "fake-action-2", state.ActionPending},
-		{s.unit2, "other-3", state.ActionPending},
-		{s.unit, "fake-action-3", state.ActionFailed},
-		{s.unit2, "stooge-3", state.ActionFailed},
-		{s.unit, "fake-action-4", state.ActionCompleted},
-		{s.unit2, "bunny-3", state.ActionCompleted},
+		{s.unit, "snapshot", state.ActionCancelled},
+		{s.unit2, "snapshot", state.ActionCancelled},
+		{s.unit, "snapshot", state.ActionPending},
+		{s.unit2, "snapshot", state.ActionPending},
+		{s.unit, "snapshot", state.ActionFailed},
+		{s.unit2, "snapshot", state.ActionFailed},
+		{s.unit, "snapshot", state.ActionCompleted},
+		{s.unit2, "snapshot", state.ActionCompleted},
 	}
 
 	w1 := state.NewActionStatusWatcher(s.State, []state.ActionReceiver{s.unit})

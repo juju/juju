@@ -37,6 +37,14 @@ func (s *EnvironSuite) TestEnvironment(c *gc.C) {
 	})
 }
 
+func (s *EnvironSuite) TestNewEnvironmentNonExistentLocalUser(c *gc.C) {
+	cfg, _ := s.createTestEnvConfig(c)
+	owner := names.NewUserTag("non-existent@local")
+
+	_, _, err := s.State.NewEnvironment(cfg, owner)
+	c.Assert(err, gc.ErrorMatches, `cannot create environment: user "non-existent" not found`)
+}
+
 func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	cfg, uuid := s.createTestEnvConfig(c)
 	owner := names.NewUserTag("test@remote")

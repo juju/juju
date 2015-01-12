@@ -9,7 +9,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 type LifeSuite struct {
@@ -166,16 +165,16 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 func (s *LifeSuite) TestLifeString(c *gc.C) {
 	var tests = []struct {
 		life state.Life
-		want multiwatcher.Life
+		want string
 	}{
-		{state.Alive, multiwatcher.Alive},
-		{state.Dying, multiwatcher.Dying},
-		{state.Dead, multiwatcher.Dead},
+		{state.Alive, "alive"},
+		{state.Dying, "dying"},
+		{state.Dead, "dead"},
 		{42, "unknown"},
 	}
 	for _, test := range tests {
 		got := test.life.String()
-		c.Assert(got, gc.Equals, string(test.want))
+		c.Assert(got, gc.Equals, test.want)
 	}
 }
 

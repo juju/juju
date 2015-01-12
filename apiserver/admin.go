@@ -270,7 +270,7 @@ func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) err
 	// connect.
 	if machine, ok := entity.(*state.Machine); ok {
 		if !machine.CheckProvisioned(req.Nonce) {
-			return state.NotProvisionedError(machine.Id())
+			return errors.NotProvisionedf("machine %v", machine.Id())
 		}
 	}
 	return nil

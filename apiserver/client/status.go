@@ -342,7 +342,7 @@ func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 		}
 		status.DNSName = network.SelectPublicAddress(machine.Addresses())
 	} else {
-		if state.IsNotProvisionedError(err) {
+		if errors.IsNotProvisioned(err) {
 			status.InstanceId = "pending"
 		} else {
 			status.InstanceId = "error"
@@ -524,6 +524,11 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 		status.Charm = curl.String()
 	}
 	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(unit)
+
+	// Until Juju 2.0, we need to continue to display legacy status values.
+	status.Agent.Status = params.TranslateLegacyStatus(status.Agent.Status)
+	status.AgentState = params.TranslateLegacyStatus(status.AgentState)
+
 	status.AgentVersion = status.Agent.Version
 	status.Life = status.Agent.Life
 	status.Err = status.Agent.Err
@@ -602,8 +607,10 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 		return
 	}
 
-	if out.Status == params.StatusPending {
-		// The status is pending - there's no point
+	if out.Status == params.StatusPending || // Need to still check pending for existing deployments.
+		out.Status == params.StatusAllocating ||
+		out.Status == params.StatusInstalling {
+		// The status is allocating or installing - there's no point
 		// in enquiring about the agent liveness.
 		return
 	}

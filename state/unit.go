@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -296,6 +296,13 @@ func (u *Unit) Destroy() (err error) {
 	return err
 }
 
+var unitNotInstalled = bson.D{
+	{"$or", []bson.D{
+		{{"status", StatusPending}},
+		{{"status", StatusAllocating}},
+		{{"status", StatusInstalling}},
+	}}}
+
 // destroyOps returns the operations required to destroy the unit. If it
 // returns errRefresh, the unit should be refreshed and the destruction
 // operations recalculated.
@@ -346,13 +353,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	if sdoc.Status != StatusPending {
+	if sdoc.Status != StatusPending && sdoc.Status != StatusAllocating && sdoc.Status != StatusInstalling {
 		return setDyingOps, nil
 	}
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     u.st.docID(sdocId),
-		Assert: bson.D{{"status", StatusPending}},
+		Assert: unitNotInstalled,
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
 	removeOps, err := u.removeOps(removeAsserts)
@@ -720,15 +727,11 @@ func (u *Unit) Status() (status Status, info string, data map[string]interface{}
 	return
 }
 
-// SetStatus sets the status of the unit. The optional values
+// SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc := statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}
-	if err := doc.validateSet(false); err != nil {
+	doc, err := newUnitAgentStatusDoc(status, info, data)
+	if err != nil {
 		return err
 	}
 	ops := []txn.Op{{
@@ -736,9 +739,9 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 	},
-		updateStatusOp(u.st, u.globalKey(), doc),
+		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
 	}
-	err := u.st.runTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}
@@ -1476,7 +1479,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
 		instance, err := m.InstanceId()
-		if IsNotProvisionedError(err) {
+		if errors.IsNotProvisioned(err) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
 			assignContextf(&err, u, context)
@@ -1557,10 +1560,54 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	return nil
 }
 
+// ActionSpecsByName is a map of action names to their respective ActionSpec.
+type ActionSpecsByName map[string]charm.ActionSpec
+
 // AddAction adds a new Action of type name and using arguments payload to
-// this Unit, and returns its ID
+// this Unit, and returns its ID.
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	if len(name) == 0 {
+		return nil, errors.New("no action name given")
+	}
+	specs, err := u.ActionSpecs()
+	if err != nil {
+		return nil, err
+	}
+	spec, ok := specs[name]
+	if !ok {
+		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
+	}
+	_, err = spec.ValidateParams(payload)
+	if err != nil {
+		return nil, err
+	}
 	return u.st.EnqueueAction(u.Tag(), name, payload)
+}
+
+// ActionSpecs gets the ActionSpec map for the Unit's charm.
+func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
+	none := ActionSpecsByName{}
+	curl, _ := u.CharmURL()
+	if curl == nil {
+		// If unit charm URL is not yet set, fall back to service
+		svc, err := u.Service()
+		if err != nil {
+			return none, err
+		}
+		curl, _ = svc.CharmURL()
+		if curl == nil {
+			return none, errors.Errorf("no URL set for service %q", svc.Name())
+		}
+	}
+	ch, err := u.st.Charm(curl)
+	if err != nil {
+		return none, errors.Annotatef(err, "unable to get charm with URL %q", curl.String())
+	}
+	chActions := ch.Actions()
+	if chActions == nil || len(chActions.ActionSpecs) == 0 {
+		return none, errors.Errorf("no actions defined on charm %q", ch.String())
+	}
+	return chActions.ActionSpecs, nil
 }
 
 // CancelAction removes a pending Action from the queue for this

@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -6,6 +6,7 @@ package action
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -16,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+var keyRule = regexp.MustCompile("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
+
 // DoCommand enqueues an Action for running on the given unit with given
 // params
 type DoCommand struct {
@@ -24,6 +27,7 @@ type DoCommand struct {
 	actionName string
 	paramsYAML cmd.FileVar
 	out        cmd.Output
+	args       [][]string
 }
 
 const doDoc = `
@@ -31,15 +35,21 @@ Queue an Action for execution on a given unit, with a given set of params.
 Displays the ID of the Action for use with 'juju kill', 'juju status', etc.
 
 Params are validated according to the charm for the unit's service.  The 
-valid params can be seen using "juju action defined <service>".  Params must
-be in a yaml file which is passed with the --params flag.
+valid params can be seen using "juju action defined <service>".  Params may 
+be in a yaml file which is passed with the --params flag, or they may be
+specified by a key.key.key...=value format.
+
+Note that the explicit format only permits string values at this time.
+
+If --params is passed, along with key.key...=value explicit arguments, the
+explicit arguments will override the parameter file.
 
 Examples:
 
-$ juju do mysql/3 backup 
+$ juju action do mysql/3 backup 
 action: <UUID>
 
-$ juju status <UUID>
+$ juju action fetch <UUID>
 result:
   status: success
   file:
@@ -47,7 +57,35 @@ result:
     units: GB
     name: foo.sql
 
-$ juju do mysql/3 backup --params parameters.yml
+$ juju action do mysql/3 backup --params parameters.yml
+...
+Params sent will be the contents of parameters.yml.
+...
+
+$ juju action do mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
+...
+Params sent will be:
+
+out: out.tar.bz2
+file:
+  kind: xz
+  quality: high
+...
+
+$ juju action do mysql/3 backup --params p.yml file.kind=xz file.quality=high
+...
+If p.yml contains:
+
+file:
+  location: /var/backups/mysql/
+  kind: gzip
+
+then the merged args passed will be:
+
+file:
+  location: /var/backups/mysql/
+  kind: xz
+  quality: high
 ...
 `
 
@@ -63,7 +101,7 @@ func (c *DoCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "do",
-		Args:    "<unit> <action name>",
+		Args:    "<unit> <action name> [<key>=<value> ...]",
 		Purpose: "WIP: queue an action for execution",
 		Doc:     doDoc,
 	}
@@ -76,7 +114,8 @@ func (c *DoCommand) Init(args []string) error {
 		return errors.New("no unit specified")
 	case 1:
 		return errors.New("no action specified")
-	case 2:
+	default:
+		// Grab and verify the unit and action names.
 		unitName := args[0]
 		if !names.IsValidUnit(unitName) {
 			return errors.Errorf("invalid unit name %q", unitName)
@@ -87,9 +126,27 @@ func (c *DoCommand) Init(args []string) error {
 		}
 		c.unitTag = names.NewUnitTag(unitName)
 		c.actionName = actionName
+		if len(args) == 2 {
+			return nil
+		}
+		// Parse CLI key-value args if they exist.
+		c.args = make([][]string, 0)
+		for _, arg := range args[2:] {
+			thisArg := strings.SplitN(arg, "=", 2)
+			if len(thisArg) != 2 {
+				return fmt.Errorf("argument %q must be of the form key...=value", arg)
+			}
+			keySlice := strings.Split(thisArg[0], ".")
+			// check each key for validity
+			for _, key := range keySlice {
+				if valid := keyRule.MatchString(key); !valid {
+					return fmt.Errorf("key %q must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens", key)
+				}
+			}
+			// c.args={..., [key, key, key, key, value]}
+			c.args = append(c.args, append(keySlice, thisArg[1]))
+		}
 		return nil
-	default:
-		return cmd.CheckEmpty(args[1:])
 	}
 }
 
@@ -109,6 +166,9 @@ func (c *DoCommand) Run(ctx *cmd.Context) error {
 		}
 
 		err = yaml.Unmarshal(b, &actionParams)
+		if err != nil {
+			return err
+		}
 
 		conformantParams, err := conform(actionParams)
 		if err != nil {
@@ -121,6 +181,26 @@ func (c *DoCommand) Run(ctx *cmd.Context) error {
 		}
 
 		actionParams = betterParams
+	}
+
+	// If we had explicit args {..., [key, key, key, key, value], ...}
+	// then iterate and set params ..., key.key.key.key=value, ...
+	for _, argSlice := range c.args {
+		valueIndex := len(argSlice) - 1
+		keys := argSlice[:valueIndex]
+		value := argSlice[valueIndex]
+		// Insert the value in the map.
+		addValueToMap(keys, value, actionParams)
+	}
+
+	conformantParams, err := conform(actionParams)
+	if err != nil {
+		return err
+	}
+
+	typedConformantParams, ok := conformantParams.(map[string]interface{})
+	if !ok {
+		return errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
 
 	actionParam := params.Actions{

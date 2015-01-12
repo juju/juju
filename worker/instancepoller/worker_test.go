@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -52,7 +53,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	checkInstanceInfo := func(index int, m machine, expectedStatus string) bool {
 		isProvisioned := true
 		status, err := m.InstanceStatus()
-		if state.IsNotProvisionedError(err) {
+		if errors.IsNotProvisioned(err) {
 			isProvisioned = false
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
@@ -75,7 +76,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			status, err := m.InstanceStatus()
 			if i%2 == 0 {
 				// Even machines not provisioned yet.
-				c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+				c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 			} else {
 				c.Assert(status, gc.Equals, "")
 			}
@@ -104,7 +105,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 			status, err := m.InstanceStatus()
 			if i%2 == 0 {
 				// Even machines not provisioned yet.
-				c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+				c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 			} else {
 				c.Assert(status, gc.Equals, "")
 			}

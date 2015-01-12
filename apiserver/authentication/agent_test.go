@@ -122,7 +122,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 		credentials:  s.machinePassword,
 		nonce:        "123",
 		about:        "machine login",
-		errorMessage: "machine 0 is not provisioned",
+		errorMessage: "machine 0 not provisioned",
 	}, {
 		entity:       s.user,
 		credentials:  "wrong-secret",

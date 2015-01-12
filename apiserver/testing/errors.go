@@ -27,7 +27,7 @@ func NotFoundError(prefixMessage string) *params.Error {
 
 func NotProvisionedError(machineId string) *params.Error {
 	return &params.Error{
-		Message: fmt.Sprintf("machine %s is not provisioned", machineId),
+		Message: fmt.Sprintf("machine %s not provisioned", machineId),
 		Code:    params.CodeNotProvisioned,
 	}
 }
