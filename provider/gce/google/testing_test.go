@@ -21,7 +21,6 @@ type BaseSuite struct {
 	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
 	NetworkInterface compute.NetworkInterface
-	ZoneList         compute.ZoneList
 	RawMetadata      compute.Metadata
 	Metadata         map[string]string
 	RawInstance      compute.Instance
@@ -47,14 +46,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		raw:       service,
 	}
 
-	s.ZoneList = compute.ZoneList{
-		Id: "testing-zone-list",
-		Items: []*compute.Zone{{
-			Name:   "a-zone",
-			Status: "UP",
-		}},
-		NextPageToken: "",
-	}
 	s.DiskSpec = DiskSpec{
 		SizeHintGB: 1,
 		ImageURL:   "some/image/path",
