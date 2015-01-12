@@ -260,10 +260,10 @@ func (env *maasEnviron) getNodegroups() ([]string, error) {
 	return nodegroups, nil
 }
 
-func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][]string {
+func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][]net.IP {
 	nodegroupsObject := env.getMAASClient().GetSubObject("nodegroups")
 
-	nodegroupsInterfacesMap := make(map[string][]string)
+	nodegroupsInterfacesMap := make(map[string][]net.IP)
 	for _, uuid := range nodegroups {
 		interfacesObject := nodegroupsObject.GetSubObject(uuid).GetSubObject("interfaces")
 		interfacesResult, err := interfacesObject.CallGet("list", nil)
@@ -297,7 +297,13 @@ func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][
 				logger.Warningf("could not fetch static IP range higher bound for interface %v on nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
-			nodegroupsInterfacesMap[ip] = []string{static_low, static_high}
+			static_low_ip := net.ParseIP(static_low)
+			static_high_ip := net.ParseIP(static_high)
+			if static_low_ip == nil || static_high_ip == nil {
+				logger.Warningf("invalid IP in static range for interface %v on nodegroup %v: %q %q", nic, uuid, static_low_ip, static_high_ip)
+				continue
+			}
+			nodegroupsInterfacesMap[ip] = []net.IP{static_low_ip, static_high_ip}
 		}
 	}
 	return nodegroupsInterfacesMap
@@ -1227,7 +1233,7 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		var allocatableHigh, allocatableLow string
+		var allocatableHigh, allocatableLow net.IP
 		for ip, bounds := range nodegroupInterfaces {
 			contained := netCIDR.Contains(net.ParseIP(ip))
 			if contained {
@@ -1240,8 +1246,8 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 			CIDR:              netCIDR.String(),
 			VLANTag:           netw.VLANTag,
 			ProviderId:        network.Id(netw.Name),
-			AllocatableIPLow:  net.ParseIP(allocatableLow),
-			AllocatableIPHigh: net.ParseIP(allocatableHigh),
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
 		}
 
 		// Verify we filled-in everything for all networks
