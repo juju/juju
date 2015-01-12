@@ -5,9 +5,11 @@ package google
 
 import (
 	"code.google.com/p/google-api-go-client/compute/v1"
+	"github.com/juju/utils"
 )
 
 var (
+	NewRawConnection   = &newRawConnection
 	DoCall             = &doCall
 	AddInstance        = &addInstance
 	NewInstance        = newInstance
@@ -36,4 +38,20 @@ func ExposeRawInstance(inst *Instance) *compute.Instance {
 
 func NewNetInterface(spec NetworkSpec, name string) *compute.NetworkInterface {
 	return spec.newInterface(name)
+}
+
+func ExposeRawService(conn *Connection) *compute.Service {
+	return conn.raw
+}
+
+func SetRawService(conn *Connection, service *compute.Service) {
+	conn.raw = service
+}
+
+func CheckOperation(conn *Connection, op *compute.Operation) (*compute.Operation, error) {
+	return conn.checkOperation(op)
+}
+
+func WaitOperation(conn *Connection, op *compute.Operation, attempts utils.AttemptStrategy) error {
+	return conn.waitOperation(op, attempts)
 }

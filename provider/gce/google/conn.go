@@ -117,13 +117,17 @@ func (gc *Connection) Connect(auth Auth) error {
 		return errors.New("connect() failed (already connected)")
 	}
 
-	service, err := auth.newConnection()
+	service, err := newRawConnection(auth)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	gc.raw = service
 	return nil
+}
+
+var newRawConnection = func(auth Auth) (*compute.Service, error) {
+	return auth.newConnection()
 }
 
 // VerifyCredentials ensures that the authentication credentials used

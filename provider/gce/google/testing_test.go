@@ -15,8 +15,7 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	auth             Auth
-	Conn             Connection
+	Auth             Auth
 	DiskSpec         DiskSpec
 	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
@@ -32,18 +31,10 @@ var _ = gc.Suite(&BaseSuite{})
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.auth = Auth{
+	s.Auth = Auth{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
-	}
-
-	service := &compute.Service{BasePath: "localhost"}
-	service.Zones = compute.NewZonesService(service)
-	s.Conn = Connection{
-		Region:    "a",
-		ProjectID: "spam",
-		raw:       service,
 	}
 
 	s.DiskSpec = DiskSpec{

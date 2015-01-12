@@ -18,8 +18,8 @@ var _ = gc.Suite(&authSuite{})
 
 func (s *authSuite) TestAuthNewTransport(c *gc.C) {
 	token := &oauth.Token{}
-	s.patchNewToken(c, s.auth, "", token)
-	transport, err := s.auth.newTransport()
+	s.patchNewToken(c, s.Auth, "", token)
+	transport, err := s.Auth.newTransport()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(transport.Config.ClientId, gc.Equals, "spam")
@@ -34,23 +34,23 @@ func (s *authSuite) TestAuthNewTransport(c *gc.C) {
 
 func (s *authSuite) TestAuthNewTokenBadCredentials(c *gc.C) {
 	// Makes an HTTP request to the GCE API.
-	_, err := newToken(s.auth, "")
+	_, err := newToken(s.Auth, "")
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "Invalid Key")
 }
 
 func (s *authSuite) TestAuthNewConnection(c *gc.C) {
-	s.patchNewToken(c, s.auth, "", nil)
-	service, err := s.auth.newConnection()
+	s.patchNewToken(c, s.Auth, "", nil)
+	service, err := s.Auth.newConnection()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(service, gc.NotNil)
 }
 
 func (s *authSuite) TestAuthNewService(c *gc.C) {
-	s.patchNewToken(c, s.auth, "", nil)
+	s.patchNewToken(c, s.Auth, "", nil)
 
-	transport, err := s.auth.newTransport()
+	transport, err := s.Auth.newTransport()
 	c.Assert(err, jc.ErrorIsNil)
 	service, err := newService(transport)
 	c.Assert(err, jc.ErrorIsNil)
