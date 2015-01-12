@@ -266,6 +266,11 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	return config, txnRevno, nil
 }
 
+// ReadSettings returns the settings for the given key.
+func (st *State) ReadSettings(key string) (*Settings, error) {
+	return readSettings(st, key)
+}
+
 // readSettings returns the Settings for key.
 func readSettings(st *State, key string) (*Settings, error) {
 	s := newSettings(st, key)

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/lease"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
@@ -28,6 +30,7 @@ type leaseStub struct {
 	ClaimLeaseFn            func(string, string, time.Duration) (string, error)
 	ReleaseLeaseFn          func(string, string) error
 	LeaseReleasedNotifierFn func(string) <-chan struct{}
+	RetrieveLeaseFn         func(string) lease.Token
 }
 
 func (s *leaseStub) ClaimLease(namespace, id string, forDur time.Duration) (string, error) {
@@ -49,6 +52,13 @@ func (s *leaseStub) LeaseReleasedNotifier(namespace string) <-chan struct{} {
 		return s.LeaseReleasedNotifierFn(namespace)
 	}
 	return nil
+}
+
+func (s *leaseStub) RetrieveLease(namespace string) lease.Token {
+	if s.RetrieveLeaseFn != nil {
+		return s.RetrieveLeaseFn(namespace)
+	}
+	return lease.Token{}
 }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {

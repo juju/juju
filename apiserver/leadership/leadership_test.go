@@ -10,7 +10,6 @@ network parameters.
 */
 
 import (
-	"testing"
 	"time"
 
 	"github.com/juju/names"
@@ -20,13 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
-
-var (
-	_ = gc.Suite(&leadershipSuite{})
-	// Ensure the LeadershipService conforms to the interface at compile-time.
-	_ LeadershipService = (*leadershipService)(nil)
-)
+// Ensure the LeadershipService conforms to the interface at compile-time.
+var _ LeadershipService = (*leadershipService)(nil)
 
 type leadershipSuite struct{}
 
@@ -82,7 +76,7 @@ func (m *stubAuthorizer) AuthOwner(tag names.Tag) bool {
 }
 func (m *stubAuthorizer) AuthEnvironManager() bool { return true }
 func (m *stubAuthorizer) AuthClient() bool         { return true }
-func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubServiceNm) }
+func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubUnitNm) }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	var ldrMgr stubLeadershipManager

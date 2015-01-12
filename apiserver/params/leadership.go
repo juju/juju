@@ -68,3 +68,47 @@ type ReleaseLeadershipParams struct {
 // ReleaseLeadershipBulkResults is a type which contains results from
 // a bulk leadership call.
 type ReleaseLeadershipBulkResults ErrorResults
+
+// LeadershipSettings is a collection of settings only the leader of a
+// service may write to.
+//type LeadershipSettings map[string]interface{}
+// GetLeadershipSettingsBulkParams is a collection of parameters for
+// making a bulk request for leadership settings.
+type GetLeadershipSettingsBulkParams struct {
+	Params []GetLeadershipSettingsParams
+}
+
+// GetLeadershipSettingsParams are the parameters needed to request
+// leadership settings for a service.
+type GetLeadershipSettingsParams struct {
+	ServiceTag string
+}
+
+// GetLeadershipSettingsBulkResults is the collection of results from
+// a bulk request for leadership settings.
+type GetLeadershipSettingsBulkResults struct {
+	Results []GetLeadershipSettingsResult
+}
+
+// GetLeadershipSettingsResult is the results from requesting
+// leadership settings.
+type GetLeadershipSettingsResult struct {
+	Settings map[string]interface{}
+	Error    *Error
+}
+type LeadershipWatchSettingsBulkParams struct {
+	Params []LeadershipWatchSettingsParam
+}
+
+type LeadershipWatchSettingsParam struct {
+	ServiceTag string
+}
+
+type MergeLeadershipSettingsBulkParams struct {
+	Params []MergeLeadershipSettingsParam
+}
+
+type MergeLeadershipSettingsParam struct {
+	ServiceTag string
+	Settings   map[string]interface{}
+}

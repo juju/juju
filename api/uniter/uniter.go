@@ -23,7 +23,8 @@ type State struct {
 	*common.EnvironWatcher
 	*common.APIAddresser
 
-	facade base.FacadeCaller
+	LeadershipSettings *LeadershipSettingsAccessor
+	facade             base.FacadeCaller
 	// unitTag contains the authenticated unit's tag.
 	unitTag names.UnitTag
 }
@@ -41,10 +42,11 @@ func newStateForVersion(
 		version,
 	)
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller,
-		unitTag:        authTag,
+		EnvironWatcher:     common.NewEnvironWatcher(facadeCaller),
+		APIAddresser:       common.NewAPIAddresser(facadeCaller),
+		LeadershipSettings: NewLeadershipSettingsAccessor(facadeCaller),
+		facade:             facadeCaller,
+		unitTag:            authTag,
 	}
 }
 

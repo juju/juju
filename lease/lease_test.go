@@ -4,10 +4,12 @@
 package lease
 
 import (
-	coretesting "github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 	"testing"
 	"time"
+
+	gc "gopkg.in/check.v1"
+
+	coretesting "github.com/juju/juju/testing"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
@@ -122,6 +124,33 @@ func (s *leaseSuite) TestReleaseLease(c *gc.C) {
 
 	toks := mgr.CopyOfLeaseTokens()
 	c.Assert(toks, gc.HasLen, 0)
+}
+
+func (s *leaseSuite) TestRetrieveLease(c *gc.C) {
+	stop := make(chan struct{})
+	go WorkerLoop(&stubLeasePersistor{})(stop)
+	defer func() { stop <- struct{}{} }()
+
+	mgr := Manager()
+
+	ownerId, err := mgr.ClaimLease(testNamespace, testId, 30*time.Hour)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ownerId, gc.Equals, testId)
+
+	tok := mgr.RetrieveLease(testNamespace)
+	c.Check(tok.Id, gc.Equals, testId)
+	c.Check(tok.Namespace, gc.Equals, testNamespace)
+}
+
+func (s *leaseSuite) TestRetrieveLeaseWithBadNamespaceFails(c *gc.C) {
+	stop := make(chan struct{})
+	go WorkerLoop(&stubLeasePersistor{})(stop)
+	defer func() { stop <- struct{}{} }()
+
+	mgr := Manager()
+
+	tok := mgr.RetrieveLease(testNamespace)
+	c.Assert(tok, gc.DeepEquals, Token{})
 }
 
 func (s *leaseSuite) TestReleaseLeaseNotification(c *gc.C) {

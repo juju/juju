@@ -2500,3 +2500,15 @@ func (w *blockDevicesWatcher) loop() error {
 		}
 	}
 }
+
+// NewLeadershipSettingsWatcher returns a new
+// LeadershipSettingsWatcher.
+func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
+	return &LeadershipSettingsWatcher{state.watchSettings(key)}
+}
+
+// LeadershipSettingsWatcher provides a type that can watch settings
+// for a provided key.
+type LeadershipSettingsWatcher struct {
+	*settingsWatcher
+}

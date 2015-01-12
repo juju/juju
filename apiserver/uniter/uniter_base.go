@@ -16,7 +16,10 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/common"
+	leadershipapiserver "github.com/juju/juju/apiserver/leadership"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/leadership"
+	"github.com/juju/juju/lease"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -33,6 +36,7 @@ type uniterBaseAPI struct {
 	*common.APIAddresser
 	*common.EnvironWatcher
 	*common.RebootRequester
+	*leadershipapiserver.LeadershipSettingsAccessor
 
 	st            *state.State
 	auth          common.Authorizer
@@ -93,13 +97,14 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
-		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
-		StatusSetter:       common.NewStatusSetter(st, accessUnit),
-		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
-		APIAddresser:       common.NewAPIAddresser(st, resources),
-		EnvironWatcher:     common.NewEnvironWatcher(st, resources, authorizer),
-		RebootRequester:    common.NewRebootRequester(st, accessMachine),
+		LifeGetter:                 common.NewLifeGetter(st, accessUnitOrService),
+		StatusSetter:               common.NewStatusSetter(st, accessUnit),
+		DeadEnsurer:                common.NewDeadEnsurer(st, accessUnit),
+		AgentEntityWatcher:         common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
+		APIAddresser:               common.NewAPIAddresser(st, resources),
+		EnvironWatcher:             common.NewEnvironWatcher(st, resources, authorizer),
+		RebootRequester:            common.NewRebootRequester(st, accessMachine),
+		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, authorizer),
 
 		st:            st,
 		auth:          authorizer,
@@ -1545,4 +1550,40 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 		tags[i] = relation.Tag().String()
 	}
 	return tags, nil
+}
+
+func leadershipSettingsAccessorFactory(st *state.State, auth common.Authorizer) *leadershipapiserver.LeadershipSettingsAccessor {
+	watcherFactory := func(serviceId string) <-chan struct{} {
+		watcher := state.NewLeadershipSettingsWatcher(st, state.LeadershipSettingsDocId(serviceId))
+		notifierFacade := make(chan struct{})
+		go func() {
+			<-watcher.Changes()
+			notifierFacade <- struct{}{}
+		}()
+		return notifierFacade
+	}
+	getSettings := func(serviceId string) (map[string]interface{}, error) {
+		settings, err := st.ReadSettings(state.LeadershipSettingsDocId(serviceId))
+		if err != nil {
+			return nil, err
+		}
+		return settings.Map(), nil
+	}
+	writeSettings := func(serviceId string, settings map[string]interface{}) error {
+		currentSettings, err := st.ReadSettings(state.LeadershipSettingsDocId(serviceId))
+		if err != nil {
+			return err
+		}
+		currentSettings.Update(settings)
+		_, err = currentSettings.Write()
+		return errors.Annotate(err, "could not write changes")
+	}
+	ldrMgr := leadership.NewLeadershipManager(lease.Manager())
+	return leadershipapiserver.NewLeadershipSettingsAccessor(
+		auth,
+		watcherFactory,
+		getSettings,
+		writeSettings,
+		ldrMgr.Leader,
+	)
 }
