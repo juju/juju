@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -48,7 +48,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetStatus(state.StatusStarted, "", nil)
+	err := u.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2564,7 +2564,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction("fakeaction", nil)
+	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.State.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))

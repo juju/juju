@@ -13,8 +13,10 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/user"
@@ -163,6 +165,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage users and access
 	r.Register(user.NewSuperCommand())
 
+	// Manage cached images
+	r.Register(cachedimages.NewSuperCommand())
+
 	// Manage machines
 	r.Register(machine.NewSuperCommand())
 	r.RegisterSuperAlias("add-machine", "machine", "add", twoDotOhDeprecation("machine add"))
@@ -178,6 +183,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
+
+	// Manage and control actions.
+	if featureflag.Enabled(action.FeatureFlag) {
+		r.Register(action.NewSuperCommand())
+	}
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))

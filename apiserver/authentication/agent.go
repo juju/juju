@@ -4,6 +4,8 @@
 package authentication
 
 import (
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
 )
@@ -33,7 +35,7 @@ func (*AgentAuthenticator) Authenticate(entity state.Entity, password, nonce str
 	// connect.
 	if machine, ok := authenticator.(*state.Machine); ok {
 		if !machine.CheckProvisioned(nonce) {
-			return state.NotProvisionedError(machine.Id())
+			return errors.NotProvisionedf("machine %v", machine.Id())
 		}
 	}
 

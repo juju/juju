@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"sort"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -325,8 +327,11 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	return inst, err
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -421,7 +426,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -445,7 +450,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
@@ -794,6 +799,22 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (t *localServerSuite) TestSubnets(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	subnets, err := env.Subnets("")
+	c.Assert(err, jc.ErrorIsNil)
+
+	defaultSubnets := []network.SubnetInfo{{
+		// this is defined in the test server for the default-vpc
+		CIDR:              "10.10.0.0/20",
+		ProviderId:        "subnet-0",
+		VLANTag:           0,
+		AllocatableIPLow:  net.ParseIP("10.10.0.4").To4(),
+		AllocatableIPHigh: net.ParseIP("10.10.15.254").To4(),
+	}}
+	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
+}
+
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
@@ -831,6 +852,28 @@ func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
 	result, err := env.SupportAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestStartInstanceDisks(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	params := environs.StartInstanceParams{
+		Disks: []storage.DiskParams{{
+			Size: 512, // round up to 1GiB
+		}, {
+			Size: 1024, // 1GiB exactly
+		}, {
+			Size: 1025, // round up to 2GiB
+		}},
+	}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Disks, gc.HasLen, 3)
+	c.Assert(result.Disks[0].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Disks[1].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Disks[2].Size, gc.Equals, uint64(2048))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

@@ -5,14 +5,17 @@ package lxc
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/juju/loggo"
@@ -25,7 +28,9 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils/keyvalues"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -111,15 +116,16 @@ type containerManager struct {
 	createWithClone   bool
 	useAUFS           bool
 	backingFilesystem string
+	imageURLGetter    container.ImageURLGetter
 }
 
 // containerManager implements container.Manager.
 var _ container.Manager = (*containerManager)(nil)
 
-// NewContainerManager returns a manager object that can start and stop lxc
-// containers. The containers that are created are namespaced by the name
-// parameter.
-func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
+// NewContainerManager returns a manager object that can start and
+// stop lxc containers. The containers that are created are namespaced
+// by the name parameter inside the given ManagerConfig.
+func NewContainerManager(conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
 	name := conf.PopValue(container.ConfigName)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
@@ -158,6 +164,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		createWithClone:   useClone,
 		useAUFS:           useAUFS,
 		backingFilesystem: backingFS,
+		imageURLGetter:    imageURLGetter,
 	}, nil
 }
 
@@ -217,12 +224,6 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
 
-	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(network, directory)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to write config file")
-	}
-
 	var lxcContainer golxc.Container
 	if manager.createWithClone {
 		templateContainer, err := EnsureCloneTemplate(
@@ -234,6 +235,7 @@ func (manager *containerManager) CreateContainer(
 			machineConfig.AptMirror,
 			machineConfig.EnableOSRefreshUpdate,
 			machineConfig.EnableOSUpgrade,
+			manager.imageURLGetter,
 		)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
@@ -271,11 +273,18 @@ func (manager *containerManager) CreateContainer(
 			"--hostid", name, // Use the container name as the hostid
 			"-r", series,
 		}
-
-		// Create the container.
-		logger.Tracef("create the container")
-		if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
-			return nil, nil, errors.Annotate(err, "lxc container creation failed")
+		var caCert []byte
+		if manager.imageURLGetter != nil {
+			arch := arch.HostArch()
+			imageURL, err := manager.imageURLGetter.ImageURL(instance.LXC, series, arch)
+			if err != nil {
+				return nil, nil, errors.Annotatef(err, "cannot determine cached image URL")
+			}
+			templateParams = append(templateParams, "-T", imageURL)
+			caCert = manager.imageURLGetter.CACert()
+		}
+		if err = createContainer(lxcContainer, network, directory, nil, templateParams, caCert); err != nil {
+			return nil, nil, err
 		}
 	}
 
@@ -319,6 +328,81 @@ func (manager *containerManager) CreateContainer(
 	}
 
 	return &lxcInstance{lxcContainer, name}, hardware, nil
+}
+
+func createContainer(lxcContainer golxc.Container, network *container.NetworkConfig, containerDirectory string,
+	extraCreateArgs, templateParams []string, caCert []byte,
+) error {
+	logger.Tracef("write the lxc.conf file")
+	configFile, err := writeLxcConfig(network, containerDirectory)
+	if err != nil {
+		return errors.Annotatef(err, "failed to write config file")
+	}
+
+	var execEnv []string = nil
+	var closer func()
+	if caCert != nil {
+		execEnv, closer, err = wgetEnvironment(caCert)
+		if err != nil {
+			return errors.Annotatef(err, "failed to get environment for wget execution")
+		}
+		defer closer()
+	}
+
+	// Create the container.
+	logger.Debugf("create the lxc container")
+	logger.Debugf("lxc-create template params: %v", templateParams)
+	if err := lxcContainer.Create(configFile, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
+		return errors.Annotatef(err, "lxc container creation failed")
+	}
+	return nil
+}
+
+// wgetEnvironment creates a script to call wget with the
+// --no-check-certificate argument, patching the PATH to ensure
+// the script is invoked by the lxc template bash script.
+// It returns a slice of env variables to pass to the lxc create command.
+func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
+	env := os.Environ()
+	kv, err := keyvalues.Parse(env, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Create a wget bash script in a temporary directory.
+	tmpDir, err := ioutil.TempDir("", "wget")
+	if err != nil {
+		return nil, nil, err
+	}
+	closer = func() {
+		os.RemoveAll(tmpDir)
+	}
+	// Write the ca cert.
+	caCertPath := filepath.Join(tmpDir, "ca-cert.pem")
+	err = ioutil.WriteFile(caCertPath, caCert, 0755)
+	if err != nil {
+		defer closer()
+		return nil, nil, err
+	}
+
+	// Write the wget script.
+	wgetTmpl := `#!/bin/bash
+/usr/bin/wget --ca-certificate=%s $*
+`
+	wget := fmt.Sprintf(wgetTmpl, caCertPath)
+	err = ioutil.WriteFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
+	if err != nil {
+		defer closer()
+		return nil, nil, err
+	}
+
+	// Update the path to point to the script.
+	for k, v := range kv {
+		if strings.ToUpper(k) == "PATH" {
+			v = strings.Join([]string{tmpDir, v}, string(os.PathListSeparator))
+		}
+		execEnv = append(execEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+	return execEnv, closer, nil
 }
 
 func appendToContainerConfig(name, line string) error {
@@ -438,13 +522,75 @@ func containerConfigFilename(name string) string {
 }
 
 const networkTemplate = `
-lxc.network.type = %s
-lxc.network.link = %s
+lxc.network.type = {{.Type}}
+lxc.network.link = {{.Link}}
 lxc.network.flags = up
+{{if gt .MTU 0}}lxc.network.mtu = {{.MTU}}{{end}}
 `
 
 func networkConfigTemplate(networkType, networkLink string) string {
-	return fmt.Sprintf(networkTemplate, networkType, networkLink)
+	type config struct {
+		Type string
+		Link string
+		MTU  int
+	}
+	values := config{
+		Type: networkType,
+		Link: networkLink,
+	}
+
+	tmpl, err := template.New("config").Parse(networkTemplate)
+	if err != nil {
+		logger.Errorf("cannot parse container config template: %v", err)
+		return ""
+	}
+
+	primaryNIC, err := discoverHostNIC()
+	if err != nil {
+		logger.Warningf("cannot determine primary NIC MTU, not setting for container: %v", err)
+	} else {
+		logger.Debugf("setting container network interface MTU to %d", primaryNIC.MTU)
+		values.MTU = primaryNIC.MTU
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, values); err != nil {
+		logger.Errorf("cannot render container config: %v", err)
+		return ""
+	}
+	return buf.String()
+}
+
+// discoverHostNIC detects and returns the primary network interface
+// on the machine. Out of all interfaces, the first non-loopback
+// device which is up and has address is considered the primary.
+var discoverHostNIC = func() (net.Interface, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return net.Interface{}, errors.Annotatef(err, "cannot get network interfaces")
+	}
+	logger.Tracef("trying to discover primary network interface")
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagLoopback != 0 {
+			// Skip the loopback.
+			logger.Tracef("not using loopback interface %q", iface.Name)
+			continue
+		}
+		if iface.Flags&net.FlagUp != 0 {
+			// Possibly the primary, but ensure it has an address as
+			// well.
+			logger.Tracef("verifying interface %q has addresses", iface.Name)
+			addrs, err := iface.Addrs()
+			if err != nil {
+				return net.Interface{}, errors.Annotatef(err, "cannot get %q addresses", iface.Name)
+			}
+			if len(addrs) > 0 {
+				// We found it.
+				logger.Tracef("primary network interface is %q", iface.Name)
+				return iface, nil
+			}
+		}
+	}
+	return net.Interface{}, errors.Errorf("cannot detect the primary network interface")
 }
 
 func generateNetworkConfig(network *container.NetworkConfig) string {

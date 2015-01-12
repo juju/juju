@@ -45,6 +45,7 @@ var (
 	EC2AvailabilityZones        = &ec2AvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
 	RunInstances                = &runInstances
+	BlockDeviceNamer            = blockDeviceNamer
 )
 
 // BucketStorage returns a storage instance addressing

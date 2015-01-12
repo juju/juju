@@ -79,6 +79,7 @@ const (
 	upgradeInfoC  = "upgradeInfo"
 	rebootC       = "reboot"
 	blockDevicesC = "blockdevices"
+	datastoresC   = "datastores"
 
 	// leaseC is used to store lease tokens
 	leaseC = "lease"
@@ -215,45 +216,6 @@ func (st *State) MongoSession() *mgo.Session {
 }
 
 type closeFunc func()
-
-// txnRunner returns a jujutxn.Runner instance.
-//
-// If st.transactionRunner is non-nil, then that will be
-// returned and the session argument will be ignored. This
-// is the case in tests only, when we want to test concurrent
-// operations.
-//
-// If st.transactionRunner is nil, then we create a new
-// transaction runner with the provided session and return
-// that.
-func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
-	if st.transactionRunner != nil {
-		return st.transactionRunner
-	}
-	runnerDb := st.db.With(session)
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb})
-}
-
-// runTransaction is a convenience method delegating to transactionRunner.
-func (st *State) runTransaction(ops []txn.Op) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).RunTransaction(ops)
-}
-
-// run is a convenience method delegating to transactionRunner.
-func (st *State) run(transactions jujutxn.TransactionSource) error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).Run(transactions)
-}
-
-// ResumeTransactions resumes all pending transactions.
-func (st *State) ResumeTransactions() error {
-	session := st.db.Session.Copy()
-	defer session.Close()
-	return st.txnRunner(session).ResumeTransactions()
-}
 
 func (st *State) Watch() *Multiwatcher {
 	st.mu.Lock()
@@ -659,6 +621,13 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.Network(id)
 	case names.ActionTag:
 		return st.ActionByTag(tag)
+	case names.CharmTag:
+		if url, err := charm.ParseURL(id); err != nil {
+			logger.Warningf("Parsing charm URL %q failed: %v", id, err)
+			return nil, errors.NotFoundf("could not find charm %q in state", id)
+		} else {
+			return st.Charm(url)
+		}
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -698,6 +667,9 @@ func (st *State) tagToCollectionAndId(tag names.Tag) (string, interface{}, error
 		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
+		id = tag.Id()
+	case names.CharmTag:
+		coll = charmsC
 		id = tag.Id()
 	default:
 		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)

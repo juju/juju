@@ -105,10 +105,10 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 func (s *actionSuite) TestActions(c *gc.C) {
 	arg := params.Actions{
 		Actions: []params.Action{
-			{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}},
-			{Receiver: s.mysqlUnit.Tag().String(), Name: "action-2", Parameters: map[string]interface{}{}},
-			{Receiver: s.wordpressUnit.Tag().String(), Name: "action-3", Parameters: map[string]interface{}{"foo": 1, "bar": "please"}},
-			{Receiver: s.mysqlUnit.Tag().String(), Name: "action-4", Parameters: map[string]interface{}{"baz": true}},
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{"foo": 1, "bar": "please"}},
+			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{"baz": true}},
 		}}
 
 	r, err := s.action.Enqueue(arg)
@@ -140,7 +140,7 @@ func (s *actionSuite) TestActions(c *gc.C) {
 
 func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	// NOTE: full testing with multiple matches has been moved to state package.
-	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "action-1", Parameters: map[string]interface{}{}}}}
+	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}}}}
 	r, err := s.action.Enqueue(arg)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
@@ -169,16 +169,16 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(actions, gc.HasLen, 0)
 
 	// Add Actions.
-	expectedName := "bar"
+	expectedName := "fakeaction"
 	expectedParameters := map[string]interface{}{"kan jy nie": "verstaand"}
 	arg := params.Actions{
 		Actions: []params.Action{
 			// No receiver.
-			{Name: "foo"},
+			{Name: "fakeaction"},
 			// Good.
 			{Receiver: s.wordpressUnit.Tag().String(), Name: expectedName, Parameters: expectedParameters},
 			// Service tag instead of Unit tag.
-			{Receiver: s.wordpress.Tag().String(), Name: "baz"},
+			{Receiver: s.wordpress.Tag().String(), Name: "fakeaction"},
 			// Missing name.
 			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},
 		},
@@ -200,7 +200,7 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
 	c.Assert(res.Results[2].Action, gc.IsNil)
 
-	c.Assert(res.Results[3].Error, gc.ErrorMatches, "action name required")
+	c.Assert(res.Results[3].Error, gc.ErrorMatches, "no action name given")
 	c.Assert(res.Results[3].Action, gc.IsNil)
 
 	// Make sure an Action was enqueued for the wordpress Unit.
@@ -242,15 +242,15 @@ var listTestCases = []testCase{{
 		}, {
 			Receiver: names.NewUnitTag("wordpress/0"),
 			Actions: []testCaseAction{
-				{"foo", map[string]interface{}{}, false},
-				{"bar", map[string]interface{}{"asdf": 3}, true},
-				{"baz", map[string]interface{}{"qwer": "ty"}, false},
+				{"fakeaction", map[string]interface{}{}, false},
+				{"fakeaction", map[string]interface{}{"asdf": 3}, true},
+				{"fakeaction", map[string]interface{}{"qwer": "ty"}, false},
 			},
 		}, {
 			Receiver: names.NewUnitTag("mysql/0"),
 			Actions: []testCaseAction{
-				{"oof", map[string]interface{}{"zxcv": false}, false},
-				{"rab", map[string]interface{}{}, true},
+				{"fakeaction", map[string]interface{}{"zxcv": false}, false},
+				{"fakeaction", map[string]interface{}{}, true},
 			},
 		},
 	},
@@ -487,16 +487,16 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	tests := params.Actions{
 		Actions: []params.Action{{
 			Receiver: s.wordpressUnit.Tag().String(),
-			Name:     "wp-one",
+			Name:     "fakeaction",
 		}, {
 			Receiver: s.wordpressUnit.Tag().String(),
-			Name:     "wp-two",
+			Name:     "fakeaction",
 		}, {
 			Receiver: s.mysqlUnit.Tag().String(),
-			Name:     "my-one",
+			Name:     "fakeaction",
 		}, {
 			Receiver: s.mysqlUnit.Tag().String(),
-			Name:     "my-two",
+			Name:     "fakeaction",
 		}},
 	}
 
@@ -527,25 +527,25 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 
 	wpActions := obtained.Actions[0].Actions
 	c.Assert(wpActions, gc.HasLen, 2)
-	c.Assert(wpActions[0].Action.Name, gc.Equals, "wp-one")
+	c.Assert(wpActions[0].Action.Name, gc.Equals, "fakeaction")
 	c.Assert(wpActions[0].Status, gc.Equals, params.ActionPending)
-	c.Assert(wpActions[1].Action.Name, gc.Equals, "wp-two")
+	c.Assert(wpActions[1].Action.Name, gc.Equals, "fakeaction")
 	c.Assert(wpActions[1].Status, gc.Equals, params.ActionCancelled)
 
 	myActions := obtained.Actions[1].Actions
 	c.Assert(myActions, gc.HasLen, 2)
-	c.Assert(myActions[0].Action.Name, gc.Equals, "my-two")
+	c.Assert(myActions[0].Action.Name, gc.Equals, "fakeaction")
 	c.Assert(myActions[0].Status, gc.Equals, params.ActionPending)
-	c.Assert(myActions[1].Action.Name, gc.Equals, "my-one")
+	c.Assert(myActions[1].Action.Name, gc.Equals, "fakeaction")
 	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
-
 }
 
 func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
-		"outfile": map[string]interface{}{
+		"snapshot": map[string]interface{}{
 			"type":        "object",
-			"description": "this boilerplate is insane, we have to fix it",
+			"title":       "snapshot",
+			"description": "Take a snapshot of the database.",
 			"properties": map[string]interface{}{
 				"outfile": map[string]interface{}{
 					"description": "The file to write out to.",
@@ -553,6 +553,12 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 					"default":     "foo.bz2",
 				},
 			},
+		},
+		"fakeaction": map[string]interface{}{
+			"type":        "object",
+			"title":       "fakeaction",
+			"description": "No description",
+			"properties":  map[string]interface{}{},
 		},
 	}
 	tests := []struct {
@@ -568,7 +574,7 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 						ActionSpecs: map[string]charm.ActionSpec{
 							"snapshot": charm.ActionSpec{
 								Description: "Take a snapshot of the database.",
-								Params:      actionSchemas["outfile"],
+								Params:      actionSchemas["snapshot"],
 							},
 						},
 					},
@@ -581,7 +587,14 @@ func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 			Results: []params.ServiceCharmActionsResult{
 				params.ServiceCharmActionsResult{
 					ServiceTag: names.NewServiceTag("wordpress").String(),
-					Actions:    &charm.Actions{},
+					Actions: &charm.Actions{
+						ActionSpecs: map[string]charm.ActionSpec{
+							"fakeaction": charm.ActionSpec{
+								Description: "No description",
+								Params:      actionSchemas["fakeaction"],
+							},
+						},
+					},
 				},
 			},
 		},

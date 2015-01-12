@@ -113,6 +113,22 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 }
 
+func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.blockAllChanges(c)
+
+	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
+	results, err := s.client.EnsureAvailability(arg)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(results.Results, gc.HasLen, 0)
+
+	machines, err := s.State.AllMachines() //there
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+}
+
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{
@@ -787,7 +803,8 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
-							"description": "this boilerplate is insane, we have to fix it",
+							"title":       "snapshot",
+							"description": "Take a snapshot of the database.",
 							"properties": map[string]interface{}{
 								"outfile": map[string]interface{}{
 									"default":     "foo.bz2",
@@ -803,9 +820,19 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 		{
 			about: "retrieves charm info",
 			// Use wordpress for tests so that we can compare Provides and Requires.
-			charm:           "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: nil},
-			url:             "local:quantal/wordpress-3",
+			charm: "wordpress",
+			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
+				"fakeaction": charm.ActionSpec{
+					Description: "No description",
+					Params: map[string]interface{}{
+						"type":        "object",
+						"title":       "fakeaction",
+						"description": "No description",
+						"properties":  map[string]interface{}{},
+					},
+				},
+			}},
+			url: "local:quantal/wordpress-3",
 		},
 		{
 			about:           "invalid URL",
@@ -937,6 +964,25 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 			err = entity.SetAnnotations(cleanup)
 			c.Assert(err, jc.ErrorIsNil)
 		}
+	}
+}
+
+func (s *clientSuite) TestClientNoCharmAnnotations(c *gc.C) {
+	// Set up charm.
+	charm := s.AddTestingCharm(c, "dummy")
+	id := charm.Tag().Id()
+	for i, t := range clientAnnotationsTests {
+		c.Logf("test %d. %s. entity %s", i, t.about, id)
+		// Add annotations using the API call.
+		err := s.APIState.Client().SetAnnotations(id, t.input)
+		// Should not be able to annotate charm with this client
+		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
+
+		// Retrieve annotations using the API call.
+		ann, err := s.APIState.Client().GetAnnotations(id)
+		// Should not be able to get annotations from charm using this client
+		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
+		c.Assert(ann, gc.IsNil)
 	}
 }
 
@@ -1233,7 +1279,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -2213,8 +2259,8 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  multiwatcher.StatusPending,
-			Life:                    multiwatcher.Alive,
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
@@ -3542,7 +3588,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

@@ -37,7 +37,7 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		valid:         false,
 	}} {
 		conf := container.ManagerConfig{container.ConfigName: "test"}
-		manager, err := factory.NewContainerManager(test.containerType, conf)
+		manager, err := factory.NewContainerManager(test.containerType, conf, nil)
 		if test.valid {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(manager, gc.NotNil)

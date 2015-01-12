@@ -31,17 +31,18 @@ const (
 )
 
 var (
-	ToolstorageNewStorage = &toolstorageNewStorage
-	MachineIdLessThan     = machineIdLessThan
-	NewAddress            = newAddress
-	StateServerAvailable  = &stateServerAvailable
-	GetOrCreatePorts      = getOrCreatePorts
-	GetPorts              = getPorts
-	PortsGlobalKey        = portsGlobalKey
-	CurrentUpgradeId      = currentUpgradeId
-	NowToTheSecond        = nowToTheSecond
-	MultiEnvCollections   = multiEnvCollections
-	PickAddress           = &pickAddress
+	ToolstorageNewStorage  = &toolstorageNewStorage
+	ImageStorageNewStorage = &imageStorageNewStorage
+	MachineIdLessThan      = machineIdLessThan
+	NewAddress             = newAddress
+	StateServerAvailable   = &stateServerAvailable
+	GetOrCreatePorts       = getOrCreatePorts
+	GetPorts               = getPorts
+	PortsGlobalKey         = portsGlobalKey
+	CurrentUpgradeId       = currentUpgradeId
+	NowToTheSecond         = nowToTheSecond
+	MultiEnvCollections    = multiEnvCollections
+	PickAddress            = &pickAddress
 )
 
 type (
@@ -53,27 +54,25 @@ type (
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetTestHooks(c, runner, hooks...)
+	return txntesting.SetTestHooks(c, newMultiEnvRunnerForHooks(st), hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetBeforeHooks(c, runner, fs...)
+	return txntesting.SetBeforeHooks(c, newMultiEnvRunnerForHooks(st), fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetAfterHooks(c, runner, fs...)
+	return txntesting.SetAfterHooks(c, newMultiEnvRunnerForHooks(st), fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	return txntesting.SetRetryHooks(c, newMultiEnvRunnerForHooks(st), block, check)
+}
+
+func newMultiEnvRunnerForHooks(st *State) jujutxn.Runner {
+	runner := newMultiEnvRunner(st.EnvironUUID(), st.db)
 	st.transactionRunner = runner
-	return txntesting.SetRetryHooks(c, runner, block, check)
+	return getRawRunner(runner)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -283,4 +282,15 @@ func GetCollection(st *State, name string) (stateCollection, func()) {
 
 func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 	return st.getRawCollection(name)
+}
+
+func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) jujutxn.Runner {
+	return &multiEnvRunner{
+		rawRunner: baseRunner,
+		envUUID:   envUUID,
+	}
+}
+
+func Sequence(st *State, name string) (int, error) {
+	return st.sequence(name)
 }

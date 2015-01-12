@@ -238,36 +238,27 @@ juju-reboot --now || action-set reboot-now="good"
 
 func (ctx *context) writeActionsYaml(c *gc.C, path string, names ...string) {
 	var actionsYaml = map[string]string{
-		"base": `
-actions:
-`[1:],
+		"base": "",
 		"snapshot": `
-   snapshot:
-      description: Take a snapshot of the database.                           
-      params:                                                                 
-         title: "Snapshot"                                                    
-         type: "object"                                                       
-         properties:                                                          
-            outfile:                                                          
-               description: "The file to write out to."                       
-               type: string                                                   
-         required: ["outfile"]
+snapshot:
+   description: Take a snapshot of the database.
+   params:
+      outfile:
+         description: "The file to write out to."
+         type: string
+   required: ["outfile"]
 `[1:],
 		"action-log": `
-   action-log:
-      params:
+action-log:
 `[1:],
 		"action-log-fail": `
-   action-log-fail:
-      params:
+action-log-fail:
 `[1:],
 		"action-log-fail-error": `
-   action-log-fail-error:
-      params:
+action-log-fail-error:
 `[1:],
 		"action-reboot": `
-   action-reboot:
-      params:
+action-reboot:
 `[1:],
 	}
 	actionsYamlPath := filepath.Join(path, "actions.yaml")
@@ -625,7 +616,7 @@ func (s quickStart) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusStarted})
+	step(c, ctx, waitUnit{status: params.StatusActive})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 }
@@ -648,7 +639,7 @@ func (s startupRelationError) step(c *gc.C, ctx *context) {
 	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
 	step(c, ctx, serveCharm{})
 	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnit{status: params.StatusStarted})
+	step(c, ctx, waitUnit{status: params.StatusActive})
 	step(c, ctx, waitHooks{"install", "config-changed", "start"})
 	step(c, ctx, verifyCharm{})
 	step(c, ctx, addRelation{})
@@ -876,7 +867,8 @@ type addAction struct {
 }
 
 func (s addAction) step(c *gc.C, ctx *context) {
-	_, err := ctx.unit.AddAction(s.name, s.params)
+	_, err := ctx.st.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
+	// _, err := ctx.unit.AddAction(s.name, s.params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -929,7 +921,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusStarted,
+			status: params.StatusActive,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
@@ -970,7 +962,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetStatus(state.StatusStarted, "", nil)
+			ctx.unit.SetStatus(state.StatusActive, "", nil)
 		}},
 		startUniter{},
 	}
@@ -1516,7 +1508,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusStarted,
+			status: params.StatusActive,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},

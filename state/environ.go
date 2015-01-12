@@ -106,6 +106,12 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 // environments, perhaps for future use around cross environment
 // relations.
 func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Environment, _ *State, err error) {
+	if owner.IsLocal() {
+		if _, err := st.User(owner); err != nil {
+			return nil, nil, errors.Annotate(err, "cannot create environment")
+		}
+	}
+
 	ssEnv, err := st.StateServerEnvironment()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not load state server environment")

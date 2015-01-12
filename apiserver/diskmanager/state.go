@@ -3,23 +3,20 @@
 
 package diskmanager
 
-import (
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-)
+import "github.com/juju/juju/state"
 
 type stateInterface interface {
-	SetMachineBlockDevices(machineId string, devices []storage.BlockDevice) error
+	SetMachineBlockDevices(machineId string, devices []state.BlockDeviceInfo) error
 }
 
 type stateShim struct {
 	*state.State
 }
 
-func (s stateShim) SetMachineBlockDevices(machineId string, devices []storage.BlockDevice) error {
+func (s stateShim) SetMachineBlockDevices(machineId string, devices []state.BlockDeviceInfo) error {
 	m, err := s.State.Machine(machineId)
 	if err != nil {
 		return err
 	}
-	return m.SetMachineBlockDevices(devices)
+	return m.SetMachineBlockDevices(devices...)
 }

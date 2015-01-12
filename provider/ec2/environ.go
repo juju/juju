@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -485,7 +486,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, err := getBlockDeviceMappings(args.Constraints)
+	blockDeviceMappings, disks, err := getBlockDeviceMappings(
+		*spec.InstanceType.VirtType, &args,
+	)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create block device mappings")
 	}
@@ -521,6 +524,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
+	// TODO(axw) extract volume ID, store in BlockDevice.ProviderId field,
+	// and tag all resources (instances and volumes). We can't do this until
+	// goamz's BlockDeviceMapping structure is updated to include VolumeId.
+
 	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
@@ -539,6 +546,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &hc,
+		Disks:    disks,
 	}, nil
 }
 
@@ -562,59 +570,6 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 		return errors.Trace(err)
 	}
 	return common.RemoveStateInstances(e.Storage(), ids...)
-}
-
-// minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
-const minDiskSize uint64 = 8 * 1024
-
-// getBlockDeviceMappings translates a StartInstanceParams into
-// BlockDeviceMappings.
-//
-// The first entry is always the root disk mapping, instance stores
-// (ephemeral disks) last.
-func getBlockDeviceMappings(cons constraints.Value) ([]ec2.BlockDeviceMapping, error) {
-	rootDiskSize := minDiskSize
-	if cons.RootDisk != nil {
-		if *cons.RootDisk >= minDiskSize {
-			rootDiskSize = *cons.RootDisk
-		} else {
-			logger.Infof(
-				"Ignoring root-disk constraint of %dM because it is smaller than the EC2 image size of %dM",
-				*cons.RootDisk,
-				minDiskSize,
-			)
-		}
-	}
-
-	// The first block device is for the root disk.
-	blockDeviceMappings := []ec2.BlockDeviceMapping{{
-		DeviceName: "/dev/sda1",
-		VolumeSize: int64(roundVolumeSize(rootDiskSize)),
-	}}
-
-	// Not all machines have this many instance stores.
-	// Instances will be started with as many of the
-	// instance stores as they can support.
-	blockDeviceMappings = append(blockDeviceMappings, []ec2.BlockDeviceMapping{{
-		VirtualName: "ephemeral0",
-		DeviceName:  "/dev/sdb",
-	}, {
-		VirtualName: "ephemeral1",
-		DeviceName:  "/dev/sdc",
-	}, {
-		VirtualName: "ephemeral2",
-		DeviceName:  "/dev/sdd",
-	}, {
-		VirtualName: "ephemeral3",
-		DeviceName:  "/dev/sde",
-	}}...)
-
-	return blockDeviceMappings, nil
-}
-
-// AWS expects GiB, we work in MiB; round up to nearest G.
-func roundVolumeSize(m uint64) uint64 {
-	return (m + 1023) / 1024
 }
 
 // groupInfoByName returns information on the security group
@@ -824,10 +779,51 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the EC2 provider yet.
-func (*environ) Subnets(_ instance.Id) ([]network.BasicInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
+// yet (i.e. when called initially or when a new subnet was created).
+func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+	ec2Inst := e.ec2()
+	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
+	resp, err := ec2Inst.Subnets(nil, nil)
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
+	}
+
+	var results []network.SubnetInfo
+	for _, subnet := range resp.Subnets {
+		cidr := subnet.CIDRBlock
+		ip, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			logger.Warningf("skipping subnet %q, invalid CIDR: %v", cidr, err)
+			continue
+		}
+		// ec2 only uses IPv4 addresses for subnets
+		start, err := network.IPv4ToDecimal(ip)
+		if err != nil {
+			logger.Warningf("skipping subnet %q, invalid IP: %v", cidr, err)
+			continue
+		}
+		// the first four addresses in a subnet are reserved, see
+		// http://goo.gl/rrWTIo
+		allocatableLow := network.DecimalToIPv4(start + 4)
+
+		ones, bits := ipnet.Mask.Size()
+		zeros := bits - ones
+		numIPs := uint32(1) << uint32(zeros)
+		highIP := start + numIPs - 1
+		// the last address in a subnet is reserved
+		allocatableHigh := network.DecimalToIPv4(highIP - 1)
+
+		// No VLANTag available
+		info := network.SubnetInfo{
+			CIDR:              cidr,
+			ProviderId:        network.Id(subnet.Id),
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
+		}
+		results = append(results, info)
+	}
+
+	return results, nil
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

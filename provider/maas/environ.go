@@ -1104,7 +1104,7 @@ func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var foundSub *network.BasicInfo
+	var foundSub *network.SubnetInfo
 	for i, sub := range subnets {
 		if sub.ProviderId == netId {
 			foundSub = &subnets[i]
@@ -1158,7 +1158,7 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 
 // Subnets returns basic information about all subnets known
 // by the provider for the environment, for a specific instance.
-func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, error) {
+func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
@@ -1172,13 +1172,14 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.BasicInfo, er
 		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", instId, networks)
-	var networkInfo []network.BasicInfo
+	var networkInfo []network.SubnetInfo
 	for _, netw := range networks {
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		netInfo := network.BasicInfo{
+		// TODO: (mfoord 2014-12-17) need to fill in AllocatableIPLow & High
+		netInfo := network.SubnetInfo{
 			CIDR:       netCIDR.String(),
 			VLANTag:    netw.VLANTag,
 			ProviderId: network.Id(netw.Name),

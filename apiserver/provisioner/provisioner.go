@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
 
@@ -443,7 +444,7 @@ func environManagerInstances(st *state.State) ([]instance.Id, error) {
 		instanceId, err := machine.InstanceId()
 		if err == nil {
 			instances = append(instances, instanceId)
-		} else if !state.IsNotProvisionedError(err) {
+		} else if !errors.IsNotProvisioned(err) {
 			return nil, err
 		}
 	}

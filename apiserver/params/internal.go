@@ -711,9 +711,29 @@ type BlockDeviceResults struct {
 	Results []BlockDeviceResult `json:"results,omitempty"`
 }
 
-// DatastoreFilesystem holds the parameters for recording information about
-// the filesystem corresponding to the specified datastore.
-type DatastoreFilesystem struct {
-	DatastoreId storage.DatastoreId `json:"datastoreid"`
-	Filesystem  storage.Filesystem  `json:"filesystem"`
+// BlockDevicesResult holds the result of an API call to retrieve details
+// of all block devices relating to some entity.
+type BlockDevicesResult struct {
+	Result []storage.BlockDevice `json:"result"`
+	Error  *Error                `json:"error,omitempty"`
+}
+
+// BlockDevicseResults holds the result of an API call to retrieve details
+// of all block devices relating to some entities.
+type BlockDevicesResults struct {
+	Results []BlockDevicesResult `json:"results,omitempty"`
+}
+
+// BlockDeviceFilesystem holds the parameters for recording information about
+// the filesystem corresponding to the specified block device.
+type BlockDeviceFilesystem struct {
+	DiskTag    string             `json:"disktag"`
+	Datastore  string             `json:"datastore"`
+	Filesystem storage.Filesystem `json:"filesystem"`
+}
+
+// SetBlockDeviceFilesystem holds the parameters for recording information about
+// the filesystems corresponding to the specified block devices.
+type SetBlockDeviceFilesystem struct {
+	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
 }

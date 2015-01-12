@@ -6,6 +6,7 @@ package lxc_test
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -15,9 +16,11 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
@@ -82,6 +85,17 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.ContainerFactory.AddListener(s.events)
 	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
 	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
+	fakeMAC, err := net.ParseMAC("aa:bb:cc:dd:ee:ff")
+	c.Assert(err, jc.ErrorIsNil)
+	s.PatchValue(lxc.DiscoverHostNIC, func() (net.Interface, error) {
+		return net.Interface{
+			Index:        1,
+			MTU:          4321,
+			Name:         "eth0",
+			HardwareAddr: fakeMAC,
+			Flags:        net.FlagUp,
+		}, nil
+	})
 }
 
 func (s *LxcSuite) TearDownTest(c *gc.C) {
@@ -146,7 +160,7 @@ func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
 		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
 			container.ConfigName: "juju",
 			"use-clone":          test.useClone,
-		})
+		}, &containertesting.MockURLGetter{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
 	}
@@ -193,7 +207,7 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
-	manager, err := lxc.NewContainerManager(params)
+	manager, err := lxc.NewContainerManager(params, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return manager
 }
@@ -202,7 +216,7 @@ func (*LxcSuite) TestManagerWarnsAboutUnknownOption(c *gc.C) {
 	_, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName: "BillyBatson",
 		"shazam":             "Captain Marvel",
-	})
+	}, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.container unused config option: "shazam" -> "Captain Marvel"`)
 }
@@ -307,6 +321,9 @@ func (s *LxcSuite) ensureTemplateStopped(name string) <-chan struct{} {
 func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, id string) {
 	c.Assert(event.Action, gc.Equals, expected)
 	c.Assert(event.InstanceId, gc.Equals, id)
+	if expected == mock.Created {
+		c.Assert(event.EnvArgs, gc.Not(gc.HasLen), 0)
+	}
 }
 
 func (s *LxcSuite) TestCreateContainerEvents(c *gc.C) {
@@ -351,10 +368,16 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 		aptMirror,
 		true,
 		true,
+		&containertesting.MockURLGetter{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(template.Name(), gc.Equals, name)
-	s.AssertEvent(c, <-s.events, mock.Created, name)
+
+	createEvent := <-s.events
+	c.Assert(createEvent.Action, gc.Equals, mock.Created)
+	c.Assert(createEvent.InstanceId, gc.Equals, name)
+	argsSet := set.NewStrings(createEvent.TemplateArgs...)
+	c.Assert(argsSet.Contains("imageURL"), jc.IsTrue)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 	s.AssertEvent(c, <-s.events, mock.Stopped, name)
 
@@ -365,6 +388,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
+lxc.network.mtu = 4321
 `
 	// NOTE: no autostart, no mounting the log dir
 	c.Assert(string(config), gc.Equals, expected)
@@ -507,6 +531,7 @@ func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
+lxc.network.mtu = 4321
 lxc.start.auto = 1
 lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
@@ -544,35 +569,63 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		config *container.NetworkConfig
 		net    string
 		link   string
+		mtu    int
 	}{{
 		config: nil,
 		net:    "veth",
 		link:   "lxcbr0",
+		mtu:    0,
 	}, {
 		config: lxc.DefaultNetworkConfig(),
 		net:    "veth",
 		link:   "lxcbr0",
+		mtu:    42,
 	}, {
 		config: container.BridgeNetworkConfig("foo"),
 		net:    "veth",
 		link:   "foo",
+		mtu:    1500,
 	}, {
 		config: container.PhysicalNetworkConfig("foo"),
 		net:    "phys",
 		link:   "foo",
+		mtu:    9000,
 	}} {
+		restorer := gitjujutesting.PatchValue(lxc.DiscoverHostNIC, func() (net.Interface, error) {
+			return net.Interface{
+				Index: 1,
+				Name:  "eth0",
+				MTU:   test.mtu,
+				Flags: net.FlagUp,
+			}, nil
+		})
 		config := lxc.GenerateNetworkConfig(test.config)
-		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
-		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
+		c.Check(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
+		c.Check(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
+		if test.mtu > 0 {
+			c.Check(config, jc.Contains, fmt.Sprintf("lxc.network.mtu = %d\n", test.mtu))
+		}
+		restorer.Restore()
 	}
 }
 
 func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
+	restorer := gitjujutesting.PatchValue(lxc.DiscoverHostNIC, func() (net.Interface, error) {
+		return net.Interface{
+			Index: 1,
+			Name:  "eth0",
+			MTU:   4321,
+			Flags: net.FlagUp,
+		}, nil
+	})
+	defer restorer.Restore()
+
 	config := lxc.NetworkConfigTemplate("foo", "bar")
-	//In the past, the entire lxc.conf file was just networking. With the addition
-	//of the auto start, we now have to have better isolate this test. As such, we
-	//parse the conf template results and just get the results that start with
-	//'lxc.network' as that is what the test cares about.
+	// In the past, the entire lxc.conf file was just networking. With
+	// the addition of the auto start, we now have to have better
+	// isolate this test. As such, we parse the conf template results
+	// and just get the results that start with 'lxc.network' as that
+	// is what the test cares about.
 	obtained := []string{}
 	for _, value := range strings.Split(config, "\n") {
 		if strings.HasPrefix(value, "lxc.network") {
@@ -583,6 +636,7 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 		"lxc.network.type = foo",
 		"lxc.network.link = bar",
 		"lxc.network.flags = up",
+		"lxc.network.mtu = 4321",
 	}
 	c.Assert(obtained, gc.DeepEquals, expected)
 }

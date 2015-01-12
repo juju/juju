@@ -596,11 +596,8 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status:  StatusPending,
+		Status:  StatusAllocating,
 		EnvUUID: s.st.EnvironUUID(),
-	}
-	msdoc := meterStatusDoc{
-		Code: MeterNotSet,
 	}
 	ops := []txn.Op{
 		{
@@ -610,7 +607,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Insert: udoc,
 		},
 		createStatusOp(s.st, globalKey, sdoc),
-		createMeterStatusOp(s.st, globalKey, msdoc),
+		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
