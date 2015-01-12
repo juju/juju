@@ -217,7 +217,7 @@ func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, erro
 			return nil, errors.Trace(err)
 		}
 
-		rawResult, ok := result.(compute.ZoneList)
+		rawResult, ok := result.(*compute.ZoneList)
 		if !ok {
 			return nil, errors.Annotatef(err, "unable to cast result to compute.ZoneList")
 		}
