@@ -999,6 +999,7 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 
 	// needed for getNodeGroups to work
 	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
 
 	jsonText1 := `{
 		"ip_range_high":        "192.168.2.255",
@@ -1024,8 +1025,34 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 		"static_ip_range_high": "172.16.0.255",
 		"interface":            "eth0"
 	}`
+	jsonText3 := `{
+		"ip_range_high":        "192.168.1.128",
+		"ip_range_low":         "192.168.1.2",
+		"broadcast_ip":         "192.168.1.255",
+		"static_ip_range_low":  "192.168.1.129",
+		"name":                 "eth0",
+		"ip":                   "192.168.1.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.1.255",
+		"interface":            "eth0"
+	}`
+	jsonText4 := `{
+		"ip_range_high":        "172.16.8.128",
+		"ip_range_low":         "172.16.8.2",
+		"broadcast_ip":         "172.16.8.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth0",
+		"ip":                   "172.16.8.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.8.255",
+		"interface":            "eth0"
+	}`
 	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
 	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
 	return test_instance
 }
 
@@ -1038,8 +1065,7 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	expectedInfo := []network.SubnetInfo{
 		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
 		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
-	}
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
