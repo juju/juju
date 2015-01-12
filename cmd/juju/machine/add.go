@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 )
 
@@ -98,8 +100,10 @@ type AddCommand struct {
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
 	Placement *instance.Placement
-
+	// NumMachines is the number of machines to add.
 	NumMachines int
+	// Disks describes disks that are to be attached to the machine.
+	Disks []storage.Constraints
 }
 
 func (c *AddCommand) Info() *cmd.Info {
@@ -115,6 +119,12 @@ func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
+	if featureflag.Enabled(storage.FeatureFlag) {
+		// NOTE: if/when the feature flag is removed, bump the client
+		// facade and check that the AddMachines facade version supports
+		// disks, and error if it doesn't.
+		f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
+	}
 }
 
 func (c *AddCommand) Init(args []string) error {
@@ -228,6 +238,7 @@ func (c *AddCommand) Run(ctx *cmd.Context) error {
 		Series:      c.Series,
 		Constraints: c.Constraints,
 		Jobs:        jobs,
+		Disks:       c.Disks,
 	}
 	machines := make([]params.AddMachineParams, c.NumMachines)
 	for i := 0; i < c.NumMachines; i++ {

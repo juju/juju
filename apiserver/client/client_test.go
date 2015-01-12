@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
@@ -31,12 +32,14 @@ import (
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/storage"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -2833,6 +2836,61 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
 }
 
+func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		}
+	}
+	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
+	apiParams[2].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	c.Assert(machines[0].Machine, gc.Equals, "0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, "cannot compute block device parameters: storage pools not implemented")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot compute block device parameters: invalid size 0")
+
+	m, err := s.BackingState.Machine(machines[0].Machine)
+	c.Assert(err, jc.ErrorIsNil)
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	expectParams := []state.BlockDeviceParams{{Size: 1}, {Size: 1}, {Size: 2}}
+	c.Assert(blockDevices, gc.HasLen, len(expectParams))
+	for i, dev := range blockDevices {
+		params, ok := dev.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(params, gc.DeepEquals, expectParams[i])
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
+	// If the storage feature flag is not set, then Disks should be ignored.
+	apiParams := make([]params.AddMachineParams, 2)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		}
+	}
+	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 0, Pool: "three"}}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 2)
+	c.Assert(machines[0].Machine, gc.Equals, "0")
+	c.Assert(machines[1].Machine, gc.Equals, "1")
+	m, err := s.BackingState.Machine(machines[0].Machine)
+	c.Assert(err, jc.ErrorIsNil)
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 0)
+}
+
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
@@ -3104,8 +3162,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.makeMockCharmStore()
 
 	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
-		storage := storage.NewStorage(uuid, session)
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
+		storage := statestorage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
@@ -3138,7 +3196,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -3221,7 +3279,7 @@ func (b *blobs) check() {
 }
 
 type recordingStorage struct {
-	storage.Storage
+	statestorage.Storage
 	putBarrier *sync.WaitGroup
 	blobs      *blobs
 }
@@ -3253,8 +3311,8 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	var putBarrier sync.WaitGroup
 	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
-		storage := storage.NewStorage(uuid, session)
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
+		storage := statestorage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
@@ -3299,7 +3357,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
@@ -3328,7 +3386,7 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, storagePath, expectedSHA256 string) {
+func (s *clientSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
 	reader, _, err := storage.Get(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()

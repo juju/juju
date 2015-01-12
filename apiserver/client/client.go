@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
@@ -26,7 +27,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/storage"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 )
 
@@ -37,7 +39,7 @@ func init() {
 var (
 	logger = loggo.GetLogger("juju.apiserver.client")
 
-	newStateStorage = storage.NewStorage
+	newStateStorage = statestorage.NewStorage
 )
 
 type API struct {
@@ -737,16 +739,29 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	var allBlockDevices []state.BlockDeviceParams
+	if featureflag.Enabled(storage.FeatureFlag) {
+		for _, cons := range p.Disks {
+			params, err := c.api.state.BlockDeviceParams(cons, nil, "")
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot compute block device parameters")
+			}
+			allBlockDevices = append(allBlockDevices, params...)
+		}
+	}
+
 	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
 	}
 	template := state.MachineTemplate{
-		Series:      p.Series,
-		Constraints: p.Constraints,
-		InstanceId:  p.InstanceId,
-		Jobs:        jobs,
-		Nonce:       p.Nonce,
+		Series:       p.Series,
+		Constraints:  p.Constraints,
+		BlockDevices: allBlockDevices,
+		InstanceId:   p.InstanceId,
+		Jobs:         jobs,
+		Nonce:        p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               p.Addrs,
 		Placement:               placementDirective,

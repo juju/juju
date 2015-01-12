@@ -28,6 +28,7 @@ const (
 	SettingsC          = settingsC
 	UnitsC             = unitsC
 	UsersC             = usersC
+	BlockDevicesC      = blockDevicesC
 )
 
 var (
@@ -45,11 +46,12 @@ var (
 )
 
 type (
-	CharmDoc    charmDoc
-	MachineDoc  machineDoc
-	RelationDoc relationDoc
-	ServiceDoc  serviceDoc
-	UnitDoc     unitDoc
+	CharmDoc       charmDoc
+	MachineDoc     machineDoc
+	RelationDoc    relationDoc
+	ServiceDoc     serviceDoc
+	UnitDoc        unitDoc
+	BlockDeviceDoc blockDeviceDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

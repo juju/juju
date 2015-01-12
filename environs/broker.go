@@ -58,9 +58,8 @@ type StartInstanceResult struct {
 	// NetworkInfo contains information about configured networks.
 	NetworkInfo []network.Info
 
-	// Disks contains a list of block devices created, each one
-	// corresponding to the DiskParams in the same position of
-	// StartInstanceParams.Disks.
+	// Disks contains a list of block devices created, each one having
+	// the same Name as one of the DiskParams in StartInstanceParams.Disks.
 	Disks []storage.BlockDevice
 }
 

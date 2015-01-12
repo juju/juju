@@ -123,6 +123,12 @@ type AddMachineParams struct {
 	Constraints constraints.Value
 	Jobs        []multiwatcher.MachineJob
 
+	// Disks describes constraints for disks that must be attached to
+	// the machine when it is provisioned.
+	//
+	// NOTE: this is ignored unless the "storage" feature flag is enabled.
+	Disks []storage.Constraints
+
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
 	Placement *instance.Placement
