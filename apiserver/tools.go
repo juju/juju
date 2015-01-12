@@ -262,6 +262,11 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values) (s
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
 func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.Binary, serverRoot string) (*tools.Tools, error) {
+	// Check if changes are allowed and the command may proceed.
+	blockChecker := common.NewBlockChecker(h.state)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	storage, err := h.state.ToolsStorage()
 	if err != nil {
 		return nil, err
