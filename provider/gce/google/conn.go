@@ -74,18 +74,33 @@ type Services struct {
 // If it finds a non-empty pointer it returns the response of the
 // Do method for service call.
 var doCall = func(svc Services) (interface{}, error) {
-	if svc.ZoneOp != nil {
-		return svc.ZoneOp.Do()
-	} else if svc.ZoneList != nil {
+	switch {
+	case svc.ZoneList != nil:
 		return svc.ZoneList.Do()
-	} else if svc.RegionOp != nil {
+	case svc.ZoneOp != nil:
+		return svc.ZoneOp.Do()
+	case svc.RegionOp != nil:
 		return svc.RegionOp.Do()
-	} else if svc.GlobalOp != nil {
+	case svc.GlobalOp != nil:
 		return svc.GlobalOp.Do()
-	} else if svc.ProjectGet != nil {
+	case svc.InstanceList != nil:
+		return svc.InstanceList.Do()
+	case svc.InstanceGet != nil:
+		return svc.InstanceGet.Do()
+	case svc.InstanceInsert != nil:
+		return svc.InstanceInsert.Do()
+	case svc.InstanceDelete != nil:
+		return svc.InstanceDelete.Do()
+	case svc.ProjectGet != nil:
 		return svc.ProjectGet.Do()
-	} else if svc.FirewallList != nil {
+	case svc.FirewallList != nil:
 		return svc.FirewallList.Do()
+	case svc.FirewallInsert != nil:
+		return svc.FirewallInsert.Do()
+	case svc.FirewallUpdate != nil:
+		return svc.FirewallUpdate.Do()
+	case svc.FirewallDelete != nil:
+		return svc.FirewallDelete.Do()
 	}
 	return nil, errors.New("no suitable service found")
 }
