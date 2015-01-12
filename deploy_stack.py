@@ -227,6 +227,9 @@ def copy_local_logs(directory, client):
 
 
 def copy_remote_logs(host, directory):
+    """Copy as many logs from the remote host as possible to the directory."""
+    # This list of names must be in the order of creation to ensure they
+    # are retrieved.
     log_names = [
         'cloud-init*.log',
         'juju/*.log',
@@ -248,6 +251,7 @@ def copy_remote_logs(host, directory):
             'sudo chmod go+r /var/log/juju/*',
         ])
     except subprocess.CalledProcessError as e:
+        # The juju log dir is not created until after cloud-init succeeds.
         logging.warning("Could not change the permission of the juju logs:")
         logging.warning(e.output)
 
@@ -259,6 +263,7 @@ def copy_remote_logs(host, directory):
             source, directory,
         ])
     except subprocess.CalledProcessError as e:
+        # The juju logs will not exist if cloud-init failed.
         logging.warning("Could not retrieve some or all logs:")
         logging.warning(e.output)
 

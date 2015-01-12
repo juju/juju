@@ -1,5 +1,6 @@
 from mock import patch
 import os
+import subprocess
 from unittest import TestCase
 
 from deploy_stack import (
@@ -92,6 +93,9 @@ class DumpEnvLogsTestCase(TestCase):
         self.assertEqual(('10.10.0.1', log_dir), crl_mock.call_args[0])
 
     def test_copy_remote_logs(self):
+        # To get the logs, their permissions must be updated first,
+        # then downloaded in the order that they will be created
+        # to ensure errors do not prevent some logs from being retrieved.
         with patch('deploy_stack.wait_for_port'):
             with patch('subprocess.check_call') as cc_mock:
                 copy_remote_logs('10.10.0.1', '/foo')
@@ -109,3 +113,23 @@ class DumpEnvLogsTestCase(TestCase):
               'ubuntu@10.10.0.1:/var/log/{cloud-init*.log,juju/*.log}',
               '/foo'],),
             cc_mock.call_args_list[1][0])
+
+    def test_copy_remote_logs_with_errors(self):
+        # Ssh and scp errors will happen when /var/log/juju doesn't exist yet,
+        # but we log the case anc continue to retrieve as much as we can.
+        def remote_op(*args, **kwargs):
+            if 'ssh' in args:
+                raise subprocess.CalledProcessError('ssh error', 'output')
+            else:
+                raise subprocess.CalledProcessError('scp error', 'output')
+        with patch('subprocess.check_call', side_effect=remote_op) as cc_mock:
+            with patch('deploy_stack.logging.warning') as log_mock:
+                with patch('deploy_stack.wait_for_port'):
+                    copy_remote_logs('10.10.0.1', '/foo')
+        self.assertEqual(2, cc_mock.call_count)
+        self.assertEqual(
+            ('Could not change the permission of the juju logs:', ),
+            log_mock.call_args_list[0][0])
+        self.assertEqual(
+            ('Could not retrieve some or all logs:', ),
+            log_mock.call_args_list[2][0])
