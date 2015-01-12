@@ -16,10 +16,17 @@ import (
 func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
 	call := gce.raw.Firewalls.List(gce.ProjectID)
 	call = call.Filter("name eq " + name)
-	firewallList, err := call.Do()
+
+	svc := Services{FirewallList: call}
+	result, err := doCall(svc)
 	if err != nil {
 		return nil, errors.Annotate(err, "while getting firewall from GCE")
 	}
+	firewallList, ok := result.(compute.FirewallList)
+	if !ok {
+		return nil, errors.New("unable to convert result to compute.FirewallList")
+	}
+
 	if len(firewallList.Items) == 0 {
 		return nil, errors.NotFoundf("firewall %q", name)
 	}
@@ -30,11 +37,19 @@ func (gce *Connection) firewall(name string) (*compute.Firewall, error) {
 // If the firewall already exists then an error will be returned.
 // The call blocks until the firewall is added or the request fails.
 func (gce *Connection) insertFirewall(firewall *compute.Firewall) error {
-	call := gce.raw.Firewalls.Insert(gce.ProjectID, firewall)
-	operation, err := call.Do()
+	svc := Services{
+		FirewallInsert: gce.raw.Firewalls.Insert(gce.ProjectID, firewall),
+	}
+	result, err := doCall(svc)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	operation, ok := result.(*compute.Operation)
+	if !ok {
+		return errors.New("unable to convert result to compute.Operation")
+	}
+
 	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
 	}
@@ -46,11 +61,19 @@ func (gce *Connection) insertFirewall(firewall *compute.Firewall) error {
 // not exist then an error will be returned. The call blocks until the
 // firewall is updated or the request fails.
 func (gce *Connection) updateFirewall(name string, firewall *compute.Firewall) error {
-	call := gce.raw.Firewalls.Update(gce.ProjectID, name, firewall)
-	operation, err := call.Do()
+	svc := Services{
+		FirewallUpdate: gce.raw.Firewalls.Update(gce.ProjectID, name, firewall),
+	}
+	result, err := doCall(svc)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	operation, ok := result.(*compute.Operation)
+	if !ok {
+		return errors.New("unable to convert result to compute.Operation")
+	}
+
 	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
 	}
@@ -61,11 +84,20 @@ func (gce *Connection) updateFirewall(name string, firewall *compute.Firewall) e
 // project. If it does not exist then this is a noop. The call blocks
 // until the firewall is added or the request fails.
 func (gce *Connection) deleteFirewall(name string) error {
-	call := gce.raw.Firewalls.Delete(gce.ProjectID, name)
-	operation, err := call.Do()
+	svc := Services{
+		FirewallDelete: gce.raw.Firewalls.Delete(gce.ProjectID, name),
+	}
+
+	result, err := doCall(svc)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	operation, ok := result.(*compute.Operation)
+	if !ok {
+		return errors.New("unable to covert result to compute.Operation")
+	}
+
 	if err := gce.waitOperation(operation, attemptsLong); err != nil {
 		return errors.Trace(err)
 	}

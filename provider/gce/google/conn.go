@@ -51,11 +51,18 @@ type Connection struct {
 
 // Services holds pointers to GCE endpoints we call
 type Services struct {
-	ZoneList   *compute.ZonesListCall
-	ZoneOp     *compute.ZoneOperationsGetCall
-	RegionOp   *compute.RegionOperationsGetCall
-	GlobalOp   *compute.GlobalOperationsGetCall
+	ZoneList *compute.ZonesListCall
+
+	ZoneOp   *compute.ZoneOperationsGetCall
+	RegionOp *compute.RegionOperationsGetCall
+	GlobalOp *compute.GlobalOperationsGetCall
+
 	ProjectGet *compute.ProjectsGetCall
+
+	FirewallList   *compute.FirewallsListCall
+	FirewallInsert *compute.FirewallsInsertCall
+	FirewallUpdate *compute.FirewallsUpdateCall
+	FirewallDelete *compute.FirewallsDeleteCall
 }
 
 // doCall works through potential services of a Services struct.
@@ -72,6 +79,8 @@ var doCall = func(svc Services) (interface{}, error) {
 		return svc.GlobalOp.Do()
 	} else if svc.ProjectGet != nil {
 		return svc.ProjectGet.Do()
+	} else if svc.FirewallList != nil {
+		return svc.FirewallList.Do()
 	}
 	return nil, errors.New("no suitable service found")
 }
