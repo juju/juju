@@ -206,9 +206,14 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 		{{"containertype", bson.D{{"$exists", false}}}},
 	}}}
 	filter := func(id interface{}) bool {
-		return !strings.Contains(id.(string), "/")
+		return !strings.Contains(id.(string), "/") && st.isForStateEnv(id)
 	}
 	return newLifecycleWatcher(st, machinesC, members, filter)
+}
+
+func (st *State) isForStateEnv(id interface{}) bool {
+	_, err := st.strictLocalID(id.(string))
+	return err == nil
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes to the

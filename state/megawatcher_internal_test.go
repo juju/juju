@@ -10,9 +10,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -44,8 +47,9 @@ var _ = gc.Suite(&storeManagerStateSuite{})
 type storeManagerStateSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	State *State
-	owner names.UserTag
+	State      *State
+	OtherState *State
+	owner      names.UserTag
 }
 
 func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
@@ -65,11 +69,15 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
+	s.OtherState = s.newState(c)
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
 	if s.State != nil {
 		s.State.Close()
+	}
+	if s.OtherState != nil {
+		s.OtherState.Close()
 	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -1097,6 +1105,108 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 
 	_, err = w.Next()
 	c.Assert(err, gc.ErrorMatches, ErrStopped.Error())
+}
+
+func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
+	loggo.GetLogger("juju.state.watcher").SetLogLevel(loggo.TRACE)
+	for i, test := range []struct {
+		about                 string
+		assertIsolatedChanges func(*testWatcher, *testWatcher)
+	}{
+		{
+			about: "Add a machine in both environments",
+			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
+				m0, err := w1.st.AddMachine("trusty", JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				c.Assert(m0.Id(), gc.Equals, "0")
+
+				w2.AssertNoChange()
+				w1.AssertChange()
+				w1.AssertNoChange()
+			},
+		},
+		{
+			about: "Add a service in both environments",
+			assertIsolatedChanges: func(w1 *testWatcher, w2 *testWatcher) {
+				AddTestingService(c, w1.st, "wordpress", AddTestingCharm(c, w1.st, "wordpress"), s.owner)
+				w2.AssertNoChange()
+				w1.AssertChange()
+				w1.AssertNoChange()
+			},
+		},
+	} {
+		c.Logf("Test %d: %s", i, test.about)
+		w1 := &testWatcher{
+			st: s.State,
+			c:  c,
+		}
+		w2 := &testWatcher{
+			st: s.OtherState,
+			c:  c,
+		}
+
+		c.Logf("Making changes to environment %s", w1.st.EnvironUUID())
+		test.assertIsolatedChanges(w1, w2)
+		c.Logf("Making changes to environment %s", w2.st.EnvironUUID())
+		test.assertIsolatedChanges(w2, w1)
+
+		s.Reset(c)
+	}
+}
+
+type testWatcher struct {
+	st    *State
+	c     *gc.C
+	revno int64
+}
+
+func (tw *testWatcher) AssertNoChange() {
+	tw.c.Assert(tw.getChanges(), gc.HasLen, 0)
+}
+
+func (tw *testWatcher) AssertChange() {
+	tw.c.Assert(len(tw.getChanges()), jc.GreaterThan, 0)
+}
+
+func (tw *testWatcher) newWatcher() *Multiwatcher {
+	b := newAllWatcherStateBacking(tw.st)
+	sm := newStoreManager(b)
+	w := NewMultiwatcher(sm)
+	if tw.revno > w.revno {
+		w.revno = tw.revno
+	}
+	return w
+}
+
+func (tw *testWatcher) getChanges() (deltas []multiwatcher.Delta) {
+	tw.st.StartSync()
+	for {
+		w := tw.newWatcher()
+		d, err := getNext(tw.c, w, testing.ShortWait)
+		if err == errTimeout {
+			break
+		}
+		tw.c.Assert(err, jc.ErrorIsNil)
+		deltas = append(deltas, d...)
+		tw.revno = w.revno
+		tw.c.Assert(w.Stop(), jc.ErrorIsNil)
+		tw.c.Assert(w.all.Stop(), jc.ErrorIsNil)
+	}
+	return deltas
+}
+
+func (s *storeManagerStateSuite) newState(c *gc.C) *State {
+	origEnv, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
+		"name": "testenv",
+		"uuid": uuid.String(),
+	})
+	_, st, err := s.State.NewEnvironment(cfg, origEnv.Owner())
+	c.Assert(err, jc.ErrorIsNil)
+	return st
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo

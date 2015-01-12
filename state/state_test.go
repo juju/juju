@@ -67,7 +67,13 @@ type StateSuite struct {
 	ConnSuite
 }
 
+type MultiEnvStateSuite struct {
+	ConnSuite
+	OtherState *state.State
+}
+
 var _ = gc.Suite(&StateSuite{})
+var _ = gc.Suite(&MultiEnvStateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
@@ -77,6 +83,32 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+}
+
+func (s *MultiEnvStateSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+		validator.RegisterUnsupported([]string{constraints.CpuPower})
+		return validator, nil
+	}
+	s.OtherState = s.factory.MakeEnvironment(c, nil)
+}
+
+func (s *MultiEnvStateSuite) TearDownTest(c *gc.C) {
+	if s.OtherState != nil {
+		s.OtherState.Close()
+	}
+	if s.State != nil {
+		s.State.Close()
+	}
+	s.ConnSuite.TearDownTest(c)
+}
+
+func (s *MultiEnvStateSuite) Reset(c *gc.C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
 }
 
 func (s *StateSuite) TestDocID(c *gc.C) {
@@ -2557,6 +2589,96 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, state.DocID(s.State, net1.Name()))
+}
+
+func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
+	for i, test := range []struct {
+		about                 string
+		getWatcher            func(*state.State) state.StringsWatcher
+		assertIsolatedChanges func(statetesting.StringsWatcherC, statetesting.StringsWatcherC)
+	}{
+		{
+			about: "Add and destroy a machine in two environments",
+			getWatcher: func(st *state.State) state.StringsWatcher {
+				return st.WatchEnvironMachines()
+			},
+			assertIsolatedChanges: func(wc1 statetesting.StringsWatcherC, wc2 statetesting.StringsWatcherC) {
+				machine, err := wc1.State.AddMachine("quantal", state.JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("0")
+				wc1.AssertNoChange()
+
+				err = machine.Destroy()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("0")
+				wc1.AssertNoChange()
+
+				err = machine.EnsureDead()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("0")
+				wc1.AssertNoChange()
+			},
+		},
+		{
+			about: "Add and destroy a service in two environments",
+			getWatcher: func(st *state.State) state.StringsWatcher {
+				return st.WatchServices()
+			},
+			assertIsolatedChanges: func(wc1 statetesting.StringsWatcherC, wc2 statetesting.StringsWatcherC) {
+				service := state.AddTestingService(c, wc1.State, "service", state.AddTestingCharm(c, wc1.State, "dummy"), s.owner)
+				wc2.AssertNoChange()
+				wc1.AssertChange("service")
+				wc1.AssertNoChange()
+				return
+				keepDying, err := service.AddUnit()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertNoChange()
+
+				err = service.Destroy()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("service")
+				wc1.AssertNoChange()
+
+				err = keepDying.Destroy()
+				c.Assert(err, jc.ErrorIsNil)
+				wc2.AssertNoChange()
+				wc1.AssertChange("service")
+				wc1.AssertNoChange()
+			},
+		},
+	} {
+		c.Logf("Test %d: %s", i, test.about)
+		// Setup up first environment
+		st1 := s.State
+		w1 := test.getWatcher(st1)
+		wc1 := statetesting.NewStringsWatcherC(c, st1, w1)
+		consumeInitialEvent(wc1)
+
+		// Setup second environment
+		st2 := s.OtherState
+		w2 := test.getWatcher(st2)
+		wc2 := statetesting.NewStringsWatcherC(c, st2, w2)
+		consumeInitialEvent(wc2)
+
+		c.Logf("Making changes to environment %s", wc1.State.EnvironUUID())
+		test.assertIsolatedChanges(wc1, wc2)
+		c.Logf("Making changes to environment %s", wc2.State.EnvironUUID())
+		test.assertIsolatedChanges(wc2, wc1)
+
+		statetesting.AssertStop(c, w1)
+		statetesting.AssertStop(c, w2)
+		s.Reset(c)
+	}
+}
+
+func consumeInitialEvent(wc statetesting.StringsWatcherC) {
+	wc.AssertChange()
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
