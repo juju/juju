@@ -16,8 +16,7 @@ import (
 )
 
 func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
-	attrs = testing.FakeConfig().Merge(attrs)
-	cfg, err := config.New(config.NoDefaults, attrs)
+	cfg, err := testing.EnvironConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
@@ -172,6 +171,8 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 
 func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	knownGoodConfig := newConfig(c, validAttrs())
+	uuid, ok := knownGoodConfig.UUID()
+	c.Assert(ok, jc.IsTrue)
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		if test.skipIfNotValidated || test.skipIfOldConfig {
@@ -180,6 +181,7 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 		}
 
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs["uuid"] = uuid
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := gce.Provider.Validate(knownGoodConfig, testConfig)
 		if test.err == "" {
@@ -236,9 +238,12 @@ var changeConfigTests = []struct {
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
+	uuid, ok := baseConfig.UUID()
+	c.Assert(ok, jc.IsTrue)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs["uuid"] = uuid
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := gce.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
@@ -260,11 +265,14 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
+	uuid, ok := baseConfig.UUID()
+	c.Assert(ok, jc.IsTrue)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		environ, err := environs.New(baseConfig)
 		c.Assert(err, jc.ErrorIsNil)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs["uuid"] = uuid
 		testConfig := newConfig(c, attrs)
 		err = environ.SetConfig(testConfig)
 		newAttrs := environ.Config().AllAttrs()

@@ -15,7 +15,7 @@ import (
 // and machine ID that is suitable for identifying instances on a
 // provider.
 func MachineFullName(env environs.Environ, machineId string) string {
-	envName := env.Config().Name()
+	envUUID, _ := env.Config().UUID() // Env should have validated this.
 	machineTag := names.NewMachineTag(machineId)
-	return fmt.Sprintf("juju-%s-%s", envName, machineTag)
+	return fmt.Sprintf("juju-%s-%s", envUUID, machineTag)
 }

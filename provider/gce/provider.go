@@ -27,7 +27,14 @@ func init() {
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	// You should probably not change this method; prefer to cause SetConfig
 	// to completely configure an environment, regardless of the initial state.
-	env := &environ{name: cfg.Name()}
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.New("UUID not set")
+	}
+	env := &environ{
+		name: cfg.Name(),
+		uuid: uuid,
+	}
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}

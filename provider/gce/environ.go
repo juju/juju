@@ -21,6 +21,7 @@ type environ struct {
 	common.SupportsUnitPlacementPolicy
 
 	name string
+	uuid string
 
 	lock sync.Mutex
 	ecfg *environConfig
