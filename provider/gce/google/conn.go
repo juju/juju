@@ -49,6 +49,33 @@ type Connection struct {
 	ProjectID string
 }
 
+// Services holds pointers to GCE endpoints we call
+type Services struct {
+	ZoneList   *compute.ZonesListCall
+	ZoneOp     *compute.ZoneOperationsGetCall
+	RegionOp   *compute.RegionOperationsGetCall
+	GlobalOp   *compute.GlobalOperationsGetCall
+	ProjectGet *compute.ProjectsGetCall
+}
+
+// doCall works through potential services of a Services struct.
+// If it finds a non-empty pointer it returns the response of the
+// Do method for service call.
+var doCall = func(svc Services) (interface{}, error) {
+	if svc.ZoneOp != nil {
+		return svc.ZoneOp.Do()
+	} else if svc.ZoneList != nil {
+		return svc.ZoneList.Do()
+	} else if svc.RegionOp != nil {
+		return svc.RegionOp.Do()
+	} else if svc.GlobalOp != nil {
+		return svc.GlobalOp.Do()
+	} else if svc.ProjectGet != nil {
+		return svc.ProjectGet.Do()
+	}
+	return nil, errors.New("no suitable service found")
+}
+
 // TODO(ericsnow) Verify in each method that Connection.raw is set?
 
 // Connect authenticates using the provided credentials and opens a
@@ -75,39 +102,40 @@ func (gc *Connection) Connect(auth Auth) error {
 // the Connection. If they are not then an error is returned.
 func (gc Connection) VerifyCredentials() error {
 	call := gc.raw.Projects.Get(gc.ProjectID)
-	if _, err := call.Do(); err != nil {
+	svc := Services{ProjectGet: call}
+	if _, err := doCall(svc); err != nil {
 		// TODO(ericsnow) Wrap err with something about bad credentials?
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-type operationDoer interface {
-	// Do starts some operation and returns a description of it. If an
-	// error is returned then the operation was not initiated.
-	Do() (*compute.Operation, error)
-}
-
 // checkOperation requests a new copy of the given operation from the
 // GCE API and returns it. The new copy will have the operation's
 // current status.
 func (gc *Connection) checkOperation(op *compute.Operation) (*compute.Operation, error) {
-	var call operationDoer
+	svc := Services{}
+
 	if op.Zone != "" {
 		zone := zoneName(op)
-		call = gc.raw.ZoneOperations.Get(gc.ProjectID, zone, op.Name)
+		svc.ZoneOp = gc.raw.ZoneOperations.Get(gc.ProjectID, zone, op.Name)
 	} else if op.Region != "" {
 		region := path.Base(op.Region)
-		call = gc.raw.RegionOperations.Get(gc.ProjectID, region, op.Name)
+		svc.RegionOp = gc.raw.RegionOperations.Get(gc.ProjectID, region, op.Name)
 	} else {
-		call = gc.raw.GlobalOperations.Get(gc.ProjectID, op.Name)
+		svc.GlobalOp = gc.raw.GlobalOperations.Get(gc.ProjectID, op.Name)
 	}
 
-	updated, err := call.Do()
+	result, err := doCall(svc)
 	if err != nil {
 		return nil, errors.Annotatef(err, "request for GCE operation %q failed", op.Name)
 	}
-	return updated, nil
+
+	operation, ok := result.(compute.Operation)
+	if !ok {
+		return nil, errors.Annotatef(err, "unable to cast result to compute.Operation")
+	}
+	return operation, nil
 }
 
 // waitOperation waits for the provided operation to reach the "done"
@@ -150,12 +178,19 @@ func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, erro
 	if region != "" {
 		call = call.Filter("name eq " + region + "-.*")
 	}
+
 	// TODO(ericsnow) Add a timeout?
+	svc := Services{ZoneList: call}
 	var results []AvailabilityZone
 	for {
-		rawResult, err := call.Do()
+		result, err := doCall(svc)
 		if err != nil {
 			return nil, errors.Trace(err)
+		}
+
+		rawResult, ok := result.(compute.ZoneList)
+		if !ok {
+			return nil, errors.Annotatef(err, "unable to cast result to compute.ZoneList")
 		}
 
 		for _, raw := range rawResult.Items {
@@ -165,7 +200,7 @@ func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, erro
 		if rawResult.NextPageToken == "" {
 			break
 		}
-		call = call.PageToken(rawResult.NextPageToken)
+		svc.ZoneList = call.PageToken(rawResult.NextPageToken)
 	}
 
 	return results, nil
