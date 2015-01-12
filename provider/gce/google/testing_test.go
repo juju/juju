@@ -16,10 +16,12 @@ type BaseSuite struct {
 	testing.BaseSuite
 
 	auth             Auth
+	Conn             Connection
 	DiskSpec         DiskSpec
 	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
 	NetworkInterface compute.NetworkInterface
+	ZoneList         compute.ZoneList
 	RawMetadata      compute.Metadata
 	Metadata         map[string]string
 	RawInstance      compute.Instance
@@ -37,6 +39,22 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		PrivateKey:  []byte("non-empty"),
 	}
 
+	service := &compute.Service{BasePath: "localhost"}
+	service.Zones = compute.NewZonesService(service)
+	s.Conn = Connection{
+		Region:    "a",
+		ProjectID: "spam",
+		raw:       service,
+	}
+
+	s.ZoneList = compute.ZoneList{
+		Id: "testing-zone-list",
+		Items: []*compute.Zone{{
+			Name:   "a-zone",
+			Status: "UP",
+		}},
+		NextPageToken: "",
+	}
 	s.DiskSpec = DiskSpec{
 		SizeHintGB: 1,
 		ImageURL:   "some/image/path",

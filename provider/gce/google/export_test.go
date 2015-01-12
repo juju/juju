@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	DoCall             = &doCall
 	AddInstance        = &addInstance
 	NewInstance        = newInstance
 	FilterInstances    = filterInstances

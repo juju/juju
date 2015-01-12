@@ -131,7 +131,7 @@ func (gc *Connection) checkOperation(op *compute.Operation) (*compute.Operation,
 		return nil, errors.Annotatef(err, "request for GCE operation %q failed", op.Name)
 	}
 
-	operation, ok := result.(compute.Operation)
+	operation, ok := result.(*compute.Operation)
 	if !ok {
 		return nil, errors.Annotatef(err, "unable to cast result to compute.Operation")
 	}
