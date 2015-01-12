@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -2790,6 +2792,9 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
@@ -2817,6 +2822,28 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(params, gc.DeepEquals, expectParams[i])
 	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
+	// If the storage feature flag is not set, then Disks should be ignored.
+	apiParams := make([]params.AddMachineParams, 2)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		}
+	}
+	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 0, Pool: "three"}}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 2)
+	c.Assert(machines[0].Machine, gc.Equals, "0")
+	c.Assert(machines[1].Machine, gc.Equals, "1")
+	m, err := s.BackingState.Machine(machines[0].Machine)
+	c.Assert(err, jc.ErrorIsNil)
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {

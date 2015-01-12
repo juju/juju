@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 )
 
@@ -737,13 +739,16 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
+	// TODO(axw) stop checking feature flag once storage has graduated.
 	var allBlockDevices []state.BlockDeviceParams
-	for _, cons := range p.Disks {
-		params, err := c.api.state.BlockDeviceParams(cons, nil, "")
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot compute block device parameters")
+	if featureflag.Enabled(storage.FeatureFlag) {
+		for _, cons := range p.Disks {
+			params, err := c.api.state.BlockDeviceParams(cons, nil, "")
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot compute block device parameters")
+			}
+			allBlockDevices = append(allBlockDevices, params...)
 		}
-		allBlockDevices = append(allBlockDevices, params...)
 	}
 
 	jobs, err := stateJobs(p.Jobs)

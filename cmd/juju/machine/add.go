@@ -120,9 +120,9 @@ func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 	if featureflag.Enabled(storage.FeatureFlag) {
-		// NOTE: if/when the feature is removed, check that the
-		// AddMachines facade version supports disks, and error
-		// if it doesn't.
+		// NOTE: if/when the feature flag is removed, bump the client
+		// facade and check that the AddMachines facade version supports
+		// disks, and error if it doesn't.
 		f.Var(disksFlag{&c.Disks}, "disks", "constraints for disks to attach to the machine")
 	}
 }

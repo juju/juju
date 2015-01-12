@@ -251,7 +251,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
 	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
@@ -331,7 +331,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	mdoc.ContainerType = string(containerType)
 	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	prereqOps = append(prereqOps,
 		// Update containers record for host machine.
@@ -394,11 +394,11 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	mdoc.ContainerType = string(containerType)
 	parentPrereqOps, parentOp, err := st.insertNewMachineOps(parentDoc, parentTemplate)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	prereqOps, machineOp, err := st.insertNewMachineOps(mdoc, template)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	prereqOps = append(prereqOps, parentPrereqOps...)
 	prereqOps = append(prereqOps,

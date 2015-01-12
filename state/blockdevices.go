@@ -7,11 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/storage"
 )
 
 // BlockDevice represents the state of a block device attached to a machine.
@@ -202,7 +203,6 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 
 		// Create ops to insert new block devices.
 		for i, info := range newInfo {
-			info := info
 			if found[i] {
 				continue
 			}
@@ -210,12 +210,13 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot generate disk name")
 			}
+			infoCopy := info // copy for the insert
 			newDoc := blockDeviceDoc{
 				Name:    name,
 				Machine: machineId,
 				EnvUUID: st.EnvironUUID(),
 				DocID:   st.docID(name),
-				Info:    &info,
+				Info:    &infoCopy,
 			}
 			ops = append(ops, txn.Op{
 				C:      blockDevicesC,

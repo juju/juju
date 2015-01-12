@@ -16,6 +16,7 @@ type disksFlag struct {
 	disks *[]storage.Constraints
 }
 
+// Set implements gnuflag.Value.Set.
 func (f disksFlag) Set(s string) error {
 	for _, field := range strings.Fields(s) {
 		cons, err := storage.ParseConstraints(field)
@@ -27,6 +28,7 @@ func (f disksFlag) Set(s string) error {
 	return nil
 }
 
+// Set implements gnuflag.Value.String.
 func (f disksFlag) String() string {
 	strs := make([]string, len(*f.disks))
 	for i, cons := range *f.disks {

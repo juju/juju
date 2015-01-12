@@ -52,7 +52,8 @@ import (
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/storage"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -630,13 +631,17 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-		api, err := st.DiskManager()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
-	})
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	if featureflag.Enabled(storage.FeatureFlag) {
+		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
+			logger.Debugf("diskmanager woo")
+			api, err := st.DiskManager()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
+		})
+	}
 
 	// Check if the network management is disabled.
 	envConfig, err := st.Environment().EnvironConfig()
@@ -853,7 +858,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	reportOpenedState(st)
 
-	stor := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	stor := statestorage.NewStorage(st.EnvironUUID(), st.MongoSession())
 	registerSimplestreamsDataSource(stor)
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
