@@ -176,7 +176,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	if c.UploadTools && !c.DryRun {
 		if err := context.uploadTools(); err != nil {
-			return err
+			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 	}
 	if err := context.validate(); err != nil {
