@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -61,7 +62,7 @@ func (c *JenvCommand) Init(args []string) error {
 	if len(args) > 0 {
 		// Store and validate the provided environment name.
 		c.envName, args = args[0], args[1:]
-		if strings.Contains(c.envName, "/") {
+		if !names.IsValidUser(c.envName) {
 			return errors.Errorf("invalid environment name %q", c.envName)
 		}
 	} else {
@@ -99,9 +100,10 @@ func (c *JenvCommand) Run(ctx *cmd.Context) error {
 	// Write the environment info to JUJU_HOME.
 	if err := info.Write(); err != nil {
 		if errors.Cause(err) == configstore.ErrEnvironInfoAlreadyExists {
-			return errors.Errorf("an environment named %q already exists: "+
+			descriptiveErr := errors.Errorf("an environment named %q already exists: "+
 				"you can provide a second parameter to rename the environment",
 				c.envName)
+			return errors.Wrap(err, descriptiveErr)
 		}
 		return errors.Annotate(err, "cannot write the jenv file")
 	}
@@ -172,9 +174,6 @@ func getMissingEnvironmentInfoFields(values configstore.EnvironInfoData) (missin
 // switchEnvironment changes the default environment to the given name and
 // return, if set, the current default environment name.
 func switchEnvironment(envName string) (string, error) {
-	// TODO frankban: abstract out common code used by both this function and
-	// the "juju switch" command. The envcmd package could be a good place for
-	// this code to live.
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return "", errors.Errorf("cannot switch when %s is overriding the environment (set to %q)", osenv.JujuEnvEnvKey, defaultEnv)
 	}

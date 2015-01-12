@@ -72,7 +72,7 @@ func (*jenvSuite) TestJenvFileNotReadable(c *gc.C) {
 	f := openJenvFile(c, nil)
 	defer f.Close()
 	err := f.Chmod(0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Run the command.
 	jenvCmd := &environment.JenvCommand{}
@@ -121,7 +121,7 @@ func (*jenvSuite) TestConfigStoreError(c *gc.C) {
 	// Remove Juju home read permissions.
 	home := gitjujutesting.HomePath(".juju")
 	err := os.Chmod(home, 0)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer os.Chmod(home, 0700)
 
 	jenvCmd := &environment.JenvCommand{}
@@ -138,7 +138,7 @@ func (*jenvSuite) TestWriteError(c *gc.C) {
 	// Create the environments dir without write permissions.
 	envsDir := gitjujutesting.HomePath(".juju", "environments")
 	err := os.Mkdir(envsDir, 0500)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
@@ -153,7 +153,7 @@ func (*jenvSuite) TestSwitchErrorJujuEnvSet(c *gc.C) {
 
 	// Override the default Juju environment with the environment variable.
 	err := os.Setenv(osenv.JujuEnvEnvKey, "ec2")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
@@ -169,7 +169,7 @@ func (*jenvSuite) TestSwitchErrorEnvironmentsNotReadable(c *gc.C) {
 	// Remove write permissions to the environments.yaml file.
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Chmod(envPath, 0200)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
@@ -185,10 +185,10 @@ func (*jenvSuite) TestSwitchErrorCannotWriteCurrentEnvironment(c *gc.C) {
 	// Create the current environment file without write permissions.
 	currentEnvPath := gitjujutesting.HomePath(".juju", envcmd.CurrentEnvironmentFilename)
 	currentEnvFile, err := os.Create(currentEnvPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer currentEnvFile.Close()
 	err = currentEnvFile.Chmod(0500)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
@@ -205,7 +205,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	// Import the newly created jenv file.
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The jenv file has been properly imported.
 	assertJenvContents(c, contents, "testing")
@@ -224,7 +224,7 @@ func (*jenvSuite) TestSuccess(c *gc.C) {
 	// Overriding the environment name solves the problem.
 	jenvCmd = &environment.JenvCommand{}
 	ctx, err = testing.RunCommand(c, jenvCmd, f.Name(), "another")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertJenvContents(c, contents, "another")
 	c.Assert(envcmd.ReadCurrentEnvironment(), gc.Equals, "another")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "testing -> another\n")
@@ -239,7 +239,7 @@ func (*jenvSuite) TestSuccessCustomEnvironmentName(c *gc.C) {
 	// Import the newly created jenv file with a customized name.
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name(), "my-env")
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The jenv file has been properly imported.
 	assertJenvContents(c, contents, "my-env")
@@ -259,12 +259,12 @@ func (*jenvSuite) TestSuccessNoJujuEnvironments(c *gc.C) {
 	// Remove the Juju environments.yaml file.
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Importing a jenv does not require having environments already defined.
 	jenvCmd := &environment.JenvCommand{}
 	ctx, err := testing.RunCommand(c, jenvCmd, f.Name())
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	assertJenvContents(c, contents, "testing")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "-> testing\n")
 }
@@ -274,9 +274,9 @@ func (*jenvSuite) TestSuccessNoJujuEnvironments(c *gc.C) {
 func openJenvFile(c *gc.C, contents []byte) *os.File {
 	path := filepath.Join(c.MkDir(), "testing.jenv")
 	f, err := os.Create(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = f.Write(contents)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	return f
 }
 
@@ -311,11 +311,11 @@ func assertJenvContents(c *gc.C, contents []byte, envName string) {
 
 	// Retrieve the jenv file contents.
 	b, err := ioutil.ReadFile(path)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the jenv file reflects the source contents.
 	var data map[string]interface{}
 	err = yaml.Unmarshal(contents, &data)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(b), jc.YAMLEquals, data)
 }
