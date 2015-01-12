@@ -4,8 +4,12 @@ from unittest import TestCase
 
 from deploy_stack import (
     dump_env_logs,
+    dump_logs,
 )
-
+from jujupy import (
+    EnvJujuClient,
+    SimpleEnvironment,
+)
 from utility import temp_dir
 
 
@@ -28,9 +32,12 @@ class DumpEnvLogsTestCase(TestCase):
                 ['0', '1', '2'], sorted(os.listdir(artifacts_dir)))
         self.assertEqual(
             (client, '10.10.0.1'), gm_mock.call_args[0])
-        args = sorted(cal[0] for cal in dl_mock.call_args_list)
+        call_list = sorted((cal[0], cal[1]) for cal in dl_mock.call_args_list)
         self.assertEqual(
-            [(client, '10.10.0.1', '%s/0' % artifacts_dir),
-             (client, '10.10.0.11', '%s/1' % artifacts_dir),
-             (client, '10.10.0.22', '%s/2' % artifacts_dir)],
-            args)
+            [((client, '10.10.0.1', '%s/0' % artifacts_dir),
+              {'machine_id': '0'}),
+             ((client, '10.10.0.11', '%s/1' % artifacts_dir),
+              {'machine_id': '1'}),
+             ((client, '10.10.0.22', '%s/2' % artifacts_dir),
+              {'machine_id': '2'})],
+            call_list)
