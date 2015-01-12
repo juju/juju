@@ -23,6 +23,7 @@ var _ = gc.Suite(&EnvironmentCommandSuite{})
 var expectedCommmandNames = []string{
 	"get",
 	"help",
+	"jenv",
 	"set",
 	"unset",
 }
