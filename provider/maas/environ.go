@@ -289,12 +289,12 @@ func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][
 			}
 			static_low, err := nic["static_ip_range_low"].GetString()
 			if err != nil {
-				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				logger.Warningf("could not fetch static IP range lower bound for interface %v on nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
 			static_high, err := nic["static_ip_range_high"].GetString()
 			if err != nil {
-				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				logger.Warningf("could not fetch static IP range higher bound for interface %v on nodegroup %v: %v", nic, uuid, err)
 				continue
 			}
 			nodegroupsInterfacesMap[ip] = []string{static_low, static_high}
