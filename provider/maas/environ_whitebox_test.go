@@ -1186,7 +1186,7 @@ func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instanc
 func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	env := s.bootstrap(c)
 	s.newNode(c, "thenode1", "host1", nil)
-	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G arch=amd64")}
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
 	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
 }
