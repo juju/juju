@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
@@ -60,7 +59,6 @@ import (
 	"github.com/juju/juju/worker/authenticationworker"
 	"github.com/juju/juju/worker/certupdater"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
@@ -1097,54 +1095,6 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
-}
-
-func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	started := make(chan struct{})
-	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
-		close(started)
-		return worker.NewNoOpWorker()
-	}
-	s.PatchValue(&newDiskManager, newWorker)
-
-	// Wait for worker to be started.
-	select {
-	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for diskmanager worker to start")
-	}
-}
-
-func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
-	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
-	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
-		return expected, nil
-	})
-
-	// Start the machine agent.
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
-
-	// Wait for state to be updated.
-	s.BackingState.StartSync()
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		devices, err := m.BlockDevices()
-		c.Assert(err, jc.ErrorIsNil)
-		if len(devices) > 0 {
-			c.Assert(devices, gc.HasLen, 1)
-			c.Assert(devices[0].Info().DeviceName, gc.Equals, expected[0].DeviceName)
-			return
-		}
-	}
-	c.Fatalf("timeout while waiting for block devices to be recorded")
 }
 
 func (s *MachineSuite) TestMachineAgentRunsCertificateUpdateWorkerForStateServer(c *gc.C) {
