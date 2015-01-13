@@ -101,8 +101,8 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 		}
 
 		for _, item := range raw.Items {
-			for _, raw := range item.Instances {
-				inst := newInstance(raw)
+			for _, rawInst := range item.Instances {
+				inst := newInstance(rawInst)
 				results = append(results, *inst)
 			}
 		}
