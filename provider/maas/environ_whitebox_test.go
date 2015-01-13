@@ -335,7 +335,9 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic", "memory": 2048}`,
+	)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
 	_, err := env.acquireNode("", "", constraints, nil, nil)
@@ -991,6 +993,24 @@ func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instanc
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
 	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	return inst, err
+}
+
+func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G arch=amd64")}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
+}
+
+func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
 }
 
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
