@@ -175,7 +175,9 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None):
         logging.info("Retrieving logs for machine-%s", machine_id)
         machine_directory = os.path.join(directory, machine_id)
         os.mkdir(machine_directory)
-        dump_logs(client, addr, machine_directory, machine_id=machine_id)
+        local_state_server = client.env.local and machine_id == '0'
+        dump_logs(client, addr, machine_directory,
+                  local_state_server=local_state_server)
 
     dump_euca_console(host_id, directory)
 
@@ -203,9 +205,9 @@ def get_machine_addrs(client):
             yield machine_id, hostname
 
 
-def dump_logs(client, host, directory, machine_id='0'):
+def dump_logs(client, host, directory, local_state_server=False):
     try:
-        if client.env.local and machine_id == '0':
+        if local_state_server:
             copy_local_logs(directory, client)
         else:
             copy_remote_logs(host, directory)
