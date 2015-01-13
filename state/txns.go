@@ -67,7 +67,7 @@ type multiEnvRunner struct {
 // that affect multi-environment collections will be modified in-place
 // to ensure correct interaction with these collections.
 func (r *multiEnvRunner) RunTransaction(ops []txn.Op) error {
-	r.updateOps(ops)
+	ops = r.updateOps(ops)
 	return r.rawRunner.RunTransaction(ops)
 }
 
@@ -83,7 +83,7 @@ func (r *multiEnvRunner) Run(transactions jujutxn.TransactionSource) error {
 			// and won't deal correctly with some returned errors.
 			return nil, err
 		}
-		r.updateOps(ops)
+		ops = r.updateOps(ops)
 		return ops, nil
 	})
 }
@@ -93,7 +93,8 @@ func (r *multiEnvRunner) ResumeTransactions() error {
 	return r.rawRunner.ResumeTransactions()
 }
 
-func (r *multiEnvRunner) updateOps(ops []txn.Op) {
+func (r *multiEnvRunner) updateOps(ops []txn.Op) []txn.Op {
+	var opsNeedEnvAlive bool
 	for i, op := range ops {
 		if multiEnvCollections.Contains(op.C) {
 			var docID interface{}
@@ -113,8 +114,23 @@ func (r *multiEnvRunner) updateOps(ops []txn.Op) {
 				default:
 					r.updateStruct(doc, docID, op.C)
 				}
+				if !opsNeedEnvAlive && multiEnvCollections.Contains(op.C) {
+					opsNeedEnvAlive = true
+				}
 			}
 		}
+	}
+	if opsNeedEnvAlive {
+		ops = append(ops, assertEnvAliveOp(r.envUUID))
+	}
+	return ops
+}
+
+func assertEnvAliveOp(envUUID string) txn.Op {
+	return txn.Op{
+		C:      environmentsC,
+		Id:     envUUID,
+		Assert: isEnvAliveDoc,
 	}
 }
 
