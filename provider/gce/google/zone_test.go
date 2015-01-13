@@ -47,8 +47,14 @@ func (s *zoneSuite) TestAvailabilityZoneAvailableFalse(c *gc.C) {
 	c.Check(s.zone.Available(), jc.IsFalse)
 }
 
-func (s *zoneSuite) TestZoneNameInstance(c *gc.C) {
+func (s *zoneSuite) TestZoneNameRawInstance(c *gc.C) {
 	zone := google.ZoneName(&s.RawInstance)
+
+	c.Assert(zone, gc.Equals, "a-zone")
+}
+
+func (s *zoneSuite) TestZoneNameInstance(c *gc.C) {
+	zone := google.ZoneName(&s.Instance)
 
 	c.Assert(zone, gc.Equals, "a-zone")
 }
