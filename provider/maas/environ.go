@@ -849,6 +849,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
 	snArgs := selectNodeArgs{
+		Constraints:       args.Constraints,
 		AvailabilityZones: availabilityZones,
 		NodeName:          nodeName,
 		IncludeNetworks:   includeNetworks,
