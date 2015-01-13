@@ -11,13 +11,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
+	jujutesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -54,6 +57,34 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	toolsURL := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", apiAddrs[0], machineConfig.Tools.Version)
 	c.Assert(machineConfig.Tools.URL, gc.Equals, toolsURL)
+	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")
+}
+
+func (s *machineConfigSuite) TestSecureConnectionDisallowed(c *gc.C) {
+	// StateServingInfo without CAPrivateKey will not allow secure connections.
+	servingInfo := state.StateServingInfo{
+		PrivateKey:   jujutesting.ServerKey,
+		Cert:         jujutesting.ServerCert,
+		SharedSecret: "really, really secret",
+		APIPort:      4321,
+		StatePort:    1234,
+	}
+	s.State.SetStateServingInfo(servingInfo)
+	hc := instance.MustParseHardware("mem=4G arch=amd64")
+	apiParams := params.AddMachineParams{
+		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		InstanceId: instance.Id("1234"),
+		Nonce:      "foo",
+		HardwareCharacteristics: hc,
+	}
+	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{apiParams})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 1)
+
+	machineId := machines[0].Machine
+	machineConfig, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "false")
 }
 
 func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {

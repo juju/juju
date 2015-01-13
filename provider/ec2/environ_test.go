@@ -9,6 +9,7 @@ import (
 	amzec2 "launchpad.net/goamz/ec2"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
 )
 
@@ -64,11 +65,13 @@ var rootDiskTests = []RootDiskTest{
 	},
 }
 
-func (*Suite) TestBlockDeviceMappings(c *gc.C) {
+func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 	for _, t := range rootDiskTests {
 		c.Logf("Test %s", t.name)
-		cons := constraints.Value{RootDisk: t.constraint}
-		mappings, err := getBlockDeviceMappings(cons)
+		args := &environs.StartInstanceParams{
+			Constraints: constraints.Value{RootDisk: t.constraint},
+		}
+		mappings, _, err := getBlockDeviceMappings(paravirtual, args)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)

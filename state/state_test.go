@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -47,7 +47,7 @@ var alternatePassword = "bar-12345678901234567890"
 // asserting the behaviour of a given method in each state, and the unit quick-
 // remove change caused many of these to fail.
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
-	err := u.SetStatus(state.StatusStarted, "", nil)
+	err := u.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -771,6 +771,41 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
+}
+
+func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+	hc := instance.MustParseHardware("mem=2G")
+	machineTemplate := state.MachineTemplate{
+		Series:                  "precise",
+		Constraints:             cons,
+		HardwareCharacteristics: hc,
+		InstanceId:              "inst-id",
+		Nonce:                   "nonce",
+		Jobs:                    oneJob,
+		BlockDevices: []state.BlockDeviceParams{{
+			Size: 123,
+		}, {
+			Size: 456,
+		}},
+	}
+	machines, err := s.State.AddMachines(machineTemplate)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	m, err := s.State.Machine(machines[0].Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 2)
+	for i, dev := range blockDevices {
+		_, err = dev.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		params, ok := dev.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+	}
 }
 
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {
@@ -2550,7 +2585,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction("fakeaction", nil)
+	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.State.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))

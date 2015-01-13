@@ -30,6 +30,8 @@ func (s *steps122Suite) TestStateStepsFor122(c *gc.C) {
 		"prepend the environment UUID to the ID of all constraints docs",
 		"prepend the environment UUID to the ID of all meterStatus docs",
 		"prepend the environment UUID to the ID of all openPorts docs",
+		"fix environment UUID for minUnits docs",
+		"fix sequence documents",
 		"update system identity in state",
 		"set AvailZone in instanceData",
 	}

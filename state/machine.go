@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -649,7 +648,6 @@ func (m *Machine) Remove() (err error) {
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
-		removeBlockDevicesOp(m.st, m.Id()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
@@ -662,8 +660,13 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	blockDeviceOps, err := removeMachineBlockDevicesOps(m.st, m.Id())
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
 	ops = append(ops, portsOps...)
+	ops = append(ops, blockDeviceOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -743,7 +746,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 func (m *Machine) InstanceId() (instance.Id, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		err = NotProvisionedError(m.Id())
+		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
 		return "", err
@@ -756,7 +759,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 func (m *Machine) InstanceStatus() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		err = NotProvisionedError(m.Id())
+		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
 		return "", err
@@ -782,7 +785,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 	} else if err != txn.ErrAborted {
 		return err
 	}
-	return NotProvisionedError(m.Id())
+	return errors.NotProvisionedf("machine %v", m.Id())
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -790,7 +793,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 func (m *Machine) AvailabilityZone() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		return "", errors.Trace(NotProvisionedError(m.Id()))
+		return "", errors.Trace(errors.NotProvisionedf("machine %v", m.Id()))
 	}
 	if err != nil {
 		return "", errors.Trace(err)
@@ -919,25 +922,6 @@ func (m *Machine) SetInstanceInfo(
 		}
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
-}
-
-// notProvisionedError records an error when a machine is not provisioned.
-type notProvisionedError struct {
-	machineId string
-}
-
-func NotProvisionedError(machineId string) error {
-	return &notProvisionedError{machineId}
-}
-
-func (e *notProvisionedError) Error() string {
-	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
-}
-
-// IsNotProvisionedError returns true if err is a notProvisionedError.
-func IsNotProvisionedError(err error) bool {
-	_, ok := err.(*notProvisionedError)
-	return ok
 }
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
@@ -1226,7 +1210,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		}
 		if _, err := m.InstanceId(); err == nil {
 			return nil, fmt.Errorf("machine is already provisioned")
-		} else if !IsNotProvisionedError(err) {
+		} else if !errors.IsNotProvisioned(err) {
 			return nil, err
 		}
 		return ops, nil
@@ -1248,16 +1232,12 @@ func (m *Machine) Status() (status Status, info string, data map[string]interfac
 
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status Status, info string, data map[string]interface{}) error {
-	doc := statusDoc{
-		Status:     status,
-		StatusInfo: info,
-		StatusData: data,
-	}
 	// If a machine is not yet provisioned, we allow its status
 	// to be set back to pending (when a retry is to occur).
 	_, err := m.InstanceId()
-	allowPending := IsNotProvisionedError(err)
-	if err := doc.validateSet(allowPending); err != nil {
+	allowPending := errors.IsNotProvisioned(err)
+	doc, err := newMachineStatusDoc(status, info, data, allowPending)
+	if err != nil {
 		return err
 	}
 	ops := []txn.Op{{
@@ -1265,9 +1245,9 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 	},
-		updateStatusOp(m.st, m.globalKey(), doc),
+		updateStatusOp(m.st, m.globalKey(), doc.statusDoc),
 	}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err = m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil
@@ -1375,12 +1355,20 @@ func (m *Machine) markInvalidContainers() error {
 }
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
-func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
-	return setMachineBlockDevices(m.st, m.Id(), devices)
+func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
+	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
-// BlockDevices gets the aggregated list of block devices attached to the
-// machine.
-func (m *Machine) BlockDevices() ([]storage.BlockDevice, error) {
-	return getBlockDevices(m.st, m.Id())
+// BlockDevices gets the aggregated list of block devices associated with
+// the machine, including unprovisioned ones.
+func (m *Machine) BlockDevices() ([]BlockDevice, error) {
+	devices, err := getMachineBlockDevices(m.st, m.Id())
+	if err != nil {
+		return nil, err
+	}
+	result := make([]BlockDevice, len(devices))
+	for i, dev := range devices {
+		result[i] = dev
+	}
+	return result, nil
 }

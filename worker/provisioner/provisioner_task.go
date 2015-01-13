@@ -67,19 +67,21 @@ func NewProvisionerTask(
 	broker environs.InstanceBroker,
 	auth authentication.AuthenticationProvider,
 	imageStream string,
+	secureServerConnection bool,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineTag:      machineTag,
-		machineGetter:   machineGetter,
-		toolsFinder:     toolsFinder,
-		machineWatcher:  machineWatcher,
-		retryWatcher:    retryWatcher,
-		broker:          broker,
-		auth:            auth,
-		harvestMode:     harvestMode,
-		harvestModeChan: make(chan config.HarvestMode, 1),
-		machines:        make(map[string]*apiprovisioner.Machine),
-		imageStream:     imageStream,
+		machineTag:             machineTag,
+		machineGetter:          machineGetter,
+		toolsFinder:            toolsFinder,
+		machineWatcher:         machineWatcher,
+		retryWatcher:           retryWatcher,
+		broker:                 broker,
+		auth:                   auth,
+		harvestMode:            harvestMode,
+		harvestModeChan:        make(chan config.HarvestMode, 1),
+		machines:               make(map[string]*apiprovisioner.Machine),
+		imageStream:            imageStream,
+		secureServerConnection: secureServerConnection,
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -89,17 +91,18 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag      names.MachineTag
-	machineGetter   MachineGetter
-	toolsFinder     ToolsFinder
-	machineWatcher  apiwatcher.StringsWatcher
-	retryWatcher    apiwatcher.NotifyWatcher
-	broker          environs.InstanceBroker
-	tomb            tomb.Tomb
-	auth            authentication.AuthenticationProvider
-	imageStream     string
-	harvestMode     config.HarvestMode
-	harvestModeChan chan config.HarvestMode
+	machineTag             names.MachineTag
+	machineGetter          MachineGetter
+	toolsFinder            ToolsFinder
+	machineWatcher         apiwatcher.StringsWatcher
+	retryWatcher           apiwatcher.NotifyWatcher
+	broker                 environs.InstanceBroker
+	tomb                   tomb.Tomb
+	auth                   authentication.AuthenticationProvider
+	imageStream            string
+	secureServerConnection bool
+	harvestMode            config.HarvestMode
+	harvestModeChan        chan config.HarvestMode
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
@@ -464,6 +467,7 @@ func (task *provisionerTask) constructMachineConfig(
 		nonce,
 		task.imageStream,
 		pInfo.Series,
+		task.secureServerConnection,
 		nil,
 		stateInfo,
 		apiInfo,

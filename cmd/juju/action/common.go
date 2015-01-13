@@ -1,13 +1,9 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
 
 import (
-	"bytes"
-	"fmt"
-	"text/tabwriter"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -99,27 +95,30 @@ func displayActionResult(result params.ActionResult, ctx *cmd.Context, out cmd.O
 	return nil
 }
 
-// tabbedString returns a columnated string from a list of rows of two items,
-// separated by sep.
-func tabbedString(inputs [][]string, sep string) (string, error) {
-	var b bytes.Buffer
-
-	// Format in tab-separated columns with a tab stop of 8.
-	w := new(tabwriter.Writer)
-	w.Init(&b, 0, 8, 0, '\t', 0)
-	for i, row := range inputs {
-		if len(row) != 2 {
-			return "", errors.Errorf("row must have only two items, got %#v", row)
-		}
-		if i == len(inputs)-1 {
-			fmt.Fprintf(w, "%s\t%s%s", row[0], sep, row[1])
-			continue
-		}
-		fmt.Fprintf(w, "%s\t%s%s\n", row[0], sep, row[1])
+// getActionTagFromPrefix uses the APIClient to get an ActionTag from a prefix.
+func getActionTagFromPrefix(api APIClient, prefix string) (names.ActionTag, error) {
+	tag := names.ActionTag{}
+	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
+	if err != nil {
+		return tag, err
 	}
-	w.Flush()
 
-	return b.String(), nil
+	results, ok := tags.Matches[prefix]
+	if !ok || len(results) < 1 {
+		return tag, errors.Errorf("actions for identifier %q not found", prefix)
+	}
+
+	actiontags, rejects := getActionTags(results)
+	if len(rejects) > 0 {
+		return tag, errors.Errorf("identifier %q got unrecognized entity tags %v", prefix, rejects)
+	}
+
+	if len(actiontags) > 1 {
+		return tag, errors.Errorf("identifier %q matched multiple actions %v", prefix, actiontags)
+	}
+
+	tag = actiontags[0]
+	return tag, nil
 }
 
 // getActionTags converts a slice of params.Entity to a slice of names.ActionTag, and
@@ -139,4 +138,41 @@ func getActionTags(entities []params.Entity) (good []names.ActionTag, bad []stri
 // entityToActionTag converts the params.Entity type to a names.ActionTag
 func entityToActionTag(entity params.Entity) (names.ActionTag, error) {
 	return names.ParseActionTag(entity.Tag)
+}
+
+// addValueToMap adds the given value to the map on which the method is run.
+// This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
+// into {foo: {bar: baz, baz: faz}}.
+func addValueToMap(keys []string, value string, target map[string]interface{}) {
+	next := target
+
+	for i := range keys {
+		// If we are on last key set or overwrite the val.
+		if i == len(keys)-1 {
+			next[keys[i]] = value
+			break
+		}
+
+		if iface, ok := next[keys[i]]; ok {
+			switch typed := iface.(type) {
+			case map[string]interface{}:
+				// If we already had a map inside, keep
+				// stepping through.
+				next = typed
+			default:
+				// If we didn't, then overwrite value
+				// with a map and iterate with that.
+				m := map[string]interface{}{}
+				next[keys[i]] = m
+				next = m
+			}
+			continue
+		}
+
+		// Otherwise, it wasn't present, so make it and step
+		// into.
+		m := map[string]interface{}{}
+		next[keys[i]] = m
+		next = m
+	}
 }

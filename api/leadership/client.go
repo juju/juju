@@ -10,10 +10,10 @@ package leadership
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -57,17 +57,20 @@ func (c *client) ReleaseLeadership(serviceId, unitId string) error {
 	}
 
 	// We should have our 1 result. If not, we rightfully panic.
-	return results.Errors[0]
+	return results.Results[0].Error
 }
 
 // BlockUntilLeadershipReleased implements LeadershipManager.
 func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
-	var result *params.Error
-	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewServiceTag(serviceId), result)
+	const friendlyErrMsg = "error blocking on leadership release"
+	var result params.ErrorResult
+	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewServiceTag(serviceId), &result)
 	if err != nil {
-		return errors.Annotate(err, "error blocking on leadership release")
+		return errors.Annotate(err, friendlyErrMsg)
+	} else if result.Error != nil {
+		return errors.Annotate(result.Error, friendlyErrMsg)
 	}
-	return result
+	return nil
 }
 
 //
@@ -139,7 +142,8 @@ func (c *client) bulkReleaseLeadership(args ...params.ReleaseLeadershipParams) (
 	bulkParams := params.ReleaseLeadershipBulkParams{wireParams}
 	var results params.ReleaseLeadershipBulkResults
 	if err := c.FacadeCall("ReleaseLeadership", bulkParams, &results); err != nil {
-		return nil, errors.Annotate(err, "error attempting to release leadership")
+		return nil, errors.Annotate(err, "cannot release leadership")
 	}
+
 	return &results, nil
 }

@@ -32,9 +32,6 @@ var unitGetTests = []struct {
 	{[]string{"public-address"}, "gimli.minecraft.testing.invalid\n"},
 	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.testing.invalid\n"},
 	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.testing.invalid"` + "\n"},
-	{[]string{"availability-zone"}, "us-east-1a\n"},
-	{[]string{"availability-zone", "--format", "yaml"}, "us-east-1a\n"},
-	{[]string{"availability-zone", "--format", "json"}, `"us-east-1a"` + "\n"},
 }
 
 func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {
@@ -61,7 +58,7 @@ func (s *UnitGetSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: unit-get [options] <setting>
-purpose: print availability-zone, public-address, or private-address
+purpose: print public-address or private-address
 
 options:
 --format  (= smart)

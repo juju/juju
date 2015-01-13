@@ -156,12 +156,13 @@ func (h *imagesDownloadHandler) fetchAndCacheLxcImage(storage imagestorage.Stora
 	rdr := io.TeeReader(resp.Body, hash)
 
 	metadata := &imagestorage.Metadata{
-		EnvUUID: envuuid,
-		Kind:    string(instance.LXC),
-		Series:  series,
-		Arch:    arch,
-		Size:    resp.ContentLength,
-		SHA256:  checksum,
+		EnvUUID:   envuuid,
+		Kind:      string(instance.LXC),
+		Series:    series,
+		Arch:      arch,
+		Size:      resp.ContentLength,
+		SHA256:    checksum,
+		SourceURL: imageURL,
 	}
 
 	// Stream the image to storage.

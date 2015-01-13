@@ -71,10 +71,4 @@ type ReleaseLeadershipParams struct {
 
 // ReleaseLeadershipBulkResults is a type which contains results from
 // a bulk leadership call.
-type ReleaseLeadershipBulkResults struct {
-
-	// Errors represents errors which may have occurred for each
-	// release. The indexes correspond to the parameters passed into
-	// the call.
-	Errors []*Error
-}
+type ReleaseLeadershipBulkResults ErrorResults

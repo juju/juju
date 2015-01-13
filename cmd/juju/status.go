@@ -463,7 +463,7 @@ func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.
 // agent is down. The original status and info is included in
 // parentheses.
 func adjustInfoIfAgentDown(status, origStatus params.Status, info string) string {
-	if status == params.StatusDown {
+	if status == params.StatusDown || status == params.StatusFailed {
 		if info == "" {
 			return fmt.Sprintf("(%s)", origStatus)
 		}

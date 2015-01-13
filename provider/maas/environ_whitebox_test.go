@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/url"
 	"text/template"
 
@@ -995,6 +996,63 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+
+	// needed for getNodeGroups to work
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+
+	jsonText1 := `{
+		"ip_range_high":        "192.168.2.255",
+		"ip_range_low":         "192.168.2.128",
+		"broadcast_ip":         "192.168.2.255",
+		"static_ip_range_low":  "192.168.2.0",
+		"name":                 "eth0",
+		"ip":                   "192.168.2.1",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.2.127",
+		"interface":            "eth0"
+	}`
+	jsonText2 := `{
+		"ip_range_high":        "172.16.0.128",
+		"ip_range_low":         "172.16.0.2",
+		"broadcast_ip":         "172.16.0.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth0",
+		"ip":                   "172.16.0.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.0.255",
+		"interface":            "eth0"
+	}`
+	jsonText3 := `{
+		"ip_range_high":        "192.168.1.128",
+		"ip_range_low":         "192.168.1.2",
+		"broadcast_ip":         "192.168.1.255",
+		"static_ip_range_low":  "192.168.1.129",
+		"name":                 "eth0",
+		"ip":                   "192.168.1.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.1.255",
+		"interface":            "eth0"
+	}`
+	jsonText4 := `{
+		"ip_range_high":        "172.16.8.128",
+		"ip_range_low":         "172.16.8.2",
+		"broadcast_ip":         "172.16.8.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth0",
+		"ip":                   "172.16.8.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.8.255",
+		"interface":            "eth0"
+	}`
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
 	return test_instance
 }
 
@@ -1005,10 +1063,9 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{
-		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
 		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
-	}
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
@@ -1029,7 +1086,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
-	test_instance := suite.getInstance("node1")
+	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
@@ -1117,8 +1174,11 @@ func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := s.bootstrap(c)
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	return inst, err
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
 }
 
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -1206,7 +1266,7 @@ func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -1227,7 +1287,7 @@ func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot get distribution group: DistributionGroup failed")
 }
 

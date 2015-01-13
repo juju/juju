@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/diskmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -108,14 +109,14 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
 
 type mockState struct {
 	calls   int
-	devices map[string][]storage.BlockDevice
+	devices map[string][]state.BlockDeviceInfo
 	err     error
 }
 
-func (st *mockState) SetMachineBlockDevices(machineId string, devices []storage.BlockDevice) error {
+func (st *mockState) SetMachineBlockDevices(machineId string, devices []state.BlockDeviceInfo) error {
 	st.calls++
 	if st.devices == nil {
-		st.devices = make(map[string][]storage.BlockDevice)
+		st.devices = make(map[string][]state.BlockDeviceInfo)
 	}
 	st.devices[machineId] = devices
 	return st.err
