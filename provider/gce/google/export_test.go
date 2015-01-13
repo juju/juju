@@ -9,13 +9,15 @@ import (
 )
 
 var (
-	NewRawConnection   = &newRawConnection
-	DoCall             = &doCall
-	AddInstance        = &addInstance
-	RawInstance        = &rawInstance
-	InstsNextPage      = &instsNextPage
-	ConnRemoveFirewall = &connRemoveFirewall
+	NewRawConnection    = &newRawConnection
+	DoCall              = &doCall
+	AddInstance         = &addInstance
+	RawInstance         = &rawInstance
+	InstsNextPage       = &instsNextPage
+	ConnRemoveFirewall  = &connRemoveFirewall
+	PConnRemoveInstance = &connRemoveInstance
 
+	ConnRemoveInstance = connRemoveInstance
 	NewInstance        = newInstance
 	FilterInstances    = filterInstances
 	CheckInstStatus    = checkInstStatus
@@ -64,16 +66,12 @@ func WaitOperation(conn *Connection, op *compute.Operation, attempts utils.Attem
 	return conn.waitOperation(op, attempts)
 }
 
-var ConnInstance = func(conn *Connection, zone, id string) (*compute.Instance, error) {
+func ConnInstance(conn *Connection, zone, id string) (*compute.Instance, error) {
 	return conn.instance(zone, id)
 }
 
-var ConnAddInstance = func(conn *Connection, inst *compute.Instance, typ string, zones []string) error {
+func ConnAddInstance(conn *Connection, inst *compute.Instance, typ string, zones []string) error {
 	return conn.addInstance(inst, typ, zones)
-}
-
-var ConnRemoveInstance = func(conn *Connection, id, zone string) error {
-	return conn.removeInstance(id, zone)
 }
 
 func InstanceSpecRaw(spec InstanceSpec) *compute.Instance {

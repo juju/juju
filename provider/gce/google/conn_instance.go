@@ -174,7 +174,7 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 	for _, instID := range ids {
 		for _, inst := range instances {
 			if inst.ID == instID {
-				if err := gce.removeInstance(instID, zoneName(inst)); err != nil {
+				if err := connRemoveInstance(gce, instID, zoneName(&inst)); err != nil {
 					failed = append(failed, instID)
 					logger.Errorf("while removing instance %q: %v", instID, err)
 				}
@@ -186,4 +186,8 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 		return errors.Errorf("some instance removals failed: %v", failed)
 	}
 	return nil
+}
+
+var connRemoveInstance = func(conn *Connection, id, zone string) error {
+	return conn.removeInstance(id, zone)
 }

@@ -152,13 +152,77 @@ func (s *connSuite) TestConnectionRemoveInstanceFirewall(c *gc.C) {
 }
 
 func (s *connSuite) TestConnectionRemoveInstances(c *gc.C) {
+	s.RawInstance.Zone = "a-zone"
+	s.instanceList = &compute.InstanceAggregatedList{
+		Items: map[string]compute.InstancesScopedList{
+			"": compute.InstancesScopedList{
+				Instances: []*compute.Instance{&s.RawInstance},
+			},
+		},
+	}
+	var calls [][]string
+	s.PatchValue(google.PConnRemoveInstance, func(_ *google.Connection, id, zone string) error {
+		calls = append(calls, []string{id, zone})
+		return nil
+	})
+	s.setNoOpWait()
+
+	err := s.conn.RemoveInstances("sp", "spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(calls, jc.DeepEquals, [][]string{{"spam", "a-zone"}})
 }
 
-func (s *connSuite) TestConnectionRemoveInstancesPartialList(c *gc.C) {
+func (s *connSuite) TestConnectionRemoveInstancesPartialMatch(c *gc.C) {
+	s.instanceList = &compute.InstanceAggregatedList{
+		Items: map[string]compute.InstancesScopedList{
+			"": compute.InstancesScopedList{
+				Instances: []*compute.Instance{
+					&s.RawInstance,
+					&compute.Instance{
+						Name: "special",
+						Zone: "b-zone",
+					},
+				},
+			},
+		},
+	}
+	var calls [][]string
+	s.PatchValue(google.PConnRemoveInstance, func(_ *google.Connection, id, zone string) error {
+		calls = append(calls, []string{id, zone})
+		return nil
+	})
+	s.setNoOpWait()
+
+	err := s.conn.RemoveInstances("sp", "spam")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(calls, jc.DeepEquals, [][]string{{"spam", "a-zone"}})
 }
 
 func (s *connSuite) TestConnectionRemoveInstancesListFailed(c *gc.C) {
+	s.DoCallErr = errors.New("<unknown>")
+
+	err := s.conn.RemoveInstances("sp", "spam")
+
+	c.Check(errors.Cause(err), gc.Equals, s.DoCallErr)
 }
 
 func (s *connSuite) TestConnectionRemoveInstancesRemoveFailed(c *gc.C) {
+	s.instanceList = &compute.InstanceAggregatedList{
+		Items: map[string]compute.InstancesScopedList{
+			"": compute.InstancesScopedList{
+				Instances: []*compute.Instance{&s.RawInstance},
+			},
+		},
+	}
+	failure := errors.New("unknown")
+	s.PatchValue(google.PConnRemoveInstance, func(_ *google.Connection, id, zone string) error {
+		return failure
+	})
+	s.setNoOpWait()
+
+	err := s.conn.RemoveInstances("sp", "spam")
+
+	c.Check(err, gc.ErrorMatches, ".*some instance removals failed: .*")
 }
