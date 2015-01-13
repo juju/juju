@@ -139,6 +139,11 @@ func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
 }
 
+func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
+	c.Assert(s.State.NoEnvDocs(), gc.ErrorMatches,
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 settings doc", s.State.EnvironUUID()))
+}
+
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)

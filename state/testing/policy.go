@@ -5,6 +5,7 @@ package testing
 
 import (
 	"github.com/juju/errors"
+	"github.com/waigani/xxx"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -34,6 +35,7 @@ func (p *MockPolicy) ConfigValidator(providerType string) (state.ConfigValidator
 }
 
 func (p *MockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
+	xxx.Print("here")
 	if p.GetEnvironCapability != nil {
 		return p.GetEnvironCapability(cfg)
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/waigani/xxx"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -270,6 +271,7 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 func readSettings(st *State, key string) (*Settings, error) {
 	s := newSettings(st, key)
 	if err := s.Read(); err != nil {
+		xxx.Print("here")
 		return nil, err
 	}
 	return s, nil

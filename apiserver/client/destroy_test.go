@@ -6,11 +6,9 @@ package client_test
 import (
 	"fmt"
 
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/utils"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -19,12 +17,13 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type destroyEnvironmentSuite struct {
@@ -32,7 +31,10 @@ type destroyEnvironmentSuite struct {
 }
 
 type destroyTwoEnvironmentsSuite struct {
-	baseSuite
+	jujutesting.BaseSuite
+	gitjujutesting.MgoSuite
+	State          *state.State
+	owner          names.UserTag
 	otherState     *state.State
 	otherEnvOwner  names.UserTag
 	otherEnvClient *client.Client
@@ -42,32 +44,19 @@ var _ = gc.Suite(&destroyEnvironmentSuite{})
 var _ = gc.Suite(&destroyTwoEnvironmentsSuite{})
 
 func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
-	s.baseSuite.SetUpTest(c)
-
-	// Make the other environment
-	uuid, err := utils.NewUUID()
+	s.BaseSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.owner = names.NewLocalUserTag("test-admin")
+	st, err := state.Initialize(s.owner, TestingMongoInfo(), jujutesting.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
-	cfgAttrs := dummy.SampleConfig().Merge(coretesting.Attrs{"state-server": false, "agent-version": "1.2.3", "uuid": uuid.String()})
-	delete(cfgAttrs, "admin-secret")
-	cfg, err := config.New(config.NoDefaults, cfgAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	dummyProvider, err := environs.Provider("dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	env, err := dummyProvider.Prepare(envtesting.BootstrapContext(c), cfg)
-	c.Assert(err, jc.ErrorIsNil)
+	s.State = st
 
 	s.otherEnvOwner = names.NewUserTag("jess@dummy")
-	_, s.otherState, err = s.State.NewEnvironment(env.Config(), s.otherEnvOwner)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) {
-		if s.otherState != nil {
-			s.otherState.Close()
-		}
-		if s.State != nil {
-			s.State.Close()
-		}
-		dummy.Reset()
+	s.otherState = factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+		Owner: s.otherEnvOwner,
+		// ConfigAttrs: jujutesting.Attrs{"type": "dummy"},
 	})
+	s.AddCleanup(func(*gc.C) { s.otherState.Close() })
 
 	// get the client for the other environment
 	auth := apiservertesting.FakeAuthorizer{
@@ -78,9 +67,31 @@ func (s *destroyTwoEnvironmentsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestingMongoInfo returns information suitable for
+// connecting to the testing state server's mongo database.
+func TestingMongoInfo() *mongo.MongoInfo {
+	return &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: jujutesting.CACert,
+		},
+	}
+}
+
+// TestingDialOpts returns configuration parameters for
+// connecting to the testing state server.
+func TestingDialOpts() mongo.DialOpts {
+	return mongo.DialOpts{
+		Timeout: jujutesting.LongWait,
+	}
+}
+
 func (s *destroyTwoEnvironmentsSuite) TearDownTest(c *gc.C) {
-	s.CleanupSuite.TearDownTest(c)
-	s.baseSuite.TearDownTest(c)
+	if s.State != nil {
+		s.State.Close()
+	}
+	s.MgoSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 // setUpManual adds "manually provisioned" machines to state:
@@ -210,18 +221,12 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 }
 
 func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
-	// add instances to non-state-server environment
-	manager, nonManager, _ := setUpInstances(c, s.otherState, s.Environ)
-	managerId, _ := manager.InstanceId()
-	nonManagerId, _ := nonManager.InstanceId()
+	otherFactory := factory.NewFactory(s.otherState)
+	otherFactory.MakeMachine(c, nil)
+	m := otherFactory.MakeMachine(c, nil)
+	otherFactory.MakeMachineNested(c, m.Id(), nil)
 
-	instances, err := s.Environ.Instances([]instance.Id{managerId, nonManagerId})
-	c.Assert(err, jc.ErrorIsNil)
-	for _, inst := range instances {
-		c.Assert(inst, gc.NotNil)
-	}
-
-	err = s.otherEnvClient.DestroyEnvironment()
+	err := s.otherEnvClient.DestroyEnvironment()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.otherState.Environment()
@@ -229,21 +234,7 @@ func (s *destroyTwoEnvironmentsSuite) TestCleanupEnvironDocs(c *gc.C) {
 
 	_, err = s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Check the logs that all environment specific documents were removed from state
-	logOutput := c.GetTestLog()
-	for kind, count := range map[string]int{
-		"cleanups":          1,
-		"constraints":       4,
-		"settings":          1,
-		"instanceData":      3,
-		"requestednetworks": 3,
-		"statuses":          3,
-		"machines":          3,
-	} {
-		c.Assert(logOutput, jc.Contains, fmt.Sprintf("removed %d %s documents", count, kind))
-	}
-	c.Assert(logOutput, jc.Contains, "removed environment document")
+	c.Assert(s.otherState.NoEnvDocs(), jc.ErrorIsNil)
 }
 
 func (s *destroyEnvironmentSuite) TestBlockDestroyDestroyEnvironment(c *gc.C) {

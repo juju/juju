@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/waigani/xxx"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -190,6 +191,7 @@ func (st *State) supportsUnitPlacement() error {
 	if errors.IsNotImplemented(err) {
 		return nil
 	} else if err != nil {
+		xxx.Print("here")
 		return err
 	}
 	if capability == nil {

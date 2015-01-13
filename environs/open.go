@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/waigani/xxx"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -145,6 +146,7 @@ func New(config *config.Config) (Environ, error) {
 	if err != nil {
 		return nil, err
 	}
+	xxx.Print("here")
 	return p.Open(config)
 }
 

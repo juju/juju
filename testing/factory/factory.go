@@ -417,5 +417,8 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
+
+	// e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c),  t.ConfigStore)
+	// c.Assert(err, jc.ErrorIsNil)
 	return st
 }

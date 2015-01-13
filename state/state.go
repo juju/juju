@@ -187,7 +187,38 @@ func (st *State) EnvironUUID() string {
 	return st.environTag.Id()
 }
 
-// getPresence returns the presence collection.
+// NoEnvDocs returns an error if any multi-enviornment documents for this
+// environment are found. It is intended only to be used in tests and
+// exported so it can be used in the tests of other packages.
+func (st *State) NoEnvDocs() error {
+	colls := multiEnvCollections
+	colls.Remove(cleanupsC)
+	found := map[string]int{}
+	for collName := range colls {
+		coll, closer := st.getCollection(collName)
+		defer closer()
+		n, err := coll.Find(nil).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if n != 0 {
+			found[collName] = n
+		}
+	}
+
+	if len(found) != 0 {
+		errMessage := fmt.Sprintf("found documents for environment with uuid %s:", st.EnvironUUID())
+		for name, number := range found {
+			errMessage += fmt.Sprintf(" %d %s doc,", number, name)
+		}
+		// Remove trailing comma.
+		errMessage = errMessage[:len(errMessage)-1]
+		return errors.New(errMessage)
+	}
+	return nil
+}
+
+// getPresence returns the presence m.
 func (st *State) getPresence() *mgo.Collection {
 	return st.db.Session.DB("presence").C(presenceC)
 }

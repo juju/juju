@@ -80,6 +80,14 @@ func (c *Client) DestroyEnvironment() error {
 	}
 	ssuuid := ssinfo.EnvironmentTag.Id()
 	if st.EnvironUUID() != ssuuid {
+		env, err := st.Environment()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = env.Destroy()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		st.RemoveAllEnvironDocs()
 	}
 
