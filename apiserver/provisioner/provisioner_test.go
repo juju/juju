@@ -1089,6 +1089,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	blockDeviceInfo, err := blockDevices[0].Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockDeviceInfo, gc.Equals, state.BlockDeviceInfo{Size: 1234})
+
+	// Verify the machine without requested disks still has no disks
+	// recorded in state.
+	blockDevices, err = s.machines[1].BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 0)
 }
 
 func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {

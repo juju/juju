@@ -528,7 +528,7 @@ func machineDiskParams(m *state.Machine) ([]storage.DiskParams, error) {
 	for i, dev := range blockDevices {
 		params, ok := dev.Params()
 		if !ok {
-			return nil, errors.Errorf("cannot get parameters to create disk %q", dev.Name())
+			return nil, errors.Errorf("cannot get parameters for disk %q", dev.Name())
 		}
 		allParams[i] = storage.DiskParams{
 			dev.Name(),
