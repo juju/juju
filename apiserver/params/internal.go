@@ -426,15 +426,79 @@ type RequestedNetworksResults struct {
 	Results []RequestedNetworkResult
 }
 
+// NetworkInfo describes all the necessary information to configure
+// all network interfaces on a machine. This mostly duplicates
+// network.InterfaceInfo type and it's defined here so it can be kept
+// separate and stable as definition to ensure proper wire-format for
+// the API.
+type NetworkInfo struct {
+	// DeviceIndex specifies the order in which the network interface
+	// appears on the host. The primary interface has an index of 0.
+	DeviceIndex int
+
+	// MACAddress is the network interface's hardware MAC address
+	// (e.g. "aa:bb:cc:dd:ee:ff").
+	MACAddress string
+
+	// CIDR of the network, in 123.45.67.89/24 format.
+	CIDR string
+
+	// NetworkName is juju-internal name of the network.
+	// TODO(dimitern) This should be removed or adapted to the model
+	// once spaces are introduced.
+	NetworkName string
+
+	// ProviderId is a provider-specific network id.
+	ProviderId network.Id
+
+	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
+	// normal networks. It's defined by IEEE 802.1Q standard.
+	VLANTag int
+
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
+	InterfaceName string
+
+	// Disabled is true when the interface needs to be disabled on the
+	// machine, e.g. not to configure it at all or stop it if running.
+	Disabled bool
+
+	// NoAutoStart is true when the interface should not be configured
+	// to start automatically on boot. By default and for
+	// backwards-compatibility, interfaces are configured to
+	// auto-start.
+	NoAutoStart bool `json:",omitempty"`
+
+	// ConfigType, if set, defines what type of configuration to use.
+	// See network.InterfaceConfigType for more info. If not set, for
+	// backwards-compatibility, "dhcp" is assumed.
+	ConfigType string `json:",omitempty"`
+
+	// Address contains an optional static IP address to configure for
+	// this network interface. The subnet mask to set will be inferred
+	// from the CIDR value.
+	Address string `json:",omitempty"`
+
+	// DNSServers contains an optional list of IP addresses and/or
+	// hostnames to configure as DNS servers for this network
+	// interface.
+	DNSServers []string `json:",omitempty"`
+
+	// Gateway address, if set, defines the default gateway to
+	// configure for this network interface. For containers this
+	// usually (one of) the host address(es).
+	GatewayAddress string `json:",omitempty"`
+
+	// ExtraConfig can contain any valid setting and its value allowed
+	// inside an "iface" section of a interfaces(5) config file, e.g.
+	// "up", "down", "mtu", etc.
+	ExtraConfig map[string]string `json:",omitempty"`
+}
+
 // MachineNetworkInfoResult holds network info for a single machine.
 type MachineNetworkInfoResult struct {
 	Error *Error
-	// TODO(dimitern): Add explicit JSON serialization tags and use
-	// []NetworkInfo (locally defined) instead in order to break the
-	// dependency on the network package, as this potentially
-	// introduces hard to catch and debug wire-format changes in the
-	// protocol when the type changes!
-	Info []network.Info
+	Info  []NetworkInfo `json:"Info"`
 }
 
 // MachineNetworkInfoResults holds network info for multiple machines.

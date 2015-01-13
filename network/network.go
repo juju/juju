@@ -12,11 +12,14 @@ import (
 
 var logger = loggo.GetLogger("juju.network")
 
-// Id of the default public juju network
-const DefaultPublic = "juju-public"
+// TODO(dimitern): Remove this once we use spaces as per the model.
+const (
+	// Id of the default public juju network
+	DefaultPublic = "juju-public"
 
-// Id of the default private juju network
-const DefaultPrivate = "juju-private"
+	// Id of the default private juju network
+	DefaultPrivate = "juju-private"
+)
 
 // Id defines a provider-specific network id.
 type Id string
@@ -46,10 +49,22 @@ type SubnetInfo struct {
 	AllocatableIPHigh net.IP
 }
 
-// Info describes a single network interface available on an instance.
-// For providers that support networks, this will be available at
-// StartInstance() time.
-type Info struct {
+// InterfaceConfigType defines valid network interface configuration
+// types. See interfaces(5) for details
+type InterfaceConfigType string
+
+const (
+	ConfigUnknown InterfaceConfigType = ""
+	ConfigDHCP    InterfaceConfigType = "dhcp"
+	ConfigStatic  InterfaceConfigType = "static"
+	ConfigManual  InterfaceConfigType = "manual"
+	// add others when needed
+)
+
+// InterfaceInfo describes a single network interface available on an
+// instance. For providers that support networks, this will be
+// available at StartInstance() time.
+type InterfaceInfo struct {
 	// DeviceIndex specifies the order in which the network interface
 	// appears on the host. The primary interface has an index of 0.
 	DeviceIndex int
@@ -78,11 +93,42 @@ type Info struct {
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.
 	Disabled bool
+
+	// NoAutoStart is true when the interface should not be configured
+	// to start automatically on boot. By default and for
+	// backwards-compatibility, interfaces are configured to
+	// auto-start.
+	NoAutoStart bool
+
+	// ConfigType determines whether the interface should be
+	// configured via DHCP, statically, manually, etc. See
+	// interfaces(5) for more information.
+	ConfigType InterfaceConfigType
+
+	// Address contains an optional static IP address to configure for
+	// this network interface. The subnet mask to set will be inferred
+	// from the CIDR value.
+	Address Address
+
+	// DNSServers contains an optional list of IP addresses and/or
+	// hostnames to configure as DNS servers for this network
+	// interface.
+	DNSServers []Address
+
+	// Gateway address, if set, defines the default gateway to
+	// configure for this network interface. For containers this
+	// usually (one of) the host address(es).
+	GatewayAddress Address
+
+	// ExtraConfig can contain any valid setting and its value allowed
+	// inside an "iface" section of a interfaces(5) config file, e.g.
+	// "up", "down", "mtu", etc.
+	ExtraConfig map[string]string
 }
 
 // ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and
 // virtual interface name for virtual interface (e.g. "eth0.42")
-func (i *Info) ActualInterfaceName() string {
+func (i *InterfaceInfo) ActualInterfaceName() string {
 	if i.VLANTag > 0 {
 		return fmt.Sprintf("%s.%d", i.InterfaceName, i.VLANTag)
 	}
@@ -91,12 +137,12 @@ func (i *Info) ActualInterfaceName() string {
 
 // IsVirtual returns true when the interface is a virtual device, as
 // opposed to a physical device (e.g. a VLAN or a network alias)
-func (i *Info) IsVirtual() bool {
+func (i *InterfaceInfo) IsVirtual() bool {
 	return i.VLANTag > 0
 }
 
 // IsVLAN returns true when the interface is a VLAN interface.
-func (i *Info) IsVLAN() bool {
+func (i *InterfaceInfo) IsVLAN() bool {
 	return i.VLANTag > 0
 }
 

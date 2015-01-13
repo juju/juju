@@ -867,38 +867,46 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "vnet1")
-	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:ff",
-			CIDR:          "192.168.1.1/24",
-			NetworkName:   "WLAN",
-			ProviderId:    "WLAN",
-			VLANTag:       0,
-			DeviceIndex:   0,
-			InterfaceName: "wlan0",
-			Disabled:      true, // from networksToDisable("WLAN")
-		},
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "192.168.2.1/24",
-			NetworkName:   "LAN",
-			ProviderId:    "LAN",
-			VLANTag:       42,
-			DeviceIndex:   1,
-			InterfaceName: "eth0",
-			Disabled:      true, // from the lshw interface info
-		},
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f2",
-			CIDR:          "192.168.3.1/24",
-			NetworkName:   "Virt",
-			ProviderId:    "Virt",
-			VLANTag:       0,
-			DeviceIndex:   2,
-			InterfaceName: "vnet1",
-			Disabled:      false,
-		},
-	})
+	// Unfortunately, because network.InterfaceInfo is unhashable
+	// (contains a map) we can't use jc.SameContents here.
+	c.Check(networkInfo, gc.HasLen, 3)
+	for _, info := range networkInfo {
+		switch info.DeviceIndex {
+		case 0:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:ff",
+				CIDR:          "192.168.1.1/24",
+				NetworkName:   "WLAN",
+				ProviderId:    "WLAN",
+				VLANTag:       0,
+				DeviceIndex:   0,
+				InterfaceName: "wlan0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 1:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				DeviceIndex:   1,
+				MACAddress:    "aa:bb:cc:dd:ee:f1",
+				CIDR:          "192.168.2.1/24",
+				NetworkName:   "LAN",
+				ProviderId:    "LAN",
+				VLANTag:       42,
+				InterfaceName: "eth0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 2:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:f2",
+				CIDR:          "192.168.3.1/24",
+				NetworkName:   "Virt",
+				ProviderId:    "Virt",
+				VLANTag:       0,
+				DeviceIndex:   2,
+				InterfaceName: "vnet1",
+				Disabled:      false,
+			})
+		}
+	}
 }
 
 // The same test, but now "Virt" network does not have matched MAC address
@@ -925,18 +933,16 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "eth0")
-	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "192.168.2.1/24",
-			NetworkName:   "LAN",
-			ProviderId:    "LAN",
-			VLANTag:       42,
-			DeviceIndex:   1,
-			InterfaceName: "eth0",
-			Disabled:      false,
-		},
-	})
+	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		CIDR:          "192.168.2.1/24",
+		NetworkName:   "LAN",
+		ProviderId:    "LAN",
+		VLANTag:       42,
+		DeviceIndex:   1,
+		InterfaceName: "eth0",
+		Disabled:      false,
+	}})
 }
 
 // The same test, but now no networks have matched MAC

@@ -14,7 +14,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -211,7 +210,7 @@ func (s *networkerSuite) TestMachineNetworkInfoPermissions(c *gc.C) {
 
 func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 	// Expected results of MachineNetworkInfo for a machine and containers
-	expectedMachineInfo := []network.Info{{
+	expectedMachineInfo := []params.NetworkInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -248,7 +247,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth2",
 		Disabled:      true,
 	}}
-	expectedContainerInfo := []network.Info{{
+	expectedContainerInfo := []params.NetworkInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -270,7 +269,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		VLANTag:       42,
 		InterfaceName: "eth1",
 	}}
-	expectedNestedContainerInfo := []network.Info{{
+	expectedNestedContainerInfo := []params.NetworkInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",

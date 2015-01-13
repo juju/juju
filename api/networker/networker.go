@@ -25,8 +25,9 @@ func NewState(caller base.APICaller) *State {
 	return &State{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
-// MachineNetworkInfo returns information about networks to setup only for a single machine.
-func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.Info, error) {
+// MachineNetworkInfo returns information about network interfaces to
+// setup only for a single machine.
+func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
@@ -45,7 +46,22 @@ func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.Info, error
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return results.Results[0].Info, nil
+	interfaceInfo := make([]network.InterfaceInfo, len(result.Info))
+	for i, ifaceInfo := range result.Info {
+		interfaceInfo[i].DeviceIndex = ifaceInfo.DeviceIndex
+		interfaceInfo[i].MACAddress = ifaceInfo.MACAddress
+		interfaceInfo[i].CIDR = ifaceInfo.CIDR
+		interfaceInfo[i].NetworkName = ifaceInfo.NetworkName
+		interfaceInfo[i].ProviderId = ifaceInfo.ProviderId
+		interfaceInfo[i].VLANTag = ifaceInfo.VLANTag
+		interfaceInfo[i].InterfaceName = ifaceInfo.InterfaceName
+		interfaceInfo[i].Disabled = ifaceInfo.Disabled
+		// TODO(dimitern) Once we store all the information from
+		// network.InterfaceInfo in state, change this as needed to
+		// return it.
+	}
+
+	return interfaceInfo, nil
 }
 
 // WatchInterfaces returns a NotifyWatcher that notifies of changes to network

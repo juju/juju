@@ -83,7 +83,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
 }
@@ -107,7 +107,7 @@ func AssertStartInstanceWithConstraints(
 func StartInstanceWithConstraints(
 	env environs.Environ, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil)
 }
@@ -134,7 +134,7 @@ func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
 	networks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	params := environs.StartInstanceParams{Constraints: cons}
 	result, err := StartInstanceWithParams(env, machineId, params, networks)
