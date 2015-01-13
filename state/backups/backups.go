@@ -46,7 +46,7 @@ import (
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -107,7 +107,7 @@ type Backups interface {
 	Remove(id string) error
 
 	// Restore updates juju's state to the contents of the backup archive.
-	Restore(backupId string, privateAddress string, newInstId instance.Id, newInstTag names.Tag, newInstSeries string) error
+	Restore(backupId string, args params.RestoreArgs) error
 }
 
 type backups struct {
@@ -224,7 +224,7 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id, newInstTag names.Tag, newInstSeries string) error {
+func (b *backups) Restore(backupId string, args params.RestoreArgs) error {
 	meta, backupReader, err := b.Get(backupId)
 	if err != nil {
 		return errors.Annotatef(err, "could not fetch backup %q", backupId)
@@ -251,16 +251,16 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
 
-	if err := updateBackupMachineTag(backupMachine, newInstTag); err != nil {
+	if err := updateBackupMachineTag(backupMachine, args.NewInstTag); err != nil {
 		return errors.Annotate(err, "cannot update paths to reflect current machine id")
 	}
 
 	var agentConfig agent.ConfigSetterWriter
-	datadir, err := paths.DataDir(newInstSeries)
+	datadir, err := paths.DataDir(args.NewInstSeries)
 	if err != nil {
 		return errors.Annotate(err, "cannot determine DataDir for the restored machine")
 	}
-	agentConfigFile := agent.ConfigPath(datadir, newInstTag)
+	agentConfigFile := agent.ConfigPath(datadir, args.NewInstTag)
 	if agentConfig, err = agent.ReadConfig(agentConfigFile); err != nil {
 		return errors.Annotate(err, "cannot load agent config from disk")
 	}
@@ -268,11 +268,11 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	if !ok {
 		return errors.Errorf("cannot determine state serving info")
 	}
-	agentConfig.SetValue("tag", newInstTag.String())
+	agentConfig.SetValue("tag", args.NewInstTag.String())
 	APIHostPort := network.HostPort{
 		Address: network.Address{
-			Value: privateAddress,
-			Type:  network.DeriveAddressType(privateAddress),
+			Value: args.PrivateAddress,
+			Type:  network.DeriveAddressType(args.PrivateAddress),
 		},
 		Port: ssi.APIPort}
 	agentConfig.SetAPIHostPorts([][]network.HostPort{{APIHostPort}})
@@ -286,18 +286,18 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	}
 
 	// Re-start replicaset with the new value for server address
-	dialInfo, err := newDialInfo(privateAddress, agentConfig)
+	dialInfo, err := newDialInfo(args.PrivateAddress, agentConfig)
 	if err != nil {
 		return errors.Annotate(err, "cannot produce dial information")
 	}
 
-	memberHostPort := fmt.Sprintf("%s:%d", privateAddress, ssi.StatePort)
+	memberHostPort := fmt.Sprintf("%s:%d", args.PrivateAddress, ssi.StatePort)
 	err = resetReplicaSet(dialInfo, memberHostPort)
 	if err != nil {
 		return errors.Annotate(err, "cannot reset replicaSet")
 	}
 
-	err = updateMongoEntries(newInstId, newInstTag.Id(), dialInfo)
+	err = updateMongoEntries(args.NewInstId, args.NewInstTag.Id(), dialInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot update mongo entries")
 	}
@@ -322,7 +322,7 @@ func (b *backups) Restore(backupId, privateAddress string, newInstId instance.Id
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = updateAllMachines(privateAddress, machines); err != nil {
+	if err = updateAllMachines(args.PrivateAddress, machines); err != nil {
 		return errors.Annotate(err, "cannot update agents")
 	}
 
