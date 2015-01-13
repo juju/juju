@@ -19,6 +19,7 @@ from deploy_stack import (
 )
 from jujuci import setup_workspace
 from jujuconfig import (
+    get_jenv_path,
     get_juju_home,
     )
 from jujupy import (
@@ -31,6 +32,7 @@ from substrate import (
     terminate_instances,
     )
 from utility import (
+    ensure_deleted,
     print_now,
 )
 
@@ -167,8 +169,10 @@ def main():
     try:
         setup_juju_path(args.juju_path)
         env = SimpleEnvironment.from_config(args.env_name)
+        juju_home = get_juju_home()
+        ensure_deleted(get_jenv_path(juju_home, env.environment))
         client = EnvJujuClient.by_version(env)
-        with temp_bootstrap_env(get_juju_home(), client):
+        with temp_bootstrap_env(juju_home, client):
             client.bootstrap()
         bootstrap_host = get_machine_dns_name(client, 0)
         try:

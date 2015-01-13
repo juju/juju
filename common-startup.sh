@@ -3,9 +3,6 @@ set -eu
 export PATH="$SCRIPTS:$PATH"
 
 export JUJU_HOME=${JUJU_HOME:-$HOME/cloud-city}
-if [ "$ENV" = "manual" ]; then
-  source $HOME/cloud-city/ec2rc
-fi
 : ${JUJU_REPOSITORY=$HOME/repository}
 export JUJU_REPOSITORY
 
@@ -42,6 +39,7 @@ export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
 # Tear down any resources and data last from a previous test.
 if [ "$ENV" == "manual" ]; then
+    source $HOME/cloud-city/ec2rc
     ec2-terminate-job-instances
 else
     jenv=$JUJU_HOME/environments/$ENV.jenv
@@ -50,14 +48,5 @@ else
         if [[ -e $jenv ]]; then
             rm $jenv
         fi
-    fi
-fi
-
-# Force teardown of generated env names.
-jenv=$JUJU_HOME/environments/$JOB_NAME.jenv
-if [[ -e $jenv ]]; then
-    destroy-environment $JOB_NAME
-    if [[ -e $jenv ]]; then
-        rm $jenv
     fi
 fi
