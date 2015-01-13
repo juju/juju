@@ -1,4 +1,3 @@
-===================
 ANNOTATION CLIENT
 ===================
 
@@ -9,13 +8,16 @@ environment, machine, service and unit previously done through our old client.
 
 New annotations client also supports bulk calls.
 
-===================
-SET/GET ANNOTATIONS
+API
 ===================
 
+Note that where SET call returns an error, Error in GET call return is params.ErrorResult.
+
+SET
+-------------------
 For the SET annotations call that looks similar to this:
 
-......{
+    ......{
             "Type": "Annotations",
             "Request": "Set",
             "Params": {
@@ -24,29 +26,24 @@ For the SET annotations call that looks similar to this:
                   },{
                     "Entity": b, "Annotations": pairs2
                   }}
-}}......
+    }}......
+GET
+-------------------
+Corresponding GET annotations call may look like:
 
-corresponding GET annotations call may look like:
-
-......{
+    ......{
             "Type": "Annotations",
             "Request": "Get",
             "Params": {
                  "Entities": {{
                     "Tag": a},{
                     "Tag": b}}
-}}......
-
+    }}......
 Returning
-
-{
+    {
     "Results": {
           {"Entity": a, "Annotations": pairs1, "Error": nil},
           {"Entity": b, "Annotations": pairs2, "Error": nil},
 
-    }
-
-}
-
-Note that where SET call returns an error, Error in GET call return is params.ErrorResult.
+    }}
 
