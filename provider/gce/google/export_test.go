@@ -12,6 +12,10 @@ var (
 	NewRawConnection   = &newRawConnection
 	DoCall             = &doCall
 	AddInstance        = &addInstance
+	RawInstance        = &rawInstance
+	InstsNextPage      = &instsNextPage
+	ConnRemoveFirewall = &connRemoveFirewall
+
 	NewInstance        = newInstance
 	FilterInstances    = filterInstances
 	CheckInstStatus    = checkInstStatus
@@ -36,6 +40,10 @@ func ExposeRawInstance(inst *Instance) *compute.Instance {
 	return &inst.raw
 }
 
+func SetInstanceSpec(inst *Instance, spec *InstanceSpec) {
+	inst.spec = spec
+}
+
 func NewNetInterface(spec NetworkSpec, name string) *compute.NetworkInterface {
 	return spec.newInterface(name)
 }
@@ -54,4 +62,25 @@ func CheckOperation(conn *Connection, op *compute.Operation) (*compute.Operation
 
 func WaitOperation(conn *Connection, op *compute.Operation, attempts utils.AttemptStrategy) error {
 	return conn.waitOperation(op, attempts)
+}
+
+var ConnInstance = func(conn *Connection, zone, id string) (*compute.Instance, error) {
+	return conn.instance(zone, id)
+}
+
+var ConnAddInstance = func(conn *Connection, inst *compute.Instance, typ string, zones []string) error {
+	return conn.addInstance(inst, typ, zones)
+}
+
+var ConnRemoveInstance = func(conn *Connection, id, zone string) error {
+	return conn.removeInstance(id, zone)
+}
+
+func InstanceSpecRaw(spec InstanceSpec) *compute.Instance {
+	return spec.raw()
+}
+
+func SetQuickAttemptStrategy(s *BaseSuite) {
+	s.PatchValue(&attemptsLong, utils.AttemptStrategy{})
+	s.PatchValue(&attemptsShort, utils.AttemptStrategy{})
 }

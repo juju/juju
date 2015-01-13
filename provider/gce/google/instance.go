@@ -54,14 +54,7 @@ type InstanceSpec struct {
 // The instance will be created using the provided connection and in one
 // of the provided zones.
 func (is InstanceSpec) Create(conn *Connection, zones []string) (*Instance, error) {
-	raw := &compute.Instance{
-		Name:              is.ID,
-		Disks:             is.disks(),
-		NetworkInterfaces: is.networkInterfaces(),
-		Metadata:          packMetadata(is.Metadata),
-		Tags:              &compute.Tags{Items: is.Tags},
-		// MachineType is set in the addInstance call.
-	}
+	raw := is.raw()
 	if err := addInstance(conn, raw, is.Type, zones); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,6 +63,17 @@ func (is InstanceSpec) Create(conn *Connection, zones []string) (*Instance, erro
 	copied := is
 	inst.spec = &copied
 	return inst, nil
+}
+
+func (is InstanceSpec) raw() *compute.Instance {
+	return &compute.Instance{
+		Name:              is.ID,
+		Disks:             is.disks(),
+		NetworkInterfaces: is.networkInterfaces(),
+		Metadata:          packMetadata(is.Metadata),
+		Tags:              &compute.Tags{Items: is.Tags},
+		// MachineType is set in the addInstance call.
+	}
 }
 
 var addInstance = func(conn *Connection, raw *compute.Instance, typ string, zones []string) error {

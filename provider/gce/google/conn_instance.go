@@ -16,11 +16,15 @@ func (gce *Connection) instance(zone, id string) (*compute.Instance, error) {
 	}
 
 	result, err := doCall(svc)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	inst, ok := result.(*compute.Instance)
 	if !ok {
-		err = errors.New("unable to convert result to compute.Instance")
+		return nil, errors.New("unable to convert result to compute.Instance")
 	}
-	return inst, errors.Trace(err)
+	return inst, nil
 }
 
 // addInstance sends a request to GCE to add a new instance to the
@@ -53,7 +57,7 @@ func (gce *Connection) addInstance(inst *compute.Instance, machineType string, z
 		waitErr := gce.waitOperation(operation, attemptsLong)
 
 		// Check if the instance was created.
-		realized, err := gce.instance(zoneName, inst.Name)
+		realized, err := rawInstance(gce, zoneName, inst.Name)
 		if err != nil {
 			if waitErr == nil {
 				return errors.Trace(err)
@@ -70,6 +74,10 @@ func (gce *Connection) addInstance(inst *compute.Instance, machineType string, z
 	return errors.Errorf("not able to provision in any zone")
 }
 
+var rawInstance = func(conn *Connection, zone, id string) (*compute.Instance, error) {
+	return conn.instance(zone, id)
+}
+
 // Instances sends a request to the GCE API for a list of all instances
 // (in the Connection's project) for which the name starts with the
 // provided prefix. The result is also limited to those instances with
@@ -77,9 +85,9 @@ func (gce *Connection) addInstance(inst *compute.Instance, machineType string, z
 func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance, error) {
 	call := gce.raw.Instances.AggregatedList(gce.ProjectID)
 	call = call.Filter("name eq " + prefix + ".*")
+	svc := Services{InstanceList: call}
 
 	// TODO(ericsnow) Add a timeout?
-	svc := Services{InstanceList: call}
 	var results []Instance
 	for {
 		result, err := doCall(svc)
@@ -102,10 +110,14 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 		if raw.NextPageToken == "" {
 			break
 		}
-		svc.InstanceList = call.PageToken(raw.NextPageToken)
+		svc.InstanceList = instsNextPage(call, raw.NextPageToken)
 	}
 
 	return filterInstances(results, statuses...), nil
+}
+
+var instsNextPage = func(call *compute.InstancesAggregatedListCall, token string) *compute.InstancesAggregatedListCall {
+	return call.PageToken(token)
 }
 
 // removeInstance sends a request to the GCE API to remove the instance
@@ -128,11 +140,15 @@ func (gce *Connection) removeInstance(id, zone string) error {
 		return errors.Trace(err)
 	}
 
-	if err := gce.deleteFirewall(id); err != nil {
+	if err := connRemoveFirewall(gce, id); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
+}
+
+var connRemoveFirewall = func(conn *Connection, fwname string) error {
+	return conn.deleteFirewall(fwname)
 }
 
 // RemoveInstances sends a request to the GCE API to terminate all

@@ -21,7 +21,7 @@ type connSuite struct {
 	conn         *google.Connection
 	op           *compute.Operation
 	proj         *compute.Project
-	instanceList *compute.InstanceList
+	instanceList *compute.InstanceAggregatedList
 	firewallList *compute.FirewallList
 	zoneList     *compute.ZoneList
 	service      *compute.Service
@@ -40,6 +40,7 @@ func (s *connSuite) SetUpTest(c *gc.C) {
 	s.service.ZoneOperations = compute.NewZoneOperationsService(s.service)
 	s.service.RegionOperations = compute.NewRegionOperationsService(s.service)
 	s.service.GlobalOperations = compute.NewGlobalOperationsService(s.service)
+	s.service.Instances = compute.NewInstancesService(s.service)
 
 	s.conn = &google.Connection{
 		Region:    "a",
@@ -63,6 +64,11 @@ func (s *connSuite) TearDownTest(c *gc.C) {
 	s.DoCallErr = nil
 
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *connSuite) setNoOpWait() {
+	s.op.Status = google.StatusDone
+	google.SetQuickAttemptStrategy(&s.BaseSuite)
 }
 
 func (s *connSuite) TestConnectionConnect(c *gc.C) {
@@ -194,7 +200,7 @@ func (s *connSuite) doCall(svc google.Services) (interface{}, error) {
 	case svc.InstanceList != nil:
 		return s.instanceList, s.DoCallErr
 	case svc.InstanceGet != nil:
-		return s.RawInstance, s.DoCallErr
+		return &s.RawInstance, s.DoCallErr
 	case svc.InstanceInsert != nil:
 		return s.op, s.DoCallErr
 	case svc.InstanceDelete != nil:
