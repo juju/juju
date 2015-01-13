@@ -34,9 +34,9 @@ class DumpEnvLogsTestCase(TestCase):
         }
 
         with temp_dir() as artifacts_dir:
-            with patch('deploy_stack.get_machines_for_logs',
+            with patch('deploy_stack.get_machines_for_logs', autospec=True,
                        return_value=machine_addresses) as gm_mock:
-                with patch('deploy_stack.dump_logs') as dl_mock:
+                with patch('deploy_stack.dump_logs', autospec=True) as dl_mock:
                     client = object()
                     dump_env_logs(client, '10.10.0.1', artifacts_dir)
             self.assertEqual(
@@ -58,8 +58,9 @@ class DumpEnvLogsTestCase(TestCase):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'nonlocal'}), '1.234-76', None)
         with temp_dir() as log_dir:
-            with patch('deploy_stack.copy_local_logs') as cll_mock:
-                with patch('deploy_stack.copy_remote_logs',
+            with patch('deploy_stack.copy_local_logs',
+                       autospec=True) as cll_mock:
+                with patch('deploy_stack.copy_remote_logs', autospec=True,
                            side_effect=make_logs(log_dir)) as crl_mock:
                     dump_logs(client, '10.10.0.1', log_dir, machine_id='0')
             self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
@@ -71,9 +72,10 @@ class DumpEnvLogsTestCase(TestCase):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         with temp_dir() as log_dir:
-            with patch('deploy_stack.copy_local_logs',
+            with patch('deploy_stack.copy_local_logs', autospec=True,
                        side_effect=make_logs(log_dir)) as cll_mock:
-                with patch('deploy_stack.copy_remote_logs') as crl_mock:
+                with patch('deploy_stack.copy_remote_logs',
+                           autospec=True) as crl_mock:
                     dump_logs(client, '10.10.0.1', log_dir, machine_id='0')
             self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
         self.assertEqual((log_dir, client), cll_mock.call_args[0])
@@ -84,8 +86,9 @@ class DumpEnvLogsTestCase(TestCase):
         client = EnvJujuClient(
             SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
         with temp_dir() as log_dir:
-            with patch('deploy_stack.copy_local_logs') as cll_mock:
-                with patch('deploy_stack.copy_remote_logs',
+            with patch('deploy_stack.copy_local_logs',
+                       autospec=True) as cll_mock:
+                with patch('deploy_stack.copy_remote_logs', autospec=True,
                            side_effect=make_logs(log_dir)) as crl_mock:
                     dump_logs(client, '10.10.0.1', log_dir, machine_id='1')
             self.assertEqual(['cloud.log.gz', 'extra'], os.listdir(log_dir))
@@ -96,7 +99,7 @@ class DumpEnvLogsTestCase(TestCase):
         # To get the logs, their permissions must be updated first,
         # then downloaded in the order that they will be created
         # to ensure errors do not prevent some logs from being retrieved.
-        with patch('deploy_stack.wait_for_port'):
+        with patch('deploy_stack.wait_for_port', autospec=True):
             with patch('subprocess.check_call') as cc_mock:
                 copy_remote_logs('10.10.0.1', '/foo')
         self.assertEqual(
@@ -124,7 +127,7 @@ class DumpEnvLogsTestCase(TestCase):
                 raise subprocess.CalledProcessError('scp error', 'output')
         with patch('subprocess.check_call', side_effect=remote_op) as cc_mock:
             with patch('deploy_stack.logging.warning') as log_mock:
-                with patch('deploy_stack.wait_for_port'):
+                with patch('deploy_stack.wait_for_port', autospec=True):
                     copy_remote_logs('10.10.0.1', '/foo')
         self.assertEqual(2, cc_mock.call_count)
         self.assertEqual(
