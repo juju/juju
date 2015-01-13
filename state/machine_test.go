@@ -895,8 +895,8 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
 	assertNotProvisioned()
 
-	// Create a disk associated with a different machine, and ensure that trying to SetInstanceInfo
-	// with that disk fails.
+	// Create a disk associated with a different machine, and ensure that trying
+	// to SetInstanceInfo with that disk fails.
 	blockDeviceName := s.createBlockDeviceParams(c, s.machine0.Id(), state.BlockDeviceParams{Size: 1000})
 	invalidBlockDevices = map[string]state.BlockDeviceInfo{blockDeviceName: state.BlockDeviceInfo{}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)

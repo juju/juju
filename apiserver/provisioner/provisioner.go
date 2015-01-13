@@ -374,7 +374,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	}
 	disks, err := machineDiskParams(m)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// TODO(dimitern) For now, since network names and
 	// provider ids are the same, we return what we got
