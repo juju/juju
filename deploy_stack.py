@@ -173,9 +173,11 @@ def dump_env_logs(client, bootstrap_host, directory, host_id=None):
 
     for machine_id, addr in machine_addrs.iteritems():
         logging.info("Retrieving logs for machine-%s", machine_id)
-        machine_directory = os.path.join(directory, str(machine_id))
+        machine_directory = os.path.join(directory, machine_id)
         os.mkdir(machine_directory)
-        dump_logs(client, addr, machine_directory)
+        local_state_server = client.env.local and machine_id == '0'
+        dump_logs(client, addr, machine_directory,
+                  local_state_server=local_state_server)
 
     dump_euca_console(host_id, directory)
 
@@ -203,16 +205,15 @@ def get_machine_addrs(client):
             yield machine_id, hostname
 
 
-def dump_logs(client, host, directory, host_id=None):
+def dump_logs(client, host, directory, local_state_server=False):
     try:
-        if client.env.local:
+        if local_state_server:
             copy_local_logs(directory, client)
         else:
             copy_remote_logs(host, directory)
         subprocess.check_call(
             ['gzip', '-f'] +
             glob.glob(os.path.join(directory, '*.log')))
-        dump_euca_console(host_id, directory)
     except Exception as e:
         print_now("Failed to retrieve logs")
         print_now(str(e))
@@ -228,9 +229,12 @@ def copy_local_logs(directory, client):
 
 
 def copy_remote_logs(host, directory):
+    """Copy as many logs from the remote host as possible to the directory."""
+    # This list of names must be in the order of creation to ensure they
+    # are retrieved.
     log_names = [
-        'juju/*.log',
         'cloud-init*.log',
+        'juju/*.log',
     ]
     source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
 
@@ -240,20 +244,30 @@ def copy_remote_logs(host, directory):
         logging.warning("Could not dump logs because port 22 was closed.")
         return
 
-    subprocess.check_call([
-        'timeout', '5m', 'ssh',
-        '-o', 'UserKnownHostsFile /dev/null',
-        '-o', 'StrictHostKeyChecking no',
-        'ubuntu@' + host,
-        'sudo chmod go+r /var/log/juju/*',
-    ])
+    try:
+        subprocess.check_call([
+            'timeout', '5m', 'ssh',
+            '-o', 'UserKnownHostsFile /dev/null',
+            '-o', 'StrictHostKeyChecking no',
+            'ubuntu@' + host,
+            'sudo chmod go+r /var/log/juju/*',
+        ])
+    except subprocess.CalledProcessError as e:
+        # The juju log dir is not created until after cloud-init succeeds.
+        logging.warning("Could not change the permission of the juju logs:")
+        logging.warning(e.output)
 
-    subprocess.check_call([
-        'timeout', '5m', 'scp', '-C',
-        '-o', 'UserKnownHostsFile /dev/null',
-        '-o', 'StrictHostKeyChecking no',
-        source, directory,
-    ])
+    try:
+        subprocess.check_call([
+            'timeout', '5m', 'scp', '-C',
+            '-o', 'UserKnownHostsFile /dev/null',
+            '-o', 'StrictHostKeyChecking no',
+            source, directory,
+        ])
+    except subprocess.CalledProcessError as e:
+        # The juju logs will not exist if cloud-init failed.
+        logging.warning("Could not retrieve some or all logs:")
+        logging.warning(e.output)
 
 
 def dump_euca_console(host_id, directory):
