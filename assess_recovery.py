@@ -17,6 +17,7 @@ from deploy_stack import (
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
 )
+from jujuci import setup_workspace
 from jujuconfig import (
     get_juju_home,
     )
@@ -159,8 +160,10 @@ def main():
                         default=None)
     args = parser.parse_args()
     log_dir = args.logs
-    if log_dir is None:
-        log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
+    workspace = os.environ.get('WORKSPACE')
+    if log_dir is None and workspace is not None:
+        setup_workspace(workspace, dry_run=False, verbose=False)
+        log_dir = os.path.join(workspace, 'artifacts')
     try:
         setup_juju_path(args.juju_path)
         env = SimpleEnvironment.from_config(args.env_name)

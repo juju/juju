@@ -14,6 +14,7 @@ import subprocess
 import sys
 from time import sleep
 
+from jujuci import setup_workspace
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -345,6 +346,7 @@ def deploy_job():
     if not args.run_startup:
         juju_path = args.new_juju_bin
     else:
+        setup_workspace(args.workspace, dry_run=False, verbose=False)
         env = dict(os.environ)
         env.update({
             'ENV': args.env,
@@ -359,7 +361,7 @@ def deploy_job():
     if juju_path is None:
         raise Exception('Either --new-juju-bin or --run-startup must be'
                         ' supplied.')
-
+    log_dir = os.path.join(args.workspace, 'artifacts')
     new_path = '%s:%s' % (juju_path, os.environ['PATH'])
     log_dir = os.path.join(args.workspace, 'artifacts')
     series = args.series

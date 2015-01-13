@@ -10,12 +10,8 @@ fi
 export JUJU_REPOSITORY
 
 # Setup workspace and build.
-artifacts_path=$WORKSPACE/artifacts
 export MACHINES=""
 set -x
-rm $WORKSPACE/* -rf
-mkdir -p $artifacts_path
-touch $artifacts_path/empty
 
 # Determine BRANCH, REVNO, VERSION, and PACKAGES under test.
 RELEASE=$(lsb_release -sr)
