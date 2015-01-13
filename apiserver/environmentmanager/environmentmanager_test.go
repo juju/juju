@@ -125,6 +125,10 @@ func (s *envManagerSuite) TestCreateEnvironmentBadConfig(c *gc.C) {
 		errMatch string
 	}{
 		{
+			key:      "uuid",
+			value:    "anything",
+			errMatch: `uuid is generated, you cannot specify one`,
+		}, {
 			key:      "type",
 			value:    "other",
 			errMatch: `specified type "other" does not match apiserver "dummy"`,
@@ -190,7 +194,7 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 			errMatch: `invalid version "not a number"`,
 		}, {
 			value:    bigger.String(),
-			errMatch: "agent-version cannot be larger than the server: .*",
+			errMatch: "agent-version cannot be greater than the server: .*",
 		}, {
 			value:    smaller.String(),
 			errMatch: "no tools found for version .*",

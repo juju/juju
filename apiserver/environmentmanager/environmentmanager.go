@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The environmentmanager package defines an API end point for functions
@@ -22,7 +22,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacade("EnvironmentManager", 0, NewEnvironmentManagerAPI)
+	common.RegisterStandardFacade("EnvironmentManager", 1, NewEnvironmentManagerAPI)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end
@@ -35,7 +35,7 @@ type EnvironmentManager interface {
 // EnvironmentManagerAPI implements the environment manager interface and is
 // the concrete implementation of the api end point.
 type EnvironmentManagerAPI struct {
-	state       *state.State
+	state       stateInterface
 	authorizer  common.Authorizer
 	toolsFinder *common.ToolsFinder
 }
@@ -55,23 +55,23 @@ func NewEnvironmentManagerAPI(
 
 	urlGetter := common.NewToolsURLGetter(st.EnvironUUID(), st)
 	return &EnvironmentManagerAPI{
-		state:       st,
+		state:       getState(st),
 		authorizer:  authorizer,
 		toolsFinder: common.NewToolsFinder(st, st, urlGetter),
 	}, nil
 }
 
-func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) (names.UserTag, error) {
+func (em *EnvironmentManagerAPI) authCheck(user, adminUser names.UserTag) error {
 	authTag := em.authorizer.GetAuthTag()
 	apiUser, ok := authTag.(names.UserTag)
 	if !ok {
-		return apiUser, errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
+		return errors.Errorf("auth tag should be a user, but isn't: %q", authTag.String())
 	}
 	logger.Tracef("comparing api user %q against owner %q and admin %q", apiUser, user, adminUser)
 	if apiUser == user || apiUser == adminUser {
-		return apiUser, nil
+		return nil
 	}
-	return apiUser, common.ErrPerm
+	return common.ErrPerm
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -89,36 +89,37 @@ var configValuesFromStateServer = []string{
 	"rsyslog-ca-cert",
 }
 
-func (em *EnvironmentManagerAPI) checkVersion(joint map[string]interface{}) error {
+func (em *EnvironmentManagerAPI) checkVersion(cfg map[string]interface{}) error {
 	// If there is no agent-version specified, use the current version.
 	// otherwise we need to check for tools
-	if value, found := joint["agent-version"]; found {
-		valuestr, ok := value.(string)
-		if !ok {
-			return errors.Errorf("agent-version must be a string but has type '%T'", value)
-		}
-		num, err := version.Parse(valuestr)
+	value, found := cfg["agent-version"]
+	if !found {
+		cfg["agent-version"] = version.Current.Number.String()
+		return nil
+	}
+	valuestr, ok := value.(string)
+	if !ok {
+		return errors.Errorf("agent-version must be a string but has type '%T'", value)
+	}
+	num, err := version.Parse(valuestr)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if comp := num.Compare(version.Current.Number); comp > 0 {
+		return errors.Errorf("agent-version cannot be greater than the server: %s", version.Current.Number)
+	} else if comp < 0 {
+		// Look to see if we have tools available for that version.
+		// Obviously if the version is the same, we have the tools available.
+		list, err := em.toolsFinder.FindTools(params.FindToolsParams{
+			Number: num,
+		})
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if comp := num.Compare(version.Current.Number); comp > 0 {
-			return errors.Errorf("agent-version cannot be larger than the server: %s", version.Current.Number)
-		} else if comp < 0 {
-			// Look to see if we have tools available for that version.
-			// Obviously if the version is the same, we have the tools available.
-			list, err := em.toolsFinder.FindTools(params.FindToolsParams{
-				Number: num,
-			})
-			if err != nil {
-				return errors.Trace(err)
-			}
-			logger.Tracef("found tools: %#v", list)
-			if len(list.List) == 0 {
-				return errors.Errorf("no tools found for version %s", num)
-			}
+		logger.Tracef("found tools: %#v", list)
+		if len(list.List) == 0 {
+			return errors.Errorf("no tools found for version %s", num)
 		}
-	} else {
-		joint["agent-version"] = version.Current.Number.String()
 	}
 	return nil
 }
@@ -134,7 +135,9 @@ func (em *EnvironmentManagerAPI) newEnvironmentConfig(args params.EnvironmentCre
 	for key, value := range args.Config {
 		joint[key] = value
 	}
-
+	if _, found := joint["uuid"]; found {
+		return nil, errors.New("uuid is generated, you cannot specify one")
+	}
 	baseConfig, err := source.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -194,7 +197,10 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 		return result, errors.Trace(err)
 	}
 
-	_, err = em.authCheck(ownerTag, adminUser)
+	// Any user is able to create themselves an environment (until real fine
+	// grain permissions are available), and admins (the creator of the state
+	// server environment) are able to create environments for other people.
+	err = em.authCheck(ownerTag, adminUser)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -237,7 +243,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.Enviro
 		return result, errors.Trace(err)
 	}
 
-	_, err = em.authCheck(userTag, adminUser)
+	err = em.authCheck(userTag, adminUser)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

@@ -151,7 +151,7 @@ type EnvironmentCreateArgs struct {
 	// a local user, that user must exist.
 	OwnerTag string
 
-	// Account holds the provider specific account details neccary to
+	// Account holds the provider specific account details necessary to
 	// interact with the provider to create, list and destroy machines.
 	Account map[string]interface{}
 
