@@ -215,7 +215,7 @@ func ProcessBlockedError(err error, block Block) error {
 	if err == nil {
 		return nil
 	}
-	if params.IsCodeOperationBlocked(errors.Cause(err)) || strings.Contains(err.Error(), "The operation has been blocked.") {
+	if params.IsCodeOperationBlocked(errors.Cause(err)) {
 		logger.Errorf(blockedMessages[block])
 		return cmd.ErrSilent
 	}
