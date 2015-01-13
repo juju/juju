@@ -7,7 +7,6 @@ package environmentmanager
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
