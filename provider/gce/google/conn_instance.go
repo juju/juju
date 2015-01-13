@@ -113,6 +113,9 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 		svc.InstanceList = instsNextPage(call, raw.NextPageToken)
 	}
 
+	if len(statuses) == 0 {
+		return results, nil
+	}
 	return filterInstances(results, statuses...), nil
 }
 
