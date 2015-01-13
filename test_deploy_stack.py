@@ -35,7 +35,7 @@ class DumpEnvLogsTestCase(TestCase):
 
     def setUp(self):
         self.log = logging.getLogger()
-        #self.log.setLevel(logging.CRITICAL)
+        self.old_handlers = self.log.handlers
         for handler in self.log.handlers:
             self.log.removeHandler(handler)
         self.stream = StringIO()
@@ -46,6 +46,8 @@ class DumpEnvLogsTestCase(TestCase):
         def reset_logger():
             self.log.removeHandler(self.handler)
             self.handler.close()
+            for handler in self.old_handlers:
+                self.log.addHandler(handler)
 
         self.addCleanup(reset_logger)
 
@@ -152,14 +154,14 @@ class DumpEnvLogsTestCase(TestCase):
                 raise subprocess.CalledProcessError('ssh error', 'output')
             else:
                 raise subprocess.CalledProcessError('scp error', 'output')
+
         with patch('subprocess.check_call', side_effect=remote_op) as cc_mock:
-            with patch('deploy_stack.logging.warning') as log_mock:
-                with patch('deploy_stack.wait_for_port', autospec=True):
-                    copy_remote_logs('10.10.0.1', '/foo')
+            with patch('deploy_stack.wait_for_port', autospec=True):
+                copy_remote_logs('10.10.0.1', '/foo')
         self.assertEqual(2, cc_mock.call_count)
         self.assertEqual(
-            ('Could not change the permission of the juju logs:', ),
-            log_mock.call_args_list[0][0])
-        self.assertEqual(
-            ('Could not retrieve some or all logs:', ),
-            log_mock.call_args_list[2][0])
+            ['Could not change the permission of the juju logs:',
+             'None',
+             'Could not retrieve some or all logs:',
+             'None'],
+            self.stream.getvalue().splitlines())
