@@ -62,7 +62,6 @@ import (
 	"github.com/juju/juju/worker/charmrevisionworker"
 	"github.com/juju/juju/worker/cleaner"
 	"github.com/juju/juju/worker/deployer"
-	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/firewaller"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/localstorage"
@@ -99,7 +98,6 @@ var (
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
 	newFirewaller            = firewaller.NewFirewaller
-	newDiskManager           = diskmanager.NewWorker
 	newCertificateUpdater    = certupdater.NewCertificateUpdater
 	reportOpenedState        = func(interface{}) {}
 	reportOpenedAPI          = func(interface{}) {}
@@ -629,13 +627,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return cmdutil.NewRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-	})
-	runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-		api, err := st.DiskManager()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return newDiskManager(diskmanager.DefaultListBlockDevices, api), nil
 	})
 
 	// Check if the network management is disabled.
