@@ -173,17 +173,22 @@ func callWithIds(fn func(string, string) error) func(st, ut names.Tag) params.Er
 	}
 }
 
+// parseServiceAndUnitTags takes in string representations of service
+// and unit tags and parses them into structs.
+//
+// NOTE: we return permissions errors when parsing fails to obfuscate
+// the parse-failure. This is for security purposes.
 func parseServiceAndUnitTags(
 	serviceTagString, unitTagString string,
 ) (serviceTag names.ServiceTag, unitTag names.UnitTag, _ *params.Error) {
 	serviceTag, err := names.ParseServiceTag(serviceTagString)
 	if err != nil {
-		return serviceTag, unitTag, common.ServerError(err)
+		return serviceTag, unitTag, common.ServerError(common.ErrPerm)
 	}
 
 	unitTag, err = names.ParseUnitTag(unitTagString)
 	if err != nil {
-		return serviceTag, unitTag, common.ServerError(err)
+		return serviceTag, unitTag, common.ServerError(common.ErrPerm)
 	}
 
 	return serviceTag, unitTag, nil

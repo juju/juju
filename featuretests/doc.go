@@ -8,7 +8,7 @@ tested.
 
 Rules:
 
-1) Do NOT mirror the architecture/namespaces of Juju. This shouldbe a
+1) Do NOT mirror the architecture/namespaces of Juju. This should be a
 very flat folder.
 
 2) Whenever possible, do not mock anything. The goal is to test the
