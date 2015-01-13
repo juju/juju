@@ -1,7 +1,10 @@
+import logging
 from mock import patch
 import os
+from StringIO import StringIO
 import subprocess
 from unittest import TestCase
+
 
 from deploy_stack import (
     copy_remote_logs,
@@ -15,6 +18,10 @@ from jujupy import (
 from utility import temp_dir
 
 
+logger = logging.getLogger()
+logger.level = logging.DEBUG
+
+
 def make_logs(log_dir):
     def write_dumped_files(*args):
         with open(os.path.join(log_dir, 'cloud.log'), 'w') as l:
@@ -25,6 +32,22 @@ def make_logs(log_dir):
 
 
 class DumpEnvLogsTestCase(TestCase):
+
+    def setUp(self):
+        self.log = logging.getLogger()
+        #self.log.setLevel(logging.CRITICAL)
+        for handler in self.log.handlers:
+            self.log.removeHandler(handler)
+        self.stream = StringIO()
+        self.handler = logging.StreamHandler(self.stream)
+        self.log.addHandler(self.handler)
+        self.handler.setLevel(logging.DEBUG)
+
+        def reset_logger():
+            self.log.removeHandler(self.handler)
+            self.handler.close()
+
+        self.addCleanup(reset_logger)
 
     def test_dump_env_logs(self):
         machine_addresses = {
@@ -52,6 +75,10 @@ class DumpEnvLogsTestCase(TestCase):
              ((client, '10.10.0.22', '%s/2' % artifacts_dir),
               {'machine_id': '2'})],
             call_list)
+        self.assertEqual(
+            ['Retrieving logs for machine-0', 'Retrieving logs for machine-1',
+             'Retrieving logs for machine-2'],
+            sorted(self.stream.getvalue().splitlines()))
 
     def test_dump_logs_with_nonlocal_env(self):
         # copy_remote_logs is called for non-local envs.
