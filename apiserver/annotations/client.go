@@ -55,7 +55,7 @@ func NewAPI(
 func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 	entityResults := []params.AnnotationsGetResult{}
 	for _, entity := range args.Entities {
-		anEntityResult := params.AnnotationsGetResult{Entity: entity}
+		anEntityResult := params.AnnotationsGetResult{EntityTag: entity.Tag}
 		if annts, err := api.getEntityAnnotations(entity.Tag); err != nil {
 			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag, "getting")}
 		} else {
@@ -70,10 +70,10 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	setErrors := []params.ErrorResult{}
 	for _, entityAnnotation := range args.Annotations {
-		err := api.setEntityAnnotations(entityAnnotation.Entity.Tag, entityAnnotation.Annotations)
+		err := api.setEntityAnnotations(entityAnnotation.EntityTag, entityAnnotation.Annotations)
 		if err != nil {
 			setErrors = append(setErrors,
-				params.ErrorResult{Error: annotateError(err, entityAnnotation.Entity.Tag, "setting")})
+				params.ErrorResult{Error: annotateError(err, entityAnnotation.EntityTag, "setting")})
 		}
 	}
 	return params.ErrorResults{Results: setErrors}
