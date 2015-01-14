@@ -10,7 +10,9 @@ import (
 	"github.com/juju/juju/provider/gce"
 )
 
-type providerSuite struct{}
+type providerSuite struct {
+	gce.BaseSuite
+}
 
 var _ = gc.Suite(&providerSuite{})
 
@@ -18,4 +20,19 @@ func (*providerSuite) TestRegistered(c *gc.C) {
 	provider, err := environs.Provider("gce")
 	c.Assert(err, gc.IsNil)
 	c.Assert(provider, gc.Equals, gce.Provider)
+}
+
+func (*providerSuite) TestOpen(c *gc.C) {
+}
+
+func (*providerSuite) TestPrepare(c *gc.C) {
+}
+
+func (*providerSuite) TestValidate(c *gc.C) {
+}
+
+func (*providerSuite) TestSecretAttrs(c *gc.C) {
+}
+
+func (*providerSuite) TestBoilerplateConfig(c *gc.C) {
 }
