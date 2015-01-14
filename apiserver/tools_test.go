@@ -136,6 +136,26 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 }
+func (s *toolsSuite) TestBlockUpload(c *gc.C) {
+	// Make some fake tools.
+	_, vers, toolPath := s.setupToolsForUpload(c)
+	// Block all changes.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now try uploading them.
+	resp, err := s.uploadRequest(
+		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "The operation has been blocked.")
+
+	// Check the contents.
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	_, _, err = storage.Tools(vers)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
 
 func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	// Backwards compatibility check, that we can upload tools to

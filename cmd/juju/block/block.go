@@ -89,6 +89,7 @@ all-changes includes all alteration commands
     set
     set-constraints
     set-env
+    sync-tools
     unexpose
     unset
     unset-env
@@ -211,14 +212,14 @@ var blockedMessages = map[Block]string{
 // ProcessBlockedError ensures that correct and user-friendly message is
 // displayed to the user based on the block type.
 func ProcessBlockedError(err error, block Block) error {
+	if err == nil {
+		return nil
+	}
 	if params.IsCodeOperationBlocked(err) {
 		logger.Errorf(blockedMessages[block])
 		return cmd.ErrSilent
 	}
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 var removeMsg = `
