@@ -549,12 +549,14 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 	db, closer := b.st.newDB()
 	defer closer()
 
+	envUUID := b.st.EnvironUUID()
+
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		if c.subsidiary {
 			continue
 		}
-		col := db.C(c.Name)
+		col := newStateCollection(db.C(c.Name), envUUID)
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
 		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
@@ -562,7 +564,11 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 		infos := infoSlicePtr.Elem()
 		for i := 0; i < infos.Len(); i++ {
 			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-			info.updated(b.st, all, info.mongoId())
+			id := info.mongoId()
+			err := info.updated(b.st, all, id)
+			if err != nil {
+				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.Name, id)
+			}
 		}
 	}
 	return nil
