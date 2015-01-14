@@ -181,7 +181,7 @@ type OpStartInstance struct {
 	Instance         instance.Instance
 	Constraints      constraints.Value
 	Networks         []string
-	NetworkInfo      []network.Info
+	NetworkInfo      []network.InterfaceInfo
 	Info             *mongo.MongoInfo
 	Jobs             []multiwatcher.MachineJob
 	APIInfo          *api.Info
@@ -905,17 +905,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	// Simulate networks added when requested.
 	networks := append(args.Constraints.IncludeNetworks(), args.MachineConfig.Networks...)
-	networkInfo := make([]network.Info, len(networks))
+	networkInfo := make([]network.InterfaceInfo, len(networks))
 	for i, netName := range networks {
 		if strings.HasPrefix(netName, "bad-") {
 			// Simulate we didn't get correct information for the network.
-			networkInfo[i] = network.Info{
+			networkInfo[i] = network.InterfaceInfo{
 				ProviderId:  network.Id(netName),
 				NetworkName: netName,
 				CIDR:        "invalid",
 			}
 		} else {
-			networkInfo[i] = network.Info{
+			networkInfo[i] = network.InterfaceInfo{
 				ProviderId:    network.Id(netName),
 				NetworkName:   netName,
 				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
@@ -924,6 +924,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
 			}
 		}
+		// TODO(dimitern) Add the rest of the network.InterfaceInfo
+		// fields when we can use them.
 	}
 	estate.insts[i.id] = i
 	estate.maxId++

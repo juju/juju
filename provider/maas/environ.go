@@ -180,7 +180,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		return env.supportedArchitectures, nil
 	}
 	bootImages, err := env.allBootImages()
-	if err != nil {
+	if err != nil || len(bootImages) == 0 {
 		logger.Debugf("error querying boot-images: %v", err)
 		logger.Debugf("falling back to listing nodes")
 		supportedArchitectures, err := env.nodeArchitectures()
@@ -258,6 +258,55 @@ func (env *maasEnviron) getNodegroups() ([]string, error) {
 		nodegroups[i] = uuid
 	}
 	return nodegroups, nil
+}
+
+func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][]net.IP {
+	nodegroupsObject := env.getMAASClient().GetSubObject("nodegroups")
+
+	nodegroupsInterfacesMap := make(map[string][]net.IP)
+	for _, uuid := range nodegroups {
+		interfacesObject := nodegroupsObject.GetSubObject(uuid).GetSubObject("interfaces")
+		interfacesResult, err := interfacesObject.CallGet("list", nil)
+		if err != nil {
+			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			continue
+		}
+		interfaces, err := interfacesResult.GetArray()
+		if err != nil {
+			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			continue
+		}
+		for _, interfaceResult := range interfaces {
+			nic, err := interfaceResult.GetMap()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			ip, err := nic["ip"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_low, err := nic["static_ip_range_low"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch static IP range lower bound for interface %v on nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_high, err := nic["static_ip_range_high"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch static IP range higher bound for interface %v on nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_low_ip := net.ParseIP(static_low)
+			static_high_ip := net.ParseIP(static_high)
+			if static_low_ip == nil || static_high_ip == nil {
+				logger.Warningf("invalid IP in static range for interface %v on nodegroup %v: %q %q", nic, uuid, static_low_ip, static_high_ip)
+				continue
+			}
+			nodegroupsInterfacesMap[ip] = []net.IP{static_low_ip, static_high_ip}
+		}
+	}
+	return nodegroupsInterfacesMap
 }
 
 type bootImage struct {
@@ -679,12 +728,12 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// setupNetworks prepares a []network.Info for the given instance. Any
-// networks in networksToDisable will be configured as disabled on the
-// machine. Any disabled network interfaces (as discovered from the
-// lshw output for the node) will stay disabled. The interface name
-// discovered as primary is also returned.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.Info, string, error) {
+// setupNetworks prepares a []network.InterfaceInfo for the given
+// instance. Any networks in networksToDisable will be configured as
+// disabled on the machine. Any disabled network interfaces (as
+// discovered from the lshw output for the node) will stay disabled.
+// The interface name discovered as primary is also returned.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.InterfaceInfo, string, error) {
 	// Get the instance network interfaces first.
 	interfaces, primaryIface, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
@@ -696,7 +745,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		return nil, "", errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
-	var tempNetworkInfo []network.Info
+	var tempInterfaceInfo []network.InterfaceInfo
 	for _, netw := range networks {
 		disabled := networksToDisable.Contains(netw.Name)
 		netCIDR := &net.IPNet{
@@ -710,7 +759,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
 		for _, mac := range macs {
 			if ifinfo, ok := interfaces[mac]; ok {
-				tempNetworkInfo = append(tempNetworkInfo, network.Info{
+				tempInterfaceInfo = append(tempInterfaceInfo, network.InterfaceInfo{
 					MACAddress:    mac,
 					InterfaceName: ifinfo.InterfaceName,
 					DeviceIndex:   ifinfo.DeviceIndex,
@@ -725,8 +774,8 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 	}
 	// Verify we filled-in everything for all networks/interfaces
 	// and drop incomplete records.
-	var networkInfo []network.Info
-	for _, info := range tempNetworkInfo {
+	var interfaceInfo []network.InterfaceInfo
+	for _, info := range tempInterfaceInfo {
 		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
@@ -735,10 +784,10 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 			logger.Warningf("ignoring network %q: missing network interface information", info.ProviderId)
 			continue
 		}
-		networkInfo = append(networkInfo, info)
+		interfaceInfo = append(interfaceInfo, info)
 	}
-	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
-	return networkInfo, primaryIface, nil
+	logger.Debugf("node %q network information: %#v", inst.Id(), interfaceInfo)
+	return interfaceInfo, primaryIface, nil
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -832,7 +881,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	args.MachineConfig.Tools = selectedTools[0]
 
-	var networkInfo []network.Info
+	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
 	if err != nil {
 		return nil, err
@@ -1172,17 +1221,33 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", instId, networks)
+
+	nodegroups, err := environ.getNodegroups()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getNodegroups failed")
+	}
+	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
 	var networkInfo []network.SubnetInfo
 	for _, netw := range networks {
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		// TODO: (mfoord 2014-12-17) need to fill in AllocatableIPLow & High
+		var allocatableHigh, allocatableLow net.IP
+		for ip, bounds := range nodegroupInterfaces {
+			contained := netCIDR.Contains(net.ParseIP(ip))
+			if contained {
+				allocatableLow = bounds[0]
+				allocatableHigh = bounds[1]
+				break
+			}
+		}
 		netInfo := network.SubnetInfo{
-			CIDR:       netCIDR.String(),
-			VLANTag:    netw.VLANTag,
-			ProviderId: network.Id(netw.Name),
+			CIDR:              netCIDR.String(),
+			VLANTag:           netw.VLANTag,
+			ProviderId:        network.Id(netw.Name),
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
 		}
 
 		// Verify we filled-in everything for all networks

@@ -900,7 +900,8 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // Merge SetProvisioned() in here or drop it at that point.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo) error {
+	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	blockDevices map[string]BlockDeviceInfo) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
@@ -920,6 +921,9 @@ func (m *Machine) SetInstanceInfo(
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if err := setProvisionedBlockDeviceInfo(m.st, m.Id(), blockDevices); err != nil {
+		return errors.Trace(err)
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
 }
@@ -1359,8 +1363,8 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
-// BlockDevices gets the aggregated list of block devices attached to the
-// machine.
+// BlockDevices gets the aggregated list of block devices associated with
+// the machine, including unprovisioned ones.
 func (m *Machine) BlockDevices() ([]BlockDevice, error) {
 	devices, err := getMachineBlockDevices(m.st, m.Id())
 	if err != nil {

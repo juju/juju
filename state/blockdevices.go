@@ -11,6 +11,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/storage"
 )
 
 // BlockDevice represents the state of a block device attached to a machine.
@@ -24,8 +26,14 @@ type BlockDevice interface {
 	// Machine returns the ID of the machine the block device is attached to.
 	Machine() string
 
-	// Info returns the block device's BlockDeviceInfo.
-	Info() BlockDeviceInfo
+	// Info returns the block device's BlockDeviceInfo, or a NotProvisioned
+	// error if the block device has not yet been provisioned.
+	Info() (BlockDeviceInfo, error)
+
+	// Params returns the parameters for provisioning the block device,
+	// if it has not already been provisioned. Params returns true if the
+	// returned parameters are usable for provisioning, otherwise false.
+	Params() (BlockDeviceParams, bool)
 }
 
 type blockDevice struct {
@@ -34,11 +42,17 @@ type blockDevice struct {
 
 // blockDeviceDoc records information about a disk attached to a machine.
 type blockDeviceDoc struct {
-	DocID   string          `bson:"_id"`
-	Name    string          `bson:"name"`
-	EnvUUID string          `bson:"env-uuid"`
-	Machine string          `bson:"machine"`
-	Info    BlockDeviceInfo `bson:"info"`
+	DocID   string             `bson:"_id"`
+	Name    string             `bson:"name"`
+	EnvUUID string             `bson:"env-uuid"`
+	Machine string             `bson:"machine"`
+	Info    *BlockDeviceInfo   `bson:"info,omitempty"`
+	Params  *BlockDeviceParams `bson:"params,omitempty"`
+}
+
+// BlockDeviceParams records parameters for provisioning a new block device.
+type BlockDeviceParams struct {
+	Size uint64 `bson:"size"`
 }
 
 // BlockDeviceInfo describes information about a block device.
@@ -63,8 +77,18 @@ func (b *blockDevice) Machine() string {
 	return b.doc.Machine
 }
 
-func (b *blockDevice) Info() BlockDeviceInfo {
-	return b.doc.Info
+func (b *blockDevice) Info() (BlockDeviceInfo, error) {
+	if b.doc.Info == nil {
+		return BlockDeviceInfo{}, errors.NotProvisionedf("block device %q", b.doc.Name)
+	}
+	return *b.doc.Info, nil
+}
+
+func (b *blockDevice) Params() (BlockDeviceParams, bool) {
+	if b.doc.Params == nil {
+		return BlockDeviceParams{}, false
+	}
+	return *b.doc.Params, true
 }
 
 // BlockDevice returns the BlockDevice with the specified name.
@@ -80,6 +104,29 @@ func (st *State) BlockDevice(diskName string) (BlockDevice, error) {
 		return nil, errors.Annotate(err, "cannot get block device details")
 	}
 	return &d, nil
+}
+
+// BlockDeviceParams converts a storage.Constraints and optional charm
+// and store name pair into one or more BlockDeviceParams.
+func (st *State) BlockDeviceParams(cons storage.Constraints, ch *Charm, store string) ([]BlockDeviceParams, error) {
+	if ch != nil || store != "" {
+		return nil, errors.NotImplementedf("charm storage metadata")
+	}
+	if cons.Pool != "" {
+		return nil, errors.NotImplementedf("storage pools")
+	}
+	if cons.Size == 0 {
+		return nil, errors.Errorf("invalid size %v", cons.Size)
+	}
+	if cons.Count == 0 {
+		return nil, errors.Errorf("invalid count %v", cons.Count)
+	}
+	// TODO(axw) if specified, validate constraints against charm storage metadata.
+	params := make([]BlockDeviceParams, cons.Count)
+	for i := range params {
+		params[i].Size = cons.Size
+	}
+	return params, nil
 }
 
 // newDiskName returns a unique disk name.
@@ -114,15 +161,22 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 		// Create ops to update and remove existing block devices.
 		found := make([]bool, len(newInfo))
 		for _, oldDev := range oldDevices {
+			oldInfo, err := oldDev.Info()
+			if err != nil && errors.IsNotProvisioned(err) {
+				// Leave unprovisioned block devices alone.
+				continue
+			} else if err != nil {
+				return nil, errors.Trace(err)
+			}
 			var updated bool
 			for j, newInfo := range newInfo {
 				if found[j] {
 					continue
 				}
-				if blockDevicesSame(oldDev.Info(), newInfo) {
+				if blockDevicesSame(oldInfo, newInfo) {
 					// Merge the two structures by replacing the old document's
 					// BlockDeviceInfo with the new one.
-					if oldDev.doc.Info != newInfo {
+					if oldInfo != newInfo {
 						ops = append(ops, txn.Op{
 							C:      blockDevicesC,
 							Id:     oldDev.doc.DocID,
@@ -156,12 +210,13 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 			if err != nil {
 				return nil, errors.Annotate(err, "cannot generate disk name")
 			}
+			infoCopy := info // copy for the insert
 			newDoc := blockDeviceDoc{
 				Name:    name,
 				Machine: machineId,
 				EnvUUID: st.EnvironUUID(),
 				DocID:   st.docID(name),
-				Info:    info,
+				Info:    &infoCopy,
 			}
 			ops = append(ops, txn.Op{
 				C:      blockDevicesC,
@@ -176,6 +231,8 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 	return st.run(buildTxn)
 }
 
+// getMachineBlockDevices returns all of the block devices associated with the
+// specified machine, including unprovisioned ones.
 func getMachineBlockDevices(st *State, machineId string) ([]*blockDevice, error) {
 	sel := bson.D{{"machine", machineId}}
 	blockDevices, closer := st.getCollection(blockDevicesC)
@@ -210,6 +267,63 @@ func removeMachineBlockDevicesOps(st *State, machineId string) ([]txn.Op, error)
 		})
 	}
 	return ops, errors.Trace(iter.Close())
+}
+
+// setProvisionedBlockDeviceInfo sets the initial info for newly
+// provisioned block devices. If non-empty, machineId must be the
+// machine ID associated with the block devices.
+func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map[string]BlockDeviceInfo) error {
+	ops := make([]txn.Op, 0, len(blockDevices))
+	for name, info := range blockDevices {
+		infoCopy := info
+		assert := bson.D{
+			{"info", bson.D{{"$exists", false}}},
+			{"params", bson.D{{"$exists", true}}},
+		}
+		if machineId != "" {
+			assert = append(assert, bson.DocElem{"machine", machineId})
+		}
+		ops = append(ops, txn.Op{
+			C:      blockDevicesC,
+			Id:     name,
+			Assert: assert,
+			Update: bson.D{
+				{"$set", bson.D{{"info", &infoCopy}}},
+				{"$unset", bson.D{{"params", nil}}},
+			},
+		})
+	}
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Errorf("cannot set provisioned block device info: already provisioned")
+	}
+	return nil
+}
+
+// createMachineBlockDeviceOps creates txn.Ops to create unprovisioned
+// block device documents associated with the specified machine, with
+// the given parameters.
+func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDeviceParams) (ops []txn.Op, names []string, err error) {
+	ops = make([]txn.Op, len(params))
+	names = make([]string, len(params))
+	for i, params := range params {
+		params := params
+		name, err := newDiskName(st)
+		if err != nil {
+			return nil, nil, errors.Annotate(err, "cannot generate disk name")
+		}
+		ops[i] = txn.Op{
+			C:      blockDevicesC,
+			Id:     name,
+			Assert: txn.DocMissing,
+			Insert: &blockDeviceDoc{
+				Name:    name,
+				Machine: machineId,
+				Params:  &params,
+			},
+		}
+		names[i] = name
+	}
+	return ops, names, nil
 }
 
 // blockDevicesSame reports whether or not two BlockDevices identify the

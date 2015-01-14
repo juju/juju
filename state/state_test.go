@@ -741,6 +741,41 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
+func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+	hc := instance.MustParseHardware("mem=2G")
+	machineTemplate := state.MachineTemplate{
+		Series:                  "precise",
+		Constraints:             cons,
+		HardwareCharacteristics: hc,
+		InstanceId:              "inst-id",
+		Nonce:                   "nonce",
+		Jobs:                    oneJob,
+		BlockDevices: []state.BlockDeviceParams{{
+			Size: 123,
+		}, {
+			Size: 456,
+		}},
+	}
+	machines, err := s.State.AddMachines(machineTemplate)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	m, err := s.State.Machine(machines[0].Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 2)
+	for i, dev := range blockDevices {
+		_, err = dev.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		params, ok := dev.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+	}
+}
+
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {
 	mc, err := m.Containers()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1632,6 +1667,68 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
+	// Alive environment...
+	alive, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Dying environment...
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	dying, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	dying.Destroy()
+
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	err = state.RemoveEnvironment(s.State, st2.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// All except the dead env are reported in initial event.
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(alive.UUID(), dying.UUID())
+	wc.AssertNoChange()
+
+	// Remove alive and dying and see changes reported.
+	err = alive.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.RemoveEnvironment(s.State, dying.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(alive.UUID(), dying.UUID())
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
+	// Initial event reports the state server environment.
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertNoChange()
+
+	// Add an environment: reported.
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	env, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+
+	// Make it Dying: reported.
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+
+	// Remove the environment: reported.
+	err = state.RemoveEnvironment(s.State, env.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	// Alive service...
 	dummyCharm := s.AddTestingCharm(c, "dummy")
@@ -1699,6 +1796,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.lifecycleWatcher,
 	// which is also used by:
+	//     State.WatchEnvironments
 	//     Service.WatchUnits
 	//     Service.WatchRelations
 	//     State.WatchEnviron

@@ -3,6 +3,8 @@
 
 package machine
 
+import "github.com/juju/juju/storage"
+
 var (
 	ManualProvisioner = &manualProvisioner
 )
@@ -19,4 +21,8 @@ func NewRemoveCommand(api RemoveMachineAPI) *RemoveCommand {
 	return &RemoveCommand{
 		api: api,
 	}
+}
+
+func NewDisksFlag(disks *[]storage.Constraints) *disksFlag {
+	return &disksFlag{disks}
 }

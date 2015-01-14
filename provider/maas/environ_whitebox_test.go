@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/url"
 	"text/template"
 
@@ -866,38 +867,46 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "vnet1")
-	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:ff",
-			CIDR:          "192.168.1.1/24",
-			NetworkName:   "WLAN",
-			ProviderId:    "WLAN",
-			VLANTag:       0,
-			DeviceIndex:   0,
-			InterfaceName: "wlan0",
-			Disabled:      true, // from networksToDisable("WLAN")
-		},
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "192.168.2.1/24",
-			NetworkName:   "LAN",
-			ProviderId:    "LAN",
-			VLANTag:       42,
-			DeviceIndex:   1,
-			InterfaceName: "eth0",
-			Disabled:      true, // from the lshw interface info
-		},
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f2",
-			CIDR:          "192.168.3.1/24",
-			NetworkName:   "Virt",
-			ProviderId:    "Virt",
-			VLANTag:       0,
-			DeviceIndex:   2,
-			InterfaceName: "vnet1",
-			Disabled:      false,
-		},
-	})
+	// Unfortunately, because network.InterfaceInfo is unhashable
+	// (contains a map) we can't use jc.SameContents here.
+	c.Check(networkInfo, gc.HasLen, 3)
+	for _, info := range networkInfo {
+		switch info.DeviceIndex {
+		case 0:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:ff",
+				CIDR:          "192.168.1.1/24",
+				NetworkName:   "WLAN",
+				ProviderId:    "WLAN",
+				VLANTag:       0,
+				DeviceIndex:   0,
+				InterfaceName: "wlan0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 1:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				DeviceIndex:   1,
+				MACAddress:    "aa:bb:cc:dd:ee:f1",
+				CIDR:          "192.168.2.1/24",
+				NetworkName:   "LAN",
+				ProviderId:    "LAN",
+				VLANTag:       42,
+				InterfaceName: "eth0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 2:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:f2",
+				CIDR:          "192.168.3.1/24",
+				NetworkName:   "Virt",
+				ProviderId:    "Virt",
+				VLANTag:       0,
+				DeviceIndex:   2,
+				InterfaceName: "vnet1",
+				Disabled:      false,
+			})
+		}
+	}
 }
 
 // The same test, but now "Virt" network does not have matched MAC address
@@ -924,18 +933,16 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "eth0")
-	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "192.168.2.1/24",
-			NetworkName:   "LAN",
-			ProviderId:    "LAN",
-			VLANTag:       42,
-			DeviceIndex:   1,
-			InterfaceName: "eth0",
-			Disabled:      false,
-		},
-	})
+	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		CIDR:          "192.168.2.1/24",
+		NetworkName:   "LAN",
+		ProviderId:    "LAN",
+		VLANTag:       42,
+		DeviceIndex:   1,
+		InterfaceName: "eth0",
+		Disabled:      false,
+	}})
 }
 
 // The same test, but now no networks have matched MAC
@@ -995,6 +1002,63 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+
+	// needed for getNodeGroups to work
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+
+	jsonText1 := `{
+		"ip_range_high":        "192.168.2.255",
+		"ip_range_low":         "192.168.2.128",
+		"broadcast_ip":         "192.168.2.255",
+		"static_ip_range_low":  "192.168.2.0",
+		"name":                 "eth0",
+		"ip":                   "192.168.2.1",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.2.127",
+		"interface":            "eth0"
+	}`
+	jsonText2 := `{
+		"ip_range_high":        "172.16.0.128",
+		"ip_range_low":         "172.16.0.2",
+		"broadcast_ip":         "172.16.0.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth0",
+		"ip":                   "172.16.0.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.0.255",
+		"interface":            "eth0"
+	}`
+	jsonText3 := `{
+		"ip_range_high":        "192.168.1.128",
+		"ip_range_low":         "192.168.1.2",
+		"broadcast_ip":         "192.168.1.255",
+		"static_ip_range_low":  "192.168.1.129",
+		"name":                 "eth0",
+		"ip":                   "192.168.1.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "192.168.1.255",
+		"interface":            "eth0"
+	}`
+	jsonText4 := `{
+		"ip_range_high":        "172.16.8.128",
+		"ip_range_low":         "172.16.8.2",
+		"broadcast_ip":         "172.16.8.255",
+		"static_ip_range_low":  "172.16.0.129",
+		"name":                 "eth0",
+		"ip":                   "172.16.8.2",
+		"subnet_mask":          "255.255.255.0",
+		"management":           2,
+		"static_ip_range_high": "172.16.8.255",
+		"interface":            "eth0"
+	}`
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText1)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-0", jsonText2)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
+	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
 	return test_instance
 }
 
@@ -1005,10 +1069,9 @@ func (suite *environSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{
-		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
 		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
-	}
+		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
@@ -1029,7 +1092,7 @@ func (suite *environSuite) TestAllocateAddressInvalidInstance(c *gc.C) {
 }
 
 func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
-	test_instance := suite.getInstance("node1")
+	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")

@@ -43,6 +43,10 @@ type StartInstanceParams struct {
 	// If any of the disks cannot be created, StartInstance must
 	// return an error.
 	Disks []storage.DiskParams
+
+	// NetworkInfo is an optional list of network interface details,
+	// necessary to configure on the instance.
+	NetworkInfo []network.InterfaceInfo
 }
 
 // StartInstanceResult holds the result of an
@@ -55,12 +59,14 @@ type StartInstanceResult struct {
 	// of the newly created instance.
 	Hardware *instance.HardwareCharacteristics
 
-	// NetworkInfo contains information about configured networks.
-	NetworkInfo []network.Info
+	// NetworkInfo contains information about how to configure network
+	// interfaces on the instance. Depending on the provider, this
+	// might be the same StartInstanceParams.NetworkInfo or may be
+	// modified as needed.
+	NetworkInfo []network.InterfaceInfo
 
-	// Disks contains a list of block devices created, each one
-	// corresponding to the DiskParams in the same position of
-	// StartInstanceParams.Disks.
+	// Disks contains a list of block devices created, each one having
+	// the same Name as one of the DiskParams in StartInstanceParams.Disks.
 	Disks []storage.BlockDevice
 }
 
