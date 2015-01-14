@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
-func (s *connSuite) TestConnectionAddInstance(c *gc.C) {
+func (s *connSuite) TestConnectionSimpleAddInstance(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 
 	inst := &s.RawInstance
@@ -23,7 +23,7 @@ func (s *connSuite) TestConnectionAddInstance(c *gc.C) {
 	c.Check(inst, jc.DeepEquals, &s.RawInstanceFull)
 }
 
-func (s *connSuite) TestConnectionAddInstanceAPI(c *gc.C) {
+func (s *connSuite) TestConnectionSimpleAddInstanceAPI(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
 	expected := s.RawInstance
 	expected.MachineType = "zones/a-zone/machineTypes/mtype"
@@ -42,6 +42,67 @@ func (s *connSuite) TestConnectionAddInstanceAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls[1].ProjectID, gc.Equals, "spam")
 	c.Check(s.FakeConn.Calls[1].ZoneName, gc.Equals, "a-zone")
 	c.Check(s.FakeConn.Calls[1].ID, gc.Equals, "spam")
+}
+
+func (s *instanceSuite) TestConnectionAddInstance(c *gc.C) {
+	s.FakeConn.Instance = &s.RawInstanceFull
+
+	zones := []string{"a-zone"}
+	inst, err := s.Conn.AddInstance(s.InstanceSpec, zones)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(inst.ID, gc.Equals, "spam")
+	c.Check(inst.Zone, gc.Equals, "a-zone")
+	c.Check(inst.Spec(), gc.DeepEquals, &s.InstanceSpec)
+	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstanceFull)
+}
+
+func (s *instanceSuite) TestConnectionAddInstanceAPI(c *gc.C) {
+	s.FakeConn.Instance = &s.RawInstanceFull
+
+	zones := []string{"a-zone"}
+	_, err := s.Conn.AddInstance(s.InstanceSpec, zones)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AddInstance")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	// We check s.FakeConn.Calls[0].InstValue below.
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "a-zone")
+	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "GetInstance")
+	c.Check(s.FakeConn.Calls[1].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[1].ID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[1].ZoneName, gc.Equals, "a-zone")
+
+	metadata := compute.Metadata{Items: []*compute.MetadataItems{{
+		Key:   "eggs",
+		Value: "steak",
+	}}}
+	networkInterfaces := []*compute.NetworkInterface{{
+		Network: "global/networks/somenetwork",
+		AccessConfigs: []*compute.AccessConfig{{
+			Name: "somenetif",
+			Type: "ONE_TO_ONE_NAT",
+		}},
+	}}
+	attachedDisks := []*compute.AttachedDisk{{
+		Type:       "PERSISTENT",
+		Boot:       true,
+		Mode:       "READ_WRITE",
+		AutoDelete: true,
+		InitializeParams: &compute.AttachedDiskInitializeParams{
+			DiskSizeGb:  5,
+			SourceImage: "some/image/path",
+		},
+	}}
+	c.Check(s.FakeConn.Calls[0].InstValue, gc.DeepEquals, compute.Instance{
+		Name:              "spam",
+		MachineType:       "zones/a-zone/machineTypes/mtype",
+		Disks:             attachedDisks,
+		NetworkInterfaces: networkInterfaces,
+		Metadata:          &metadata,
+		Tags:              &compute.Tags{Items: []string{"spam"}},
+	})
 }
 
 func (s *connSuite) TestConnectionAddInstanceFailed(c *gc.C) {
@@ -80,6 +141,37 @@ func (s *connSuite) TestConnectionAddInstanceGetFailed(c *gc.C) {
 
 	c.Check(errors.Cause(err), gc.Equals, failure)
 	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
+}
+
+func (s *connSuite) TestConnectionInstance(c *gc.C) {
+	s.FakeConn.Instance = &s.RawInstanceFull
+
+	inst, err := s.Conn.Instance("spam", "a-zone")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(google.ExposeRawInstance(inst), jc.DeepEquals, &s.RawInstanceFull)
+}
+
+func (s *connSuite) TestConnectionInstanceAPI(c *gc.C) {
+	s.FakeConn.Instance = &s.RawInstanceFull
+
+	_, err := s.Conn.Instance("ham", "a-zone")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetInstance")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[0].ID, gc.Equals, "ham")
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "a-zone")
+}
+
+func (s *connSuite) TestConnectionInstanceFail(c *gc.C) {
+	failure := errors.New("<unknown>")
+	s.FakeConn.Err = failure
+
+	_, err := s.Conn.Instance("spam", "a-zone")
+
+	c.Check(errors.Cause(err), gc.Equals, failure)
 }
 
 func (s *connSuite) TestConnectionInstances(c *gc.C) {

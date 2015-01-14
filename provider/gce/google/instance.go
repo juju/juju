@@ -50,21 +50,6 @@ type InstanceSpec struct {
 	Tags []string
 }
 
-// Create creates a new instance based on the spec's data and returns it.
-// The instance will be created using the provided connection and in one
-// of the provided zones.
-func (is InstanceSpec) Create(conn *Connection, zones []string) (*Instance, error) {
-	raw := is.raw()
-	if err := conn.addInstance(raw, is.Type, zones); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	inst := newInstance(raw)
-	copied := is
-	inst.spec = &copied
-	return inst, nil
-}
-
 func (is InstanceSpec) raw() *compute.Instance {
 	return &compute.Instance{
 		Name:              is.ID,
@@ -135,15 +120,21 @@ func (gi Instance) Status() string {
 	return gi.raw.Status
 }
 
+type instGetter interface {
+	// Instance gets the up-to-date info about the given instance
+	// and returns it.
+	Instance(id, zone string) (*Instance, error)
+}
+
 // Refresh updates the instance with its current data, utilizing the
 // provided connection to request it.
-func (gi *Instance) Refresh(conn *Connection) error {
-	raw, err := conn.raw.GetInstance(conn.ProjectID, gi.Zone, gi.ID)
+func (gi *Instance) Refresh(conn instGetter) error {
+	updated, err := conn.Instance(gi.ID, gi.Zone)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	gi.raw = *raw
+	gi.raw = updated.raw
 	return nil
 }
 

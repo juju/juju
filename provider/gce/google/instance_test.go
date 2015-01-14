@@ -18,67 +18,6 @@ type instanceSuite struct {
 
 var _ = gc.Suite(&instanceSuite{})
 
-func (s *instanceSuite) TestInstanceSpecCreate(c *gc.C) {
-	s.FakeConn.Instance = &s.RawInstanceFull
-
-	zones := []string{"a-zone"}
-	inst, err := s.InstanceSpec.Create(s.Conn, zones)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(inst.ID, gc.Equals, "spam")
-	c.Check(inst.Zone, gc.Equals, "a-zone")
-	c.Check(inst.Spec(), gc.DeepEquals, &s.InstanceSpec)
-	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstanceFull)
-}
-
-func (s *instanceSuite) TestInstanceSpecCreateAPI(c *gc.C) {
-	s.FakeConn.Instance = &s.RawInstanceFull
-
-	zones := []string{"a-zone"}
-	_, err := s.InstanceSpec.Create(s.Conn, zones)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AddInstance")
-	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
-	// We check s.FakeConn.Calls[0].InstValue below.
-	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "a-zone")
-	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "GetInstance")
-	c.Check(s.FakeConn.Calls[1].ProjectID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[1].ID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[1].ZoneName, gc.Equals, "a-zone")
-
-	metadata := compute.Metadata{Items: []*compute.MetadataItems{{
-		Key:   "eggs",
-		Value: "steak",
-	}}}
-	networkInterfaces := []*compute.NetworkInterface{{
-		Network: "global/networks/somenetwork",
-		AccessConfigs: []*compute.AccessConfig{{
-			Name: "somenetif",
-			Type: "ONE_TO_ONE_NAT",
-		}},
-	}}
-	attachedDisks := []*compute.AttachedDisk{{
-		Type:       "PERSISTENT",
-		Boot:       true,
-		Mode:       "READ_WRITE",
-		AutoDelete: true,
-		InitializeParams: &compute.AttachedDiskInitializeParams{
-			DiskSizeGb:  5,
-			SourceImage: "some/image/path",
-		},
-	}}
-	c.Check(s.FakeConn.Calls[0].InstValue, gc.DeepEquals, compute.Instance{
-		Name:              "spam",
-		MachineType:       "zones/a-zone/machineTypes/mtype",
-		Disks:             attachedDisks,
-		NetworkInterfaces: networkInterfaces,
-		Metadata:          &metadata,
-		Tags:              &compute.Tags{Items: []string{"spam"}},
-	})
-}
-
 func (s *instanceSuite) TestNewInstance(c *gc.C) {
 	inst := google.NewInstance(&s.RawInstanceFull)
 

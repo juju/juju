@@ -47,6 +47,31 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 	return errors.Errorf("not able to provision in any zone")
 }
 
+// AddInstance creates a new instance based on the spec's data and
+// returns it. The instance will be created using the provided
+// connection and in one of the provided zones.
+func (gce *Connection) AddInstance(spec InstanceSpec, zones []string) (*Instance, error) {
+	raw := spec.raw()
+	if err := gce.addInstance(raw, spec.Type, zones); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	inst := newInstance(raw)
+	copied := spec
+	inst.spec = &copied
+	return inst, nil
+}
+
+// Instance gets the up-to-date info about the given instance
+// and returns it.
+func (gce *Connection) Instance(id, zone string) (*Instance, error) {
+	raw, err := gce.raw.GetInstance(gce.ProjectID, zone, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newInstance(raw), nil
+}
+
 // Instances sends a request to the GCE API for a list of all instances
 // (in the Connection's project) for which the name starts with the
 // provided prefix. The result is also limited to those instances with
