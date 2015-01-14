@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -865,4 +866,31 @@ func (b *storeManagerTestBacking) deleteEntity(id0 interface{}) {
 			Revno: -1,
 		}
 	}
+}
+
+var errTimeout = errors.New("no change received in sufficient time")
+
+func getNext(c *gc.C, w *Multiwatcher, timeout time.Duration) ([]multiwatcher.Delta, error) {
+	var deltas []multiwatcher.Delta
+	var err error
+	ch := make(chan struct{}, 1)
+	go func() {
+		deltas, err = w.Next()
+		ch <- struct{}{}
+	}()
+	select {
+	case <-ch:
+		return deltas, err
+	case <-time.After(timeout):
+	}
+	return nil, errTimeout
+}
+
+func checkNext(c *gc.C, w *Multiwatcher, deltas []multiwatcher.Delta, expectErr string) {
+	d, err := getNext(c, w, 1*time.Second)
+	if expectErr != "" {
+		c.Check(err, gc.ErrorMatches, expectErr)
+		return
+	}
+	checkDeltasEqual(c, d, deltas)
 }
