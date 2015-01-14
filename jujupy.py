@@ -408,6 +408,11 @@ def bootstrap_from_env(juju_home, client):
         client.bootstrap()
 
 
+def quickstart_from_env(juju_home, client, bundle):
+    with temp_bootstrap_env(juju_home, client):
+        client.quickstart(bundle)
+
+
 def uniquify_local(env):
     """Ensure that local environments have unique port settings.
 
