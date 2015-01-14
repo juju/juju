@@ -15,7 +15,10 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	Auth             Auth
+	Auth     Auth
+	Conn     *Connection
+	FakeConn *fakeConn
+
 	DiskSpec         DiskSpec
 	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
@@ -23,6 +26,7 @@ type BaseSuite struct {
 	RawMetadata      compute.Metadata
 	Metadata         map[string]string
 	RawInstance      compute.Instance
+	RawInstanceFull  compute.Instance
 	InstanceSpec     InstanceSpec
 	Instance         Instance
 }
@@ -31,11 +35,19 @@ var _ = gc.Suite(&BaseSuite{})
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
 	s.Auth = Auth{
 		ClientID:    "spam",
 		ClientEmail: "user@mail.com",
 		PrivateKey:  []byte("non-empty"),
 	}
+	fake := &fakeConn{}
+	s.Conn = &Connection{
+		Region:    "a",
+		ProjectID: "spam",
+		raw:       fake,
+	}
+	s.FakeConn = fake
 
 	s.DiskSpec = DiskSpec{
 		SizeHintGB: 1,
@@ -76,15 +88,18 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.RawInstance = compute.Instance{
 		Name:              "spam",
 		Status:            StatusRunning,
-		Zone:              "a-zone",
 		NetworkInterfaces: []*compute.NetworkInterface{&s.NetworkInterface},
 		Metadata:          &s.RawMetadata,
 		Disks:             []*compute.AttachedDisk{&s.AttachedDisk},
 		Tags:              &compute.Tags{Items: []string{"spam"}},
 	}
+	s.RawInstanceFull = s.RawInstance
+	s.RawInstanceFull.Zone = "a-zone"
+	s.RawInstanceFull.Status = StatusRunning
+	s.RawInstanceFull.MachineType = "zones/a-zone/machineTypes/mtype"
 	s.InstanceSpec = InstanceSpec{
 		ID:                "spam",
-		Type:              "sometype",
+		Type:              "mtype",
 		Disks:             []DiskSpec{s.DiskSpec},
 		Network:           s.NetworkSpec,
 		NetworkInterfaces: []string{"somenetif"},
@@ -94,9 +109,13 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Instance = Instance{
 		ID:   "spam",
 		Zone: "a-zone",
-		raw:  s.RawInstance,
+		raw:  s.RawInstanceFull,
 		spec: &s.InstanceSpec,
 	}
+}
+
+func (s *BaseSuite) NewWaitError(op *compute.Operation, cause error) error {
+	return waitError{op, cause}
 }
 
 func (s *BaseSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes string, token *oauth.Token) {
@@ -111,4 +130,187 @@ func (s *BaseSuite) patchNewToken(c *gc.C, expectedAuth Auth, expectedScopes str
 		c.Check(scopes, gc.Equals, expectedScopes)
 		return token, nil
 	})
+}
+
+type fakeCall struct {
+	FuncName string
+
+	ProjectID string
+	Region    string
+	ZoneName  string
+	Name      string
+	ID        string
+	Prefix    string
+	Statuses  []string
+	Instance  *compute.Instance
+	InstValue compute.Instance
+	Firewall  *compute.Firewall
+}
+
+type fakeConn struct {
+	Calls []fakeCall
+
+	Project    *compute.Project
+	Instance   *compute.Instance
+	Instances  []*compute.Instance
+	Firewall   *compute.Firewall
+	Zones      []*compute.Zone
+	Err        error
+	FailOnCall int
+}
+
+func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
+	call := fakeCall{
+		FuncName:  "GetProject",
+		ProjectID: projectID,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	logger.Errorf("%d %d", len(rc.Calls), rc.FailOnCall+1)
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Project, err
+}
+
+func (rc *fakeConn) GetInstance(projectID, zone, id string) (*compute.Instance, error) {
+	call := fakeCall{
+		FuncName:  "GetInstance",
+		ProjectID: projectID,
+		ZoneName:  zone,
+		ID:        id,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Instance, err
+}
+
+func (rc *fakeConn) ListInstances(projectID, prefix string, statuses ...string) ([]*compute.Instance, error) {
+	call := fakeCall{
+		FuncName:  "ListInstances",
+		ProjectID: projectID,
+		Prefix:    prefix,
+		Statuses:  statuses,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Instances, err
+}
+
+func (rc *fakeConn) AddInstance(projectID, zoneName string, spec *compute.Instance) error {
+	call := fakeCall{
+		FuncName:  "AddInstance",
+		ProjectID: projectID,
+		ZoneName:  zoneName,
+		Instance:  spec,
+		InstValue: *spec,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) RemoveInstance(projectID, zone, id string) error {
+	call := fakeCall{
+		FuncName:  "RemoveInstance",
+		ProjectID: projectID,
+		ID:        id,
+		ZoneName:  zone,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) GetFirewall(projectID, name string) (*compute.Firewall, error) {
+	call := fakeCall{
+		FuncName:  "GetFirewall",
+		ProjectID: projectID,
+		Name:      name,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Firewall, err
+}
+
+func (rc *fakeConn) AddFirewall(projectID string, firewall *compute.Firewall) error {
+	call := fakeCall{
+		FuncName:  "AddFirewall",
+		ProjectID: projectID,
+		Firewall:  firewall,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) UpdateFirewall(projectID, name string, firewall *compute.Firewall) error {
+	call := fakeCall{
+		FuncName:  "UpdateFirewall",
+		ProjectID: projectID,
+		Name:      name,
+		Firewall:  firewall,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) RemoveFirewall(projectID, name string) error {
+	call := fakeCall{
+		FuncName:  "RemoveFirewall",
+		ProjectID: projectID,
+		Name:      name,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return err
+}
+
+func (rc *fakeConn) ListAvailabilityZones(projectID, region string) ([]*compute.Zone, error) {
+	call := fakeCall{
+		FuncName:  "ListAvailabilityZones",
+		ProjectID: projectID,
+		Region:    region,
+	}
+	rc.Calls = append(rc.Calls, call)
+
+	err := rc.Err
+	if len(rc.Calls) != rc.FailOnCall+1 {
+		err = nil
+	}
+	return rc.Zones, err
 }

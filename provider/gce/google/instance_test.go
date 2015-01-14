@@ -19,55 +19,39 @@ type instanceSuite struct {
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) TestInstanceSpecCreate(c *gc.C) {
-	s.PatchValue(google.AddInstance, func(conn *google.Connection, raw *compute.Instance, typ string, zones []string) error {
-		s.RawInstance.Zone = zones[0]
-		*raw = s.RawInstance
+	s.FakeConn.Instance = &s.RawInstanceFull
 
-		return nil
-	})
-
-	conn := google.Connection{}
-	zones := []string{"eggs"}
-
-	inst, err := s.InstanceSpec.Create(&conn, zones)
+	zones := []string{"a-zone"}
+	inst, err := s.InstanceSpec.Create(s.Conn, zones)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(inst.ID, gc.Equals, "spam")
-	c.Check(inst.Zone, gc.Equals, "eggs")
+	c.Check(inst.Zone, gc.Equals, "a-zone")
 	c.Check(inst.Spec(), gc.DeepEquals, &s.InstanceSpec)
-	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstance)
+	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstanceFull)
 }
 
 func (s *instanceSuite) TestInstanceSpecCreateAPI(c *gc.C) {
-	var connArg *google.Connection
-	var rawArg compute.Instance
-	var typeArg string
-	var zonesArg []string
+	s.FakeConn.Instance = &s.RawInstanceFull
 
-	s.PatchValue(google.AddInstance, func(conn *google.Connection, raw *compute.Instance, typ string, zones []string) error {
-		connArg = conn
-		rawArg = *raw
-		typeArg = typ
-		zonesArg = zones
-		*raw = s.RawInstance
-
-		return nil
-	})
-
-	conn := google.Connection{}
-	zones := []string{"eggs"}
-	_, err := s.InstanceSpec.Create(&conn, zones)
+	zones := []string{"a-zone"}
+	_, err := s.InstanceSpec.Create(s.Conn, zones)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(connArg, gc.Equals, &conn)
-	c.Check(typeArg, gc.Equals, "sometype")
-	c.Check(zonesArg, jc.DeepEquals, zones)
+	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AddInstance")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	// We check s.FakeConn.Calls[0].InstValue below.
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "a-zone")
+	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "GetInstance")
+	c.Check(s.FakeConn.Calls[1].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[1].ID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[1].ZoneName, gc.Equals, "a-zone")
 
 	metadata := compute.Metadata{Items: []*compute.MetadataItems{{
 		Key:   "eggs",
 		Value: "steak",
 	}}}
-
 	networkInterfaces := []*compute.NetworkInterface{{
 		Network: "global/networks/somenetwork",
 		AccessConfigs: []*compute.AccessConfig{{
@@ -75,7 +59,6 @@ func (s *instanceSuite) TestInstanceSpecCreateAPI(c *gc.C) {
 			Type: "ONE_TO_ONE_NAT",
 		}},
 	}}
-
 	attachedDisks := []*compute.AttachedDisk{{
 		Type:       "PERSISTENT",
 		Boot:       true,
@@ -86,9 +69,9 @@ func (s *instanceSuite) TestInstanceSpecCreateAPI(c *gc.C) {
 			SourceImage: "some/image/path",
 		},
 	}}
-
-	c.Check(rawArg, jc.DeepEquals, compute.Instance{
+	c.Check(s.FakeConn.Calls[0].InstValue, gc.DeepEquals, compute.Instance{
 		Name:              "spam",
+		MachineType:       "zones/a-zone/machineTypes/mtype",
 		Disks:             attachedDisks,
 		NetworkInterfaces: networkInterfaces,
 		Metadata:          &metadata,
@@ -97,11 +80,11 @@ func (s *instanceSuite) TestInstanceSpecCreateAPI(c *gc.C) {
 }
 
 func (s *instanceSuite) TestNewInstance(c *gc.C) {
-	inst := google.NewInstance(&s.RawInstance)
+	inst := google.NewInstance(&s.RawInstanceFull)
 
 	c.Check(inst.ID, gc.Equals, "spam")
 	c.Check(inst.Zone, gc.Equals, "a-zone")
-	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstance)
+	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstanceFull)
 }
 
 func (s *instanceSuite) TestInstanceSpec(c *gc.C) {
@@ -174,87 +157,6 @@ func (s *instanceSuite) TestInstanceMetadata(c *gc.C) {
 	metadata := s.Instance.Metadata()
 
 	c.Check(metadata, jc.DeepEquals, map[string]string{"eggs": "steak"})
-}
-
-func (s *instanceSuite) TestFilterInstances(c *gc.C) {
-	instances := []google.Instance{s.Instance}
-	matched := google.FilterInstances(instances, google.StatusRunning)
-
-	c.Check(matched, jc.DeepEquals, instances)
-}
-
-func (s *instanceSuite) TestFilterInstancesEmpty(c *gc.C) {
-	matched := google.FilterInstances(nil, google.StatusRunning)
-
-	c.Check(matched, gc.HasLen, 0)
-}
-
-func (s *instanceSuite) TestFilterInstancesNoStatus(c *gc.C) {
-	instances := []google.Instance{s.Instance}
-	matched := google.FilterInstances(instances)
-
-	c.Check(matched, gc.HasLen, 0)
-}
-
-func (s *instanceSuite) TestFilterInstancesNoMatch(c *gc.C) {
-	instances := []google.Instance{s.Instance}
-	matched := google.FilterInstances(instances, google.StatusDown)
-
-	c.Check(matched, gc.HasLen, 0)
-}
-
-func (s *instanceSuite) TestFilterInstancesMixedStatus(c *gc.C) {
-	badInst := google.NewInstance(&compute.Instance{
-		Status: google.StatusDown,
-	})
-	instances := []google.Instance{
-		s.Instance,
-		*badInst,
-	}
-	matched := google.FilterInstances(instances, google.StatusRunning)
-
-	c.Check(matched, jc.DeepEquals, []google.Instance{s.Instance})
-}
-
-func (s *instanceSuite) TestFilterInstancesMultiStatus(c *gc.C) {
-	otherInst := google.NewInstance(&compute.Instance{
-		Status: google.StatusPending,
-	})
-	badInst := google.NewInstance(&compute.Instance{
-		Status: google.StatusDown,
-	})
-	instances := []google.Instance{
-		s.Instance,
-		*otherInst,
-		*badInst,
-	}
-	matched := google.FilterInstances(instances, google.StatusRunning, google.StatusPending)
-
-	c.Check(matched, jc.DeepEquals, []google.Instance{s.Instance, *otherInst})
-}
-
-func (s *instanceSuite) TestCheckInstStatus(c *gc.C) {
-	matched := google.CheckInstStatus(s.Instance, google.StatusRunning)
-
-	c.Check(matched, jc.IsTrue)
-}
-
-func (s *instanceSuite) TestCheckInstStatusNoMatch(c *gc.C) {
-	matched := google.CheckInstStatus(s.Instance, google.StatusPending)
-
-	c.Check(matched, jc.IsFalse)
-}
-
-func (s *instanceSuite) TestCheckInstStatusNoStatus(c *gc.C) {
-	matched := google.CheckInstStatus(s.Instance)
-
-	c.Check(matched, jc.IsFalse)
-}
-
-func (s *instanceSuite) TestCheckInstStatusMultiStatus(c *gc.C) {
-	matched := google.CheckInstStatus(s.Instance, google.StatusRunning, google.StatusPending)
-
-	c.Check(matched, jc.IsTrue)
 }
 
 func (s *instanceSuite) TestFormatAuthorizedKeys(c *gc.C) {
