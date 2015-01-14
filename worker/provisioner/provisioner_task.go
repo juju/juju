@@ -486,6 +486,7 @@ func constructStartInstanceParams(
 		MachineConfig:     machineConfig,
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
+		Disks:             provisioningInfo.Disks,
 	}
 }
 
@@ -591,12 +592,13 @@ func (task *provisionerTask) startMachine(
 	hardware := result.Hardware
 	nonce := startInstanceParams.MachineConfig.MachineNonce
 	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
+	disks := result.Disks
 
-	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces)
+	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, disks)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
 	} else if err == nil {
-		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), hardware, networks, ifaces)
+		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v, disks %v", machine, inst.Id(), hardware, networks, ifaces, disks)
 		return nil
 	}
 	// We need to stop the instance right away here, set error status and go on.
