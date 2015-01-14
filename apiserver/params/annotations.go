@@ -5,7 +5,7 @@ package params
 
 // AnnotationsGetResult holds entity annotations or retrieval error.
 type AnnotationsGetResult struct {
-	Entity      Entity
+	EntityTag   string
 	Annotations map[string]string
 	Error       ErrorResult
 }
@@ -15,13 +15,13 @@ type AnnotationsGetResults struct {
 	Results []AnnotationsGetResult
 }
 
-// AnnotationsSet stores parameters for making the SetEntitiesAnnotations call.
+// AnnotationsSet stores parameters for making Set call on Annotations client.
 type AnnotationsSet struct {
 	Annotations []EntityAnnotations
 }
 
 // EntityAnnotations stores annotations for an entity.
 type EntityAnnotations struct {
-	Entity      Entity
+	EntityTag   string
 	Annotations map[string]string
 }
