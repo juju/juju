@@ -237,10 +237,8 @@ func (ps PortSet) Union(other PortSet) PortSet {
 func (ps PortSet) Intersection(other PortSet) PortSet {
 	result := NewPortSet()
 	for protocol, value := range ps.values {
-		ports, ok := other.values[protocol]
-		if ok {
-			newValue := value.Intersection(ports)
-			if !newValue.IsEmpty() {
+		if ports, ok := other.values[protocol]; ok {
+			if newValue := value.Intersection(ports); !newValue.IsEmpty() {
 				result.values[protocol] = newValue
 			}
 		}
@@ -253,14 +251,12 @@ func (ps PortSet) Intersection(other PortSet) PortSet {
 func (ps PortSet) Difference(other PortSet) PortSet {
 	result := NewPortSet()
 	for protocol, value := range ps.values {
-		ports, ok := other.values[protocol]
-		if !ok {
-			result.values[protocol] = value
-		} else {
-			newValue := value.Difference(ports)
-			if !newValue.IsEmpty() {
+		if ports, ok := other.values[protocol]; ok {
+			if newValue := value.Difference(ports); !newValue.IsEmpty() {
 				result.values[protocol] = newValue
 			}
+		} else {
+			result.values[protocol] = value
 		}
 	}
 	return result
