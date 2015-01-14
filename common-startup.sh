@@ -6,7 +6,6 @@ export JUJU_HOME=${JUJU_HOME:-$HOME/cloud-city}
 : ${JUJU_REPOSITORY=$HOME/repository}
 export JUJU_REPOSITORY
 
-# Setup workspace and build.
 export MACHINES=""
 set -x
 
@@ -34,7 +33,7 @@ fi
 # Provide the juju-core and juju-local packages to the test
 $SCRIPTS/jujuci.py get publish-revision $JUJU_LOCAL_DEB
 $SCRIPTS/jujuci.py get publish-revision $JUJU_CORE_DEB
-dpkg-deb -x $WORKSPACE/$JUJU_CORE_DEB extracted-bin
+dpkg-deb -x ./$JUJU_CORE_DEB extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
 # Tear down any resources and data last from a previous test.

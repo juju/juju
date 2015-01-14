@@ -14,7 +14,6 @@ import subprocess
 import sys
 from time import sleep
 
-from jujuci import setup_workspace
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -322,7 +321,7 @@ def deploy_job():
     parser.add_argument('--new-juju-bin', default=False,
                         help='Dirctory containing the new Juju binary.')
     parser.add_argument('env', help='Base Juju environment.')
-    parser.add_argument('workspace', help='Workspace directory.')
+    parser.add_argument('logs', dest='log_dir', help='log directory.')
     parser.add_argument('job_name', help='Name of the Jenkins job.')
     parser.add_argument('--upgrade', action="store_true", default=False,
                         help='Perform an upgrade test.')
@@ -348,11 +347,9 @@ def deploy_job():
     if not args.run_startup:
         juju_path = args.new_juju_bin
     else:
-        setup_workspace(args.workspace, dry_run=False, verbose=False)
         env = dict(os.environ)
         env.update({
             'ENV': args.env,
-            'WORKSPACE': args.workspace,
             })
         scripts = os.path.dirname(os.path.abspath(sys.argv[0]))
         subprocess.check_call(
@@ -363,16 +360,14 @@ def deploy_job():
     if juju_path is None:
         raise Exception('Either --new-juju-bin or --run-startup must be'
                         ' supplied.')
-    log_dir = os.path.join(args.workspace, 'artifacts')
     new_path = '%s:%s' % (juju_path, os.environ['PATH'])
-    log_dir = os.path.join(args.workspace, 'artifacts')
     series = args.series
     if series is None:
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, new_path, args.bootstrap_host,
-                       args.machine, args.series, log_dir, args.debug,
+                       args.machine, args.series, args.log_dir, args.debug,
                        args.agent_url)
 
 
