@@ -295,3 +295,16 @@ func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) juju
 func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
 }
+
+// TODO(mjs) - This is a temporary and naive environment destruction
+// function, used to test environment watching. Once the environment
+// destroying work is completed it can go away.
+func RemoveEnvironment(st *State, uuid string) error {
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     uuid,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	return st.runTransaction(ops)
+}
