@@ -41,7 +41,7 @@ func (s *rawConnSuite) SetUpTest(c *gc.C) {
 	s.callCount = 0
 	s.opCallErr = nil
 	s.PatchValue(&doOpCall, func(call opDoer) (*compute.Operation, error) {
-		s.callCount += 1
+		s.callCount++
 		return s.op, s.opCallErr
 	})
 }
@@ -106,7 +106,7 @@ func (s *rawConnSuite) TestConnectionWaitOperationAlreadyDone(c *gc.C) {
 func (s *rawConnSuite) TestConnectionWaitOperationWaiting(c *gc.C) {
 	s.op.Status = StatusRunning
 	s.PatchValue(&doOpCall, func(call opDoer) (*compute.Operation, error) {
-		s.callCount += 1
+		s.callCount++
 		if s.callCount > 1 {
 			s.op.Status = StatusDone
 		}
