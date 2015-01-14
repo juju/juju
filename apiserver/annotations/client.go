@@ -22,7 +22,7 @@ var getState = func(st *state.State) annotationAccess {
 
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
-	Get(args params.Entities) params.AnnotationsGetResults
+	Get(args params.AnnotationsGet) params.AnnotationsGetResults
 	Set(args params.AnnotationsSet) params.ErrorResults
 }
 
@@ -52,12 +52,12 @@ func NewAPI(
 // Get returns annotations for given entities.
 // If annotations cannot be retrieved for a given entity, an error is returned.
 // Each entity is treated independently and, hence, will fail or succeed independently.
-func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
+func (api *API) Get(args params.AnnotationsGet) params.AnnotationsGetResults {
 	entityResults := []params.AnnotationsGetResult{}
-	for _, entity := range args.Entities {
-		anEntityResult := params.AnnotationsGetResult{Entity: entity}
-		if annts, err := api.getEntityAnnotations(entity.Tag); err != nil {
-			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag, "getting")}
+	for _, entity := range args.EntityTags {
+		anEntityResult := params.AnnotationsGetResult{EntityTag: entity}
+		if annts, err := api.getEntityAnnotations(entity); err != nil {
+			anEntityResult.Error = params.ErrorResult{annotateError(err, entity, "getting")}
 		} else {
 			anEntityResult.Annotations = annts
 		}
@@ -70,10 +70,10 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
 	setErrors := []params.ErrorResult{}
 	for _, entityAnnotation := range args.Annotations {
-		err := api.setEntityAnnotations(entityAnnotation.Entity.Tag, entityAnnotation.Annotations)
+		err := api.setEntityAnnotations(entityAnnotation.EntityTag, entityAnnotation.Annotations)
 		if err != nil {
 			setErrors = append(setErrors,
-				params.ErrorResult{Error: annotateError(err, entityAnnotation.Entity.Tag, "setting")})
+				params.ErrorResult{Error: annotateError(err, entityAnnotation.EntityTag, "setting")})
 		}
 	}
 	return params.ErrorResults{Results: setErrors}
