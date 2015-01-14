@@ -267,6 +267,18 @@ class EnvJujuClient:
         args = (charm,)
         return self.juju('deploy', args)
 
+    def quickstart(self, bundle, upload_tools=False):
+        """quickstart, using sudo if necessary."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        else:
+            constraints = 'mem=2G'
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        args = args + ('--no-browser', bundle,)
+        self.juju('quickstart', args, self.env.needs_sudo())
+
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
         reporter = GroupReporter(sys.stdout, 'started')
@@ -613,8 +625,7 @@ class Environment(SimpleEnvironment):
         return self.juju('deploy', *args)
 
     def quickstart(self, bundle):
-        args = ('--no-browser',) + (bundle,)
-        return self.juju('quickstart', *args)
+        return self.client.quickstart(self, bundle)
 
     def juju(self, command, *args):
         return self.client.juju(self, command, args)

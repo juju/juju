@@ -1509,13 +1509,37 @@ class TestEnvironment(TestCase):
         env.client.juju.assert_called_with(
             env, 'deploy', ('mondogb',))
 
-    def test_quickstart(self):
-        env = Environment('foo', MagicMock(), {'type': 'local'})
-        env.client.version = '1.234-76'
-        env.quickstart('bundle:~juju-qa/some-bundle')
-        env.client.juju.assert_called_with(
-            env, 'quickstart',
-            ('--no-browser', 'bundle:~juju-qa/some-bundle',)
+    def test_quickstart_maas(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'maas'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), False
+        )
+
+    def test_quickstart_local(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), True
+        )
+
+    def test_quickstart_nonlocal(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'nonlocal'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), False
         )
 
     def test_set_testing_tools_metadata_url(self):
