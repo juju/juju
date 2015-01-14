@@ -166,7 +166,6 @@ func (rc *fakeConn) GetProject(projectID string) (*compute.Project, error) {
 	}
 	rc.Calls = append(rc.Calls, call)
 
-	logger.Errorf("%d %d", len(rc.Calls), rc.FailOnCall+1)
 	err := rc.Err
 	if len(rc.Calls) != rc.FailOnCall+1 {
 		err = nil
