@@ -157,11 +157,16 @@ func (u *Unit) Name() string {
 
 // unitGlobalKey returns the global database key for the named unit.
 func unitGlobalKey(name string) string {
-	return "u#" + name
+	return "u#" + name + "#charm"
 }
 
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
+	return unitAgentGlobalKey(u.doc.Name)
+}
+
+// globalUnitKey returns the global database key for the units agent.
+func (u *Unit) globalUnitKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
@@ -715,9 +720,17 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
+// Return an agent by its unit name
+func (u *Unit) Agent() StatusSetter {
+	return newUnitAgent(u.st, u.Tag(), u.Name())
+}
+
 // Status returns the status of the unit.
+// This method relies on globalUnitKey instead of globalKey since it is part of
+// the effort to separate Unit from UnitAgent. Now the Status for UnitAgent is in
+// the UnitAgent struct.
 func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
-	doc, err := getStatus(u.st, u.globalKey())
+	doc, err := getStatus(u.st, u.globalUnitKey())
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -727,8 +740,16 @@ func (u *Unit) Status() (status Status, info string, data map[string]interface{}
 	return
 }
 
+func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.SetStatus(status, info, data)
+}
+
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
+// This method relies on globalUnitKey instead of globalKey since it is part of
+// the effort to separate Unit from UnitAgent. Now the SetStatus for UnitAgent is in
+// the UnitAgent struct.
 func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
 	doc, err := newUnitAgentStatusDoc(status, info, data)
 	if err != nil {
@@ -739,7 +760,7 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 	},
-		updateStatusOp(u.st, u.globalKey(), doc.statusDoc),
+		updateStatusOp(u.st, u.globalUnitKey(), doc.statusDoc),
 	}
 	err = u.st.runTransaction(ops)
 	if err != nil {

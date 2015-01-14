@@ -35,6 +35,9 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info
 		return err
 	}
 	switch entity := entity.(type) {
+	case state.AgentUnit:
+		agent := entity.Agent()
+		return agent.SetStatus(state.Status(status), info, data)
 	case state.StatusSetter:
 		return entity.SetStatus(state.Status(status), info, data)
 	default:

@@ -13,6 +13,7 @@ import (
 var (
 	_ StatusSetter = (*Machine)(nil)
 	_ StatusSetter = (*Unit)(nil)
+	_ AgentUnit    = (*Unit)(nil)
 	_ StatusGetter = (*Machine)(nil)
 	_ StatusGetter = (*Unit)(nil)
 )
@@ -129,6 +130,22 @@ func (status Status) Matches(candidate Status) bool {
 		candidate = StatusStopping
 	}
 	return status == candidate
+}
+
+// UnitStatusSetter identifies an entity that has unit status and therefore
+// needs to behave differently when setting status.
+type UnitStatusSetter interface {
+	SetUnitStatus(status Status, info string, data map[string]interface{}) error
+}
+
+// AgentStatusSetter identifies an entity that has agent status and therefore
+// needs to behave differently when setting status.
+type AgentStatusSetter interface {
+	SetAgentStatus(status Status, info string, data map[string]interface{}) error
+}
+
+type AgentUnit interface {
+	Agent() StatusSetter
 }
 
 type StatusSetter interface {
