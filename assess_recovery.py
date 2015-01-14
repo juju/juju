@@ -17,7 +17,6 @@ from deploy_stack import (
     get_machine_dns_name,
     wait_for_state_server_to_shutdown,
 )
-from jujuci import setup_workspace
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
@@ -158,14 +157,9 @@ def main():
         const='ha-backup', help="Test backup/restore of HA.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
-    parser.add_argument('logs', nargs='?', help='Directory to store logs in.',
-                        default=None)
+    parser.add_argument('logs', help='Directory to store logs in.')
     args = parser.parse_args()
     log_dir = args.logs
-    workspace = os.environ.get('WORKSPACE')
-    if log_dir is None and workspace is not None:
-        setup_workspace(workspace, dry_run=False, verbose=False)
-        log_dir = os.path.join(workspace, 'artifacts')
     try:
         setup_juju_path(args.juju_path)
         env = SimpleEnvironment.from_config(args.env_name)
