@@ -2753,3 +2753,10 @@ func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
 }
+
+// TestSummaryStatusWithUnresolvableDns is result of bug# 1410320.
+func (s *StatusSuite) TestSummaryStatusWithUnresolvableDns(c *gc.C) {
+	formatter := &summaryFormatter{}
+	formatter.resolveAndTrackIp("invalidDns")
+	// Test should not panic.
+}
