@@ -274,6 +274,7 @@ def main(argv):
                 dry_run=args.dry_run, verbose=args.verbose)
     except Exception as e:
         print(e)
+        print(getattr(e, 'output'))
         if args.verbose:
             traceback.print_tb(sys.exc_info()[2])
         return 2
