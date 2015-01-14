@@ -49,7 +49,7 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 				// architectures vary the order within params.AnnotationsSet,
 				// simply assert that each entity has its own annotations.
 				// Bug 1409141
-				c.Assert(aParam.Annotations, gc.DeepEquals, setParams[aParam.Entity.Tag])
+				c.Assert(aParam.Annotations, gc.DeepEquals, setParams[aParam.EntityTag])
 			}
 			return nil
 		})
@@ -75,13 +75,12 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Entities, gc.HasLen, 1)
 			c.Assert(args.Entities[0], gc.DeepEquals, params.Entity{"charm"})
-
 			result := response.(*params.AnnotationsGetResults)
 			facadeAnnts := map[string]string{
 				"annotations": "test",
 			}
 			entitiesAnnts := params.AnnotationsGetResult{
-				Entity:      params.Entity{"charm"},
+				EntityTag:   "charm",
 				Annotations: facadeAnnts,
 			}
 			result.Results = []params.AnnotationsGetResult{entitiesAnnts}

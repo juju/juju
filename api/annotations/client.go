@@ -52,7 +52,7 @@ func entitiesAnnotations(annotations map[string]map[string]string) []params.Enti
 	all := []params.EntityAnnotations{}
 	for tag, pairs := range annotations {
 		one := params.EntityAnnotations{
-			Entity:      params.Entity{tag},
+			EntityTag:   tag,
 			Annotations: pairs,
 		}
 		all = append(all, one)
