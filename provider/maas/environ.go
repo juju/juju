@@ -728,12 +728,12 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// setupNetworks prepares a []network.Info for the given instance. Any
-// networks in networksToDisable will be configured as disabled on the
-// machine. Any disabled network interfaces (as discovered from the
-// lshw output for the node) will stay disabled. The interface name
-// discovered as primary is also returned.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.Info, string, error) {
+// setupNetworks prepares a []network.InterfaceInfo for the given
+// instance. Any networks in networksToDisable will be configured as
+// disabled on the machine. Any disabled network interfaces (as
+// discovered from the lshw output for the node) will stay disabled.
+// The interface name discovered as primary is also returned.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.InterfaceInfo, string, error) {
 	// Get the instance network interfaces first.
 	interfaces, primaryIface, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
@@ -745,7 +745,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		return nil, "", errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
-	var tempNetworkInfo []network.Info
+	var tempInterfaceInfo []network.InterfaceInfo
 	for _, netw := range networks {
 		disabled := networksToDisable.Contains(netw.Name)
 		netCIDR := &net.IPNet{
@@ -759,7 +759,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
 		for _, mac := range macs {
 			if ifinfo, ok := interfaces[mac]; ok {
-				tempNetworkInfo = append(tempNetworkInfo, network.Info{
+				tempInterfaceInfo = append(tempInterfaceInfo, network.InterfaceInfo{
 					MACAddress:    mac,
 					InterfaceName: ifinfo.InterfaceName,
 					DeviceIndex:   ifinfo.DeviceIndex,
@@ -774,8 +774,8 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 	}
 	// Verify we filled-in everything for all networks/interfaces
 	// and drop incomplete records.
-	var networkInfo []network.Info
-	for _, info := range tempNetworkInfo {
+	var interfaceInfo []network.InterfaceInfo
+	for _, info := range tempInterfaceInfo {
 		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
@@ -784,10 +784,10 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 			logger.Warningf("ignoring network %q: missing network interface information", info.ProviderId)
 			continue
 		}
-		networkInfo = append(networkInfo, info)
+		interfaceInfo = append(interfaceInfo, info)
 	}
-	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
-	return networkInfo, primaryIface, nil
+	logger.Debugf("node %q network information: %#v", inst.Id(), interfaceInfo)
+	return interfaceInfo, primaryIface, nil
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -881,7 +881,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	args.MachineConfig.Tools = selectedTools[0]
 
-	var networkInfo []network.Info
+	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
 	if err != nil {
 		return nil, err

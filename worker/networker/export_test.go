@@ -10,11 +10,11 @@ import (
 )
 
 // NewConfigFile is a helper use to create a *configFile for testing.
-func NewConfigFile(interfaceName, fileName string, info network.Info, data []byte) ConfigFile {
+func NewConfigFile(interfaceName, fileName string, info network.InterfaceInfo, data []byte) ConfigFile {
 	return &configFile{
 		interfaceName: interfaceName,
 		fileName:      fileName,
-		networkInfo:   info,
+		interfaceInfo: info,
 		data:          data,
 	}
 }

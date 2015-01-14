@@ -24,9 +24,9 @@ type ConfigFile interface {
 	// disk.
 	FileName() string
 
-	// NetworkInfo returns the network.Info associated with this
-	// config file.
-	NetworkInfo() network.Info
+	// InterfaceInfo returns the network.InterfaceInfo associated with
+	// this config file.
+	InterfaceInfo() network.InterfaceInfo
 
 	// ReadData opens the underlying config file and populates the
 	// data.
@@ -36,7 +36,7 @@ type ConfigFile interface {
 	Data() []byte
 
 	// RenderManaged generates network config based on the known
-	// network.Info and returns it.
+	// network.InterfaceInfo and returns it.
 	RenderManaged() []byte
 
 	// NeedsUpdating returns true if this config file needs to be
@@ -89,9 +89,9 @@ type configFile struct {
 	// fileName holds the full path to the config file on disk.
 	fileName string
 
-	// networkInfo holds the network information about this interface,
-	// known by the API server.
-	networkInfo network.Info
+	// interfaceInfo holds the network information about this
+	// interface, known by the API server.
+	interfaceInfo network.InterfaceInfo
 
 	// data holds the raw file contents of the underlying file.
 	data []byte
@@ -127,9 +127,9 @@ func (f *configFile) ReadData() error {
 	return nil
 }
 
-// NetworkInfo implements ConfigFile.NetworkInfo().
-func (f *configFile) NetworkInfo() network.Info {
-	return f.networkInfo
+// InterfaceInfo implements ConfigFile.InterfaceInfo().
+func (f *configFile) InterfaceInfo() network.InterfaceInfo {
+	return f.interfaceInfo
 }
 
 // Data implements ConfigFile.Data().
@@ -138,19 +138,23 @@ func (f *configFile) Data() []byte {
 }
 
 // RenderManaged implements ConfigFile.RenderManaged().
+//
+// TODO(dimitern) Once container addressability work has progressed
+// enough, modify this to render the config taking all fields of
+// network.InterfaceInfo into account.
 func (f *configFile) RenderManaged() []byte {
 	var data bytes.Buffer
-	actualName := f.networkInfo.ActualInterfaceName()
+	actualName := f.interfaceInfo.ActualInterfaceName()
 	logger.Debugf("rendering managed config for %q", actualName)
 	fmt.Fprintf(&data, ManagedHeader)
 	fmt.Fprintf(&data, "auto %s\n", actualName)
 	fmt.Fprintf(&data, "iface %s inet dhcp\n", actualName)
 
 	// Add vlan-raw-device line for VLAN interfaces.
-	if f.networkInfo.IsVLAN() {
-		// network.Info.InterfaceName is always the physical device name,
-		// i.e. "eth1" for VLAN interface "eth1.42".
-		fmt.Fprintf(&data, "\tvlan-raw-device %s\n", f.networkInfo.InterfaceName)
+	if f.interfaceInfo.IsVLAN() {
+		// network.InterfaceInfo.InterfaceName is always the physical
+		// device name, i.e. "eth1" for VLAN interface "eth1.42".
+		fmt.Fprintf(&data, "\tvlan-raw-device %s\n", f.interfaceInfo.InterfaceName)
 	}
 	fmt.Fprintf(&data, "\n")
 	return data.Bytes()

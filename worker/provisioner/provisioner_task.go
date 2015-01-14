@@ -537,7 +537,7 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 	return nil
 }
 
-func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.Info) (
+func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.InterfaceInfo) (
 	networks []params.Network, ifaces []params.NetworkInterface) {
 	if len(networkInfo) == 0 {
 		return nil, nil
@@ -594,6 +594,11 @@ func (task *provisionerTask) startMachine(
 	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
 	disks := result.Disks
 
+	// TODO(dimitern) In a newer Provisioner API version, change
+	// SetInstanceInfo or add a new method that takes and saves in
+	// state all the information available on a network.InterfaceInfo
+	// for each interface, so we can later manage interfaces
+	// dynamically at run-time.
 	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, disks)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
