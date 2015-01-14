@@ -120,7 +120,26 @@ func (s *instanceSuite) TestInstanceStatusDown(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
-	// TODO(wwitzel3) add test after we finish conn_* suite of tests
+	s.FakeConn.Instance = &s.RawInstanceFull
+	google.SetRawInstance(&s.Instance, compute.Instance{})
+
+	err := s.Instance.Refresh(s.Conn)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(google.ExposeRawInstance(&s.Instance), jc.DeepEquals, &s.RawInstanceFull)
+}
+
+func (s *instanceSuite) TestInstanceRefreshAPI(c *gc.C) {
+	s.FakeConn.Instance = &s.RawInstanceFull
+
+	err := s.Instance.Refresh(s.Conn)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "GetInstance")
+	c.Check(s.FakeConn.Calls[0].ProjectID, gc.Equals, "spam")
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "a-zone")
+	c.Check(s.FakeConn.Calls[0].ID, gc.Equals, "spam")
 }
 
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
