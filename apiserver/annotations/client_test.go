@@ -66,14 +66,14 @@ func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
 
 func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 	entity := "charm-invalid"
-	entities := []string{entity}
+	entities := params.Entities{[]params.Entity{params.Entity{entity}}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
+		params.AnnotationsSet{Annotations: constructSetParameters([]string{entity}, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*permission denied.*")
 
-	got := s.annotationsApi.Get(params.AnnotationsGet{EntityTags: entities})
+	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
@@ -127,20 +127,20 @@ func (s *annotationSuite) makeRelation(c *gc.C) (*state.Service, *state.Relation
 func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	_, relation := s.makeRelation(c)
 
-	tag := relation.Tag()
-	entity := tag.String()
-	entities := []string{entity}
+	tag := relation.Tag().String()
+	entity := params.Entity{tag}
+	entities := params.Entities{[]params.Entity{entity}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
+		params.AnnotationsSet{Annotations: constructSetParameters([]string{tag}, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
 
-	got := s.annotationsApi.Get(params.AnnotationsGet{EntityTags: entities})
+	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
-	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
+	c.Assert(aResult.EntityTag, gc.DeepEquals, tag)
 	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
 }
 
@@ -181,7 +181,9 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	c.Assert(oneError, gc.Matches, fmt.Sprintf(".*%q.*", rTag))
 	c.Assert(oneError, gc.Matches, ".*does not support annotations.*")
 
-	got := s.annotationsApi.Get(params.AnnotationsGet{EntityTags: entities})
+	got := s.annotationsApi.Get(params.Entities{[]params.Entity{
+		params.Entity{rEntity},
+		params.Entity{sEntity}}})
 	c.Assert(got.Results, gc.HasLen, 2)
 
 	var rGet, sGet bool
@@ -210,7 +212,7 @@ func (s *annotationSuite) testSetGetEntitiesAnnotations(c *gc.C, tag names.Tag) 
 		if t.err != "" {
 			continue
 		}
-		aResult := s.assertGetEntityAnnotations(c, entities, entity, t.expected)
+		aResult := s.assertGetEntityAnnotations(c, params.Entities{[]params.Entity{params.Entity{entity}}}, entity, t.expected)
 		s.cleanupEntityAnnotations(c, entities, aResult)
 	}
 }
@@ -241,10 +243,10 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 }
 
 func (s *annotationSuite) assertGetEntityAnnotations(c *gc.C,
-	entities []string,
+	entities params.Entities,
 	entity string,
 	expected map[string]string) params.AnnotationsGetResult {
-	got := s.annotationsApi.Get(params.AnnotationsGet{EntityTags: entities})
+	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]

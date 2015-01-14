@@ -20,11 +20,6 @@ type AnnotationsSet struct {
 	Annotations []EntityAnnotations
 }
 
-// AnnotationsGet stores parameters for making Get call on Annotations client.
-type AnnotationsGet struct {
-	EntityTags []string
-}
-
 // EntityAnnotations stores annotations for an entity.
 type EntityAnnotations struct {
 	EntityTag   string

@@ -22,7 +22,7 @@ var getState = func(st *state.State) annotationAccess {
 
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
-	Get(args params.AnnotationsGet) params.AnnotationsGetResults
+	Get(args params.Entities) params.AnnotationsGetResults
 	Set(args params.AnnotationsSet) params.ErrorResults
 }
 
@@ -52,12 +52,12 @@ func NewAPI(
 // Get returns annotations for given entities.
 // If annotations cannot be retrieved for a given entity, an error is returned.
 // Each entity is treated independently and, hence, will fail or succeed independently.
-func (api *API) Get(args params.AnnotationsGet) params.AnnotationsGetResults {
+func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 	entityResults := []params.AnnotationsGetResult{}
-	for _, entity := range args.EntityTags {
-		anEntityResult := params.AnnotationsGetResult{EntityTag: entity}
-		if annts, err := api.getEntityAnnotations(entity); err != nil {
-			anEntityResult.Error = params.ErrorResult{annotateError(err, entity, "getting")}
+	for _, entity := range args.Entities {
+		anEntityResult := params.AnnotationsGetResult{EntityTag: entity.Tag}
+		if annts, err := api.getEntityAnnotations(entity.Tag); err != nil {
+			anEntityResult.Error = params.ErrorResult{annotateError(err, entity.Tag, "getting")}
 		} else {
 			anEntityResult.Annotations = annts
 		}

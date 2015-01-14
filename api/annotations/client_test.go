@@ -71,11 +71,10 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 			c.Check(objType, gc.Equals, "Annotations")
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Get")
-			args, ok := a.(params.AnnotationsGet)
+			args, ok := a.(params.Entities)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(args.EntityTags, gc.HasLen, 1)
-			c.Assert(args.EntityTags[0], gc.Equals, "charm")
-
+			c.Assert(args.Entities, gc.HasLen, 1)
+			c.Assert(args.Entities[0], gc.DeepEquals, params.Entity{"charm"})
 			result := response.(*params.AnnotationsGetResults)
 			facadeAnnts := map[string]string{
 				"annotations": "test",
