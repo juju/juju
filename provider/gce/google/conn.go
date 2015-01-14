@@ -4,27 +4,55 @@
 package google
 
 import (
-	"path"
-	"time"
-
 	"code.google.com/p/google-api-go-client/compute/v1"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 )
 
-// These are attempt strategies used in waitOperation.
-var (
-	// TODO(ericsnow) Tune the timeouts and delays.
-
-	attemptsLong = utils.AttemptStrategy{
-		Total: 300 * time.Second, // 5 minutes
-		Delay: 2 * time.Second,
-	}
-	attemptsShort = utils.AttemptStrategy{
-		Total: 60 * time.Second,
-		Delay: 1 * time.Second,
-	}
-)
+// rawConnectionWrapper facilitates mocking out the GCE API during tests.
+type rawConnectionWrapper interface {
+	// GetProject sends a request to the GCE API for info about the
+	// specified project. If the project does not exist then an error
+	// will be returned.
+	GetProject(projectID string) (*compute.Project, error)
+	// GetInstance sends a request to the GCE API for info about the
+	// specified instance. If the instance does not exist then an error
+	// will be returned.
+	GetInstance(projectID, id, zone string) (*compute.Instance, error)
+	// ListInstances sends a request to the GCE API for a list of all
+	// instances in project for which the name starts with the provided
+	// prefix. The result is also limited to those instances with one of
+	// the specified statuses (if any).
+	ListInstances(projectID, prefix string, status ...string) ([]*compute.Instance, error)
+	// AddInstance sends a request to GCE to add a new instance to the
+	// given project, with the provided instance data. The call blocks
+	// until the instance is created or the request fails.
+	AddInstance(projectID, zone string, spec *compute.Instance) error
+	// RemoveInstance sends a request to the GCE API to remove the instance
+	// with the provided ID (in the specified zone). The call blocks until
+	// the instance is removed (or the request fails).
+	RemoveInstance(projectID, id, zone string) error
+	// GetFirewall sends an API request to GCE for the information about
+	// the named firewall and returns it. If the firewall is not found,
+	// errors.NotFound is returned.
+	GetFirewall(projectID, name string) (*compute.Firewall, error)
+	// AddFirewall requests GCE to add a firewall with the provided info.
+	// If the firewall already exists then an error will be returned.
+	// The call blocks until the firewall is added or the request fails.
+	AddFirewall(projectID string, firewall *compute.Firewall) error
+	// UpdateFirewall requests GCE to update the named firewall with the
+	// provided info, overwriting the existing data. If the firewall does
+	// not exist then an error will be returned. The call blocks until the
+	// firewall is updated or the request fails.
+	UpdateFirewall(projectID, name string, firewall *compute.Firewall) error
+	// RemoveFirewall removed the named firewall from the project. If it
+	// does not exist then this is a noop. The call blocks until the
+	// firewall is added or the request fails.
+	RemoveFirewall(projectID, name string) error
+	// ListAvailabilityZones returns the list of availability zones for a given
+	// GCE region. If none are found the the list is empty. Any failure in
+	// the low-level request is returned as an error.
+	ListAvailabilityZones(projectID, region string) ([]*compute.Zone, error)
+}
 
 // TODO(ericsnow) Add specific error types for common failures
 // (e.g. BadRequest, RequestFailed, RequestError, ConnectionFailed)?
