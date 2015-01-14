@@ -470,6 +470,38 @@ class TestEnvJujuClient(TestCase):
                         'Timed out waiting for voting to be enabled.'):
                     client.wait_for_ha()
 
+    def test_wait_for_deploy_started(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'started'},
+                },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'baz': 'qux'}
+                    }
+                }
+            }
+        })
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            client.wait_for_deploy_started()
+
+    def test_wait_for_deploy_started_timeout(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'started'},
+                },
+            'services': {},
+            })
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch('jujupy.until_timeout', lambda x: range(0)):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for services to start.'):
+                    client.wait_for_deploy_started()
+
     def test_wait_for_version(self):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
@@ -1077,6 +1109,41 @@ class TestStatus(TestCase):
         ]
         self.assertItemsEqual(expected, status.agent_items())
 
+    def test_get_service_count_zero(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+        }, '')
+        self.assertEqual(0, status.get_service_count())
+
+    def test_get_service_count(self):
+        status = Status({
+            'machines': {
+                '1': {'agent-state': 'good'},
+                '2': {},
+            },
+            'services': {
+                'jenkins': {
+                    'units': {
+                        'jenkins/1': {'agent-state': 'bad'},
+                    }
+                },
+                'dummy-sink': {
+                    'units': {
+                        'dummy-sink/0': {'agent-state': 'started'},
+                    }
+                },
+                'juju-reports': {
+                    'units': {
+                        'juju-reports/0': {'agent-state': 'pending'},
+                    }
+                }
+            }
+        }, '')
+        self.assertEqual(3, status.get_service_count())
+
     def test_agent_states(self):
         status = Status({
             'machines': {
@@ -1441,6 +1508,39 @@ class TestEnvironment(TestCase):
         env.deploy('mondogb')
         env.client.juju.assert_called_with(
             env, 'deploy', ('mondogb',))
+
+    def test_quickstart_maas(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'maas'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G arch=amd64', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), False
+        )
+
+    def test_quickstart_local(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), True
+        )
+
+    def test_quickstart_nonlocal(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'nonlocal'}),
+                               '1.23-series-arch', None)
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client.quickstart('bundle:~juju-qa/some-bundle')
+        mock.assert_called_with(
+            'quickstart',
+            ('--constraints', 'mem=2G', '--no-browser',
+             'bundle:~juju-qa/some-bundle'), False
+        )
 
     def test_set_testing_tools_metadata_url(self):
         client = JujuClientDevel(None, None)

@@ -107,6 +107,9 @@ class JujuClientDevel:
         """Return the value of the environment's configured option."""
         return self.get_env_client(environment).get_env_option(option)
 
+    def quickstart(self, environment, bundle):
+        return self.get_env_client(environment).quickstart(bundle)
+
     def set_env_option(self, environment, option, value):
         """Set the value of the option in the environment."""
         return self.get_env_client(environment).set_env_option(option, value)
@@ -267,6 +270,18 @@ class EnvJujuClient:
         args = (charm,)
         return self.juju('deploy', args)
 
+    def quickstart(self, bundle, upload_tools=False):
+        """quickstart, using sudo if necessary."""
+        if self.env.maas:
+            constraints = 'mem=2G arch=amd64'
+        else:
+            constraints = 'mem=2G'
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        args = args + ('--no-browser', bundle,)
+        self.juju('quickstart', args, self.env.needs_sudo())
+
     def wait_for_started(self, timeout=1200, start=None):
         """Wait until all unit/machine agents are 'started'."""
         reporter = GroupReporter(sys.stdout, 'started')
@@ -326,6 +341,19 @@ class EnvJujuClient:
         else:
             raise Exception('Timed out waiting for voting to be enabled.')
 
+    def wait_for_deploy_started(self, service_count=1, timeout=1200):
+        """Wait until service_count services are 'started'.
+
+        :param service_count: The number of services for which to wait.
+        :param timeout: The number of seconds to wait.
+        """
+        for remaining in until_timeout(timeout):
+            status = self.get_status()
+            if status.get_service_count() >= service_count:
+                return
+        else:
+            raise Exception('Timed out waiting for services to start.')
+
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
         version_parts = self.version.split('-')
@@ -378,6 +406,11 @@ def ensure_dir(path):
 def bootstrap_from_env(juju_home, client):
     with temp_bootstrap_env(juju_home, client):
         client.bootstrap()
+
+
+def quickstart_from_env(juju_home, client, bundle):
+    with temp_bootstrap_env(juju_home, client):
+        client.quickstart(bundle)
 
 
 def uniquify_local(env):
@@ -519,6 +552,9 @@ class Status:
                 raise ErroredUnit(entries[0],  state)
         return states
 
+    def get_service_count(self):
+        return len(self.status.get('services', {}))
+
     def get_agent_versions(self):
         versions = defaultdict(set)
         for item_name, item in self.agent_items():
@@ -596,11 +632,23 @@ class Environment(SimpleEnvironment):
         args = (charm,)
         return self.juju('deploy', *args)
 
+    def quickstart(self, bundle):
+        return self.client.quickstart(self, bundle)
+
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
     def get_status(self, timeout=60):
         return self.client.get_status(self, timeout)
+
+    def wait_for_deploy_started(self, service_count=1, timeout=1200):
+        """Wait until service_count services are 'started'.
+
+        :param service_count: The number of services for which to wait.
+        :param timeout: The number of seconds to wait.
+        """
+        return self.client.get_env_client(self).wait_for_deploy_started(
+            service_count, timeout)
 
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
