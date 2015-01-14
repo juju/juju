@@ -651,6 +651,22 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	// Ensure node will not be reported as deployed by changing its status.
+	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
+}
+
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Disable auto-uploading by setting the agent version.
