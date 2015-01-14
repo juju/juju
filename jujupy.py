@@ -107,6 +107,9 @@ class JujuClientDevel:
         """Return the value of the environment's configured option."""
         return self.get_env_client(environment).get_env_option(option)
 
+    def quickstart(self, environment, bundle):
+        return self.get_env_client(environment).quickstart(bundle)
+
     def set_env_option(self, environment, option, value):
         """Set the value of the option in the environment."""
         return self.get_env_client(environment).set_env_option(option, value)
