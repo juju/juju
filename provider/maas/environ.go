@@ -958,27 +958,21 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}, nil
 }
 
-func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) (err error) {
-	var statusValues map[string]string
-	deployed := false
+func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 	systemId := extractSystemId(id)
 	for a := longAttempt.Start(); a.Next(); {
-		statusValues, err = environ.deploymentStatus(id)
+		statusValues, err := environ.deploymentStatus(id)
+		if errors.IsNotImplemented(err) {
+			return nil
+		}
 		if err != nil {
-			break
+			return errors.Trace(err)
 		}
 		if statusValues[systemId] == "Deployed" {
-			deployed = true
-			break
+			return nil
 		}
 	}
-	if errors.IsNotImplemented(err) || deployed {
-		return nil
-	}
-	if err == nil {
-		return errors.Errorf("instance %q is started but not deployed", id)
-	}
-	return errors.Trace(err)
+	return errors.Errorf("instance %q is started but not deployed", id)
 }
 
 // deploymentStatus returns the deployment state of MAAS instances with
