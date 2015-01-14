@@ -22,9 +22,9 @@ For the SET annotations call that looks similar to this:
             "Request": "Set",
             "Params": {
                  "Annotations": {{
-                    "Entity": a, "Annotations": pairs1
+                    "EntityTag": a, "Annotations": pairs1
                   },{
-                    "Entity": b, "Annotations": pairs2
+                    "EntityTag": b, "Annotations": pairs2
                   }}
     }}......
 GET
@@ -35,15 +35,12 @@ Corresponding GET annotations call may look like:
             "Type": "Annotations",
             "Request": "Get",
             "Params": {
-                 "Entities": {{
-                    "Tag": a},{
-                    "Tag": b}}
-    }}......
+                 "EntityTags": {a, b}}}......
 Returning
     {
     "Results": {
-          {"Entity": a, "Annotations": pairs1, "Error": nil},
-          {"Entity": b, "Annotations": pairs2, "Error": nil},
+          {"EntityTag": a, "Annotations": pairs1, "Error": nil},
+          {"EntityTag": b, "Annotations": pairs2, "Error": nil},
 
     }}
 
