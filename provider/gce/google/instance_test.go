@@ -65,7 +65,7 @@ func (s *instanceSuite) TestInstanceSpecCreateAPI(c *gc.C) {
 		Mode:       "READ_WRITE",
 		AutoDelete: true,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
-			DiskSizeGb:  1,
+			DiskSizeGb:  5,
 			SourceImage: "some/image/path",
 		},
 	}}
@@ -96,14 +96,14 @@ func (s *instanceSuite) TestInstanceSpec(c *gc.C) {
 func (s *instanceSuite) TestInstanceRootDiskGB(c *gc.C) {
 	size := s.Instance.RootDiskGB()
 
-	c.Check(size, gc.Equals, int64(1))
+	c.Check(size, gc.Equals, uint64(5))
 }
 
 func (s *instanceSuite) TestInstanceRootDiskGBNilSpec(c *gc.C) {
 	inst := google.Instance{}
 	size := inst.RootDiskGB()
 
-	c.Check(size, gc.Equals, int64(0))
+	c.Check(size, gc.Equals, uint64(0))
 }
 
 func (s *instanceSuite) TestInstanceStatus(c *gc.C) {

@@ -50,7 +50,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.FakeConn = fake
 
 	s.DiskSpec = DiskSpec{
-		SizeHintGB: 1,
+		SizeHintGB: 5,
 		ImageURL:   "some/image/path",
 		Boot:       true,
 		Scratch:    false,

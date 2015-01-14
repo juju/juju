@@ -206,8 +206,8 @@ func getMetadata(args environs.StartInstanceParams) (map[string]string, error) {
 // constraints.
 func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.DiskSpec {
 	size := common.MinRootDiskSizeGiB
-	if cons.RootDisk != nil && *cons.RootDisk > uint64(size) {
-		size = int64(common.MiBToGiB(*cons.RootDisk))
+	if cons.RootDisk != nil && *cons.RootDisk > size {
+		size = common.MiBToGiB(*cons.RootDisk)
 	}
 	dSpec := google.DiskSpec{
 		SizeHintGB: size,
@@ -225,7 +225,7 @@ func getDisks(spec *instances.InstanceSpec, cons constraints.Value) []google.Dis
 // getHardwareCharacteristics compiles hardware-related details about
 // the given instance and relative to the provided spec and returns it.
 func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
-	rootDiskMB := uint64(inst.base.RootDiskGB()) * 1024
+	rootDiskMB := inst.base.RootDiskGB() * 1024
 	hwc := instance.HardwareCharacteristics{
 		Arch:             &spec.Image.Arch,
 		Mem:              &spec.InstanceType.Mem,

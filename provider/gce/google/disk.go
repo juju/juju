@@ -24,16 +24,19 @@ const (
 	// MinDiskSizeGB is the minimum/default size (in megabytes) for
 	// GCE disks.
 	//
-	// Note: GCE does not currently have a minimum disk size.
-	MinDiskSizeGB int64 = 0
+	// Note: GCE does not currently have an official minimum disk size.
+	// However, a size of 0 is not viable so we use the next lowest
+	// value.
+	MinDiskSizeGB uint64 = 1
 )
 
 // DiskSpec holds all the data needed to request a new disk on GCE.
 // Some fields are used only for attached disks (i.e. in association
 // with instances).
 type DiskSpec struct {
-	// sizeHintGB is the requested disk size in Gigabytes.
-	SizeHintGB int64
+	// sizeHintGB is the requested disk size in Gigabytes. It must be
+	// greater than 0.
+	SizeHintGB uint64
 	// ImageURL is the location of the image to which the disk should
 	// be initialized.
 	ImageURL string
@@ -59,8 +62,7 @@ func (ds *DiskSpec) TooSmall() bool {
 // SizeGB returns the disk size to use for a new disk. The size hint
 // is returned if it isn't too small (otherwise the min size is
 // returned).
-// TODO(ericsnow) Return uint64?
-func (ds *DiskSpec) SizeGB() int64 {
+func (ds *DiskSpec) SizeGB() uint64 {
 	size := ds.SizeHintGB
 	if ds.TooSmall() {
 		size = MinDiskSizeGB
@@ -73,6 +75,7 @@ func (ds *DiskSpec) SizeGB() int64 {
 //
 // Npte: Not all AttachedDisk fields are set.
 func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
+	// TODO(ericsnow) Fail if SizeHintGB is 0?
 	diskType := diskTypePersistent // The default.
 	if ds.Scratch {
 		diskType = diskTypeScratch
@@ -89,7 +92,7 @@ func (ds *DiskSpec) newAttached() *compute.AttachedDisk {
 		AutoDelete: ds.AutoDelete,
 		InitializeParams: &compute.AttachedDiskInitializeParams{
 			// DiskName (defaults to instance name)
-			DiskSizeGb: ds.SizeGB(),
+			DiskSizeGb: int64(ds.SizeGB()),
 			// DiskType (defaults to pd-standard, pd-ssd, local-ssd)
 			SourceImage: ds.ImageURL,
 		},
@@ -123,15 +126,15 @@ func rootDisk(inst interface{}) *compute.AttachedDisk {
 // with compute.Disk and compute.AttachedDisk. For attached disks the
 // size is pulled from the data used initialize it. If that data is not
 // available then an error is returned.
-func diskSizeGB(disk interface{}) (int64, error) {
+func diskSizeGB(disk interface{}) (uint64, error) {
 	switch typed := disk.(type) {
 	case *compute.Disk:
-		return typed.SizeGb, nil
+		return uint64(typed.SizeGb), nil
 	case *compute.AttachedDisk:
 		if typed.InitializeParams == nil {
 			return 0, errors.Errorf("attached disk missing init params: %v", disk)
 		}
-		return typed.InitializeParams.DiskSizeGb, nil
+		return uint64(typed.InitializeParams.DiskSizeGb), nil
 	default:
 		return 0, errors.Errorf("disk has unrecognized type: %v", disk)
 	}

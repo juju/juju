@@ -119,7 +119,7 @@ func (gi Instance) Spec() *InstanceSpec {
 
 // RootDiskGB returns the size of the instance's root disk. If it
 // cannot be determined then 0 is returned.
-func (gi Instance) RootDiskGB() int64 {
+func (gi Instance) RootDiskGB() uint64 {
 	if gi.spec == nil {
 		return 0
 	}

@@ -9,7 +9,7 @@ const (
 	// size of the initial image, any updates, and future application
 	// data.
 	// TODO(wwitzel3) make sure this value is sensible?
-	MinRootDiskSizeGiB int64 = 10
+	MinRootDiskSizeGiB uint64 = 10
 )
 
 // MiBToGiB converts the provided megabytes (base-2) into the nearest

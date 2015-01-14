@@ -13,7 +13,6 @@ import (
 
 type diskSuite struct {
 	google.BaseSuite
-	spec google.DiskSpec
 }
 
 var _ = gc.Suite(&diskSuite{})
@@ -25,7 +24,7 @@ func (s *diskSuite) TestDiskSpecTooSmall(c *gc.C) {
 }
 
 func (s *diskSuite) TestDiskSpecTooSmallTrue(c *gc.C) {
-	s.DiskSpec.SizeHintGB = -1
+	s.DiskSpec.SizeHintGB = 0
 	tooSmall := s.DiskSpec.TooSmall()
 
 	c.Check(tooSmall, jc.IsTrue)
@@ -34,14 +33,14 @@ func (s *diskSuite) TestDiskSpecTooSmallTrue(c *gc.C) {
 func (s *diskSuite) TestDiskSpecSizeGB(c *gc.C) {
 	size := s.DiskSpec.SizeGB()
 
-	c.Check(size, gc.Equals, int64(1))
+	c.Check(size, gc.Equals, uint64(5))
 }
 
 func (s *diskSuite) TestDiskSpecSizeGBMin(c *gc.C) {
-	s.DiskSpec.SizeHintGB = -1
+	s.DiskSpec.SizeHintGB = 0
 	size := s.DiskSpec.SizeGB()
 
-	c.Check(size, gc.Equals, int64(0))
+	c.Check(size, gc.Equals, uint64(1))
 }
 
 type attachedInfo struct {
@@ -169,14 +168,14 @@ func (s *diskSuite) TestDiskSizeGBCompute(c *gc.C) {
 	size, err := google.DiskSizeGB(&disk)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(size, gc.Equals, int64(1))
+	c.Check(size, gc.Equals, uint64(1))
 }
 
 func (s *diskSuite) TestDiskSizeGBAttached(c *gc.C) {
 	size, err := google.DiskSizeGB(&s.AttachedDisk)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(size, gc.Equals, int64(1))
+	c.Check(size, gc.Equals, uint64(1))
 }
 
 func (s *diskSuite) TestDiskSizeGBAttachedNilInit(c *gc.C) {
