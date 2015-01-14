@@ -33,7 +33,12 @@ Corresponding GET annotations call may look like:
             "Type": "Annotations",
             "Request": "Get",
             "Params": {
-                 "EntityTags": {a, b}}}......
+                 "Entities": {
+                     {Entity {"Tag": a}},
+                     {Entity {"Tag": b},
+                     }
+    }}......
+
 Returning
 
     {
@@ -42,4 +47,3 @@ Returning
           {"EntityTag": b, "Annotations": pairs2, "Error": nil},
 
     }}
-
