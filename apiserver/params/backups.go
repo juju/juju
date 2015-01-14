@@ -78,3 +78,12 @@ type RestoreArgs struct {
 	NewInstTag     names.Tag
 	NewInstSeries  string
 }
+
+// RestoreAPIArgs Holds the backup file or id and the machine to
+// be used for the restore process.
+type RestoreAPIArgs struct {
+	// BackupId holds the id of the backup in server if any
+	BackupId string
+	// Machine holds the machine where the backup is going to be restored
+	Machine string
+}
