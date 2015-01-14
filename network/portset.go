@@ -239,7 +239,10 @@ func (ps PortSet) Intersection(other PortSet) PortSet {
 	for protocol, value := range ps.values {
 		ports, ok := other.values[protocol]
 		if ok {
-			result.values[protocol] = value.Intersection(ports)
+			newValue := value.Intersection(ports)
+			if !newValue.IsEmpty() {
+				result.values[protocol] = newValue
+			}
 		}
 	}
 	return result
@@ -254,7 +257,10 @@ func (ps PortSet) Difference(other PortSet) PortSet {
 		if !ok {
 			result.values[protocol] = value
 		} else {
-			result.values[protocol] = value.Difference(ports)
+			newValue := value.Difference(ports)
+			if !newValue.IsEmpty() {
+				result.values[protocol] = newValue
+			}
 		}
 	}
 	return result

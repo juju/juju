@@ -98,6 +98,15 @@ func (s *PortSetSuite) TestPortSetIntersection(c *gc.C) {
 	s.checkPortSetTCP(c, result, 80, 81)
 }
 
+func (s *PortSetSuite) TestPortSetIntersectionEmpty(c *gc.C) {
+	portSet1 := network.NewPortSet(s.portRange1)
+	portSet2 := network.NewPortSet(s.portRange2)
+	result := portSet1.Intersection(portSet2)
+	isEmpty := result.IsEmpty()
+
+	c.Check(isEmpty, jc.IsTrue)
+}
+
 func (s *PortSetSuite) TestPortSetDifference(c *gc.C) {
 	s.portRange2.ToPort = 83
 	portSet1 := network.NewPortSet(s.portRange2)
@@ -105,6 +114,14 @@ func (s *PortSetSuite) TestPortSetDifference(c *gc.C) {
 	result := portSet1.Difference(portSet2)
 
 	s.checkPortSetTCP(c, result, 82, 83)
+}
+
+func (s *PortSetSuite) TestPortSetDifferenceEmpty(c *gc.C) {
+	portSet1 := network.NewPortSet(s.portRange2)
+	result := portSet1.Difference(portSet1)
+	isEmpty := result.IsEmpty()
+
+	c.Check(isEmpty, jc.IsTrue)
 }
 
 func (s *PortSetSuite) TestPortSetSize(c *gc.C) {
