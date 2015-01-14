@@ -55,7 +55,7 @@ type InstanceSpec struct {
 // of the provided zones.
 func (is InstanceSpec) Create(conn *Connection, zones []string) (*Instance, error) {
 	raw := is.raw()
-	if err := addInstance(conn, raw, is.Type, zones); err != nil {
+	if err := conn.addInstance(raw, is.Type, zones); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -74,10 +74,6 @@ func (is InstanceSpec) raw() *compute.Instance {
 		Tags:              &compute.Tags{Items: is.Tags},
 		// MachineType is set in the addInstance call.
 	}
-}
-
-var addInstance = func(conn *Connection, raw *compute.Instance, typ string, zones []string) error {
-	return conn.addInstance(raw, typ, zones)
 }
 
 func (is InstanceSpec) disks() []*compute.AttachedDisk {
@@ -142,7 +138,7 @@ func (gi Instance) Status() string {
 // Refresh updates the instance with its current data, utilizing the
 // provided connection to request it.
 func (gi *Instance) Refresh(conn *Connection) error {
-	raw, err := conn.instance(gi.Zone, gi.ID)
+	raw, err := conn.raw.GetInstance(conn.ProjectID, gi.Zone, gi.ID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -189,26 +185,6 @@ func (gi Instance) Addresses() []network.Address {
 // Metadata returns the user-specified metadata for the instance.
 func (gi Instance) Metadata() map[string]string {
 	return unpackMetadata(gi.raw.Metadata)
-}
-
-func filterInstances(instances []Instance, statuses ...string) []Instance {
-	var results []Instance
-	for _, inst := range instances {
-		if !checkInstStatus(inst, statuses...) {
-			continue
-		}
-		results = append(results, inst)
-	}
-	return results
-}
-
-func checkInstStatus(inst Instance, statuses ...string) bool {
-	for _, status := range statuses {
-		if inst.Status() == status {
-			return true
-		}
-	}
-	return false
 }
 
 // FormatAuthorizedKeys returns our authorizedKeys with

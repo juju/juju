@@ -8,25 +8,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// instance sends a request to GCE for a low-level snapshot of data
-// about an instance and returns it.
-func (gce *Connection) instance(zone, id string) (*compute.Instance, error) {
-	svc := Services{
-		InstanceGet: gce.raw.Instances.Get(gce.ProjectID, zone, id),
-	}
-
-	result, err := doCall(svc)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	inst, ok := result.(*compute.Instance)
-	if !ok {
-		return nil, errors.New("unable to convert result to compute.Instance")
-	}
-	return inst, nil
-}
-
 // addInstance sends a request to GCE to add a new instance to the
 // connection's project, with the provided instance data and machine
 // type. Each of the provided zones is attempted and the first available
@@ -34,30 +15,22 @@ func (gce *Connection) instance(zone, id string) (*compute.Instance, error) {
 // then an error is returned. The instance that was passed in is updated
 // with the new instance's data upon success. The call blocks until the
 // instance is created or the request fails.
-func (gce *Connection) addInstance(inst *compute.Instance, machineType string, zones []string) error {
+// TODO(ericsnow) Return a new inst.
+func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType string, zones []string) error {
 	for _, zoneName := range zones {
+		var waitErr error
+		inst := *requestedInst
 		inst.MachineType = resolveMachineType(zoneName, machineType)
-		call := gce.raw.Instances.Insert(
-			gce.ProjectID,
-			zoneName,
-			inst,
-		)
-		svc := Services{InstanceInsert: call}
-		result, err := doCall(svc)
-		if err != nil {
+		err := gce.raw.AddInstance(gce.ProjectID, zoneName, &inst)
+		if isWaitError(err) {
+			waitErr = err
+		} else if err != nil {
 			// We are guaranteed the insert failed at the point.
 			return errors.Annotate(err, "sending new instance request")
 		}
 
-		operation, ok := result.(*compute.Operation)
-		if !ok {
-			return errors.New("unable to convert result to compute.Operation")
-		}
-
-		waitErr := gce.waitOperation(operation, attemptsLong)
-
 		// Check if the instance was created.
-		realized, err := rawInstance(gce, zoneName, inst.Name)
+		realized, err := gce.raw.GetInstance(gce.ProjectID, zoneName, inst.Name)
 		if err != nil {
 			if waitErr == nil {
 				return errors.Trace(err)
@@ -68,14 +41,10 @@ func (gce *Connection) addInstance(inst *compute.Instance, machineType string, z
 		}
 
 		// Success!
-		*inst = *realized
+		*requestedInst = *realized
 		return nil
 	}
 	return errors.Errorf("not able to provision in any zone")
-}
-
-var rawInstance = func(conn *Connection, zone, id string) (*compute.Instance, error) {
-	return conn.instance(zone, id)
 }
 
 // Instances sends a request to the GCE API for a list of all instances
@@ -83,75 +52,31 @@ var rawInstance = func(conn *Connection, zone, id string) (*compute.Instance, er
 // provided prefix. The result is also limited to those instances with
 // one of the specified statuses (if any).
 func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance, error) {
-	call := gce.raw.Instances.AggregatedList(gce.ProjectID)
-	call = call.Filter("name eq " + prefix + ".*")
-	svc := Services{InstanceList: call}
-
-	// TODO(ericsnow) Add a timeout?
-	var results []Instance
-	for {
-		result, err := doCall(svc)
-		if err != nil {
-			return results, errors.Trace(err)
-		}
-
-		raw, ok := result.(*compute.InstanceAggregatedList)
-		if !ok {
-			return nil, errors.New("unable to convert result to compute.InstanceList")
-		}
-
-		for _, item := range raw.Items {
-			for _, rawInst := range item.Instances {
-				inst := newInstance(rawInst)
-				results = append(results, *inst)
-			}
-		}
-
-		if raw.NextPageToken == "" {
-			break
-		}
-		svc.InstanceList = instsNextPage(call, raw.NextPageToken)
+	rawInsts, err := gce.raw.ListInstances(gce.ProjectID, prefix, statuses...)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	if len(statuses) == 0 {
-		return results, nil
+	var insts []Instance
+	for _, rawInst := range rawInsts {
+		inst := newInstance(rawInst)
+		insts = append(insts, *inst)
 	}
-	return filterInstances(results, statuses...), nil
-}
-
-var instsNextPage = func(call *compute.InstancesAggregatedListCall, token string) *compute.InstancesAggregatedListCall {
-	return call.PageToken(token)
+	return insts, nil
 }
 
 // removeInstance sends a request to the GCE API to remove the instance
 // with the provided ID (in the specified zone). The call blocks until
 // the instance is removed (or the request fails).
 func (gce *Connection) removeInstance(id, zone string) error {
-	svc := Services{
-		InstanceDelete: gce.raw.Instances.Delete(gce.ProjectID, zone, id),
-	}
-
-	result, err := doCall(svc)
+	err := gce.raw.RemoveInstance(gce.ProjectID, zone, id)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	operation, ok := result.(*compute.Operation)
-	if !ok {
-		return errors.New("unable to convert result to compute.Operation")
-	}
-	if err := gce.waitOperation(operation, attemptsLong); err != nil {
-		return errors.Trace(err)
-	}
 
-	if err := connRemoveFirewall(gce, id); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
-var connRemoveFirewall = func(conn *Connection, fwname string) error {
-	return conn.deleteFirewall(fwname)
+	fwname := id
+	err = gce.raw.RemoveFirewall(gce.ProjectID, fwname)
+	return errors.Trace(err)
 }
 
 // RemoveInstances sends a request to the GCE API to terminate all
@@ -174,7 +99,7 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 	for _, instID := range ids {
 		for _, inst := range instances {
 			if inst.ID == instID {
-				if err := connRemoveInstance(gce, instID, zoneName(&inst)); err != nil {
+				if err := gce.removeInstance(instID, zoneName(&inst)); err != nil {
 					failed = append(failed, instID)
 					logger.Errorf("while removing instance %q: %v", instID, err)
 				}
@@ -186,8 +111,4 @@ func (gce *Connection) RemoveInstances(prefix string, ids ...string) error {
 		return errors.Errorf("some instance removals failed: %v", failed)
 	}
 	return nil
-}
-
-var connRemoveInstance = func(conn *Connection, id, zone string) error {
-	return conn.removeInstance(id, zone)
 }

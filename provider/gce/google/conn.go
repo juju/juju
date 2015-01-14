@@ -68,69 +68,14 @@ type rawConnectionWrapper interface {
 // using it. Use ValidateConnection before using the connection to
 // ensure this is the case.
 type Connection struct {
-	raw *compute.Service
+	// TODO(ericsnow) name this something else?
+	raw rawConnectionWrapper
 
 	// Region is the GCE region in which to operate for this connection.
 	Region string
 	// ProjectID is the project ID to use in all GCE API requests for
 	// this connection.
 	ProjectID string
-}
-
-// Services holds pointers to GCE endpoints we call
-type Services struct {
-	ZoneList *compute.ZonesListCall
-
-	ZoneOp   *compute.ZoneOperationsGetCall
-	RegionOp *compute.RegionOperationsGetCall
-	GlobalOp *compute.GlobalOperationsGetCall
-
-	InstanceList   *compute.InstancesAggregatedListCall
-	InstanceGet    *compute.InstancesGetCall
-	InstanceInsert *compute.InstancesInsertCall
-	InstanceDelete *compute.InstancesDeleteCall
-
-	ProjectGet *compute.ProjectsGetCall
-
-	FirewallList   *compute.FirewallsListCall
-	FirewallInsert *compute.FirewallsInsertCall
-	FirewallUpdate *compute.FirewallsUpdateCall
-	FirewallDelete *compute.FirewallsDeleteCall
-}
-
-// doCall works through potential services of a Services struct.
-// If it finds a non-empty pointer it returns the response of the
-// Do method for service call.
-var doCall = func(svc Services) (interface{}, error) {
-	switch {
-	case svc.ZoneList != nil:
-		return svc.ZoneList.Do()
-	case svc.ZoneOp != nil:
-		return svc.ZoneOp.Do()
-	case svc.RegionOp != nil:
-		return svc.RegionOp.Do()
-	case svc.GlobalOp != nil:
-		return svc.GlobalOp.Do()
-	case svc.InstanceList != nil:
-		return svc.InstanceList.Do()
-	case svc.InstanceGet != nil:
-		return svc.InstanceGet.Do()
-	case svc.InstanceInsert != nil:
-		return svc.InstanceInsert.Do()
-	case svc.InstanceDelete != nil:
-		return svc.InstanceDelete.Do()
-	case svc.ProjectGet != nil:
-		return svc.ProjectGet.Do()
-	case svc.FirewallList != nil:
-		return svc.FirewallList.Do()
-	case svc.FirewallInsert != nil:
-		return svc.FirewallInsert.Do()
-	case svc.FirewallUpdate != nil:
-		return svc.FirewallUpdate.Do()
-	case svc.FirewallDelete != nil:
-		return svc.FirewallDelete.Do()
-	}
-	return nil, errors.New("no suitable service found")
 }
 
 // TODO(ericsnow) Verify in each method that Connection.raw is set?
@@ -145,12 +90,12 @@ func (gc *Connection) Connect(auth Auth) error {
 		return errors.New("connect() failed (already connected)")
 	}
 
-	service, err := newRawConnection(auth)
+	raw, err := newRawConnection(auth)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	gc.raw = service
+	gc.raw = &rawConn{raw}
 	return nil
 }
 
@@ -162,72 +107,10 @@ var newRawConnection = func(auth Auth) (*compute.Service, error) {
 // to connect are valid for use in the project and region defined for
 // the Connection. If they are not then an error is returned.
 func (gc Connection) VerifyCredentials() error {
-	call := gc.raw.Projects.Get(gc.ProjectID)
-	svc := Services{ProjectGet: call}
-	if _, err := doCall(svc); err != nil {
+	if _, err := gc.raw.GetProject(gc.ProjectID); err != nil {
 		// TODO(ericsnow) Wrap err with something about bad credentials?
 		return errors.Trace(err)
 	}
-	return nil
-}
-
-// checkOperation requests a new copy of the given operation from the
-// GCE API and returns it. The new copy will have the operation's
-// current status.
-func (gc *Connection) checkOperation(op *compute.Operation) (*compute.Operation, error) {
-	svc := Services{}
-
-	if op.Zone != "" {
-		zone := zoneName(op)
-		svc.ZoneOp = gc.raw.ZoneOperations.Get(gc.ProjectID, zone, op.Name)
-	} else if op.Region != "" {
-		region := path.Base(op.Region)
-		svc.RegionOp = gc.raw.RegionOperations.Get(gc.ProjectID, region, op.Name)
-	} else {
-		svc.GlobalOp = gc.raw.GlobalOperations.Get(gc.ProjectID, op.Name)
-	}
-
-	result, err := doCall(svc)
-	if err != nil {
-		return nil, errors.Annotatef(err, "request for GCE operation %q failed", op.Name)
-	}
-
-	operation, ok := result.(*compute.Operation)
-	if !ok {
-		return nil, errors.Annotatef(err, "unable to cast result to compute.Operation")
-	}
-	return operation, nil
-}
-
-// waitOperation waits for the provided operation to reach the "done"
-// status. It follows the given attempt strategy (e.g. wait time between
-// attempts) and may time out.
-func (gc *Connection) waitOperation(op *compute.Operation, attempts utils.AttemptStrategy) error {
-	started := time.Now()
-	logger.Infof("GCE operation %q, waiting...", op.Name)
-	for a := attempts.Start(); a.Next(); {
-		if op.Status == StatusDone {
-			break
-		}
-
-		var err error
-		op, err = gc.checkOperation(op)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if op.Status != StatusDone {
-		msg := "GCE operation %q failed: timed out after %d seconds"
-		return errors.Errorf(msg, op.Name, time.Now().Sub(started)/time.Second)
-	}
-	if op.Error != nil {
-		for _, err := range op.Error.Errors {
-			logger.Errorf("GCE operation error: (%s) %s", err.Code, err.Message)
-		}
-		return errors.Errorf("GCE operation %q failed", op.Name)
-	}
-
-	logger.Infof("GCE operation %q finished", op.Name)
 	return nil
 }
 
@@ -235,34 +118,14 @@ func (gc *Connection) waitOperation(op *compute.Operation, attempts utils.Attemp
 // GCE region. If none are found the the list is empty. Any failure in
 // the low-level request is returned as an error.
 func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
-	call := gc.raw.Zones.List(gc.ProjectID)
-	if region != "" {
-		call = call.Filter("name eq " + region + "-.*")
+	rawZones, err := gc.raw.ListAvailabilityZones(gc.ProjectID, region)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Add a timeout?
-	svc := Services{ZoneList: call}
-	var results []AvailabilityZone
-	for {
-		result, err := doCall(svc)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		rawResult, ok := result.(*compute.ZoneList)
-		if !ok {
-			return nil, errors.Annotatef(err, "unable to cast result to compute.ZoneList")
-		}
-
-		for _, raw := range rawResult.Items {
-			results = append(results, AvailabilityZone{raw})
-		}
-
-		if rawResult.NextPageToken == "" {
-			break
-		}
-		svc.ZoneList = call.PageToken(rawResult.NextPageToken)
+	var zones []AvailabilityZone
+	for _, rawZone := range rawZones {
+		zones = append(zones, AvailabilityZone{rawZone})
 	}
-
-	return results, nil
+	return zones, nil
 }
