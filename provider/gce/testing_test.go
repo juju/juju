@@ -20,7 +20,7 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.PatchValue(&connect, func(*google.Connection, google.Auth) error {
+	s.PatchValue(&connect, func(gceConnection, google.Auth) error {
 		return nil
 	})
 }

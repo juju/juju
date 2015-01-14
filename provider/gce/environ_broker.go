@@ -162,7 +162,7 @@ func (env *environ) newRawInstance(args environs.StartInstanceParams, spec *inst
 		return nil, errors.Trace(err)
 	}
 
-	inst, err := instSpec.Create(env.gce, zones)
+	inst, err := env.gce.AddInstance(instSpec, zones)
 	return inst, errors.Trace(err)
 }
 

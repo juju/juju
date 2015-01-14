@@ -9,6 +9,4 @@ import (
 
 var (
 	Provider environs.EnvironProvider = providerInstance
-
-	Connect = &connect
 )

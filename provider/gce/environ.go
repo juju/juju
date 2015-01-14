@@ -11,11 +11,30 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 )
 
 // Note: This provider/environment does *not* implement storage.
+
+type gceConnection interface {
+	Connect(auth google.Auth) error
+	VerifyCredentials() error
+
+	// Instance gets the up-to-date info about the given instance
+	// and returns it.
+	Instance(id, zone string) (*google.Instance, error)
+	Instances(prefix string, statuses ...string) ([]google.Instance, error)
+	AddInstance(spec google.InstanceSpec, zones []string) (*google.Instance, error)
+	RemoveInstances(prefix string, ids ...string) error
+
+	Ports(fwname string) ([]network.PortRange, error)
+	OpenPorts(fwname string, ports []network.PortRange) error
+	ClosePorts(fwname string, ports []network.PortRange) error
+
+	AvailabilityZones(region string) ([]google.AvailabilityZone, error)
+}
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
@@ -26,7 +45,7 @@ type environ struct {
 	lock sync.Mutex
 	ecfg *environConfig
 
-	gce *google.Connection
+	gce gceConnection
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -79,7 +98,8 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	return errors.Trace(err)
 }
 
-var connect = func(conn *google.Connection, auth google.Auth) error {
+// TODO(ericsnow) Use a mock gceConnection instead.
+var connect = func(conn gceConnection, auth google.Auth) error {
 	return conn.Connect(auth)
 }
 
