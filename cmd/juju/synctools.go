@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
@@ -142,7 +143,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 		sctx.TargetToolsFinder = adapter
 		sctx.TargetToolsUploader = adapter
 	}
-	return syncTools(sctx)
+	return block.ProcessBlockedError(syncTools(sctx), block.BlockChange)
 }
 
 // syncToolsAPIAdapter implements sync.ToolsFinder and
