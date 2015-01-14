@@ -52,10 +52,19 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// longAttempt is used when we are polling for changes to
+// instance state. Such changes may involve a reboot so we
+// want to allow sufficient time for that to happen.
+var longAttempt = utils.AttemptStrategy{
+	Min:   50,
+	Delay: 5 * time.Second,
+}
+
 var (
-	ReleaseNodes     = releaseNodes
-	ReserveIPAddress = reserveIPAddress
-	ReleaseIPAddress = releaseIPAddress
+	ReleaseNodes         = releaseNodes
+	ReserveIPAddress     = reserveIPAddress
+	ReleaseIPAddress     = releaseIPAddress
+	DeploymentStatusCall = deploymentStatusCall
 )
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -119,7 +128,24 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	// containers, because we'll be creating juju-br0 at bootstrap
 	// time.
 	args.ContainerBridgeName = environs.DefaultBridgeName
-	return common.Bootstrap(ctx, env, args)
+	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	// We want to destroy the started instance if it doesn't transition to Deployed.
+	defer func() {
+		if err != nil {
+			if err := env.StopInstances(result.Instance.Id()); err != nil {
+				logger.Errorf("error releasing bootstrap instance: %v", err)
+			}
+		}
+	}()
+	// Wait for bootstrap instance to change to deployed state.
+	if err := env.waitForNodeDeployment(result.Instance.Id()); err != nil {
+		return "", "", nil, errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+	}
+	return *result.Hardware.Arch, series, finalizer, nil
 }
 
 // StateServerInstances is specified in the Environ interface.
@@ -930,6 +956,55 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Hardware:    hc,
 		NetworkInfo: networkInfo,
 	}, nil
+}
+
+func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
+	systemId := extractSystemId(id)
+	for a := longAttempt.Start(); a.Next(); {
+		statusValues, err := environ.deploymentStatus(id)
+		if errors.IsNotImplemented(err) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if statusValues[systemId] == "Deployed" {
+			return nil
+		}
+	}
+	return errors.Errorf("instance %q is started but not deployed", id)
+}
+
+// deploymentStatus returns the deployment state of MAAS instances with
+// the specified Juju instance ids.
+// Note: the result is a map of MAAS systemId to state.
+func (environ *maasEnviron) deploymentStatus(ids ...instance.Id) (map[string]string, error) {
+	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
+	result, err := DeploymentStatusCall(nodesAPI, ids...)
+	if err != nil {
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
+			return nil, errors.NewNotImplemented(err, "deployment status")
+		}
+		return nil, errors.Trace(err)
+	}
+	resultMap, err := result.GetMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	statusValues := make(map[string]string)
+	for systemId, jsonValue := range resultMap {
+		status, err := jsonValue.GetString()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		statusValues[systemId] = status
+	}
+	return statusValues, nil
+}
+
+func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
+	filter := getSystemIdValues("nodes", ids)
+	return nodes.CallGet("deployment_status", filter)
 }
 
 type selectNodeArgs struct {
