@@ -495,18 +495,22 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 
 // mustNext waits for w's value to be set and returns it.
 func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
-	done := make(chan bool)
+	type voyeurResult struct {
+		ok  bool
+		val interface{}
+	}
+	done := make(chan voyeurResult)
 	go func() {
 		c.Logf("mustNext %p", w)
 		ok := w.Next()
 		val = w.Value()
-		c.Logf("mustNext done %p, ok %v", w, ok)
-		done <- ok
+		c.Logf("mustNext done %p, ok: %v, val: %#v", w, ok, val)
+		done <- voyeurResult{ok, val}
 	}()
 	select {
-	case ok := <-done:
-		c.Assert(ok, jc.IsTrue)
-		return
+	case result := <-done:
+		c.Assert(result.ok, jc.IsTrue)
+		return result.val
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for value to be set")
 	}
