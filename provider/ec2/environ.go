@@ -777,6 +777,12 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 	return nil
 }
 
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not implemented on this provider yet.
+func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("NetworkInterfaces")
+}
+
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new subnet was created).

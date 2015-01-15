@@ -168,6 +168,13 @@ type OpReleaseAddress struct {
 	Address    network.Address
 }
 
+type OpNetworkInterfaces struct {
+	Env        string
+	InstanceId instance.Id
+	Info       []network.InterfaceInfo
+}
+
+// TODO(dimitern) Rename this to OpSubnets and add InstanceId field.
 type OpListNetworks struct {
 	Env  string
 	Info []network.SubnetInfo
@@ -1039,7 +1046,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	estate.maxAddr++
+	estate.maxAddr--
 	estate.ops <- OpReleaseAddress{
 		Env:        env.name,
 		InstanceId: instId,
@@ -1049,7 +1056,55 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	return nil
 }
 
-// Subnets implements environs.Environ.Subnets.
+// NetworkInterfaces implements Environ.NetworkInterfaces().
+func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	if err := env.checkBroken("NetworkInterfaces"); err != nil {
+		return nil, err
+	}
+
+	estate, err := env.state()
+	if err != nil {
+		return nil, err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+
+	// Simulate 2 NICs - primary enabled, secondary disabled with VLAN
+	// tag 1; both configured using DHCP and having fake DNS servers
+	// and gateway.
+	info := make([]network.InterfaceInfo, 2)
+	for i, netName := range []string{"private", "public"} {
+		info[i] = network.InterfaceInfo{
+			ProviderId:    network.Id("dummy-" + netName),
+			NetworkName:   "juju-" + netName,
+			CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
+			InterfaceName: fmt.Sprintf("eth%d", i),
+			VLANTag:       i,
+			MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+			Disabled:      i%2 != 0,
+			NoAutoStart:   i%2 != 0,
+			ConfigType:    network.ConfigDHCP,
+			Address: network.NewAddress(
+				fmt.Sprintf("0.%d.2.%d", i+1, estate.maxAddr+1),
+				network.ScopeUnknown,
+			),
+			DNSServers: network.NewAddresses("ns1.dummy", "ns2.dummy"),
+			GatewayAddress: network.NewAddress(
+				fmt.Sprintf("0.%d.2.1", i+1),
+				network.ScopeUnknown,
+			),
+		}
+	}
+
+	estate.ops <- OpNetworkInterfaces{
+		Env:        env.name,
+		InstanceId: instId,
+		Info:       info,
+	}
+	return info, nil
+}
+
+// Subnets implements Environ.Subnets.
 func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
@@ -1062,6 +1117,7 @@ func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
+	// TODO(dimitern) Populate AllocatableIPLow/High below.
 	netInfo := []network.SubnetInfo{
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
