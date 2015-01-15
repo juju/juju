@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups
@@ -11,16 +11,17 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups"
 )
 
 // Restore implements the server side of Backups.Restore.
-func (a *API) Restore(p params.RestoreAPIArgs) error {
+func (a *API) Restore(p params.RestoreArgs) error {
 
 	// Get hold of a backup file Reader
 	backup, closer := newBackups(a.st)
 	defer closer.Close()
 
-	// Obtain the address of the machine where restore is going to be performed
+	// Obtain the address of current machine, where we will be performing restore.
 	machine, err := a.st.Machine(p.Machine)
 	if err != nil {
 		return errors.Trace(err)
@@ -28,19 +29,21 @@ func (a *API) Restore(p params.RestoreAPIArgs) error {
 
 	addr := network.SelectInternalAddress(machine.Addresses(), false)
 	if addr == "" {
-		return errors.Errorf("machine %q has no internal address", machine.Id())
+		return errors.Errorf("machine %q has no internal address", machine)
 	}
 
-	// Signal to current state and api server that restore will begin
-	info, err := a.st.EnsureRestoreInfo()
+	info, err := a.st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	// Signal to current state and api server that restore will begin
 	err = info.SetStatus(state.RestoreInProgress)
 	if err != nil {
 		return errors.Annotatef(err, "cannot set the server to %q mode", state.RestoreInProgress)
 	}
+	// Any abnormal termination of this function will mark restore as failed,
+	// succesful termination will call Exit and never run this.
+	defer info.SetStatus(state.RestoreFailed)
 
 	instanceId, err := machine.InstanceId()
 	if err != nil {
@@ -49,7 +52,7 @@ func (a *API) Restore(p params.RestoreAPIArgs) error {
 
 	logger.Infof("beginning server side restore of backup %q", p.BackupId)
 	// Restore
-	restoreArgs := params.RestoreArgs{
+	restoreArgs := backups.RestoreArgs{
 		PrivateAddress: addr,
 		NewInstId:      instanceId,
 		NewInstTag:     machine.Tag(),
@@ -67,17 +70,17 @@ func (a *API) Restore(p params.RestoreAPIArgs) error {
 
 // PrepareRestore implements the server side of Backups.PrepareRestore.
 func (a *API) PrepareRestore() error {
-	info, err := a.st.EnsureRestoreInfo()
+	info, err := a.st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof("Entering about to restore mode")
+	logger.Infof("entering restore preparation mode")
 	return info.SetStatus(state.RestorePending)
 }
 
 // FinishRestore implements the server side of Backups.FinishRestore.
 func (a *API) FinishRestore() error {
-	info, err := a.st.EnsureRestoreInfo()
+	info, err := a.st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Trace(err)
 	}

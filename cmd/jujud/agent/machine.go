@@ -430,6 +430,14 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
+// EndRestore will flag the agent to allow all commands
+// This being invoked means that restore process failed
+// since success restarts the agent.
+func (a *MachineAgent) EndRestore() {
+	a.restoreMode = false
+	a.restoring = false
+}
+
 // newrestorestatewatcherworker will return a worker or err if there is a failure,
 // the worker takes care of watching the state of restoreInfo doc and put the
 // agent in the different restore modes.
@@ -443,7 +451,7 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
 // step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
-	rinfo, err := st.EnsureRestoreInfo()
+	rinfo, err := st.RestoreInfoSetter()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
@@ -452,6 +460,8 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 		a.PrepareRestore()
 	case state.RestoreInProgress:
 		a.BeginRestore()
+	case state.RestoreFailed:
+		a.EndRestore()
 	}
 	return nil
 }
