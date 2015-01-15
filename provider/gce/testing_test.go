@@ -34,6 +34,9 @@ type BaseSuite struct {
 	EnvConfig *environConfig
 	FakeConn  *fakeConn
 	Env       *environ
+
+	BaseInstance *google.Instance
+	Instance     *environInstance
 }
 
 var _ = gc.Suite(&BaseSuite{})
@@ -50,6 +53,41 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		ecfg: s.EnvConfig,
 		gce:  s.FakeConn,
 	}
+
+	diskSpec := google.DiskSpec{
+		SizeHintGB: 5,
+		ImageURL:   "some/image/path",
+		Boot:       true,
+		Scratch:    false,
+		Readonly:   false,
+		AutoDelete: true,
+	}
+	metadata := map[string]string{
+		"eggs": "steak",
+	}
+	addresses := []network.Address{{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}}
+	instanceSpec := google.InstanceSpec{
+		ID:                "spam",
+		Type:              "mtype",
+		Disks:             []google.DiskSpec{diskSpec},
+		Network:           google.NetworkSpec{Name: "somenetwork"},
+		NetworkInterfaces: []string{"somenetif"},
+		Metadata:          metadata,
+		Tags:              []string{"spam"},
+	}
+	summary := google.InstanceSummary{
+		ID:        "spam",
+		ZoneName:  "a-zone",
+		Status:    google.StatusRunning,
+		Metadata:  metadata,
+		Addresses: addresses,
+	}
+	s.BaseInstance = google.NewInstance(summary, &instanceSpec)
+	s.Instance = newInstance(s.BaseInstance, s.Env)
 
 	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
 		return s.FakeConn
