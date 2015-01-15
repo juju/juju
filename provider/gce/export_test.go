@@ -5,8 +5,18 @@ package gce
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 var (
-	Provider environs.EnvironProvider = providerInstance
+	Provider    environs.EnvironProvider = providerInstance
+	NewInstance                          = newInstance
 )
+
+func ExposeInstBase(inst *environInstance) *google.Instance {
+	return inst.base
+}
+
+func ExposeInstEnv(inst *environInstance) *environ {
+	return inst.env
+}

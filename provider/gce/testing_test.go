@@ -6,7 +6,6 @@ package gce
 import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -35,8 +34,12 @@ type BaseSuite struct {
 	FakeConn  *fakeConn
 	Env       *environ
 
+	Addresses    []network.Address
 	BaseInstance *google.Instance
 	Instance     *environInstance
+	InstName     string
+
+	Ports []network.PortRange
 }
 
 var _ = gc.Suite(&BaseSuite{})
@@ -47,9 +50,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Config = s.NewConfig(c, nil)
 	s.EnvConfig = newEnvConfig(s.Config)
 	s.FakeConn = &fakeConn{}
+	uuid, _ := s.Config.UUID()
 	s.Env = &environ{
 		name: "google",
-		uuid: utils.MustNewUUID().String(),
+		uuid: uuid,
 		ecfg: s.EnvConfig,
 		gce:  s.FakeConn,
 	}
@@ -65,7 +69,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	metadata := map[string]string{
 		"eggs": "steak",
 	}
-	addresses := []network.Address{{
+	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
 		Type:  network.IPv4Address,
 		Scope: network.ScopeCloudLocal,
@@ -84,10 +88,17 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		ZoneName:  "a-zone",
 		Status:    google.StatusRunning,
 		Metadata:  metadata,
-		Addresses: addresses,
+		Addresses: s.Addresses,
 	}
 	s.BaseInstance = google.NewInstance(summary, &instanceSpec)
 	s.Instance = newInstance(s.BaseInstance, s.Env)
+	s.InstName = "juju-" + s.Env.uuid + "-machine-spam"
+
+	s.Ports = []network.PortRange{{
+		FromPort: 80,
+		ToPort:   80,
+		Protocol: "tcp",
+	}}
 
 	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
 		return s.FakeConn
@@ -109,6 +120,10 @@ func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.Config = cfg
 	s.EnvConfig = newEnvConfig(cfg)
+}
+
+func (s *BaseSuite) CheckNoAPI(c *gc.C) {
+	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
 }
 
 type fakeCall struct {
@@ -162,7 +177,7 @@ func (fc *fakeConn) VerifyCredentials() error {
 
 func (fc *fakeConn) Instance(id, zone string) (*google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeCall{
-		FuncName: "",
+		FuncName: "Instance",
 		ID:       id,
 		ZoneName: zone,
 	})
@@ -198,7 +213,7 @@ func (fc *fakeConn) RemoveInstances(prefix string, ids ...string) error {
 
 func (fc *fakeConn) Ports(fwname string) ([]network.PortRange, error) {
 	fc.Calls = append(fc.Calls, fakeCall{
-		FuncName:     "",
+		FuncName:     "Ports",
 		FirewallName: fwname,
 	})
 	return fc.PortRanges, fc.err()
@@ -206,7 +221,7 @@ func (fc *fakeConn) Ports(fwname string) ([]network.PortRange, error) {
 
 func (fc *fakeConn) OpenPorts(fwname string, ports []network.PortRange) error {
 	fc.Calls = append(fc.Calls, fakeCall{
-		FuncName:     "",
+		FuncName:     "OpenPorts",
 		FirewallName: fwname,
 		PortRanges:   ports,
 	})
@@ -215,7 +230,7 @@ func (fc *fakeConn) OpenPorts(fwname string, ports []network.PortRange) error {
 
 func (fc *fakeConn) ClosePorts(fwname string, ports []network.PortRange) error {
 	fc.Calls = append(fc.Calls, fakeCall{
-		FuncName:     "",
+		FuncName:     "ClosePorts",
 		FirewallName: fwname,
 		PortRanges:   ports,
 	})
