@@ -5,8 +5,8 @@ package ec2
 
 import (
 	jc "github.com/juju/testing/checkers"
+	amzec2 "gopkg.in/amz.v2/ec2"
 	gc "gopkg.in/check.v1"
-	amzec2 "launchpad.net/goamz/ec2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"

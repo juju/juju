@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"launchpad.net/goamz/ec2"
+	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
