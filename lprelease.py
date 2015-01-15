@@ -175,9 +175,10 @@ def main():
         project = get_project(lp, args.project, verbose)
         milestone = get_milestone(project, args.milestone, verbose)
         close_milestone(milestone, dry_run, verbose)
-        deferred_milestone = get_milestone(
-            project, args.deferred_milestone, verbose)
-        defer_bugs(milestone, deferred_milestone, dry_run, verbose)
+        if args.deferred_milestone:
+            deferred_milestone = get_milestone(
+                project, args.deferred_milestone, verbose)
+            defer_bugs(milestone, deferred_milestone, dry_run, verbose)
         close_bugs(milestone, dry_run, verbose)
         release = register_release(milestone, dry_run, verbose)
         add_release_files(
