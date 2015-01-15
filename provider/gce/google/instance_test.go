@@ -94,11 +94,7 @@ func (s *instanceSuite) TestInstanceRefreshAPI(c *gc.C) {
 func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	addresses := s.Instance.Addresses()
 
-	c.Check(addresses, jc.DeepEquals, []network.Address{{
-		Value: "10.0.0.1",
-		Type:  network.IPv4Address,
-		Scope: network.ScopeCloudLocal,
-	}})
+	c.Check(addresses, jc.DeepEquals, s.Addresses)
 }
 
 func (s *instanceSuite) TestInstanceMetadata(c *gc.C) {

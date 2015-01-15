@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,6 +24,7 @@ type BaseSuite struct {
 	AttachedDisk     compute.AttachedDisk
 	NetworkSpec      NetworkSpec
 	NetworkInterface compute.NetworkInterface
+	Addresses        []network.Address
 	RawMetadata      compute.Metadata
 	Metadata         map[string]string
 	RawInstance      compute.Instance
@@ -78,6 +80,11 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 			Type: NetworkAccessOneToOneNAT,
 		}},
 	}
+	s.Addresses = []network.Address{{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}}
 	s.RawMetadata = compute.Metadata{Items: []*compute.MetadataItems{{
 		Key:   "eggs",
 		Value: "steak",
