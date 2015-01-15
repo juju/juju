@@ -5,13 +5,9 @@ package backups
 
 import (
 	"fmt"
-	"io"
-	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
