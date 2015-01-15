@@ -10,7 +10,7 @@ import (
 var (
 	NewRawConnection = &newRawConnection
 
-	NewInstance        = newInstance
+	NewInstanceRaw     = newInstance
 	PackMetadata       = packMetadata
 	UnpackMetadata     = unpackMetadata
 	ResolveMachineType = resolveMachineType

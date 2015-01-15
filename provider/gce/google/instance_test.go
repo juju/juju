@@ -18,7 +18,7 @@ type instanceSuite struct {
 var _ = gc.Suite(&instanceSuite{})
 
 func (s *instanceSuite) TestNewInstance(c *gc.C) {
-	inst := google.NewInstance(&s.RawInstanceFull, &s.InstanceSpec)
+	inst := google.NewInstanceRaw(&s.RawInstanceFull, &s.InstanceSpec)
 
 	c.Check(inst.ID, gc.Equals, "spam")
 	c.Check(inst.ZoneName, gc.Equals, "a-zone")
@@ -29,7 +29,7 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 }
 
 func (s *instanceSuite) TestNewInstanceNoSpec(c *gc.C) {
-	inst := google.NewInstance(&s.RawInstanceFull, nil)
+	inst := google.NewInstanceRaw(&s.RawInstanceFull, nil)
 
 	c.Check(inst.Spec(), gc.IsNil)
 }

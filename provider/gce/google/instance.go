@@ -116,13 +116,20 @@ type Instance struct {
 }
 
 func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
+	summary := newInstanceSummary(raw)
+	return NewInstance(summary, spec)
+}
+
+// NewInstance builds an instance from the provided summary and spec
+// and returns it.
+func NewInstance(summary InstanceSummary, spec *InstanceSpec) *Instance {
 	if spec != nil {
 		// Make a copy.
 		val := *spec
 		spec = &val
 	}
 	return &Instance{
-		InstanceSummary: newInstanceSummary(raw),
+		InstanceSummary: summary,
 		spec:            spec,
 	}
 }
