@@ -479,6 +479,17 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	return info, nil
 }
 
+// ListCharms return a list of charms currently in the state.
+// If filter parameter contains any names, the list will be filtered
+// to return only the charms with supplied names.
+func (c *Client) ListCharms(args []string) ([]string, error) {
+	charms := []string{}
+	if err := c.facade.FacadeCall("ListCharms", args, charms); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return charms, nil
+}
+
 // EnvironmentInfo holds information about the Juju environment.
 type EnvironmentInfo struct {
 	DefaultSeries string

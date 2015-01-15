@@ -33,7 +33,7 @@ var facadeVersions = map[string]int{
 	"RelationUnitsWatcher": 0,
 	"UserManager":          0,
 	"CharmRevisionUpdater": 0,
-	"Client":               0,
+	"Client":               1,
 	"NotifyWatcher":        0,
 	"Upgrader":             0,
 	"Firewaller":           1,
