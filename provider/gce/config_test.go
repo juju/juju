@@ -31,8 +31,7 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-// TODO(ericsnow) Pull the struct out as a named type.
-var newConfigTests = []struct {
+type testSpec []struct {
 	info   string
 	insert testing.Attrs
 	remove []string
@@ -44,7 +43,9 @@ var newConfigTests = []struct {
 	// skipIfOldConfig should be set to true if you are going to pass an old
 	// config to gce.Provider.Validate.
 	skipIfOldConfig bool
-}{{
+}
+
+var newConfigTests = testSpec{{
 	info:   "client-id is required",
 	remove: []string{"client-id"},
 	err:    "client-id: expected string, got nothing",
@@ -186,13 +187,7 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	}
 }
 
-var changeConfigTests = []struct {
-	info   string
-	insert testing.Attrs
-	remove []string
-	expect testing.Attrs
-	err    string
-}{{
+var changeConfigTests = testSpec{{
 	info:   "no change, no error",
 	expect: validAttrs(),
 }, {
