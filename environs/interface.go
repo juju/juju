@@ -131,6 +131,10 @@ type Environ interface {
 	// AllocateAddress.
 	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
 
+	// NetworkInterfaces requests information about the network
+	// interfaces on the given instance.
+	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
+
 	// Subnets returns basic information about all subnets known
 	// by the provider for the environment, for a specific instance. A
 	// provider may return all networks instead of just those for the

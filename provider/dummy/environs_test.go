@@ -181,6 +181,51 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
 }
 
+func (s *suite) TestNetworkInterfaces(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+	}()
+
+	opc := make(chan dummy.Operation, 200)
+	dummy.Listen(opc)
+
+	expectInfo := []network.InterfaceInfo{{
+		ProviderId:     "dummy-private",
+		NetworkName:    "juju-private",
+		CIDR:           "0.1.2.0/24",
+		InterfaceName:  "eth0",
+		VLANTag:        0,
+		MACAddress:     "aa:bb:cc:dd:ee:f0",
+		Disabled:       false,
+		NoAutoStart:    false,
+		ConfigType:     network.ConfigDHCP,
+		Address:        network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		ExtraConfig:    nil,
+	}, {
+		ProviderId:     "dummy-public",
+		NetworkName:    "juju-public",
+		CIDR:           "0.2.2.0/24",
+		InterfaceName:  "eth1",
+		VLANTag:        1,
+		MACAddress:     "aa:bb:cc:dd:ee:f1",
+		Disabled:       true,
+		NoAutoStart:    true,
+		ConfigType:     network.ConfigDHCP,
+		Address:        network.NewAddress("0.2.2.1", network.ScopeUnknown),
+		DNSServers:     network.NewAddresses("ns1.dummy", "ns2.dummy"),
+		GatewayAddress: network.NewAddress("0.2.2.1", network.ScopeUnknown),
+		ExtraConfig:    nil,
+	}}
+	info, err := e.NetworkInterfaces(instance.Id("i-42"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, expectInfo)
+	assertInterfaces(c, e, opc, instance.Id("i-42"), expectInfo)
+}
+
 func (s *suite) TestSubnets(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
 	defer func() {
@@ -255,6 +300,22 @@ func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation,
 		c.Check(addrOp.NetworkId, gc.Equals, expectNetId)
 		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(addrOp.Address, gc.Equals, expectAddress)
+		return
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("time out wating for operation")
+	}
+}
+
+func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []network.InterfaceInfo) {
+	select {
+	case op := <-opc:
+		netOp, ok := op.(dummy.OpNetworkInterfaces)
+		if !ok {
+			c.Fatalf("unexpected op: %#v", op)
+		}
+		c.Check(netOp.Env, gc.Equals, e.Config().Name())
+		c.Check(netOp.InstanceId, gc.Equals, expectInstId)
+		c.Check(netOp.Info, jc.DeepEquals, expectInfo)
 		return
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("time out wating for operation")
