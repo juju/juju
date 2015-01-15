@@ -61,6 +61,12 @@ func (is InstanceSpec) raw() *compute.Instance {
 	}
 }
 
+// Summary builds an InstanceSummary based on the spec and returns it.
+func (is InstanceSpec) Summary() InstanceSummary {
+	raw := is.raw()
+	return newInstanceSummary(raw)
+}
+
 func (is InstanceSpec) disks() []*compute.AttachedDisk {
 	var result []*compute.AttachedDisk
 	for _, spec := range is.Disks {
@@ -77,16 +83,36 @@ func (is InstanceSpec) networkInterfaces() []*compute.NetworkInterface {
 	return result
 }
 
-// Instance represents a single realized GCE compute instance.
-type Instance struct {
-	raw  compute.Instance
-	spec *InstanceSpec
-
+// InstanceSummary captures all the data needed by Instance.
+type InstanceSummary struct {
 	// ID is the "name" of the instance.
 	ID string
 	// ZoneName is the unqualified name of the zone in which the
 	// instance was provisioned.
 	ZoneName string
+	// Status holds the status of the instance at a certain point in time.
+	Status string
+	// Metadata is the instance metadata.
+	Metadata map[string]string
+	// Addresses are the IP Addresses associated with the instance.
+	Addresses []network.Address
+}
+
+func newInstanceSummary(raw *compute.Instance) InstanceSummary {
+	return InstanceSummary{
+		ID:        raw.Name,
+		ZoneName:  zoneName(raw),
+		Status:    raw.Status,
+		Metadata:  unpackMetadata(raw.Metadata),
+		Addresses: extractAddresses(raw.NetworkInterfaces...),
+	}
+}
+
+// Instance represents a single realized GCE compute instance.
+type Instance struct {
+	InstanceSummary
+
+	spec *InstanceSpec
 }
 
 func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
@@ -96,10 +122,8 @@ func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
 		spec = &val
 	}
 	return &Instance{
-		ID:       raw.Name,
-		ZoneName: zoneName(raw),
-		raw:      *raw,
-		spec:     spec,
+		InstanceSummary: newInstanceSummary(raw),
+		spec:            spec,
 	}
 }
 
@@ -123,7 +147,7 @@ func (gi Instance) RootDiskGB() uint64 {
 // Status returns a string identifying the status of the instance. The
 // value will match one of the Status* constants in the package.
 func (gi Instance) Status() string {
-	return gi.raw.Status
+	return gi.InstanceSummary.Status
 }
 
 type instGetter interface {
@@ -140,19 +164,21 @@ func (gi *Instance) Refresh(conn instGetter) error {
 		return errors.Trace(err)
 	}
 
-	gi.raw = updated.raw
+	gi.InstanceSummary = updated.InstanceSummary
 	return nil
 }
 
 // Addresses identifies information about the network addresses
 // associated with the instance and returns it.
 func (gi Instance) Addresses() []network.Address {
-	return extractAddresses(gi.raw.NetworkInterfaces...)
+	// TODO*ericsnow) return a copy?
+	return gi.InstanceSummary.Addresses
 }
 
 // Metadata returns the user-specified metadata for the instance.
 func (gi Instance) Metadata() map[string]string {
-	return unpackMetadata(gi.raw.Metadata)
+	// TODO*ericsnow) return a copy?
+	return gi.InstanceSummary.Metadata
 }
 
 // FormatAuthorizedKeys returns our authorizedKeys with

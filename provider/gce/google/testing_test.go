@@ -114,10 +114,14 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		Tags:              []string{"spam"},
 	}
 	s.Instance = Instance{
-		ID:       "spam",
-		ZoneName: "a-zone",
-		raw:      s.RawInstanceFull,
-		spec:     &s.InstanceSpec,
+		InstanceSummary: InstanceSummary{
+			ID:        "spam",
+			ZoneName:  "a-zone",
+			Status:    StatusRunning,
+			Metadata:  s.Metadata,
+			Addresses: s.Addresses,
+		},
+		spec: &s.InstanceSpec,
 	}
 }
 

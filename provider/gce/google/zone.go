@@ -47,7 +47,7 @@ func zoneName(value interface{}) string {
 	case *compute.Operation:
 		return path.Base(typed.Zone)
 	case *Instance:
-		return path.Base(typed.raw.Zone)
+		return path.Base(typed.InstanceSummary.ZoneName)
 	default:
 		// TODO(ericsnow) Fail?
 		return ""

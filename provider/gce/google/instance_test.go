@@ -60,7 +60,7 @@ func (s *instanceSuite) TestInstanceStatus(c *gc.C) {
 }
 
 func (s *instanceSuite) TestInstanceStatusDown(c *gc.C) {
-	google.ExposeRawInstance(&s.Instance).Status = google.StatusDown
+	s.Instance.InstanceSummary.Status = google.StatusDown
 	status := s.Instance.Status()
 
 	c.Check(status, gc.Equals, google.StatusDown)
@@ -68,16 +68,18 @@ func (s *instanceSuite) TestInstanceStatusDown(c *gc.C) {
 
 func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
 	s.FakeConn.Instance = &s.RawInstanceFull
-	google.SetRawInstance(&s.Instance, compute.Instance{})
 
+	specBefore := s.Instance.Spec()
 	err := s.Instance.Refresh(s.Conn)
 	c.Assert(err, jc.ErrorIsNil)
+	specAfter := s.Instance.Spec()
 
 	c.Check(s.Instance.ID, gc.Equals, "spam")
 	c.Check(s.Instance.ZoneName, gc.Equals, "a-zone")
 	c.Check(s.Instance.Status(), gc.Equals, google.StatusRunning)
 	c.Check(s.Instance.Metadata(), jc.DeepEquals, s.Metadata)
 	c.Check(s.Instance.Addresses(), jc.DeepEquals, s.Addresses)
+	c.Check(specAfter, gc.Equals, specBefore)
 }
 
 func (s *instanceSuite) TestInstanceRefreshAPI(c *gc.C) {

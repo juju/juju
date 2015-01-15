@@ -37,14 +37,6 @@ func NewAvailabilityZone(zone *compute.Zone) AvailabilityZone {
 	return AvailabilityZone{zone: zone}
 }
 
-func ExposeRawInstance(inst *Instance) *compute.Instance {
-	return &inst.raw
-}
-
-func SetRawInstance(inst *Instance, raw compute.Instance) {
-	inst.raw = raw
-}
-
 // TODO(ericsnow) Elimiinate this.
 func SetInstanceSpec(inst *Instance, spec *InstanceSpec) {
 	inst.spec = spec
