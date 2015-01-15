@@ -141,36 +141,7 @@ func (gi *Instance) Refresh(conn instGetter) error {
 // Addresses identifies information about the network addresses
 // associated with the instance and returns it.
 func (gi Instance) Addresses() []network.Address {
-	var addresses []network.Address
-
-	for _, netif := range gi.raw.NetworkInterfaces {
-		// Add public addresses.
-		for _, accessConfig := range netif.AccessConfigs {
-			if accessConfig.NatIP == "" {
-				continue
-			}
-			address := network.Address{
-				Value: accessConfig.NatIP,
-				Type:  network.IPv4Address,
-				Scope: network.ScopePublic,
-			}
-			addresses = append(addresses, address)
-
-		}
-
-		// Add private address.
-		if netif.NetworkIP == "" {
-			continue
-		}
-		address := network.Address{
-			Value: netif.NetworkIP,
-			Type:  network.IPv4Address,
-			Scope: network.ScopeCloudLocal,
-		}
-		addresses = append(addresses, address)
-	}
-
-	return addresses
+	return extractAddresses(gi.raw.NetworkInterfaces...)
 }
 
 // Metadata returns the user-specified metadata for the instance.

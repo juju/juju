@@ -77,3 +77,36 @@ func firewallSpec(name string, ps network.PortSet) *compute.Firewall {
 	}
 	return &firewall
 }
+
+func extractAddresses(interfaces ...*compute.NetworkInterface) []network.Address {
+	var addresses []network.Address
+
+	for _, netif := range interfaces {
+		// Add public addresses.
+		for _, accessConfig := range netif.AccessConfigs {
+			if accessConfig.NatIP == "" {
+				continue
+			}
+			address := network.Address{
+				Value: accessConfig.NatIP,
+				Type:  network.IPv4Address,
+				Scope: network.ScopePublic,
+			}
+			addresses = append(addresses, address)
+
+		}
+
+		// Add private address.
+		if netif.NetworkIP == "" {
+			continue
+		}
+		address := network.Address{
+			Value: netif.NetworkIP,
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+		}
+		addresses = append(addresses, address)
+	}
+
+	return addresses
+}

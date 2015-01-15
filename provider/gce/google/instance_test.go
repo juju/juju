@@ -91,26 +91,6 @@ func (s *instanceSuite) TestInstanceAddresses(c *gc.C) {
 	}})
 }
 
-func (s *instanceSuite) TestInstanceAddressesExternal(c *gc.C) {
-	s.NetworkInterface.NetworkIP = ""
-	s.NetworkInterface.AccessConfigs[0].NatIP = "8.8.8.8"
-	addresses := s.Instance.Addresses()
-
-	c.Check(addresses, jc.DeepEquals, []network.Address{{
-		Value: "8.8.8.8",
-		Type:  network.IPv4Address,
-		Scope: network.ScopePublic,
-	}})
-}
-
-func (s *instanceSuite) TestInstanceAddressesEmpty(c *gc.C) {
-	s.NetworkInterface.AccessConfigs = nil
-	s.NetworkInterface.NetworkIP = ""
-	addresses := s.Instance.Addresses()
-
-	c.Check(addresses, gc.HasLen, 0)
-}
-
 func (s *instanceSuite) TestInstanceMetadata(c *gc.C) {
 	metadata := s.Instance.Metadata()
 

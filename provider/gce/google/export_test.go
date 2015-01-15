@@ -18,6 +18,7 @@ var (
 	DiskSizeGB         = diskSizeGB
 	ZoneName           = zoneName
 	FirewallSpec       = firewallSpec
+	ExtractAddresses   = extractAddresses
 )
 
 func SetRawConn(conn *Connection, raw rawConnectionWrapper) {

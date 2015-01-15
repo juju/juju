@@ -64,3 +64,33 @@ func (s *networkSuite) TestFirewallSpec(c *gc.C) {
 		Allowed:      allowed,
 	})
 }
+
+func (s *networkSuite) TestExtractAddresses(c *gc.C) {
+	addresses := google.ExtractAddresses(&s.NetworkInterface)
+
+	c.Check(addresses, jc.DeepEquals, []network.Address{{
+		Value: "10.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+	}})
+}
+
+func (s *networkSuite) TestExtractAddressesExternal(c *gc.C) {
+	s.NetworkInterface.NetworkIP = ""
+	s.NetworkInterface.AccessConfigs[0].NatIP = "8.8.8.8"
+	addresses := google.ExtractAddresses(&s.NetworkInterface)
+
+	c.Check(addresses, jc.DeepEquals, []network.Address{{
+		Value: "8.8.8.8",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+	}})
+}
+
+func (s *networkSuite) TestExtractAddressesEmpty(c *gc.C) {
+	s.NetworkInterface.AccessConfigs = nil
+	s.NetworkInterface.NetworkIP = ""
+	addresses := google.ExtractAddresses(&s.NetworkInterface)
+
+	c.Check(addresses, gc.HasLen, 0)
+}
