@@ -999,7 +999,7 @@ func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
 	env := s.bootstrap(c)
 	s.newNode(c, "thenode1", "host1", nil)
 	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
-	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
 }
 
@@ -1008,9 +1008,9 @@ func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
 	s.newNode(c, "thenode1", "host1", nil)
 	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
 	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
-	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	_, hw, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
+	c.Assert(*hw.Mem, gc.Equals, uint64(8192))
 }
 
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
