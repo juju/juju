@@ -54,8 +54,9 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 			return nil
 		})
 	annotationsClient := annotations.NewClient(apiCaller)
-	err := annotationsClient.Set(setParams)
+	callErrs, err := annotationsClient.Set(setParams)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callErrs, gc.HasLen, 0)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -115,13 +116,43 @@ func (s *annotationsSuite) TestAnnotationFacadeCall(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 
 	annts := map[string]string{"annotation": "test"}
-	err := s.annotationsClient.Set(
+	callErrs, err := s.annotationsClient.Set(
 		map[string]map[string]string{
 			charm.Tag().String(): annts,
 		})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callErrs, gc.HasLen, 0)
 
-	found, err := s.annotationsClient.Get([]string{charm.Tag().String()})
+	charmTag := charm.Tag().String()
+	found, err := s.annotationsClient.Get([]string{charmTag})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
+
+	firstFound := found[0]
+	c.Assert(firstFound.EntityTag, gc.Equals, charmTag)
+	c.Assert(firstFound.Annotations, gc.DeepEquals, annts)
+	c.Assert(firstFound.Error.Error, gc.IsNil)
+}
+
+func (s *annotationsSuite) TestSetCallGettingErrors(c *gc.C) {
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	charmTag := charm.Tag().String()
+
+	annts := map[string]string{"invalid.key": "test"}
+	callErrs, err := s.annotationsClient.Set(
+		map[string]map[string]string{
+			charmTag: annts,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(callErrs, gc.HasLen, 1)
+	c.Assert(callErrs[0].Error.Error(), gc.Matches, `.*: invalid key "invalid.key"`)
+
+	found, err := s.annotationsClient.Get([]string{charmTag})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found, gc.HasLen, 1)
+
+	firstFound := found[0]
+	c.Assert(firstFound.EntityTag, gc.Equals, charmTag)
+	c.Assert(firstFound.Annotations, gc.HasLen, 0)
+	c.Assert(firstFound.Error.Error, gc.IsNil)
 }
