@@ -5,17 +5,35 @@ package gce
 
 import (
 	gitjujutesting "github.com/juju/testing"
-	//jc "github.com/juju/testing/checkers"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
+	"github.com/juju/juju/testing"
+)
+
+var (
+	ConfigAttrs = testing.FakeConfig().Merge(testing.Attrs{
+		"type":           "gce",
+		"private-key":    "seekrit",
+		"client-id":      "static",
+		"client-email":   "joe@mail.com",
+		"region":         "home",
+		"project-id":     "my-juju",
+		"image-endpoint": "https://www.googleapis.com",
+	})
 )
 
 type BaseSuite struct {
 	gitjujutesting.IsolationSuite
 
-	FakeConn *fakeConn
+	Config    *config.Config
+	EnvConfig *environConfig
+	FakeConn  *fakeConn
+	Env       *environ
 }
 
 var _ = gc.Suite(&BaseSuite{})
@@ -23,11 +41,36 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.Config = s.NewConfig(c, nil)
+	s.EnvConfig = newEnvConfig(s.Config)
 	s.FakeConn = &fakeConn{}
+	s.Env = &environ{
+		name: "google",
+		uuid: utils.MustNewUUID().String(),
+		ecfg: s.EnvConfig,
+		gce:  s.FakeConn,
+	}
 
-	s.PatchValue(&connect, func(gceConnection, google.Auth) error {
-		return nil
+	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
+		return s.FakeConn
 	})
+}
+
+func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+	var err error
+	cfg := testing.EnvironConfig(c)
+	cfg, err = cfg.Apply(ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err = cfg.Apply(updates)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
+	cfg, err := s.Config.Apply(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.Config = cfg
+	s.EnvConfig = newEnvConfig(cfg)
 }
 
 type fakeCall struct {

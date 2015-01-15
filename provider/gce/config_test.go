@@ -13,22 +13,16 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+// TODO(ericsnow) Use s.NewConfig(c, attrs) instead.
 func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
 	cfg, err := testing.EnvironConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
+// TODO(ericsnow) Use s.NewConfig(c).AllAttrs() instead.
 func validAttrs() testing.Attrs {
-	return testing.FakeConfig().Merge(testing.Attrs{
-		"type":           "gce",
-		"private-key":    "seekrit",
-		"client-id":      "static",
-		"client-email":   "joe@mail.com",
-		"region":         "home",
-		"project-id":     "my-juju",
-		"image-endpoint": "https://www.googleapis.com",
-	})
+	return gce.ConfigAttrs
 }
 
 type ConfigSuite struct {
@@ -37,6 +31,7 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
+// TODO(ericsnow) Pull the struct out as a named type.
 var newConfigTests = []struct {
 	info   string
 	insert testing.Attrs

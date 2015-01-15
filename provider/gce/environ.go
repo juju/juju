@@ -89,18 +89,23 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	env.ecfg = &environConfig{cfg, cfg.UnknownAttrs()}
+	env.ecfg = newEnvConfig(cfg)
 
 	// Connect and authenticate.
-	env.gce = env.ecfg.newConnection()
-	err = connect(env.gce, env.ecfg.auth())
-
+	env.gce = newConnection(env.ecfg)
+	err = env.gce.Connect(env.ecfg.auth())
 	return errors.Trace(err)
 }
 
-// TODO(ericsnow) Use a mock gceConnection instead.
-var connect = func(conn gceConnection, auth google.Auth) error {
-	return conn.Connect(auth)
+var newConnection = func(ecfg *environConfig) gceConnection {
+	return ecfg.newConnection()
+}
+
+func newEnvConfig(cfg *config.Config) *environConfig {
+	return &environConfig{
+		Config: cfg,
+		attrs:  cfg.UnknownAttrs(),
+	}
 }
 
 // getSnapshot returns a copy of the environment. This is useful for
