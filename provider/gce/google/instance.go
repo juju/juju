@@ -89,11 +89,17 @@ type Instance struct {
 	Zone string
 }
 
-func newInstance(raw *compute.Instance) *Instance {
+func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
+	if spec != nil {
+		// Make a copy.
+		val := *spec
+		spec = &val
+	}
 	return &Instance{
 		ID:   raw.Name,
 		Zone: zoneName(raw),
 		raw:  *raw,
+		spec: spec,
 	}
 }
 

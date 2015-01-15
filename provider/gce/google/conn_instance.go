@@ -56,10 +56,7 @@ func (gce *Connection) AddInstance(spec InstanceSpec, zones []string) (*Instance
 		return nil, errors.Trace(err)
 	}
 
-	inst := newInstance(raw)
-	copied := spec
-	inst.spec = &copied
-	return inst, nil
+	return newInstance(raw, &spec), nil
 }
 
 // Instance gets the up-to-date info about the given instance
@@ -69,7 +66,7 @@ func (gce *Connection) Instance(id, zone string) (*Instance, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newInstance(raw), nil
+	return newInstance(raw, nil), nil
 }
 
 // Instances sends a request to the GCE API for a list of all instances
@@ -84,7 +81,7 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 
 	var insts []Instance
 	for _, rawInst := range rawInsts {
-		inst := newInstance(rawInst)
+		inst := newInstance(rawInst, nil)
 		insts = append(insts, *inst)
 	}
 	return insts, nil
