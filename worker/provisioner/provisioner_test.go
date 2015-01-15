@@ -223,7 +223,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.st.Addr(), t.Version)
+						url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+							s.st.Addr(), coretesting.EnvironmentTag.Id(), t.Version)
 						c.Check(t.URL, gc.Equals, url)
 						t.URL = ""
 					}

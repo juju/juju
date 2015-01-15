@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -49,4 +50,11 @@ func (s *fakeHomeSuite) TestFakeHomeSetsUpJujuHome(c *gc.C) {
 func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {
 	expected := filepath.Join(utils.Home(), ".juju")
 	c.Assert(osenv.JujuHome(), gc.Equals, expected)
+}
+
+func (s *fakeHomeSuite) TestEnvironmentTagValie(c *gc.C) {
+	asString := testing.EnvironmentTag.String()
+	tag, err := names.ParseEnvironTag(asString)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.Equals, testing.EnvironmentTag)
 }

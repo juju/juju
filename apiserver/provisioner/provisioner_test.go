@@ -1330,7 +1330,8 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.Not(gc.HasLen), 0)
 	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), tools.Version)
+		url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }
