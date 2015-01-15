@@ -1050,7 +1050,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 }
 
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (env *environ)Subnets(_ instance.Id, _ []network.Id ) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
