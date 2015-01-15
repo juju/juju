@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/schema"
-	"launchpad.net/goamz/aws"
+	"gopkg.in/amz.v2/aws"
 
 	"github.com/juju/juju/environs/config"
 )

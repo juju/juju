@@ -5,7 +5,7 @@ package ec2
 
 import (
 	"github.com/juju/errors"
-	"launchpad.net/goamz/ec2"
+	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
