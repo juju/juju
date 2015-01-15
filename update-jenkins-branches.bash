@@ -26,9 +26,9 @@ if [[ "$CLOUD_CITY" == "true" ]]; then
 fi
 cd ~/juju-release-tools
 bzr pull
-cd ~/juju-ci-tools
-bzr pull
 cd ~/repository
+bzr pull
+cd ~/juju-ci-tools
 bzr pull
 make install-deps
 if [[ -d ~/ci-director ]]; then
