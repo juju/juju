@@ -1149,7 +1149,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId)
+	subnets, err := environ.Subnets(instId, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1207,7 +1207,7 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 
 // Subnets returns basic information about all subnets known
 // by the provider for the environment, for a specific instance.
-func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, error) {
+func (environ *maasEnviron) Subnets(instId instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
