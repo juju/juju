@@ -1205,8 +1205,8 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 	return nil
 }
 
-// Subnets returns basic information about all subnets known
-// by the provider for the environment, for a specific instance.
+// Subnets returns basic information about the specified subnets for a specific
+// instance.
 func (environ *maasEnviron) Subnets(instId instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
