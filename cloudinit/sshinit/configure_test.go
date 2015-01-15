@@ -174,11 +174,19 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 }
 
 func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
-	aptgetRegexp := "(.|\n)* $(which eatmydata || true) " + regexp.QuoteMeta(sshinit.Aptget)
+	aptgetRegexp := "(.|\n)*\\$\\(which eatmydata || true\\) " + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
 	cfg := cloudinit.New()
 	cfg.SetAptUpdate(true)
 	cfg.SetAptGetWrapper("eatmydata")
-	assertScriptMatches(c, cfg, aptgetRegexp, false)
+	assertScriptMatches(c, cfg, aptgetRegexp, true)
+}
+
+func (s *configureSuite) TestAptGetRetry(c *gc.C) {
+	aptgetRegexp := "(.|\n)*apt_get_loop.*" + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
+	cfg := cloudinit.New()
+	cfg.SetAptUpdate(true)
+	cfg.SetAptGetWrapper("eatmydata")
+	assertScriptMatches(c, cfg, aptgetRegexp, true)
 }
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
