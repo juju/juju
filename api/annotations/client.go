@@ -32,12 +32,13 @@ func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 }
 
 // Set sets entity annotation pairs.
-func (c *Client) Set(annotations map[string]map[string]string) error {
+func (c *Client) Set(annotations map[string]map[string]string) ([]params.ErrorResult, error) {
 	args := params.AnnotationsSet{entitiesAnnotations(annotations)}
-	if err := c.facade.FacadeCall("Set", args, nil); err != nil {
-		return errors.Trace(err)
+	results := new(params.ErrorResults)
+	if err := c.facade.FacadeCall("Set", args, results); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return nil
+	return results.Results, nil
 }
 
 func entitiesFromTags(tags []string) params.Entities {
