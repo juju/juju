@@ -47,7 +47,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("started instance %q in zone %q", raw.ID, raw.Zone)
+	logger.Infof("started instance %q in zone %q", raw.ID, raw.ZoneName)
 	inst := newInstance(raw, env)
 
 	// Open API port on state server.
@@ -232,7 +232,7 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 		CpuCores:         &spec.InstanceType.CpuCores,
 		CpuPower:         spec.InstanceType.CpuPower,
 		RootDisk:         &rootDiskMB,
-		AvailabilityZone: &inst.base.Zone,
+		AvailabilityZone: &inst.base.ZoneName,
 		// Tags: not supported in GCE.
 	}
 	return &hwc

@@ -21,7 +21,7 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 	inst := google.NewInstance(&s.RawInstanceFull, &s.InstanceSpec)
 
 	c.Check(inst.ID, gc.Equals, "spam")
-	c.Check(inst.Zone, gc.Equals, "a-zone")
+	c.Check(inst.ZoneName, gc.Equals, "a-zone")
 	c.Check(inst.Status(), gc.Equals, google.StatusRunning)
 	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
 	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
@@ -74,7 +74,7 @@ func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.Instance.ID, gc.Equals, "spam")
-	c.Check(s.Instance.Zone, gc.Equals, "a-zone")
+	c.Check(s.Instance.ZoneName, gc.Equals, "a-zone")
 	c.Check(s.Instance.Status(), gc.Equals, google.StatusRunning)
 	c.Check(s.Instance.Metadata(), jc.DeepEquals, s.Metadata)
 	c.Check(s.Instance.Addresses(), jc.DeepEquals, s.Addresses)

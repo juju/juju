@@ -44,7 +44,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	results := make([]string, len(ids))
 	for i, inst := range instances {
 		if eInst := inst.(*environInstance); eInst != nil {
-			results[i] = eInst.base.Zone
+			results[i] = eInst.base.ZoneName
 		}
 	}
 

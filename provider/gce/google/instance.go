@@ -84,9 +84,9 @@ type Instance struct {
 
 	// ID is the "name" of the instance.
 	ID string
-	// Zone is the unqualified name of the zone in which the instance
-	// was provisioned.
-	Zone string
+	// ZoneName is the unqualified name of the zone in which the
+	// instance was provisioned.
+	ZoneName string
 }
 
 func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
@@ -96,10 +96,10 @@ func newInstance(raw *compute.Instance, spec *InstanceSpec) *Instance {
 		spec = &val
 	}
 	return &Instance{
-		ID:   raw.Name,
-		Zone: zoneName(raw),
-		raw:  *raw,
-		spec: spec,
+		ID:       raw.Name,
+		ZoneName: zoneName(raw),
+		raw:      *raw,
+		spec:     spec,
 	}
 }
 
@@ -135,7 +135,7 @@ type instGetter interface {
 // Refresh updates the instance with its current data, utilizing the
 // provided connection to request it.
 func (gi *Instance) Refresh(conn instGetter) error {
-	updated, err := conn.Instance(gi.ID, gi.Zone)
+	updated, err := conn.Instance(gi.ID, gi.ZoneName)
 	if err != nil {
 		return errors.Trace(err)
 	}
