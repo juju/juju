@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -23,16 +22,15 @@ func (s *instanceSuite) TestNewInstance(c *gc.C) {
 
 	c.Check(inst.ID, gc.Equals, "spam")
 	c.Check(inst.Zone, gc.Equals, "a-zone")
-	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstanceFull)
+	c.Check(inst.Status(), gc.Equals, google.StatusRunning)
+	c.Check(inst.Metadata(), jc.DeepEquals, s.Metadata)
+	c.Check(inst.Addresses(), jc.DeepEquals, s.Addresses)
 	c.Check(inst.Spec(), jc.DeepEquals, &s.InstanceSpec)
 }
 
 func (s *instanceSuite) TestNewInstanceNoSpec(c *gc.C) {
 	inst := google.NewInstance(&s.RawInstanceFull, nil)
 
-	c.Check(inst.ID, gc.Equals, "spam")
-	c.Check(inst.Zone, gc.Equals, "a-zone")
-	c.Check(google.ExposeRawInstance(inst), gc.DeepEquals, &s.RawInstanceFull)
 	c.Check(inst.Spec(), gc.IsNil)
 }
 
@@ -75,7 +73,11 @@ func (s *instanceSuite) TestInstanceRefresh(c *gc.C) {
 	err := s.Instance.Refresh(s.Conn)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(google.ExposeRawInstance(&s.Instance), jc.DeepEquals, &s.RawInstanceFull)
+	c.Check(s.Instance.ID, gc.Equals, "spam")
+	c.Check(s.Instance.Zone, gc.Equals, "a-zone")
+	c.Check(s.Instance.Status(), gc.Equals, google.StatusRunning)
+	c.Check(s.Instance.Metadata(), jc.DeepEquals, s.Metadata)
+	c.Check(s.Instance.Addresses(), jc.DeepEquals, s.Addresses)
 }
 
 func (s *instanceSuite) TestInstanceRefreshAPI(c *gc.C) {
