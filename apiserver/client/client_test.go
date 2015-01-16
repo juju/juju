@@ -933,7 +933,6 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	environment, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	type taggedAnnotator interface {
-		state.Annotator
 		state.Entity
 	}
 	entities := []taggedAnnotator{service, unit, machine, environment}
@@ -942,7 +941,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 			id := entity.Tag().String() // this is WRONG, it should be Tag().Id() but the code is wrong.
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
-			err := entity.SetAnnotations(t.initial)
+			err := s.APIState.Client().SetAnnotations(id, t.initial)
 			c.Assert(err, jc.ErrorIsNil)
 			// Add annotations using the API call.
 			err = s.APIState.Client().SetAnnotations(id, t.input)
@@ -951,20 +950,17 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 				continue
 			}
 			// Check annotations are correctly set.
-			dbann, err := entity.Annotations()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(dbann, gc.DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, jc.ErrorIsNil)
 			// Check annotations are correctly returned.
-			c.Assert(ann, gc.DeepEquals, dbann)
+			c.Assert(ann, gc.DeepEquals, t.input)
 			// Clean up annotations on the current entity.
 			cleanup := make(map[string]string)
-			for key := range dbann {
+			for key := range ann {
 				cleanup[key] = ""
 			}
-			err = entity.SetAnnotations(cleanup)
+			err = s.APIState.Client().SetAnnotations(id, cleanup)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
