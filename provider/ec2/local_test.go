@@ -801,7 +801,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets("")
+	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultSubnets := []network.SubnetInfo{{
