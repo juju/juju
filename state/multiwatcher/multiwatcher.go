@@ -130,6 +130,7 @@ type MachineInfo struct {
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
 	Jobs                     []MachineJob
 	Addresses                []network.Address
+	StateServerMemberStatus  string
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -237,4 +238,21 @@ func AnyJobNeedsState(jobs ...MachineJob) bool {
 		}
 	}
 	return false
+}
+
+// MakeHAStatus constructs a displayable value to reflect
+// a machine's HA status.
+func MakeHAStatus(hasVote, wantsVote bool) string {
+	var s string
+	switch {
+	case hasVote && wantsVote:
+		s = "has-vote"
+	case hasVote && !wantsVote:
+		s = "removing-vote"
+	case !hasVote && wantsVote:
+		s = "adding-vote"
+	case !hasVote && !wantsVote:
+		s = "no-vote"
+	}
+	return s
 }

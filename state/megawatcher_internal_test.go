@@ -106,6 +106,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
+		StateServerMemberStatus: "no-vote",
 	})
 
 	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
@@ -199,6 +200,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
+			StateServerMemberStatus: "no-vote",
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, jc.ErrorIsNil)
@@ -316,13 +318,14 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.MachineInfo{
-						Id:         "0",
-						Status:     multiwatcher.Status("error"),
-						StatusInfo: "failure",
-						Life:       multiwatcher.Life("alive"),
-						Series:     "quantal",
-						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-						Addresses:  []network.Address{},
+						Id:                      "0",
+						Status:                  multiwatcher.Status("error"),
+						StatusInfo:              "failure",
+						Life:                    multiwatcher.Life("alive"),
+						Series:                  "quantal",
+						Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+						Addresses:               []network.Address{},
+						StateServerMemberStatus: "no-vote",
 					}}}
 		},
 		// Machine status changes
@@ -360,6 +363,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
 						SupportedContainersKnown: true,
+						StateServerMemberStatus:  "adding-vote",
 					}}}
 		},
 		// Unit changes
@@ -986,21 +990,23 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	s.State.StartSync()
 	checkNext(c, w, []multiwatcher.Delta{{
 		Entity: &multiwatcher.MachineInfo{
-			Id:        "0",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "trusty",
-			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
-			Addresses: []network.Address{},
+			Id:                      "0",
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "trusty",
+			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
+			Addresses:               []network.Address{},
+			StateServerMemberStatus: "adding-vote",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			Id:        "1",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "saucy",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
+			Id:                      "1",
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "saucy",
+			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:               []network.Address{},
+			StateServerMemberStatus: "no-vote",
 		},
 	}}, "")
 
@@ -1054,25 +1060,28 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
+			StateServerMemberStatus: "adding-vote",
 		},
 	}, {
 		Removed: true,
 		Entity: &multiwatcher.MachineInfo{
-			Id:        "1",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "saucy",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
+			Id:                      "1",
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "saucy",
+			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:               []network.Address{},
+			StateServerMemberStatus: "foo6",
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
-			Id:        "2",
-			Status:    multiwatcher.Status("pending"),
-			Life:      multiwatcher.Life("alive"),
-			Series:    "quantal",
-			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
+			Id:                      "2",
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
+			Series:                  "quantal",
+			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
+			Addresses:               []network.Address{},
+			StateServerMemberStatus: "no-vote",
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{

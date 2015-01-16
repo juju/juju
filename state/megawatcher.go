@@ -34,6 +34,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interfa
 		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,
+		StateServerMemberStatus:  multiwatcher.MakeHAStatus(m.HasVote, wantsVote(m.Jobs, m.NoVote)),
 	}
 
 	oldInfo := store.Get(info.EntityId())
