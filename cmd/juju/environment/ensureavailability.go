@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package environment
 
 import (
 	"bytes"
@@ -22,7 +22,8 @@ import (
 
 type EnsureAvailabilityCommand struct {
 	envcmd.EnvCommandBase
-	out cmd.Output
+	out      cmd.Output
+	haClient EnsureAvailabilityClient
 
 	NumStateServers int
 	// If specified, use this series for newly created machines,
@@ -160,15 +161,36 @@ type availabilityInfo struct {
 	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
 }
 
+type EnsureAvailabilityClient interface {
+	Close() error
+	EnsureAvailability(
+		numStateServers int, cons constraints.Value, series string,
+		placement []string) (params.StateServersChanges, error)
+}
+
+func (c *EnsureAvailabilityCommand) getHAClient() (EnsureAvailabilityClient, error) {
+	if c.haClient != nil {
+		return c.haClient, nil
+	}
+
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get API connection")
+	}
+
+	// NewClient does not return an error, so we'll return nil
+	return highavailability.NewClient(root), nil
+}
+
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
 func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return errors.Annotate(err, "cannot get API connection")
-	}
 	var ensureAvailabilityResult params.StateServersChanges
-	haClient := highavailability.NewClient(root)
+	haClient, err := c.getHAClient()
+	if err != nil {
+		return err
+	}
+
 	defer haClient.Close()
 	ensureAvailabilityResult, err = haClient.EnsureAvailability(
 		c.NumStateServers,

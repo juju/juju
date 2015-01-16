@@ -71,3 +71,8 @@ func (s *EnvironmentSuite) TestUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvValueMissing(c, "special")
 }
+
+func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
+	_, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "-1")
+	c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and non-negative")
+}
