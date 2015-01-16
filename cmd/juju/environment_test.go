@@ -75,8 +75,6 @@ func (s *EnvironmentSuite) TestUnset(c *gc.C) {
 }
 
 func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
-	// Add a state server to the environment, and ensure that it is
-	// considered 'alive' so that calls don't spawn new instances
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
@@ -86,5 +84,4 @@ func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals,
 		"adding machines: 1, 2, 3\n"+
 			"demoting machines 0\n\n")
-
 }
