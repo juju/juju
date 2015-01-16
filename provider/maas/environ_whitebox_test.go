@@ -1098,6 +1098,12 @@ func (suite *environSuite) TestSubnetsNoNetIds(c *gc.C) {
 	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{})
 	c.Assert(err, gc.ErrorMatches, "netIds must not be empty")
 }
+
+func (suite *environSuite) TestSubnetsMissingNetwork(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+	_, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"WLAN", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following networks: \\[Missing\\]")
+}
 func (suite *environSuite) TestAllocateAddress(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
