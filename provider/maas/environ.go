@@ -1284,7 +1284,12 @@ func (*maasEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, e
 
 // Subnets returns basic information about the specified subnets for a specific
 // instance.
-func (environ *maasEnviron) Subnets(instId instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
+func (environ *maasEnviron) Subnets(instId instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+	// At some point in the future an empty netIds may mean "fetch all subnets"
+	// but until that functionality is needed it's an error.
+	if len(netIds) == 0 {
+		return nil, errors.Errorf("netIds must not be empty")
+	}
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
@@ -1304,8 +1309,20 @@ func (environ *maasEnviron) Subnets(instId instance.Id, _ []network.Id) ([]netwo
 		return nil, errors.Annotatef(err, "getNodegroups failed")
 	}
 	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
+
+	netIdSet := make(map[network.Id]bool)
+	for _, netId := range netIds {
+		netIdSet[netId] = false
+	}
+
 	var networkInfo []network.SubnetInfo
 	for _, netw := range networks {
+		_, ok := netIdSet[network.Id(netw.Name)]
+		if !ok {
+			continue
+		}
+		// mark that we've found this subnet
+		netIdSet[network.Id(netw.Name)] = true
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
@@ -1337,6 +1354,17 @@ func (environ *maasEnviron) Subnets(instId instance.Id, _ []network.Id) ([]netwo
 		networkInfo = append(networkInfo, netInfo)
 	}
 	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
+
+	notFound := []network.Id{}
+	for netId, found := range netIdSet {
+		if !found {
+			notFound = append(notFound, netId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following networks: %v", notFound)
+	}
+
 	return networkInfo, nil
 }
 
