@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
@@ -33,11 +34,13 @@ type BaseSuite struct {
 	EnvConfig *environConfig
 	FakeConn  *fakeConn
 	Env       *environ
+	Prefix    string
 
-	Addresses    []network.Address
-	BaseInstance *google.Instance
-	Instance     *environInstance
-	InstName     string
+	Addresses     []network.Address
+	BaseInstance  *google.Instance
+	Instance      *environInstance
+	InstName      string
+	StartInstArgs environs.StartInstanceParams
 
 	Ports []network.PortRange
 }
@@ -57,6 +60,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 		ecfg: s.EnvConfig,
 		gce:  s.FakeConn,
 	}
+	s.Prefix = "juju-" + s.Env.uuid + "-"
 
 	diskSpec := google.DiskSpec{
 		SizeHintGB: 5,
@@ -85,14 +89,18 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}
 	summary := google.InstanceSummary{
 		ID:        "spam",
-		ZoneName:  "a-zone",
+		ZoneName:  "home-zone",
 		Status:    google.StatusRunning,
 		Metadata:  metadata,
 		Addresses: s.Addresses,
 	}
 	s.BaseInstance = google.NewInstance(summary, &instanceSpec)
 	s.Instance = newInstance(s.BaseInstance, s.Env)
-	s.InstName = "juju-" + s.Env.uuid + "-machine-spam"
+	s.InstName = s.Prefix + "machine-spam"
+	s.StartInstArgs = environs.StartInstanceParams{
+	//Placement: "",
+	//DistributionGroup: nil,
+	}
 
 	s.Ports = []network.PortRange{{
 		FromPort: 80,
@@ -186,7 +194,7 @@ func (fc *fakeConn) Instance(id, zone string) (*google.Instance, error) {
 
 func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeCall{
-		FuncName: "",
+		FuncName: "Instances",
 		Prefix:   prefix,
 		Statuses: statuses,
 	})
@@ -239,7 +247,7 @@ func (fc *fakeConn) ClosePorts(fwname string, ports []network.PortRange) error {
 
 func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone, error) {
 	fc.Calls = append(fc.Calls, fakeCall{
-		FuncName: "",
+		FuncName: "AvailabilityZones",
 		Region:   region,
 	})
 	return fc.Zones, fc.err()

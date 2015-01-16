@@ -15,6 +15,15 @@ type AvailabilityZone struct {
 	zone *compute.Zone
 }
 
+// NewZone build an availability zone from the provided name and status
+// and returns it.
+func NewZone(name, status string) AvailabilityZone {
+	return AvailabilityZone{zone: &compute.Zone{
+		Name:   name,
+		Status: status,
+	}}
+}
+
 // TODO(ericsnow) Add a Region getter?
 
 // Name returns the zone's name.

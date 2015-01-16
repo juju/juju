@@ -20,3 +20,7 @@ func ExposeInstBase(inst *environInstance) *google.Instance {
 func ExposeInstEnv(inst *environInstance) *environ {
 	return inst.env
 }
+
+func ParseAvailabilityZones(env *environ, args environs.StartInstanceParams) ([]string, error) {
+	return env.parseAvailabilityZones(args)
+}

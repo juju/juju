@@ -49,7 +49,7 @@ func (s *instanceSuite) TestRefreshAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
 	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instance")
 	c.Check(s.FakeConn.Calls[0].ID, gc.Equals, "spam")
-	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "a-zone")
+	c.Check(s.FakeConn.Calls[0].ZoneName, gc.Equals, "home-zone")
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {

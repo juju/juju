@@ -24,7 +24,7 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 	var result []common.AvailabilityZone
 	for _, zone := range zones {
-		result = append(result, zone)
+		result = append(result, &zone)
 	}
 	return result, nil
 }
@@ -96,7 +96,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	}
 
 	if len(zoneNames) == 0 {
-		return nil, errors.New("failed to determine availability zones")
+		return nil, errors.NotFoundf("failed to determine availability zones")
 	}
 
 	return zoneNames, nil
