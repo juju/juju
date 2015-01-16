@@ -90,6 +90,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	m, err := s.State.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
+	err = m.SetHasVote(true)
+	c.Assert(err, jc.ErrorIsNil)
 	// TODO(dfc) instance.Id should take a TAG!
 	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,6 +108,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
+		HasVote:                 true,
+		WantsVote:               true,
 	})
 
 	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
@@ -199,6 +203,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Jobs:                    []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
+			HasVote:                 false,
+			WantsVote:               false,
 		})
 		err = wu.AssignToMachine(m)
 		c.Assert(err, jc.ErrorIsNil)
@@ -323,6 +329,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:     "quantal",
 						Jobs:       []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 						Addresses:  []network.Address{},
+						HasVote:    false,
+						WantsVote:  false,
 					}}}
 		},
 		// Machine status changes
@@ -360,6 +368,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
 						SupportedContainersKnown: true,
+						HasVote:                  false,
+						WantsVote:                true,
 					}}}
 		},
 		// Unit changes
@@ -992,6 +1002,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:    "trusty",
 			Jobs:      []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: true,
 		},
 	}, {
 		Entity: &multiwatcher.MachineInfo{
@@ -1001,6 +1013,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:    "saucy",
 			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
 		},
 	}}, "")
 
@@ -1054,6 +1068,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Jobs:                    []multiwatcher.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
+			HasVote:                 false,
+			WantsVote:               true,
 		},
 	}, {
 		Removed: true,
@@ -1073,6 +1089,8 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:    "quantal",
 			Jobs:      []multiwatcher.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
+			HasVote:   false,
+			WantsVote: false,
 		},
 	}, {
 		Entity: &multiwatcher.ServiceInfo{

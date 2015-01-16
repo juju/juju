@@ -138,6 +138,10 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	return machine
 }
 
+func wantsVote(jobs []MachineJob, noVote bool) bool {
+	return hasJob(jobs, JobManageEnviron) && !noVote
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id
@@ -236,7 +240,7 @@ func (m *Machine) Jobs() []MachineJob {
 // WantsVote reports whether the machine is a state server
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
-	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+	return wantsVote(m.doc.Jobs, m.doc.NoVote)
 }
 
 // HasVote reports whether that machine is currently a voting
