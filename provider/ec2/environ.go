@@ -783,10 +783,14 @@ func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error
 	return nil, errors.NotImplementedf("NetworkInterfaces")
 }
 
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new subnet was created).
-func (e *environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance.
+func (e *environ) Subnets(instId instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+	// At some point in the future an empty netIds may mean "fetch all subnets"
+	// but until that functionality is needed it's an error.
+	if len(netIds) == 0 {
+		return nil, errors.Errorf("netIds must not be empty")
+	}
 	ec2Inst := e.ec2()
 	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
 	resp, err := ec2Inst.Subnets(nil, nil)
