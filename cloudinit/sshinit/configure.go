@@ -125,6 +125,27 @@ func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 //    to always keep old configuration files in the face of change.
 const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
 
+// aptgetLoopFunction is a bash function that executes its arguments
+// in a loop with a delay until either the command either returns
+// with an exit code other than 100.
+const aptgetLoopFunction = `
+function apt_get_loop {
+    local rc=
+    while true; do
+        if ($*); then
+                return 0
+        else
+                rc=$?
+        fi
+        if [ $rc -eq 100 ]; then
+		sleep 10s
+                continue
+        fi
+        return $rc
+    done
+}
+`
+
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
@@ -179,11 +200,14 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 		}
 	}
 
+	// Define the "apt_get_loop" function, and wrap apt-get with it.
+	cmds = append(cmds, aptgetLoopFunction)
+	aptget = "apt_get_loop " + aptget
+
 	if cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
 		cmds = append(cmds, aptget+"update")
 	}
-
 	if cfg.AptUpgrade() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
 		cmds = append(cmds, aptget+"upgrade")
