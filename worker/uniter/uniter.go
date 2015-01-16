@@ -356,7 +356,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if hi.Kind == hooks.Action {
 		return u.runAction(hi.ActionId)
 	}
-	op, err := u.operationFactory.NewHook(hi)
+	op, err := u.operationFactory.NewRunHook(hi)
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 }
 
 func (u *Uniter) skipHook(hi hook.Info) (err error) {
-	op, err := u.operationFactory.NewHook(hi)
+	op, err := u.operationFactory.NewRunHook(hi)
 	if err != nil {
 		return err
 	}
