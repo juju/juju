@@ -1083,7 +1083,7 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 func (suite *environSuite) TestSubnets(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 
-	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id())
+	netInfo, err := suite.makeEnviron().Subnets(test_instance.Id(), []network.Id{"LAN", "Virt", "WLAN"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedInfo := []network.SubnetInfo{
@@ -1113,7 +1113,7 @@ func (suite *environSuite) TestAllocateAddressMissingSubnet(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 	env := suite.makeEnviron()
 	err := env.AllocateAddress(test_instance.Id(), "bar", network.Address{Value: "192.168.2.1"})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "could not find network matching bar")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, "failed to find the following networks: \\[bar\\]")
 }
 
 func (suite *environSuite) TestAllocateAddressIPAddressUnavailable(c *gc.C) {
