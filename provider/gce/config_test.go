@@ -132,6 +132,7 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	}
 }
 
+// TODO(wwitzel3) refactor to provider_test file
 func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
@@ -155,6 +156,7 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	}
 }
 
+// TODO(wwitzel3) refactor to the provider_test file
 func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	knownGoodConfig := newConfig(c, validAttrs())
 	uuid, ok := knownGoodConfig.UUID()
@@ -216,6 +218,7 @@ var changeConfigTests = testSpec{{
 	expect: testing.Attrs{"unknown": "ignoti"},
 }}
 
+// TODO(wwitzel3) refactor this to the provider_test file.
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs())
 	uuid, ok := baseConfig.UUID()
