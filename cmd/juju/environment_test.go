@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -70,4 +71,30 @@ func (s *EnvironmentSuite) TestUnset(c *gc.C) {
 	_, err = s.RunEnvironmentCommand(c, "unset", "special")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvValueMissing(c, "special")
+}
+
+func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
+	// Add a state server to the environment, and ensure that it is
+	// considered 'alive' so that calls don't spawn new instances
+	_, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.BackingState.Machine("0")
+	c.Assert(err, jc.ErrorIsNil)
+	machine0Pinger, err := m.SetAgentPresence()
+	c.Assert(err, jc.ErrorIsNil)
+	s.BackingState.StartSync()
+	err = m.WaitAgentPresence(testing.LongWait)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(ctx), gc.Equals,
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
+
+	if machine0Pinger != nil {
+		machine0Pinger.Kill()
+		machine0Pinger = nil
+	}
+
 }
