@@ -18,6 +18,7 @@ from deploy_stack import (
     wait_for_state_server_to_shutdown,
 )
 from jujuconfig import (
+    get_jenv_path,
     get_juju_home,
     )
 from jujupy import (
@@ -30,6 +31,7 @@ from substrate import (
     terminate_instances,
     )
 from utility import (
+    ensure_deleted,
     print_now,
 )
 
@@ -155,17 +157,16 @@ def main():
         const='ha-backup', help="Test backup/restore of HA.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
-    parser.add_argument('logs', nargs='?', help='Directory to store logs in.',
-                        default=None)
+    parser.add_argument('logs', help='Directory to store logs in.')
     args = parser.parse_args()
     log_dir = args.logs
-    if log_dir is None:
-        log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     try:
         setup_juju_path(args.juju_path)
         env = SimpleEnvironment.from_config(args.env_name)
+        juju_home = get_juju_home()
+        ensure_deleted(get_jenv_path(juju_home, env.environment))
         client = EnvJujuClient.by_version(env)
-        with temp_bootstrap_env(get_juju_home(), client):
+        with temp_bootstrap_env(juju_home, client):
             client.bootstrap()
         bootstrap_host = get_machine_dns_name(client, 0)
         try:
