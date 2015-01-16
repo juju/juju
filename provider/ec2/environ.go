@@ -798,8 +798,17 @@ func (e *environ) Subnets(instId instance.Id, netIds []network.Id) ([]network.Su
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 	}
 
+	netIdSet := make(map[network.Id]bool)
+	for _, netId := range netIds {
+		netIdSet[netId] = false
+	}
+
 	var results []network.SubnetInfo
 	for _, subnet := range resp.Subnets {
+		_, ok := netIdSet[network.Id(subnet.Id)]
+		if !ok {
+			continue
+		}
 		cidr := subnet.CIDRBlock
 		ip, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -831,6 +840,16 @@ func (e *environ) Subnets(instId instance.Id, netIds []network.Id) ([]network.Su
 			AllocatableIPHigh: allocatableHigh,
 		}
 		results = append(results, info)
+	}
+
+	notFound := []network.Id{}
+	for netId, found := range netIdSet {
+		if !found {
+			notFound = append(notFound, netId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following networks: %v", notFound)
 	}
 
 	return results, nil
