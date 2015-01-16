@@ -27,11 +27,13 @@ def update_env(env, series=None, agent_url=None):
         env.config['tools-metadata-url'] = agent_url
 
 
-def run_quickstart(environment, bundle_path, series, agent_url, debug):
+def run_quickstart(environment, bundle_path, count, series, agent_url, debug):
     """"Deploy a bundle in the specified environment.
 
     :param environment: The name of the desired environment.
     :param bundle_path: The Path or URL of the bundle to installed.
+    :param count: The number of services to wait for before checking status.
+    :param agent_url: Path the agent stream.
     :param debug: Boolean for enabling client debug output.
     """
     env = Environment.from_config(environment)
@@ -49,7 +51,7 @@ def run_quickstart(environment, bundle_path, series, agent_url, debug):
             except CannotConnectEnv:
                 print("Status got Unable to connect to env.  Retrying...")
                 env.get_status()
-            env.wait_for_deploy_started(2)
+            env.wait_for_deploy_started(count)
             env.wait_for_started(3600)
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
@@ -68,7 +70,9 @@ def main():
                         help='URL or path to a bundle')
     parser.add_argument('--agent-url', default=None,
                         help='URL to use for retrieving agent binaries.')
-    parser.add_argument('--debug', type=bool, default=False,
+    parser.add_argument('--service-count', type=int, default=2,
+                        help='Minimum number of expected services.')
+    parser.add_argument('--debug', action="store_true", default=False,
                         help='debug output')
     parser.add_argument('--new-juju-bin', default=False,
                         help='Dirctory containing the new Juju binary.')
@@ -80,8 +84,8 @@ def main():
         new_path = '%s:%s' % (juju_path, os.environ['PATH'])
         os.environ['PATH'] = new_path
     try:
-        run_quickstart(args.env, args.bundle_path, args.series,
-                       args.agent_url, args.debug)
+        run_quickstart(args.env, args.bundle_path, args.service_count,
+                       args.series, args.agent_url, args.debug)
     except Exception as e:
         print('%s: %s' % (type(e), e))
         sys.exit(1)
