@@ -40,6 +40,8 @@ type DeployCallbacks struct {
 	operation.Callbacks
 	*MockGetArchiveInfo
 	*MockSetCurrentCharm
+	MockClearResolvedFlag          *MockNoArgs
+	MockInitializeMetricsCollector *MockNoArgs
 }
 
 func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
@@ -48,6 +50,14 @@ func (cb *DeployCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bundle
 
 func (cb *DeployCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
+}
+
+func (cb *DeployCallbacks) ClearResolvedFlag() error {
+	return cb.MockClearResolvedFlag.Call()
+}
+
+func (cb *DeployCallbacks) InitializeMetricsCollector() error {
+	return cb.MockInitializeMetricsCollector.Call()
 }
 
 type MockBundleInfo struct {
@@ -66,12 +76,12 @@ func (mock *MockStage) Call(info charm.BundleInfo, abort <-chan struct{}) error 
 	return mock.err
 }
 
-type MockDeploy struct {
+type MockNoArgs struct {
 	called bool
 	err    error
 }
 
-func (mock *MockDeploy) Call() error {
+func (mock *MockNoArgs) Call() error {
 	mock.called = true
 	return mock.err
 }
@@ -79,7 +89,9 @@ func (mock *MockDeploy) Call() error {
 type MockDeployer struct {
 	charm.Deployer
 	*MockStage
-	*MockDeploy
+	MockDeploy         *MockNoArgs
+	MockNotifyRevert   *MockNoArgs
+	MockNotifyResolved *MockNoArgs
 }
 
 func (d *MockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error {
@@ -88,6 +100,14 @@ func (d *MockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error
 
 func (d *MockDeployer) Deploy() error {
 	return d.MockDeploy.Call()
+}
+
+func (d *MockDeployer) NotifyRevert() error {
+	return d.MockNotifyRevert.Call()
+}
+
+func (d *MockDeployer) NotifyResolved() error {
+	return d.MockNotifyResolved.Call()
 }
 
 type MockFailAction struct {
@@ -153,10 +173,15 @@ func (mock *MockPrepareHook) Call(hookInfo hook.Info) (string, error) {
 type PrepareHookCallbacks struct {
 	operation.Callbacks
 	*MockPrepareHook
+	MockClearResolvedFlag *MockNoArgs
 }
 
 func (cb *PrepareHookCallbacks) PrepareHook(hookInfo hook.Info) (string, error) {
 	return cb.MockPrepareHook.Call(hookInfo)
+}
+
+func (cb *PrepareHookCallbacks) ClearResolvedFlag() error {
+	return cb.MockClearResolvedFlag.Call()
 }
 
 type MockNotify struct {
@@ -326,21 +351,30 @@ func (r *MockRunner) RunHook(hookName string) error {
 
 func NewDeployCallbacks() *DeployCallbacks {
 	return &DeployCallbacks{
-		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
-		MockSetCurrentCharm: &MockSetCurrentCharm{},
+		MockGetArchiveInfo:    &MockGetArchiveInfo{info: &MockBundleInfo{}},
+		MockSetCurrentCharm:   &MockSetCurrentCharm{},
+		MockClearResolvedFlag: &MockNoArgs{},
 	}
 }
 
+func NewDeployCommitCallbacks(err error) *DeployCallbacks {
+	return &DeployCallbacks{
+		MockInitializeMetricsCollector: &MockNoArgs{err: err},
+	}
+}
 func NewMockDeployer() *MockDeployer {
 	return &MockDeployer{
-		MockStage:  &MockStage{},
-		MockDeploy: &MockDeploy{},
+		MockStage:          &MockStage{},
+		MockDeploy:         &MockNoArgs{},
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
 	}
 }
 
 func NewPrepareHookCallbacks() *PrepareHookCallbacks {
 	return &PrepareHookCallbacks{
-		MockPrepareHook: &MockPrepareHook{nil, "some-hook-name", nil},
+		MockPrepareHook:       &MockPrepareHook{nil, "some-hook-name", nil},
+		MockClearResolvedFlag: &MockNoArgs{},
 	}
 }
 

@@ -102,17 +102,36 @@ func (rh *runHook) Execute(state State) (*State, error) {
 }
 
 // Commit updates relation state to include the fact of the hook's execution,
-// and records the impact of start and collect-metrics hooks.
+// records the impact of start and collect-metrics hooks, and queues follow-up
+// config-changed hooks to directly follow install and upgrade-charm hooks.
 // Commit is part of the Operation interface.
 func (rh *runHook) Commit(state State) (*State, error) {
 	if err := rh.callbacks.CommitHook(rh.info); err != nil {
 		return nil, err
 	}
-	newState := stateChange{
-		Kind: Continue,
-		Step: Pending,
-		Hook: &rh.info,
-	}.apply(state)
+
+	change := stateChange{
+		Kind: RunHook,
+		Step: Queued,
+	}
+	switch rh.info.Kind {
+	case hooks.Install, hooks.UpgradeCharm:
+		change.Hook = &hook.Info{Kind: hooks.ConfigChanged}
+	case hooks.ConfigChanged:
+		if !state.Started {
+			change.Hook = &hook.Info{Kind: hooks.Start}
+			break
+		}
+		fallthrough
+	default:
+		change = stateChange{
+			Kind: Continue,
+			Step: Pending,
+			Hook: &rh.info,
+		}
+	}
+
+	newState := change.apply(state)
 	switch rh.info.Kind {
 	case hooks.Start:
 		newState.Started = true

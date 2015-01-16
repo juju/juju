@@ -268,20 +268,20 @@ func (u *Uniter) operationState() operation.State {
 // deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
 func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
-	op, err := u.operationFactory.NewDeploy(curl, reason)
+	var op operation.Operation
+	var err error
+	switch reason {
+	case operation.Install:
+		op, err = u.operationFactory.NewInstall(curl)
+	case operation.Upgrade:
+		op, err = u.operationFactory.NewUpgrade(curl)
+	default:
+		err = errors.Errorf("unknown deploy reason %q", reason)
+	}
 	if err != nil {
 		return err
 	}
-	err = u.operationExecutor.Run(op)
-	if err != nil {
-		return err
-	}
-
-	// The new charm may have declared metrics where the old one had none
-	// (or vice versa), so reset the metrics collection policy according
-	// to current state.
-	// TODO(fwereade): maybe this should be in operation.deploy.Commit()?
-	return u.initializeMetricsCollector()
+	return u.operationExecutor.Run(op)
 }
 
 // initializeMetricsCollector enables the periodic collect-metrics hook

@@ -85,9 +85,9 @@ func (x *executor) Skip(op Operation) error {
 func (x *executor) do(op Operation, step executorStep) (err error) {
 	message := step.message(op)
 	logger.Infof(message)
-	stateChange, firstErr := step.run(op, *x.state)
-	if stateChange != nil {
-		writeErr := x.writeChange(*stateChange)
+	newState, firstErr := step.run(op, *x.state)
+	if newState != nil {
+		writeErr := x.writeState(*newState)
 		if firstErr == nil {
 			firstErr = writeErr
 		} else if writeErr != nil {
@@ -97,7 +97,7 @@ func (x *executor) do(op Operation, step executorStep) (err error) {
 	return errors.Annotatef(firstErr, message)
 }
 
-func (x *executor) writeChange(newState State) error {
+func (x *executor) writeState(newState State) error {
 	if err := newState.validate(); err != nil {
 		return err
 	}

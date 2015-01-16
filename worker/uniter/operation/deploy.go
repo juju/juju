@@ -6,6 +6,7 @@ package operation
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
@@ -17,6 +18,8 @@ import (
 type deploy struct {
 	kind     Kind
 	charmURL *corecharm.URL
+	revert   bool
+	resolved bool
 
 	callbacks Callbacks
 	deployer  charm.Deployer
@@ -25,7 +28,17 @@ type deploy struct {
 
 // String is part of the Operation interface.
 func (d *deploy) String() string {
-	return fmt.Sprintf("%s %s", d.kind, d.charmURL)
+	verb := "upgrade to"
+	prefix := ""
+	switch {
+	case d.kind == Install:
+		verb = "install"
+	case d.revert:
+		prefix = "switch "
+	case d.resolved:
+		prefix = "continue "
+	}
+	return fmt.Sprintf("%s%s %s", prefix, verb, d.charmURL)
 }
 
 // Prepare downloads and verifies the charm, and informs the state server
@@ -36,9 +49,19 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, err
 	}
+	if d.revert {
+		if err := d.deployer.NotifyRevert(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	if d.resolved {
+		if err := d.deployer.NotifyResolved(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	info, err := d.callbacks.GetArchiveInfo(d.charmURL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if err := d.deployer.Stage(info, d.abort); err != nil {
 		return nil, err
@@ -69,6 +92,9 @@ func (d *deploy) Execute(state State) (*State, error) {
 // Commit restores state for any interrupted hook, or queues an install or
 // upgrade-charm hook if no hook was interrupted.
 func (d *deploy) Commit(state State) (*State, error) {
+	if err := d.callbacks.InitializeMetricsCollector(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	change := &stateChange{
 		Kind: RunHook,
 	}

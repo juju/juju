@@ -51,15 +51,6 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		switch opState.Hook.Kind {
 		case hooks.Stop:
 			return ModeTerminating, nil
-		case hooks.UpgradeCharm:
-			return ModeConfigChanged, nil
-		case hooks.ConfigChanged:
-			if !opState.Started {
-				return ModeStarting, nil
-			}
-		}
-		if !u.ranConfigChanged {
-			return ModeConfigChanged, nil
 		}
 		return ModeAbide, nil
 	case operation.RunHook:
@@ -93,13 +84,12 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 // ModeInstalling is responsible for the initial charm deployment.
 func ModeInstalling(u *Uniter, curl *charm.URL) (next Mode, err error) {
-	// First up, set the unit status to Installing.
-	if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
-		return nil, err
-	}
 	name := fmt.Sprintf("ModeInstalling %s", curl)
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext(name, &err)()
+		if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
+			return nil, err
+		}
 		if err = u.deploy(curl, operation.Install); err != nil {
 			return nil, err
 		}
@@ -120,32 +110,6 @@ func ModeUpgrading(curl *charm.URL) Mode {
 		}
 		return ModeContinue, nil
 	}
-}
-
-// ModeConfigChanged runs the "config-changed" hook.
-func ModeConfigChanged(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeConfigChanged", &err)()
-	if !u.operationState().Started {
-		if err = u.unit.SetStatus(params.StatusInstalling, "", nil); err != nil {
-			return nil, err
-		}
-	}
-	u.f.DiscardConfigEvent()
-	err = u.runHook(hook.Info{Kind: hooks.ConfigChanged})
-	if err != nil {
-		return nil, err
-	}
-	return ModeContinue, nil
-}
-
-// ModeStarting runs the "start" hook.
-func ModeStarting(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeStarting", &err)()
-	err = u.runHook(hook.Info{Kind: hooks.Start})
-	if err != nil {
-		return nil, err
-	}
-	return ModeContinue, nil
 }
 
 // ModeStopping runs the "stop" hook.
@@ -217,6 +181,11 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	}
 	if err = u.unit.SetStatus(params.StatusActive, "", nil); err != nil {
 		return nil, err
+	}
+	if !u.ranConfigChanged {
+		if err := u.runHook(hook.Info{Kind: hooks.ConfigChanged}); err != nil {
+			return nil, err
+		}
 	}
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
@@ -333,12 +302,12 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookName)
-	if err = u.unit.SetStatus(params.StatusError, statusMessage, statusData); err != nil {
-		return nil, err
-	}
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
+		if err = u.unit.SetStatus(params.StatusError, statusMessage, statusData); err != nil {
+			return nil, err
+		}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying

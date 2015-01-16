@@ -32,22 +32,38 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewDeploy(c *gc.C) {
-	op, err := s.factory.NewDeploy(nil, operation.Install)
+	op, err := s.factory.NewInstall(nil)
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "charm url required")
 
 	charmURL := corecharm.MustParseURL("cs:quantal/wordpress-1")
-	op, err = s.factory.NewDeploy(charmURL, operation.RunHook)
-	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "unknown deploy kind: run-hook")
-
-	op, err = s.factory.NewDeploy(charmURL, operation.Install)
+	op, err = s.factory.NewInstall(charmURL)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "install cs:quantal/wordpress-1")
 
-	op, err = s.factory.NewDeploy(charmURL, operation.Upgrade)
+	op, err = s.factory.NewUpgrade(nil)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "charm url required")
+
+	op, err = s.factory.NewUpgrade(charmURL)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "upgrade cs:quantal/wordpress-1")
+	c.Check(op.String(), gc.Equals, "upgrade to cs:quantal/wordpress-1")
+
+	op, err = s.factory.NewRevertUpgrade(nil)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "charm url required")
+
+	op, err = s.factory.NewRevertUpgrade(charmURL)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op.String(), gc.Equals, "clear resolved flag and switch upgrade to cs:quantal/wordpress-1")
+
+	op, err = s.factory.NewResolvedUpgrade(nil)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "charm url required")
+
+	op, err = s.factory.NewResolvedUpgrade(charmURL)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op.String(), gc.Equals, "clear resolved flag and continue upgrade to cs:quantal/wordpress-1")
 }
 
 func (s *FactorySuite) TestNewAction(c *gc.C) {
@@ -101,26 +117,34 @@ func (s *FactorySuite) TestNewCommands(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewHook(c *gc.C) {
-	op, err := s.factory.NewHook(hook.Info{Kind: hooks.Kind("gibberish")})
+	op, err := s.factory.NewRunHook(hook.Info{Kind: hooks.Kind("gibberish")})
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `unknown hook kind "gibberish"`)
 
-	op, err = s.factory.NewHook(hook.Info{Kind: hooks.Install})
+	op, err = s.factory.NewRunHook(hook.Info{Kind: hooks.Install})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run install hook")
 
-	op, err = s.factory.NewHook(hook.Info{
+	op, err = s.factory.NewRetryHook(hook.Info{Kind: hooks.Kind("gibberish")})
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, `unknown hook kind "gibberish"`)
+
+	op, err = s.factory.NewRetryHook(hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 123,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run relation-broken (123) hook")
+	c.Check(op.String(), gc.Equals, "clear resolved flag and run relation-broken (123) hook")
 
-	op, err = s.factory.NewHook(hook.Info{
+	op, err = s.factory.NewSkipHook(hook.Info{Kind: hooks.Kind("gibberish")})
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, `unknown hook kind "gibberish"`)
+
+	op, err = s.factory.NewSkipHook(hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "foo/22",
 		RelationId: 123,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run relation-joined (123; foo/22) hook")
+	c.Check(op.String(), gc.Equals, "clear resolved flag and skip run relation-joined (123; foo/22) hook")
 }
