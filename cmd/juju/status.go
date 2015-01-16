@@ -343,7 +343,7 @@ func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatu
 
 	for _, job := range machine.Jobs {
 		if job == multiwatcher.JobManageEnviron {
-			out.HAStatus = multiwatcher.MakeHAStatus(machine.HasVote, machine.WantsVote)
+			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}
 	}
@@ -418,6 +418,21 @@ func (sf *statusFormatter) formatNetwork(network api.NetworkStatus) networkStatu
 		CIDR:       network.CIDR,
 		VLANTag:    network.VLANTag,
 	}
+}
+
+func makeHAStatus(hasVote, wantsVote bool) string {
+	var s string
+	switch {
+	case hasVote && wantsVote:
+		s = "has-vote"
+	case hasVote && !wantsVote:
+		s = "removing-vote"
+	case !hasVote && wantsVote:
+		s = "adding-vote"
+	case !hasVote && !wantsVote:
+		s = "no-vote"
+	}
+	return s
 }
 
 func getRelationIdFromData(unit api.UnitStatus) int {
