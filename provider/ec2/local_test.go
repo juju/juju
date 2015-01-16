@@ -815,6 +815,18 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
+func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	_, err := env.Subnets("", []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "netIds must not be empty")
+}
+
+func (t *localServerSuite) TestSubnetsMissingNetwork(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following networks: \\[Missing\\]")
+}
+
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},

@@ -785,7 +785,7 @@ func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error
 
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance.
-func (e *environ) Subnets(instId instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(_ instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
 	// At some point in the future an empty netIds may mean "fetch all subnets"
 	// but until that functionality is needed it's an error.
 	if len(netIds) == 0 {
@@ -809,6 +809,8 @@ func (e *environ) Subnets(instId instance.Id, netIds []network.Id) ([]network.Su
 		if !ok {
 			continue
 		}
+		netIdSet[network.Id(subnet.Id)] = true
+
 		cidr := subnet.CIDRBlock
 		ip, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
