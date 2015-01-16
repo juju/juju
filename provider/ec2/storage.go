@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"launchpad.net/goamz/s3"
+	"gopkg.in/amz.v2/s3"
 
 	"github.com/juju/juju/environs/storage"
 )

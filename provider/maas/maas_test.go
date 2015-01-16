@@ -22,7 +22,7 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt, &longAttempt)
 	s.BaseSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject

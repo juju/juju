@@ -79,7 +79,8 @@ type InterfaceInfo struct {
 	// NetworkName is juju-internal name of the network.
 	NetworkName string
 
-	// ProviderId is a provider-specific network id.
+	// ProviderId is a provider-specific subnet id.
+	// TODO(dimitern) Rename this to SubnetId.
 	ProviderId Id
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for

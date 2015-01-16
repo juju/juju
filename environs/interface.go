@@ -135,6 +135,10 @@ type Environ interface {
 	// by the provider for the environment
 	Subnets(inst instance.Id, networks []network.Id) ([]network.SubnetInfo, error)
 
+	// NetworkInterfaces requests information about the network
+	// interfaces on the given instance.
+	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
+
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
