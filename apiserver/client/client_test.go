@@ -2265,6 +2265,8 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
 		},
 	}}) {
 		c.Logf("got:")
