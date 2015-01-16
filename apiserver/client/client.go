@@ -883,35 +883,6 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	return info, nil
 }
 
-// ListCharms return a list of charms currently in the state.
-// If filter parameter contains any names, the list will be filtered
-// to return only the charms with supplied names.
-func (c *Client) ListCharms(args []string) ([]string, error) {
-	charms, err := c.api.state.AllCharms()
-	if err != nil {
-		return nil, errors.Annotatef(err, " listing charms ")
-	}
-
-	checkName := args != nil && len(args) > 0
-	charmNames := make(map[string]bool)
-	if checkName {
-		for _, name := range args {
-			charmNames[name] = true
-		}
-	}
-	charmURLs := []string{}
-	for _, aCharm := range charms {
-		charmURL := aCharm.URL()
-		if checkName {
-			if !charmNames[charmURL.Name] {
-				continue
-			}
-		}
-		charmURLs = append(charmURLs, charmURL.String())
-	}
-	return charmURLs, nil
-}
-
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
 func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {

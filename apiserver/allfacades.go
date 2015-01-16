@@ -12,6 +12,7 @@ import (
 	_ "github.com/juju/juju/apiserver/annotations"
 	_ "github.com/juju/juju/apiserver/backups"
 	_ "github.com/juju/juju/apiserver/charmrevisionupdater"
+	_ "github.com/juju/juju/apiserver/charms"
 	_ "github.com/juju/juju/apiserver/client"
 	_ "github.com/juju/juju/apiserver/deployer"
 	_ "github.com/juju/juju/apiserver/diskmanager"

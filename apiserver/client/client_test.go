@@ -880,26 +880,6 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 		c.Check(info.Actions, jc.DeepEquals, t.expectedActions)
 	}
 }
-func (s *serverSuite) TestListCharmsNoFilter(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:quantal/dummy-1"})
-}
-
-func (s *serverSuite) TestListCharmsWithFilterMatchingNone(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy"}, []string{"notdummy"}, []string{})
-}
-
-func (s *serverSuite) TestListCharmsFilteredOnly(c *gc.C) {
-	s.assertListCharms(c, []string{"dummy", "wordpress"}, []string{"dummy"}, []string{"local:quantal/dummy-1"})
-}
-
-func (s *serverSuite) assertListCharms(c *gc.C, someCharms, args, expected []string) {
-	for _, aCharm := range someCharms {
-		s.AddTestingCharm(c, aCharm)
-	}
-	found, err := s.client.ListCharms(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(found, jc.DeepEquals, expected)
-}
 
 func (s *clientSuite) TestClientEnvironmentInfo(c *gc.C) {
 	conf, _ := s.State.EnvironConfig()
