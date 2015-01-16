@@ -1225,45 +1225,40 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId, nil)
+	subnets, err := environ.Subnets(instId, []network.Id{netId})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var foundSub *network.SubnetInfo
-	for i, sub := range subnets {
-		if sub.ProviderId == netId {
-			foundSub = &subnets[i]
-			break
-		}
-	}
-	if foundSub == nil {
+	if len(subnets) != 1 {
 		return errors.Errorf("could not find network matching %v", netId)
 	}
+	foundSub := subnets[0]
+
 	cidr := foundSub.CIDR
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	err = ReserveIPAddress(ipaddresses, cidr, addr)
-	if err != nil {
-		maasErr, ok := err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
-		// For an "out of range" IP address, maas raises
-		// StaticIPAddressOutOfRange - an error 403
-		// If there are no more addresses we get
-		// StaticIPAddressExhaustion - an error 503
-		// For an address already in use we get
-		// StaticIPAddressUnavailable - an error 404
-		if maasErr.StatusCode == 404 {
-			return environs.ErrIPAddressUnavailable
-		} else if maasErr.StatusCode == 503 {
-			return environs.ErrIPAddressesExhausted
-		}
-		// any error other than a 404 or 503 is "unexpected" and should
-		// be returned directly.
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Trace(err)
+	}
+	// For an "out of range" IP address, maas raises
+	// StaticIPAddressOutOfRange - an error 403
+	// If there are no more addresses we get
+	// StaticIPAddressExhaustion - an error 503
+	// For an address already in use we get
+	// StaticIPAddressUnavailable - an error 404
+	if maasErr.StatusCode == 404 {
+		return environs.ErrIPAddressUnavailable
+	} else if maasErr.StatusCode == 503 {
+		return environs.ErrIPAddressesExhausted
+	}
+	// any error other than a 404 or 503 is "unexpected" and should
+	// be returned directly.
+	return errors.Trace(err)
 }
 
 // ReleaseAddress releases a specific address previously allocated with
