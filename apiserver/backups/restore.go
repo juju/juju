@@ -63,6 +63,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work
+	// this is because we change all of juju configuration files and mongo too.
 	// Exiting with 0 would prevent upstart to respawn the process
 	os.Exit(1)
 	return nil
