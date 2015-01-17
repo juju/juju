@@ -141,21 +141,23 @@ type BaseSuite struct {
 	BaseSuiteUnpatched
 
 	FakeConn   *fakeConn
-	FakeImages *fakeImages
+	FakeCommon *fakeCommon
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.BaseSuiteUnpatched.SetUpTest(c)
 
 	s.FakeConn = &fakeConn{}
-	s.FakeImages = &fakeImages{}
+	s.FakeCommon = &fakeCommon{}
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
 	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
 		return s.FakeConn
 	})
-	s.PatchValue(&supportedArchitectures, s.FakeImages.SupportedArchitectures)
+	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
+	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
+	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
@@ -166,15 +168,15 @@ func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 
 // TODO(ericsnow) Move fakeCallArgs, fakeCall, and fake to the testing repo?
 
-type fakeCallArgs map[string]interface{}
+type FakeCallArgs map[string]interface{}
 
-type fakeCall struct {
-	funcName string
-	args     fakeCallArgs
+type FakeCall struct {
+	FuncName string
+	Args     FakeCallArgs
 }
 
 type fake struct {
-	calls []fakeCall
+	calls []FakeCall
 
 	Err        error
 	FailOnCall int
@@ -187,29 +189,48 @@ func (f *fake) err() error {
 	return f.Err
 }
 
-func (f *fake) addCall(funcName string, args fakeCallArgs) {
-	f.calls = append(f.calls, fakeCall{
-		funcName: funcName,
-		args:     args,
+func (f *fake) addCall(funcName string, args FakeCallArgs) {
+	f.calls = append(f.calls, FakeCall{
+		FuncName: funcName,
+		Args:     args,
 	})
 }
 
-func (f *fake) CheckCalls(c *gc.C, expected ...fakeCall) {
+func (f *fake) CheckCalls(c *gc.C, expected []FakeCall) {
 	c.Check(f.calls, jc.DeepEquals, expected)
 }
 
-type fakeImages struct {
+type fakeCommon struct {
 	fake
 
-	Arches []string
+	Arches      []string
+	Arch        string
+	Series      string
+	BSFinalizer environs.BootstrapFinalizer
 }
 
-func (fi *fakeImages) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
-	fi.addCall("SupportedArchitectures", fakeCallArgs{
+func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
+	fc.addCall("SupportedArchitectures", FakeCallArgs{
 		"env":  env,
 		"cons": cons,
 	})
-	return fi.Arches, fi.err()
+	return fc.Arches, fc.err()
+}
+
+func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
+	fc.addCall("Bootstrap", FakeCallArgs{
+		"ctx":    ctx,
+		"env":    env,
+		"params": params,
+	})
+	return fc.Arch, fc.Series, fc.BSFinalizer, fc.err()
+}
+
+func (fc *fakeCommon) Destroy(env environs.Environ) error {
+	fc.addCall("Destroy", FakeCallArgs{
+		"env": env,
+	})
+	return fc.err()
 }
 
 // TODO(ericsnow) Refactor fakeConnCall and fakeConn to embed fakeCall and fake.

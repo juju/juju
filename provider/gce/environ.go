@@ -130,13 +130,17 @@ func (env *environ) Config() *config.Config {
 	return env.getSnapshot().ecfg.Config
 }
 
+var bootstrap = common.Bootstrap
+
 // Bootstrap creates a new instance, chosing the series and arch out of
 // available tools. The series and arch are returned along with a func
 // that must be called to finalize the bootstrap process by transferring
 // the tools and installing the initial juju state server.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
-	return common.Bootstrap(ctx, env, params)
+	return bootstrap(ctx, env, params)
 }
+
+var destroyEnv = common.Destroy
 
 // Destroy shuts down all known machines and destroys the rest of the
 // known environment.
@@ -146,9 +150,11 @@ func (env *environ) Destroy() error {
 		return errors.Trace(err)
 	}
 
-	if err := env.ClosePorts(ports); err != nil {
-		return errors.Trace(err)
+	if len(ports) > 0 {
+		if err := env.ClosePorts(ports); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
-	return common.Destroy(env)
+	return destroyEnv(env)
 }

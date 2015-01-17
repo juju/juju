@@ -4,9 +4,12 @@
 package gce_test
 
 import (
-	//jc "github.com/juju/testing/checkers"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/gce"
 )
 
@@ -16,26 +19,89 @@ type environSuite struct {
 
 var _ = gc.Suite(&environSuite{})
 
-func (*environSuite) TestName(c *gc.C) {
+func (s *environSuite) TestName(c *gc.C) {
+	name := s.Env.Name()
+
+	c.Check(name, gc.Equals, "google")
 }
 
-func (*environSuite) TestProvider(c *gc.C) {
+func (s *environSuite) TestProvider(c *gc.C) {
+	provider := s.Env.Provider()
+
+	c.Check(provider, gc.Equals, gce.Provider)
 }
 
-func (*environSuite) TestRegion(c *gc.C) {
+func (s *environSuite) TestRegion(c *gc.C) {
+	cloudSpec, err := s.Env.Region()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cloudSpec.Region, gc.Equals, "home")
+	c.Check(cloudSpec.Endpoint, gc.Equals, "https://www.googleapis.com")
 }
 
-func (*environSuite) TestCloudSpec(c *gc.C) {
+func (s *environSuite) TestSetConfig(c *gc.C) {
+	// TODO(ericsnow) finish
 }
 
-func (*environSuite) TestSetConfig(c *gc.C) {
+func (s *environSuite) TestConfig(c *gc.C) {
+	cfg := s.Env.Config()
+
+	c.Check(cfg, gc.Equals, s.Config)
 }
 
-func (*environSuite) TestConfig(c *gc.C) {
+func (s *environSuite) TestBootstrap(c *gc.C) {
+	s.FakeCommon.Arch = "amd64"
+	s.FakeCommon.Series = "trusty"
+	finalizer := func(environs.BootstrapContext, *cloudinit.MachineConfig) error {
+		return nil
+	}
+	s.FakeCommon.BSFinalizer = finalizer
+
+	ctx := envtesting.BootstrapContext(c)
+	params := environs.BootstrapParams{}
+	arch, series, bsFinalizer, err := s.Env.Bootstrap(ctx, params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(arch, gc.Equals, "amd64")
+	c.Check(series, gc.Equals, "trusty")
+	// We don't check bsFinalizer because functions cannot be compared.
+	c.Check(bsFinalizer, gc.NotNil)
 }
 
-func (*environSuite) TestBootstrap(c *gc.C) {
+func (s *environSuite) TestBootstrapCommon(c *gc.C) {
+	ctx := envtesting.BootstrapContext(c)
+	params := environs.BootstrapParams{}
+	_, _, _, err := s.Env.Bootstrap(ctx, params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
+		FuncName: "Bootstrap",
+		Args: gce.FakeCallArgs{
+			"ctx":    ctx,
+			"env":    s.Env,
+			"params": params,
+		},
+	}})
 }
 
-func (*environSuite) TestDestroy(c *gc.C) {
+func (s *environSuite) TestDestroy(c *gc.C) {
+	err := s.Env.Destroy()
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+func (s *environSuite) TestDestroyAPI(c *gc.C) {
+	err := s.Env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Ports")
+	fwname := s.Prefix[:len(s.Prefix)-1]
+	c.Check(s.FakeConn.Calls[0].FirewallName, gc.Equals, fwname)
+	s.FakeCommon.CheckCalls(c, []gce.FakeCall{{
+		FuncName: "Destroy",
+		Args: gce.FakeCallArgs{
+			"env": s.Env,
+		},
+	}})
 }

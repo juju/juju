@@ -33,8 +33,7 @@ func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error)
 
 // globalFirewallName returns the name to use for the global firewall.
 func (env *environ) globalFirewallName() string {
-	fwName := common.MachineFullName(env, "")
-	return fwName[:len(fwName)-1]
+	return common.EnvFullName(env)
 }
 
 // OpenPorts opens the given port ranges for the whole environment.

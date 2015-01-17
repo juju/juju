@@ -126,7 +126,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 }
 
 func (s *environPolSuite) TestSupportedArchitectures(c *gc.C) {
-	s.FakeImages.Arches = []string{arch.AMD64}
+	s.FakeCommon.Arches = []string{arch.AMD64}
 
 	archList, err := s.Env.SupportedArchitectures()
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +135,7 @@ func (s *environPolSuite) TestSupportedArchitectures(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
-	s.FakeImages.Arches = []string{arch.AMD64}
+	s.FakeCommon.Arches = []string{arch.AMD64}
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -158,7 +158,7 @@ func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	s.FakeImages.Arches = []string{arch.AMD64}
+	s.FakeCommon.Arches = []string{arch.AMD64}
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +171,7 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
-	s.FakeImages.Arches = []string{arch.AMD64}
+	s.FakeCommon.Arches = []string{arch.AMD64}
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +203,7 @@ func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
-	s.FakeImages.Arches = []string{arch.AMD64}
+	s.FakeCommon.Arches = []string{arch.AMD64}
 
 	validator, err := s.Env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)
