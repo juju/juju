@@ -135,15 +135,89 @@ func (s *environPolSuite) TestSupportedArchitectures(c *gc.C) {
 }
 
 func (s *environPolSuite) TestConstraintsValidator(c *gc.C) {
-}
+	s.FakeImages.Arches = []string{arch.AMD64}
 
-func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("arch=amd64")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(unsupported, gc.HasLen, 0)
 }
 
 func (s *environPolSuite) TestConstraintsValidatorEmpty(c *gc.C) {
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	unsupported, err := validator.Validate(constraints.Value{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(unsupported, gc.HasLen, 0)
 }
 
-func (s *environPolSuite) TestConstraintsValidatorMerge(c *gc.C) {
+func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+	s.FakeImages.Arches = []string{arch.AMD64}
+
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("arch=amd64 tags=foo")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(unsupported, jc.DeepEquals, []string{"tags"})
+}
+
+func (s *environPolSuite) TestConstraintsValidatorVocabArch(c *gc.C) {
+	s.FakeImages.Arches = []string{arch.AMD64}
+
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("arch=ppc64el")
+	_, err = validator.Validate(cons)
+
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+}
+
+func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *gc.C) {
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
+func (s *environPolSuite) TestConstraintsValidatorVocabContainer(c *gc.C) {
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("container=lxc")
+	_, err = validator.Validate(cons)
+
+	c.Check(err, gc.ErrorMatches, "invalid constraint value: container=lxc\nvalid values are:.*")
+}
+
+func (s *environPolSuite) TestConstraintsValidatorConflicts(c *gc.C) {
+	s.FakeImages.Arches = []string{arch.AMD64}
+
+	validator, err := s.Env.ConstraintsValidator()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cons := constraints.MustParse("instance-type=n1-standard-1")
+	// We do not check arch or container since there is only one valid
+	// value for each and will always match.
+	consFallback := constraints.MustParse("cpu-cores=2 cpu-power=1000 mem=10000 tags=bar")
+	merged, err := validator.Merge(consFallback, cons)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// tags is not supported, but we're not validating here...
+	expected := constraints.MustParse("instance-type=n1-standard-1 tags=bar")
+	c.Check(merged, jc.DeepEquals, expected)
 }
 
 func (s *environPolSuite) TestSupportNetworks(c *gc.C) {

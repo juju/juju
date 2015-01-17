@@ -65,24 +65,52 @@ func (env *environ) lookupArchitectures() ([]string, error) {
 
 var unsupportedConstraints = []string{
 	constraints.Tags,
+	constraints.Networks,
+}
+
+// instanceTypeConstraints defines the fields defined on each of the
+// instance types.  See instancetypes.go.
+var instanceTypeConstraints = []string{
+	constraints.Arch, // Arches
+	constraints.CpuCores,
+	constraints.CpuPower,
+	constraints.Mem,
+	constraints.Container, // VirtType
 }
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
 func (env *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
+
+	// conflicts
+
+	// TODO(ericsnow) Are these correct?
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
-		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower},
+		instanceTypeConstraints,
 	)
+
+	// unsupported
+
 	validator.RegisterUnsupported(unsupportedConstraints)
+
+	// vocab
+
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
 
 	instTypeNames := make([]string, len(allInstanceTypes))
 	for i, itype := range allInstanceTypes {
 		instTypeNames[i] = itype.Name
 	}
-
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+
+	validator.RegisterVocabulary(constraints.Container, []string{vtype})
+
 	return validator, nil
 }
 
