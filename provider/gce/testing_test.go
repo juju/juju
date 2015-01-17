@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
@@ -44,6 +45,8 @@ type BaseSuite struct {
 	StartInstArgs environs.StartInstanceParams
 
 	Ports []network.PortRange
+
+	FakeImages *fakeImages
 }
 
 var _ = gc.Suite(&BaseSuite{})
@@ -51,18 +54,30 @@ var _ = gc.Suite(&BaseSuite{})
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.Config = s.NewConfig(c, nil)
-	s.EnvConfig = newEnvConfig(s.Config)
+	s.initEnv(c)
+	s.initInst(c)
+	s.initNet(c)
+
+	s.FakeImages = &fakeImages{}
+
+	// Patch out all expensive external deps.
+	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
+		return s.FakeConn
+	})
+	s.PatchValue(&supportedArchitectures, s.FakeImages.SupportedArchitectures)
+}
+
+func (s *BaseSuite) initEnv(c *gc.C) {
 	s.FakeConn = &fakeConn{}
-	uuid, _ := s.Config.UUID()
 	s.Env = &environ{
 		name: "google",
-		uuid: uuid,
-		ecfg: s.EnvConfig,
 		gce:  s.FakeConn,
 	}
-	s.Prefix = "juju-" + s.Env.uuid + "-"
+	cfg := s.NewConfig(c, nil)
+	s.setConfig(cfg)
+}
 
+func (s *BaseSuite) initInst(c *gc.C) {
 	diskSpec := google.DiskSpec{
 		SizeHintGB: 5,
 		ImageURL:   "some/image/path",
@@ -102,16 +117,23 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	//Placement: "",
 	//DistributionGroup: nil,
 	}
+}
 
+func (s *BaseSuite) initNet(c *gc.C) {
 	s.Ports = []network.PortRange{{
 		FromPort: 80,
 		ToPort:   80,
 		Protocol: "tcp",
 	}}
+}
 
-	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
-		return s.FakeConn
-	})
+func (s *BaseSuite) setConfig(cfg *config.Config) {
+	s.Config = cfg
+	s.EnvConfig = newEnvConfig(cfg)
+	uuid, _ := cfg.UUID()
+	s.Env.uuid = uuid
+	s.Env.ecfg = s.EnvConfig
+	s.Prefix = "juju-" + uuid + "-"
 }
 
 func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
@@ -127,15 +149,66 @@ func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.Config = cfg
-	s.EnvConfig = newEnvConfig(cfg)
+	s.setConfig(cfg)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
 }
 
+// TODO(ericsnow) Add a method to patch tools metadata?
+
+// TODO(ericsnow) Move fakeCallArgs, fakeCall, and fake to the testing repo?
+
+type fakeCallArgs map[string]interface{}
+
 type fakeCall struct {
+	funcName string
+	args     fakeCallArgs
+}
+
+type fake struct {
+	calls []fakeCall
+
+	Err        error
+	FailOnCall int
+}
+
+func (f *fake) err() error {
+	if len(f.calls) != f.FailOnCall+1 {
+		return nil
+	}
+	return f.Err
+}
+
+func (f *fake) addCall(funcName string, args fakeCallArgs) {
+	f.calls = append(f.calls, fakeCall{
+		funcName: funcName,
+		args:     args,
+	})
+}
+
+func (f *fake) CheckCalls(c *gc.C, expected ...fakeCall) {
+	c.Check(f.calls, jc.DeepEquals, expected)
+}
+
+type fakeImages struct {
+	fake
+
+	Arches []string
+}
+
+func (fi *fakeImages) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
+	fi.addCall("SupportedArchitectures", fakeCallArgs{
+		"env":  env,
+		"cons": cons,
+	})
+	return fi.Arches, fi.err()
+}
+
+// TODO(ericsnow) Refactor fakeConnCall and fakeConn to embed fakeCall and fake.
+
+type fakeConnCall struct {
 	FuncName string
 
 	Auth         google.Auth
@@ -152,7 +225,7 @@ type fakeCall struct {
 }
 
 type fakeConn struct {
-	Calls []fakeCall
+	Calls []fakeConnCall
 
 	Inst       *google.Instance
 	Insts      []google.Instance
@@ -170,7 +243,7 @@ func (fc *fakeConn) err() error {
 }
 
 func (fc *fakeConn) Connect(auth google.Auth) error {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "",
 		Auth:     auth,
 	})
@@ -178,14 +251,14 @@ func (fc *fakeConn) Connect(auth google.Auth) error {
 }
 
 func (fc *fakeConn) VerifyCredentials() error {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "",
 	})
 	return fc.err()
 }
 
 func (fc *fakeConn) Instance(id, zone string) (*google.Instance, error) {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "Instance",
 		ID:       id,
 		ZoneName: zone,
@@ -194,7 +267,7 @@ func (fc *fakeConn) Instance(id, zone string) (*google.Instance, error) {
 }
 
 func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Instance, error) {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "Instances",
 		Prefix:   prefix,
 		Statuses: statuses,
@@ -203,7 +276,7 @@ func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Insta
 }
 
 func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones []string) (*google.Instance, error) {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "",
 		InstanceSpec: spec,
 		ZoneNames:    zones,
@@ -212,7 +285,7 @@ func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones []string) (*goog
 }
 
 func (fc *fakeConn) RemoveInstances(prefix string, ids ...string) error {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "",
 		Prefix:   prefix,
 		IDs:      ids,
@@ -221,7 +294,7 @@ func (fc *fakeConn) RemoveInstances(prefix string, ids ...string) error {
 }
 
 func (fc *fakeConn) Ports(fwname string) ([]network.PortRange, error) {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "Ports",
 		FirewallName: fwname,
 	})
@@ -229,7 +302,7 @@ func (fc *fakeConn) Ports(fwname string) ([]network.PortRange, error) {
 }
 
 func (fc *fakeConn) OpenPorts(fwname string, ports []network.PortRange) error {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "OpenPorts",
 		FirewallName: fwname,
 		PortRanges:   ports,
@@ -238,7 +311,7 @@ func (fc *fakeConn) OpenPorts(fwname string, ports []network.PortRange) error {
 }
 
 func (fc *fakeConn) ClosePorts(fwname string, ports []network.PortRange) error {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName:     "ClosePorts",
 		FirewallName: fwname,
 		PortRanges:   ports,
@@ -247,7 +320,7 @@ func (fc *fakeConn) ClosePorts(fwname string, ports []network.PortRange) error {
 }
 
 func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone, error) {
-	fc.Calls = append(fc.Calls, fakeCall{
+	fc.Calls = append(fc.Calls, fakeConnCall{
 		FuncName: "AvailabilityZones",
 		Region:   region,
 	})

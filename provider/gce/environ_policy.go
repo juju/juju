@@ -4,8 +4,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
@@ -29,7 +31,36 @@ func (env *environ) PrecheckInstance(series string, cons constraints.Value, plac
 // SupportedArchitectures returns the image architectures which can
 // be hosted by this environment.
 func (env *environ) SupportedArchitectures() ([]string, error) {
-	return arch.AllSupportedArches, nil
+	env.archLock.Lock()
+	defer env.archLock.Unlock()
+
+	if env.supportedArchitectures != nil {
+		return env.supportedArchitectures, nil
+	}
+
+	archList, err := env.lookupArchitectures()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.supportedArchitectures = archList
+	return archList, nil
+}
+
+var supportedArchitectures = common.SupportedArchitectures
+
+func (env *environ) lookupArchitectures() ([]string, error) {
+	// Create a filter to get all images from our region and for the
+	// correct stream.
+	cloudSpec, err := env.Region()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: cloudSpec,
+		Stream:    env.Config().ImageStream(),
+	})
+	archList, err := supportedArchitectures(env, imageConstraint)
+	return archList, errors.Trace(err)
 }
 
 var unsupportedConstraints = []string{

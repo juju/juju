@@ -274,3 +274,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		}
 	}
 }
+
+// TODO(ericsnow) Add a test to verify the official cloud-images metadata?
+// TODO(ericsnow) Add a test to check environs.ImageMetadataSoures(env).
+// TODO(ericsnow) Add a test to check tools.GetMetadataSoures(env).

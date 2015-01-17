@@ -58,6 +58,10 @@ var configFields = schema.Fields{
 	cfgImageEndpoint: schema.String(),
 }
 
+// TODO(ericsnow) Do we need custom defaults for "image-metadata-url" or
+// "agent-metadata-url"? The defaults are the official ones (e.g.
+// cloud-images).
+
 var configDefaults = schema.Defaults{
 	// See http://cloud-images.ubuntu.com/releases/streams/v1/com.ubuntu.cloud:released:gce.json
 	cfgImageEndpoint: "https://www.googleapis.com",

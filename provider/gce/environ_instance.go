@@ -112,27 +112,26 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return results, nil
 }
 
+type instPlacement struct {
+	zone *google.AvailabilityZone
+}
+
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(placement string) (*google.AvailabilityZone, error) {
+func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 	pos := strings.IndexRune(placement, '=')
 	if pos == -1 {
 		return nil, errors.Errorf("unknown placement directive: %v", placement)
 	}
+
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
-		zoneName := value
-		zones, err := env.AvailabilityZones()
+		zone, err := env.availZoneUp(value)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, z := range zones {
-			if z.Name() == zoneName {
-				return z.(*google.AvailabilityZone), nil
-			}
-		}
-		return nil, errors.Errorf("invalid availability zone %q", zoneName)
+		return &instPlacement{zone: zone}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }

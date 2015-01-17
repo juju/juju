@@ -41,11 +41,13 @@ type environ struct {
 
 	name string
 	uuid string
-
-	lock sync.Mutex
 	ecfg *environConfig
+	gce  gceConnection
 
-	gce gceConnection
+	lock     sync.Mutex
+	archLock sync.Mutex
+
+	supportedArchitectures []string
 }
 
 var _ environs.Environ = (*environ)(nil)

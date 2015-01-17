@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/provider/gce/google"
 )
 
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
@@ -51,6 +52,30 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 	return results, err
 }
 
+func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
+	zones, err := env.AvailabilityZones()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, z := range zones {
+		if z.Name() == name {
+			return z.(*google.AvailabilityZone), nil
+		}
+	}
+	return nil, errors.NotFoundf("invalid availability zone %q", name)
+}
+
+func (env *environ) availZoneUp(name string) (*google.AvailabilityZone, error) {
+	zone, err := env.availZone(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !zone.Available() {
+		return nil, errors.Errorf("availability zone %q is %s", zone.Name(), zone.Status())
+	}
+	return zone, nil
+}
+
 // parseAvailabilityZones returns the availability zones that should be
 // tried for the given instance spec. If a placement argument was
 // provided then only that one is returned. Otherwise the environment is
@@ -60,14 +85,11 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
-		gceZone, err := env.parsePlacement(args.Placement)
+		placement, err := env.parsePlacement(args.Placement)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !gceZone.Available() {
-			return nil, errors.Errorf("availability zone %q is %s", gceZone.Name(), gceZone.Status())
-		}
-		return []string{gceZone.Name()}, nil
+		return []string{placement.zone.Name()}, nil
 	}
 
 	// If no availability zone is specified, then automatically spread across
