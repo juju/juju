@@ -29,12 +29,11 @@ var (
 	})
 )
 
-type BaseSuite struct {
+type BaseSuiteUnpatched struct {
 	gitjujutesting.IsolationSuite
 
 	Config    *config.Config
 	EnvConfig *environConfig
-	FakeConn  *fakeConn
 	Env       *environ
 	Prefix    string
 
@@ -45,39 +44,25 @@ type BaseSuite struct {
 	StartInstArgs environs.StartInstanceParams
 
 	Ports []network.PortRange
-
-	FakeImages *fakeImages
 }
 
-var _ = gc.Suite(&BaseSuite{})
-
-func (s *BaseSuite) SetUpTest(c *gc.C) {
+func (s *BaseSuiteUnpatched) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.initEnv(c)
 	s.initInst(c)
 	s.initNet(c)
-
-	s.FakeImages = &fakeImages{}
-
-	// Patch out all expensive external deps.
-	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
-		return s.FakeConn
-	})
-	s.PatchValue(&supportedArchitectures, s.FakeImages.SupportedArchitectures)
 }
 
-func (s *BaseSuite) initEnv(c *gc.C) {
-	s.FakeConn = &fakeConn{}
+func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 	s.Env = &environ{
 		name: "google",
-		gce:  s.FakeConn,
 	}
 	cfg := s.NewConfig(c, nil)
 	s.setConfig(cfg)
 }
 
-func (s *BaseSuite) initInst(c *gc.C) {
+func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	diskSpec := google.DiskSpec{
 		SizeHintGB: 5,
 		ImageURL:   "some/image/path",
@@ -119,7 +104,7 @@ func (s *BaseSuite) initInst(c *gc.C) {
 	}
 }
 
-func (s *BaseSuite) initNet(c *gc.C) {
+func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 	s.Ports = []network.PortRange{{
 		FromPort: 80,
 		ToPort:   80,
@@ -127,7 +112,7 @@ func (s *BaseSuite) initNet(c *gc.C) {
 	}}
 }
 
-func (s *BaseSuite) setConfig(cfg *config.Config) {
+func (s *BaseSuiteUnpatched) setConfig(cfg *config.Config) {
 	s.Config = cfg
 	s.EnvConfig = newEnvConfig(cfg)
 	uuid, _ := cfg.UUID()
@@ -136,7 +121,7 @@ func (s *BaseSuite) setConfig(cfg *config.Config) {
 	s.Prefix = "juju-" + uuid + "-"
 }
 
-func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
+func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 	var err error
 	cfg := testing.EnvironConfig(c)
 	cfg, err = cfg.Apply(ConfigAttrs)
@@ -146,10 +131,31 @@ func (s *BaseSuite) NewConfig(c *gc.C, updates testing.Attrs) *config.Config {
 	return cfg
 }
 
-func (s *BaseSuite) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
+func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	s.setConfig(cfg)
+}
+
+type BaseSuite struct {
+	BaseSuiteUnpatched
+
+	FakeConn   *fakeConn
+	FakeImages *fakeImages
+}
+
+func (s *BaseSuite) SetUpTest(c *gc.C) {
+	s.BaseSuiteUnpatched.SetUpTest(c)
+
+	s.FakeConn = &fakeConn{}
+	s.FakeImages = &fakeImages{}
+
+	// Patch out all expensive external deps.
+	s.Env.gce = s.FakeConn
+	s.PatchValue(&newConnection, func(*environConfig) gceConnection {
+		return s.FakeConn
+	})
+	s.PatchValue(&supportedArchitectures, s.FakeImages.SupportedArchitectures)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
