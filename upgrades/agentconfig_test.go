@@ -242,20 +242,29 @@ func (s *migrateAgentEnvUUIDSuite) primeConfig(c *gc.C) {
 func (s *migrateAgentEnvUUIDSuite) removeEnvUUIDFromAgentConfig(c *gc.C) {
 	// Read the file in as simple map[string]interface{} and delete
 	// the element, and write it back out again.
+
+	// First step, read the file contents.
 	filename := agent.ConfigPath(agent.DefaultDataDir, s.machine.Tag())
 	data, err := ioutil.ReadFile(filename)
-	c.Logf("Data in:\n\n%s\n", data)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("Data in:\n\n%s\n", data)
+
+	// Parse it into the map.
 	var content map[string]interface{}
 	err = goyaml.Unmarshal(data, &content)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove the environment value, and marshal back into bytes.
 	delete(content, "environment")
 	data, err = goyaml.Marshal(content)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Write the yaml back out remembering to add the format prefix.
 	data = append([]byte("# format 1.18\n"), data...)
 	c.Logf("Data out:\n\n%s\n", data)
 	err = ioutil.WriteFile(filename, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
+
 	// Reset test attributes.
 	cfg, err := agent.ReadConfig(filename)
 	c.Assert(err, jc.ErrorIsNil)

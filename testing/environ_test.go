@@ -52,7 +52,7 @@ func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {
 	c.Assert(osenv.JujuHome(), gc.Equals, expected)
 }
 
-func (s *fakeHomeSuite) TestEnvironmentTagValie(c *gc.C) {
+func (s *fakeHomeSuite) TestEnvironmentTagValid(c *gc.C) {
 	asString := testing.EnvironmentTag.String()
 	tag, err := names.ParseEnvironTag(asString)
 	c.Assert(err, jc.ErrorIsNil)
