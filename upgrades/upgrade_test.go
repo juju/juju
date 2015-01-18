@@ -262,6 +262,18 @@ var areUpgradesDefinedTests = []areUpgradesDefinedTest{
 		fromVersion: "",
 		expected:    true,
 	},
+	{
+		about:       "upgrade between pre-final versions",
+		fromVersion: "1.21-beta4",
+		toVersion:   "1.21-beta5",
+		expected:    true,
+	},
+	{
+		about:       "no upgrades when version hasn't changed, even with release tags",
+		fromVersion: "1.21-beta5",
+		toVersion:   "1.21-beta5",
+		expected:    false,
+	},
 }
 
 func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
@@ -393,6 +405,20 @@ var upgradeTests = []upgradeTest{
 		toVersion:     "1.21.0",
 		target:        upgrades.StateServer,
 		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0", "mongo fix - 1.21.0"},
+	},
+	{
+		about:         "nothing happens when the version hasn't changed but contains a tag",
+		fromVersion:   "1.21-alpha1",
+		toVersion:     "1.21-alpha1",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{},
+	},
+	{
+		about:         "upgrades between pre-final versions should run steps for the final version",
+		fromVersion:   "1.21-beta2",
+		toVersion:     "1.21-beta3",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"mongo fix - 1.21.0", "db schema - 1.21.0"},
 	},
 }
 
