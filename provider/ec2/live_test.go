@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	amzec2 "gopkg.in/amz.v2/ec2"
 	gc "gopkg.in/check.v1"
-	amzec2 "launchpad.net/goamz/ec2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -404,7 +404,7 @@ func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 // createGroup creates a new EC2 group and returns it. If it already exists,
 // it revokes all its permissions and returns the existing group.
 func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
-	resp, err := ec2conn.CreateSecurityGroup(name, descr)
+	resp, err := ec2conn.CreateSecurityGroup("", name, descr)
 	if err == nil {
 		return resp.SecurityGroup
 	}

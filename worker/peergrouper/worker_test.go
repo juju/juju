@@ -358,41 +358,25 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		st := NewFakeState()
 		InitState(c, st, 3, ipVersion)
 		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
-		var isSet voyeur.Value
-		count := 0
+		var setCount voyeur.Value
 		setErrorFuncFor("Session.Set", func() error {
-			isSet.Set(count)
-			count++
+			setCount.Set(true)
 			return errors.New("sample")
 		})
 		s.PatchValue(&initialRetryInterval, 10*time.Microsecond)
 		s.PatchValue(&maxRetryInterval, coretesting.ShortWait/4)
 
-		expectedIterations := 0
-		for d := initialRetryInterval; d < maxRetryInterval*2; d *= 2 {
-			expectedIterations++
-		}
-
 		w := newWorker(st, noPublisher{})
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
-		isSetWatcher := isSet.Watch()
 
-		n0 := mustNext(c, isSetWatcher).(int)
-		time.Sleep(maxRetryInterval * 2)
-		n1 := mustNext(c, isSetWatcher).(int)
+		// See that the worker is retrying.
+		setCountW := setCount.Watch()
+		mustNext(c, setCountW)
+		mustNext(c, setCountW)
+		mustNext(c, setCountW)
 
-		// The worker should have backed off exponentially...
-		c.Assert(n1-n0, jc.LessThan, expectedIterations+1)
-		c.Logf("actual iterations %d; expected iterations %d", n1-n0, expectedIterations)
-
-		// ... but only up to the maximum retry interval
-		n0 = mustNext(c, isSetWatcher).(int)
-		time.Sleep(maxRetryInterval * 2)
-		n1 = mustNext(c, isSetWatcher).(int)
-
-		c.Assert(n1-n0, jc.LessThan, 3)
 		resetErrors()
 	})
 }
@@ -511,18 +495,22 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 
 // mustNext waits for w's value to be set and returns it.
 func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
-	done := make(chan bool)
+	type voyeurResult struct {
+		ok  bool
+		val interface{}
+	}
+	done := make(chan voyeurResult)
 	go func() {
 		c.Logf("mustNext %p", w)
 		ok := w.Next()
 		val = w.Value()
-		c.Logf("mustNext done %p, ok %v", w, ok)
-		done <- ok
+		c.Logf("mustNext done %p, ok: %v, val: %#v", w, ok, val)
+		done <- voyeurResult{ok, val}
 	}()
 	select {
-	case ok := <-done:
-		c.Assert(ok, jc.IsTrue)
-		return
+	case result := <-done:
+		c.Assert(result.ok, jc.IsTrue)
+		return result.val
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for value to be set")
 	}

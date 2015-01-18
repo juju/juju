@@ -1,11 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package params
-
-import (
-	"github.com/juju/names"
-)
 
 // ClaimLeadershipBulkParams is a collection of parameters for making
 // a bulk leadership claim.
@@ -21,10 +17,10 @@ type ClaimLeadershipParams struct {
 
 	// ServiceTag is the service for which you want to make a
 	// leadership claim.
-	ServiceTag names.ServiceTag
+	ServiceTag string
 
 	// UnitTag is the unit which is making the leadership claim.
-	UnitTag names.UnitTag
+	UnitTag string
 }
 
 // ClaimLeadershipBulkResults is the collection of results from a bulk
@@ -41,7 +37,7 @@ type ClaimLeadershipResults struct {
 
 	// ServiceTag is the service for which you want to make a
 	// leadership claim.
-	ServiceTag names.ServiceTag
+	ServiceTag string
 
 	// ClaimDurationInSec is the number of seconds a claim will be
 	// held.
@@ -63,10 +59,10 @@ type ReleaseLeadershipParams struct {
 
 	// ServiceTag is the service for which you want to make a
 	// leadership claim.
-	ServiceTag names.ServiceTag
+	ServiceTag string
 
 	// UnitTag is the unit which is making the leadership claim.
-	UnitTag names.UnitTag
+	UnitTag string
 }
 
 // ReleaseLeadershipBulkResults is a type which contains results from

@@ -11,36 +11,56 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type InfoSuite struct {
-	info []network.Info
+type InterfaceInfoSuite struct {
+	info []network.InterfaceInfo
 }
 
-var _ = gc.Suite(&InfoSuite{})
+var _ = gc.Suite(&InterfaceInfoSuite{})
 
-func (n *InfoSuite) SetUpTest(c *gc.C) {
-	n.info = []network.Info{
+func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
+	s.info = []network.InterfaceInfo{
 		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
+		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
+		{Address: network.NewAddress("0.1.2.3", network.ScopeUnknown)},
+		{DNSServers: network.NewAddresses("1.1.1.1", "2.2.2.2")},
+		{GatewayAddress: network.NewAddress("4.3.2.1", network.ScopeUnknown)},
+		{ExtraConfig: map[string]string{
+			"foo": "bar",
+			"baz": "nonsense",
+		}},
 	}
 }
 
-func (n *InfoSuite) TestActualInterfaceName(c *gc.C) {
-	c.Check(n.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
-	c.Check(n.info[1].ActualInterfaceName(), gc.Equals, "eth1")
-	c.Check(n.info[2].ActualInterfaceName(), gc.Equals, "br2.42")
+func (s *InterfaceInfoSuite) TestActualInterfaceName(c *gc.C) {
+	c.Check(s.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
+	c.Check(s.info[1].ActualInterfaceName(), gc.Equals, "eth1")
+	c.Check(s.info[2].ActualInterfaceName(), gc.Equals, "br2.42")
 }
 
-func (n *InfoSuite) TestIsVirtual(c *gc.C) {
-	c.Check(n.info[0].IsVirtual(), jc.IsTrue)
-	c.Check(n.info[1].IsVirtual(), jc.IsFalse)
-	c.Check(n.info[2].IsVirtual(), jc.IsTrue)
+func (s *InterfaceInfoSuite) TestIsVirtual(c *gc.C) {
+	c.Check(s.info[0].IsVirtual(), jc.IsTrue)
+	c.Check(s.info[1].IsVirtual(), jc.IsFalse)
+	c.Check(s.info[2].IsVirtual(), jc.IsTrue)
 }
 
-func (n *InfoSuite) TestIsVLAN(c *gc.C) {
-	c.Check(n.info[0].IsVLAN(), jc.IsTrue)
-	c.Check(n.info[1].IsVLAN(), jc.IsFalse)
-	c.Check(n.info[2].IsVLAN(), jc.IsTrue)
+func (s *InterfaceInfoSuite) TestIsVLAN(c *gc.C) {
+	c.Check(s.info[0].IsVLAN(), jc.IsTrue)
+	c.Check(s.info[1].IsVLAN(), jc.IsFalse)
+	c.Check(s.info[2].IsVLAN(), jc.IsTrue)
+}
+
+func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
+	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
+	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
+	c.Check(s.info[4].Address, jc.DeepEquals, network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Check(s.info[5].DNSServers, jc.DeepEquals, network.NewAddresses("1.1.1.1", "2.2.2.2"))
+	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, network.NewAddress("4.3.2.1", network.ScopeUnknown))
+	c.Check(s.info[7].ExtraConfig, jc.DeepEquals, map[string]string{
+		"foo": "bar",
+		"baz": "nonsense",
+	})
 }
 
 type NetworkSuite struct {

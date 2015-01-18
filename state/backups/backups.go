@@ -42,6 +42,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 const (
@@ -82,7 +84,6 @@ func StoreArchive(stor filestorage.FileStorage, meta *Metadata, file io.Reader) 
 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
-
 	// Create creates and stores a new juju backup archive. It updates
 	// the provided metadata.
 	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error
@@ -98,6 +99,9 @@ type Backups interface {
 
 	// Remove deletes the backup from storage.
 	Remove(id string) error
+
+	// Restore updates juju's state to the contents of the backup archive.
+	Restore(backupId string, args params.RestoreArgs) error
 }
 
 type backups struct {

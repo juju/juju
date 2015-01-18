@@ -37,8 +37,7 @@ func NewClient(facade base.ClientFacade, caller facadeCaller) LeadershipClient {
 // ClaimLeadership implements LeadershipManager.
 func (c *client) ClaimLeadership(serviceId, unitId string) (time.Duration, error) {
 
-	params := c.prepareClaimLeadership(serviceId, unitId)
-	results, err := c.bulkClaimLeadership(params.Params...)
+	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(serviceId, unitId))
 	if err != nil {
 		return 0, err
 	}
@@ -50,8 +49,7 @@ func (c *client) ClaimLeadership(serviceId, unitId string) (time.Duration, error
 
 // ReleaseLeadership implements LeadershipManager.
 func (c *client) ReleaseLeadership(serviceId, unitId string) error {
-	params := c.prepareReleaseLeadership(serviceId, unitId)
-	results, err := c.bulkReleaseLeadership(params.Params...)
+	results, err := c.bulkReleaseLeadership(c.prepareReleaseLeadership(serviceId, unitId))
 	if err != nil {
 		return err
 	}
@@ -79,27 +77,19 @@ func (c *client) BlockUntilLeadershipReleased(serviceId string) error {
 
 // prepareClaimLeadership creates a single set of params in
 // preperation for making a bulk call.
-func (c *client) prepareClaimLeadership(serviceId, unitId string) params.ClaimLeadershipBulkParams {
-	return params.ClaimLeadershipBulkParams{
-		[]params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
-				names.NewServiceTag(serviceId),
-				names.NewUnitTag(unitId),
-			},
-		},
+func (c *client) prepareClaimLeadership(serviceId, unitId string) params.ClaimLeadershipParams {
+	return params.ClaimLeadershipParams{
+		names.NewServiceTag(serviceId).String(),
+		names.NewUnitTag(unitId).String(),
 	}
 }
 
 // prepareReleaseLeadership creates a single set of params in
 // preperation for making a bulk call.
-func (c *client) prepareReleaseLeadership(serviceId, unitId string) params.ReleaseLeadershipBulkParams {
-	return params.ReleaseLeadershipBulkParams{
-		[]params.ReleaseLeadershipParams{
-			params.ReleaseLeadershipParams{
-				names.NewServiceTag(serviceId),
-				names.NewUnitTag(unitId),
-			},
-		},
+func (c *client) prepareReleaseLeadership(serviceId, unitId string) params.ReleaseLeadershipParams {
+	return params.ReleaseLeadershipParams{
+		names.NewServiceTag(serviceId).String(),
+		names.NewUnitTag(unitId).String(),
 	}
 }
 
@@ -113,13 +103,7 @@ func (c *client) bulkClaimLeadership(args ...params.ClaimLeadershipParams) (*par
 		return &params.ClaimLeadershipBulkResults{}, nil
 	}
 
-	// Translate & collect wire-format args.
-	var wireParams []params.ClaimLeadershipParams
-	for _, arg := range args {
-		wireParams = append(wireParams, params.ClaimLeadershipParams(arg))
-	}
-
-	bulkParams := params.ClaimLeadershipBulkParams{wireParams}
+	bulkParams := params.ClaimLeadershipBulkParams{args}
 	var results params.ClaimLeadershipBulkResults
 	if err := c.FacadeCall("ClaimLeadership", bulkParams, &results); err != nil {
 		return nil, errors.Annotate(err, "error making a leadership claim")
@@ -133,13 +117,7 @@ func (c *client) bulkReleaseLeadership(args ...params.ReleaseLeadershipParams) (
 		return &params.ReleaseLeadershipBulkResults{}, nil
 	}
 
-	// Translate & collect wire-format args.
-	var wireParams []params.ReleaseLeadershipParams
-	for _, arg := range args {
-		wireParams = append(wireParams, params.ReleaseLeadershipParams(arg))
-	}
-
-	bulkParams := params.ReleaseLeadershipBulkParams{wireParams}
+	bulkParams := params.ReleaseLeadershipBulkParams{args}
 	var results params.ReleaseLeadershipBulkResults
 	if err := c.FacadeCall("ReleaseLeadership", bulkParams, &results); err != nil {
 		return nil, errors.Annotate(err, "cannot release leadership")

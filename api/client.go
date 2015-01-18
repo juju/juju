@@ -798,7 +798,12 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		return nil, errors.Annotate(err, "cannot read tools upload response")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
+		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
+		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, "The operation has been blocked.") {
+			// Operation Blocked errors must contain correct Error Code
+			return nil, &params.Error{Code: params.CodeOperationBlocked, Message: message}
+		}
+		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, message)
 	}
 
 	var jsonResponse params.ToolsResult

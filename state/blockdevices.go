@@ -269,16 +269,47 @@ func removeMachineBlockDevicesOps(st *State, machineId string) ([]txn.Op, error)
 	return ops, errors.Trace(iter.Close())
 }
 
+// setProvisionedBlockDeviceInfo sets the initial info for newly
+// provisioned block devices. If non-empty, machineId must be the
+// machine ID associated with the block devices.
+func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map[string]BlockDeviceInfo) error {
+	ops := make([]txn.Op, 0, len(blockDevices))
+	for name, info := range blockDevices {
+		infoCopy := info
+		assert := bson.D{
+			{"info", bson.D{{"$exists", false}}},
+			{"params", bson.D{{"$exists", true}}},
+		}
+		if machineId != "" {
+			assert = append(assert, bson.DocElem{"machine", machineId})
+		}
+		ops = append(ops, txn.Op{
+			C:      blockDevicesC,
+			Id:     name,
+			Assert: assert,
+			Update: bson.D{
+				{"$set", bson.D{{"info", &infoCopy}}},
+				{"$unset", bson.D{{"params", nil}}},
+			},
+		})
+	}
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Errorf("cannot set provisioned block device info: already provisioned")
+	}
+	return nil
+}
+
 // createMachineBlockDeviceOps creates txn.Ops to create unprovisioned
 // block device documents associated with the specified machine, with
 // the given parameters.
-func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDeviceParams) ([]txn.Op, error) {
-	ops := make([]txn.Op, len(params))
+func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDeviceParams) (ops []txn.Op, names []string, err error) {
+	ops = make([]txn.Op, len(params))
+	names = make([]string, len(params))
 	for i, params := range params {
 		params := params
 		name, err := newDiskName(st)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot generate disk name")
+			return nil, nil, errors.Annotate(err, "cannot generate disk name")
 		}
 		ops[i] = txn.Op{
 			C:      blockDevicesC,
@@ -290,8 +321,9 @@ func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDev
 				Params:  &params,
 			},
 		}
+		names[i] = name
 	}
-	return ops, nil
+	return ops, names, nil
 }
 
 // blockDevicesSame reports whether or not two BlockDevices identify the

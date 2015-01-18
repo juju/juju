@@ -5,7 +5,7 @@ package ec2
 
 import (
 	"github.com/juju/errors"
-	"launchpad.net/goamz/ec2"
+	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/storage"
@@ -74,7 +74,6 @@ func getBlockDeviceMappings(
 	// unmap ephemeral0 in cloud-init.
 
 	disks := make([]storage.BlockDevice, len(args.Disks))
-	mappings := make([]ec2.BlockDeviceMapping, len(args.Disks))
 	nextDeviceName := blockDeviceNamer(virtType == paravirtual)
 	for i, params := range args.Disks {
 		// Check minimum constraints can be satisfied.
@@ -98,7 +97,7 @@ func getBlockDeviceMappings(
 			// ProviderId will be filled in once the instance has
 			// been created, which will create the volumes too.
 		}
-		mappings[i] = mapping
+		blockDeviceMappings = append(blockDeviceMappings, mapping)
 		disks[i] = disk
 	}
 	return blockDeviceMappings, disks, nil
