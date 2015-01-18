@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"launchpad.net/goamz/aws"
-	"launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/s3"
+	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v2/ec2"
+	"gopkg.in/amz.v2/s3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -777,6 +777,12 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 	return nil
 }
 
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not implemented on this provider yet.
+func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("NetworkInterfaces")
+}
+
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new subnet was created).
@@ -1089,7 +1095,7 @@ var zeroGroup ec2.SecurityGroup
 // the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
-	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
+	resp, err := ec2inst.CreateSecurityGroup("", name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		return zeroGroup, err
 	}

@@ -336,7 +336,9 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic", "memory": 2048}`,
+	)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
 	_, err := env.acquireNode("", "", constraints, nil, nil)
@@ -649,6 +651,22 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (suite *environSuite) TestBootstrapNodeNotDeployed(c *gc.C) {
+	suite.setupFakeTools(c)
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
+	)
+	lshwXML, err := suite.generateHWTemplate(map[string]ifaceInfo{"aa:bb:cc:dd:ee:f0": {0, "eth0", false}})
+	c.Assert(err, jc.ErrorIsNil)
+	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
+	// Ensure node will not be reported as deployed by changing its status.
+	suite.testMAASObject.TestServer.ChangeNode("thenode", "status", "4")
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "bootstrap instance started but did not change to Deployed state.*")
+}
+
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Disable auto-uploading by setting the agent version.
@@ -867,38 +885,46 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "vnet1")
-	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:ff",
-			CIDR:          "192.168.1.1/24",
-			NetworkName:   "WLAN",
-			ProviderId:    "WLAN",
-			VLANTag:       0,
-			DeviceIndex:   0,
-			InterfaceName: "wlan0",
-			Disabled:      true, // from networksToDisable("WLAN")
-		},
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "192.168.2.1/24",
-			NetworkName:   "LAN",
-			ProviderId:    "LAN",
-			VLANTag:       42,
-			DeviceIndex:   1,
-			InterfaceName: "eth0",
-			Disabled:      true, // from the lshw interface info
-		},
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f2",
-			CIDR:          "192.168.3.1/24",
-			NetworkName:   "Virt",
-			ProviderId:    "Virt",
-			VLANTag:       0,
-			DeviceIndex:   2,
-			InterfaceName: "vnet1",
-			Disabled:      false,
-		},
-	})
+	// Unfortunately, because network.InterfaceInfo is unhashable
+	// (contains a map) we can't use jc.SameContents here.
+	c.Check(networkInfo, gc.HasLen, 3)
+	for _, info := range networkInfo {
+		switch info.DeviceIndex {
+		case 0:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:ff",
+				CIDR:          "192.168.1.1/24",
+				NetworkName:   "WLAN",
+				ProviderId:    "WLAN",
+				VLANTag:       0,
+				DeviceIndex:   0,
+				InterfaceName: "wlan0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 1:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				DeviceIndex:   1,
+				MACAddress:    "aa:bb:cc:dd:ee:f1",
+				CIDR:          "192.168.2.1/24",
+				NetworkName:   "LAN",
+				ProviderId:    "LAN",
+				VLANTag:       42,
+				InterfaceName: "eth0",
+				Disabled:      true, // from networksToDisable("WLAN")
+			})
+		case 2:
+			c.Check(info, jc.DeepEquals, network.InterfaceInfo{
+				MACAddress:    "aa:bb:cc:dd:ee:f2",
+				CIDR:          "192.168.3.1/24",
+				NetworkName:   "Virt",
+				ProviderId:    "Virt",
+				VLANTag:       0,
+				DeviceIndex:   2,
+				InterfaceName: "vnet1",
+				Disabled:      false,
+			})
+		}
+	}
 }
 
 // The same test, but now "Virt" network does not have matched MAC address
@@ -925,18 +951,16 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(primaryIface, gc.Equals, "eth0")
-	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
-			MACAddress:    "aa:bb:cc:dd:ee:f1",
-			CIDR:          "192.168.2.1/24",
-			NetworkName:   "LAN",
-			ProviderId:    "LAN",
-			VLANTag:       42,
-			DeviceIndex:   1,
-			InterfaceName: "eth0",
-			Disabled:      false,
-		},
-	})
+	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		CIDR:          "192.168.2.1/24",
+		NetworkName:   "LAN",
+		ProviderId:    "LAN",
+		VLANTag:       42,
+		DeviceIndex:   1,
+		InterfaceName: "eth0",
+		Disabled:      false,
+	}})
 }
 
 // The same test, but now no networks have matched MAC
@@ -1179,6 +1203,24 @@ func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instanc
 		return nil, err
 	}
 	return result.Instance, nil
+}
+
+func (s *environSuite) TestStartInstanceUnmetConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	_, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot run instances:.* 409.*")
+}
+
+func (s *environSuite) TestStartInstanceConstraints(c *gc.C) {
+	env := s.bootstrap(c)
+	s.newNode(c, "thenode1", "host1", nil)
+	s.newNode(c, "thenode2", "host2", map[string]interface{}{"memory": 8192})
+	params := environs.StartInstanceParams{Constraints: constraints.MustParse("mem=8G")}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*result.Hardware.Mem, gc.Equals, uint64(8192))
 }
 
 func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {

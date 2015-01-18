@@ -23,14 +23,14 @@ type configFilesSuite struct {
 var _ = gc.Suite(&configFilesSuite{})
 
 func (s *configFilesSuite) TestSimpleGetters(c *gc.C) {
-	info := network.Info{
+	info := network.InterfaceInfo{
 		InterfaceName: "blah",
 	}
 	data := []byte("some data")
 	cf := networker.NewConfigFile("ethX", "/some/path", info, data)
 	c.Assert(cf.InterfaceName(), gc.Equals, "ethX")
 	c.Assert(cf.FileName(), gc.Equals, "/some/path")
-	c.Assert(cf.NetworkInfo(), jc.DeepEquals, info)
+	c.Assert(cf.InterfaceInfo(), jc.DeepEquals, info)
 	c.Assert(cf.Data(), jc.DeepEquals, data)
 	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
 	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
@@ -38,7 +38,7 @@ func (s *configFilesSuite) TestSimpleGetters(c *gc.C) {
 }
 
 func (s *configFilesSuite) TestRenderManaged(c *gc.C) {
-	info := network.Info{
+	info := network.InterfaceInfo{
 		InterfaceName: "ethX",
 		VLANTag:       42,
 	}
@@ -68,7 +68,7 @@ iface ethX inet dhcp
 }
 
 func (s *configFilesSuite) TestUpdateData(c *gc.C) {
-	cf := networker.NewConfigFile("ethX", "", network.Info{}, nil)
+	cf := networker.NewConfigFile("ethX", "", network.InterfaceInfo{}, nil)
 	assertData := func(expectData []byte, expectNeedsUpdating bool) {
 		c.Assert(string(cf.Data()), jc.DeepEquals, string(expectData))
 		c.Assert(cf.NeedsUpdating(), gc.Equals, expectNeedsUpdating)
@@ -99,7 +99,7 @@ func (s *configFilesSuite) TestReadData(c *gc.C) {
 
 	err := ioutil.WriteFile(testFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	cf := networker.NewConfigFile("ethX", testFile, network.Info{}, nil)
+	cf := networker.NewConfigFile("ethX", testFile, network.InterfaceInfo{}, nil)
 	err = cf.ReadData()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(cf.Data()), jc.DeepEquals, string(data))
@@ -107,7 +107,7 @@ func (s *configFilesSuite) TestReadData(c *gc.C) {
 }
 
 func (s *configFilesSuite) TestMarkForRemoval(c *gc.C) {
-	cf := networker.NewConfigFile("ethX", "", network.Info{}, nil)
+	cf := networker.NewConfigFile("ethX", "", network.InterfaceInfo{}, nil)
 	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
 	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
 	cf.MarkForRemoval()
@@ -116,7 +116,7 @@ func (s *configFilesSuite) TestMarkForRemoval(c *gc.C) {
 }
 
 func (s *configFilesSuite) TestIsManaged(c *gc.C) {
-	info := network.Info{
+	info := network.InterfaceInfo{
 		InterfaceName: "ethX",
 	}
 	cf := networker.NewConfigFile("ethX", "", info, nil)
@@ -132,7 +132,7 @@ func (s *configFilesSuite) TestApply(c *gc.C) {
 	testFile := filepath.Join(c.MkDir(), "test")
 	defer os.Remove(testFile)
 
-	cf := networker.NewConfigFile("ethX", testFile, network.Info{}, data)
+	cf := networker.NewConfigFile("ethX", testFile, network.InterfaceInfo{}, data)
 	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
 	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
 	c.Assert(string(cf.Data()), jc.DeepEquals, string(data))

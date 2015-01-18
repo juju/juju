@@ -248,6 +248,7 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 			publicDns,
 			err,
 		)
+		return
 	}
 	f.trackIp(ip.IP)
 }

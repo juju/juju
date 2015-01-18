@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package feature_tests
+package featuretests
 
 import (
 	"fmt"
@@ -27,17 +27,14 @@ import (
 	"github.com/juju/juju/version"
 )
 
-const (
-	stubServiceNm = "stub-service"
-	stubUnitNm    = "stub-unit/0"
-)
-
 type leadershipSuite struct {
 	agenttesting.AgentSuite
 
 	clientFacade base.ClientFacade
 	facadeCaller base.FacadeCaller
 	machineAgent *agentcmd.MachineAgent
+	unitId       string
+	serviceId    string
 }
 
 func (s *leadershipSuite) SetUpTest(c *gc.C) {
@@ -74,7 +71,11 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	// Create a service and an instance of that service so that we can
 	// create a client.
 	service := f.MakeService(c, &factory.ServiceParams{})
+	s.serviceId = service.Tag().Id()
+
 	unit := f.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
+	s.unitId = unit.UnitTag().Id()
+
 	c.Assert(unit.SetPassword(password), gc.IsNil)
 	unitState := s.OpenAPIAs(c, unit.Tag(), password)
 
@@ -118,7 +119,7 @@ func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	duration, err := client.ClaimLeadership(stubServiceNm, stubUnitNm)
+	duration, err := client.ClaimLeadership(s.serviceId, s.unitId)
 
 	c.Assert(err, gc.IsNil)
 	c.Check(duration, gc.Equals, 30*time.Second)
@@ -129,10 +130,10 @@ func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(stubServiceNm, stubUnitNm)
+	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 
-	err = client.ReleaseLeadership(stubServiceNm, stubUnitNm)
+	err = client.ReleaseLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -141,19 +142,19 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(stubServiceNm, stubUnitNm)
+	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 
 	unblocked := make(chan struct{})
 	go func() {
-		err = client.BlockUntilLeadershipReleased(stubServiceNm)
+		err = client.BlockUntilLeadershipReleased(s.serviceId)
 		c.Check(err, gc.IsNil)
 		unblocked <- struct{}{}
 	}()
 
 	time.Sleep(coretesting.ShortWait)
 
-	err = client.ReleaseLeadership(stubServiceNm, stubUnitNm)
+	err = client.ReleaseLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 
 	select {

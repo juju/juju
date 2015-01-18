@@ -52,10 +52,19 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// longAttempt is used when we are polling for changes to
+// instance state. Such changes may involve a reboot so we
+// want to allow sufficient time for that to happen.
+var longAttempt = utils.AttemptStrategy{
+	Min:   50,
+	Delay: 5 * time.Second,
+}
+
 var (
-	ReleaseNodes     = releaseNodes
-	ReserveIPAddress = reserveIPAddress
-	ReleaseIPAddress = releaseIPAddress
+	ReleaseNodes         = releaseNodes
+	ReserveIPAddress     = reserveIPAddress
+	ReleaseIPAddress     = releaseIPAddress
+	DeploymentStatusCall = deploymentStatusCall
 )
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -119,7 +128,24 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	// containers, because we'll be creating juju-br0 at bootstrap
 	// time.
 	args.ContainerBridgeName = environs.DefaultBridgeName
-	return common.Bootstrap(ctx, env, args)
+	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	// We want to destroy the started instance if it doesn't transition to Deployed.
+	defer func() {
+		if err != nil {
+			if err := env.StopInstances(result.Instance.Id()); err != nil {
+				logger.Errorf("error releasing bootstrap instance: %v", err)
+			}
+		}
+	}()
+	// Wait for bootstrap instance to change to deployed state.
+	if err := env.waitForNodeDeployment(result.Instance.Id()); err != nil {
+		return "", "", nil, errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+	}
+	return *result.Hardware.Arch, series, finalizer, nil
 }
 
 // StateServerInstances is specified in the Environ interface.
@@ -728,12 +754,12 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// setupNetworks prepares a []network.Info for the given instance. Any
-// networks in networksToDisable will be configured as disabled on the
-// machine. Any disabled network interfaces (as discovered from the
-// lshw output for the node) will stay disabled. The interface name
-// discovered as primary is also returned.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.Info, string, error) {
+// setupNetworks prepares a []network.InterfaceInfo for the given
+// instance. Any networks in networksToDisable will be configured as
+// disabled on the machine. Any disabled network interfaces (as
+// discovered from the lshw output for the node) will stay disabled.
+// The interface name discovered as primary is also returned.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.InterfaceInfo, string, error) {
 	// Get the instance network interfaces first.
 	interfaces, primaryIface, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
@@ -745,7 +771,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		return nil, "", errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
-	var tempNetworkInfo []network.Info
+	var tempInterfaceInfo []network.InterfaceInfo
 	for _, netw := range networks {
 		disabled := networksToDisable.Contains(netw.Name)
 		netCIDR := &net.IPNet{
@@ -759,7 +785,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
 		for _, mac := range macs {
 			if ifinfo, ok := interfaces[mac]; ok {
-				tempNetworkInfo = append(tempNetworkInfo, network.Info{
+				tempInterfaceInfo = append(tempInterfaceInfo, network.InterfaceInfo{
 					MACAddress:    mac,
 					InterfaceName: ifinfo.InterfaceName,
 					DeviceIndex:   ifinfo.DeviceIndex,
@@ -774,8 +800,8 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 	}
 	// Verify we filled-in everything for all networks/interfaces
 	// and drop incomplete records.
-	var networkInfo []network.Info
-	for _, info := range tempNetworkInfo {
+	var interfaceInfo []network.InterfaceInfo
+	for _, info := range tempInterfaceInfo {
 		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
@@ -784,10 +810,10 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 			logger.Warningf("ignoring network %q: missing network interface information", info.ProviderId)
 			continue
 		}
-		networkInfo = append(networkInfo, info)
+		interfaceInfo = append(interfaceInfo, info)
 	}
-	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
-	return networkInfo, primaryIface, nil
+	logger.Debugf("node %q network information: %#v", inst.Id(), interfaceInfo)
+	return interfaceInfo, primaryIface, nil
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -849,6 +875,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
 	snArgs := selectNodeArgs{
+		Constraints:       args.Constraints,
 		AvailabilityZones: availabilityZones,
 		NodeName:          nodeName,
 		IncludeNetworks:   includeNetworks,
@@ -881,7 +908,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	args.MachineConfig.Tools = selectedTools[0]
 
-	var networkInfo []network.Info
+	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
 	if err != nil {
 		return nil, err
@@ -929,6 +956,55 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Hardware:    hc,
 		NetworkInfo: networkInfo,
 	}, nil
+}
+
+func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
+	systemId := extractSystemId(id)
+	for a := longAttempt.Start(); a.Next(); {
+		statusValues, err := environ.deploymentStatus(id)
+		if errors.IsNotImplemented(err) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if statusValues[systemId] == "Deployed" {
+			return nil
+		}
+	}
+	return errors.Errorf("instance %q is started but not deployed", id)
+}
+
+// deploymentStatus returns the deployment state of MAAS instances with
+// the specified Juju instance ids.
+// Note: the result is a map of MAAS systemId to state.
+func (environ *maasEnviron) deploymentStatus(ids ...instance.Id) (map[string]string, error) {
+	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
+	result, err := DeploymentStatusCall(nodesAPI, ids...)
+	if err != nil {
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
+			return nil, errors.NewNotImplemented(err, "deployment status")
+		}
+		return nil, errors.Trace(err)
+	}
+	resultMap, err := result.GetMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	statusValues := make(map[string]string)
+	for systemId, jsonValue := range resultMap {
+		status, err := jsonValue.GetString()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		statusValues[systemId] = status
+	}
+	return statusValues, nil
+}
+
+func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
+	filter := getSystemIdValues("nodes", ids)
+	return nodes.CallGet("deployment_status", filter)
 }
 
 type selectNodeArgs struct {
@@ -1203,6 +1279,12 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 		return errors.Annotatef(err, "failed to release IP address %v", addr.Value)
 	}
 	return nil
+}
+
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not implemented on this provider yet.
+func (*maasEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("NetworkInterfaces")
 }
 
 // Subnets returns basic information about all subnets known

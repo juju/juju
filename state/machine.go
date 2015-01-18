@@ -900,7 +900,8 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // Merge SetProvisioned() in here or drop it at that point.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo) error {
+	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	blockDevices map[string]BlockDeviceInfo) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
@@ -920,6 +921,9 @@ func (m *Machine) SetInstanceInfo(
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	if err := setProvisionedBlockDeviceInfo(m.st, m.Id(), blockDevices); err != nil {
+		return errors.Trace(err)
 	}
 	return m.SetProvisioned(id, nonce, characteristics)
 }

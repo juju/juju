@@ -185,9 +185,9 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 	}
 	tag := names.NewActionTag(actionId)
 	action, err := f.state.Action(tag)
-	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, ErrActionNotAvailable
-	} else if params.IsCodeActionNotAvailable(errors.Cause(err)) {
+	} else if params.IsCodeActionNotAvailable(err) {
 		return nil, ErrActionNotAvailable
 	} else if err != nil {
 		return nil, errors.Trace(err)
