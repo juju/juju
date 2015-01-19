@@ -784,12 +784,12 @@ func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error
 }
 
 // Subnets returns basic information about the specified subnets known
-// by the provider for the specified instance.
-func (e *environ) Subnets(_ instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+// by the provider for the specified instance. subnetIds must not be empty.
+func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	// At some point in the future an empty netIds may mean "fetch all subnets"
 	// but until that functionality is needed it's an error.
-	if len(netIds) == 0 {
-		return nil, errors.Errorf("netIds must not be empty")
+	if len(subnetIds) == 0 {
+		return nil, errors.Errorf("subnetIds must not be empty")
 	}
 	ec2Inst := e.ec2()
 	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
@@ -799,7 +799,7 @@ func (e *environ) Subnets(_ instance.Id, netIds []network.Id) ([]network.SubnetI
 	}
 
 	netIdSet := make(map[network.Id]bool)
-	for _, netId := range netIds {
+	for _, netId := range subnetIds {
 		netIdSet[netId] = false
 	}
 
