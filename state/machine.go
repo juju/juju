@@ -32,7 +32,6 @@ import (
 type Machine struct {
 	st  *State
 	doc machineDoc
-	annotator
 	presence.Presencer
 }
 
@@ -129,11 +128,6 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	machine := &Machine{
 		st:  st,
 		doc: *doc,
-	}
-	machine.annotator = annotator{
-		globalKey: machine.globalKey(),
-		tag:       machine.Tag(),
-		st:        st,
 	}
 	return machine
 }

@@ -90,7 +90,6 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
-	annotator
 	presence.Presencer
 }
 
@@ -98,11 +97,6 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
 		st:  st,
 		doc: *udoc,
-	}
-	unit.annotator = annotator{
-		globalKey: unit.globalKey(),
-		tag:       unit.Tag(),
-		st:        st,
 	}
 	return unit
 }

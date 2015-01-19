@@ -1400,25 +1400,6 @@ func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
-func (s *MachineSuite) TestAnnotatorForMachine(c *gc.C) {
-	testAnnotator(c, func() (state.Annotator, error) {
-		return s.State.Machine(s.machine.Id())
-	})
-}
-
-func (s *MachineSuite) TestAnnotationRemovalForMachine(c *gc.C) {
-	annotations := map[string]string{"mykey": "myvalue"}
-	err := s.machine.SetAnnotations(annotations)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.machine.Annotations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
-}
-
 func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
 	econs1 := constraints.MustParse("mem=1G")
 	econs2 := constraints.MustParse("mem=2G")

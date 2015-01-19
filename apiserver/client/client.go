@@ -948,9 +948,11 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 }
 
 // GetAnnotations returns annotations about a given entity.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
 	nothing := params.GetAnnotationsResults{}
-	tag, err := names.ParseTag(args.Tag)
+	tag, err := c.parseEntityTag(args.Tag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -958,19 +960,30 @@ func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotatio
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
-	ann, err := entity.Annotations()
+	ann, err := c.api.state.Annotations(entity)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
 	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
-func (c *Client) findEntity(tag names.Tag) (state.Annotator, error) {
+func (c *Client) parseEntityTag(tag0 string) (names.Tag, error) {
+	tag, err := names.ParseTag(tag0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if tag.Kind() == names.CharmTagKind {
+		return nil, common.NotSupportedError(tag, "client.annotations")
+	}
+	return tag, nil
+}
+
+func (c *Client) findEntity(tag names.Tag) (state.GlobalEntity, error) {
 	entity0, err := c.api.state.FindEntity(tag)
 	if err != nil {
 		return nil, err
 	}
-	entity, ok := entity0.(state.Annotator)
+	entity, ok := entity0.(state.GlobalEntity)
 	if !ok {
 		return nil, common.NotSupportedError(tag, "annotations")
 	}
@@ -978,8 +991,10 @@ func (c *Client) findEntity(tag names.Tag) (state.Annotator, error) {
 }
 
 // SetAnnotations stores annotations about a given entity.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	tag, err := names.ParseTag(args.Tag)
+	tag, err := c.parseEntityTag(args.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -987,7 +1002,7 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return entity.SetAnnotations(args.Pairs)
+	return c.api.state.SetAnnotations(entity, args.Pairs)
 }
 
 // parseSettingsCompatible parses setting strings in a way that is
