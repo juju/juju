@@ -5,13 +5,18 @@ import os.path
 import subprocess
 import sys
 
+from jujuconfig import NoSuchEnvironment
 import jujupy
 from deploy_stack import destroy_environment
 
 
 def main():
     for env_name in sys.argv[1:]:
-        env = jujupy.SimpleEnvironment.from_config(env_name)
+        try:
+            env = jujupy.SimpleEnvironment.from_config(env_name)
+        except NoSuchEnvironment as e:
+            sys.stderr.write(str(e) + '\n')
+            sys.exit(1)
         client = jujupy.EnvJujuClient.by_version(env)
         destroy_environment(client, os.environ.get('JOB_NAME'))
 

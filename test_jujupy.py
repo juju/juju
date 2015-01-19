@@ -23,6 +23,7 @@ import yaml
 from jujuconfig import (
     get_environments_path,
     get_jenv_path,
+    NoSuchEnvironment,
     )
 from jujupy import (
     CannotConnectEnv,
@@ -1299,6 +1300,11 @@ class TestSimpleEnvironment(TestCase):
             env = SimpleEnvironment.from_config('foo')
             self.assertIs(SimpleEnvironment, type(env))
             self.assertEqual({'type': 'local'}, env.config)
+
+    def test_from_bogus_config(self):
+        with temp_config():
+            with self.assertRaises(NoSuchEnvironment):
+                env = SimpleEnvironment.from_config('bar')
 
 
 class TestEnvironment(TestCase):

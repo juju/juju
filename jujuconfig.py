@@ -5,6 +5,10 @@ import subprocess
 import yaml
 
 
+class NoSuchEnvironment(Exception):
+    """Raised when a specified environment does not exist."""
+
+
 def get_selected_environment(selected, allow_jenv=True):
     if selected is None:
         selected = default_env()
@@ -12,6 +16,11 @@ def get_selected_environment(selected, allow_jenv=True):
         jenv_config = get_jenv_config(get_juju_home(), selected)
         if jenv_config is not None:
             return jenv_config, selected
+    environments = get_environments()
+    env = environments.get(selected)
+    if env is None:
+        raise NoSuchEnvironment(
+            'Environment "{}" does not exist.'.format(selected))
     return get_environments()[selected], selected
 
 
