@@ -298,7 +298,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil)
+	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

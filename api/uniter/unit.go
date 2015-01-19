@@ -142,7 +142,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	return names.UnitService(u.Name())
+	serviceName, err := names.UnitService(u.Name())
+	if err != nil {
+		panic(err)
+	}
+	return serviceName
 }
 
 // ServiceTag returns the service tag.
