@@ -72,7 +72,7 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 }
 
 func newMultiEnvRunnerForHooks(st *State) jujutxn.Runner {
-	runner := newMultiEnvRunner(st.EnvironUUID(), st.db)
+	runner := newMultiEnvRunner(st.EnvironUUID(), st.db, txnAssertEnvIsAlive)
 	st.transactionRunner = runner
 	return getRawRunner(runner)
 }
@@ -288,8 +288,9 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 
 func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) jujutxn.Runner {
 	return &multiEnvRunner{
-		rawRunner: baseRunner,
-		envUUID:   envUUID,
+		rawRunner:      baseRunner,
+		envUUID:        envUUID,
+		assertEnvAlive: true,
 	}
 }
 
