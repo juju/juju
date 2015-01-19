@@ -5,10 +5,12 @@ package testing
 
 import (
 	"github.com/juju/names"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -20,12 +22,31 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.P
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	mgoInfo := testing.NewMongoInfo()
-	dialOpts := testing.NewDialOpts()
+	mgoInfo := NewMongoInfo()
+	dialOpts := NewDialOpts()
 
 	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, policy)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+// NewMongoInfo returns information suitable for
+// connecting to the testing state server's mongo database.
+func NewMongoInfo() *mongo.MongoInfo {
+	return &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{jujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+	}
+}
+
+// NewDialOpts returns configuration parameters for
+// connecting to the testing state server.
+func NewDialOpts() mongo.DialOpts {
+	return mongo.DialOpts{
+		Timeout: testing.LongWait,
+	}
 }
 
 // NewState initializes a new state with default values for testing and

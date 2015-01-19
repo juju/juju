@@ -40,7 +40,7 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) openState(c *gc.C) {
-	st, err := state.Open(testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
+	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 }
@@ -60,7 +60,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	uuid, _ := cfg.UUID()
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, testing.NewMongoInfo(), cfg, testing.NewDialOpts(), nil)
+	st, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	envTag := st.EnvironTag()
@@ -117,7 +117,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
 	c.Assert(err, jc.ErrorIsNil)
-	st, err = state.Initialize(owner, testing.NewMongoInfo(), cfg, testing.NewDialOpts(), state.Policy(nil))
+	st, err = state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.NotNil)
 	st.Close()
@@ -135,7 +135,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	bad, err := good.Apply(badUpdateAttrs)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, testing.NewMongoInfo(), bad, testing.NewDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateEnvironConfig.
@@ -161,7 +161,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(owner, testing.NewMongoInfo(), bad, testing.NewDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, statetesting.NewMongoInfo(), bad, statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
 	st := statetesting.Initialize(c, owner, good, nil)

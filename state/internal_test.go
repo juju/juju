@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 
@@ -39,13 +40,18 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.owner = names.NewLocalUserTag("test-admin")
-	st, err := Initialize(
-		s.owner,
-		testing.NewMongoInfo(),
-		testing.EnvironConfig(c),
-		testing.NewDialOpts(),
-		nil,
-	)
+	// Copied from NewMongoInfo (due to import loops).
+	info := &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{jujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+	}
+	// Copied from NewDialOpts (due to import loops).
+	dialopts := mongo.DialOpts{
+		Timeout: testing.LongWait,
+	}
+	st, err := Initialize(s.owner, info, testing.EnvironConfig(c), dialopts, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	s.AddCleanup(func(*gc.C) { s.state.Close() })

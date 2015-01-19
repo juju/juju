@@ -258,9 +258,9 @@ func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 
-	r.PatchValue(&mongoDefaultDialOpts, coretesting.NewDialOpts)
+	r.PatchValue(&mongoDefaultDialOpts, statetesting.NewDialOpts)
 	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return nil })
-	st, err = newStateConnection(coretesting.NewMongoInfo())
+	st, err = newStateConnection(statetesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st.Close(), jc.ErrorIsNil)
 }
