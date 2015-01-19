@@ -131,8 +131,8 @@ type Environ interface {
 	// AllocateAddress.
 	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
 
-	// Subnets returns basic information about  subnets known
-	// by the provider for the environment
+	// Subnets returns basic information about subnets known
+	// by the provider for the environment.
 	Subnets(inst instance.Id, networks []network.Id) ([]network.SubnetInfo, error)
 
 	// NetworkInterfaces requests information about the network
