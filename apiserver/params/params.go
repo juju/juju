@@ -395,11 +395,6 @@ type SetConstraints struct {
 	Constraints constraints.Value
 }
 
-// CharmInfo stores parameters for a CharmInfo call.
-type CharmInfo struct {
-	CharmURL string
-}
-
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
 	References []charm.Reference
