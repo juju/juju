@@ -5,70 +5,21 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/testing"
 )
 
 type SettingsSuite struct {
-	testing.BaseSuite
-	gitjujutesting.MgoSuite
-	state *State
-	key   string
+	internalStateSuite
+	key string
 }
 
 var _ = gc.Suite(&SettingsSuite{})
 
-// TestingMongoInfo returns information suitable for
-// connecting to the testing state server's mongo database.
-func TestingMongoInfo() *mongo.MongoInfo {
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
-}
-
-// TestingDialOpts returns configuration parameters for
-// connecting to the testing state server.
-func TestingDialOpts() mongo.DialOpts {
-	return mongo.DialOpts{
-		Timeout: testing.LongWait,
-	}
-}
-
-func (s *SettingsSuite) SetUpSuite(c *gc.C) {
-	s.MgoSuite.SetUpSuite(c)
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *SettingsSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-	s.MgoSuite.TearDownSuite(c)
-}
-
 func (s *SettingsSuite) SetUpTest(c *gc.C) {
-	s.MgoSuite.SetUpTest(c)
-	s.BaseSuite.SetUpTest(c)
-	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	cfg := testing.EnvironConfig(c)
-	owner := names.NewLocalUserTag("settings-admin")
-	state, err := Initialize(owner, TestingMongoInfo(), cfg, TestingDialOpts(), Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { state.Close() })
-	s.state = state
+	s.internalStateSuite.SetUpTest(c)
 	s.key = "config"
-}
-
-func (s *SettingsSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *gc.C) {
