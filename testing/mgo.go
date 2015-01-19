@@ -6,6 +6,7 @@ package testing
 import (
 	"testing"
 
+	"github.com/juju/juju/mongo"
 	gitjujutesting "github.com/juju/testing"
 )
 
@@ -13,4 +14,23 @@ import (
 // that requires a secure connection to a MongoDB server.
 func MgoTestPackage(t *testing.T) {
 	gitjujutesting.MgoTestPackage(t, Certs)
+}
+
+// NewMongoInfo returns information suitable for
+// connecting to the testing state server's mongo database.
+func NewMongoInfo() *mongo.MongoInfo {
+	return &mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: CACert,
+		},
+	}
+}
+
+// NewDialOpts returns configuration parameters for
+// connecting to the testing state server.
+func NewDialOpts() mongo.DialOpts {
+	return mongo.DialOpts{
+		Timeout: LongWait,
+	}
 }

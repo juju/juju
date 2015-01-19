@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -108,7 +109,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
-	st := TestingInitialize(c, owner, cfg, nil)
+	st := statetesting.Initialize(c, owner, cfg, nil)
 	st.Close()
 
 	// A second initialize returns an open *State, but ignores its params.
@@ -138,7 +139,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateEnvironConfig.
-	st := TestingInitialize(c, owner, good, nil)
+	st := statetesting.Initialize(c, owner, good, nil)
 	st.Close()
 
 	s.openState(c)
@@ -163,7 +164,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	_, err = state.Initialize(owner, state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
-	st := TestingInitialize(c, owner, good, nil)
+	st := statetesting.Initialize(c, owner, good, nil)
 	// yay side effects
 	st.Close()
 

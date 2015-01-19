@@ -51,18 +51,6 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestingInitialize initializes the state and returns it. If state was not
-// already initialized, and cfg is nil, the minimal default environment
-// configuration will be used.
-func TestingInitialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.Policy) *state.State {
-	if cfg == nil {
-		cfg = testing.EnvironConfig(c)
-	}
-	st, err := state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
-	c.Assert(err, jc.ErrorIsNil)
-	return st
-}
-
 type StateSuite struct {
 	ConnSuite
 }

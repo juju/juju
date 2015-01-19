@@ -60,7 +60,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.policy = statetesting.MockPolicy{}
 	cfg := testing.EnvironConfig(c)
 	cs.owner = names.NewLocalUserTag("test-admin")
-	cs.State = TestingInitialize(c, cs.owner, cfg, &cs.policy)
+	cs.State = statetesting.Initialize(c, cs.owner, cfg, &cs.policy)
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	cs.envTag = names.NewEnvironTag(uuid)
