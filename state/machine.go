@@ -220,6 +220,12 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 // will be different from other Tag values returned by any other entities
 // from the same state.
 func (m *Machine) Tag() names.Tag {
+	return m.MachineTag()
+}
+
+// MachineTag returns the more specific MachineTag type as opposed
+// to the more generic Tag type.
+func (m *Machine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.Id())
 }
 

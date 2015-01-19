@@ -20,7 +20,6 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -48,12 +47,10 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
-	f := factory.NewFactory(s.State)
-
 	// Create a machine to manage the environment, and set all
 	// passwords to something known.
 	const password = "machine-password-1234567890"
-	stateServer := f.MakeMachine(c, &factory.MachineParams{
+	stateServer := s.Factory.MakeMachine(c, &factory.MachineParams{
 		InstanceId: "id-1",
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
@@ -63,17 +60,17 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
 
 	// Create a machine to host some units.
-	unitHostMachine := f.MakeMachine(c, &factory.MachineParams{
+	unitHostMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Nonce:    agent.BootstrapNonce,
 		Password: password,
 	})
 
 	// Create a service and an instance of that service so that we can
 	// create a client.
-	service := f.MakeService(c, &factory.ServiceParams{})
+	service := s.Factory.MakeService(c, &factory.ServiceParams{})
 	s.serviceId = service.Tag().Id()
 
-	unit := f.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
 	s.unitId = unit.UnitTag().Id()
 
 	c.Assert(unit.SetPassword(password), gc.IsNil)
@@ -85,11 +82,9 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.facadeCaller, gc.NotNil)
 
 	// Tweak and write out the config file for the state server.
-	writeStateAgentConfig(
+	s.writeStateAgentConfig(
 		c,
-		s.MongoInfo(c),
-		s.DataDir(),
-		names.NewMachineTag(stateServer.Id()),
+		stateServer.Tag(),
 		password,
 		version.Current,
 	)
@@ -164,21 +159,21 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	}
 }
 
-func writeStateAgentConfig(
+func (s *leadershipSuite) writeStateAgentConfig(
 	c *gc.C,
-	stateInfo *mongo.MongoInfo,
-	dataDir string,
 	tag names.Tag,
 	password string,
 	vers version.Binary,
 ) agent.ConfigSetterWriter {
 
+	stateInfo := s.MongoInfo(c)
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-			DataDir:           dataDir,
+			DataDir:           s.DataDir(),
 			Tag:               tag,
+			Environment:       s.State.EnvironTag(),
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,
