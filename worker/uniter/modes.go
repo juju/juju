@@ -48,8 +48,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	switch opState.Kind {
 	case operation.Continue:
 		logger.Infof("continuing after %q hook", opState.Hook.Kind)
-		switch opState.Hook.Kind {
-		case hooks.Stop:
+		if opState.Hook.Kind == hooks.Stop {
 			return ModeTerminating, nil
 		}
 		return ModeAbide, nil
@@ -179,13 +178,33 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if err := u.fixDeployer(); err != nil {
 		return nil, err
 	}
-	if err = u.unit.SetStatus(params.StatusActive, "", nil); err != nil {
-		return nil, err
+	runHook := func(kind hooks.Kind) error {
+		// We don't want to risk running several hooks in a row without
+		// checking for shutdown in between.
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			if err := u.runHook(hook.Info{Kind: kind}); err != nil {
+				return err
+			}
+			// opState will not reflect the hook's execution; refresh it.
+			opState = u.operationState()
+			return nil
+		}
 	}
 	if !u.ranConfigChanged {
-		if err := u.runHook(hook.Info{Kind: hooks.ConfigChanged}); err != nil {
+		if err := runHook(hooks.ConfigChanged); err != nil {
 			return nil, err
 		}
+	}
+	if !opState.Started {
+		if err := runHook(hooks.Start); err != nil {
+			return nil, err
+		}
+	}
+	if err = u.unit.SetStatus(params.StatusActive, "", nil); err != nil {
+		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
 	u.relations.StartHooks()
