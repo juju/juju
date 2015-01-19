@@ -65,7 +65,7 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.owner = names.NewLocalUserTag("test-admin")
-	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	st, err := Initialize(s.owner, testing.NewMongoInfo(), testing.EnvironConfig(c), testing.NewDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.State = st
 	s.AddCleanup(func(*gc.C) { s.State.Close() })

@@ -49,7 +49,7 @@ func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	var err error
 	s.owner = names.NewLocalUserTag("upgrade-admin")
-	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
+	s.state, err = Initialize(s.owner, testing.NewMongoInfo(), testing.EnvironConfig(c), testing.NewDialOpts(), Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

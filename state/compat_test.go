@@ -41,7 +41,7 @@ func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	owner := names.NewLocalUserTag("test-admin")
-	st, err := Initialize(owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	st, err := Initialize(owner, testing.NewMongoInfo(), testing.EnvironConfig(c), testing.NewDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = st
 	env, err := s.state.Environment()

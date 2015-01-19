@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,25 +22,6 @@ type SettingsSuite struct {
 }
 
 var _ = gc.Suite(&SettingsSuite{})
-
-// TestingMongoInfo returns information suitable for
-// connecting to the testing state server's mongo database.
-func TestingMongoInfo() *mongo.MongoInfo {
-	return &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
-}
-
-// TestingDialOpts returns configuration parameters for
-// connecting to the testing state server.
-func TestingDialOpts() mongo.DialOpts {
-	return mongo.DialOpts{
-		Timeout: testing.LongWait,
-	}
-}
 
 func (s *SettingsSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
@@ -59,7 +39,7 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
 	cfg := testing.EnvironConfig(c)
 	owner := names.NewLocalUserTag("settings-admin")
-	state, err := Initialize(owner, TestingMongoInfo(), cfg, TestingDialOpts(), Policy(nil))
+	state, err := Initialize(owner, testing.NewMongoInfo(), cfg, testing.NewDialOpts(), Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { state.Close() })
 	s.state = state

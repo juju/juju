@@ -108,14 +108,14 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+		st, err := state.Open(testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -2323,7 +2323,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(info *mongo.MongoInfo) error {
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -2331,7 +2331,7 @@ func tryOpenState(info *mongo.MongoInfo) error {
 }
 
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
-	info := state.TestingMongoInfo()
+	info := testing.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
 	err := tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
@@ -2346,7 +2346,7 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
-	info := state.TestingMongoInfo()
+	info := testing.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
@@ -2360,7 +2360,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	// Default mgo retry delay
 	retryDelay := 500 * time.Millisecond
-	info := state.TestingMongoInfo()
+	info := testing.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
@@ -3078,7 +3078,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3126,7 +3126,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(testing.NewMongoInfo(), testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -3768,7 +3768,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	}
 	cfg := testing.EnvironConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, mongoInfo, cfg, state.TestingDialOpts(), nil)
+	st, err := state.Initialize(owner, mongoInfo, cfg, testing.NewDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
