@@ -1291,11 +1291,15 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 		return nil, errors.NotFoundf("instance %v", instId)
 	}
 	inst := instances[0]
-	_, _, err = environ.getInstanceNetworkInterfaces(inst)
+	interfaces, _, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return nil, errors.NotImplementedf("NetworkInterfaces")
+	result := []network.InterfaceInfo{}
+	for _, iface := range interfaces {
+		iface = iface
+	}
+	return result, nil
 }
 
 // Subnets returns basic information about all subnets known
