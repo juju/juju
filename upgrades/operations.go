@@ -76,9 +76,17 @@ func newOpsIterator(from, to version.Number, ops []Operation) *opsIterator {
 	if from == version.Zero {
 		from = version.MustParse("1.16.0")
 	}
+
 	// Clear the version tag of the target release to ensure that all
-	// upgrade steps for the release are run for alpha and beta releases.
-	to.Tag = ""
+	// upgrade steps for the release are run for alpha and beta
+	// releases.
+	// ...but only do this if the agent version has actually changed,
+	// lest we trigger upgrade mode unnecessarily for non-final
+	// versions.
+	if from.Compare(to) != 0 {
+		to.Tag = ""
+	}
+
 	return &opsIterator{
 		from:    from,
 		to:      to,
