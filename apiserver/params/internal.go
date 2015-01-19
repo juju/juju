@@ -437,7 +437,7 @@ type InstanceInfo struct {
 	Characteristics *instance.HardwareCharacteristics
 	Networks        []Network
 	Interfaces      []NetworkInterface
-	Disks           []storage.BlockDevice
+	Volumes         []storage.BlockDevice
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -738,7 +738,7 @@ type ProvisioningInfo struct {
 	Placement   string
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
-	Disks       []storage.DiskParams
+	Volumes     []storage.VolumeParams
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

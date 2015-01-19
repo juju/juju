@@ -81,7 +81,7 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	mapping, blockDeviceInfo, err := ec2.GetBlockDeviceMappings(
-		"pv", &environs.StartInstanceParams{Disks: []storage.DiskParams{{
+		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
 			Name: "0", Size: 1234,
 		}, {
 			Name: "1", Size: 4321,

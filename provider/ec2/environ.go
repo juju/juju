@@ -486,7 +486,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, disks, err := getBlockDeviceMappings(
+	blockDeviceMappings, volumes, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -546,7 +546,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &hc,
-		Disks:    disks,
+		Volumes:  volumes,
 	}, nil
 }
 
