@@ -6,6 +6,7 @@ package authentication
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
@@ -40,15 +41,19 @@ type AuthenticationProvider interface {
 func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, error) {
 	stateAddresses, err := st.StateAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	apiAddresses, err := st.APIAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	caCert, err := st.CACert()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
+	}
+	envUUID, err := st.EnvironUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	stateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
@@ -57,8 +62,9 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 		},
 	}
 	apiInfo := &api.Info{
-		Addrs:  apiAddresses,
-		CACert: caCert,
+		Addrs:      apiAddresses,
+		CACert:     caCert,
+		EnvironTag: names.NewEnvironTag(envUUID),
 	}
 	return &simpleAuth{stateInfo, apiInfo}, nil
 }

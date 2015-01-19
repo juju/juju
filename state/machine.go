@@ -138,6 +138,10 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	return machine
 }
 
+func wantsVote(jobs []MachineJob, noVote bool) bool {
+	return hasJob(jobs, JobManageEnviron) && !noVote
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id
@@ -220,6 +224,12 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 // will be different from other Tag values returned by any other entities
 // from the same state.
 func (m *Machine) Tag() names.Tag {
+	return m.MachineTag()
+}
+
+// MachineTag returns the more specific MachineTag type as opposed
+// to the more generic Tag type.
+func (m *Machine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.Id())
 }
 
@@ -236,7 +246,7 @@ func (m *Machine) Jobs() []MachineJob {
 // WantsVote reports whether the machine is a state server
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
-	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+	return wantsVote(m.doc.Jobs, m.doc.NoVote)
 }
 
 // HasVote reports whether that machine is currently a voting

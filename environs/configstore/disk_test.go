@@ -194,7 +194,7 @@ func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
 	endpoint := configstore.APIEndpoint{
 		Addresses:   []string{"this", "is", "never", "validated", "here"},
 		Hostnames:   []string{"neither", "is", "this"},
-		EnvironUUID: "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
+		EnvironUUID: testing.EnvironmentTag.Id(),
 	}
 	info.SetAPIEndpoint(endpoint)
 	err = info.Write()

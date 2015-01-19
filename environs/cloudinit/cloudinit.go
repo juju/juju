@@ -257,6 +257,7 @@ func (cfg *MachineConfig) agentConfig(
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 		PreferIPv6:        cfg.PreferIPv6,
+		Environment:       cfg.APIInfo.EnvironTag,
 	}
 	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
@@ -395,91 +396,94 @@ func (e requiresError) Error() string {
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
-		return fmt.Errorf("invalid machine id")
+		return errors.New("invalid machine id")
 	}
 	if cfg.DataDir == "" {
-		return fmt.Errorf("missing var directory")
+		return errors.New("missing var directory")
 	}
 	if cfg.LogDir == "" {
-		return fmt.Errorf("missing log directory")
+		return errors.New("missing log directory")
 	}
 	if len(cfg.Jobs) == 0 {
-		return fmt.Errorf("missing machine jobs")
+		return errors.New("missing machine jobs")
 	}
 	if cfg.CloudInitOutputLog == "" {
-		return fmt.Errorf("missing cloud-init output log path")
+		return errors.New("missing cloud-init output log path")
 	}
 	if cfg.Tools == nil {
-		return fmt.Errorf("missing tools")
+		return errors.New("missing tools")
 	}
 	if cfg.Tools.URL == "" {
-		return fmt.Errorf("missing tools URL")
+		return errors.New("missing tools URL")
 	}
 	if cfg.MongoInfo == nil {
-		return fmt.Errorf("missing state info")
+		return errors.New("missing state info")
 	}
 	if len(cfg.MongoInfo.CACert) == 0 {
-		return fmt.Errorf("missing CA certificate")
+		return errors.New("missing CA certificate")
 	}
 	if cfg.APIInfo == nil {
-		return fmt.Errorf("missing API info")
+		return errors.New("missing API info")
+	}
+	if cfg.APIInfo.EnvironTag.Id() == "" {
+		return errors.New("missing environment tag")
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
-		return fmt.Errorf("missing API CA certificate")
+		return errors.New("missing API CA certificate")
 	}
 	if cfg.MachineAgentServiceName == "" {
-		return fmt.Errorf("missing machine agent service name")
+		return errors.New("missing machine agent service name")
 	}
 	if cfg.Bootstrap {
 		if cfg.Config == nil {
-			return fmt.Errorf("missing environment configuration")
+			return errors.New("missing environment configuration")
 		}
 		if cfg.MongoInfo.Tag != nil {
-			return fmt.Errorf("entity tag must be nil when starting a state server")
+			return errors.New("entity tag must be nil when starting a state server")
 		}
 		if cfg.APIInfo.Tag != nil {
-			return fmt.Errorf("entity tag must be nil when starting a state server")
+			return errors.New("entity tag must be nil when starting a state server")
 		}
 		if cfg.StateServingInfo == nil {
-			return fmt.Errorf("missing state serving info")
+			return errors.New("missing state serving info")
 		}
 		if len(cfg.StateServingInfo.Cert) == 0 {
-			return fmt.Errorf("missing state server certificate")
+			return errors.New("missing state server certificate")
 		}
 		if len(cfg.StateServingInfo.PrivateKey) == 0 {
-			return fmt.Errorf("missing state server private key")
+			return errors.New("missing state server private key")
 		}
 		if len(cfg.StateServingInfo.CAPrivateKey) == 0 {
-			return fmt.Errorf("missing ca cert private key")
+			return errors.New("missing ca cert private key")
 		}
 		if cfg.StateServingInfo.StatePort == 0 {
-			return fmt.Errorf("missing state port")
+			return errors.New("missing state port")
 		}
 		if cfg.StateServingInfo.APIPort == 0 {
-			return fmt.Errorf("missing API port")
+			return errors.New("missing API port")
 		}
 		if cfg.InstanceId == "" {
-			return fmt.Errorf("missing instance-id")
+			return errors.New("missing instance-id")
 		}
 	} else {
 		if len(cfg.MongoInfo.Addrs) == 0 {
-			return fmt.Errorf("missing state hosts")
+			return errors.New("missing state hosts")
 		}
 		if cfg.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return fmt.Errorf("entity tag must match started machine")
+			return errors.New("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
-			return fmt.Errorf("missing API hosts")
+			return errors.New("missing API hosts")
 		}
 		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
-			return fmt.Errorf("entity tag must match started machine")
+			return errors.New("entity tag must match started machine")
 		}
 		if cfg.StateServingInfo != nil {
-			return fmt.Errorf("state serving info unexpectedly present")
+			return errors.New("state serving info unexpectedly present")
 		}
 	}
 	if cfg.MachineNonce == "" {
-		return fmt.Errorf("missing machine nonce")
+		return errors.New("missing machine nonce")
 	}
 	return nil
 }

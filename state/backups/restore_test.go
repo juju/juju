@@ -186,6 +186,7 @@ func (r *RestoreSuite) TestNewDialInfo(c *gc.C) {
 		LogDir:            logDir,
 		UpgradedToVersion: version.Current.Number,
 		Tag:               machineTag,
+		Environment:       coretesting.EnvironmentTag,
 		Password:          "dummyPassword",
 		Nonce:             "dummyNonce",
 		StateAddresses:    []string{"fakeStateAddress:1234"},

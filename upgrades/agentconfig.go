@@ -5,6 +5,7 @@ package upgrades
 
 import (
 	"fmt"
+	"github.com/juju/errors"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -146,5 +147,21 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		Jobs:         jobs,
 		Values:       values,
 		DeleteValues: deprecatedValues,
+	})
+}
+
+func addEnvironmentUUIDToAgentConfig(context Context) error {
+	if context.AgentConfig().Environment().Id() != "" {
+		logger.Infof("environment uuid already set in agent config")
+		return nil
+	}
+
+	environTag, err := context.APIState().EnvironTag()
+	if err != nil {
+		return errors.Annotate(err, "no environment uuid set on api")
+	}
+
+	return context.AgentConfig().Migrate(agent.MigrateParams{
+		Environment: environTag,
 	})
 }

@@ -759,7 +759,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
-				Disks:       []storage.DiskParams{{Name: "0", Size: 1000}, {Name: "1", Size: 2000}},
+				Volumes:     []storage.VolumeParams{{Name: "0", Size: 1000}, {Name: "1", Size: 2000}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -925,7 +925,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	disksMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
 		Series:       "quantal",
 		Jobs:         []state.MachineJob{state.JobHostUnits},
 		BlockDevices: []state.BlockDeviceParams{{Size: 1000}},
@@ -1003,10 +1003,10 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		Networks:        networks,
 		Interfaces:      ifaces,
 	}, {
-		Tag:        disksMachine.Tag().String(),
+		Tag:        volumesMachine.Tag().String(),
 		InstanceId: "i-am-also",
 		Nonce:      "fake",
-		Disks:      []storage.BlockDevice{{Name: "0", Size: 1234}},
+		Volumes:    []storage.BlockDevice{{Name: "0", Size: 1234}},
 	},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
@@ -1081,16 +1081,16 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
 	}
 
-	// Verify the machine with requested disks was provisioned, and the
-	// disk information recorded in state.
-	blockDevices, err := disksMachine.BlockDevices()
+	// Verify the machine with requested volumes was provisioned, and the
+	// volume information recorded in state.
+	blockDevices, err := volumesMachine.BlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockDevices, gc.HasLen, 1)
 	blockDeviceInfo, err := blockDevices[0].Info()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockDeviceInfo, gc.Equals, state.BlockDeviceInfo{Size: 1234})
 
-	// Verify the machine without requested disks still has no disks
+	// Verify the machine without requested volumes still has no volumes
 	// recorded in state.
 	blockDevices, err = s.machines[1].BlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1360,7 +1360,8 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.Not(gc.HasLen), 0)
 	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), tools.Version)
+		url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }

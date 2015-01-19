@@ -1489,10 +1489,11 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Tag:      machineTag,
 	}
 	apiInfo := &api.Info{
-		Addrs:    []string{"localhost:124"},
-		CACert:   coretesting.CACert,
-		Password: "admin",
-		Tag:      machineTag,
+		Addrs:      []string{"localhost:124"},
+		CACert:     coretesting.CACert,
+		Password:   "admin",
+		Tag:        machineTag,
+		EnvironTag: coretesting.EnvironmentTag,
 	}
 	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)

@@ -866,13 +866,13 @@ func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
 	c.Assert(result, jc.IsFalse)
 }
 
-func (t *localServerSuite) TestStartInstanceDisks(c *gc.C) {
+func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{
-		Disks: []storage.DiskParams{{
+		Volumes: []storage.VolumeParams{{
 			Size: 512, // round up to 1GiB
 		}, {
 			Size: 1024, // 1GiB exactly
@@ -882,10 +882,10 @@ func (t *localServerSuite) TestStartInstanceDisks(c *gc.C) {
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Disks, gc.HasLen, 3)
-	c.Assert(result.Disks[0].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Disks[1].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Disks[2].Size, gc.Equals, uint64(2048))
+	c.Assert(result.Volumes, gc.HasLen, 3)
+	c.Assert(result.Volumes[0].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Volumes[1].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Volumes[2].Size, gc.Equals, uint64(2048))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
