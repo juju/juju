@@ -1104,8 +1104,8 @@ func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceIn
 	return info, nil
 }
 
-// Subnets implements Environ.Subnets.
-func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+// Subnets implements environs.Environ.Subnets.
+func (env *environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}

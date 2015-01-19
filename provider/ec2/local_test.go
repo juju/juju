@@ -801,7 +801,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets("")
+	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultSubnets := []network.SubnetInfo{{
@@ -813,6 +813,18 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 		AllocatableIPHigh: net.ParseIP("10.10.15.254").To4(),
 	}}
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
+}
+
+func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	_, err := env.Subnets("", []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+}
+
+func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
