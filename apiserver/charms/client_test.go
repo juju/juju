@@ -16,12 +16,13 @@ import (
 )
 
 type baseCharmsSuite struct {
+	// TODO(anastasiamac) mock to remove JujuConnSuite
 	jujutesting.JujuConnSuite
 }
 
 type charmsSuite struct {
 	baseCharmsSuite
-	client *charms.API
+	api *charms.API
 }
 
 var _ = gc.Suite(&charmsSuite{})
@@ -34,7 +35,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
-	s.client, err = charms.NewAPI(s.State, common.NewResources(), auth)
+	s.api, err = charms.NewAPI(s.State, common.NewResources(), auth)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -148,7 +149,7 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 	for _, aCharm := range someCharms {
 		s.AddTestingCharm(c, aCharm)
 	}
-	found, err := s.client.List(params.CharmsList{Names: args})
+	found, err := s.api.List(params.CharmsList{Names: args})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.CharmURLs, gc.HasLen, len(expected))
 	c.Check(found.CharmURLs, jc.DeepEquals, expected)

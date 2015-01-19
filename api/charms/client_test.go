@@ -10,9 +10,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
-	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type charmsMockSuite struct {
@@ -39,18 +37,22 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 
 			args, ok := a.(params.CharmInfo)
 			c.Assert(ok, jc.IsTrue)
-
 			c.Assert(args.CharmURL, gc.DeepEquals, curl)
+			if wanted, k := result.(*charms.CharmInfo); k {
+				wanted.URL = curl
+			}
 			return nil
 		})
 	charmsClient := charms.NewClient(apiCaller)
-	_, err := charmsClient.CharmInfo(curl)
+	charmResult, err := charmsClient.CharmInfo(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(charmResult.URL, gc.DeepEquals, curl)
 }
 
 func (s *charmsMockSuite) TestList(c *gc.C) {
 	var called bool
+	charmName := "dummy-1"
 	curl := "local:quantal/dummy-1"
 
 	apiCaller := basetesting.APICallerFunc(
@@ -68,38 +70,17 @@ func (s *charmsMockSuite) TestList(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 
 			c.Assert(args.Names, gc.HasLen, 1)
-			c.Assert(args.Names[0], gc.DeepEquals, curl)
+			c.Assert(args.Names[0], gc.DeepEquals, charmName)
+
+			if wanted, k := result.(*params.CharmsListResult); k {
+				wanted.CharmURLs = []string{curl}
+			}
 			return nil
 		})
 	charmsClient := charms.NewClient(apiCaller)
-	_, err := charmsClient.List([]string{curl})
+	listResult, err := charmsClient.List([]string{charmName})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
-}
-
-type charmsSuite struct {
-	jujutesting.JujuConnSuite
-	charmsClient *charms.Client
-}
-
-var _ = gc.Suite(&charmsSuite{})
-
-func (s *charmsSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.charmsClient = charms.NewClient(s.APIState)
-	c.Assert(s.charmsClient, gc.NotNil)
-}
-
-func (s *charmsSuite) TearDownTest(c *gc.C) {
-	s.charmsClient.ClientFacade.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *charmsSuite) TestCharmsFacadeCall(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-
-	found, err := s.charmsClient.List([]string{"wordpress"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(found, gc.HasLen, 1)
-	c.Assert(found[0], gc.DeepEquals, "cs:quantal/wordpress-1")
+	c.Assert(listResult, gc.HasLen, 1)
+	c.Assert(listResult[0], gc.DeepEquals, curl)
 }

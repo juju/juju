@@ -35,7 +35,7 @@ type CharmInfo struct {
 // CharmInfo returns information about the requested charm.
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmInfo{CharmURL: charmURL}
-	info := new(CharmInfo)
+	info := &CharmInfo{}
 	if err := c.facade.FacadeCall("CharmInfo", args, info); err != nil {
 		return nil, err
 	}
@@ -45,10 +45,10 @@ func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 // List returns a list of charm URLs currently in the state.
 // If supplied parameter contains any names, the result will be filtered
 // to return only the charms with supplied names.
-func (c *Client) List(a []string) ([]string, error) {
-	charms := params.CharmsListResult{}
-	args := params.CharmsList{Names: a}
-	if err := c.facade.FacadeCall("List", args, &charms); err != nil {
+func (c *Client) List(names []string) ([]string, error) {
+	charms := &params.CharmsListResult{}
+	args := params.CharmsList{Names: names}
+	if err := c.facade.FacadeCall("List", args, charms); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return charms.CharmURLs, nil
