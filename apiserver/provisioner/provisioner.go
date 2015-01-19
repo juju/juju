@@ -536,6 +536,7 @@ func machineDiskParams(m *state.Machine) ([]storage.DiskParams, error) {
 			// TODO(axw) when pools are implemented,
 			// set Options here.
 			nil,
+			"", // no instance ID yet
 		}
 	}
 	return allParams, nil
