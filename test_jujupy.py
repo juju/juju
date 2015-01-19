@@ -1304,7 +1304,7 @@ class TestSimpleEnvironment(TestCase):
     def test_from_bogus_config(self):
         with temp_config():
             with self.assertRaises(NoSuchEnvironment):
-                env = SimpleEnvironment.from_config('bar')
+                SimpleEnvironment.from_config('bar')
 
 
 class TestEnvironment(TestCase):
