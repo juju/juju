@@ -1281,9 +1281,20 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 	return nil
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
-// not implemented on this provider yet.
-func (*maasEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not find instance %v", instId)
+	}
+	if len(instances) == 0 {
+		return nil, errors.NotFoundf("instance %v", instId)
+	}
+	inst := instances[0]
+	_, _, err = environ.getInstanceNetworkInterfaces(inst)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return nil, errors.NotImplementedf("NetworkInterfaces")
 }
 
