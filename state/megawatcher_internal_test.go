@@ -191,7 +191,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 		HasVote:                 true,
-		WantsVote:               true,
+		WantsVote:               false,
 	})
 
 	wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
