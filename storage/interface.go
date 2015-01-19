@@ -30,8 +30,11 @@ type DiskParams struct {
 	Instance instance.Id
 }
 
-// StorageProvider is an interface for obtaining storage sources.
-type StorageProvider interface {
+// ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
+type ProviderType string
+
+// Provider is an interface for obtaining storage sources.
+type Provider interface {
 	// DiskSource returns a DiskSource given the specified configuration.
 	//
 	// If the storage provider does not support creating disks as a

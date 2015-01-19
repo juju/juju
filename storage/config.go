@@ -6,12 +6,12 @@ package storage
 // Config defines the configuration for a storage source.
 type Config struct {
 	name     string
-	provider string
+	provider ProviderType
 	attrs    map[string]interface{}
 }
 
 // NewConfig creates a new Config for instantiating a storage source.
-func NewConfig(name, provider string, attrs map[string]interface{}) (*Config, error) {
+func NewConfig(name string, provider ProviderType, attrs map[string]interface{}) (*Config, error) {
 	// TODO(axw) validate attributes.
 	return &Config{name, provider, attrs}, nil
 }
@@ -23,7 +23,7 @@ func (c *Config) Name() string {
 }
 
 // Provider returns the name of a storage provider.
-func (c *Config) Provider() string {
+func (c *Config) Provider() ProviderType {
 	return c.provider
 }
 
