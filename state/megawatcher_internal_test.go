@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -43,32 +42,12 @@ options:
 var _ = gc.Suite(&storeManagerStateSuite{})
 
 type storeManagerStateSuite struct {
-	gitjujutesting.MgoSuite
-	testing.BaseSuite
-	State      *State
+	internalStateSuite
 	OtherState *State
-	owner      names.UserTag
-}
-
-func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
-	s.MgoSuite.SetUpSuite(c)
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
-	s.MgoSuite.SetUpTest(c)
-	s.BaseSuite.SetUpTest(c)
-
-	s.owner = names.NewLocalUserTag("test-admin")
-	st, err := Initialize(s.owner, testing.NewMongoInfo(), testing.EnvironConfig(c), testing.NewDialOpts(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.State = st
-	s.AddCleanup(func(*gc.C) { s.State.Close() })
+	s.internalStateSuite.SetUpTest(c)
 
 	s.OtherState = s.newState(c)
 	s.AddCleanup(func(*gc.C) { s.OtherState.Close() })
@@ -81,14 +60,9 @@ func (s *storeManagerStateSuite) newState(c *gc.C) *State {
 		"name": "testenv",
 		"uuid": uuid.String(),
 	})
-	_, st, err := s.State.NewEnvironment(cfg, s.owner)
+	_, st, err := s.state.NewEnvironment(cfg, s.owner)
 	c.Assert(err, jc.ErrorIsNil)
 	return st
-}
-
-func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 }
 
 func (s *storeManagerStateSuite) Reset(c *gc.C) {
@@ -135,14 +109,14 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 }
 
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
-	expectEntities := s.setUpScenario(c, s.State, 2)
+	expectEntities := s.setUpScenario(c, s.state, 2)
 	s.checkGetAll(c, expectEntities)
 }
 
 func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 	// Set up 2 environments and ensure that GetAll returns the
 	// entities for the first environment with no errors.
-	expectEntities := s.setUpScenario(c, s.State, 2)
+	expectEntities := s.setUpScenario(c, s.state, 2)
 
 	// Use more units in the second env to ensure the number of
 	// entities will mismatch if environment filtering isn't in place.
@@ -152,7 +126,7 @@ func (s *storeManagerStateSuite) TestStateBackingGetAllMultiEnv(c *gc.C) {
 }
 
 func (s *storeManagerStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
-	b := newAllWatcherStateBacking(s.State)
+	b := newAllWatcherStateBacking(s.state)
 	all := newStore()
 	err := b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1010,10 +984,10 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				}}
 		},
 	} {
-		test := testFunc(c, s.State)
+		test := testFunc(c, s.state)
 
 		c.Logf("test %d. %s", i, test.about)
-		b := newAllWatcherStateBacking(s.State)
+		b := newAllWatcherStateBacking(s.state)
 		all := newStore()
 		for _, info := range test.add {
 			all.Update(info)
@@ -1029,15 +1003,15 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.State.AddMachine("trusty", JobManageEnviron)
+	m0, err := s.state.AddMachine("trusty", JobManageEnviron)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
-	m1, err := s.State.AddMachine("saucy", JobHostUnits)
+	m1, err := s.state.AddMachine("saucy", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
-	tw := newTestWatcher(s.State, c)
+	tw := newTestWatcher(s.state, c)
 	defer tw.Stop()
 
 	// Expect to see events for the already created machines first.
@@ -1083,11 +1057,11 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	err = m1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err := s.State.AddMachine("quantal", JobHostUnits)
+	m2, err := s.state.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 
-	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
+	wordpress := AddTestingService(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"), s.owner)
 	wu, err := wordpress.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wu.AssignToMachine(m2)
@@ -1268,12 +1242,12 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				otherW.AssertNoChange()
 			}
 
-			w1 := newTestWatcher(s.State, c)
+			w1 := newTestWatcher(s.state, c)
 			defer w1.Stop()
 			w2 := newTestWatcher(s.OtherState, c)
 			defer w2.Stop()
 
-			checkIsolationForEnv(s.State, w1, w2)
+			checkIsolationForEnv(s.state, w1, w2)
 			checkIsolationForEnv(s.OtherState, w2, w1)
 		}()
 		s.Reset(c)

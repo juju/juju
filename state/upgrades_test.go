@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -20,46 +19,10 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 )
 
 type upgradesSuite struct {
-	gitjujutesting.CleanupSuite
-	testing.BaseSuite
-	gitjujutesting.MgoSuite
-	state *State
-	owner names.UserTag
-}
-
-func (s *upgradesSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-	s.CleanupSuite.SetUpSuite(c)
-}
-
-func (s *upgradesSuite) TearDownSuite(c *gc.C) {
-	s.CleanupSuite.TearDownSuite(c)
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *upgradesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	s.CleanupSuite.SetUpTest(c)
-	var err error
-	s.owner = names.NewLocalUserTag("upgrade-admin")
-	s.state, err = Initialize(s.owner, testing.NewMongoInfo(), testing.EnvironConfig(c), testing.NewDialOpts(), Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *upgradesSuite) TearDownTest(c *gc.C) {
-	if s.state != nil {
-		s.state.Close()
-	}
-	s.CleanupSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
+	internalStateSuite
 }
 
 var _ = gc.Suite(&upgradesSuite{})
