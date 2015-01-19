@@ -210,7 +210,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 		Subordinate: false,
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
-	err = SetAnnotations(wordpress, st, pairs)
+	err = st.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
 		Tag:         "service-wordpress",
@@ -258,7 +258,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C, st *State, units int) (e
 			Subordinate: false,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
-		err = SetAnnotations(wu, st, pairs)
+		err = st.SetAnnotations(wu, pairs)
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
@@ -672,7 +672,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = SetAnnotations(m, st, map[string]string{"foo": "bar", "arble": "baz"})
+			err = st.SetAnnotations(m, map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -689,7 +689,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, func(c *gc.C, st *State) testCase {
 			m, err := st.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
-			err = SetAnnotations(m, st, map[string]string{
+			err = st.SetAnnotations(m, map[string]string{
 				"arble":  "khroomph",
 				"pretty": "",
 				"new":    "attr",
@@ -1184,7 +1184,7 @@ func (s *storeManagerStateSuite) TestStateWatcherTwoEnvironments(c *gc.C) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
 
-				err = SetAnnotations(m, st, map[string]string{"foo": "bar"})
+				err = st.SetAnnotations(m, map[string]string{"foo": "bar"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
