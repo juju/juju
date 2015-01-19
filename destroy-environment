@@ -11,14 +11,16 @@ from deploy_stack import destroy_environment
 
 
 def main():
+    no_failures = True
     for env_name in sys.argv[1:]:
         try:
             env = jujupy.SimpleEnvironment.from_config(env_name)
         except NoSuchEnvironment as e:
-            sys.stderr.write(str(e) + '\n')
-            sys.exit(1)
+            no_failures = False
+            continue
         client = jujupy.EnvJujuClient.by_version(env)
         destroy_environment(client, os.environ.get('JOB_NAME'))
+    sys.exit(0 if no_failures else 1)
 
 
 if __name__ == '__main__':
