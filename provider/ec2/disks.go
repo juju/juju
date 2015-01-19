@@ -73,16 +73,16 @@ func getBlockDeviceMappings(
 	// many there are and how big each one is. We also need to
 	// unmap ephemeral0 in cloud-init.
 
-	disks := make([]storage.BlockDevice, len(args.Disks))
+	volumes := make([]storage.BlockDevice, len(args.Volumes))
 	nextDeviceName := blockDeviceNamer(virtType == paravirtual)
-	for i, params := range args.Disks {
+	for i, params := range args.Volumes {
 		// Check minimum constraints can be satisfied.
-		if err := validateDiskParams(params); err != nil {
-			return nil, nil, errors.Annotate(err, "invalid disk parameters")
+		if err := validateVolumeParams(params); err != nil {
+			return nil, nil, errors.Annotate(err, "invalid volume parameters")
 		}
 		requestDeviceName, actualDeviceName, err := nextDeviceName()
 		if err != nil {
-			// Can't allocate any more disks.
+			// Can't allocate any more volumes.
 			return nil, nil, err
 		}
 		mapping := ec2.BlockDeviceMapping{
@@ -90,7 +90,7 @@ func getBlockDeviceMappings(
 			DeviceName: requestDeviceName,
 			// TODO(axw) VolumeType, IOPS and DeleteOnTermination
 		}
-		disk := storage.BlockDevice{
+		volume := storage.BlockDevice{
 			Name:       params.Name,
 			DeviceName: actualDeviceName,
 			Size:       gibToMib(uint64(mapping.VolumeSize)),
@@ -98,13 +98,13 @@ func getBlockDeviceMappings(
 			// been created, which will create the volumes too.
 		}
 		blockDeviceMappings = append(blockDeviceMappings, mapping)
-		disks[i] = disk
+		volumes[i] = volume
 	}
-	return blockDeviceMappings, disks, nil
+	return blockDeviceMappings, volumes, nil
 }
 
-// validateDiskParams validates the disk parameters.
-func validateDiskParams(params storage.DiskParams) error {
+// validateVolumParams validates the volume parameters.
+func validateVolumeParams(params storage.VolumeParams) error {
 	if params.Size > volumeSizeMaxMiB {
 		return errors.Errorf("%d MiB exceeds the maximum of %d MiB", params.Size, volumeSizeMaxMiB)
 	}
