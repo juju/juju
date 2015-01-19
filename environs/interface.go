@@ -133,7 +133,7 @@ type Environ interface {
 
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
-	Subnets(inst instance.Id, networks []network.Id) ([]network.SubnetInfo, error)
+	Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
 
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
