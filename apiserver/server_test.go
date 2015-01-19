@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -302,6 +303,7 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
