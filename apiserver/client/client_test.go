@@ -1405,12 +1405,14 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"net1", "net2"},
+		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
@@ -1434,6 +1436,7 @@ func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, blocked bo
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
+		nil,
 	)
 	if blocked {
 		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
@@ -2851,8 +2854,8 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, "cannot compute block device parameters: storage pools not implemented")
-	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot compute block device parameters: invalid size 0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, "storage pools not implemented")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid size 0")
 
 	m, err := s.BackingState.Machine(machines[0].Machine)
 	c.Assert(err, jc.ErrorIsNil)

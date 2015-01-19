@@ -4,13 +4,14 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/storage"
 )
 
 type DeployCommand struct {
@@ -127,6 +129,12 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
+	if featureflag.Enabled(storage.FeatureFlag) {
+		// NOTE: if/when the feature flag is removed, bump the client
+		// facade and check that the ServiceDeployWithNetworks facade
+		// version supports storage, and error if it doesn't.
+		f.Var(storageFlag{&c.Storage}, "storage", "charm storage constraints")
+	}
 }
 
 func (c *DeployCommand) Init(args []string) error {
@@ -230,6 +238,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
+	// TODO(axw) rename ServiceDeployWithNetworks to ServiceDeploy,
+	// and ServiceDeploy to ServiceDeployLegacy or some such.
 	err = client.ServiceDeployWithNetworks(
 		curl.String(),
 		serviceName,
@@ -238,6 +248,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		c.Constraints,
 		c.ToMachineSpec,
 		requestedNetworks,
+		c.Storage,
 	)
 	if params.IsCodeNotImplemented(err) {
 		if haveNetworks {
