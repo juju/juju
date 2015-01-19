@@ -249,37 +249,20 @@ func (r *RestoreSuite) TestUpdateMongoEntries(c *gc.C) {
 	c.Assert(n, gc.Equals, 1)
 }
 
-// TestingDialOpts returns configuration parameters for
-// connecting to the testing state server.
-func TestingDialOpts() mongo.DialOpts {
-	return mongo.DialOpts{
-		Timeout: coretesting.LongWait,
-	}
-}
-
 func (r *RestoreSuite) TestNewConnection(c *gc.C) {
 	server := &gitjujutesting.MgoInstance{}
 	err := server.Start(coretesting.Certs)
 	c.Assert(err, jc.ErrorIsNil)
 	defer server.DestroyWithLog()
 
-	mgoinfo := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{server.Addr()},
-			CACert: coretesting.CACert,
-		},
-	}
+	st := statetesting.Initialize(c, names.NewLocalUserTag("test-admin"), nil, nil)
+	c.Assert(st.Close(), jc.ErrorIsNil)
 
-	cfg := coretesting.EnvironConfig(c)
-	st, err := state.Initialize(names.NewLocalUserTag("test-admin"), mgoinfo, cfg, TestingDialOpts(), &statetesting.MockPolicy{})
+	r.PatchValue(&mongoDefaultDialOpts, coretesting.NewDialOpts)
+	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return nil })
+	st, err = newStateConnection(coretesting.NewMongoInfo())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st.Close(), gc.IsNil)
-
-	r.PatchValue(&mongoDefaultDialOpts, TestingDialOpts)
-	r.PatchValue(&environsNewStatePolicy, func() state.Policy { return state.Policy(nil) })
-	st, err = newStateConnection(mgoinfo)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st.Close(), gc.IsNil)
+	c.Assert(st.Close(), jc.ErrorIsNil)
 }
 
 func (r *RestoreSuite) TestRunViaSSH(c *gc.C) {
