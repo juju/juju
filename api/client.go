@@ -560,6 +560,8 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 }
 
 // GetAnnotations returns annotations that have been set on the given entity.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 	args := params.GetAnnotations{tag}
 	ann := new(params.GetAnnotationsResults)
@@ -570,6 +572,8 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 // SetAnnotations sets the annotation pairs on the given entity.
 // Currently annotations are supported on machines, services,
 // units and the environment itself.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
 	return c.facade.FacadeCall("SetAnnotations", args, nil)

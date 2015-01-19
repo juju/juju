@@ -4,11 +4,10 @@
 package annotations_test
 
 import (
-	stdtesting "testing"
-
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
+	"testing"
 )
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }

@@ -949,7 +949,6 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 				c.Assert(err, gc.ErrorMatches, t.err)
 				continue
 			}
-			// Check annotations are correctly set.
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, jc.ErrorIsNil)
@@ -966,7 +965,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientNoCharmAnnotations(c *gc.C) {
+func (s *clientSuite) TestCharmAnnotationsUnsupported(c *gc.C) {
 	// Set up charm.
 	charm := s.AddTestingCharm(c, "dummy")
 	id := charm.Tag().Id()
