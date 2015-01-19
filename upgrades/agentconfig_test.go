@@ -4,12 +4,15 @@
 package upgrades_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
@@ -17,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 )
@@ -57,6 +61,7 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 		DataDir:           agent.DefaultDataDir,
 		LogDir:            agent.DefaultLogDir,
 		UpgradedToVersion: version.MustParse("1.16.0"),
+		Environment:       s.State.EnvironTag(),
 		Values: map[string]string{
 			"SHARED_STORAGE_ADDR": "blah",
 			"SHARED_STORAGE_DIR":  sharedStorageDir,
@@ -186,4 +191,104 @@ func (s *migrateLocalProviderAgentConfigSuite) TestIdempotent(c *gc.C) {
 	err = s.config.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigProcessed(c)
+}
+
+type migrateAgentEnvUUIDSuite struct {
+	jujutesting.JujuConnSuite
+	machine  *state.Machine
+	password string
+	ctx      *mockContext
+}
+
+var _ = gc.Suite(&migrateAgentEnvUUIDSuite{})
+
+func (s *migrateAgentEnvUUIDSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.PatchValue(&agent.DefaultLogDir, c.MkDir())
+	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
+	s.primeConfig(c)
+}
+
+func (s *migrateAgentEnvUUIDSuite) primeConfig(c *gc.C) {
+	pwd, err := utils.RandomPassword()
+	c.Assert(err, jc.ErrorIsNil)
+	s.password = pwd
+
+	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{
+		Password: pwd,
+		Nonce:    "a nonce",
+	})
+	initialConfig, err := agent.NewAgentConfig(agent.AgentConfigParams{
+		Tag:               s.machine.Tag(),
+		Password:          pwd,
+		CACert:            testing.CACert,
+		StateAddresses:    []string{"localhost:1111"},
+		DataDir:           agent.DefaultDataDir,
+		LogDir:            agent.DefaultLogDir,
+		UpgradedToVersion: version.MustParse("1.22.0"),
+		Environment:       s.State.EnvironTag(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(initialConfig.Write(), gc.IsNil)
+
+	apiState, _ := s.OpenAPIAsNewMachine(c)
+	s.ctx = &mockContext{
+		realAgentConfig: initialConfig,
+		apiState:        apiState,
+		state:           s.State,
+	}
+}
+
+func (s *migrateAgentEnvUUIDSuite) removeEnvUUIDFromAgentConfig(c *gc.C) {
+	// Read the file in as simple map[string]interface{} and delete
+	// the element, and write it back out again.
+
+	// First step, read the file contents.
+	filename := agent.ConfigPath(agent.DefaultDataDir, s.machine.Tag())
+	data, err := ioutil.ReadFile(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("Data in:\n\n%s\n", data)
+
+	// Parse it into the map.
+	var content map[string]interface{}
+	err = goyaml.Unmarshal(data, &content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove the environment value, and marshal back into bytes.
+	delete(content, "environment")
+	data, err = goyaml.Marshal(content)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Write the yaml back out remembering to add the format prefix.
+	data = append([]byte("# format 1.18\n"), data...)
+	c.Logf("Data out:\n\n%s\n", data)
+	err = ioutil.WriteFile(filename, data, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Reset test attributes.
+	cfg, err := agent.ReadConfig(filename)
+	c.Assert(err, jc.ErrorIsNil)
+	s.ctx.realAgentConfig = cfg
+}
+
+func (s *migrateAgentEnvUUIDSuite) TestAgentEnvironmentUUID(c *gc.C) {
+	c.Assert(s.ctx.realAgentConfig.Environment(), gc.Equals, s.State.EnvironTag())
+}
+
+func (s *migrateAgentEnvUUIDSuite) TestRemoveFuncWorks(c *gc.C) {
+	s.removeEnvUUIDFromAgentConfig(c)
+	c.Assert(s.ctx.realAgentConfig.Environment().Id(), gc.Equals, "")
+}
+
+func (s *migrateAgentEnvUUIDSuite) TestMigrationStep(c *gc.C) {
+	s.removeEnvUUIDFromAgentConfig(c)
+	upgrades.AddEnvironmentUUIDToAgentConfig(s.ctx)
+	c.Assert(s.ctx.realAgentConfig.Environment(), gc.Equals, s.State.EnvironTag())
+}
+
+func (s *migrateAgentEnvUUIDSuite) TestMigrationStepIdempotent(c *gc.C) {
+	s.removeEnvUUIDFromAgentConfig(c)
+	upgrades.AddEnvironmentUUIDToAgentConfig(s.ctx)
+	upgrades.AddEnvironmentUUIDToAgentConfig(s.ctx)
+	c.Assert(s.ctx.realAgentConfig.Environment(), gc.Equals, s.State.EnvironTag())
 }

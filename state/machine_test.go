@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -437,7 +438,13 @@ func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
-	c.Assert(s.machine.Tag().String(), gc.Equals, "machine-1")
+	tag := s.machine.MachineTag()
+	c.Assert(tag.Kind(), gc.Equals, names.MachineTagKind)
+	c.Assert(tag.Id(), gc.Equals, "1")
+
+	// To keep gccgo happy, don't compare an interface with a struct.
+	var asTag names.Tag = tag
+	c.Assert(s.machine.Tag(), gc.Equals, asTag)
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {

@@ -38,6 +38,17 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
+// EnvironUUID returns the environment UUID to connect to the environment
+// that the current connection is for.
+func (a *APIAddresser) EnvironUUID() (string, error) {
+	var result params.StringResult
+	err := a.facade.FacadeCall("EnvironUUID", nil, &result)
+	if err != nil {
+		return "", err
+	}
+	return result.Result, nil
+}
+
 // CACert returns the certificate used to validate the API and state connections.
 func (a *APIAddresser) CACert() (string, error) {
 	var result params.BytesResult

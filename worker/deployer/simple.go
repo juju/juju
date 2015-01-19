@@ -116,6 +116,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 			Tag:               tag,
 			Password:          initialPassword,
 			Nonce:             "unused",
+			Environment:       ctx.agentConfig.Environment(),
 			// TODO: remove the state addresses here and test when api only.
 			StateAddresses: result.StateAddresses,
 			APIAddresses:   result.APIAddresses,

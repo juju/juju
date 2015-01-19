@@ -136,11 +136,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	apiInfo.EnvironTag = env.EnvironTag()
-
+	apiInfo.EnvironTag = s.State.EnvironTag()
 	return apiInfo
 }
 
@@ -570,6 +566,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
+			Environment:       s.State.EnvironTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config

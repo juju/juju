@@ -151,6 +151,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	password := utils.UserPasswordHash("lisboan-pork", utils.CompatSalt)
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
+		EnvironTag: testing.EnvironmentTag,
 	})
 	c.Check(mcfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
@@ -212,10 +213,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 			Tag:      names.NewMachineTag("10"),
 		},
 		APIInfo: &api.Info{
-			Addrs:    []string{"127.0.0.1:1234"},
-			Password: "pw2",
-			CACert:   "CA CERT\n" + testing.CACert,
-			Tag:      names.NewMachineTag("10"),
+			Addrs:      []string{"127.0.0.1:1234"},
+			Password:   "pw2",
+			CACert:     "CA CERT\n" + testing.CACert,
+			Tag:        names.NewMachineTag("10"),
+			EnvironTag: testing.EnvironmentTag,
 		},
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,

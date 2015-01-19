@@ -82,8 +82,9 @@ func minimalMachineConfig(tweakers ...func(cloudinit.MachineConfig)) cloudinit.M
 			},
 		},
 		APIInfo: &api.Info{
-			Password: "bletch",
-			CACert:   "CA CERT\n" + testing.CACert,
+			Password:   "bletch",
+			CACert:     "CA CERT\n" + testing.CACert,
+			EnvironTag: testing.EnvironmentTag,
 		},
 		Constraints:             envConstraints,
 		DataDir:                 environs.DataDir,
@@ -186,8 +187,9 @@ var cloudinitTests = []cloudinitTest{
 				},
 			},
 			APIInfo: &api.Info{
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
@@ -249,8 +251,9 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 				},
 			},
 			APIInfo: &api.Info{
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			Constraints:             envConstraints,
 			DataDir:                 environs.DataDir,
@@ -296,10 +299,11 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 				},
 			},
 			APIInfo: &api.Info{
-				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      names.NewMachineTag("99"),
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Addrs:      []string{"state-addr.testing.invalid:54321"},
+				Tag:        names.NewMachineTag("99"),
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			MachineAgentServiceName: "jujud-machine-99",
 			PreferIPv6:              true,
@@ -356,10 +360,11 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 				},
 			},
 			APIInfo: &api.Info{
-				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      names.NewMachineTag("2/lxc/1"),
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Addrs:      []string{"state-addr.testing.invalid:54321"},
+				Tag:        names.NewMachineTag("2/lxc/1"),
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			MachineAgentServiceName: "jujud-machine-2-lxc-1",
 			EnableOSRefreshUpdate:   true,
@@ -396,10 +401,11 @@ start jujud-machine-2-lxc-1
 				},
 			},
 			APIInfo: &api.Info{
-				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      names.NewMachineTag("99"),
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Addrs:      []string{"state-addr.testing.invalid:54321"},
+				Tag:        names.NewMachineTag("99"),
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			DisableSSLHostnameVerification: true,
 			MachineAgentServiceName:        "jujud-machine-99",
@@ -428,8 +434,9 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 				},
 			},
 			APIInfo: &api.Info{
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
@@ -463,8 +470,9 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 				},
 			},
 			APIInfo: &api.Info{
-				Password: "bletch",
-				CACert:   "CA CERT\n" + testing.CACert,
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + testing.CACert,
+				EnvironTag: testing.EnvironmentTag,
 			},
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
@@ -783,6 +791,13 @@ var verifyTests = []struct {
 	{"missing API info", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIInfo = nil
 	}},
+	{"missing environment tag", func(cfg *cloudinit.MachineConfig) {
+		cfg.APIInfo = &api.Info{
+			Addrs:  []string{"foo:35"},
+			Tag:    names.NewMachineTag("99"),
+			CACert: testing.CACert,
+		}
+	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		cfg.MongoInfo = &mongo.MongoInfo{
@@ -792,9 +807,10 @@ var verifyTests = []struct {
 			},
 		}
 		cfg.APIInfo = &api.Info{
-			Addrs:  []string{"foo:35"},
-			Tag:    names.NewMachineTag("99"),
-			CACert: testing.CACert,
+			Addrs:      []string{"foo:35"},
+			Tag:        names.NewMachineTag("99"),
+			CACert:     testing.CACert,
+			EnvironTag: testing.EnvironmentTag,
 		}
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
@@ -807,8 +823,9 @@ var verifyTests = []struct {
 			Tag: names.NewMachineTag("99"),
 		}
 		cfg.APIInfo = &api.Info{
-			Tag:    names.NewMachineTag("99"),
-			CACert: testing.CACert,
+			Tag:        names.NewMachineTag("99"),
+			CACert:     testing.CACert,
+			EnvironTag: testing.EnvironmentTag,
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
@@ -936,8 +953,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 			Password: "password",
 		},
 		APIInfo: &api.Info{
-			Addrs:  []string{"host:9999"},
-			CACert: testing.CACert,
+			Addrs:      []string{"host:9999"},
+			CACert:     testing.CACert,
+			EnvironTag: testing.EnvironmentTag,
 		},
 		Config:                  minimalConfig(c),
 		DataDir:                 environs.DataDir,
@@ -1129,10 +1147,11 @@ var windowsCloudinitTests = []cloudinitTest{
 				},
 			},
 			APIInfo: &api.Info{
-				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Password: "bletch",
-				CACert:   "CA CERT\n" + string(serverCert),
-				Tag:      names.NewMachineTag("10"),
+				Addrs:      []string{"state-addr.testing.invalid:54321"},
+				Password:   "bletch",
+				CACert:     "CA CERT\n" + string(serverCert),
+				Tag:        names.NewMachineTag("10"),
+				EnvironTag: testing.EnvironmentTag,
 			},
 			MachineAgentServiceName: "jujud-machine-0",
 		},
