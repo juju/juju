@@ -271,7 +271,7 @@ func (fc *fakeConn) err() error {
 
 func (fc *fakeConn) Connect(auth google.Auth) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
-		FuncName: "",
+		FuncName: "Connect",
 		Auth:     auth,
 	})
 	return fc.err()
@@ -304,7 +304,7 @@ func (fc *fakeConn) Instances(prefix string, statuses ...string) ([]google.Insta
 
 func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones []string) (*google.Instance, error) {
 	fc.Calls = append(fc.Calls, fakeConnCall{
-		FuncName:     "",
+		FuncName:     "AddInstance",
 		InstanceSpec: spec,
 		ZoneNames:    zones,
 	})
@@ -313,7 +313,7 @@ func (fc *fakeConn) AddInstance(spec google.InstanceSpec, zones []string) (*goog
 
 func (fc *fakeConn) RemoveInstances(prefix string, ids ...string) error {
 	fc.Calls = append(fc.Calls, fakeConnCall{
-		FuncName: "",
+		FuncName: "RemoveInstances",
 		Prefix:   prefix,
 		IDs:      ids,
 	})

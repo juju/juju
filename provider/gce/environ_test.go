@@ -40,7 +40,30 @@ func (s *environSuite) TestRegion(c *gc.C) {
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
-	// TODO(ericsnow) finish
+	err := s.Env.SetConfig(s.Config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
+	c.Check(gce.ExposeEnvConnection(s.Env), gc.Equals, s.FakeConn)
+}
+
+func (s *environSuite) TestSetConfigFake(c *gc.C) {
+	err := s.Env.SetConfig(s.Config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Connect")
+	c.Check(s.FakeConn.Calls[0].Auth, gc.NotNil)
+}
+
+func (s *environSuite) TestSetConfigFresh(c *gc.C) {
+	gce.UnsetEnvConfig(s.Env)
+
+	err := s.Env.SetConfig(s.Config)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
+	c.Check(gce.ExposeEnvConnection(s.Env), gc.Equals, s.FakeConn)
 }
 
 func (s *environSuite) TestConfig(c *gc.C) {

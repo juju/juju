@@ -24,3 +24,15 @@ func ExposeInstEnv(inst *environInstance) *environ {
 func ParseAvailabilityZones(env *environ, args environs.StartInstanceParams) ([]string, error) {
 	return env.parseAvailabilityZones(args)
 }
+
+func UnsetEnvConfig(env *environ) {
+	env.ecfg = nil
+}
+
+func ExposeEnvConfig(env *environ) *environConfig {
+	return env.ecfg
+}
+
+func ExposeEnvConnection(env *environ) gceConnection {
+	return env.gce
+}
