@@ -36,3 +36,7 @@ func ExposeEnvConfig(env *environ) *environConfig {
 func ExposeEnvConnection(env *environ) gceConnection {
 	return env.gce
 }
+
+func GlobalFirewallName(env *environ) string {
+	return env.globalFirewallName()
+}
