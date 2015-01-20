@@ -38,12 +38,12 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	spec, err := env.finishMachineConfig(args)
+	spec, err := finishMachineConfig(env, args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	raw, err := env.newRawInstance(args, spec)
+	raw, err := newRawInstance(env, args, spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -63,12 +63,24 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	}
 
 	// Build the result.
-	hwc := env.getHardwareCharacteristics(spec, inst)
+	hwc := getHardwareCharacteristics(env, spec, inst)
 	result := environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: hwc,
 	}
 	return &result, nil
+}
+
+var finishMachineConfig = func(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	return env.finishMachineConfig(args)
+}
+
+var newRawInstance = func(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+	return env.newRawInstance(args, spec)
+}
+
+var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
+	return env.getHardwareCharacteristics(spec, inst)
 }
 
 // finishMachineConfig builds an instance spec from the provided args
@@ -77,7 +89,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
-	spec, err := env.findInstanceSpec(env.Config().ImageStream(), &instances.InstanceConstraint{
+	spec, err := findInstanceSpec(env, env.Config().ImageStream(), &instances.InstanceConstraint{
 		Region:      env.ecfg.region(),
 		Series:      series,
 		Arches:      arches,
@@ -95,6 +107,10 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 	args.MachineConfig.Tools = envTools[0]
 	err = environs.FinishMachineConfig(args.MachineConfig, env.Config())
 	return spec, errors.Trace(err)
+}
+
+var findInstanceSpec = func(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	return env.findInstanceSpec(stream, ic)
 }
 
 // findInstanceSpec initializes a new instance spec for the given stream
@@ -119,7 +135,7 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 		Stream:    stream,
 	})
 
-	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imageMetadataFetch(sources, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -128,6 +144,8 @@ func (env *environ) findInstanceSpec(stream string, ic *instances.InstanceConstr
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	return spec, errors.Trace(err)
 }
+
+var imageMetadataFetch = imagemetadata.Fetch
 
 // newRawInstance is where the new physical instance is actually
 // provisioned, relative to the provided args and spec. Info for that
@@ -240,7 +258,7 @@ func (env *environ) getHardwareCharacteristics(spec *instances.InstanceSpec, ins
 
 // AllInstances implements environs.InstanceBroker.
 func (env *environ) AllInstances() ([]instance.Instance, error) {
-	instances, err := env.instances()
+	instances, err := getInstances(env)
 	return instances, errors.Trace(err)
 }
 

@@ -8,13 +8,20 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 var (
@@ -43,6 +50,7 @@ type BaseSuiteUnpatched struct {
 	Instance      *environInstance
 	InstName      string
 	StartInstArgs environs.StartInstanceParams
+	InstanceType  instances.InstanceType
 
 	Ports []network.PortRange
 }
@@ -101,9 +109,15 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 	s.Instance = newInstance(s.BaseInstance, s.Env)
 	s.InstName = s.Prefix + "machine-spam"
 	s.StartInstArgs = environs.StartInstanceParams{
-	//Placement: "",
-	//DistributionGroup: nil,
+		MachineConfig: &cloudinit.MachineConfig{},
+		Tools: []*tools.Tools{{
+			Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		}},
+		Constraints: constraints.Value{InstanceType: &allInstanceTypes[0].Name},
+		//Placement: "",
+		//DistributionGroup: nil,
 	}
+	s.InstanceType = allInstanceTypes[0]
 }
 
 func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
@@ -142,8 +156,10 @@ func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{})
 type BaseSuite struct {
 	BaseSuiteUnpatched
 
-	FakeConn   *fakeConn
-	FakeCommon *fakeCommon
+	FakeConn    *fakeConn
+	FakeCommon  *fakeCommon
+	FakeEnviron *fakeEnviron
+	FakeImages  *fakeImages
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -151,6 +167,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	s.FakeConn = &fakeConn{}
 	s.FakeCommon = &fakeCommon{}
+	s.FakeEnviron = &fakeEnviron{}
+	s.FakeImages = &fakeImages{}
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
@@ -160,16 +178,16 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
 	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
+	s.PatchValue(&finishMachineConfig, s.FakeEnviron.FinishMachineConfig)
+	s.PatchValue(&getHardwareCharacteristics, s.FakeEnviron.GetHardwareCharacteristics)
+	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
+	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
+	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
+	s.PatchValue(&imageMetadataFetch, s.FakeImages.ImageMetadataFetch)
 }
 
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
-}
-
-func (s *BaseSuite) PatchGetInstances(err error, insts ...instance.Instance) {
-	s.PatchValue(&getInstances, func(env *environ) ([]instance.Instance, error) {
-		return insts, err
-	})
 }
 
 // TODO(ericsnow) Move fakeCallArgs, fakeCall, and fake to the testing repo?
@@ -237,6 +255,68 @@ func (fc *fakeCommon) Destroy(env environs.Environ) error {
 		"env": env,
 	})
 	return fc.err()
+}
+
+type fakeEnviron struct {
+	fake
+
+	Inst  *google.Instance
+	Insts []instance.Instance
+	Hwc   *instance.HardwareCharacteristics
+	Spec  *instances.InstanceSpec
+}
+
+func (fe *fakeEnviron) GetInstances(env *environ) ([]instance.Instance, error) {
+	fe.addCall("GetInstances", FakeCallArgs{
+		"env": env,
+	})
+	return fe.Insts, fe.err()
+}
+
+func (fe *fakeEnviron) FinishMachineConfig(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	fe.addCall("FinishMachineConfig", FakeCallArgs{
+		"env":  env,
+		"args": args,
+	})
+	return fe.Spec, fe.err()
+}
+
+func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
+	fe.addCall("GetHardwareCharacteristics", FakeCallArgs{
+		"env":  env,
+		"spec": spec,
+		"inst": inst,
+	})
+	return fe.Hwc
+}
+
+func (fe *fakeEnviron) NewRawInstance(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+	fe.addCall("NewRawInstance", FakeCallArgs{
+		"env":  env,
+		"args": args,
+		"spec": spec,
+	})
+	return fe.Inst, fe.err()
+}
+
+func (fe *fakeEnviron) FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	fe.addCall("FindInstanceSpec", FakeCallArgs{
+		"env":    env,
+		"stream": stream,
+		"ic":     ic,
+	})
+	return fe.Spec, fe.err()
+}
+
+type fakeImages struct {
+	fake
+
+	Metadata    []*imagemetadata.ImageMetadata
+	ResolveInfo *simplestreams.ResolveInfo
+}
+
+func (fi *fakeImages) ImageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint, onlySigned bool) ([]*imagemetadata.ImageMetadata, *simplestreams.ResolveInfo, error) {
+	return fi.Metadata, fi.ResolveInfo, fi.err()
 }
 
 // TODO(ericsnow) Refactor fakeConnCall and fakeConn to embed fakeCall and fake.

@@ -9,10 +9,12 @@ import (
 )
 
 var (
-	Provider          environs.EnvironProvider = providerInstance
-	NewInstance                                = newInstance
-	GetInstances                               = getInstances
-	CheckInstanceType                          = checkInstanceType
+	Provider            environs.EnvironProvider = providerInstance
+	NewInstance                                  = newInstance
+	GetInstances                                 = getInstances
+	CheckInstanceType                            = checkInstanceType
+	FinishMachineConfig                          = finishMachineConfig
+	FindInstanceSpec                             = findInstanceSpec
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {

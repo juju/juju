@@ -44,7 +44,7 @@ func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
 }
 
 func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{instance.Id("spam")}
 	zones, err := s.Env.InstanceAvailabilityZoneNames(ids)
@@ -54,20 +54,15 @@ func (s *environAZSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 }
 
 func (s *environAZSuite) TestInstanceAvailabilityZoneNamesAPIs(c *gc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{instance.Id("spam")}
 	_, err := s.Env.InstanceAvailabilityZoneNames(ids)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instances")
-	c.Check(s.FakeConn.Calls[0].Prefix, gc.Equals, s.Prefix+"machine-")
-	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{
-		google.StatusPending,
-		google.StatusStaging,
-		google.StatusRunning,
-	})
+	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
+		FuncName: "GetInstances", Args: gce.FakeCallArgs{"env": s.Env},
+	}})
 }
 
 func (s *environAZSuite) TestParseAvailabilityZones(c *gc.C) {
@@ -89,16 +84,13 @@ func (s *environAZSuite) TestParseAvailabilityZonesAPI(c *gc.C) {
 	_, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 2)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Instances")
-	c.Check(s.FakeConn.Calls[0].Prefix, gc.Equals, s.Prefix+"machine-")
-	c.Check(s.FakeConn.Calls[0].Statuses, jc.DeepEquals, []string{
-		google.StatusPending,
-		google.StatusStaging,
-		google.StatusRunning,
-	})
-	c.Check(s.FakeConn.Calls[1].FuncName, gc.Equals, "AvailabilityZones")
-	c.Check(s.FakeConn.Calls[1].Region, gc.Equals, "home")
+	s.FakeEnviron.CheckCalls(c, []gce.FakeCall{{
+		FuncName: "GetInstances", Args: gce.FakeCallArgs{"env": s.Env},
+	}})
+
+	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
+	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "AvailabilityZones")
+	c.Check(s.FakeConn.Calls[0].Region, gc.Equals, "home")
 }
 
 func (s *environAZSuite) TestParseAvailabilityZonesPlacement(c *gc.C) {
@@ -154,7 +146,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesDistGroup(c *gc.C) {
 }
 
 func (s *environAZSuite) TestParseAvailabilityZonesOccupied(c *gc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("home-zone", google.StatusUp),
 		google.NewZone("home-zone-b", google.StatusUp),

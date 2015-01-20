@@ -22,7 +22,7 @@ type environInstSuite struct {
 var _ = gc.Suite(&environInstSuite{})
 
 func (s *environInstSuite) TestInstances(c *gc.C) {
-	s.FakeConn.Insts = []google.Instance{*s.BaseInstance}
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(ids)
@@ -39,7 +39,7 @@ func (s *environInstSuite) TestInstancesEmptyArg(c *gc.C) {
 
 func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 	failure := errors.New("<unknown>")
-	s.PatchGetInstances(failure)
+	s.FakeEnviron.Err = failure
 
 	ids := []instance.Id{"spam"}
 	insts, err := s.Env.Instances(ids)
@@ -49,7 +49,7 @@ func (s *environInstSuite) TestInstancesInstancesFailed(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
-	s.PatchGetInstances(nil, s.Instance)
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{"spam", "eggs"}
 	insts, err := s.Env.Instances(ids)
@@ -59,7 +59,7 @@ func (s *environInstSuite) TestInstancesPartialMatch(c *gc.C) {
 }
 
 func (s *environInstSuite) TestInstancesNoMatch(c *gc.C) {
-	s.PatchGetInstances(nil, s.Instance)
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
 
 	ids := []instance.Id{"eggs"}
 	insts, err := s.Env.Instances(ids)
