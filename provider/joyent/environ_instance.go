@@ -269,11 +269,17 @@ func (*joyentEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotImplementedf("ReleaseAddress")
 }
 
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not implemented on this provider yet.
+func (*joyentEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("NetworkInterfaces")
+}
+
 // Subnets returns basic information about all subnets known by
 // the provider for the environment. They may be unknown to juju yet
 // (i.e. when called initially or when a new network was created).
 // This is not implemented on the Joyent provider yet.
-func (*joyentEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (*joyentEnviron) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotImplementedf("Subnets")
 }
 

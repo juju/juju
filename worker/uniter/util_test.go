@@ -867,7 +867,8 @@ type addAction struct {
 }
 
 func (s addAction) step(c *gc.C, ctx *context) {
-	_, err := ctx.unit.AddAction(s.name, s.params)
+	_, err := ctx.st.EnqueueAction(ctx.unit.Tag(), s.name, s.params)
+	// _, err := ctx.unit.AddAction(s.name, s.params)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -43,6 +44,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -647,7 +649,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 				c.Logf("unit provisioned with instance %s", instId)
 				return m, instId
 			} else {
-				c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
+				c.Check(err, jc.Satisfies, errors.IsNotProvisioned)
 			}
 		}
 	}
@@ -1100,6 +1102,15 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	// The disk manager should only run with the feature flag set.
+	s.testMachineAgentRunsDiskManagerWorker(c, false, coretesting.ShortWait)
+
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testMachineAgentRunsDiskManagerWorker(c, true, coretesting.LongWait)
+}
+
+func (s *MachineSuite) testMachineAgentRunsDiskManagerWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -1116,12 +1127,20 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// Wait for worker to be started.
 	select {
 	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for diskmanager worker to start")
+		if !shouldRun {
+			c.Fatalf("disk manager should not run without feature flag")
+		}
+	case <-time.After(timeout):
+		if shouldRun {
+			c.Fatalf("timeout while waiting for diskmanager worker to start")
+		}
 	}
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
 		return expected, nil
@@ -1140,7 +1159,9 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
-			c.Assert(devices[0].Info().DeviceName, gc.Equals, expected[0].DeviceName)
+			info, err := devices[0].Info()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(info.DeviceName, gc.Equals, expected[0].DeviceName)
 			return
 		}
 	}

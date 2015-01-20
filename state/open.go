@@ -60,7 +60,7 @@ func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 }
 
 // Initialize sets up an initial empty state and returns it.
-// This needs to be performed only once for a given environment.
+// This needs to be performed only once for the initial state server environment.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := open(info, opts, policy)
@@ -110,7 +110,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
+	if err := st.runTransactionNoEnvAliveAssert(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {

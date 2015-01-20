@@ -13,12 +13,12 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/amz.v2/aws"
+	amzec2 "gopkg.in/amz.v2/ec2"
+	"gopkg.in/amz.v2/ec2/ec2test"
+	"gopkg.in/amz.v2/s3/s3test"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	"launchpad.net/goamz/aws"
-	amzec2 "launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/ec2/ec2test"
-	"launchpad.net/goamz/s3/s3test"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -801,7 +801,7 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets("")
+	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultSubnets := []network.SubnetInfo{{
@@ -813,6 +813,18 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 		AllocatableIPHigh: net.ParseIP("10.10.15.254").To4(),
 	}}
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
+}
+
+func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	_, err := env.Subnets("", []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+}
+
+func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
@@ -854,13 +866,13 @@ func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
 	c.Assert(result, jc.IsFalse)
 }
 
-func (t *localServerSuite) TestStartInstanceDisks(c *gc.C) {
+func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{
-		Disks: []storage.DiskParams{{
+		Volumes: []storage.VolumeParams{{
 			Size: 512, // round up to 1GiB
 		}, {
 			Size: 1024, // 1GiB exactly
@@ -870,10 +882,10 @@ func (t *localServerSuite) TestStartInstanceDisks(c *gc.C) {
 	}
 	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Disks, gc.HasLen, 3)
-	c.Assert(result.Disks[0].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Disks[1].Size, gc.Equals, uint64(1024))
-	c.Assert(result.Disks[2].Size, gc.Equals, uint64(2048))
+	c.Assert(result.Volumes, gc.HasLen, 3)
+	c.Assert(result.Volumes[0].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Volumes[1].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Volumes[2].Size, gc.Equals, uint64(2048))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

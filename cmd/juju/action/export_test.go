@@ -28,3 +28,7 @@ func (c *DoCommand) ActionName() string {
 func (c *DoCommand) ParamsYAMLPath() string {
 	return c.paramsYAML.Path
 }
+
+func (c *DoCommand) KeyValueDoArgs() [][]string {
+	return c.args
+}

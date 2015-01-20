@@ -22,7 +22,6 @@ const environGlobalKey = "e"
 type Environment struct {
 	st  *State
 	doc environmentDoc
-	annotator
 }
 
 // environmentDoc represents the internal state of the environment in MongoDB.
@@ -53,11 +52,6 @@ func (st *State) StateServerEnvironment() (*Environment, error) {
 	if err := env.refresh(environments.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.annotator = annotator{
-		globalKey: environGlobalKey,
-		tag:       env.Tag(),
-		st:        st,
-	}
 	return env, nil
 }
 
@@ -71,11 +65,6 @@ func (st *State) Environment() (*Environment, error) {
 	if err := env.refresh(environments.FindId(uuid)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	env.annotator = annotator{
-		globalKey: environGlobalKey,
-		tag:       env.Tag(),
-		st:        st,
-	}
 	return env, nil
 }
 
@@ -87,11 +76,6 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 	env := &Environment{st: st}
 	if err := env.refresh(environments.FindId(tag.Id())); err != nil {
 		return nil, errors.Trace(err)
-	}
-	env.annotator = annotator{
-		globalKey: environGlobalKey,
-		tag:       env.Tag(),
-		st:        st,
 	}
 	return env, nil
 }
@@ -106,6 +90,12 @@ func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
 // environments, perhaps for future use around cross environment
 // relations.
 func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Environment, _ *State, err error) {
+	if owner.IsLocal() {
+		if _, err := st.User(owner); err != nil {
+			return nil, nil, errors.Annotate(err, "cannot create environment")
+		}
+	}
+
 	ssEnv, err := st.StateServerEnvironment()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not load state server environment")
@@ -125,7 +115,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
-	err = newState.runTransaction(ops)
+	err = newState.runTransactionNoEnvAliveAssert(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("environment already exists")
 	}
@@ -178,6 +168,21 @@ func (e *Environment) Life() Life {
 // The owner is the user that created the environment.
 func (e *Environment) Owner() names.UserTag {
 	return names.NewUserTag(e.doc.Owner)
+}
+
+// Config returns the config for the environment.
+func (e *Environment) Config() (*config.Config, error) {
+	if e.st.environTag.Id() == e.UUID() {
+		return e.st.EnvironConfig()
+	}
+	// The active environment isn't the same as the environment
+	// we are querying.
+	envState, err := e.st.ForEnviron(e.ServerTag())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer envState.Close()
+	return envState.EnvironConfig()
 }
 
 // globalKey returns the global database key for the environment.

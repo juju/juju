@@ -146,12 +146,12 @@ var providerAliases = make(map[string]string)
 // are registered more than once.
 func RegisterProvider(name string, p EnvironProvider, alias ...string) {
 	if providers[name] != nil || providerAliases[name] != "" {
-		panic(fmt.Errorf("juju: duplicate provider name %q", name))
+		panic(errors.Errorf("juju: duplicate provider name %q", name))
 	}
 	providers[name] = p
 	for _, alias := range alias {
 		if providers[alias] != nil || providerAliases[alias] != "" {
-			panic(fmt.Errorf("juju: duplicate provider alias %q", alias))
+			panic(errors.Errorf("juju: duplicate provider alias %q", alias))
 		}
 		providerAliases[alias] = name
 	}
@@ -164,7 +164,7 @@ func Provider(providerType string) (EnvironProvider, error) {
 	}
 	p, ok := providers[providerType]
 	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", providerType)
+		return nil, errors.Errorf("no registered provider for %q", providerType)
 	}
 	return p, nil
 }
@@ -184,7 +184,7 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 	}
 
 	if raw.Default != "" && raw.Environments[raw.Default] == nil {
-		return nil, fmt.Errorf("default environment %q does not exist", raw.Default)
+		return nil, errors.Errorf("default environment %q does not exist", raw.Default)
 	}
 	if raw.Default == "" {
 		// If there's a single environment, then we get the default

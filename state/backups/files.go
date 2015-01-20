@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/juju/errors"
 )
@@ -132,4 +133,61 @@ func GetFilesToBackUp(rootDir string, paths *Paths, oldmachine string) ([]string
 	}
 
 	return backupFiles, nil
+}
+
+// replaceableFolders for testing purposes.
+var replaceableFolders = replaceableFoldersFunc
+
+// replaceableFoldersFunc will return a map with the folders that need to
+// be replaced so they can be deleted prior to a restore.
+func replaceableFoldersFunc() (map[string]os.FileMode, error) {
+	replaceables := map[string]os.FileMode{}
+
+	for _, replaceable := range []string{
+		filepath.Join(dataDir, "db"),
+		dataDir,
+		logsDir,
+	} {
+		dirStat, err := os.Stat(replaceable)
+		if err != nil {
+			return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
+		}
+		replaceables[replaceable] = dirStat.Mode()
+	}
+	return replaceables, nil
+}
+
+// TODO (perrito666) make this version sensitive when these files change, it would
+// also be a good idea to save these instead of deleting them.
+
+// PrepareMachineForRestore deletes all files from the re-bootstrapped
+// machine that are to be replaced by the backup and recreates those
+// directories that are to contain new files; this is to avoid
+// possible mixup from new/old files that lead to an inconsistent
+// restored state machine.
+func PrepareMachineForRestore() error {
+	replaceFolders, err := replaceableFolders()
+	if err != nil {
+		return errors.Annotate(err, "cannot retrieve the list of folders to be cleaned before restore")
+	}
+	var keys []string
+	for k := range replaceFolders {
+		keys = append(keys, k)
+	}
+	// sort to avoid trying to create subfolders before folders.
+	sort.Strings(keys)
+	for _, toBeRecreated := range keys {
+		fmode := replaceFolders[toBeRecreated]
+		_, err := os.Stat(toBeRecreated)
+		if err != nil && !os.IsNotExist(err) {
+			return errors.Trace(err)
+		}
+		if err := os.RemoveAll(toBeRecreated); err != nil {
+			return errors.Trace(err)
+		}
+		if err := os.MkdirAll(toBeRecreated, fmode); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }

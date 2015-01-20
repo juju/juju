@@ -158,6 +158,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.Machi
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
 		Nonce:             agent.BootstrapNonce,
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,

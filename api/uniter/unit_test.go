@@ -439,13 +439,13 @@ func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertChange()
 
 	// Add a couple of actions and make sure the changes are detected.
-	action, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
+	action, err := s.wordpressUnit.AddAction("fakeaction", map[string]interface{}{
 		"outfile": "foo.txt",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(action.Id())
 
-	action, err = s.wordpressUnit.AddAction("backup", map[string]interface{}{
+	action, err = s.wordpressUnit.AddAction("fakeaction", map[string]interface{}{
 		"outfile": "foo.bz2",
 		"compression": map[string]interface{}{
 			"kind":    "bzip",

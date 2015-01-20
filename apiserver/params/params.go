@@ -123,6 +123,12 @@ type AddMachineParams struct {
 	Constraints constraints.Value
 	Jobs        []multiwatcher.MachineJob
 
+	// Disks describes constraints for disks that must be attached to
+	// the machine when it is provisioned.
+	//
+	// NOTE: this is ignored unless the "storage" feature flag is enabled.
+	Disks []storage.Constraints
+
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
 	Placement *instance.Placement
@@ -387,11 +393,6 @@ type GetConstraintsResults struct {
 type SetConstraints struct {
 	ServiceName string //optional, if empty, environment constraints are set.
 	Constraints constraints.Value
-}
-
-// CharmInfo stores parameters for a CharmInfo call.
-type CharmInfo struct {
-	CharmURL string
 }
 
 // ResolveCharms stores charm references for a ResolveCharms call.
@@ -750,6 +751,32 @@ type FindToolsParams struct {
 type FindToolsResult struct {
 	List  tools.List
 	Error *Error
+}
+
+// ImageFilterParams holds the parameters used to specify images to delete.
+type ImageFilterParams struct {
+	Images []ImageSpec `json:"images"`
+}
+
+// ImageSpec defines the parameters to select images list or delete.
+type ImageSpec struct {
+	Kind   string `json:"kind"`
+	Arch   string `json:"arch"`
+	Series string `json:"series"`
+}
+
+// ListImageResult holds the results of querying images.
+type ListImageResult struct {
+	Result []ImageMetadata `json:"result"`
+}
+
+// ImageMetadata represents an image in storage.
+type ImageMetadata struct {
+	Kind    string    `json:"kind"`
+	Arch    string    `json:"arch"`
+	Series  string    `json:"series"`
+	URL     string    `json:"url"`
+	Created time.Time `json:"created"`
 }
 
 // RebootActionResults holds a list of RebootActionResult and any error.

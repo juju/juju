@@ -9,14 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -24,52 +22,16 @@ import (
 )
 
 type factorySuite struct {
-	testing.BaseSuite
-	jtesting.MgoSuite
-	State   *state.State
+	statetesting.StateSuite
 	Factory *factory.Factory
 }
 
 var _ = gc.Suite(&factorySuite{})
 
-func (s *factorySuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *factorySuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
 func (s *factorySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	policy := statetesting.MockPolicy{}
-
-	info := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{jtesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
-	opts := mongo.DialOpts{
-		Timeout: testing.LongWait,
-	}
-	cfg := testing.EnvironConfig(c)
-	owner := names.NewLocalUserTag("factory-admin")
-	st, err := state.Initialize(owner, info, cfg, opts, &policy)
-	c.Assert(err, jc.ErrorIsNil)
-	s.State = st
+	s.Policy = new(statetesting.MockPolicy)
+	s.StateSuite.SetUpTest(c)
 	s.Factory = factory.NewFactory(s.State)
-}
-
-func (s *factorySuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		s.State.Close()
-	}
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {
@@ -512,10 +474,12 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
-	owner := names.NewUserTag("owner@local")
+	owner := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "owner",
+	})
 	params := &factory.EnvParams{
 		Name:        "foo",
-		Owner:       owner,
+		Owner:       owner.UserTag(),
 		ConfigAttrs: testing.Attrs{"default-series": "precise"},
 	}
 
@@ -526,7 +490,7 @@ func (s *factorySuite) TestMakeEnvironment(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Name(), gc.Equals, "foo")
 	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
-	c.Assert(env.Owner(), gc.Equals, owner)
+	c.Assert(env.Owner(), gc.Equals, owner.UserTag())
 
 	cfg, err := st.EnvironConfig()
 	c.Assert(err, jc.ErrorIsNil)

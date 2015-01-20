@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -49,18 +49,6 @@ var alternatePassword = "bar-12345678901234567890"
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	err := u.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// TestingInitialize initializes the state and returns it. If state was not
-// already initialized, and cfg is nil, the minimal default environment
-// configuration will be used.
-func TestingInitialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.Policy) *state.State {
-	if cfg == nil {
-		cfg = testing.EnvironConfig(c)
-	}
-	st, err := state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
-	c.Assert(err, jc.ErrorIsNil)
-	return st
 }
 
 type StateSuite struct {
@@ -120,14 +108,14 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+		st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
 }
 
 func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -741,6 +729,41 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
+func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+	hc := instance.MustParseHardware("mem=2G")
+	machineTemplate := state.MachineTemplate{
+		Series:                  "precise",
+		Constraints:             cons,
+		HardwareCharacteristics: hc,
+		InstanceId:              "inst-id",
+		Nonce:                   "nonce",
+		Jobs:                    oneJob,
+		BlockDevices: []state.BlockDeviceParams{{
+			Size: 123,
+		}, {
+			Size: 456,
+		}},
+	}
+	machines, err := s.State.AddMachines(machineTemplate)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	m, err := s.State.Machine(machines[0].Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 2)
+	for i, dev := range blockDevices {
+		_, err = dev.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		params, ok := dev.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+	}
+}
+
 func (s *StateSuite) assertMachineContainers(c *gc.C, m *state.Machine, containers []string) {
 	mc, err := m.Containers()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1249,19 +1272,19 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", s.owner.String(), charm, nil)
+	_, err := s.State.AddService("haha/borken", s.Owner.String(), charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddService("umadbro", s.owner.String(), nil, nil)
+	_, err = s.State.AddService("umadbro", s.Owner.String(), nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", s.owner.String(), charm, nil)
+	wordpress, err := s.State.AddService("wordpress", s.Owner.String(), charm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", s.owner.String(), charm, nil)
+	mysql, err := s.State.AddService("mysql", s.Owner.String(), charm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -1288,7 +1311,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddService("s1", s.owner.String(), charm, nil)
+	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1303,7 +1326,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddService("s1", s.owner.String(), charm, nil)
+	_, err = s.State.AddService("s1", s.Owner.String(), charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1338,13 +1361,13 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.State.AddService("wordpress", s.owner.String(), charm, nil)
+	_, err = s.State.AddService("wordpress", s.Owner.String(), charm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddService("mysql", s.owner.String(), charm, nil)
+	_, err = s.State.AddService("mysql", s.Owner.String(), charm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1632,6 +1655,68 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	c.Assert(econs, gc.DeepEquals, cons)
 }
 
+func (s *StateSuite) TestWatchEnvironmentsBulkEvents(c *gc.C) {
+	// Alive environment...
+	alive, err := s.State.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Dying environment...
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	dying, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	dying.Destroy()
+
+	st2 := s.factory.MakeEnvironment(c, nil)
+	defer st2.Close()
+	err = state.RemoveEnvironment(s.State, st2.EnvironUUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// All except the dead env are reported in initial event.
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(alive.UUID(), dying.UUID())
+	wc.AssertNoChange()
+
+	// Remove alive and dying and see changes reported.
+	err = alive.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.RemoveEnvironment(s.State, dying.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(alive.UUID(), dying.UUID())
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchEnvironmentsLifecycle(c *gc.C) {
+	// Initial event reports the state server environment.
+	w := s.State.WatchEnvironments()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(s.State.EnvironUUID())
+	wc.AssertNoChange()
+
+	// Add an environment: reported.
+	st1 := s.factory.MakeEnvironment(c, nil)
+	defer st1.Close()
+	env, err := st1.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+
+	// Make it Dying: reported.
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+
+	// Remove the environment: reported.
+	err = state.RemoveEnvironment(s.State, env.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(env.UUID())
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	// Alive service...
 	dummyCharm := s.AddTestingCharm(c, "dummy")
@@ -1699,6 +1784,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 	// This test is testing logic in watcher.lifecycleWatcher,
 	// which is also used by:
+	//     State.WatchEnvironments
 	//     Service.WatchUnits
 	//     Service.WatchRelations
 	//     State.WatchEnviron
@@ -2237,7 +2323,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(info *mongo.MongoInfo) error {
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, statetesting.NewDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -2245,7 +2331,7 @@ func tryOpenState(info *mongo.MongoInfo) error {
 }
 
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
-	info := state.TestingMongoInfo()
+	info := statetesting.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
 	err := tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
@@ -2260,7 +2346,7 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
-	info := state.TestingMongoInfo()
+	info := statetesting.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
@@ -2274,7 +2360,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	// Default mgo retry delay
 	retryDelay := 500 * time.Millisecond
-	info := state.TestingMongoInfo()
+	info := statetesting.NewMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
@@ -2518,7 +2604,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction("fakeaction", nil)
+	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.State.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))
@@ -2799,7 +2885,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", s.owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
+	service, err := s.State.AddService("wordpress", s.Owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2849,7 +2935,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	service, err := s.State.AddService("wordpress", s.owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
+	service, err := s.State.AddService("wordpress", s.Owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2992,7 +3078,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -3040,7 +3126,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(statetesting.NewMongoInfo(), statetesting.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 
@@ -3674,6 +3760,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer inst.DestroyWithLog()
 
+	owner := names.NewLocalUserTag("initialize-admin")
 	mongoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{inst.Addr()},
@@ -3681,8 +3768,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		},
 	}
 	cfg := testing.EnvironConfig(c)
-	owner := names.NewLocalUserTag("initialize-admin")
-	st, err := state.Initialize(owner, mongoInfo, cfg, state.TestingDialOpts(), nil)
+	st, err := state.Initialize(owner, mongoInfo, cfg, statetesting.NewDialOpts(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 

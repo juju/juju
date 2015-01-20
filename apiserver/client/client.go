@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
@@ -26,7 +27,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
-	"github.com/juju/juju/state/storage"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 )
 
@@ -37,7 +39,7 @@ func init() {
 var (
 	logger = loggo.GetLogger("juju.apiserver.client")
 
-	newStateStorage = storage.NewStorage
+	newStateStorage = statestorage.NewStorage
 )
 
 type API struct {
@@ -737,16 +739,29 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		placementDirective = p.Placement.Directive
 	}
 
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	var allBlockDevices []state.BlockDeviceParams
+	if featureflag.Enabled(storage.FeatureFlag) {
+		for _, cons := range p.Disks {
+			params, err := c.api.state.BlockDeviceParams(cons, nil, "")
+			if err != nil {
+				return nil, errors.Annotate(err, "cannot compute block device parameters")
+			}
+			allBlockDevices = append(allBlockDevices, params...)
+		}
+	}
+
 	jobs, err := stateJobs(p.Jobs)
 	if err != nil {
 		return nil, err
 	}
 	template := state.MachineTemplate{
-		Series:      p.Series,
-		Constraints: p.Constraints,
-		InstanceId:  p.InstanceId,
-		Jobs:        jobs,
-		Nonce:       p.Nonce,
+		Series:       p.Series,
+		Constraints:  p.Constraints,
+		BlockDevices: allBlockDevices,
+		InstanceId:   p.InstanceId,
+		Jobs:         jobs,
+		Nonce:        p.Nonce,
 		HardwareCharacteristics: p.HardwareCharacteristics,
 		Addresses:               p.Addrs,
 		Placement:               placementDirective,
@@ -933,9 +948,11 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 }
 
 // GetAnnotations returns annotations about a given entity.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
 	nothing := params.GetAnnotationsResults{}
-	tag, err := names.ParseTag(args.Tag)
+	tag, err := c.parseEntityTag(args.Tag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -943,19 +960,30 @@ func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotatio
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
-	ann, err := entity.Annotations()
+	ann, err := c.api.state.Annotations(entity)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
 	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
-func (c *Client) findEntity(tag names.Tag) (state.Annotator, error) {
+func (c *Client) parseEntityTag(tag0 string) (names.Tag, error) {
+	tag, err := names.ParseTag(tag0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if tag.Kind() == names.CharmTagKind {
+		return nil, common.NotSupportedError(tag, "client.annotations")
+	}
+	return tag, nil
+}
+
+func (c *Client) findEntity(tag names.Tag) (state.GlobalEntity, error) {
 	entity0, err := c.api.state.FindEntity(tag)
 	if err != nil {
 		return nil, err
 	}
-	entity, ok := entity0.(state.Annotator)
+	entity, ok := entity0.(state.GlobalEntity)
 	if !ok {
 		return nil, common.NotSupportedError(tag, "annotations")
 	}
@@ -963,8 +991,10 @@ func (c *Client) findEntity(tag names.Tag) (state.Annotator, error) {
 }
 
 // SetAnnotations stores annotations about a given entity.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	tag, err := names.ParseTag(args.Tag)
+	tag, err := c.parseEntityTag(args.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -972,7 +1002,7 @@ func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return entity.SetAnnotations(args.Pairs)
+	return c.api.state.SetAnnotations(entity, args.Pairs)
 }
 
 // parseSettingsCompatible parses setting strings in a way that is

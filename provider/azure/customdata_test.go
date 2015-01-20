@@ -68,9 +68,10 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Password: "password",
 		},
 		APIInfo: &api.Info{
-			CACert: testing.CACert,
-			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    machineTag,
+			CACert:     testing.CACert,
+			Addrs:      []string{"127.0.0.1:123"},
+			Tag:        machineTag,
+			EnvironTag: testing.EnvironmentTag,
 		},
 		MachineAgentServiceName: "jujud-machine-0",
 	}

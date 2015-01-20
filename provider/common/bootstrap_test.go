@@ -92,7 +92,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		_ []string,
 		possibleTools tools.List,
 		mcfg *cloudinit.MachineConfig,
-	) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+	) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
 
@@ -126,7 +126,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	startInstance := func(
 		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+		instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 	) {
 		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
 	}

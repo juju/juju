@@ -74,6 +74,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
+			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
@@ -168,9 +169,19 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	s.ContainerFactory.AddListener(s.events)
 }
 
+func (s *kvmProvisionerSuite) nextEvent(c *gc.C) mock.Event {
+	select {
+	case event := <-s.events:
+		return event
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no event arrived")
+	}
+	panic("not reachable")
+}
+
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
 	s.State.StartSync()
-	event := <-s.events
+	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,7 +191,7 @@ func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 
 func (s *kvmProvisionerSuite) expectStopped(c *gc.C, instId string) {
 	s.State.StartSync()
-	event := <-s.events
+	event := s.nextEvent(c)
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
 	c.Assert(event.InstanceId, gc.Equals, instId)
 }

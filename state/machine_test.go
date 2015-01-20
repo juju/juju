@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -437,12 +438,18 @@ func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
-	c.Assert(s.machine.Tag().String(), gc.Equals, "machine-1")
+	tag := s.machine.MachineTag()
+	c.Assert(tag.Kind(), gc.Equals, names.MachineTagKind)
+	c.Assert(tag.Id(), gc.Equals, "1")
+
+	// To keep gccgo happy, don't compare an interface with a struct.
+	var asTag names.Tag = tag
+	c.Assert(s.machine.Tag(), gc.Equals, asTag)
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	info := testing.NewMongoInfo()
+	st, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -465,7 +472,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st1, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -753,13 +760,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(iid, gc.Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -775,7 +782,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -875,18 +882,47 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C) {
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	assertNotProvisioned := func() {
+		c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	}
+
+	assertNotProvisioned()
 	invalidNetworks := []state.NetworkInfo{{Name: ""}}
-	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, invalidNetworks, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network "": name must be not empty`)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
-	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces)
+	assertNotProvisioned()
+
+	invalidInterfaces := []state.NetworkInterfaceInfo{{MACAddress: ""}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, invalidInterfaces, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
-	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
+	assertNotProvisioned()
+
+	invalidBlockDevices := map[string]state.BlockDeviceInfo{"1065": state.BlockDeviceInfo{}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
+	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
+	assertNotProvisioned()
+
+	// Create a disk associated with a different machine, and ensure that trying
+	// to SetInstanceInfo with that disk fails.
+	blockDeviceName := s.createBlockDeviceParams(c, s.machine0.Id(), state.BlockDeviceParams{Size: 1000})
+	invalidBlockDevices = map[string]state.BlockDeviceInfo{blockDeviceName: state.BlockDeviceInfo{}}
+	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
+	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
+	assertNotProvisioned()
+}
+
+func (s *MachineSuite) createBlockDeviceParams(c *gc.C, machineId string, params state.BlockDeviceParams) string {
+	ops, names, err := state.CreateMachineBlockDeviceOps(s.State, machineId, params)
+	c.Assert(err, jc.ErrorIsNil)
+	err = state.RunTransaction(s.State, ops)
+	c.Assert(err, jc.ErrorIsNil)
+	return names[0]
 }
 
 func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
+	// Must create the requested block device prior to SetInstanceInfo.
+	s.createBlockDeviceParams(c, s.machine.Id(), state.BlockDeviceParams{Size: 1000})
+
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsFalse)
 	networks := []state.NetworkInfo{
 		{Name: "net1", ProviderId: "net1", CIDR: "0.1.2.0/24", VLANTag: 0},
@@ -894,7 +930,10 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	interfaces := []state.NetworkInterfaceInfo{
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	blockDeviceInfo := map[string]state.BlockDeviceInfo{
+		"0": state.BlockDeviceInfo{Size: 1234},
+	}
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, blockDeviceInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), jc.IsTrue)
 	network, err := s.State.Network(networks[0].Name)
@@ -911,6 +950,12 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
 	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
+	blockDevices, err := s.machine.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 1)
+	info, err := blockDevices[0].Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, gc.Equals, blockDeviceInfo["0"])
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
@@ -942,7 +987,7 @@ func (s *MachineSuite) TestNotProvisionedMachineSetInstanceStatus(c *gc.C) {
 
 func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
 	_, err := s.machine.InstanceStatus()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
@@ -1353,25 +1398,6 @@ func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 		<-w.Changes()
 		return w
 	})
-}
-
-func (s *MachineSuite) TestAnnotatorForMachine(c *gc.C) {
-	testAnnotator(c, func() (state.Annotator, error) {
-		return s.State.Machine(s.machine.Id())
-	})
-}
-
-func (s *MachineSuite) TestAnnotationRemovalForMachine(c *gc.C) {
-	annotations := map[string]string{"mykey": "myvalue"}
-	err := s.machine.SetAnnotations(annotations)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.machine.Annotations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
 
 func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {
@@ -2003,7 +2029,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
-	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read dynamically generated document Ids.
@@ -2080,7 +2106,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
-	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2)
+	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ifaces, gc.HasLen, 3)
 	wc.AssertNoChange()

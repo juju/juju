@@ -10,13 +10,16 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -195,6 +198,24 @@ func (s *AddMachineSuite) TestServerIsPreJobManageNetworking(c *gc.C) {
 	param := s.fake.args[0]
 	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
 		multiwatcher.JobHostUnits,
+	})
+}
+
+func (s *AddMachineSuite) TestAddMachineWithDisks(c *gc.C) {
+	// --disks is not defined unless the "storage" feature flag is enabled.
+	_, err := s.run(c, "--disks", "2,1G", "--disks", "2G")
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --disks")
+
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	_, err = s.run(c, "--disks", "2,1G", "--disks", "2G")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fake.args, gc.HasLen, 1)
+	param := s.fake.args[0]
+	c.Assert(param.Disks, gc.DeepEquals, []storage.Constraints{
+		{Size: 1024, Count: 2},
+		{Size: 2048, Count: 1},
 	})
 }
 

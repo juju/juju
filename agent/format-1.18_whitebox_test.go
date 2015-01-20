@@ -51,6 +51,8 @@ func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	c.Assert(configLogDir, gc.Equals, logPath)
 	c.Assert(configDataDir, gc.Equals, realDataDir)
 	c.Assert(readConfig.PreferIPv6(), jc.IsFalse)
+	// The api info doesn't have the environment tag set.
+	c.Assert(readConfig.APIInfo().EnvironTag.Id(), gc.Equals, "")
 }
 
 func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {

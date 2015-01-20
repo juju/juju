@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
 
@@ -947,7 +949,7 @@ func (s *uniterBaseSuite) testWatchActionNotifications(c *gc.C, facade watchActi
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	addedAction, err := s.wordpressUnit.AddAction("snapshot", nil)
+	addedAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
 
 	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
@@ -959,9 +961,9 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	action1, err := s.wordpressUnit.AddAction("backup", nil)
+	action1, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	action2, err := s.wordpressUnit.AddAction("snapshot", nil)
+	action2, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -984,7 +986,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
+	addedAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
@@ -1009,7 +1011,7 @@ func (s *uniterBaseSuite) testWatchActionNotificationsMalformedUnitName(c *gc.C,
 }
 
 func (s *uniterBaseSuite) testWatchActionNotificationsNotUnit(c *gc.C, facade watchActions) {
-	action, err := s.mysqlUnit.AddAction("mysql-action", nil)
+	action, err := s.mysqlUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: action.Tag().String()},
@@ -1131,12 +1133,12 @@ func (s *uniterBaseSuite) testCharmArchiveURLs(
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpressURLs := []string{
-		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
-		"https://1.2.3.5:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=cs%3Aquantal%2Fwordpress-3",
+		fmt.Sprintf("https://0.1.2.3:1234/environment/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.EnvironmentTag.Id()),
+		fmt.Sprintf("https://1.2.3.5:1234/environment/%s/charms?file=%%2A&url=cs%%3Aquantal%%2Fwordpress-3", coretesting.EnvironmentTag.Id()),
 	}
 	dummyURLs := []string{
-		"https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=local%3Aquantal%2Fdummy-1",
-		"https://1.2.3.5:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/charms?file=%2A&url=local%3Aquantal%2Fdummy-1",
+		fmt.Sprintf("https://0.1.2.3:1234/environment/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
+		fmt.Sprintf("https://1.2.3.5:1234/environment/%s/charms?file=%%2A&url=local%%3Aquantal%%2Fdummy-1", coretesting.EnvironmentTag.Id()),
 	}
 
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
@@ -1192,7 +1194,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 		description: "A simple action.",
 		action: params.ActionResult{
 			Action: &params.Action{
-				Name: "snapshot",
+				Name: "fakeaction",
 				Parameters: map[string]interface{}{
 					"outfile": "foo.txt",
 				}},
@@ -1201,7 +1203,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 		description: "An action with nested parameters.",
 		action: params.ActionResult{
 			Action: &params.Action{
-				Name: "backup",
+				Name: "fakeaction",
 				Parameters: map[string]interface{}{
 					"outfile": "foo.bz2",
 					"compression": map[string]interface{}{
@@ -1267,7 +1269,7 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 	mysqlUnitFacade, err := factory(s.State, s.resources, mysqlUnitAuthorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
-	action, err := s.wordpressUnit.AddAction("wordpress-action", nil)
+	action, err := s.wordpressUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
@@ -1281,7 +1283,7 @@ func (s *uniterBaseSuite) testActionsWrongUnit(
 }
 
 func (s *uniterBaseSuite) testActionsPermissionDenied(c *gc.C, facade actions) {
-	action, err := s.mysqlUnit.AddAction("mysql-action-2", nil)
+	action, err := s.mysqlUnit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{
@@ -1299,8 +1301,8 @@ type finishActions interface {
 }
 
 func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions) {
-	testName := "frobz"
-	testOutput := map[string]interface{}{"output": "completed frobz successfully"}
+	testName := "fakeaction"
+	testOutput := map[string]interface{}{"output": "completed fakeaction successfully"}
 
 	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1331,8 +1333,8 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 }
 
 func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions) {
-	testName := "wgork"
-	testError := "wgork was a dismal failure"
+	testName := "fakeaction"
+	testError := "fakeaction was a dismal failure"
 
 	results, err := s.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)

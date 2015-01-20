@@ -124,6 +124,24 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Ensure that the environment uuid is stored in the agent config.
+	// Luckily the API has it recorded for us after we connect.
+	if agentConfig.Environment().Id() == "" {
+		err := a.ChangeConfig(func(setter agent.ConfigSetter) error {
+			environTag, err := st.EnvironTag()
+			if err != nil {
+				return errors.Annotate(err, "no environment uuid set on api")
+			}
+
+			return setter.Migrate(agent.MigrateParams{
+				Environment: environTag,
+			})
+		})
+		if err != nil {
+			logger.Warningf("unable to save environment uuid: %v", err)
+			// Not really fatal, just annoying.
+		}
+	}
 
 	// Before starting any workers, ensure we record the Juju version this unit
 	// agent is running.

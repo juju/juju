@@ -156,7 +156,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	}
 
 	if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Since Juju's state machine is currently the host machine
@@ -191,13 +191,13 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	// potentially remove it at the start of the cloud-init.
 	localLogDir := filepath.Join(mcfg.DataDir, "log")
 	if err := os.RemoveAll(localLogDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
-		return err
+		return errors.Trace(err)
 	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
@@ -205,10 +205,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	)
 	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := udata.ConfigureJuju(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return executeCloudConfig(ctx, mcfg, cloudcfg)
 }
@@ -462,11 +462,17 @@ func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addre
 	return errors.NotSupportedf("ReleaseAddress")
 }
 
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not supported on this provider yet.
+func (*localEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("NetworkInterfaces")
+}
+
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the local provider yet.
-func (*localEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (*localEnviron) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("Subnets")
 }
 

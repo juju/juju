@@ -32,7 +32,6 @@ import (
 type Machine struct {
 	st  *State
 	doc machineDoc
-	annotator
 	presence.Presencer
 }
 
@@ -130,12 +129,11 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 		st:  st,
 		doc: *doc,
 	}
-	machine.annotator = annotator{
-		globalKey: machine.globalKey(),
-		tag:       machine.Tag(),
-		st:        st,
-	}
 	return machine
+}
+
+func wantsVote(jobs []MachineJob, noVote bool) bool {
+	return hasJob(jobs, JobManageEnviron) && !noVote
 }
 
 // Id returns the machine id.
@@ -220,6 +218,12 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 // will be different from other Tag values returned by any other entities
 // from the same state.
 func (m *Machine) Tag() names.Tag {
+	return m.MachineTag()
+}
+
+// MachineTag returns the more specific MachineTag type as opposed
+// to the more generic Tag type.
+func (m *Machine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.Id())
 }
 
@@ -236,7 +240,7 @@ func (m *Machine) Jobs() []MachineJob {
 // WantsVote reports whether the machine is a state server
 // that wants to take part in peer voting.
 func (m *Machine) WantsVote() bool {
-	return hasJob(m.doc.Jobs, JobManageEnviron) && !m.doc.NoVote
+	return wantsVote(m.doc.Jobs, m.doc.NoVote)
 }
 
 // HasVote reports whether that machine is currently a voting
@@ -746,7 +750,7 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 func (m *Machine) InstanceId() (instance.Id, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		err = NotProvisionedError(m.Id())
+		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
 		return "", err
@@ -759,7 +763,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 func (m *Machine) InstanceStatus() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		err = NotProvisionedError(m.Id())
+		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
 		return "", err
@@ -785,7 +789,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 	} else if err != txn.ErrAborted {
 		return err
 	}
-	return NotProvisionedError(m.Id())
+	return errors.NotProvisionedf("machine %v", m.Id())
 }
 
 // AvailabilityZone returns the provier-specific instance availability
@@ -793,7 +797,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 func (m *Machine) AvailabilityZone() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
 	if errors.IsNotFound(err) {
-		return "", errors.Trace(NotProvisionedError(m.Id()))
+		return "", errors.Trace(errors.NotProvisionedf("machine %v", m.Id()))
 	}
 	if err != nil {
 		return "", errors.Trace(err)
@@ -900,7 +904,8 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // Merge SetProvisioned() in here or drop it at that point.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []NetworkInfo, interfaces []NetworkInterfaceInfo) error {
+	networks []NetworkInfo, interfaces []NetworkInterfaceInfo,
+	blockDevices map[string]BlockDeviceInfo) error {
 
 	// Add the networks and interfaces first.
 	for _, network := range networks {
@@ -921,26 +926,10 @@ func (m *Machine) SetInstanceInfo(
 			return errors.Trace(err)
 		}
 	}
+	if err := setProvisionedBlockDeviceInfo(m.st, m.Id(), blockDevices); err != nil {
+		return errors.Trace(err)
+	}
 	return m.SetProvisioned(id, nonce, characteristics)
-}
-
-// notProvisionedError records an error when a machine is not provisioned.
-type notProvisionedError struct {
-	machineId string
-}
-
-func NotProvisionedError(machineId string) error {
-	return &notProvisionedError{machineId}
-}
-
-func (e *notProvisionedError) Error() string {
-	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
-}
-
-// IsNotProvisionedError returns true if err is a notProvisionedError.
-func IsNotProvisionedError(err error) bool {
-	_, ok := err.(*notProvisionedError)
-	return ok
 }
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
@@ -1229,7 +1218,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		}
 		if _, err := m.InstanceId(); err == nil {
 			return nil, fmt.Errorf("machine is already provisioned")
-		} else if !IsNotProvisionedError(err) {
+		} else if !errors.IsNotProvisioned(err) {
 			return nil, err
 		}
 		return ops, nil
@@ -1254,7 +1243,7 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 	// If a machine is not yet provisioned, we allow its status
 	// to be set back to pending (when a retry is to occur).
 	_, err := m.InstanceId()
-	allowPending := IsNotProvisionedError(err)
+	allowPending := errors.IsNotProvisioned(err)
 	doc, err := newMachineStatusDoc(status, info, data, allowPending)
 	if err != nil {
 		return err
@@ -1378,8 +1367,8 @@ func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
 	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
-// BlockDevices gets the aggregated list of block devices attached to the
-// machine.
+// BlockDevices gets the aggregated list of block devices associated with
+// the machine, including unprovisioned ones.
 func (m *Machine) BlockDevices() ([]BlockDevice, error) {
 	devices, err := getMachineBlockDevices(m.st, m.Id())
 	if err != nil {

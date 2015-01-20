@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state
@@ -20,31 +20,23 @@ import (
 // Annotations/Annotation below.
 // Note also the correspondence with AnnotationInfo in apiserver/params.
 type annotatorDoc struct {
-	EnvUUID     string `bson:"env-uuid"`
-	GlobalKey   string `bson:"globalkey"`
-	Tag         string
-	Annotations map[string]string
-}
-
-// annotator implements annotation-related methods
-// for any entity that wishes to use it.
-type annotator struct {
-	globalKey string
-	tag       names.Tag
-	st        *State
+	EnvUUID     string            `bson:"env-uuid"`
+	GlobalKey   string            `bson:"globalkey"`
+	Tag         string            `bson:"tag"`
+	Annotations map[string]string `bson:"annotations"`
 }
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
-func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot update annotations on %s", a.tag)
-	if len(pairs) == 0 {
+func (st *State) SetAnnotations(entity GlobalEntity, annotations map[string]string) (err error) {
+	defer errors.DeferredAnnotatef(&err, "cannot update annotations on %s", entity.Tag())
+	if len(annotations) == 0 {
 		return nil
 	}
 	// Collect in separate maps pairs to be inserted/updated or removed.
 	toRemove := make(bson.M)
 	toInsert := make(map[string]string)
 	toUpdate := make(bson.M)
-	for key, value := range pairs {
+	for key, value := range annotations {
 		if strings.Contains(key, ".") {
 			return fmt.Errorf("invalid key %q", key)
 		}
@@ -62,31 +54,57 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		annotations, closer := a.st.getCollection(annotationsC)
+		annotations, closer := st.getCollection(annotationsC)
 		defer closer()
-		if count, err := annotations.FindId(a.globalKey).Count(); err != nil {
+		if count, err := annotations.FindId(entity.globalKey()).Count(); err != nil {
 			return nil, err
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
 			if attempt != 0 {
-				return nil, fmt.Errorf("%s no longer exists", a.tag)
+				return nil, fmt.Errorf("%s no longer exists", entity.Tag())
 			}
-			return a.insertOps(toInsert)
+			return insertAnnotationsOps(st, entity, toInsert)
 		}
-		return a.updateOps(toUpdate, toRemove), nil
+		return updateAnnotations(st, entity, toUpdate, toRemove), nil
 	}
-	return a.st.run(buildTxn)
+	return st.run(buildTxn)
 }
 
-// insertOps returns the operations required to insert annotations in MongoDB.
-func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
-	tag := a.tag
+// Annotations returns all the annotations corresponding to an entity.
+func (st *State) Annotations(entity GlobalEntity) (map[string]string, error) {
+	doc := new(annotatorDoc)
+	annotations, closer := st.getCollection(annotationsC)
+	defer closer()
+	err := annotations.FindId(entity.globalKey()).One(doc)
+	if err == mgo.ErrNotFound {
+		// Returning an empty map if there are no annotations.
+		return make(map[string]string), nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return doc.Annotations, nil
+}
+
+// Annotation returns the annotation value corresponding to the given key.
+// If the requested annotation is not found, an empty string is returned.
+func (st *State) Annotation(entity GlobalEntity, key string) (string, error) {
+	ann, err := st.Annotations(entity)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return ann[key], nil
+}
+
+// insertAnnotationsOps returns the operations required to insert annotations in MongoDB.
+func insertAnnotationsOps(st *State, entity GlobalEntity, toInsert map[string]string) ([]txn.Op, error) {
+	tag := entity.Tag()
 	ops := []txn.Op{{
 		C:      annotationsC,
-		Id:     a.st.docID(a.globalKey),
+		Id:     st.docID(entity.globalKey()),
 		Assert: txn.DocMissing,
 		Insert: &annotatorDoc{
-			GlobalKey:   a.globalKey,
+			GlobalKey:   entity.globalKey(),
 			Tag:         tag.String(),
 			Annotations: toInsert,
 		},
@@ -98,9 +116,9 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	// If the entity is not the environment, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
-	coll, id, err := a.st.tagToCollectionAndId(tag)
+	coll, id, err := st.tagToCollectionAndId(tag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return append(ops, txn.Op{
 		C:      coll,
@@ -109,40 +127,14 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	}), nil
 }
 
-// updateOps returns the operations required to update or remove annotations in MongoDB.
-func (a *annotator) updateOps(toUpdate, toRemove bson.M) []txn.Op {
+// updateAnnotations returns the operations required to update or remove annotations in MongoDB.
+func updateAnnotations(st *State, entity GlobalEntity, toUpdate, toRemove bson.M) []txn.Op {
 	return []txn.Op{{
 		C:      annotationsC,
-		Id:     a.st.docID(a.globalKey),
+		Id:     st.docID(entity.globalKey()),
 		Assert: txn.DocExists,
 		Update: setUnsetUpdate(toUpdate, toRemove),
 	}}
-}
-
-// Annotations returns all the annotations corresponding to an entity.
-func (a *annotator) Annotations() (map[string]string, error) {
-	doc := new(annotatorDoc)
-	annotations, closer := a.st.getCollection(annotationsC)
-	defer closer()
-	err := annotations.FindId(a.globalKey).One(doc)
-	if err == mgo.ErrNotFound {
-		// Returning an empty map if there are no annotations.
-		return make(map[string]string), nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return doc.Annotations, nil
-}
-
-// Annotation returns the annotation value corresponding to the given key.
-// If the requested annotation is not found, an empty string is returned.
-func (a *annotator) Annotation(key string) (string, error) {
-	ann, err := a.Annotations()
-	if err != nil {
-		return "", err
-	}
-	return ann[key], nil
 }
 
 // annotationRemoveOp returns an operation to remove a given annotation

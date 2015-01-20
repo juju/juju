@@ -1,13 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backups
+package paths_test
 
 import (
-	"os"
-	"time"
+	"testing"
+
+	gc "gopkg.in/check.v1"
 )
 
-func creationTime(fi os.FileInfo) time.Time {
-	return time.Time{}
+func Test(t *testing.T) {
+	gc.TestingT(t)
 }

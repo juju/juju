@@ -25,7 +25,6 @@ import (
 type Service struct {
 	st  *State
 	doc serviceDoc
-	annotator
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
@@ -53,11 +52,6 @@ func newService(st *State, doc *serviceDoc) *Service {
 	svc := &Service{
 		st:  st,
 		doc: *doc,
-	}
-	svc.annotator = annotator{
-		globalKey: svc.globalKey(),
-		tag:       svc.Tag(),
-		st:        st,
 	}
 	return svc
 }

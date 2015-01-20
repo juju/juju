@@ -4,11 +4,13 @@
 package action_test
 
 import (
+	"io/ioutil"
 	"regexp"
 	"testing"
 
 	"github.com/juju/cmd"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -113,8 +115,20 @@ func tagsForIdPrefix(prefix string, tags ...string) params.FindTagsResults {
 	return params.FindTagsResults{Matches: map[string][]params.Entity{prefix: entities}}
 }
 
+// setupValueFile creates a file containing one value for testing.
+// cf. cmd/juju/set_test.go
+func setupValueFile(c *gc.C, dir, filename, value string) string {
+	ctx := coretesting.ContextForDir(c, dir)
+	path := ctx.AbsPath(filename)
+	content := []byte(value)
+	err := ioutil.WriteFile(path, content, 0666)
+	c.Assert(err, jc.ErrorIsNil)
+	return path
+}
+
 type fakeAPIClient struct {
 	actionResults      []params.ActionResult
+	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   params.FindTagsResults
 	charmActions       *charm.Actions
@@ -123,14 +137,19 @@ type fakeAPIClient struct {
 
 var _ action.APIClient = (*fakeAPIClient)(nil)
 
+// EnqueuedActions is a testing method which shows what Actions got enqueued
+// by our Enqueue stub.
+func (c *fakeAPIClient) EnqueuedActions() params.Actions {
+	return c.enqueuedActions
+}
+
 func (c *fakeAPIClient) Close() error {
 	return nil
 }
 
-func (c *fakeAPIClient) Enqueue(params.Actions) (params.ActionResults, error) {
-	return params.ActionResults{
-		Results: c.actionResults,
-	}, c.apiErr
+func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, error) {
+	c.enqueuedActions = args
+	return params.ActionResults{Results: c.actionResults}, c.apiErr
 }
 
 func (c *fakeAPIClient) ListAll(args params.Entities) (params.ActionsByReceivers, error) {

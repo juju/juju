@@ -59,12 +59,32 @@ var agentConfigTests = []struct {
 	},
 	checkErr: "password not found in configuration",
 }, {
+	about: "missing environment tag",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               names.NewMachineTag("1"),
+		UpgradedToVersion: version.Current.Number,
+		Password:          "sekrit",
+	},
+	checkErr: "environment not found in configuration",
+}, {
+	about: "invalid environment tag",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               names.NewMachineTag("1"),
+		UpgradedToVersion: version.Current.Number,
+		Password:          "sekrit",
+		Environment:       names.NewEnvironTag("uuid"),
+	},
+	checkErr: `"uuid" is not a valid environment uuid`,
+}, {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
 		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
+		Environment:       testing.EnvironmentTag,
 	},
 	checkErr: "CA certificate not found in configuration",
 }, {
@@ -75,6 +95,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 	},
 	checkErr: "state or API addresses not found in configuration",
 }, {
@@ -85,6 +106,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:8080", "bad-address"},
 	},
 	checkErr: `invalid state server address "bad-address"`,
@@ -96,6 +118,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		APIAddresses:      []string{"localhost:8080", "bad-address"},
 	},
 	checkErr: `invalid API server address "bad-address"`,
@@ -107,6 +130,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:1234"},
 	},
 }, {
@@ -117,6 +141,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		APIAddresses:      []string{"localhost:1234"},
 	},
 }, {
@@ -127,6 +152,7 @@ var agentConfigTests = []struct {
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 	},
@@ -138,6 +164,7 @@ var agentConfigTests = []struct {
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -150,6 +177,7 @@ var agentConfigTests = []struct {
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -173,6 +201,7 @@ var agentConfigTests = []struct {
 		Tag:               names.NewUnitTag("ubuntu/1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
+		Environment:       testing.EnvironmentTag,
 		CACert:            "ca cert",
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
@@ -188,6 +217,7 @@ var agentConfigTests = []struct {
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -204,6 +234,7 @@ var agentConfigTests = []struct {
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
+		Environment:       testing.EnvironmentTag,
 		StateAddresses:    []string{"localhost:1234"},
 		APIAddresses:      []string{"localhost:1235"},
 		Nonce:             "a nonce",
@@ -241,6 +272,7 @@ func (*suite) TestMigrate(c *gc.C) {
 			multiwatcher.JobHostUnits,
 		},
 		CACert:         "ca cert",
+		Environment:    testing.EnvironmentTag,
 		StateAddresses: []string{"localhost:1234"},
 		APIAddresses:   []string{"localhost:4321"},
 		Values: map[string]string{
@@ -438,6 +470,7 @@ var attributeParams = agent.AgentConfigParams{
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
+	Environment:       testing.EnvironmentTag,
 }
 
 func (*suite) TestAttributes(c *gc.C) {
@@ -589,11 +622,12 @@ func (*suite) TestSetPassword(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectAPIInfo := &api.Info{
-		Addrs:    attrParams.APIAddresses,
-		CACert:   attrParams.CACert,
-		Tag:      attrParams.Tag,
-		Password: "",
-		Nonce:    attrParams.Nonce,
+		Addrs:      attrParams.APIAddresses,
+		CACert:     attrParams.CACert,
+		Tag:        attrParams.Tag,
+		Password:   "",
+		Nonce:      attrParams.Nonce,
+		EnvironTag: attrParams.Environment,
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)

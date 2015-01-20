@@ -63,8 +63,8 @@ func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 			}}
 
 			c.Assert(typedP.Params, gc.HasLen, 1)
-			c.Check(typedP.Params[0].ServiceTag.Id(), gc.Equals, StubServiceNm)
-			c.Check(typedP.Params[0].UnitTag.Id(), gc.Equals, StubUnitNm)
+			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
+			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
 
 			return nil
 		},
@@ -127,11 +127,11 @@ func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 
 			typedR, ok := response.(*params.ReleaseLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Errors = []*params.Error{nil}
+			typedR.Results = []params.ErrorResult{{}}
 
 			c.Assert(typedP.Params, gc.HasLen, 1)
-			c.Check(typedP.Params[0].ServiceTag.Id(), gc.Equals, StubServiceNm)
-			c.Check(typedP.Params[0].UnitTag.Id(), gc.Equals, StubUnitNm)
+			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
+			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
 
 			return nil
 		},
@@ -157,7 +157,7 @@ func (s *clientSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 			c.Assert(ok, gc.Equals, true)
 			c.Check(typedP.Id(), gc.Equals, StubServiceNm)
 
-			_, ok = response.(*params.Error)
+			_, ok = response.(*params.ErrorResult)
 			c.Assert(ok, gc.Equals, true)
 
 			return nil

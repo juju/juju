@@ -28,28 +28,31 @@ const (
 	SettingsC          = settingsC
 	UnitsC             = unitsC
 	UsersC             = usersC
+	BlockDevicesC      = blockDevicesC
 )
 
 var (
-	ToolstorageNewStorage  = &toolstorageNewStorage
-	ImageStorageNewStorage = &imageStorageNewStorage
-	MachineIdLessThan      = machineIdLessThan
-	NewAddress             = newAddress
-	StateServerAvailable   = &stateServerAvailable
-	GetOrCreatePorts       = getOrCreatePorts
-	GetPorts               = getPorts
-	PortsGlobalKey         = portsGlobalKey
-	CurrentUpgradeId       = currentUpgradeId
-	NowToTheSecond         = nowToTheSecond
-	PickAddress            = &pickAddress
+	ToolstorageNewStorage       = &toolstorageNewStorage
+	ImageStorageNewStorage      = &imageStorageNewStorage
+	MachineIdLessThan           = machineIdLessThan
+	NewAddress                  = newAddress
+	StateServerAvailable        = &stateServerAvailable
+	GetOrCreatePorts            = getOrCreatePorts
+	GetPorts                    = getPorts
+	PortsGlobalKey              = portsGlobalKey
+	CurrentUpgradeId            = currentUpgradeId
+	NowToTheSecond              = nowToTheSecond
+	PickAddress                 = &pickAddress
+	CreateMachineBlockDeviceOps = createMachineBlockDeviceOps
 )
 
 type (
-	CharmDoc    charmDoc
-	MachineDoc  machineDoc
-	RelationDoc relationDoc
-	ServiceDoc  serviceDoc
-	UnitDoc     unitDoc
+	CharmDoc       charmDoc
+	MachineDoc     machineDoc
+	RelationDoc    relationDoc
+	ServiceDoc     serviceDoc
+	UnitDoc        unitDoc
+	BlockDeviceDoc blockDeviceDoc
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -69,7 +72,7 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 }
 
 func newMultiEnvRunnerForHooks(st *State) jujutxn.Runner {
-	runner := newMultiEnvRunner(st.EnvironUUID(), st.db)
+	runner := newMultiEnvRunner(st.EnvironUUID(), st.db, txnAssertEnvIsAlive)
 	st.transactionRunner = runner
 	return getRawRunner(runner)
 }
@@ -285,11 +288,25 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 
 func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) jujutxn.Runner {
 	return &multiEnvRunner{
-		rawRunner: baseRunner,
-		envUUID:   envUUID,
+		rawRunner:      baseRunner,
+		envUUID:        envUUID,
+		assertEnvAlive: true,
 	}
 }
 
 func Sequence(st *State, name string) (int, error) {
 	return st.sequence(name)
+}
+
+// TODO(mjs) - This is a temporary and naive environment destruction
+// function, used to test environment watching. Once the environment
+// destroying work is completed it can go away.
+func RemoveEnvironment(st *State, uuid string) error {
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     uuid,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	return st.runTransaction(ops)
 }

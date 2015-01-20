@@ -52,10 +52,19 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+// longAttempt is used when we are polling for changes to
+// instance state. Such changes may involve a reboot so we
+// want to allow sufficient time for that to happen.
+var longAttempt = utils.AttemptStrategy{
+	Min:   50,
+	Delay: 5 * time.Second,
+}
+
 var (
-	ReleaseNodes     = releaseNodes
-	ReserveIPAddress = reserveIPAddress
-	ReleaseIPAddress = releaseIPAddress
+	ReleaseNodes         = releaseNodes
+	ReserveIPAddress     = reserveIPAddress
+	ReleaseIPAddress     = releaseIPAddress
+	DeploymentStatusCall = deploymentStatusCall
 )
 
 func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
@@ -119,7 +128,24 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	// containers, because we'll be creating juju-br0 at bootstrap
 	// time.
 	args.ContainerBridgeName = environs.DefaultBridgeName
-	return common.Bootstrap(ctx, env, args)
+	result, series, finalizer, err := common.BootstrapInstance(ctx, env, args)
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	// We want to destroy the started instance if it doesn't transition to Deployed.
+	defer func() {
+		if err != nil {
+			if err := env.StopInstances(result.Instance.Id()); err != nil {
+				logger.Errorf("error releasing bootstrap instance: %v", err)
+			}
+		}
+	}()
+	// Wait for bootstrap instance to change to deployed state.
+	if err := env.waitForNodeDeployment(result.Instance.Id()); err != nil {
+		return "", "", nil, errors.Annotate(err, "bootstrap instance started but did not change to Deployed state")
+	}
+	return *result.Hardware.Arch, series, finalizer, nil
 }
 
 // StateServerInstances is specified in the Environ interface.
@@ -180,7 +206,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		return env.supportedArchitectures, nil
 	}
 	bootImages, err := env.allBootImages()
-	if err != nil {
+	if err != nil || len(bootImages) == 0 {
 		logger.Debugf("error querying boot-images: %v", err)
 		logger.Debugf("falling back to listing nodes")
 		supportedArchitectures, err := env.nodeArchitectures()
@@ -258,6 +284,55 @@ func (env *maasEnviron) getNodegroups() ([]string, error) {
 		nodegroups[i] = uuid
 	}
 	return nodegroups, nil
+}
+
+func (env *maasEnviron) getNodegroupInterfaces(nodegroups []string) map[string][]net.IP {
+	nodegroupsObject := env.getMAASClient().GetSubObject("nodegroups")
+
+	nodegroupsInterfacesMap := make(map[string][]net.IP)
+	for _, uuid := range nodegroups {
+		interfacesObject := nodegroupsObject.GetSubObject(uuid).GetSubObject("interfaces")
+		interfacesResult, err := interfacesObject.CallGet("list", nil)
+		if err != nil {
+			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			continue
+		}
+		interfaces, err := interfacesResult.GetArray()
+		if err != nil {
+			logger.Warningf("could not fetch nodegroup-interfaces for nodegroup %v: %v", uuid, err)
+			continue
+		}
+		for _, interfaceResult := range interfaces {
+			nic, err := interfaceResult.GetMap()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			ip, err := nic["ip"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch interface %v for nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_low, err := nic["static_ip_range_low"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch static IP range lower bound for interface %v on nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_high, err := nic["static_ip_range_high"].GetString()
+			if err != nil {
+				logger.Warningf("could not fetch static IP range higher bound for interface %v on nodegroup %v: %v", nic, uuid, err)
+				continue
+			}
+			static_low_ip := net.ParseIP(static_low)
+			static_high_ip := net.ParseIP(static_high)
+			if static_low_ip == nil || static_high_ip == nil {
+				logger.Warningf("invalid IP in static range for interface %v on nodegroup %v: %q %q", nic, uuid, static_low_ip, static_high_ip)
+				continue
+			}
+			nodegroupsInterfacesMap[ip] = []net.IP{static_low_ip, static_high_ip}
+		}
+	}
+	return nodegroupsInterfacesMap
 }
 
 type bootImage struct {
@@ -679,12 +754,12 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// setupNetworks prepares a []network.Info for the given instance. Any
-// networks in networksToDisable will be configured as disabled on the
-// machine. Any disabled network interfaces (as discovered from the
-// lshw output for the node) will stay disabled. The interface name
-// discovered as primary is also returned.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.Info, string, error) {
+// setupNetworks prepares a []network.InterfaceInfo for the given
+// instance. Any networks in networksToDisable will be configured as
+// disabled on the machine. Any disabled network interfaces (as
+// discovered from the lshw output for the node) will stay disabled.
+// The interface name discovered as primary is also returned.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.InterfaceInfo, string, error) {
 	// Get the instance network interfaces first.
 	interfaces, primaryIface, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
@@ -696,7 +771,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		return nil, "", errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
-	var tempNetworkInfo []network.Info
+	var tempInterfaceInfo []network.InterfaceInfo
 	for _, netw := range networks {
 		disabled := networksToDisable.Contains(netw.Name)
 		netCIDR := &net.IPNet{
@@ -710,7 +785,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
 		for _, mac := range macs {
 			if ifinfo, ok := interfaces[mac]; ok {
-				tempNetworkInfo = append(tempNetworkInfo, network.Info{
+				tempInterfaceInfo = append(tempInterfaceInfo, network.InterfaceInfo{
 					MACAddress:    mac,
 					InterfaceName: ifinfo.InterfaceName,
 					DeviceIndex:   ifinfo.DeviceIndex,
@@ -725,8 +800,8 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 	}
 	// Verify we filled-in everything for all networks/interfaces
 	// and drop incomplete records.
-	var networkInfo []network.Info
-	for _, info := range tempNetworkInfo {
+	var interfaceInfo []network.InterfaceInfo
+	for _, info := range tempInterfaceInfo {
 		if info.ProviderId == "" || info.NetworkName == "" || info.CIDR == "" {
 			logger.Warningf("ignoring network interface %q: missing network information", info.InterfaceName)
 			continue
@@ -735,10 +810,10 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisa
 			logger.Warningf("ignoring network %q: missing network interface information", info.ProviderId)
 			continue
 		}
-		networkInfo = append(networkInfo, info)
+		interfaceInfo = append(interfaceInfo, info)
 	}
-	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
-	return networkInfo, primaryIface, nil
+	logger.Debugf("node %q network information: %#v", inst.Id(), interfaceInfo)
+	return interfaceInfo, primaryIface, nil
 }
 
 // DistributeInstances implements the state.InstanceDistributor policy.
@@ -800,6 +875,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	excludeNetworks := args.Constraints.ExcludeNetworks()
 
 	snArgs := selectNodeArgs{
+		Constraints:       args.Constraints,
 		AvailabilityZones: availabilityZones,
 		NodeName:          nodeName,
 		IncludeNetworks:   includeNetworks,
@@ -832,7 +908,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	args.MachineConfig.Tools = selectedTools[0]
 
-	var networkInfo []network.Info
+	var networkInfo []network.InterfaceInfo
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
 	if err != nil {
 		return nil, err
@@ -880,6 +956,55 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		Hardware:    hc,
 		NetworkInfo: networkInfo,
 	}, nil
+}
+
+func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
+	systemId := extractSystemId(id)
+	for a := longAttempt.Start(); a.Next(); {
+		statusValues, err := environ.deploymentStatus(id)
+		if errors.IsNotImplemented(err) {
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if statusValues[systemId] == "Deployed" {
+			return nil
+		}
+	}
+	return errors.Errorf("instance %q is started but not deployed", id)
+}
+
+// deploymentStatus returns the deployment state of MAAS instances with
+// the specified Juju instance ids.
+// Note: the result is a map of MAAS systemId to state.
+func (environ *maasEnviron) deploymentStatus(ids ...instance.Id) (map[string]string, error) {
+	nodesAPI := environ.getMAASClient().GetSubObject("nodes")
+	result, err := DeploymentStatusCall(nodesAPI, ids...)
+	if err != nil {
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusBadRequest {
+			return nil, errors.NewNotImplemented(err, "deployment status")
+		}
+		return nil, errors.Trace(err)
+	}
+	resultMap, err := result.GetMap()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	statusValues := make(map[string]string)
+	for systemId, jsonValue := range resultMap {
+		status, err := jsonValue.GetString()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		statusValues[systemId] = status
+	}
+	return statusValues, nil
+}
+
+func deploymentStatusCall(nodes gomaasapi.MAASObject, ids ...instance.Id) (gomaasapi.JSONObject, error) {
+	filter := getSystemIdValues("nodes", ids)
+	return nodes.CallGet("deployment_status", filter)
 }
 
 type selectNodeArgs struct {
@@ -1100,45 +1225,40 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId)
+	subnets, err := environ.Subnets(instId, []network.Id{netId})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var foundSub *network.SubnetInfo
-	for i, sub := range subnets {
-		if sub.ProviderId == netId {
-			foundSub = &subnets[i]
-			break
-		}
-	}
-	if foundSub == nil {
+	if len(subnets) != 1 {
 		return errors.Errorf("could not find network matching %v", netId)
 	}
+	foundSub := subnets[0]
+
 	cidr := foundSub.CIDR
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	err = ReserveIPAddress(ipaddresses, cidr, addr)
-	if err != nil {
-		maasErr, ok := err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
-		// For an "out of range" IP address, maas raises
-		// StaticIPAddressOutOfRange - an error 403
-		// If there are no more addresses we get
-		// StaticIPAddressExhaustion - an error 503
-		// For an address already in use we get
-		// StaticIPAddressUnavailable - an error 404
-		if maasErr.StatusCode == 404 {
-			return environs.ErrIPAddressUnavailable
-		} else if maasErr.StatusCode == 503 {
-			return environs.ErrIPAddressesExhausted
-		}
-		// any error other than a 404 or 503 is "unexpected" and should
-		// be returned directly.
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Trace(err)
+	}
+	// For an "out of range" IP address, maas raises
+	// StaticIPAddressOutOfRange - an error 403
+	// If there are no more addresses we get
+	// StaticIPAddressExhaustion - an error 503
+	// For an address already in use we get
+	// StaticIPAddressUnavailable - an error 404
+	if maasErr.StatusCode == 404 {
+		return environs.ErrIPAddressUnavailable
+	} else if maasErr.StatusCode == 503 {
+		return environs.ErrIPAddressesExhausted
+	}
+	// any error other than a 404 or 503 is "unexpected" and should
+	// be returned directly.
+	return errors.Trace(err)
 }
 
 // ReleaseAddress releases a specific address previously allocated with
@@ -1156,9 +1276,20 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 	return nil
 }
 
-// Subnets returns basic information about all subnets known
-// by the provider for the environment, for a specific instance.
-func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, error) {
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not implemented on this provider yet.
+func (*maasEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("NetworkInterfaces")
+}
+
+// Subnets returns basic information about the specified subnets for a specific
+// instance.
+func (environ *maasEnviron) Subnets(instId instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+	// At some point in the future an empty netIds may mean "fetch all subnets"
+	// but until that functionality is needed it's an error.
+	if len(netIds) == 0 {
+		return nil, errors.Errorf("netIds must not be empty")
+	}
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
@@ -1172,17 +1303,45 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", instId, networks)
+
+	nodegroups, err := environ.getNodegroups()
+	if err != nil {
+		return nil, errors.Annotatef(err, "getNodegroups failed")
+	}
+	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
+
+	netIdSet := make(map[network.Id]bool)
+	for _, netId := range netIds {
+		netIdSet[netId] = false
+	}
+
 	var networkInfo []network.SubnetInfo
 	for _, netw := range networks {
+		_, ok := netIdSet[network.Id(netw.Name)]
+		if !ok {
+			continue
+		}
+		// mark that we've found this subnet
+		netIdSet[network.Id(netw.Name)] = true
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
-		// TODO: (mfoord 2014-12-17) need to fill in AllocatableIPLow & High
+		var allocatableHigh, allocatableLow net.IP
+		for ip, bounds := range nodegroupInterfaces {
+			contained := netCIDR.Contains(net.ParseIP(ip))
+			if contained {
+				allocatableLow = bounds[0]
+				allocatableHigh = bounds[1]
+				break
+			}
+		}
 		netInfo := network.SubnetInfo{
-			CIDR:       netCIDR.String(),
-			VLANTag:    netw.VLANTag,
-			ProviderId: network.Id(netw.Name),
+			CIDR:              netCIDR.String(),
+			VLANTag:           netw.VLANTag,
+			ProviderId:        network.Id(netw.Name),
+			AllocatableIPLow:  allocatableLow,
+			AllocatableIPHigh: allocatableHigh,
 		}
 
 		// Verify we filled-in everything for all networks
@@ -1195,6 +1354,17 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 		networkInfo = append(networkInfo, netInfo)
 	}
 	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
+
+	notFound := []network.Id{}
+	for netId, found := range netIdSet {
+		if !found {
+			notFound = append(notFound, netId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following networks: %v", notFound)
+	}
+
 	return networkInfo, nil
 }
 

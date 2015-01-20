@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -108,7 +108,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +157,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
@@ -309,17 +309,17 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a service with a unit.
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	unit, err := mysql.AddUnit()
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	unit, err := dummy.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
 
 	// Add a couple actions to the unit
-	_, err = unit.AddAction("action1", nil)
+	_, err = unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit.AddAction("action2", nil)
+	_, err = unit.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure unit still has actions
@@ -328,7 +328,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// destroy unit and run cleanups
-	err = mysql.Destroy()
+	err = dummy.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
