@@ -15,6 +15,7 @@ import (
 )
 
 type poolSuite struct {
+	// TODO - don't use state directly, mock it out and add feature tests.
 	statetesting.StateSuite
 	poolManager pool.PoolManager
 	settings    pool.SettingsManager

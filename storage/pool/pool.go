@@ -34,7 +34,7 @@ func (c *config) values() map[string]interface{} {
 }
 
 func (c *config) validate() error {
-	//TODO: validate the storage provider type's value, not just that it is non empty.
+	//TODO: properly validate the config attributes.
 	if c.attrs[Type] == "" {
 		return MissingTypeError
 	}
