@@ -806,7 +806,7 @@ func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
 	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
 }
 
-func (s *loginSuite) TestBadEnvironment(c *gc.C) {
+func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
@@ -835,23 +835,6 @@ func (s *loginSuite) TestInvalidEnvironment(c *gc.C) {
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser.String(), "dummy-secret", "")
 	c.Assert(err, gc.ErrorMatches, `unknown environment: "rubbish"`)
-}
-
-func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected names.EnvironTag) {
-	// Look at what the api thinks it has.
-	tag, err := st.EnvironTag()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tag, gc.Equals, expected)
-	// Look at what the api Client thinks it has.
-	client := st.Client()
-
-	// EnvironmentUUID looks at the env tag on the api state connection.
-	c.Assert(client.EnvironmentUUID(), gc.Equals, expected.Id())
-
-	// EnvironmentInfo calls a remote method that looks up the environment.
-	info, err := client.EnvironmentInfo()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.UUID, gc.Equals, expected.Id())
 }
 
 func (s *loginSuite) TestOtherEnvironment(c *gc.C) {
@@ -889,6 +872,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 		},
 		Prepare: true,
 	})
+	defer envState.Close()
 
 	f2 := factory.NewFactory(envState)
 	password, err := utils.RandomPassword()
@@ -898,7 +882,6 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 		Nonce:    "nonce",
 	})
 
-	defer envState.Close()
 	info.EnvironTag = envState.EnvironTag()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -906,4 +889,21 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 
 	err = st.Login(machine.Tag().String(), password, "nonce")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected names.EnvironTag) {
+	// Look at what the api thinks it has.
+	tag, err := st.EnvironTag()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag, gc.Equals, expected)
+	// Look at what the api Client thinks it has.
+	client := st.Client()
+
+	// EnvironmentUUID looks at the env tag on the api state connection.
+	c.Assert(client.EnvironmentUUID(), gc.Equals, expected.Id())
+
+	// EnvironmentInfo calls a remote method that looks up the environment.
+	info, err := client.EnvironmentInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.UUID, gc.Equals, expected.Id())
 }
