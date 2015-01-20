@@ -372,7 +372,7 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Build the new service config from what can be used of the old one.
 	var newSettings charm.Settings
-	oldSettings, err := ReadSettings(s.st, s.settingsKey())
+	oldSettings, err := readSettings(s.st, s.settingsKey())
 	if err == nil {
 		// Filter the old settings through to get the new settings.
 		newSettings = ch.Config().FilterSettings(oldSettings.Map())
@@ -386,7 +386,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Create or replace service settings.
 	var settingsOp txn.Op
 	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
-	if _, err := ReadSettings(s.st, newKey); errors.IsNotFound(err) {
+	if _, err := readSettings(s.st, newKey); errors.IsNotFound(err) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(s.st, newKey, newSettings)
 	} else if err != nil {
@@ -770,7 +770,7 @@ func serviceRelations(st *State, name string) (relations []*Relation, err error)
 // ConfigSettings returns the raw user configuration for the service's charm.
 // Unset values are omitted.
 func (s *Service) ConfigSettings() (charm.Settings, error) {
-	settings, err := ReadSettings(s.st, s.settingsKey())
+	settings, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
 		return nil, err
 	}
@@ -792,7 +792,7 @@ func (s *Service) UpdateConfigSettings(changes charm.Settings) error {
 	// about every use case. This needs to be resolved some time; but at
 	// least the settings docs are keyed by charm url as well as service
 	// name, so the actual impact of a race is non-threatening.
-	node, err := ReadSettings(s.st, s.settingsKey())
+	node, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
 		return err
 	}

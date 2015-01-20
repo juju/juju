@@ -393,7 +393,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ReadSettings(ru.st, key)
+	return readSettings(ru.st, key)
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -412,7 +412,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, er
 	if err != nil {
 		return nil, err
 	}
-	node, err := ReadSettings(ru.st, key)
+	node, err := readSettings(ru.st, key)
 	if err != nil {
 		return nil, err
 	}

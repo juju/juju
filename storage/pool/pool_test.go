@@ -16,6 +16,8 @@ import (
 
 type poolSuite struct {
 	statetesting.StateSuite
+	poolManager pool.PoolManager
+	settings    pool.SettingsManager
 }
 
 var _ = gc.Suite(&poolSuite{})
@@ -24,18 +26,23 @@ var poolAttrs = map[string]interface{}{
 	"name": "testpool", "type": "loop", "foo": "bar",
 }
 
+func (s *poolSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.settings = state.NewStateSettings(s.State)
+	s.poolManager = pool.NewPoolManager(s.settings)
+}
+
 func (s *poolSuite) createSettings(c *gc.C) {
-	_, err := state.CreateSettings(s.State, "pool#testpool", poolAttrs)
+	err := s.settings.CreateSettings("pool#testpool", poolAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	// Create settings that isn't a pool.
-	_, err = state.CreateSettings(s.State, "r#1", nil)
+	err = s.settings.CreateSettings("r#1", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *poolSuite) TestList(c *gc.C) {
 	s.createSettings(c)
-	pm := pool.NewPoolManager(s.State)
-	pools, err := pm.List()
+	pools, err := s.poolManager.List()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0].Config(), gc.DeepEquals, poolAttrs)
@@ -43,10 +50,34 @@ func (s *poolSuite) TestList(c *gc.C) {
 	c.Assert(pools[0].Type(), gc.Equals, storage.ProviderType("loop"))
 }
 
+func (s *poolSuite) TestListManyResults(c *gc.C) {
+	s.createSettings(c)
+	err := s.settings.CreateSettings("pool#testpool2", map[string]interface{}{
+		"name": "testpool2", "type": "loop", "foo2": "bar2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	pools, err := s.poolManager.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pools, gc.HasLen, 2)
+	poolCfgs := make(map[string]map[string]interface{})
+	for _, p := range pools {
+		poolCfgs[p.Name()] = p.Config()
+	}
+	c.Assert(poolCfgs, jc.DeepEquals, map[string]map[string]interface{}{
+		"testpool":  {"name": "testpool", "type": "loop", "foo": "bar"},
+		"testpool2": {"name": "testpool2", "type": "loop", "foo2": "bar2"},
+	})
+}
+
+func (s *poolSuite) TestListNoPools(c *gc.C) {
+	pools, err := s.poolManager.List()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pools, gc.HasLen, 0)
+}
+
 func (s *poolSuite) TestPool(c *gc.C) {
 	s.createSettings(c)
-	pm := pool.NewPoolManager(s.State)
-	p, err := pm.Pool("testpool")
+	p, err := s.poolManager.Get("testpool")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p.Config(), gc.DeepEquals, poolAttrs)
 	c.Assert(p.Name(), gc.Equals, "testpool")
@@ -54,10 +85,9 @@ func (s *poolSuite) TestPool(c *gc.C) {
 }
 
 func (s *poolSuite) TestCreate(c *gc.C) {
-	pm := pool.NewPoolManager(s.State)
-	created, err := pm.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
+	created, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	p, err := pm.Pool("testpool")
+	p, err := s.poolManager.Get("testpool")
 	c.Assert(created, gc.DeepEquals, p)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p.Config(), gc.DeepEquals, poolAttrs)
@@ -65,26 +95,30 @@ func (s *poolSuite) TestCreate(c *gc.C) {
 	c.Assert(p.Type(), gc.Equals, storage.ProviderType("loop"))
 }
 
+func (s *poolSuite) TestCreateAlreadyExists(c *gc.C) {
+	_, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.poolManager.Create("testpool", storage.ProviderType("loop"), map[string]interface{}{"foo": "bar"})
+	c.Assert(err, gc.ErrorMatches, ".*cannot overwrite.*")
+}
+
 func (s *poolSuite) TestCreateMissingName(c *gc.C) {
-	pm := pool.NewPoolManager(s.State)
-	_, err := pm.Create("", "loop", map[string]interface{}{"foo": "bar"})
+	_, err := s.poolManager.Create("", "loop", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "pool name is missing")
 }
 
 func (s *poolSuite) TestCreateMissingType(c *gc.C) {
-	pm := pool.NewPoolManager(s.State)
-	_, err := pm.Create("testpool", "", map[string]interface{}{"foo": "bar"})
+	_, err := s.poolManager.Create("testpool", "", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "provider type is missing")
 }
 
 func (s *poolSuite) TestDelete(c *gc.C) {
 	s.createSettings(c)
-	pm := pool.NewPoolManager(s.State)
-	err := pm.Delete("testpool")
+	err := s.poolManager.Delete("testpool")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = pm.Pool("testpool")
+	_, err = s.poolManager.Get("testpool")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// Delete again, no error.
-	err = pm.Delete("testpool")
+	err = s.poolManager.Delete("testpool")
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -745,7 +745,7 @@ func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key
 // supplied id, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
 func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnitsChange, key string) (int64, error) {
-	node, err := ReadSettings(w.st, key)
+	node, err := readSettings(w.st, key)
 	if err != nil {
 		return -1, err
 	}
@@ -1158,7 +1158,7 @@ func (w *settingsWatcher) Changes() <-chan *Settings {
 func (w *settingsWatcher) loop(key string) (err error) {
 	ch := make(chan watcher.Change)
 	revno := int64(-1)
-	settings, err := ReadSettings(w.st, key)
+	settings, err := readSettings(w.st, key)
 	if err == nil {
 		revno = settings.txnRevno
 	} else if !errors.IsNotFound(err) {
@@ -1177,7 +1177,7 @@ func (w *settingsWatcher) loop(key string) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
-			settings, err = ReadSettings(w.st, key)
+			settings, err = readSettings(w.st, key)
 			if err != nil {
 				return err
 			}

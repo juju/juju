@@ -27,9 +27,16 @@ type PoolManager interface {
 	// Delete removes the pool with name from state.
 	Delete(name string) error
 
-	// Pool returns the pool with name from state.
-	Pool(name string) (Pool, error)
+	// Get returns the pool with name from state.
+	Get(name string) (Pool, error)
 
 	// List returns all the pools from state.
 	List() ([]Pool, error)
+}
+
+type SettingsManager interface {
+	CreateSettings(key string, settings map[string]interface{}) error
+	ReadSettings(key string) (map[string]interface{}, error)
+	RemoveSettings(key string) error
+	ListSettings(keyPrefix string) (map[string]map[string]interface{}, error)
 }

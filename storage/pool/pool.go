@@ -6,7 +6,6 @@ package pool
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
 
@@ -27,11 +26,15 @@ type config struct {
 }
 
 func (c *config) values() map[string]interface{} {
-	attrs := c.attrs
-	return attrs
+	copy := make(map[string]interface{})
+	for k, v := range c.attrs {
+		copy[k] = v
+	}
+	return copy
 }
 
 func (c *config) validate() error {
+	//TODO: validate the storage provider type's value, not just that it is non empty.
 	if c.attrs[Type] == "" {
 		return MissingTypeError
 	}
@@ -63,14 +66,14 @@ func (p *pool) Config() map[string]interface{} {
 }
 
 // NewPoolManager returns a NewPoolManager implementation using the specified state.
-func NewPoolManager(st *state.State) PoolManager {
-	return &poolManager{st}
+func NewPoolManager(settings SettingsManager) PoolManager {
+	return &poolManager{settings}
 }
 
 var _ PoolManager = (*poolManager)(nil)
 
 type poolManager struct {
-	st *state.State
+	settings SettingsManager
 }
 
 const globalKeyPrefix = "pool#"
@@ -91,7 +94,7 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	if _, err := state.CreateSettings(pm.st, globalKey(name), poolAttrs); err != nil {
+	if err := pm.settings.CreateSettings(globalKey(name), poolAttrs); err != nil {
 		return nil, errors.Annotatef(err, "creating pool %q", name)
 	}
 	return &pool{cfg}, nil
@@ -99,31 +102,31 @@ func (pm *poolManager) Create(name string, providerType storage.ProviderType, at
 
 // Delete is defined on PoolManager interface.
 func (pm *poolManager) Delete(name string) error {
-	err := state.RemoveSettings(pm.st, globalKey(name))
+	err := pm.settings.RemoveSettings(globalKey(name))
 	if err == nil || errors.IsNotFound(err) {
 		return nil
 	}
 	return errors.Annotatef(err, "deleting pool %q", name)
 }
 
-// Pool is defined on PoolManager interface.
-func (pm *poolManager) Pool(name string) (Pool, error) {
-	settings, err := state.ReadSettings(pm.st, globalKey(name))
+// Get is defined on PoolManager interface.
+func (pm *poolManager) Get(name string) (Pool, error) {
+	settings, err := pm.settings.ReadSettings(globalKey(name))
 	if err != nil {
 		return nil, errors.Annotatef(err, "reading pool %q", name)
 	}
-	return &pool{&config{settings.Map()}}, nil
+	return &pool{&config{settings}}, nil
 }
 
 // List is defined on PoolManager interface.
 func (pm *poolManager) List() ([]Pool, error) {
-	settings, err := state.ListSettings(pm.st, globalKeyPrefix)
+	settings, err := pm.settings.ListSettings(globalKeyPrefix)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing pool settings")
 	}
-	result := make([]Pool, len(settings))
-	for i, attrs := range settings {
-		result[i] = &pool{&config{attrs}}
+	var result []Pool
+	for _, attrs := range settings {
+		result = append(result, &pool{&config{attrs}})
 	}
 	return result, nil
 }

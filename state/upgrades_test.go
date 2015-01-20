@@ -1694,7 +1694,7 @@ func (s *upgradesSuite) checkAvailabilityZone(c *gc.C, machineID string, expecte
 // setUpJobManageNetworking prepares the test environment for the JobManageNetworking tests.
 func (s *upgradesSuite) setUpJobManageNetworking(c *gc.C, provider string, manual bool) {
 	// Set provider type.
-	settings, err := ReadSettings(s.state, environGlobalKey)
+	settings, err := readSettings(s.state, environGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	settings.Set("type", provider)
 	_, err = settings.Write()
