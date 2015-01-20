@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"testing"
 
@@ -30,6 +31,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -52,6 +54,9 @@ var _ = gc.Suite(&uploadSuite{})
 var _ = gc.Suite(&badBuildSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
@@ -208,6 +213,9 @@ type uploadSuite struct {
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -230,7 +238,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	// TODO(waigani) Does this test need to download tools? If not,
 	// sync.bundleTools can be mocked to improve test speed.
 	dir := downloadTools(c, t)
-	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
+	out, err := exec.Command(filepath.Join(dir, names.Jujud), "version").CombinedOutput()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
 }
@@ -363,6 +371,9 @@ exit 1
 `[1:]
 
 func (s *badBuildSuite) SetUpSuite(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 }

@@ -79,7 +79,12 @@ func (s *filestorageSuite) TestList(c *gc.C) {
 		c.Logf("test %d: prefix=%q", i, test.prefix)
 		files, err := storage.List(s.reader, test.prefix)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(files, gc.DeepEquals, test.expected)
+		i := len(files)
+		j := len(test.expected)
+		c.Assert(i, gc.Equals, j)
+		for i, _ := range files {
+			c.Assert(files[i], jc.SamePath, test.expected[i])
+		}
 	}
 }
 
