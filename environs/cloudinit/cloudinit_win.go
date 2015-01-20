@@ -130,7 +130,7 @@ func (w *windowsConfigure) machineAgentWindowsService(name, toolsDir string) []s
 func (w *windowsConfigure) addMachineAgentToBoot(tag string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
-	// the upstart script.
+	// the init script.
 	toolsDir := tools.ToolsDir(w.mcfg.DataDir, tag)
 	w.conf.AddScripts(
 		fmt.Sprintf(
