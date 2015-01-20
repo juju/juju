@@ -202,7 +202,7 @@ func (st *State) Watch() *Multiwatcher {
 }
 
 func (st *State) EnvironConfig() (*config.Config, error) {
-	settings, err := readSettings(st, environGlobalKey)
+	settings, err := ReadSettings(st, environGlobalKey)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -309,7 +309,7 @@ func IsUpgradeInProgressError(err error) bool {
 // stable state (all agents are running the current version).
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		settings, err := readSettings(st, environGlobalKey)
+		settings, err := ReadSettings(st, environGlobalKey)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -391,7 +391,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	// applied as a delta to what's on disk; if there has
 	// been a concurrent update, the change may not be what
 	// the user asked for.
-	settings, err := readSettings(st, environGlobalKey)
+	settings, err := ReadSettings(st, environGlobalKey)
 	if err != nil {
 		return errors.Trace(err)
 	}

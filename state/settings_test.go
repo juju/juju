@@ -23,29 +23,29 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *gc.C) {
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.Keys(), gc.DeepEquals, []string{})
 }
 
 func (s *SettingsSuite) TestCannotOverwrite(c *gc.C) {
-	_, err := createSettings(s.state, s.key, nil)
+	_, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = createSettings(s.state, s.key, nil)
+	_, err = CreateSettings(s.state, s.key, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot overwrite existing settings")
 }
 
 func (s *SettingsSuite) TestCannotReadMissing(c *gc.C) {
-	_, err := readSettings(s.state, s.key)
+	_, err := ReadSettings(s.state, s.key)
 	c.Assert(err, gc.ErrorMatches, "settings not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = removeSettings(s.state, s.key)
+	err = RemoveSettings(s.state, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 
 	node.Set("foo", "bar")
@@ -55,7 +55,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Update(options)
@@ -81,9 +81,9 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 
 func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 	// Check version conflict errors.
-	nodeOne, err := createSettings(s.state, s.key, nil)
+	nodeOne, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	nodeTwo, err := readSettings(s.state, s.key)
+	nodeTwo, err := ReadSettings(s.state, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 
 	optionsOld := map[string]interface{}{"alpha": "beta", "one": 1}
@@ -140,7 +140,7 @@ func (s *SettingsSuite) TestConflictOnSet(c *gc.C) {
 
 func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	// Check that Set works as expected.
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	options := map[string]interface{}{"alpha": "beta", "one": 1}
 	node.Set("alpha", "beta")
@@ -165,7 +165,7 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 
 func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	// Check that Set works as expected.
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	options := map[string]interface{}{"$bar": 1, "foo.alpha": "beta"}
 	node.Set("foo.alpha", "beta")
@@ -192,7 +192,7 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	// Now get another state by reading from the database instance and
 	// check read state has replaced '.' and '$' after fetching from
 	// MongoDB.
-	nodeTwo, err := readSettings(s.state, s.key)
+	nodeTwo, err := ReadSettings(s.state, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nodeTwo.disk, gc.DeepEquals, options)
 	c.Assert(nodeTwo.core, gc.DeepEquals, options)
@@ -200,7 +200,7 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 
 func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	// Check that replaceSettings works as expected.
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	node.Set("foo.alpha", "beta")
 	node.Set("$bar", 1)
@@ -232,7 +232,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 func (s *SettingsSuite) TestCreateSettingsEscape(c *gc.C) {
 	// Check that createSettings works as expected.
 	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
-	node, err := createSettings(s.state, s.key, options)
+	node, err := CreateSettings(s.state, s.key, options)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check local state.
@@ -251,7 +251,7 @@ func (s *SettingsSuite) TestCreateSettingsEscape(c *gc.C) {
 
 func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	// Check that reads without writes always resets the data.
-	nodeOne, err := createSettings(s.state, s.key, nil)
+	nodeOne, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	nodeOne.Update(map[string]interface{}{"alpha": "beta", "foo": "bar"})
 	value, ok := nodeOne.Get("alpha")
@@ -284,7 +284,7 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 	c.Assert(value, gc.Equals, "bar")
 
 	// Now get another state instance and change underlying state.
-	nodeTwo, err := readSettings(s.state, s.key)
+	nodeTwo, err := ReadSettings(s.state, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 	nodeTwo.Update(map[string]interface{}{"foo": "different"})
 	changes, err = nodeTwo.Write()
@@ -305,7 +305,7 @@ func (s *SettingsSuite) TestMultipleReads(c *gc.C) {
 }
 
 func (s *SettingsSuite) TestDeleteEmptiesState(c *gc.C) {
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	node.Set("a", "foo")
 	changes, err := node.Write()
@@ -324,7 +324,7 @@ func (s *SettingsSuite) TestDeleteEmptiesState(c *gc.C) {
 
 func (s *SettingsSuite) TestReadResync(c *gc.C) {
 	// Check that read pulls the data into the node.
-	nodeOne, err := createSettings(s.state, s.key, nil)
+	nodeOne, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -332,7 +332,7 @@ func (s *SettingsSuite) TestReadResync(c *gc.C) {
 	c.Assert(changes, gc.DeepEquals, []ItemChange{
 		{ItemAdded, "a", nil, "foo"},
 	})
-	nodeTwo, err := readSettings(s.state, s.key)
+	nodeTwo, err := ReadSettings(s.state, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 	nodeTwo.Delete("a")
 	changes, err = nodeTwo.Write()
@@ -356,7 +356,7 @@ func (s *SettingsSuite) TestReadResync(c *gc.C) {
 
 func (s *SettingsSuite) TestMultipleWrites(c *gc.C) {
 	// Check that multiple writes only do the right changes.
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	changes, err := node.Write()
@@ -391,7 +391,7 @@ func (s *SettingsSuite) TestMultipleWrites(c *gc.C) {
 }
 
 func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
-	node, err := createSettings(s.state, s.key, nil)
+	node, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	node.Update(map[string]interface{}{"foo": "bar", "this": "that"})
 	_, err = node.Write()
@@ -420,7 +420,7 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 
 func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 	// Check the correct writing into a node by two config nodes.
-	nodeOne, err := createSettings(s.state, s.key, nil)
+	nodeOne, err := CreateSettings(s.state, s.key, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	nodeOne.Set("a", "foo")
 	changes, err := nodeOne.Write()
@@ -429,7 +429,7 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 		{ItemAdded, "a", nil, "foo"},
 	})
 
-	nodeTwo, err := readSettings(s.state, s.key)
+	nodeTwo, err := ReadSettings(s.state, s.key)
 	c.Assert(err, jc.ErrorIsNil)
 	nodeTwo.Set("a", "bar")
 	changes, err = nodeTwo.Write()
@@ -449,6 +449,18 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 	c.Assert(nodeOne.key, gc.Equals, nodeTwo.key)
 	c.Assert(nodeOne.disk, gc.DeepEquals, nodeTwo.disk)
 	c.Assert(nodeOne.core, gc.DeepEquals, nodeTwo.core)
+}
+
+func (s *SettingsSuite) TestList(c *gc.C) {
+	_, err := CreateSettings(s.state, "key#1", map[string]interface{}{"foo1": "bar1"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = CreateSettings(s.state, "another#1", map[string]interface{}{"foo2": "bar2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	nodes, err := ListSettings(s.state, "key#")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodes, gc.HasLen, 1)
+	c.Assert(nodes[0], jc.DeepEquals, map[string]interface{}{"foo1": "bar1"})
 }
 
 // cleanMgoSettings will remove MongoDB-specific settings but not unescape any

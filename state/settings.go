@@ -266,8 +266,8 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	return config, txnRevno, nil
 }
 
-// readSettings returns the Settings for key.
-func readSettings(st *State, key string) (*Settings, error) {
+// ReadSettings returns the Settings for key.
+func ReadSettings(st *State, key string) (*Settings, error) {
 	s := newSettings(st, key)
 	if err := s.Read(); err != nil {
 		return nil, err
@@ -289,7 +289,7 @@ func createSettingsOp(st *State, key string, values map[string]interface{}) txn.
 }
 
 // createSettings writes an initial config node.
-func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
+func CreateSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
 	s := newSettings(st, key)
 	s.core = copyMap(values, nil)
 	ops := []txn.Op{createSettingsOp(st, key, values)}
@@ -303,8 +303,8 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 	return s, nil
 }
 
-// removeSettings removes the Settings for key.
-func removeSettings(st *State, key string) error {
+// RemoveSettings removes the Settings for key.
+func RemoveSettings(st *State, key string) error {
 	settings, closer := st.getCollection(settingsC)
 	defer closer()
 
@@ -315,12 +315,28 @@ func removeSettings(st *State, key string) error {
 	return nil
 }
 
+// ListSettings returns all the settings with the specified key prefix.
+func ListSettings(st *State, keyPrefix string) ([]map[string]interface{}, error) {
+	settings, closer := st.getRawCollection(settingsC)
+	defer closer()
+
+	var matchingSettings []map[string]interface{}
+	findExpr := fmt.Sprintf("^%s.*$", st.docID(keyPrefix))
+	if err := settings.Find(bson.D{{"_id", bson.D{{"$regex", findExpr}}}}).All(&matchingSettings); err != nil {
+		return nil, err
+	}
+	for i := range matchingSettings {
+		cleanSettingsMap(matchingSettings[i])
+	}
+	return matchingSettings, nil
+}
+
 // replaceSettingsOp returns a txn.Op that deletes the document's contents and
 // replaces it with the supplied values, and a function that should be called on
 // txn failure to determine whether this operation failed (due to a concurrent
 // settings change).
 func replaceSettingsOp(st *State, key string, values map[string]interface{}) (txn.Op, func() (bool, error), error) {
-	s, err := readSettings(st, key)
+	s, err := ReadSettings(st, key)
 	if err != nil {
 		return txn.Op{}, nil, err
 	}
@@ -334,7 +350,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	op := s.assertUnchangedOp()
 	op.Update = setUnsetUpdate(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
-		latest, err := readSettings(st, key)
+		latest, err := ReadSettings(st, key)
 		if err != nil {
 			return false, err
 		}
