@@ -1038,9 +1038,12 @@ class TestDeployManyAttempt(TestCase):
 
     def predict_remove_machine_calls(self, deploy_many):
         total_guests = deploy_many.host_count * deploy_many.container_count
-        for host in range(100, total_guests + 100):
+        for guest in range(100, total_guests + 100):
             yield ('juju', '--show-log', 'remove-machine', '-e', 'steve',
-                   '--force', str(host))
+                   '--force', str(guest))
+        for host in range(1, deploy_many.host_count + 1):
+            yield ('juju', '--show-log', 'remove-machine', '-e', 'steve',
+                   str(host))
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
