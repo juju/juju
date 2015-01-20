@@ -89,7 +89,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return []string{placement.zone.Name()}, nil
+		return []string{placement.Zone.Name()}, nil
 	}
 
 	// If no availability zone is specified, then automatically spread across

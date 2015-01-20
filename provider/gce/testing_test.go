@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
@@ -72,7 +73,8 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		AutoDelete: true,
 	}
 	metadata := map[string]string{
-		"eggs": "steak",
+		"eggs":             "steak",
+		metadataKeyIsState: metadataValueTrue,
 	}
 	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
@@ -164,7 +166,11 @@ func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
 }
 
-// TODO(ericsnow) Add a method to patch tools metadata?
+func (s *BaseSuite) PatchGetInstances(err error, insts ...instance.Instance) {
+	s.PatchValue(&getInstances, func(env *environ) ([]instance.Instance, error) {
+		return insts, err
+	})
+}
 
 // TODO(ericsnow) Move fakeCallArgs, fakeCall, and fake to the testing repo?
 

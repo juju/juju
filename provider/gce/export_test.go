@@ -9,8 +9,10 @@ import (
 )
 
 var (
-	Provider    environs.EnvironProvider = providerInstance
-	NewInstance                          = newInstance
+	Provider          environs.EnvironProvider = providerInstance
+	NewInstance                                = newInstance
+	GetInstances                               = getInstances
+	CheckInstanceType                          = checkInstanceType
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {
@@ -39,4 +41,8 @@ func ExposeEnvConnection(env *environ) gceConnection {
 
 func GlobalFirewallName(env *environ) string {
 	return env.globalFirewallName()
+}
+
+func ParsePlacement(env *environ, placement string) (*instPlacement, error) {
+	return env.parsePlacement(placement)
 }

@@ -17,6 +17,9 @@ var (
 // Instance types are not associated with disks in GCE, so we do not
 // set RootDisk.
 
+// TODO(ericsnow) Dynamically generate the type specs from the official
+// JSON file.
+
 // Shared-core machine types.
 var allInstanceTypes = []instances.InstanceType{
 	{ // Standard machine types

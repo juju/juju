@@ -33,7 +33,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances, err := env.instances()
+	instances, err := getInstances(env)
 	if err != nil {
 		// We don't return the error since we need to pack one instance
 		// for each ID into the result. If there is a problem then we
@@ -64,6 +64,10 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return results, err
 }
 
+var getInstances = func(env *environ) ([]instance.Instance, error) {
+	return env.instances()
+}
+
 // instances returns a list of all "alive" instances in the environment.
 // This means only instances where the IDs match
 // "juju-<env name>-machine-*". This is important because otherwise juju
@@ -76,7 +80,7 @@ func (env *environ) instances() ([]instance.Instance, error) {
 	instances, err := env.gce.Instances(prefix, instStatuses...)
 	err = errors.Trace(err)
 
-	// Turn client.Instance values into *environInstance values,
+	// Turn google.Instance values into *environInstance values,
 	// whether or not we got an error.
 	var results []instance.Instance
 	for _, base := range instances {
@@ -112,8 +116,9 @@ func (env *environ) StateServerInstances() ([]instance.Id, error) {
 	return results, nil
 }
 
+// TODO(ericsnow) Turn into an interface.
 type instPlacement struct {
-	zone *google.AvailabilityZone
+	Zone *google.AvailabilityZone
 }
 
 // parsePlacement extracts the availability zone from the placement
@@ -131,7 +136,7 @@ func (env *environ) parsePlacement(placement string) (*instPlacement, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &instPlacement{zone: zone}, nil
+		return &instPlacement{Zone: zone}, nil
 	}
 	return nil, errors.Errorf("unknown placement directive: %v", placement)
 }
