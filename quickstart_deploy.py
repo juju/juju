@@ -20,11 +20,16 @@ from jujupy import (
 from utility import ensure_deleted
 
 
-def update_env(env, series=None, agent_url=None):
+def update_env(env, series=None, agent_url=None, juju_home=None):
     if series is not None:
         env.config['default-series'] = series
     if agent_url is not None:
         env.config['tools-metadata-url'] = agent_url
+    if juju_home is not None:
+        # https://bugs.launchpad.net/juju-quickstart/+bug/1411846 workaround
+        if env.config['type'] == 'azure':
+            azure_pem_path = '%s/%s' % (juju_home, 'azure.pem')
+            env.config['management-certificate-path'] = azure_pem_path
 
 
 def run_quickstart(environment, bundle_path, count, series, agent_url, debug):
@@ -38,8 +43,8 @@ def run_quickstart(environment, bundle_path, count, series, agent_url, debug):
     """
     env = Environment.from_config(environment)
     env.client.debug = debug
-    update_env(env, series=series, agent_url=agent_url)
     juju_home = get_juju_home()
+    update_env(env, series=series, agent_url=agent_url, juju_home=juju_home)
     ensure_deleted(get_jenv_path(juju_home, env.environment))
     env.destroy_environment()
     quickstart_from_env(juju_home, env.client.get_env_client(env), bundle_path)
