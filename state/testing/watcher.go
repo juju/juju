@@ -4,10 +4,10 @@
 package testing
 
 import (
-	"sort"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -158,16 +158,9 @@ func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
 		c.Assert(actual, gc.HasLen, 0)
 	} else {
 		actualCount := len(actual)
-		c.Assert(actualCount <= maxCount, jc.IsTrue)
-		for _, a := range actual {
-			expected := false
-			for _, e := range expect {
-				if a == e {
-					expected = true
-				}
-			}
-			c.Assert(expected, jc.IsTrue)
-		}
+		c.Assert(actualCount <= maxCount, jc.IsTrue, gc.Commentf("expected at most %d, got %d", maxCount, actualCount))
+		unexpected := set.NewStrings(actual...).Difference(set.NewStrings(expect...))
+		c.Assert(unexpected.Values(), gc.HasLen, 0)
 	}
 }
 
@@ -178,9 +171,7 @@ func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 	if len(expect) == 0 {
 		c.Assert(actual, gc.HasLen, 0)
 	} else {
-		sort.Strings(expect)
-		sort.Strings(actual)
-		c.Assert(actual, gc.DeepEquals, expect)
+		c.Assert(actual, jc.SameContents, expect)
 	}
 }
 
