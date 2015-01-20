@@ -209,23 +209,27 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts bson.D) []txn.Op {
 	settingsDocID := s.st.docID(s.settingsKey())
-	ops := []txn.Op{{
-		C:      servicesC,
-		Id:     s.doc.DocID,
-		Assert: asserts,
-		Remove: true,
-	}, {
-		C:      settingsrefsC,
-		Id:     settingsDocID,
-		Remove: true,
-	}, {
-		C:      settingsC,
-		Id:     settingsDocID,
-		Remove: true,
-	}}
-	ops = append(ops, removeRequestedNetworksOp(s.st, s.globalKey()))
-	ops = append(ops, removeConstraintsOp(s.st, s.globalKey()))
-	return append(ops, annotationRemoveOp(s.st, s.globalKey()))
+	ops := []txn.Op{
+		{
+			C:      servicesC,
+			Id:     s.doc.DocID,
+			Assert: asserts,
+			Remove: true,
+		}, {
+			C:      settingsrefsC,
+			Id:     settingsDocID,
+			Remove: true,
+		}, {
+			C:      settingsC,
+			Id:     settingsDocID,
+			Remove: true,
+		},
+		removeRequestedNetworksOp(s.st, s.globalKey()),
+		removeStorageConstraintsOp(s.globalKey()),
+		removeConstraintsOp(s.st, s.globalKey()),
+		annotationRemoveOp(s.st, s.globalKey()),
+	}
+	return ops
 }
 
 // IsExposed returns whether this service is exposed. The explicitly open
@@ -578,16 +582,24 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, err
 	}
+
+	// Create instances of the charm's declared stores.
+	storageInstanceOps, storageInstanceIds, err := s.unitStorageInstanceOps(name)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	udoc := &unitDoc{
-		DocID:     docID,
-		Name:      name,
-		EnvUUID:   s.doc.EnvUUID,
-		Service:   s.doc.Name,
-		Series:    s.doc.Series,
-		Life:      Alive,
-		Principal: principalName,
+		DocID:            docID,
+		Name:             name,
+		EnvUUID:          s.doc.EnvUUID,
+		Service:          s.doc.Name,
+		Series:           s.doc.Series,
+		Life:             Alive,
+		Principal:        principalName,
+		StorageInstances: storageInstanceIds,
 	}
 	sdoc := statusDoc{
 		Status:  StatusAllocating,
@@ -607,7 +619,10 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Id:     s.doc.DocID,
 			Assert: append(isAliveDoc, asserts...),
 			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
-		}}
+		},
+	}
+	ops = append(ops, storageInstanceOps...)
+
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  unitsC,
@@ -629,6 +644,26 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
 	}
 	return name, ops, nil
+}
+
+// createUnitStorageInstanceOps returns transactions operations for
+// creating storage instances for a new unit.
+func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storageInstanceIds []string, err error) {
+	cons, err := s.StorageConstraints()
+	if err != nil {
+		return nil, nil, err
+	}
+	charm, _, err := s.Charm()
+	if err != nil {
+		return nil, nil, err
+	}
+	meta := charm.Meta()
+	tag := names.NewUnitTag(unitName)
+	ops, storageInstanceIds, err = createStorageInstanceOps(s.st, tag, meta, cons)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return ops, storageInstanceIds, nil
 }
 
 // SCHEMACHANGE
@@ -674,6 +709,10 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
+	storageInstanceOps, err := removeStorageInstancesOps(s.st, u.Tag())
+	if err != nil {
+		return nil, err
+	}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -692,6 +731,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
 	ops = append(ops, portsOps...)
+	ops = append(ops, storageInstanceOps...)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if errors.IsNotFound(err) {
@@ -885,6 +925,10 @@ func (s *Service) SetMetricCredentials(b []byte) error {
 	}
 	s.doc.MetricCredentials = b
 	return nil
+}
+
+func (s *Service) StorageConstraints() (map[string]StorageConstraints, error) {
+	return readStorageConstraints(s.st, s.globalKey())
 }
 
 // settingsIncRefOp returns an operation that increments the ref count

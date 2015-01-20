@@ -20,7 +20,8 @@ import (
 
 type AssignSuite struct {
 	ConnSuite
-	wordpress *state.Service
+	wordpress  *state.Service
+	storageSvc *state.Service
 }
 
 var _ = gc.Suite(&AssignSuite{})
@@ -37,6 +38,15 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 	)
 	wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.wordpress = wordpress
+	s.storageSvc = s.AddTestingServiceWithStorage(
+		c, "storage-block", s.AddTestingCharm(c, "storage-block"),
+		map[string]state.StorageConstraints{
+			"data": state.StorageConstraints{
+				Count: 1,
+				Size:  1024,
+			},
+		},
+	)
 }
 
 func (s *AssignSuite) addSubordinate(c *gc.C, principal *state.Unit) *state.Unit {
@@ -986,6 +996,44 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
 	assignedTo, err := s.assignUnit(unit)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(assignedTo.Id(), gc.Equals, "0")
+}
+
+func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
+	cons, err := s.storageSvc.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, gc.HasLen, 1)
+
+	unit, err := s.storageSvc.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	storageInstances, err := unit.StorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageInstances, gc.HasLen, 1)
+
+	// Add a clean machine.
+	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// assign the unit to a machine, requesting clean/empty. Since
+	// the unit has storage instances associated, it will be forced
+	// onto a new machine.
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the machine on the unit is set.
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	// Check that the machine isn't our clean one.
+	c.Assert(machineId, gc.Not(gc.Equals), clean.Id())
+
+	// Check that requested block devices were added to the machine.
+	machine, err := s.State.Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	blockDevices, err := machine.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 1)
+	storageInstance, ok := blockDevices[0].StorageInstance()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(storageInstance, gc.Equals, storageInstances[0].Id())
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {

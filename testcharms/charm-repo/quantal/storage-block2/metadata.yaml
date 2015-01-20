@@ -1,0 +1,12 @@
+name: storage-block2
+summary: A charm needing block storage
+description: See above
+storage:
+    multi1to10:
+        type: block
+        multiple:
+                range: 1-10
+    multi2up:
+        type: block
+        multiple:
+                range: 2-
