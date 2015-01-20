@@ -1124,7 +1124,7 @@ func (*azureEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, 
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the Azure provider yet.
-func (*azureEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (*azureEnviron) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotImplementedf("Subnets")
 }
 

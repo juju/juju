@@ -783,10 +783,14 @@ func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error
 	return nil, errors.NotImplementedf("NetworkInterfaces")
 }
 
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new subnet was created).
-func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance. subnetIds must not be empty.
+func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	// At some point in the future an empty netIds may mean "fetch all subnets"
+	// but until that functionality is needed it's an error.
+	if len(subnetIds) == 0 {
+		return nil, errors.Errorf("subnetIds must not be empty")
+	}
 	ec2Inst := e.ec2()
 	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
 	resp, err := ec2Inst.Subnets(nil, nil)
@@ -794,8 +798,19 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 	}
 
+	netIdSet := make(map[string]bool)
+	for _, netId := range subnetIds {
+		netIdSet[string(netId)] = false
+	}
+
 	var results []network.SubnetInfo
 	for _, subnet := range resp.Subnets {
+		_, ok := netIdSet[subnet.Id]
+		if !ok {
+			continue
+		}
+		netIdSet[subnet.Id] = true
+
 		cidr := subnet.CIDRBlock
 		ip, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -827,6 +842,16 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 			AllocatableIPHigh: allocatableHigh,
 		}
 		results = append(results, info)
+	}
+
+	notFound := []string{}
+	for netId, found := range netIdSet {
+		if !found {
+			notFound = append(notFound, netId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
 	}
 
 	return results, nil

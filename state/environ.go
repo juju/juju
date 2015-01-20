@@ -115,7 +115,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
-	err = newState.runTransaction(ops)
+	err = newState.runTransactionNoEnvAliveAssert(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("environment already exists")
 	}

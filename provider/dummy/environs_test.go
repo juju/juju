@@ -240,7 +240,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
-	netInfo, err := e.Subnets("")
+	netInfo, err := e.Subnets("", []network.Id{"dummy-private", "dummy-public"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
 	assertSubnets(c, e, opc, expectInfo)

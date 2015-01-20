@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -98,6 +99,7 @@ type EnvParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
+	Prepare     bool
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -408,14 +410,29 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
+	// It only makes sense to make an environment with the same provider
+	// as the initial environment, or things will break elsewhere.
+	currentCfg, err := factory.st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
+		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
+	if params.Prepare {
+		// Prepare the environment.
+		provider, err := environs.Provider(cfg.Type())
+		c.Assert(err, jc.ErrorIsNil)
+		env, err := provider.Prepare(nil, cfg)
+		c.Assert(err, jc.ErrorIsNil)
+		// Now save the config back.
+		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	return st
 }

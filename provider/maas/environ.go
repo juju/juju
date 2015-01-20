@@ -1225,45 +1225,40 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
 func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId)
+	subnets, err := environ.Subnets(instId, []network.Id{netId})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var foundSub *network.SubnetInfo
-	for i, sub := range subnets {
-		if sub.ProviderId == netId {
-			foundSub = &subnets[i]
-			break
-		}
-	}
-	if foundSub == nil {
+	if len(subnets) != 1 {
 		return errors.Errorf("could not find network matching %v", netId)
 	}
+	foundSub := subnets[0]
+
 	cidr := foundSub.CIDR
 	ipaddresses := environ.getMAASClient().GetSubObject("ipaddresses")
 	err = ReserveIPAddress(ipaddresses, cidr, addr)
-	if err != nil {
-		maasErr, ok := err.(gomaasapi.ServerError)
-		if !ok {
-			return errors.Trace(err)
-		}
-		// For an "out of range" IP address, maas raises
-		// StaticIPAddressOutOfRange - an error 403
-		// If there are no more addresses we get
-		// StaticIPAddressExhaustion - an error 503
-		// For an address already in use we get
-		// StaticIPAddressUnavailable - an error 404
-		if maasErr.StatusCode == 404 {
-			return environs.ErrIPAddressUnavailable
-		} else if maasErr.StatusCode == 503 {
-			return environs.ErrIPAddressesExhausted
-		}
-		// any error other than a 404 or 503 is "unexpected" and should
-		// be returned directly.
-		return errors.Trace(err)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Trace(err)
+	}
+	// For an "out of range" IP address, maas raises
+	// StaticIPAddressOutOfRange - an error 403
+	// If there are no more addresses we get
+	// StaticIPAddressExhaustion - an error 503
+	// For an address already in use we get
+	// StaticIPAddressUnavailable - an error 404
+	if maasErr.StatusCode == 404 {
+		return environs.ErrIPAddressUnavailable
+	} else if maasErr.StatusCode == 503 {
+		return environs.ErrIPAddressesExhausted
+	}
+	// any error other than a 404 or 503 is "unexpected" and should
+	// be returned directly.
+	return errors.Trace(err)
 }
 
 // ReleaseAddress releases a specific address previously allocated with
@@ -1302,9 +1297,14 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	return result, nil
 }
 
-// Subnets returns basic information about all subnets known
-// by the provider for the environment, for a specific instance.
-func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, error) {
+// Subnets returns basic information about the specified subnets for a specific
+// instance.
+func (environ *maasEnviron) Subnets(instId instance.Id, netIds []network.Id) ([]network.SubnetInfo, error) {
+	// At some point in the future an empty netIds may mean "fetch all subnets"
+	// but until that functionality is needed it's an error.
+	if len(netIds) == 0 {
+		return nil, errors.Errorf("netIds must not be empty")
+	}
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
 		return nil, errors.Annotatef(err, "could not find instance %v", instId)
@@ -1324,8 +1324,20 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 		return nil, errors.Annotatef(err, "getNodegroups failed")
 	}
 	nodegroupInterfaces := environ.getNodegroupInterfaces(nodegroups)
+
+	netIdSet := make(map[network.Id]bool)
+	for _, netId := range netIds {
+		netIdSet[netId] = false
+	}
+
 	var networkInfo []network.SubnetInfo
 	for _, netw := range networks {
+		_, ok := netIdSet[network.Id(netw.Name)]
+		if !ok {
+			continue
+		}
+		// mark that we've found this subnet
+		netIdSet[network.Id(netw.Name)] = true
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
@@ -1357,6 +1369,17 @@ func (environ *maasEnviron) Subnets(instId instance.Id) ([]network.SubnetInfo, e
 		networkInfo = append(networkInfo, netInfo)
 	}
 	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
+
+	notFound := []network.Id{}
+	for netId, found := range netIdSet {
+		if !found {
+			notFound = append(notFound, netId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following networks: %v", notFound)
+	}
+
 	return networkInfo, nil
 }
 

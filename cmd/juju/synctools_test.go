@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -140,7 +141,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		c.Assert(uploader.WriteMirrors, gc.Equals, envtools.DoNotWriteMirrors)
 		url, err := uploader.Storage.URL("")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(url, gc.Equals, "file://"+dir)
+		c.Assert(url, gc.Equals, utils.MakeFileURL(dir))
 		called = true
 		return nil
 	}
@@ -178,7 +179,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
 		url, err := uploader.Storage.URL("")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(url, gc.Equals, "file://"+dir)
+		c.Assert(url, gc.Equals, utils.MakeFileURL(dir))
 		called = true
 		return nil
 	}

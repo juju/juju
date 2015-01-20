@@ -23,6 +23,9 @@ type Resources struct {
 	mu        sync.Mutex
 	maxId     uint64
 	resources map[string]Resource
+	// The stack is used to control the order of destruction.
+	// last registered, first stopped.
+	stack []string
 }
 
 func NewResources() *Resources {
@@ -48,6 +51,8 @@ func (rs *Resources) Register(r Resource) string {
 	rs.maxId++
 	id := strconv.FormatUint(rs.maxId, 10)
 	rs.resources[id] = r
+	rs.stack = append(rs.stack, id)
+	logger.Tracef("registered unnamed resource: %s", id)
 	return id
 }
 
@@ -68,6 +73,8 @@ func (rs *Resources) RegisterNamed(name string, r Resource) error {
 		return fmt.Errorf("resource %q already registered", name)
 	}
 	rs.resources[name] = r
+	rs.stack = append(rs.stack, name)
+	logger.Tracef("registered named resource: %s", name)
 	return nil
 }
 
@@ -82,6 +89,7 @@ func (rs *Resources) Stop(id string) error {
 	// If resources.Stop is called concurrently, we'll get
 	// two concurrent calls to Stop, but that should fit
 	// well with the way we invariably implement Stop.
+	logger.Tracef("stopping resource: %s", id)
 	r := rs.Get(id)
 	if r == nil {
 		return nil
@@ -90,6 +98,12 @@ func (rs *Resources) Stop(id string) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	delete(rs.resources, id)
+	for pos := 0; pos < len(rs.stack); pos++ {
+		if rs.stack[pos] == id {
+			rs.stack = append(rs.stack[0:pos], rs.stack[pos+1:]...)
+			break
+		}
+	}
 	return err
 }
 
@@ -97,12 +111,16 @@ func (rs *Resources) Stop(id string) error {
 func (rs *Resources) StopAll() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	for _, r := range rs.resources {
+	for i := len(rs.stack); i > 0; i-- {
+		id := rs.stack[i-1]
+		r := rs.resources[id]
+		logger.Tracef("stopping resource: %s", id)
 		if err := r.Stop(); err != nil {
 			logger.Errorf("error stopping %T resource: %v", r, err)
 		}
 	}
 	rs.resources = make(map[string]Resource)
+	rs.stack = nil
 }
 
 // Count returns the number of resources currently held.

@@ -1262,7 +1262,7 @@ func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the OpenStack provider yet.
-func (*environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (*environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	return nil, jujuerrors.NotImplementedf("Subnets")
 }
 
