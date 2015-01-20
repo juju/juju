@@ -1292,7 +1292,16 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	}
 	result := []network.InterfaceInfo{}
 	for _, iface := range interfaces {
-		iface = iface
+		deviceIndex := iface.DeviceIndex
+		providerId := network.Id(iface.InterfaceName)
+		disabled := iface.Disabled
+
+		ifaceInfo := network.InterfaceInfo{
+			DeviceIndex: deviceIndex,
+			ProviderId:  providerId,
+			Disabled:    disabled,
+		}
+		result = append(result, ifaceInfo)
 	}
 	return result, nil
 }
