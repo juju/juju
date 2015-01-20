@@ -437,6 +437,7 @@ class DeployManyAttempt(SteppedStageAttempt):
             ('add-machine-many', {'title': 'add many machines'}),
             ('ensure-machines', {'title': 'Ensure sufficient machines'}),
             ('deploy-many', {'title': 'deploy many'}),
+            ('remove-machine-many', {'title': 'remove many machines'}),
             ])
 
     def __init__(self, host_count=5, container_count=8):
@@ -485,14 +486,24 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'deploy-many'}
         yield results
+        service_names = []
         for machine_name in sorted(new_machines, key=int):
             target = 'lxc:{}'.format(machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
+                service_names.append(service)
         timeout_start = datetime.now()
         yield results
-        client.wait_for_started(start=timeout_start)
+        status = client.wait_for_started(start=timeout_start)
+        results['result'] = True
+        yield results
+        results = {'test_id': 'remove-machine-many'}
+        yield results
+        services = [status.status['services'][key] for key in service_names]
+        for service in services:
+            for unit in service['units'].values():
+                client.juju('remove-machine', ('--force', unit['machine']))
         results['result'] = True
         yield results
 

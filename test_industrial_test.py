@@ -1036,6 +1036,12 @@ class TestDeployManyAttempt(TestCase):
                 yield ('juju', '--show-log', 'deploy', '-e', 'steve', '--to',
                        target, 'ubuntu', service)
 
+    def predict_remove_machine_calls(self, deploy_many):
+        total_guests = deploy_many.host_count * deploy_many.container_count
+        for host in range(100, total_guests + 100):
+            yield ('juju', '--show-log', 'remove-machine', '-e', 'steve',
+                   '--force', str(host))
+
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
         deploy_many = DeployManyAttempt(9, 11)
@@ -1078,9 +1084,33 @@ class TestDeployManyAttempt(TestCase):
         calls = self.predict_add_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
+        service_names = []
+        for host in range(1, deploy_many.host_count + 1):
+            for container in range(deploy_many.container_count):
+                service_names.append('ubuntu{}x{}'.format(host, container))
+        services = dict((service_name, {
+            'units': {
+                'foo': {'machine': str(num + 100), 'agent-state': 'started'}
+                }})
+            for num, service_name in enumerate(service_names))
+        status = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': services,
+            })
         with patch('subprocess.check_output', return_value=status):
             self.assertEqual(deploy_iter.next(),
                              {'test_id': 'deploy-many', 'result': True})
+
+        self.assertEqual(deploy_iter.next(),
+                         {'test_id': 'remove-machine-many'})
+        with patch('subprocess.check_output', return_value=status):
+            with patch('subprocess.check_call') as mock_cc:
+                self.assertEqual(
+                    deploy_iter.next(),
+                    {'test_id': 'remove-machine-many', 'result': True})
+        calls = self.predict_remove_machine_calls(deploy_many)
+        for num, args in enumerate(calls):
+            assert_juju_call(self, mock_cc, client, args, num)
 
     @patch('logging.error')
     def test_iter_step_failure(self, le_mock):
