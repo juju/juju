@@ -148,25 +148,33 @@ func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {
 	c.assertChange(true, expect...)
 }
 
+// AssertChangeMaybeIncluding verifies that there is a change that may
+// contain zero to all of the passed in strings, and no other changes.
+func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
+	maxCount := len(expect)
+	actual := c.collectChanges(true, maxCount)
+
+	if maxCount == 0 {
+		c.Assert(actual, gc.HasLen, 0)
+	} else {
+		actualCount := len(actual)
+		c.Assert(actualCount <= maxCount, jc.IsTrue)
+		for _, a := range actual {
+			expected := false
+			for _, e := range expect {
+				if a == e {
+					expected = true
+				}
+			}
+			c.Assert(expected, jc.IsTrue)
+		}
+	}
+}
+
 // assertChange asserts the given list of changes was reported by
 // the watcher, but does not assume there are no following changes.
 func (c StringsWatcherC) assertChange(single bool, expect ...string) {
-	c.State.StartSync()
-	timeout := time.After(testing.LongWait)
-	var actual []string
-loop:
-	for {
-		select {
-		case changes, ok := <-c.Watcher.Changes():
-			c.Assert(ok, jc.IsTrue)
-			actual = append(actual, changes...)
-			if single || len(actual) >= len(expect) {
-				break loop
-			}
-		case <-timeout:
-			c.Fatalf("watcher did not send change")
-		}
-	}
+	actual := c.collectChanges(single, len(expect))
 	if len(expect) == 0 {
 		c.Assert(actual, gc.HasLen, 0)
 	} else {
@@ -174,6 +182,32 @@ loop:
 		sort.Strings(actual)
 		c.Assert(actual, gc.DeepEquals, expect)
 	}
+}
+
+// collectChanges gets up to the max number of changes within the
+// testing.LongWait period.
+func (c StringsWatcherC) collectChanges(single bool, max int) []string {
+	c.State.StartSync()
+	timeout := time.After(testing.LongWait)
+	var actual []string
+	gotOneChange := false
+loop:
+	for {
+		select {
+		case changes, ok := <-c.Watcher.Changes():
+			c.Assert(ok, jc.IsTrue)
+			gotOneChange = true
+			actual = append(actual, changes...)
+			if single || len(actual) >= max {
+				break loop
+			}
+		case <-timeout:
+			if !gotOneChange {
+				c.Fatalf("watcher did not send change")
+			}
+		}
+	}
+	return actual
 }
 
 func (c StringsWatcherC) AssertClosed() {
