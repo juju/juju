@@ -44,15 +44,18 @@ func (u *Unit) Refresh() error {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
+	serviceName, err := names.UnitService(u.Name())
+	if err != nil {
+		return nil, err
+	}
+	serviceTag := names.NewServiceTag(serviceName)
 	service := &Service{
 		st:  u.st,
 		tag: serviceTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := service.Refresh()
-	if err != nil {
+	if err := service.Refresh(); err != nil {
 		return nil, err
 	}
 	return service, nil

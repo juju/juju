@@ -1473,7 +1473,10 @@ func (u *uniterBaseAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitT
 		return "", common.ErrPerm
 	}
 	remoteUnitName := tag.Id()
-	remoteServiceName := names.UnitService(remoteUnitName)
+	remoteServiceName, err := names.UnitService(remoteUnitName)
+	if err != nil {
+		return "", common.ErrPerm
+	}
 	rel := relUnit.Relation()
 	_, err = rel.RelatedEndpoints(remoteServiceName)
 	if err != nil {
