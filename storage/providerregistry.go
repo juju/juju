@@ -27,7 +27,7 @@ func RegisterProvider(providerType ProviderType, p Provider) {
 func StorageProvider(providerType ProviderType) (Provider, error) {
 	p, ok := providers[providerType]
 	if !ok {
-		return nil, errors.Errorf("no registered provider for %q", providerType)
+		return nil, errors.NotFoundf("storage provider %q", providerType)
 	}
 	return p, nil
 }

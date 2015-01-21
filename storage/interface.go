@@ -39,7 +39,7 @@ type ProviderType string
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
 	// VolumeSource returns a VolumeSource given the
-	// specified environment and provider configuration.
+	// specified cloud and storage provider configurations.
 	//
 	// If the storage provider does not support creating volumes as a
 	// first-class primitive, then VolumeSource must return an error

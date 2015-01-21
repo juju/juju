@@ -38,7 +38,7 @@ func (s *providerRegistrySuite) TestRegisterProvider(c *gc.C) {
 
 func (s *providerRegistrySuite) TestNoSuchProvider(c *gc.C) {
 	_, err := storage.StorageProvider(storage.ProviderType("foo"))
-	c.Assert(err, gc.ErrorMatches, `no registered provider for "foo"`)
+	c.Assert(err, gc.ErrorMatches, `storage provider "foo" not found`)
 }
 
 func (s *providerRegistrySuite) TestRegisterProviderDuplicate(c *gc.C) {
