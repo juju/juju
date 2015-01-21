@@ -6,7 +6,6 @@ package apiserver
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -318,12 +317,12 @@ func (srv *Server) run(lis net.Listener) {
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/environment/:envuuid/log",
 		&debugLogHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			dataDir:     srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
@@ -332,40 +331,44 @@ func (srv *Server) run(lis net.Listener) {
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{httpHandler{state: srv.state}},
+		&backupHandler{httpHandler{
+			ssState:            srv.state,
+			strictValidation:   true,
+			stateServerEnvOnly: true,
+		}},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{httpHandler{state: srv.state}},
+		&imagesDownloadHandler{httpHandler{ssState: srv.state}},
 	)
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			dataDir:     srv.dataDir},
 	)
 	handleAll(mux, "/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
@@ -403,32 +406,6 @@ func (srv *Server) Addr() string {
 	return srv.addr
 }
 
-func (srv *Server) validateEnvironUUID(envUUID string) (*state.State, error) {
-	if envUUID == "" {
-		// We allow the environUUID to be empty for 2 cases
-		// 1) Compatibility with older clients
-		// 2) TODO: server a limited API at the root (empty envUUID)
-		//    with just the user manager and environment manager
-		//    if the connection comes over a sufficiently up to date
-		//    login command.
-		logger.Debugf("validate env uuid: empty envUUID")
-		return srv.state, nil
-	}
-	if envUUID == srv.state.EnvironUUID() {
-		logger.Debugf("validate env uuid: state server environment")
-		return srv.state, nil
-	}
-	if !names.IsValidEnvironment(envUUID) {
-		return nil, errors.Trace(common.UnknownEnvironmentError(envUUID))
-	}
-	envTag := names.NewEnvironTag(envUUID)
-	if _, err := srv.state.GetEnvironment(envTag); err != nil {
-		return nil, errors.Wrap(err, common.UnknownEnvironmentError(envUUID))
-	}
-	logger.Debugf("validate env uuid: %s", envUUID)
-	return srv.state.ForEnviron(envTag)
-}
-
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
@@ -443,7 +420,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	conn := rpc.NewConn(codec, notifier)
 
 	var h *apiHandler
-	st, err := srv.validateEnvironUUID(envUUID)
+	st, _, err := validateEnvironUUID(validateArgs{st: srv.state, envUUID: envUUID})
 	if err == nil {
 		h, err = newApiHandler(srv, st, conn, reqNotifier)
 	}
@@ -475,7 +452,7 @@ func (srv *Server) mongoPinger() error {
 		}
 		if err := session.Ping(); err != nil {
 			logger.Infof("got error pinging mongo: %v", err)
-			return fmt.Errorf("error pinging mongo: %v", err)
+			return errors.Annotate(err, "error pinging mongo")
 		}
 		timer.Reset(mongoPingInterval)
 	}
