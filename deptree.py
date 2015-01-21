@@ -70,10 +70,11 @@ def get_args(args=None):
     return parser.parse_args(args)
 
 
-def main():
+def main(args=None):
     """Execute the commands from the command line."""
     exitcode = 0
-    args = get_args()
+    args = get_args(args)
+    deps, conflicts = consolidate_deps(args.dep_files, verbose=args.verbose)
 #    deps = get_dependencies(args.depfile)
 #    known = deps.union(args.ignore)
 #    present, unknown = compare_dependencies(known, args.srcdir)

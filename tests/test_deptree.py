@@ -88,3 +88,9 @@ class DepTreeTestCase(TestCase):
             deps, conflicts = consolidate_deps([a_dep_file, b_dep_file])
         self.assertEqual([(b_dep_file, conflict_dep)], conflicts)
         self.assertEqual(expected_deps, deps)
+
+    def test_main(self):
+        with patch('deptree.consolidate_deps',
+                   return_value=[{}, []]) as cd_mock:
+            main(['foo', 'bar', 'baz'])
+            self.assertEqual((['bar', 'baz'], ), cd_mock.call_args[0])
