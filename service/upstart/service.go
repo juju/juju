@@ -38,3 +38,8 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId 
 	svc := NewService(name, conf)
 	return svc
 }
+
+func NewInitSystem() common.InitSystem {
+	// TODO(ericsnow) Finish!
+	return nil
+}

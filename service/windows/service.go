@@ -31,6 +31,11 @@ cmd.exe /C call sc config $serviceName start=delayed-auto
 if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
 `
 
+func NewInitSystem() common.InitSystem {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
 // Service represents a service running on the current system
 type Service struct {
 	Name string
