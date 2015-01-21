@@ -3,7 +3,10 @@
 
 package storage
 
-import "github.com/juju/juju/instance"
+import (
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+)
 
 // FeatureFlag is the name of the feature for the JUJU_DEV_FEATURE_FLAGS
 // envar. Add this string to the envar to enable support for storage.
@@ -35,12 +38,13 @@ type ProviderType string
 
 // Provider is an interface for obtaining storage sources.
 type Provider interface {
-	// VolumeSource returns a VolumeSource given the specified configuration.
+	// VolumeSource returns a VolumeSource given the
+	// specified cloud and storage provider configurations.
 	//
 	// If the storage provider does not support creating volumes as a
 	// first-class primitive, then VolumeSource must return an error
 	// satisfying errors.IsNotSupported.
-	VolumeSource(*Config) (VolumeSource, error)
+	VolumeSource(environConfig *config.Config, providerConfig *Config) (VolumeSource, error)
 
 	// TODO(axw) define filesystem source. If the user requests a
 	// filesystem and that can be provided first-class, it should be
