@@ -464,3 +464,15 @@ func (fc *fakeConn) AvailabilityZones(region string) ([]google.AvailabilityZone,
 	})
 	return fc.Zones, fc.err()
 }
+
+func (fc *fakeConn) WasCalled(funcName string) (bool, []fakeConnCall) {
+	var calls []fakeConnCall
+	called := false
+	for _, call := range fc.Calls {
+		if call.FuncName == funcName {
+			called = true
+			calls = append(calls, call)
+		}
+	}
+	return called, calls
+}

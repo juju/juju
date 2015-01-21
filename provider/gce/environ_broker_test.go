@@ -130,13 +130,43 @@ func (s *environBrokerSuite) TestGetMetadata(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
+	diskSpecs := gce.GetDisks(s.spec, s.StartInstArgs.Constraints)
+
+	c.Assert(diskSpecs, gc.HasLen, 1)
+
+	diskSpec := diskSpecs[0]
+
+	c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(10))
+	c.Check(diskSpec.ImageURL, gc.Equals, "projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141212")
 }
 
 func (s *environBrokerSuite) TestGetHardwareCharacteristics(c *gc.C) {
+	hwc := gce.GetHardwareCharacteristics(s.Env, s.spec, s.Instance)
+
+	c.Assert(hwc, gc.NotNil)
+	c.Check(*hwc.Arch, gc.Equals, "amd64")
+	c.Check(*hwc.AvailabilityZone, gc.Equals, "home-zone")
+	c.Check(*hwc.CpuCores, gc.Equals, uint64(1))
+	c.Check(*hwc.CpuPower, gc.Equals, uint64(275))
+	c.Check(*hwc.Mem, gc.Equals, uint64(3750))
+	c.Check(*hwc.RootDisk, gc.Equals, uint64(5120))
 }
 
 func (s *environBrokerSuite) TestAllInstances(c *gc.C) {
+	s.FakeEnviron.Insts = []instance.Instance{s.Instance}
+
+	insts, err := s.Env.AllInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(insts, jc.DeepEquals, []instance.Instance{s.Instance})
 }
 
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
+	err := s.Env.StopInstances(s.Instance.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	called, calls := s.FakeConn.WasCalled("RemoveInstances")
+	c.Check(called, gc.Equals, true)
+	c.Check(calls, gc.HasLen, 1)
+	c.Check(calls[0].Prefix, gc.Equals, "juju-2d02eeac-9dbb-11e4-89d3-123b93f75cba-machine-")
+	c.Check(calls[0].IDs, gc.DeepEquals, []string{"spam"})
 }
