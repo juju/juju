@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/filter"
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -38,27 +36,6 @@ var logger = loggo.GetLogger("juju.worker.uniter")
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
-}
-
-// deployerProxy exists because we're not yet comfortable that we can safely
-// drop support for charm.gitDeployer. If we can, then the uniter doesn't
-// need a deployer reference at all: and we can drop fixDeployer, and even
-// the Notify* methods on the Deployer interface, and simply hand the
-// deployer we create over to the operationFactory at creation and forget
-// about it.
-//
-// We will never be *completely* certain that gitDeployer can be dropped,
-// because it's not done as an upgrade step (because we can't replace the
-// deployer while conflicted, and upgrades are not gated on no-conflicts);
-// and so long as there's a reasonable possibility that someone *might* have
-// been running a pre-1.19.1 environment, and have either upgraded directly
-// in a conflict state *or* have upgraded stepwise without fixing a conflict
-// state, we should keep this complexity.
-//
-// In practice, that possibility is growing ever more remote, but we're not
-// ready to pull the trigger yet.
-type deployerProxy struct {
-	charm.Deployer
 }
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
@@ -265,25 +242,6 @@ func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
 }
 
-// deploy deploys the supplied charm URL, and sets follow-up hook operation state
-// as indicated by reason.
-func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
-	var op operation.Operation
-	var err error
-	switch reason {
-	case operation.Install:
-		op, err = u.operationFactory.NewInstall(curl)
-	case operation.Upgrade:
-		op, err = u.operationFactory.NewUpgrade(curl)
-	default:
-		err = errors.Errorf("unknown deploy reason %q", reason)
-	}
-	if err != nil {
-		return err
-	}
-	return u.operationExecutor.Run(op)
-}
-
 // initializeMetricsCollector enables the periodic collect-metrics hook
 // for charms that declare metrics.
 func (u *Uniter) initializeMetricsCollector() error {
@@ -293,6 +251,26 @@ func (u *Uniter) initializeMetricsCollector() error {
 	}
 	u.collectMetricsAt = getMetricsTimer(charm)
 	return nil
+}
+
+// creator exists primarily to make the implementation of the Mode funcs more
+// readable -- the general pattern is to switch to get a creator func (which
+// doesn't allow for the possibility of error) and then to pass the chosen
+// creator down to runOperation (which can then consistently create and run
+// all the operations in the same way).
+type creator func(factory operation.Factory) (operation.Operation, error)
+
+// runOperation uses the uniter's operation factory to run the supplied creation
+// func, and then runs the resulting operation. This is more complex than strictly
+// necessary -- we could easily use the factory and executor directly in the Mode
+// funcs -- but it's in service of having more readable Mode funcs and I think it's
+// worth the cost.
+func (u *Uniter) runOperation(creator creator) error {
+	op, err := creator(u.operationFactory)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create operation")
+	}
+	return u.operationExecutor.Run(op)
 }
 
 // RunCommands executes the supplied commands in a hook context.
@@ -339,44 +317,4 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		u.tomb.Kill(err)
 	}
 	return results, err
-}
-
-// runAction executes the supplied hook.Info as an Action.
-func (u *Uniter) runAction(actionId string) (err error) {
-	op, err := u.operationFactory.NewAction(actionId)
-	if err != nil {
-		return err
-	}
-	return u.operationExecutor.Run(op)
-}
-
-// runHook executes the supplied hook.Info in an appropriate hook context. If
-// the hook itself fails to execute, it returns errHookFailed.
-func (u *Uniter) runHook(hi hook.Info) (err error) {
-	if hi.Kind == hooks.Action {
-		return u.runAction(hi.ActionId)
-	}
-	op, err := u.operationFactory.NewRunHook(hi)
-	if err != nil {
-		return err
-	}
-	return u.operationExecutor.Run(op)
-}
-
-func (u *Uniter) skipHook(hi hook.Info) (err error) {
-	op, err := u.operationFactory.NewRunHook(hi)
-	if err != nil {
-		return err
-	}
-	return u.operationExecutor.Skip(op)
-}
-
-// fixDeployer replaces the uniter's git-based charm deployer with a manifest-
-// based one, if necessary. It should not be called unless the existing charm
-// deployment is known to be in a stable state.
-func (u *Uniter) fixDeployer() error {
-	if err := charm.FixDeployer(&u.deployer.Deployer); err != nil {
-		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
-	}
-	return nil
 }
