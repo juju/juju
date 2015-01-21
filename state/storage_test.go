@@ -5,8 +5,10 @@ package state_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 )
 
@@ -16,8 +18,30 @@ type StorageStateSuite struct {
 
 var _ = gc.Suite(&StorageStateSuite{})
 
+func (s *StorageStateSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+
+	// This suite is all about storage, so enable the feature by default.
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+}
+
 func makeStorageCons(pool string, size, count uint64) state.StorageConstraints {
 	return state.StorageConstraints{Pool: pool, Size: size, Count: count}
+}
+
+func (s *StorageStateSuite) TestAddServiceStorageConstraintsWithoutFeature(c *gc.C) {
+	// Disable the storage feature, and ensure we can deploy a service from
+	// a charm that defines storage, without specifying the storage constraints.
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	ch := s.AddTestingCharm(c, "storage-block2")
+	service, err := s.State.AddService("storage-block2", "user-test-admin@local", ch, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	storageConstraints, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(storageConstraints, gc.HasLen, 0)
 }
 
 func (s *StorageStateSuite) TestAddServiceStorageConstraints(c *gc.C) {
