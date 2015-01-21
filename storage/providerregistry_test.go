@@ -69,6 +69,7 @@ func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.
 	ptypeBar := storage.ProviderType("bar")
 	storage.RegisterEnvironStorageProviders("ec2", ptypeFoo)
 	storage.RegisterEnvironStorageProviders("ec2", ptypeBar)
+	storage.RegisterEnvironStorageProviders("ec2", ptypeBar)
 	c.Assert(storage.IsProviderSupported("ec2", ptypeFoo), jc.IsTrue)
 	c.Assert(storage.IsProviderSupported("ec2", ptypeBar), jc.IsTrue)
 	defaultProvider, ok := storage.DefaultProviderForEnviron("ec2")

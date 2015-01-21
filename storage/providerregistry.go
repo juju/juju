@@ -49,6 +49,9 @@ var supportedEnvironProviders = make(map[string][]ProviderType)
 func RegisterEnvironStorageProviders(envType string, providers ...ProviderType) {
 	existing := supportedEnvironProviders[envType]
 	for _, p := range providers {
+		if IsProviderSupported(envType, p) {
+			continue
+		}
 		existing = append(existing, p)
 	}
 	supportedEnvironProviders[envType] = existing
