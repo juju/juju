@@ -2369,3 +2369,134 @@ func (w *rebootWatcher) loop() error {
 		}
 	}
 }
+
+// blockDevicesWatcher notifies about changes to all block devices
+// attached to a machine, optionally filtering to those assigned to
+// a specific unit's datastores.
+type blockDevicesWatcher struct {
+	commonWatcher
+	machineId string
+	out       chan []string
+}
+
+var _ StringsWatcher = (*blockDevicesWatcher)(nil)
+
+// WatchBlockDevices returns a new StringsWatcher watching for
+// block devices associated with m.
+func (m *Machine) WatchBlockDevices() StringsWatcher {
+	return newBlockDevicesWatcher(m.st, m.Id())
+}
+
+func newBlockDevicesWatcher(st *State, machineId string) StringsWatcher {
+	w := &blockDevicesWatcher{
+		commonWatcher: commonWatcher{st: st},
+		machineId:     machineId,
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *blockDevicesWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+// initial retrieves the currently attached block devices.
+func (w *blockDevicesWatcher) current() (map[string]blockDeviceDoc, error) {
+	blockDevices, closer := w.st.getCollection(blockDevicesC)
+	defer closer()
+	known := make(map[string]blockDeviceDoc)
+	iter := blockDevices.Find(bson.D{{"machineid", w.machineId}}).Iter()
+	var doc blockDeviceDoc
+	for iter.Next(&doc) {
+		known[doc.DocID] = doc
+	}
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	return known, nil
+}
+
+// merge compares a number of updates to the known state
+// and modifies changes accordingly.
+func (w *blockDevicesWatcher) merge(changed set.Strings, previous map[string]blockDeviceDoc, updates map[interface{}]bool) (err error) {
+	blockDevices, closer := w.st.getCollection(blockDevicesC)
+	defer closer()
+	for id, exists := range updates {
+		switch id := id.(type) {
+		case string:
+			previousDoc, known := previous[id]
+			if known && !exists {
+				// Previously known document has been removed.
+				delete(previous, id)
+				changed.Add(previousDoc.Name)
+				continue
+			}
+			var doc blockDeviceDoc
+			err := blockDevices.FindId(id).One(&doc)
+			if err != nil && err != mgo.ErrNotFound {
+				return err
+			}
+			if doc.Machine == w.machineId {
+				if !known || previousDoc != doc {
+					// New or changed doc.
+					previous[id] = doc
+					changed.Add(doc.Name)
+				}
+			} else if known {
+				// No longer associated with this machine.
+				delete(previous, id)
+				changed.Add(doc.Name)
+			}
+		default:
+			return errors.Errorf("id is not of type object ID, got %T", id)
+		}
+	}
+	return nil
+}
+
+func (w *blockDevicesWatcher) loop() error {
+	in := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(blockDevicesC, in)
+	defer w.st.watcher.UnwatchCollection(blockDevicesC, in)
+
+	current, err := w.current()
+	if err != nil {
+		return err
+	}
+	names := make(set.Strings)
+	for _, doc := range current {
+		names.Add(doc.Name)
+	}
+	out := w.out
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(names, current, updates); err != nil {
+				return err
+			}
+			if len(names) > 0 {
+				out = w.out
+			} else {
+				out = nil
+			}
+		case out <- names.Values():
+			names = make(set.Strings)
+			out = nil
+		}
+	}
+}

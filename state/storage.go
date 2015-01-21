@@ -186,6 +186,21 @@ func newStorageInstanceId(st *State, store string) (string, error) {
 	return fmt.Sprintf("%s/%v", store, seq), nil
 }
 
+// StorageInstance returns the StorageInstance with the specified ID.
+func (st *State) StorageInstance(id string) (StorageInstance, error) {
+	storageInstances, cleanup := st.getCollection(storageInstancesC)
+	defer cleanup()
+
+	s := storageInstance{st: st}
+	err := storageInstances.FindId(id).One(&s.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("storage instance %q", id)
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get storage instance details")
+	}
+	return &s, nil
+}
+
 func createStorageInstanceOps(
 	st *State,
 	ownerTag names.Tag,
