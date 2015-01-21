@@ -89,6 +89,7 @@ func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo
 			dev.UUID,
 			dev.Serial,
 			dev.Size,
+			dev.FilesystemType,
 			dev.InUse,
 		}
 	}
