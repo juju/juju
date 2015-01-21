@@ -51,8 +51,8 @@ type validateArgs struct {
 // The *state.State parameter is expected to be the state server State
 // connection.  The return *state.State is a connection for the specified
 // environment UUID if the UUID refers to an environment contained in the
-// database.  If the bool return value is true, the state connection should
-// be closed at the end of serving the client connection.
+// database.  If the bool return value is true, the state connection must
+// be closed by the caller at the end of serving the client connection.
 func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
 	if args.envUUID == "" {
 		// We allow the environUUID to be empty for 2 cases
@@ -71,12 +71,17 @@ func validateEnvironUUID(args validateArgs) (*state.State, bool, error) {
 		logger.Debugf("validate env uuid: state server environment - %s", args.envUUID)
 		return args.st, false, nil
 	}
-	if args.stateServerEnvOnly || !names.IsValidEnvironment(args.envUUID) {
+	if args.stateServerEnvOnly {
+		return nil, false, errors.Unauthorizedf("requested environment %q is not the state server environment", args.envUUID)
+	}
+	if !names.IsValidEnvironment(args.envUUID) {
 		return nil, false, errors.Trace(common.UnknownEnvironmentError(args.envUUID))
 	}
 	envTag := names.NewEnvironTag(args.envUUID)
-	if _, err := args.st.GetEnvironment(envTag); err != nil {
+	if env, err := args.st.GetEnvironment(envTag); err != nil {
 		return nil, false, errors.Wrap(err, common.UnknownEnvironmentError(args.envUUID))
+	} else if env.Life() != state.Alive {
+		return nil, false, errors.Errorf("environment %q is no longer live", args.envUUID)
 	}
 	logger.Debugf("validate env uuid: %s", args.envUUID)
 	result, err := args.st.ForEnviron(envTag)

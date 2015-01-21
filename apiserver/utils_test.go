@@ -92,5 +92,21 @@ func (s *utilsSuite) TestValidateOtherEnvironmentStateServerOnly(c *gc.C) {
 			envUUID:            envState.EnvironUUID(),
 			stateServerEnvOnly: true,
 		})
-	c.Assert(err, gc.ErrorMatches, `unknown environment: ".*"`)
+	c.Assert(err, gc.ErrorMatches, `requested environment ".*" is not the state server environment`)
+}
+
+func (s *utilsSuite) TestValidateNonAliveEnvironment(c *gc.C) {
+	envState := s.Factory.MakeEnvironment(c, nil)
+	defer envState.Close()
+	env, err := envState.Environment()
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = validateEnvironUUID(
+		validateArgs{
+			st:      s.State,
+			envUUID: envState.EnvironUUID(),
+		})
+	c.Assert(err, gc.ErrorMatches, `environment ".*" is no longer live`)
 }
