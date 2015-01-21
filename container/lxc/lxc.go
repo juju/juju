@@ -603,9 +603,11 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 			nic.Type = "vlan"
 		}
 		if nic.IPv4Address != "" {
-			// LXC expects IPv4 addresses formatted like this:
-			// 1.2.3.4/5, so extract the mask from the CIDR to append
-			// it.
+			// LXC expects IPv4 addresses formatted like a CIDR:
+			// 1.2.3.4/5 (but without masking the least significant
+			// octets). So we need to extract the mask part of the
+			// iface.CIDR and append it. If CIDR is empty or invalid
+			// "/24" is used as a sane default.
 			_, ipNet, err := net.ParseCIDR(iface.CIDR)
 			if err != nil {
 				logger.Warningf(
