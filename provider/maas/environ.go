@@ -1345,10 +1345,15 @@ func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string,
 	}
 	result := []string{}
 	for _, macObj := range macs {
-		mac, err := macObj.GetString()
+		macMap, err := macObj.GetMap()
 		if err != nil {
 			return nil, err
 		}
+		mac, err := macMap["mac_address"].GetString()
+		if err != nil {
+			return nil, err
+		}
+
 		result = append(result, mac)
 	}
 	return result, nil
