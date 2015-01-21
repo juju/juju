@@ -1290,19 +1290,58 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	networks, err := environ.getInstanceNetworks(inst)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
+	}
+
+	macToNetworkMap := make(map[string]networkDetails)
+	for _, network := range networks {
+		macs, err := environ.listConnectedMacs(network)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, mac := range macs {
+			macToNetworkMap[mac] = network
+		}
+	}
+
 	result := []network.InterfaceInfo{}
 	for serial, iface := range interfaces {
 		deviceIndex := iface.DeviceIndex
-		providerId := network.Id(iface.InterfaceName)
+		interfaceName := iface.InterfaceName
 		disabled := iface.Disabled
 
 		ifaceInfo := network.InterfaceInfo{
-			DeviceIndex: deviceIndex,
-			ProviderId:  providerId,
-			Disabled:    disabled,
-			MACAddress:  serial,
+			DeviceIndex:   deviceIndex,
+			InterfaceName: interfaceName,
+			Disabled:      disabled,
+			MACAddress:    serial,
 		}
 		result = append(result, ifaceInfo)
+	}
+	return result, nil
+}
+
+func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string, error) {
+	client := environ.getMAASClient().GetSubObject("networks").GetSubObject(network.Name)
+	json, err := client.CallGet("list_connected_macs", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	macs, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	for _, macObj := range macs {
+		mac, err := macObj.GetString()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, mac)
 	}
 	return result, nil
 }
