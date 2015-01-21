@@ -62,7 +62,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice)
+	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
 
 	series := args.Tools.OneSeries()
 	args.MachineConfig.MachineContainerType = instance.LXC

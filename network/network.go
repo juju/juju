@@ -118,7 +118,7 @@ type InterfaceInfo struct {
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
-	// usually (one of) the host address(es).
+	// usually is (one of) the host address(es).
 	GatewayAddress Address
 
 	// ExtraConfig can contain any valid setting and its value allowed
