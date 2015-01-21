@@ -70,6 +70,10 @@ do
         echo "Building utopic amd64"
         $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@utopic-slave \
                 "$UTOPIC_SSH_OPTIONS" $dsc
+    elif [[ $series == '15.04' ]]; then
+        echo "Building vivid amd64"
+        $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@vivid-slave \
+                "$VIVID_SSH_OPTIONS" $dsc
     fi
 done
 fi
