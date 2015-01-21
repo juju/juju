@@ -1041,9 +1041,6 @@ class TestDeployManyAttempt(TestCase):
         for guest in range(100, total_guests + 100):
             yield ('juju', '--show-log', 'remove-machine', '-e', 'steve',
                    '--force', str(guest))
-        for host in range(1, deploy_many.host_count + 1):
-            yield ('juju', '--show-log', 'remove-machine', '-e', 'steve',
-                   str(host))
 
     def test_iter_steps(self):
         client = FakeEnvJujuClient()
@@ -1105,15 +1102,51 @@ class TestDeployManyAttempt(TestCase):
                              {'test_id': 'deploy-many', 'result': True})
 
         self.assertEqual(deploy_iter.next(),
-                         {'test_id': 'remove-machine-many'})
+                         {'test_id': 'remove-machine-many-lxc'})
         with patch('subprocess.check_output', return_value=status):
             with patch('subprocess.check_call') as mock_cc:
                 self.assertEqual(
                     deploy_iter.next(),
-                    {'test_id': 'remove-machine-many', 'result': True})
+                    {'test_id': 'remove-machine-many-lxc'})
         calls = self.predict_remove_machine_calls(deploy_many)
         for num, args in enumerate(calls):
             assert_juju_call(self, mock_cc, client, args, num)
+        statuses = (yaml.safe_dump(x) for x in [
+            {'machines': {'100': {'agent-state': 'started'}}, 'services': {}},
+            {'machines': {}, 'services': {}}])
+        with patch('subprocess.check_output',
+                   side_effect=lambda x, **y: statuses.next()) as mock_co:
+            self.assertEqual(
+                deploy_iter.next(),
+                {'test_id': 'remove-machine-many-lxc', 'result': True})
+        for num in range(2):
+            assert_juju_call(self, mock_co, client, (
+                'juju', '--show-log', 'status', '-e', 'steve'), num,
+                assign_stderr=True)
+        self.assertEqual(deploy_iter.next(), {
+            'test_id': 'remove-machine-many-instance'})
+        with patch('subprocess.check_call') as mock_cc:
+            self.assertEqual(
+                deploy_iter.next(),
+                {'test_id': 'remove-machine-many-instance'})
+        for num in range(deploy_many.host_count):
+            assert_juju_call(self, mock_cc, client, (
+                'juju', '--show-log', 'remove-machine', '-e', 'steve',
+                str(num + 1)), num)
+
+        statuses = (yaml.safe_dump(x) for x in [
+            {'machines': {'1': {'agent-state': 'started'}}, 'services': {}},
+            {'machines': {}, 'services': {}}])
+
+        with patch('subprocess.check_output',
+                   side_effect=lambda x, **y: statuses.next()) as mock_co:
+            self.assertEqual(
+                deploy_iter.next(),
+                {'test_id': 'remove-machine-many-instance', 'result': True})
+        for num in range(2):
+            assert_juju_call(self, mock_co, client, (
+                'juju', '--show-log', 'status', '-e', 'steve'), num,
+                assign_stderr=True)
 
     @patch('logging.error')
     def test_iter_step_failure(self, le_mock):

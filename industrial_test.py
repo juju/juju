@@ -3,6 +3,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 from collections import OrderedDict
+from contextlib import contextmanager
 from datetime import datetime
 import json
 import logging
@@ -429,6 +430,28 @@ class EnsureAvailabilityAttempt(StageAttempt):
         return True
 
 
+@contextmanager
+def wait_until_removed(client, to_remove, timeout=30):
+    timeout_iter = until_timeout(timeout)
+    yield
+    to_remove = set(to_remove)
+    for ignored in timeout_iter:
+        status = client.get_status()
+        machines = [k for k, v in status.iter_machines(containers=True) if
+                    k in to_remove]
+        if machines == []:
+            break
+    else:
+        raise Exception('Timed out waiting for removal')
+
+
+@contextmanager
+def wait_for_started(client):
+    timeout_start = datetime.now()
+    yield
+    client.wait_for_started(start=timeout_start)
+
+
 class DeployManyAttempt(SteppedStageAttempt):
 
     @staticmethod
@@ -437,7 +460,10 @@ class DeployManyAttempt(SteppedStageAttempt):
             ('add-machine-many', {'title': 'add many machines'}),
             ('ensure-machines', {'title': 'Ensure sufficient machines'}),
             ('deploy-many', {'title': 'deploy many'}),
-            ('remove-machine-many', {'title': 'remove many machines'}),
+            ('remove-machine-many-lxc', {
+                'title': 'remove many machines (lxc)'}),
+            ('remove-machine-many-instance', {
+                'title': 'remove many machines (instance)'}),
             ])
 
     def __init__(self, host_count=5, container_count=8):
@@ -499,14 +525,24 @@ class DeployManyAttempt(SteppedStageAttempt):
         status = client.wait_for_started(start=timeout_start)
         results['result'] = True
         yield results
-        results = {'test_id': 'remove-machine-many'}
+        results = {'test_id': 'remove-machine-many-lxc'}
         yield results
         services = [status.status['services'][key] for key in service_names]
+        lxc_machines = set()
         for service in services:
             for unit in service['units'].values():
+                lxc_machines.add(unit['machine'])
                 client.juju('remove-machine', ('--force', unit['machine']))
+        with wait_until_removed(client, lxc_machines):
+            yield results
+        results['result'] = True
+        yield results
+        results = {'test_id': 'remove-machine-many-instance'}
+        yield results
         for machine_name in machine_names:
             client.juju('remove-machine', (machine_name,))
+        with wait_until_removed(client, machine_names):
+            yield results
         results['result'] = True
         yield results
 
@@ -556,8 +592,8 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         wait_for_state_server_to_shutdown(host, client, instance_id)
         yield results
         client.juju('restore', (backup_file,))
-        yield results
-        client.wait_for_started()
+        with wait_for_started(client):
+            yield results
         results['result'] = True
         yield results
 
