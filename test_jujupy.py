@@ -1074,6 +1074,26 @@ class TestJujuClientDevel(TestCase):
 
 class TestStatus(TestCase):
 
+    def test_iter_machines_no_containers(self):
+        status = Status({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
+            },
+            'services': {}}, '')
+        self.assertEqual(list(status.iter_machines()),
+                         [('1', status.status['machines']['1'])])
+
+    def test_iter_machines_containers(self):
+        status = Status({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {'1/lxc/0': {'baz': 'qux'}}}
+            },
+            'services': {}}, '')
+        self.assertEqual(list(status.iter_machines(containers=True)), [
+            ('1', status.status['machines']['1']),
+            ('1/lxc/0', {'baz': 'qux'}),
+            ])
+
     def test_agent_items_empty(self):
         status = Status({'machines': {}, 'services': {}}, '')
         self.assertItemsEqual([], status.agent_items())
