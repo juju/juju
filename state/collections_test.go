@@ -116,12 +116,12 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 	// The machines collection requires filtering by env UUID. Set up
 	// 2 environments with machines in each.
-	m0 := s.factory.MakeMachine(c, nil)
+	m0, _ := s.factory.MakeMachine(c, nil)
 	s.factory.MakeMachine(c, nil)
 	st1 := s.factory.MakeEnvironment(c, nil)
 	defer st1.Close()
 	f1 := factory.NewFactory(st1)
-	otherM0 := f1.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
+	otherM0, _ := f1.MakeMachine(c, &factory.MachineParams{Series: "trusty"})
 
 	// Ensure that the first machine in each env have overlapping ids
 	// (otherwise tests may not fail when they should)

@@ -51,11 +51,11 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 
 	factory := jujuFactory.NewFactory(s.State)
 	// Create two machines, two services and add a unit to each service.
-	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine0, _ = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	})
-	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine1, _ = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})

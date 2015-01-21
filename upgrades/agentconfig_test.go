@@ -210,17 +210,12 @@ func (s *migrateAgentEnvUUIDSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *migrateAgentEnvUUIDSuite) primeConfig(c *gc.C) {
-	pwd, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	s.password = pwd
-
-	s.machine = s.Factory.MakeMachine(c, &factory.MachineParams{
-		Password: pwd,
-		Nonce:    "a nonce",
+	s.machine, s.password = s.Factory.MakeMachine(c, &factory.MachineParams{
+		Nonce: "a nonce",
 	})
 	initialConfig, err := agent.NewAgentConfig(agent.AgentConfigParams{
 		Tag:               s.machine.Tag(),
-		Password:          pwd,
+		Password:          s.password,
 		CACert:            testing.CACert,
 		StateAddresses:    []string{"localhost:1111"},
 		DataDir:           agent.DefaultDataDir,

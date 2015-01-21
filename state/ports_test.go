@@ -35,7 +35,7 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	f := factory.NewFactory(s.State)
 	s.charm = f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	s.service = f.MakeService(c, &factory.ServiceParams{Name: "wordpress", Charm: s.charm})
-	s.machine = f.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	s.machine, _ = f.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
 	s.unit1 = f.MakeUnit(c, &factory.UnitParams{Service: s.service, Machine: s.machine})
 	s.unit2 = f.MakeUnit(c, &factory.UnitParams{Service: s.service, Machine: s.machine})
 

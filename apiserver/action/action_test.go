@@ -73,7 +73,7 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Charm:   s.charm,
 		Creator: s.AdminUserTag(c),
 	})
-	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine0, _ = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	})
@@ -90,7 +90,7 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Charm:   mysqlCharm,
 		Creator: s.AdminUserTag(c),
 	})
-	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine1, _ = factory.MakeMachine(c, &jujuFactory.MachineParams{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})

@@ -186,7 +186,7 @@ func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
+	machine, password := s.Factory.MakeMachine(c, nil)
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
@@ -198,6 +198,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	c.Assert(saved.Tag(), gc.Equals, machine.Tag())
 	c.Assert(saved.Life(), gc.Equals, machine.Life())
 	c.Assert(saved.Jobs(), gc.DeepEquals, machine.Jobs())
+	c.Assert(saved.PasswordValid(password), jc.IsTrue)
 	savedInstanceId, err := saved.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	machineInstanceId, err := machine.InstanceId()
@@ -214,7 +215,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+	machine, pwd := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series:     series,
 		Jobs:       jobs,
 		Password:   password,
@@ -222,6 +223,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 		InstanceId: id,
 	})
 	c.Assert(machine, gc.NotNil)
+	c.Assert(pwd, gc.Equals, password)
 
 	c.Assert(machine.Series(), gc.Equals, series)
 	c.Assert(machine.Jobs(), gc.DeepEquals, jobs)

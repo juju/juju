@@ -352,7 +352,7 @@ func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := envConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+	machine, _ := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
