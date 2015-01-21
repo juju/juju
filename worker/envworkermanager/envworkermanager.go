@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
 	"launchpad.net/tomb"
 
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -45,6 +46,7 @@ type InitialState interface {
 	GetEnvironment(names.EnvironTag) (*state.Environment, error)
 	EnvironUUID() string
 	Machine(string) (*state.Machine, error)
+	MongoSession() *mgo.Session
 }
 
 type envWorkerManager struct {
