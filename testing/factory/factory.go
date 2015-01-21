@@ -30,8 +30,11 @@ type Factory struct {
 	index int
 }
 
+// Index is used to seed the index of new factories.
+var Index int
+
 func NewFactory(st *state.State) *Factory {
-	return &Factory{st: st}
+	return &Factory{st: st, index: Index}
 }
 
 type UserParams struct {

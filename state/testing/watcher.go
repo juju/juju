@@ -140,6 +140,15 @@ func (c StringsWatcherC) AssertNoChange() {
 	}
 }
 
+func (c StringsWatcherC) AssertChanges() {
+	c.State.StartSync()
+	select {
+	case <-c.Watcher.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+}
+
 func (c StringsWatcherC) AssertChange(expect ...string) {
 	c.assertChange(false, expect...)
 }

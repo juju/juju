@@ -168,7 +168,7 @@ func (st *State) WatchEnvironments() StringsWatcher {
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, servicesC, nil, nil)
+	return newLifecycleWatcher(st, servicesC, nil, st.isForStateEnv)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -212,7 +212,11 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 		{{"containertype", bson.D{{"$exists", false}}}},
 	}}}
 	filter := func(id interface{}) bool {
-		return !strings.Contains(id.(string), "/")
+		k, err := st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		return !strings.Contains(k, "/")
 	}
 	return newLifecycleWatcher(st, machinesC, members, filter)
 }
@@ -235,7 +239,12 @@ func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
 	members := bson.D{{"_id", bson.D{{"$regex", isChildRegexp}}}}
 	compiled := regexp.MustCompile(isChildRegexp)
 	filter := func(key interface{}) bool {
-		return compiled.MatchString(key.(string))
+		k := key.(string)
+		_, err := m.st.strictLocalID(k)
+		if err != nil {
+			return false
+		}
+		return compiled.MatchString(k)
 	}
 	return newLifecycleWatcher(m.st, machinesC, members, filter)
 }
@@ -457,7 +466,7 @@ func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change)
 
 func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(minUnitsC, ch)
+	w.st.watcher.WatchCollectionWithFilter(minUnitsC, ch, w.st.isForStateEnv)
 	defer w.st.watcher.UnwatchCollection(minUnitsC, ch)
 	serviceNames, err := w.initial()
 	if err != nil {
@@ -486,6 +495,11 @@ func (w *minUnitsWatcher) loop() (err error) {
 
 func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
+}
+
+func (st *State) isForStateEnv(id interface{}) bool {
+	_, err := st.strictLocalID(id.(string))
+	return err == nil
 }
 
 // scopeInfo holds a RelationScopeWatcher's last-delivered state, and any
@@ -1596,8 +1610,7 @@ func (w *cleanupWatcher) Changes() <-chan struct{} {
 
 func (w *cleanupWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
-
-	w.st.watcher.WatchCollection(cleanupsC, in)
+	w.st.watcher.WatchCollectionWithFilter(cleanupsC, in, w.st.isForStateEnv)
 	defer w.st.watcher.UnwatchCollection(cleanupsC, in)
 
 	out := w.out
@@ -1671,8 +1684,7 @@ func (w *actionStatusWatcher) loop() error {
 		in      <-chan watcher.Change = w.source
 		out     chan<- []string       = w.sink
 	)
-
-	w.st.watcher.WatchCollection(actionsC, w.source)
+	w.st.watcher.WatchCollectionWithFilter(actionsC, w.source, w.st.isForStateEnv)
 	defer w.st.watcher.UnwatchCollection(actionsC, w.source)
 
 	changes, err := w.initial()
@@ -2126,7 +2138,7 @@ func (w *machineInterfacesWatcher) loop() error {
 	in := make(chan watcher.Change)
 	out := w.out
 
-	w.st.watcher.WatchCollection(networkInterfacesC, in)
+	w.st.watcher.WatchCollectionWithFilter(networkInterfacesC, in, w.st.isForStateEnv)
 	defer w.st.watcher.UnwatchCollection(networkInterfacesC, in)
 
 	initial, err := w.initial()
@@ -2240,7 +2252,7 @@ func (w *openedPortsWatcher) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.st.watcher.WatchCollection(openedPortsC, in)
+	w.st.watcher.WatchCollectionWithFilter(openedPortsC, in, w.st.isForStateEnv)
 	defer w.st.watcher.UnwatchCollection(openedPortsC, in)
 
 	out := w.out
