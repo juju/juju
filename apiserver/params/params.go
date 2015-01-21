@@ -197,6 +197,7 @@ type ServiceDeploy struct {
 	Constraints   constraints.Value
 	ToMachineSpec string
 	Networks      []string
+	Storage       map[string]storage.Constraints
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.

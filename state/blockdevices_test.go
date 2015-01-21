@@ -10,7 +10,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 )
 
 type BlockDevicesSuite struct {
@@ -199,31 +198,4 @@ func (s *BlockDevicesSuite) TestBlockDeviceParamsMethod(c *gc.C) {
 	params, ok := b1.Params()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(params, gc.DeepEquals, disk1Params)
-}
-
-func (s *BlockDevicesSuite) TestBlockDeviceParams(c *gc.C) {
-	test := func(cons storage.Constraints, expect []state.BlockDeviceParams) {
-		params, err := s.State.BlockDeviceParams(cons, nil, "")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(params, gc.DeepEquals, expect)
-	}
-	test(storage.Constraints{Size: 1024, Count: 1}, []state.BlockDeviceParams{
-		{Size: 1024},
-	})
-	test(storage.Constraints{Size: 2048, Count: 2}, []state.BlockDeviceParams{
-		{Size: 2048}, {Size: 2048},
-	})
-}
-
-func (s *BlockDevicesSuite) TestBlockDeviceParamsErrors(c *gc.C) {
-	test := func(cons storage.Constraints, ch *state.Charm, store string, expectErr string) {
-		_, err := s.State.BlockDeviceParams(cons, ch, store)
-		c.Assert(err, gc.ErrorMatches, expectErr)
-	}
-	wordpress := s.AddTestingCharm(c, "wordpress")
-	test(storage.Constraints{Count: 1}, nil, "", "invalid size 0")
-	test(storage.Constraints{Size: 1}, nil, "", "invalid count 0")
-	test(storage.Constraints{Size: 1, Count: 1}, wordpress, "", "charm storage metadata not implemented")
-	test(storage.Constraints{Size: 1, Count: 1}, nil, "shared-fs", "charm storage metadata not implemented")
-	test(storage.Constraints{Size: 1, Count: 1, Pool: "bingo"}, nil, "", "storage pools not implemented")
 }

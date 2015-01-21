@@ -548,7 +548,7 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, networks)
+	service, err := s.State.AddService(name, owner, ch, networks, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }

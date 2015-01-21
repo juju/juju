@@ -1405,12 +1405,14 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"net1", "net2"},
+		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
@@ -1421,6 +1423,48 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testClientServiceDeployWithStorage(c, true)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
+	s.testClientServiceDeployWithStorage(c, false)
+}
+
+func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
+	s.makeMockCharmStore()
+	curl, bundle := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	storageConstraintsOut, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if expectConstraints {
+		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+			"data": state.StorageConstraints{
+				Count: 1,
+				Size:  1024,
+			},
+		})
+	} else {
+		c.Assert(storageConstraintsOut, gc.HasLen, 0)
+	}
 }
 
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -1434,6 +1478,7 @@ func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, blocked bo
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
+		nil,
 	)
 	if blocked {
 		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
@@ -2851,8 +2896,8 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(machines), gc.Equals, 3)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, "cannot compute block device parameters: storage pools not implemented")
-	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot compute block device parameters: invalid size 0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, "storage pools not implemented")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid size 0")
 
 	m, err := s.BackingState.Machine(machines[0].Machine)
 	c.Assert(err, jc.ErrorIsNil)
