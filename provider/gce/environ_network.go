@@ -22,12 +22,17 @@ func (env *environ) ReleaseAddress(instID instance.Id, netID network.Id, addr ne
 }
 
 // Subnets implements environs.Environ, but is not implmemented.
-func (env *environ) Subnets(inst instance.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(inst instance.Id, ids []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
 
 // ListNetworks implements environs.Environ, but is not implmemented.
 func (env *environ) ListNetworks(inst instance.Id) ([]network.SubnetInfo, error) {
+	return nil, errors.Trace(errNotImplemented)
+}
+
+// NetworkInterfaces implements environs.Environ, but is not implmemented.
+func (env *environ) NetworkInterfaces(inst instance.Id) ([]network.InterfaceInfo, error) {
 	return nil, errors.Trace(errNotImplemented)
 }
 
