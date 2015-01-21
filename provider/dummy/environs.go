@@ -623,12 +623,7 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (*environ) SupportNetworks() bool {
-	return true
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
+// SupportAddressAllocation is specified on the Networking interface.
 func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
 	return false, nil
 }

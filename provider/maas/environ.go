@@ -471,6 +471,7 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
+// TODO(mue) Check how to change due to new approach!
 func (env *maasEnviron) SupportNetworks() bool {
 	caps, err := env.getCapabilities()
 	if err != nil {

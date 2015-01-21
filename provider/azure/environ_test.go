@@ -190,8 +190,10 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
-	c.Assert(env.SupportNetworks(), jc.IsFalse)
+	_, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsFalse)
 }
+
 func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	result, err := env.SupportAddressAllocation("")

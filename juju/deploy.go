@@ -70,7 +70,7 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		if err != nil {
 			return nil, err
 		}
-		if !env.SupportNetworks() {
+		if _, ok := environs.SupportsNetworking(env); !ok {
 			return nil, fmt.Errorf("cannot deploy with networks: not suppored by the environment")
 		}
 	}

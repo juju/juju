@@ -831,7 +831,8 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := s.Open(c)
-	c.Assert(env.SupportNetworks(), jc.IsFalse)
+	_, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *localServerSuite) TestSupportAddressAllocation(c *gc.C) {

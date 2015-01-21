@@ -700,7 +700,8 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
-	c.Assert(env.SupportNetworks(), jc.IsFalse)
+	_, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {

@@ -35,10 +35,6 @@ func (e *mockEnvironCapability) SupportAddressAllocation(netId network.Id) (bool
 	panic("unused")
 }
 
-func (p *mockEnvironCapability) SupportNetworks() bool {
-	panic("unused")
-}
-
 func (p *mockEnvironCapability) SupportsUnitPlacement() error {
 	return p.supportsUnitPlacementError
 }

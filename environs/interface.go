@@ -123,22 +123,6 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// AllocateAddress requests a specific address to be allocated for the
-	// given instance on the given network.
-	AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error
-
-	// ReleaseAddress releases a specific address previously allocated with
-	// AllocateAddress.
-	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
-
-	// Subnets returns basic information about subnets known
-	// by the provider for the environment.
-	Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
-
-	// NetworkInterfaces requests information about the network
-	// interfaces on the given instance.
-	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
-
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 

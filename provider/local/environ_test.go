@@ -100,7 +100,8 @@ func (*environSuite) TestSupportNetworks(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environ.SupportNetworks(), jc.IsFalse)
+	_, ok := environs.SupportsNetworking(environ)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (*environSuite) TestSupportAddressAllocation(c *gc.C) {

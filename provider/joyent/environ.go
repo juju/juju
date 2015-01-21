@@ -117,11 +117,6 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (e *joyentEnviron) SupportNetworks() bool {
-	return false
-}
-
 // SupportAddressAllocation is specified on the EnvironCapability interface.
 func (e *joyentEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
 	return false, nil

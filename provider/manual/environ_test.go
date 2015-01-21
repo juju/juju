@@ -138,7 +138,8 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 }
 
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
-	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
+	_, ok := environs.SupportsNetworking(s.env)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
