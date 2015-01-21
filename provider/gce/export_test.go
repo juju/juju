@@ -5,16 +5,17 @@ package gce
 
 import (
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/gce/google"
 )
 
 var (
-	Provider            environs.EnvironProvider = providerInstance
-	NewInstance                                  = newInstance
-	GetInstances                                 = getInstances
-	CheckInstanceType                            = checkInstanceType
-	FinishMachineConfig                          = finishMachineConfig
-	FindInstanceSpec                             = findInstanceSpec
+	Provider          environs.EnvironProvider = providerInstance
+	NewInstance                                = newInstance
+	CheckInstanceType                          = checkInstanceType
+	GetMetadata                                = getMetadata
+	GetDisks                                   = getDisks
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {
@@ -47,4 +48,28 @@ func GlobalFirewallName(env *environ) string {
 
 func ParsePlacement(env *environ, placement string) (*instPlacement, error) {
 	return env.parsePlacement(placement)
+}
+
+func FinishMachineConfg(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+	return env.finishMachineConfig(args, spec)
+}
+
+func FindInstanceSpec(env *environ, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	return env.findInstanceSpec(stream, ic)
+}
+
+func BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	return env.buildInstanceSpec(args)
+}
+
+func NewRawInstance(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+	return env.newRawInstance(args, spec)
+}
+
+func GetHardwareCharacteristics(env *environ, spec *instances.InstanceSpec, inst *environInstance) *instance.HardwareCharacteristics {
+	return env.getHardwareCharacteristics(spec, inst)
+}
+
+func GetInstances(env *environ) ([]instance.Instance, error) {
+	return env.instances()
 }

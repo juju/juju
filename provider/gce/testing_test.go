@@ -4,13 +4,14 @@
 package gce
 
 import (
+	"encoding/base64"
+
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -49,6 +50,7 @@ type BaseSuiteUnpatched struct {
 	BaseInstance  *google.Instance
 	Instance      *environInstance
 	InstName      string
+	Metadata      map[string]string
 	StartInstArgs environs.StartInstanceParams
 	InstanceType  instances.InstanceType
 
@@ -80,9 +82,32 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Readonly:   false,
 		AutoDelete: true,
 	}
-	metadata := map[string]string{
-		"eggs":             "steak",
-		metadataKeyIsState: metadataValueTrue,
+
+	tools := []*tools.Tools{{
+		Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
+		URL:     "https://example.org",
+	}}
+
+	cons := constraints.Value{InstanceType: &allInstanceTypes[0].Name}
+
+	machineConfig, err := environs.NewBootstrapMachineConfig(cons, "trusty")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machineConfig.Tools = tools[0]
+	machineConfig.AuthorizedKeys = s.Config.AuthorizedKeys()
+
+	userData, err := environs.ComposeUserData(machineConfig, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	b64UserData := base64.StdEncoding.EncodeToString([]byte(userData))
+
+	authKeys, err := google.FormatAuthorizedKeys(machineConfig.AuthorizedKeys, "ubuntu")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.Metadata = map[string]string{
+		metadataKeyIsState:   metadataValueTrue,
+		metadataKeyCloudInit: b64UserData,
+		metadataKeyEncoding:  "base64",
+		metadataKeySSHKeys:   authKeys,
 	}
 	s.Addresses = []network.Address{{
 		Value: "10.0.0.1",
@@ -95,28 +120,28 @@ func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
 		Disks:             []google.DiskSpec{diskSpec},
 		Network:           google.NetworkSpec{Name: "somenetwork"},
 		NetworkInterfaces: []string{"somenetif"},
-		Metadata:          metadata,
+		Metadata:          s.Metadata,
 		Tags:              []string{"spam"},
 	}
 	summary := google.InstanceSummary{
 		ID:        "spam",
 		ZoneName:  "home-zone",
 		Status:    google.StatusRunning,
-		Metadata:  metadata,
+		Metadata:  s.Metadata,
 		Addresses: s.Addresses,
 	}
 	s.BaseInstance = google.NewInstance(summary, &instanceSpec)
 	s.Instance = newInstance(s.BaseInstance, s.Env)
 	s.InstName = s.Prefix + "machine-spam"
+
 	s.StartInstArgs = environs.StartInstanceParams{
-		MachineConfig: &cloudinit.MachineConfig{},
-		Tools: []*tools.Tools{{
-			Version: version.Binary{Arch: arch.AMD64, Series: "trusty"},
-		}},
-		Constraints: constraints.Value{InstanceType: &allInstanceTypes[0].Name},
+		MachineConfig: machineConfig,
+		Tools:         tools,
+		Constraints:   cons,
 		//Placement: "",
 		//DistributionGroup: nil,
 	}
+
 	s.InstanceType = allInstanceTypes[0]
 }
 
@@ -178,7 +203,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
 	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
-	s.PatchValue(&finishMachineConfig, s.FakeEnviron.FinishMachineConfig)
+	s.PatchValue(&buildInstanceSpec, s.FakeEnviron.BuildInstanceSpec)
 	s.PatchValue(&getHardwareCharacteristics, s.FakeEnviron.GetHardwareCharacteristics)
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
@@ -273,8 +298,8 @@ func (fe *fakeEnviron) GetInstances(env *environ) ([]instance.Instance, error) {
 	return fe.Insts, fe.err()
 }
 
-func (fe *fakeEnviron) FinishMachineConfig(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
-	fe.addCall("FinishMachineConfig", FakeCallArgs{
+func (fe *fakeEnviron) BuildInstanceSpec(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	fe.addCall("BuildInstanceSpec", FakeCallArgs{
 		"env":  env,
 		"args": args,
 	})

@@ -38,8 +38,12 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
-	spec, err := finishMachineConfig(env, args)
+	spec, err := buildInstanceSpec(env, args)
 	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := env.finishMachineConfig(args, spec); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -71,8 +75,8 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (*environs.
 	return &result, nil
 }
 
-var finishMachineConfig = func(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
-	return env.finishMachineConfig(args)
+var buildInstanceSpec = func(env *environ, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+	return env.buildInstanceSpec(args)
 }
 
 var newRawInstance = func(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
@@ -83,10 +87,22 @@ var getHardwareCharacteristics = func(env *environ, spec *instances.InstanceSpec
 	return env.getHardwareCharacteristics(spec, inst)
 }
 
-// finishMachineConfig builds an instance spec from the provided args
+// finishMachineConfig updates args.MachineConfig in place. Setting up
+// the API, StateServing, and SSHkeys information.
+func (env *environ) finishMachineConfig(args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+	envTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
+	if err != nil {
+		return errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+	}
+
+	args.MachineConfig.Tools = envTools[0]
+	return environs.FinishMachineConfig(args.MachineConfig, env.Config())
+}
+
+// buildInstanceSpec builds an instance spec from the provided args
 // and returns it. This includes pulling the simplestreams data for the
 // machine type, region, and other constraints.
-func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (env *environ) buildInstanceSpec(args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	arches := args.Tools.Arches()
 	series := args.Tools.OneSeries()
 	spec, err := findInstanceSpec(env, env.Config().ImageStream(), &instances.InstanceConstraint{
@@ -95,17 +111,6 @@ func (env *environ) finishMachineConfig(args environs.StartInstanceParams) (*ins
 		Arches:      arches,
 		Constraints: args.Constraints,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	envTools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
-	if err != nil {
-		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
-	}
-
-	args.MachineConfig.Tools = envTools[0]
-	err = environs.FinishMachineConfig(args.MachineConfig, env.Config())
 	return spec, errors.Trace(err)
 }
 
