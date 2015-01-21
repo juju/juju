@@ -57,7 +57,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
 
 	// Create a machine to host some units.
-	unitHostMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
+	unitHostMachine, _ := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Nonce:    agent.BootstrapNonce,
 		Password: password,
 	})
