@@ -54,7 +54,7 @@ const (
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
 func DefaultNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig(DefaultLxcBridge)
+	return container.BridgeNetworkConfig(DefaultLxcBridge, nil)
 }
 
 // FsCommandOutput calls cmd.Output, this is used as an overloading point so
@@ -521,39 +521,117 @@ func containerConfigFilename(name string) string {
 	return filepath.Join(LxcContainerDir, name, "config")
 }
 
-const networkTemplate = `
+const singleNICTemplate = `
+# network config
+# interface "eth0"
 lxc.network.type = {{.Type}}
 lxc.network.link = {{.Link}}
-lxc.network.flags = up
-{{if gt .MTU 0}}lxc.network.mtu = {{.MTU}}{{end}}
+lxc.network.flags = up{{if .MTU}}
+lxc.network.mtu = {{.MTU}}{{end}}
+
 `
 
-func networkConfigTemplate(networkType, networkLink string) string {
-	type config struct {
-		Type string
-		Link string
-		MTU  int
-	}
-	values := config{
-		Type: networkType,
-		Link: networkLink,
-	}
+const multipleNICsTemplate = `
+# network config{{$mtu := .MTU}}{{range $nic := .Interfaces}}
+{{$nic.Name | printf "# interface %q"}}
+lxc.network.type = {{$nic.Type}}{{if $nic.VLANTag}}
+lxc.network.vlan.id = {{$nic.VLANTag}}{{end}}
+lxc.network.link = {{$nic.Link}}{{if not $nic.NoAutoStart}}
+lxc.network.flags = up{{end}}
+lxc.network.name = {{$nic.Name}}{{if $nic.MACAddress}}
+lxc.network.hwaddr = {{$nic.MACAddress}}{{end}}{{if $nic.IPv4Address}}
+lxc.network.ipv4 = {{$nic.IPv4Address}}{{end}}{{if $nic.IPv4Gateway}}
+lxc.network.ipv4.gateway = {{$nic.IPv4Gateway}}{{end}}{{if $mtu}}
+lxc.network.mtu = {{$mtu}}{{end}}
+{{end}}{{/* range */}}
 
-	tmpl, err := template.New("config").Parse(networkTemplate)
-	if err != nil {
-		logger.Errorf("cannot parse container config template: %v", err)
-		return ""
+`
+
+func networkConfigTemplate(config container.NetworkConfig) string {
+	type nicData struct {
+		Name        string
+		NoAutoStart bool
+		Type        string
+		Link        string
+		VLANTag     int
+		MACAddress  string
+		IPv4Address string
+		IPv4Gateway string
+	}
+	type configData struct {
+		Type       string
+		Link       string
+		MTU        int
+		Interfaces []nicData
+	}
+	data := configData{
+		Link: config.Device,
 	}
 
 	primaryNIC, err := discoverHostNIC()
 	if err != nil {
 		logger.Warningf("cannot determine primary NIC MTU, not setting for container: %v", err)
-	} else {
-		logger.Debugf("setting container network interface MTU to %d", primaryNIC.MTU)
-		values.MTU = primaryNIC.MTU
+	} else if primaryNIC.MTU > 0 {
+		logger.Infof("setting MTU to %d for all container network interfaces", primaryNIC.MTU)
+		data.MTU = primaryNIC.MTU
 	}
+
+	switch config.NetworkType {
+	case container.PhysicalNetwork:
+		data.Type = "phys"
+	case container.BridgeNetwork:
+		data.Type = "veth"
+	default:
+		logger.Warningf(
+			"unknown network type %q, using the default %q config",
+			config.NetworkType, container.BridgeNetwork,
+		)
+		data.Type = "veth"
+	}
+	for _, iface := range config.Interfaces {
+		nic := nicData{
+			Type:        data.Type,
+			Link:        config.Device,
+			Name:        iface.InterfaceName,
+			NoAutoStart: iface.NoAutoStart,
+			VLANTag:     iface.VLANTag,
+			MACAddress:  iface.MACAddress,
+			IPv4Address: iface.Address.Value,
+			IPv4Gateway: iface.GatewayAddress.Value,
+		}
+		if iface.VLANTag > 0 {
+			nic.Type = "vlan"
+		}
+		if nic.IPv4Address != "" {
+			// LXC expects IPv4 addresses formatted like this:
+			// 1.2.3.4/5, so extract the mask from the CIDR to append
+			// it.
+			_, ipNet, err := net.ParseCIDR(iface.CIDR)
+			if err != nil {
+				logger.Warningf(
+					"invalid CIDR %q for interface %q, using /24 as fallback",
+					iface.CIDR, nic.Name,
+				)
+				nic.IPv4Address += "/24"
+			} else {
+				ones, _ := ipNet.Mask.Size()
+				nic.IPv4Address += fmt.Sprintf("/%d", ones)
+			}
+		}
+		data.Interfaces = append(data.Interfaces, nic)
+	}
+	templateName := multipleNICsTemplate
+	if len(config.Interfaces) == 0 {
+		templateName = singleNICTemplate
+	}
+	tmpl, err := template.New("config").Parse(templateName)
+	if err != nil {
+		logger.Errorf("cannot parse container config template: %v", err)
+		return ""
+	}
+
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, values); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		logger.Errorf("cannot render container config: %v", err)
 		return ""
 	}
@@ -593,23 +671,12 @@ var discoverHostNIC = func() (net.Interface, error) {
 	return net.Interface{}, errors.Errorf("cannot detect the primary network interface")
 }
 
-func generateNetworkConfig(network *container.NetworkConfig) string {
-	var lxcConfig string
-	if network == nil {
-		logger.Warningf("network unspecified, using default networking config")
-		network = DefaultNetworkConfig()
+func generateNetworkConfig(config *container.NetworkConfig) string {
+	if config == nil {
+		config = DefaultNetworkConfig()
+		logger.Warningf("network type missing, using the default %q config", config.NetworkType)
 	}
-	switch network.NetworkType {
-	case container.PhysicalNetwork:
-		lxcConfig = networkConfigTemplate("phys", network.Device)
-	default:
-		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
-		fallthrough
-	case container.BridgeNetwork:
-		lxcConfig = networkConfigTemplate("veth", network.Device)
-	}
-
-	return lxcConfig
+	return networkConfigTemplate(*config)
 }
 
 func writeLxcConfig(network *container.NetworkConfig, directory string) (string, error) {

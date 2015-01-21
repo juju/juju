@@ -34,6 +34,7 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -355,7 +356,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	name := "juju-quantal-lxc-template"
 	ch := s.ensureTemplateStopped(name)
 	defer func() { <-ch }()
-	network := container.BridgeNetworkConfig("nic42")
+	network := container.BridgeNetworkConfig("nic42", nil)
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
 	aptMirror := "http://my.archive.ubuntu.com/ubuntu"
@@ -385,10 +386,13 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
+# network config
+# interface "eth0"
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.mtu = 4321
+
 `
 	// NOTE: no autostart, no mounting the log dir
 	c.Assert(string(config), gc.Equals, expected)
@@ -528,10 +532,13 @@ func (s *LxcSuite) TestCreateContainerNoRestartDir(c *gc.C) {
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
+# network config
+# interface "eth0"
 lxc.network.type = veth
 lxc.network.link = nic42
 lxc.network.flags = up
 lxc.network.mtu = 4321
+
 lxc.start.auto = 1
 lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
@@ -565,31 +572,148 @@ type NetworkSuite struct {
 var _ = gc.Suite(&NetworkSuite{})
 
 func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
+	dhcpNIC := network.InterfaceInfo{
+		DeviceIndex:   0,
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		InterfaceName: "eth0",
+		// The following is not part of the LXC config, but cause the
+		// generated cloud-init user-data to change accordingly.
+		ConfigType: network.ConfigDHCP,
+	}
+	staticNIC := network.InterfaceInfo{
+		DeviceIndex:    1,
+		CIDR:           "0.1.2.0/20", // used to infer the subnet mask.
+		MACAddress:     "aa:bb:cc:dd:ee:f1",
+		InterfaceName:  "eth1",
+		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+		// The rest is passed to cloud-init.
+		ConfigType: network.ConfigStatic,
+		DNSServers: network.NewAddresses("ns1.invalid", "ns2.invalid"),
+	}
+	extraConfigNIC := network.InterfaceInfo{
+		DeviceIndex:   2,
+		MACAddress:    "aa:bb:cc:dd:ee:f2",
+		InterfaceName: "eth2",
+		VLANTag:       42,
+		NoAutoStart:   true,
+		// The rest is passed to cloud-init.
+		ConfigType: network.ConfigManual,
+		DNSServers: network.NewAddresses("ns1.invalid", "ns2.invalid"),
+		ExtraConfig: map[string]string{
+			"pre-up":   "ip route add default via 0.1.2.1",
+			"up":       "ip route add 0.1.2.1 dev eth2",
+			"pre-down": "ip route del 0.1.2.1 dev eth2",
+			"down":     "ip route del default via 0.1.2.1",
+		},
+	}
+	// Test /24 is used by default when the CIDR is invalid or empty.
+	staticNICNoCIDR, staticNICBadCIDR := staticNIC, staticNIC
+	staticNICNoCIDR.CIDR = ""
+	staticNICBadCIDR.CIDR = "bad"
+	allNICs := []network.InterfaceInfo{dhcpNIC, staticNIC, extraConfigNIC}
 	for _, test := range []struct {
-		config *container.NetworkConfig
-		net    string
-		link   string
-		mtu    int
+		config            *container.NetworkConfig
+		mtu               int
+		nics              []network.InterfaceInfo
+		rendered          []string
+		logContains       string
+		logDoesNotContain string
 	}{{
 		config: nil,
-		net:    "veth",
-		link:   "lxcbr0",
 		mtu:    0,
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = lxcbr0",
+			"lxc.network.flags = up",
+		},
+		logContains:       `WARNING juju.container.lxc network type missing, using the default "bridge" config`,
+		logDoesNotContain: `INFO juju.container.lxc setting MTU to 0 for all container network interfaces`,
 	}, {
 		config: lxc.DefaultNetworkConfig(),
-		net:    "veth",
-		link:   "lxcbr0",
 		mtu:    42,
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = lxcbr0",
+			"lxc.network.flags = up",
+			"lxc.network.mtu = 42",
+		},
+		logContains: `INFO juju.container.lxc setting MTU to 42 for all container network interfaces`,
 	}, {
-		config: container.BridgeNetworkConfig("foo"),
-		net:    "veth",
-		link:   "foo",
+		config: container.BridgeNetworkConfig("foo", nil),
 		mtu:    1500,
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.flags = up",
+			"lxc.network.mtu = 1500",
+		},
+		logContains: `INFO juju.container.lxc setting MTU to 1500 for all container network interfaces`,
 	}, {
-		config: container.PhysicalNetworkConfig("foo"),
-		net:    "phys",
-		link:   "foo",
+		config: container.PhysicalNetworkConfig("foo", nil),
 		mtu:    9000,
+		rendered: []string{
+			"lxc.network.type = phys",
+			"lxc.network.link = foo",
+			"lxc.network.flags = up",
+			"lxc.network.mtu = 9000",
+		},
+		logContains: `INFO juju.container.lxc setting MTU to 9000 for all container network interfaces`,
+	}, {
+		config: container.BridgeNetworkConfig("foo", allNICs),
+		mtu:    9000,
+		nics:   allNICs,
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.flags = up",
+			"lxc.network.name = eth0",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f0",
+			"lxc.network.mtu = 9000",
+
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.flags = up",
+			"lxc.network.name = eth1",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
+			"lxc.network.ipv4 = 0.1.2.3/20",
+			"lxc.network.ipv4.gateway = 0.1.2.1",
+			"lxc.network.mtu = 9000",
+
+			"lxc.network.type = vlan",
+			"lxc.network.vlan.id = 42",
+			"lxc.network.link = foo",
+			"lxc.network.name = eth2",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f2",
+			"lxc.network.mtu = 9000",
+		},
+		logContains: `INFO juju.container.lxc setting MTU to 9000 for all container network interfaces`,
+	}, {
+		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICNoCIDR}),
+		nics:   []network.InterfaceInfo{staticNICNoCIDR},
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.flags = up",
+			"lxc.network.name = eth1",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
+			"lxc.network.ipv4 = 0.1.2.3/24",
+			"lxc.network.ipv4.gateway = 0.1.2.1",
+		},
+		logContains: `WARNING juju.container.lxc invalid CIDR "" for interface "eth1", using /24 as fallback`,
+	}, {
+		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICBadCIDR}),
+		nics:   []network.InterfaceInfo{staticNICBadCIDR},
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.flags = up",
+			"lxc.network.name = eth1",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
+			"lxc.network.ipv4 = 0.1.2.3/24",
+			"lxc.network.ipv4.gateway = 0.1.2.1",
+		},
+		logContains: `WARNING juju.container.lxc invalid CIDR "bad" for interface "eth1", using /24 as fallback`,
 	}} {
 		restorer := gitjujutesting.PatchValue(lxc.DiscoverHostNIC, func() (net.Interface, error) {
 			return net.Interface{
@@ -600,11 +724,26 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			}, nil
 		})
 		config := lxc.GenerateNetworkConfig(test.config)
-		c.Check(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
-		c.Check(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
-		if test.mtu > 0 {
-			c.Check(config, jc.Contains, fmt.Sprintf("lxc.network.mtu = %d\n", test.mtu))
+		// Parse the config to drop comments and empty lines. This is
+		// needed to ensure the order of all settings match what we
+		// expect to get rendered, as the order matters.
+		var configLines []string
+		for _, line := range strings.Split(config, "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			configLines = append(configLines, line)
 		}
+		c.Check(configLines, jc.DeepEquals, test.rendered)
+		if test.logContains != "" {
+			c.Check(c.GetTestLog(), jc.Contains, test.logContains)
+		}
+		if test.logDoesNotContain != "" {
+			c.Check(c.GetTestLog(), gc.Not(jc.Contains), test.logDoesNotContain)
+		}
+		// TODO(dimitern) In a follow-up, test the generated user-date
+		// honors the other settings.
 		restorer.Restore()
 	}
 }
@@ -620,7 +759,9 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 	})
 	defer restorer.Restore()
 
-	config := lxc.NetworkConfigTemplate("foo", "bar")
+	// Intentionally using an invalid type "foo" here to test it gets
+	// changed to the default "veth" and a warning is logged.
+	config := lxc.NetworkConfigTemplate(container.NetworkConfig{"foo", "bar", nil})
 	// In the past, the entire lxc.conf file was just networking. With
 	// the addition of the auto start, we now have to have better
 	// isolate this test. As such, we parse the conf template results
@@ -633,12 +774,22 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 		}
 	}
 	expected := []string{
-		"lxc.network.type = foo",
+		"lxc.network.type = veth",
 		"lxc.network.link = bar",
 		"lxc.network.flags = up",
 		"lxc.network.mtu = 4321",
 	}
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, jc.DeepEquals, expected)
+	c.Assert(
+		c.GetTestLog(),
+		jc.Contains,
+		`WARNING juju.container.lxc unknown network type "foo", using the default "bridge" config`,
+	)
+	c.Assert(
+		c.GetTestLog(),
+		jc.Contains,
+		`INFO juju.container.lxc setting MTU to 4321 for all container network interfaces`,
+	)
 }
 
 func (s *LxcSuite) TestIsLXCSupportedOnHost(c *gc.C) {
