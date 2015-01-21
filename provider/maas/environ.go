@@ -1319,6 +1319,14 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 			Disabled:      disabled,
 			MACAddress:    serial,
 		}
+		details, ok := macToNetworkMap[serial]
+		if ok {
+			ifaceInfo.VLANTag = details.VLANTag
+			ifaceInfo.ProviderSubnetId = network.Id(details.Name)
+			mask := net.IPMask(net.ParseIP(details.Mask))
+			cidr := net.IPNet{net.ParseIP(details.IP), mask}
+			ifaceInfo.CIDR = cidr.String()
+		}
 		result = append(result, ifaceInfo)
 	}
 	return result, nil
