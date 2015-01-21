@@ -22,6 +22,9 @@ class Dependency:
             isinstance(other, self.__class__)
             and self.__dict__ == other.__dict__)
 
+    def __ne__(self, other):
+        return not self == other
+
     def __repr__(self):
         return '<%s %s %s %s %s>' % (
             self.__class__.__name__,
@@ -49,7 +52,7 @@ def consolidate_deps(dep_files, verbose=False):
             content = f.read()
         for line in content.splitlines():
             dep = Dependency(*line.split('\t'))
-            if dep.package in deps:
+            if dep.package in deps and dep != deps[dep.package]:
                 conflicts.append((dep_path, dep))
                 if verbose:
                     print('%s redefines %s' % (dep_path, dep))

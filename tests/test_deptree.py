@@ -27,9 +27,16 @@ def DependencyTestCase(TestCase):
     def test_eq(self):
         a_dep = Dependency('github/foo', 'git', 'rev123')
         b_dep = Dependency('github/foo', 'git', 'rev123')
-        self.assertEqual(a_dep, b_dep)
+        self.assertTrue(a_dep == b_dep)
         c_dep = Dependency('github/bar', 'git', 'rev456')
-        self.assertNotEqual(a_dep, c_dep)
+        self.assertFalse(a_dep == c_dep)
+
+    def test_ne(self):
+        a_dep = Dependency('github/foo', 'git', 'rev123')
+        b_dep = Dependency('github/foo', 'git', 'rev123')
+        self.assertFalse(a_dep != b_dep)
+        c_dep = Dependency('github/bar', 'git', 'rev456')
+        self.assertTrue(a_dep != c_dep)
 
     def test_repr(self):
         self.assertEqual(
@@ -83,6 +90,7 @@ class DepTreeTestCase(TestCase):
                 f.write(expected_deps['github/baz'].to_line())
             b_dep_file = '%s/b.tsv' % base_dir
             with open(b_dep_file, 'w') as f:
+                f.write(expected_deps['github/foo'].to_line())
                 f.write(conflict_dep.to_line())
                 f.write(expected_deps['github/qux'].to_line())
                 f.write(expected_deps['lp/qoh'].to_line())
