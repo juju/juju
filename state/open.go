@@ -165,7 +165,7 @@ var indexes = []struct {
 	{networkInterfacesC, []string{"macaddress", "networkname"}, true, false},
 	{networkInterfacesC, []string{"networkname"}, false, false},
 	{networkInterfacesC, []string{"machineid"}, false, false},
-	{blockDevicesC, []string{"machine"}, false, false},
+	{blockDevicesC, []string{"machineid"}, false, false},
 	{subnetsC, []string{"providerid"}, true, true},
 	{ipaddressesC, []string{"state"}, false, false},
 	{ipaddressesC, []string{"subnetid"}, false, false},

@@ -52,8 +52,8 @@ type blockDeviceDoc struct {
 	DocID           string             `bson:"_id"`
 	Name            string             `bson:"name"`
 	EnvUUID         string             `bson:"env-uuid"`
-	Machine         string             `bson:"machine"`
-	StorageInstance string             `bson:"storageinstance,omitempty"`
+	Machine         string             `bson:"machineid"`
+	StorageInstance string             `bson:"storageinstanceid,omitempty"`
 	Info            *BlockDeviceInfo   `bson:"info,omitempty"`
 	Params          *BlockDeviceParams `bson:"params,omitempty"`
 }
@@ -227,7 +227,7 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 // getMachineBlockDevices returns all of the block devices associated with the
 // specified machine, including unprovisioned ones.
 func getMachineBlockDevices(st *State, machineId string) ([]*blockDevice, error) {
-	sel := bson.D{{"machine", machineId}}
+	sel := bson.D{{"machineid", machineId}}
 	blockDevices, closer := st.getCollection(blockDevicesC)
 	defer closer()
 
@@ -244,7 +244,7 @@ func getMachineBlockDevices(st *State, machineId string) ([]*blockDevice, error)
 }
 
 func removeMachineBlockDevicesOps(st *State, machineId string) ([]txn.Op, error) {
-	sel := bson.D{{"machine", machineId}}
+	sel := bson.D{{"machineid", machineId}}
 	blockDevices, closer := st.getCollection(blockDevicesC)
 	defer closer()
 
@@ -274,7 +274,7 @@ func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map
 			{"params", bson.D{{"$exists", true}}},
 		}
 		if machineId != "" {
-			assert = append(assert, bson.DocElem{"machine", machineId})
+			assert = append(assert, bson.DocElem{"machineid", machineId})
 		}
 		ops = append(ops, txn.Op{
 			C:      blockDevicesC,

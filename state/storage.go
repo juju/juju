@@ -120,8 +120,8 @@ func (s *storageInstance) Remove() error {
 		ops = append(ops, txn.Op{
 			C:      blockDevicesC,
 			Id:     blockDevice,
-			Assert: bson.D{{"storageinstance", s.doc.Id}},
-			Update: bson.D{{"$unset", bson.D{{"storageinstance", nil}}}},
+			Assert: bson.D{{"storageinstanceid", s.doc.Id}},
+			Update: bson.D{{"$unset", bson.D{{"storageinstanceid", nil}}}},
 		})
 	}
 	return s.st.runTransaction(ops)
