@@ -51,31 +51,6 @@ func (lp *loopProvider) VolumeSource(environConfig *config.Config, providerConfi
 	}, nil
 }
 
-// hostLoopProviders create a loop volume source on the host machine
-// running a local provider, such that the devices are passed to
-// the instantiated containers.
-type hostLoopProvider struct{ loopProvider }
-
-var _ storage.Provider = (*hostLoopProvider)(nil)
-
-// VolumeSource is defined on the Provider interface.
-func (lp *hostLoopProvider) VolumeSource(environConfig *config.Config, providerConfig *storage.Config) (storage.VolumeSource, error) {
-	if err := lp.ValidateConfig(providerConfig); err != nil {
-		return nil, err
-	}
-	dataDir, _ := providerConfig.ValueString(LoopDataDir)
-	return &hostLoopVolumeSource{
-		loopVolumeSource: loopVolumeSource{
-			dataDir: dataDir,
-			subDir:  "storage/block/loop",
-		},
-	}, nil
-}
-
-type hostLoopVolumeSource struct {
-	loopVolumeSource
-}
-
 // loopVolumeSource provides common functionality to handle
 // loop devices for rootfs and host loop volume sources.
 type loopVolumeSource struct {

@@ -23,7 +23,7 @@ func RegisterDefaultPools(pm PoolManager, agentConfig agent.Config) error {
 	return nil
 }
 
-const RootFsLoopPoolName = "rootfsloop"
+const RootFsLoopPoolName = "loop"
 
 func registerRootFsLoop(pm PoolManager, agentConfig agent.Config) error {
 	rootfsPoolConfig := map[string]interface{}{
