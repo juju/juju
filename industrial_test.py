@@ -333,20 +333,22 @@ class SteppedStageAttempt:
         return self._iter_test_results(old_iter, new_iter)
 
 
-class BootstrapAttempt(StageAttempt):
+class BootstrapAttempt(SteppedStageAttempt):
     """Implementation of a bootstrap stage."""
 
-    title = 'bootstrap'
+    @staticmethod
+    def get_test_info():
+        return {'bootstrap': {'title': 'bootstrap'}}
 
-    test_id = 'bootstrap'
-
-    def _operation(self, client):
+    def iter_steps(self, client):
+        results = {'test_id': 'bootstrap'}
+        yield results
         with temp_bootstrap_env(get_juju_home(), client):
             client.bootstrap()
-
-    def _result(self, client):
-        client.wait_for_started()
-        return True
+        with wait_for_started(client):
+            yield results
+        results['result'] = True
+        yield results
 
 
 def make_substrate(client, required_attrs):

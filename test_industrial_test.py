@@ -786,57 +786,28 @@ class FakeEnvJujuClient(EnvJujuClient):
 
 class TestBootstrapAttempt(TestCase):
 
-    def test_do_operation(self):
+    def test_iter_steps(self):
         client = FakeEnvJujuClient()
         bootstrap = BootstrapAttempt()
+        boot_iter = iter_steps_validate_info(self, bootstrap, client)
+        self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         with patch('subprocess.check_call') as mock_cc:
-            bootstrap.do_operation(client)
+            self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
             '--constraints', 'mem=2G'))
-
-    def test_do_operation_exception(self):
-        client = FakeEnvJujuClient()
-        bootstrap = BootstrapAttempt()
-        with patch('subprocess.check_call', side_effect=Exception
-                   ) as mock_cc:
-            with patch('logging.exception') as le_mock:
-                bootstrap.do_operation(client)
-        le_mock.assert_called_once()
-        assert_juju_call(self, mock_cc, client, (
-            'juju', '--show-log', 'bootstrap', '-e', 'steve',
-            '--constraints', 'mem=2G'))
-        output = yaml.safe_dump({
-            'machines': {'0': {'agent-state': 'started'}},
-            'services': {},
-            })
-        with patch('subprocess.check_output', return_value=output):
-            with patch('logging.exception') as le_mock:
-                self.assertFalse(bootstrap.get_result(client))
-        le_mock.assert_called_once()
-
-    def test_get_result_true(self):
-        bootstrap = BootstrapAttempt()
-        client = FakeEnvJujuClient()
-        output = yaml.safe_dump({
-            'machines': {'0': {'agent-state': 'started'}},
-            'services': {},
-            })
-        with patch('subprocess.check_output', return_value=output):
-            self.assertTrue(bootstrap.get_result(client))
-
-    @patch('logging.error')
-    def test_get_result_false(self, le_mock):
-        bootstrap = BootstrapAttempt()
-        client = FakeEnvJujuClient()
-        output = yaml.safe_dump({
-            'machines': {'0': {'agent-state': 'pending'}},
-            'services': {},
-            })
-        with patch('subprocess.check_output', return_value=output):
-            with patch('logging.exception') as le_mock:
-                self.assertFalse(bootstrap.get_result(client))
-        le_mock.assert_called_once()
+        statuses = (yaml.safe_dump(x) for x in [
+            {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
+            {'machines': {'0': {'agent-state': 'started'}}, 'services': {}},
+            ])
+        with patch('subprocess.check_output',
+                   side_effect=lambda x, **y: statuses.next()) as mock_co:
+            self.assertEqual(boot_iter.next(),
+                             {'test_id': 'bootstrap', 'result': True})
+        for num in range(2):
+            assert_juju_call(self, mock_co, client, (
+                'juju', '--show-log', 'status', '-e', 'steve'), num,
+                assign_stderr=True)
 
 
 class TestDestroyEnvironmentAttempt(TestCase):
