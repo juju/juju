@@ -9,7 +9,7 @@ import sys
 
 class Dependency:
 
-    def __init__(self, package, vcs, revid, revno):
+    def __init__(self, package, vcs, revid, revno=None):
         self.package = package
         self.vcs = vcs
         self.revid = revid

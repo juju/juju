@@ -11,6 +11,50 @@ from deptree import (
 from utils import temp_dir
 
 
+def DependencyTestCase(TestCase):
+
+    def test_init(self):
+        dep = Dependency('github/foo', 'git', 'rev123')
+        self.assertEqual('github/foo', dep.package)
+        self.assertEqual('git', dep.vcs)
+        self.assertEqual('rev123', dep.revid)
+        self.assertIs(None, dep.revno)
+        # Revno is None when an empty string is passed
+        dep = Dependency('github/foo', 'git', 'rev123', revno='')
+        self.assertIs(None, dep.revno)
+
+    def test_eq(self):
+        a_dep = Dependency('github/foo', 'git', 'rev123')
+        b_dep = Dependency('github/foo', 'git', 'rev123')
+        self.assertEqual(a_dep, b_dep)
+        c_dep = Dependency('github/bar', 'git', 'rev456')
+        self.assertNotEqual(a_dep, c_dep)
+
+    def test_repr(self):
+        self.assertEqual(
+            '<Dependency github/foo git rev123>',
+            repr(Dependency('github/foo', 'git', 'rev123')))
+        self.assertEqual(
+            '<Dependency github/foo git rev123 3>',
+            repr(Dependency('github/foo', 'git', 'rev123', '3')))
+
+    def test_str(self):
+        self.assertEqual(
+            'github/foo\tgit\trev123\t',
+            str(Dependency('github/foo', 'git', 'rev123')))
+        self.assertEqual(
+            'github/foo\tgit\trev123\t3',
+            str(Dependency('github/foo', 'git', 'rev123', '3')))
+
+    def test_to_line(self):
+        self.assertEqual(
+            'github/foo\tgit\trev123\t\n',
+            Dependency('github/foo', 'git', 'rev123').to_line())
+        self.assertEqual(
+            'github/foo\tgit\trev123\t3\n',
+            Dependency('github/foo', 'git', 'rev123', '3').to_line())
+
+
 class DepTreeTestCase(TestCase):
 
     def test_get_args(self):
@@ -42,6 +86,5 @@ class DepTreeTestCase(TestCase):
                 f.write(expected_deps['github/qux'].to_line())
                 f.write(expected_deps['lp/qoh'].to_line())
             deps, conflicts = consolidate_deps([a_dep_file, b_dep_file])
-        self.assertEqual(conflict_dep, conflicts[0][1])
         self.assertEqual([(b_dep_file, conflict_dep)], conflicts)
         self.assertEqual(expected_deps, deps)
