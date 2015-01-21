@@ -96,5 +96,4 @@ func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
 		machine0Pinger.Kill()
 		machine0Pinger = nil
 	}
-
 }
