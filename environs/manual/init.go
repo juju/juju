@@ -33,7 +33,7 @@ cat /proc/cpuinfo`
 // common case of no matching files.
 const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 
-// CheckProvisioned checks if any juju upstart jobs already
+// CheckProvisioned checks if any juju init service already
 // exist on the host machine.
 var CheckProvisioned = checkProvisioned
 

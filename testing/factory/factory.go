@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -26,15 +27,13 @@ const (
 )
 
 type Factory struct {
-	st    *state.State
-	index int
+	st *state.State
 }
 
-// Index is used to seed the index of new factories.
-var Index int
+var index int
 
 func NewFactory(st *state.State) *Factory {
-	return &Factory{st: st, index: Index}
+	return &Factory{st: st}
 }
 
 type UserParams struct {
@@ -101,6 +100,7 @@ type EnvParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
+	Prepare     bool
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -113,8 +113,8 @@ func (*Factory) RandomSuffix(prefix string) string {
 }
 
 func (factory *Factory) UniqueInteger() int {
-	factory.index++
-	return factory.index
+	index++
+	return index
 }
 
 func (factory *Factory) UniqueString(prefix string) string {
@@ -301,7 +301,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil)
+	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -411,14 +411,29 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
+	// It only makes sense to make an environment with the same provider
+	// as the initial environment, or things will break elsewhere.
+	currentCfg, err := factory.st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
+		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
+	if params.Prepare {
+		// Prepare the environment.
+		provider, err := environs.Provider(cfg.Type())
+		c.Assert(err, jc.ErrorIsNil)
+		env, err := provider.Prepare(nil, cfg)
+		c.Assert(err, jc.ErrorIsNil)
+		// Now save the config back.
+		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	return st
 }

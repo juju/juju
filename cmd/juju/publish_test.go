@@ -10,6 +10,7 @@ import (
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -76,8 +77,9 @@ func (s *PublishSuite) TearDownSuite(c *gc.C) {
 func (s *PublishSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
+	s.PatchEnvironment("BZR_HOME", utils.Home())
 	s.FakeJujuHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{
-		Name: ".bazaar/bazaar.conf",
+		Name: bzrHomeFile,
 		Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
 	})
 
@@ -95,7 +97,9 @@ func (s *PublishSuite) TearDownTest(c *gc.C) {
 func (s *PublishSuite) TestNoBranch(c *gc.C) {
 	dir := c.MkDir()
 	_, err := testing.RunCommandInDir(c, envcmd.Wrap(&PublishCommand{}), []string{"cs:precise/wordpress"}, dir)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("not a charm branch: %s", dir))
+	// We need to do this here because \U is outputed on windows
+	// and it's an invalid regex escape sequence
+	c.Assert(err.Error(), gc.Equals, fmt.Sprintf("not a charm branch: %s", dir))
 }
 
 func (s *PublishSuite) TestEmpty(c *gc.C) {

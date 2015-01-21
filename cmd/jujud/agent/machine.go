@@ -1106,7 +1106,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		shouldInitiateMongoServer = true
 	}
 
-	// ensureMongoServer installs/upgrades the upstart config as necessary.
+	// ensureMongoServer installs/upgrades the init config as necessary.
 	ensureServerParams, err := cmdutil.NewEnsureServerParams(agentConfig)
 	if err != nil {
 		return err

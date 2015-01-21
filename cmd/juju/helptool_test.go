@@ -4,6 +4,7 @@
 package main
 
 import (
+	"runtime"
 	"strings"
 
 	gc "gopkg.in/check.v1"
@@ -32,11 +33,21 @@ func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
 	for i, line := range lines {
 		lines[i] = strings.Fields(line)[0]
 	}
+	if runtime.GOOS == "windows" {
+		for i, command := range lines {
+			lines[i] = command + ".exe"
+		}
+	}
 	c.Assert(lines, gc.DeepEquals, expectedNames)
 }
 
 func (suite *HelpToolSuite) TestHelpToolName(c *gc.C) {
-	output := badrun(c, 0, "help-tool", "relation-get")
+	var output string
+	if runtime.GOOS == "windows" {
+		output = badrun(c, 0, "help-tool", "relation-get.exe")
+	} else {
+		output = badrun(c, 0, "help-tool", "relation-get")
+	}
 	expectedHelp := `usage: relation-get \[options\] <key> <unit id>
 purpose: get relation settings
 

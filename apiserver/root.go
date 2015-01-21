@@ -51,20 +51,28 @@ type apiHandler struct {
 var _ = (*apiHandler)(nil)
 
 // newApiHandler returns a new apiHandler.
-func newApiHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) (*apiHandler, error) {
+func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier) (*apiHandler, error) {
 	r := &apiHandler{
-		state:     srv.state,
+		state:     st,
 		resources: common.NewResources(),
 		rpcConn:   rpcConn,
 	}
+	// We need to remember to close state connections that are not for the
+	// state server environment.
+	if st.EnvironUUID() != srv.state.EnvironUUID() {
+		logger.Debugf("add a resource to close the other env state connection")
+		if err := r.resources.RegisterNamed("stateConnection", stateResource{st}); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("dataDir", common.StringResource(srv.dataDir)); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return r, nil
 }
@@ -125,9 +133,9 @@ type apiRoot struct {
 }
 
 // newApiRoot returns a new apiRoot.
-func newApiRoot(srv *Server, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
+func newApiRoot(st *state.State, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
 	r := &apiRoot{
-		state:       srv.state,
+		state:       st,
 		resources:   resources,
 		authorizer:  authorizer,
 		objectCache: make(map[objectKey]reflect.Value),
@@ -312,4 +320,17 @@ func DescribeFacades() []params.FacadeVersions {
 		result[i].Versions = facade.Versions
 	}
 	return result
+}
+
+type stateResource struct {
+	state *state.State
+}
+
+func (s stateResource) Stop() error {
+	logger.Debugf("close state connection: %s", s.state.EnvironUUID())
+	return s.state.Close()
+}
+
+func (s stateResource) String() string {
+	return s.state.EnvironUUID()
 }

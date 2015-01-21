@@ -108,7 +108,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +157,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)

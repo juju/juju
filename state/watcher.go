@@ -2138,7 +2138,7 @@ func (w *machineInterfacesWatcher) loop() error {
 	in := make(chan watcher.Change)
 	out := w.out
 
-	w.st.watcher.WatchCollectionWithFilter(networkInterfacesC, in, w.st.isForStateEnv)
+	w.st.watcher.WatchCollection(networkInterfacesC, in)
 	defer w.st.watcher.UnwatchCollection(networkInterfacesC, in)
 
 	initial, err := w.initial()

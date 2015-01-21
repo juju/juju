@@ -31,7 +31,10 @@ func (s *charmsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *charmsSuite) TestCharmsListFacadeCall(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-1",
+	})
 
 	found, err := s.charmsClient.List([]string{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -40,7 +43,10 @@ func (s *charmsSuite) TestCharmsListFacadeCall(c *gc.C) {
 }
 
 func (s *charmsSuite) TestCharmInfoFacadeCall(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-1",
+	})
 
 	found, err := s.charmsClient.CharmInfo("cs:quantal/wordpress-1")
 	c.Assert(err, jc.ErrorIsNil)

@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 )
 
 type utilSuite struct{}
@@ -40,11 +40,13 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
 	info := machineInfo{hostname}
 	filename := "/var/lib/juju/MAASmachine.txt"
+	dataDir, err := paths.DataDir("quantal")
+	c.Assert(err, jc.ErrorIsNil)
 	script, err := info.cloudinitRunCmd("quantal")
 	c.Assert(err, jc.ErrorIsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := fmt.Sprintf("mkdir -p '%s'\ninstall -m 755 /dev/null '%s'\nprintf '%%s\\n' ''\"'\"'%s'\"'\"'' > '%s'", environs.DataDir, filename, yaml, filename)
+	expected := fmt.Sprintf("mkdir -p '%s'\ninstall -m 755 /dev/null '%s'\nprintf '%%s\\n' ''\"'\"'%s'\"'\"'' > '%s'", dataDir, filename, yaml, filename)
 	c.Check(script, gc.Equals, expected)
 }
 

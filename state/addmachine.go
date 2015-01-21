@@ -86,7 +86,7 @@ type MachineTemplate struct {
 func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*Machine, error) {
 	mdoc, ops, err := st.addMachineInsideNewMachineOps(template, parentTemplate, containerType)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add a new machine: %v", err)
+		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
 	return st.addMachine(mdoc, ops)
 }
@@ -96,7 +96,7 @@ func (st *State) AddMachineInsideNewMachine(template, parentTemplate MachineTemp
 func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId string, containerType instance.ContainerType) (*Machine, error) {
 	mdoc, ops, err := st.addMachineInsideMachineOps(template, parentId, containerType)
 	if err != nil {
-		return nil, fmt.Errorf("cannot add a new machine: %v", err)
+		return nil, errors.Annotate(err, "cannot add a new machine")
 	}
 	return st.addMachine(mdoc, ops)
 }
@@ -131,9 +131,9 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	var ms []*Machine
 	env, err := st.Environment()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	} else if env.Life() != Alive {
-		return nil, fmt.Errorf("environment is no longer alive")
+		return nil, errors.New("environment is no longer alive")
 	}
 	var ops []txn.Op
 	var mdocs []*machineDoc
@@ -142,12 +142,12 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 		// only permitted if unit placement is supported.
 		if len(template.principals) == 0 && template.InstanceId == "" {
 			if err := st.supportsUnitPlacement(); err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		mdocs = append(mdocs, mdoc)
 		ms = append(ms, newMachine(st, mdoc))
@@ -155,12 +155,12 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	}
 	ssOps, err := st.maintainStateServersOps(mdocs, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	ops = append(ops, ssOps...)
 	ops = append(ops, env.assertAliveOp())
 	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, fmt.Errorf("environment is no longer alive"))
+		return nil, onAbort(err, errors.New("environment is no longer alive"))
 	}
 	return ms, nil
 }
@@ -170,13 +170,13 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	if err != nil {
 		return nil, err
 	} else if env.Life() != Alive {
-		return nil, fmt.Errorf("environment is no longer alive")
+		return nil, errors.New("environment is no longer alive")
 	}
 	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
 	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
 		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
-			return nil, fmt.Errorf("environment is no longer alive")
+			return nil, errors.New("environment is no longer alive")
 		} else if enverr != nil {
 			err = enverr
 		}
@@ -192,14 +192,14 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
 	// First check for obvious errors.
 	if p.Series == "" {
-		return tmpl, fmt.Errorf("no series specified")
+		return tmpl, errors.New("no series specified")
 	}
 	if p.InstanceId != "" {
 		if p.Nonce == "" {
-			return tmpl, fmt.Errorf("cannot add a machine with an instance id and no nonce")
+			return tmpl, errors.New("cannot add a machine with an instance id and no nonce")
 		}
 	} else if p.Nonce != "" {
-		return tmpl, fmt.Errorf("cannot specify a nonce without an instance id")
+		return tmpl, errors.New("cannot specify a nonce without an instance id")
 	}
 
 	p.Constraints, err = st.resolveConstraints(p.Constraints)
@@ -214,12 +214,12 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
-		return tmpl, fmt.Errorf("no jobs specified")
+		return tmpl, errors.New("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range p.Jobs {
 		if jset[j] {
-			return MachineTemplate{}, fmt.Errorf("duplicate job: %s", j)
+			return MachineTemplate{}, errors.Errorf("duplicate job: %s", j)
 		}
 		jset[j] = true
 	}
@@ -300,14 +300,14 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 // a container of the given type on an existing machine.
 func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" {
-		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
+		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
 	template, err := st.effectiveMachineTemplate(template, false)
 	if err != nil {
 		return nil, nil, err
 	}
 	if containerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
+		return nil, nil, errors.New("no container type specified")
 	}
 	// Adding a machine within a machine implies add-machine or placement.
 	if err := st.supportsUnitPlacement(); err != nil {
@@ -321,7 +321,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 		return nil, nil, err
 	}
 	if !parent.supportsContainerType(containerType) {
-		return nil, nil, fmt.Errorf("machine %s cannot host %s containers", parentId, containerType)
+		return nil, nil, errors.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
 	newId, err := st.newContainerId(parentId, containerType)
 	if err != nil {
@@ -358,7 +358,7 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // of the child and parent respectively.
 func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
 	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
-		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
+		return nil, nil, errors.New("cannot specify instance id for a new container")
 	}
 	seq, err := st.sequence("machine")
 	if err != nil {
@@ -369,7 +369,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, err
 	}
 	if containerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
+		return nil, nil, errors.New("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
 		// Adding a machine within a machine implies add-machine or placement.
@@ -469,7 +469,7 @@ func hasJob(jobs []MachineJob, job MachineJob) bool {
 	return false
 }
 
-var errStateServerNotAllowed = fmt.Errorf("state server jobs specified without calling EnsureAvailability")
+var errStateServerNotAllowed = errors.New("state server jobs specified without calling EnsureAvailability")
 
 // maintainStateServersOps returns a set of operations that will maintain
 // the state server information when the given machine documents
@@ -498,10 +498,10 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 		var err error
 		currentInfo, err = st.StateServerInfo()
 		if err != nil {
-			return nil, fmt.Errorf("cannot get state server info: %v", err)
+			return nil, errors.Annotate(err, "cannot get state server info")
 		}
 		if len(currentInfo.MachineIds) > 0 || len(currentInfo.VotingMachineIds) > 0 {
-			return nil, fmt.Errorf("state servers already exist")
+			return nil, errors.New("state servers already exist")
 		}
 	}
 	ops := []txn.Op{{
@@ -532,10 +532,10 @@ func (st *State) EnsureAvailability(
 ) (StateServersChanges, error) {
 
 	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
-		return StateServersChanges{}, fmt.Errorf("number of state servers must be odd and non-negative")
+		return StateServersChanges{}, errors.New("number of state servers must be odd and non-negative")
 	}
 	if numStateServers > replicaset.MaxPeers {
-		return StateServersChanges{}, fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
+		return StateServersChanges{}, errors.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
 	var change StateServersChanges
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -551,7 +551,7 @@ func (st *State) EnsureAvailability(
 			}
 		}
 		if len(currentInfo.VotingMachineIds) > desiredStateServerCount {
-			return nil, fmt.Errorf("cannot reduce state server count")
+			return nil, errors.New("cannot reduce state server count")
 		}
 
 		intent, err := st.ensureAvailabilityIntentions(currentInfo)
@@ -655,16 +655,16 @@ func (st *State) ensureAvailabilityIntentionOps(
 	for _, m := range intent.maintain {
 		tag, err := names.ParseTag(m.Tag().String())
 		if err != nil {
-			return nil, StateServersChanges{}, fmt.Errorf("could not parse machine tag: %v", err)
+			return nil, StateServersChanges{}, errors.Annotate(err, "could not parse machine tag")
 		}
 		if tag.Kind() != names.MachineTagKind {
-			return nil, StateServersChanges{}, fmt.Errorf("expected machine tag kind, got %s", tag.Kind())
+			return nil, StateServersChanges{}, errors.Errorf("expected machine tag kind, got %s", tag.Kind())
 		}
 		change.Maintained = append(change.Maintained, tag.Id())
 	}
 	ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
 	if err != nil {
-		return nil, StateServersChanges{}, fmt.Errorf("cannot prepare machine add operations: %v", err)
+		return nil, StateServersChanges{}, errors.Annotate(err, "cannot prepare machine add operations")
 	}
 	ops = append(ops, ssOps...)
 	return ops, change, nil

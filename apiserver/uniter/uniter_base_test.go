@@ -61,6 +61,7 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 	})
 	s.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-3",
 	})
 	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "wordpress",
