@@ -63,8 +63,8 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
+	testing.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 
 	DefaultToolsStorageDir string
@@ -87,18 +87,18 @@ type JujuConnSuite struct {
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
@@ -108,8 +108,8 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 }
 
 // Reset returns environment state to that which existed at the start of

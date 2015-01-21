@@ -52,13 +52,20 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	server := websocket.Server{
 		Handler: func(socket *websocket.Conn) {
 			logger.Infof("debug log handler starting")
-			if err := h.authenticate(req); err != nil {
-				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
+			// Validate before authenticate because the authentication is
+			// dependent on the state connection that is determined during the
+			// validation.
+			stateWrapper, err := h.validateEnvironUUID(req)
+			if err != nil {
+				h.sendError(socket, err)
 				socket.Close()
 				return
 			}
-			if err := h.validateEnvironUUID(req); err != nil {
-				h.sendError(socket, err)
+			defer stateWrapper.cleanup()
+			// TODO (thumper): We need to work out how we are going to filter
+			// logging information based on environment.
+			if err := stateWrapper.authenticate(req); err != nil {
+				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
 				socket.Close()
 				return
 			}
