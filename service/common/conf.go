@@ -3,6 +3,10 @@
 
 package common
 
+import (
+	"github.com/juju/errors"
+)
+
 // Conf is responsible for defining services. Its fields
 // represent elements of a service configuration.
 type Conf struct {
@@ -25,4 +29,16 @@ type Conf struct {
 	InitDir string
 	// ExtraScript allows to insert script before command execution
 	ExtraScript string
+}
+
+// Script composes ExtraScript and Cmd into a single script.
+func (c Conf) Script() (string, error) {
+	if len(c.Cmd) == 0 {
+		return "", errors.New("missing Cmd")
+	}
+	if len(c.ExtraScript) == 0 {
+		return c.Cmd, nil
+	}
+	// TODO(ericsnow) Fix this on Windows.
+	return c.ExtraScript + "\n" + c.Cmd, nil
 }
