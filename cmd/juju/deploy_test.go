@@ -202,15 +202,17 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
 }
 
-func (s *DeploySuite) TestStorage(c *gc.C) {
-	testcharms.Repo.CharmArchivePath(s.SeriesPath, "storage-block")
+func (s *DeploySuite) TestStorageWithoutFeatureFlag(c *gc.C) {
 	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --storage")
+}
 
+func (s *DeploySuite) TestStorage(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	err = runDeploy(c, "local:storage-block", "--storage", "data=1G")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "storage-block")
+	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:trusty/storage-block-1")
 	service, _ := s.AssertService(c, "storage-block", curl, 1, 0)

@@ -319,31 +319,38 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 
-	// Validate the storage parameters against the charm metadata,
-	// and ensure there are no conflicting parameters.
-	if err := validateCharmStorage(args, ch); err != nil {
-		return err
-	}
-	// Handle stores with no corresponding constraints.
-	for store, charmStorage := range ch.Meta().Storage {
-		if _, ok := args.Storage[store]; ok {
-			continue
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	var storageConstraints map[string]storage.Constraints
+	if featureflag.Enabled(storage.FeatureFlag) {
+		// Validate the storage parameters against the charm metadata,
+		// and ensure there are no conflicting parameters.
+		if err := validateCharmStorage(args, ch); err != nil {
+			return err
 		}
-		if charmStorage.Shared {
-			// TODO(axw) get the environment's default shared storage
-			// pool, and create constraints here.
+		// Handle stores with no corresponding constraints.
+		for store, charmStorage := range ch.Meta().Storage {
+			if _, ok := args.Storage[store]; ok {
+				// TODO(axw) if pool is not specified, we should set it to
+				// the environment's default pool.
+				continue
+			}
+			if charmStorage.Shared {
+				// TODO(axw) get the environment's default shared storage
+				// pool, and create constraints here.
+				return errors.Errorf(
+					"no constraints specified for shared charm storage %q",
+					store,
+				)
+			}
+			// TODO(axw) when storage pools, providers etc. are implemented,
+			// and we have a "loop" storage provider, we should create minimal
+			// constraints with the "loop" pool here.
 			return errors.Errorf(
-				"no constraints specified for shared charm storage %q",
+				"no constraints specified for charm storage %q, loop not implemented",
 				store,
 			)
 		}
-		// TODO(axw) when storage pools, providers etc. are implemented,
-		// and we have a "loop" storage provider, we should create minimal
-		// constraints with the "loop" pool here.
-		return errors.Errorf(
-			"no constraints specified for charm storage %q, loop not implemented",
-			store,
-		)
+		storageConstraints = args.Storage
 	}
 
 	var settings charm.Settings
@@ -373,7 +380,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 			Constraints:    args.Constraints,
 			ToMachineSpec:  args.ToMachineSpec,
 			Networks:       requestedNetworks,
-			Storage:        args.Storage,
+			Storage:        storageConstraints,
 		})
 	return err
 }

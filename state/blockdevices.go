@@ -86,10 +86,7 @@ func (b *blockDevice) Name() string {
 }
 
 func (b *blockDevice) StorageInstance() (string, bool) {
-	if b.doc.StorageInstance != "" {
-		return b.doc.StorageInstance, true
-	}
-	return "", false
+	return b.doc.StorageInstance, b.doc.StorageInstance != ""
 }
 
 func (b *blockDevice) Machine() string {
@@ -299,7 +296,7 @@ func setProvisionedBlockDeviceInfo(st *State, machineId string, blockDevices map
 // block device documents associated with the specified machine, with
 // the given parameters.
 func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDeviceParams) (ops []txn.Op, names []string, err error) {
-	ops = make([]txn.Op, len(params))
+	ops = make([]txn.Op, 0, len(params))
 	names = make([]string, len(params))
 	for i, params := range params {
 		params := params
@@ -307,7 +304,8 @@ func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDev
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "cannot generate disk name")
 		}
-		ops[i] = txn.Op{
+		names[i] = name
+		ops = append(ops, txn.Op{
 			C:      blockDevicesC,
 			Id:     name,
 			Assert: txn.DocMissing,
@@ -317,11 +315,8 @@ func createMachineBlockDeviceOps(st *State, machineId string, params ...BlockDev
 				Machine:         machineId,
 				Params:          &params,
 			},
-		}
-		names[i] = name
-	}
-	// Add references to the storage instances.
-	for i, params := range params {
+		})
+		// Add references to the storage instances.
 		if params.storageInstance != "" {
 			ops = append(ops, txn.Op{
 				C:      storageInstancesC,

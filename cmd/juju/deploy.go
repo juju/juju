@@ -35,6 +35,13 @@ type DeployCommand struct {
 	Networks     string
 	BumpRevision bool   // Remove this once the 1.16 support is dropped.
 	RepoPath     string // defaults to JUJU_REPOSITORY
+
+	// TODO(axw) move this to UnitCommandBase once we support --storage
+	// on add-unit too.
+	//
+	// Storage is a map of storage constraints, keyed on the storage name
+	// defined in charm storage metadata.
+	Storage map[string]storage.Constraints
 }
 
 const deployDoc = `

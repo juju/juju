@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/storage"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -25,7 +24,6 @@ import (
 type UnitCommandBase struct {
 	ToMachineSpec string
 	NumUnits      int
-	Storage       map[string]storage.Constraints
 }
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {

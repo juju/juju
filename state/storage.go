@@ -7,7 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/storage"
 	"github.com/juju/names"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -166,7 +168,12 @@ func newStorageInstanceId(st *State, store string) (string, error) {
 	return fmt.Sprintf("%s/%v", store, seq), nil
 }
 
-func createStorageInstanceOps(st *State, ownerTag names.Tag, charmMeta *charm.Meta, cons map[string]StorageConstraints) (ops []txn.Op, storageInstanceIds []string, err error) {
+func createStorageInstanceOps(
+	st *State,
+	ownerTag names.Tag,
+	charmMeta *charm.Meta,
+	cons map[string]StorageConstraints,
+) (ops []txn.Op, storageInstanceIds []string, err error) {
 	// Create a StorageInstanceParams for each store (one for each Count
 	// in the constraint), ignoring shared stores. We store the params
 	// directly on the storage instances.
@@ -312,6 +319,10 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 }
 
 func validateStorageConstraints(st *State, cons map[string]StorageConstraints, charmMeta *charm.Meta) error {
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	if !featureflag.Enabled(storage.FeatureFlag) {
+		return nil
+	}
 	for name, cons := range cons {
 		charmStorage, ok := charmMeta.Storage[name]
 		if !ok {

@@ -1425,6 +1425,48 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
+func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testClientServiceDeployWithStorage(c, true)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
+	s.testClientServiceDeployWithStorage(c, false)
+}
+
+func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
+	s.makeMockCharmStore()
+	curl, bundle := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": storage.Constraints{
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	storageConstraintsOut, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if expectConstraints {
+		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+			"data": state.StorageConstraints{
+				Count: 1,
+				Size:  1024,
+			},
+		})
+	} else {
+		c.Assert(storageConstraintsOut, gc.HasLen, 0)
+	}
+}
+
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
 	s.makeMockCharmStore()
 	curl, bundle := addCharm(c, "dummy")
