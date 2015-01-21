@@ -1,0 +1,137 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package diskformatter_test
+
+import (
+	"errors"
+
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/diskformatter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/storage"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/names"
+)
+
+var _ = gc.Suite(&DiskFormatterSuite{})
+
+type DiskFormatterSuite struct {
+	coretesting.BaseSuite
+}
+
+func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
+	devices := []params.BlockDeviceResult{{
+		Result: storage.BlockDevice{DeviceName: "sda", Size: 123},
+	}, {
+		Error: &params.Error{Message: "MSG", Code: "621"},
+	}}
+
+	var called bool
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "DiskFormatter")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "BlockDevice")
+		c.Check(arg, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.BlockDeviceResults{})
+		*(result.(*params.BlockDeviceResults)) = params.BlockDeviceResults{
+			devices,
+		}
+		called = true
+		return nil
+	})
+
+	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
+	results, err := st.BlockDevice([]names.DiskTag{
+		names.NewDiskTag("0"),
+		names.NewDiskTag("1"),
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+	c.Assert(results.Results, gc.DeepEquals, devices)
+}
+
+func (s *DiskFormatterSuite) TestBlockDeviceAttached(c *gc.C) {
+	attachment := []params.BoolResult{{
+		Result: true,
+	}, {
+		Error: &params.Error{Message: "MSG", Code: "621"},
+	}}
+
+	var called bool
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "DiskFormatter")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "BlockDeviceAttached")
+		c.Check(arg, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
+		*(result.(*params.BoolResults)) = params.BoolResults{attachment}
+		called = true
+		return nil
+	})
+
+	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
+	results, err := st.BlockDeviceAttached([]names.DiskTag{
+		names.NewDiskTag("0"),
+		names.NewDiskTag("1"),
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+	c.Assert(results.Results, gc.DeepEquals, attachment)
+}
+
+func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
+	storageInstances := []params.StorageInstanceResult{{
+		Result: storage.StorageInstance{Id: "whatever"},
+	}, {
+		Error: &params.Error{Message: "MSG", Code: "621"},
+	}}
+
+	var called bool
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "DiskFormatter")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "BlockDeviceStorageInstance")
+		c.Check(arg, gc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StorageInstanceResults{})
+		*(result.(*params.StorageInstanceResults)) = params.StorageInstanceResults{
+			storageInstances,
+		}
+		called = true
+		return nil
+	})
+
+	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
+	results, err := st.BlockDeviceStorageInstance([]names.DiskTag{
+		names.NewDiskTag("0"),
+		names.NewDiskTag("1"),
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(called, jc.IsTrue)
+	c.Assert(results.Results, gc.DeepEquals, storageInstances)
+}
+
+func (s *DiskFormatterSuite) TestAPIErrors(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return errors.New("blargh")
+	})
+	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
+	_, err := st.BlockDevice(nil)
+	c.Check(err, gc.ErrorMatches, "blargh")
+	_, err = st.BlockDeviceAttached(nil)
+	c.Check(err, gc.ErrorMatches, "blargh")
+	_, err = st.BlockDeviceStorageInstance(nil)
+	c.Check(err, gc.ErrorMatches, "blargh")
+}
