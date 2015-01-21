@@ -7,6 +7,7 @@ from deptree import (
     Dependency,
     get_args,
     main,
+    write_tmp_tsv,
 )
 from utils import temp_dir
 
@@ -88,6 +89,21 @@ class DepTreeTestCase(TestCase):
             deps, conflicts = consolidate_deps([a_dep_file, b_dep_file])
         self.assertEqual([(b_dep_file, conflict_dep)], conflicts)
         self.assertEqual(expected_deps, deps)
+
+    def test_write_tmp_tsv(self):
+        a_dep = Dependency('github/foo', 'git', 'rev123', None)
+        b_dep = Dependency('github/bar', 'git', 'rev456', None)
+        consolidated_deps = {
+            a_dep.package: a_dep,
+            b_dep.package: b_dep,
+        }
+        tmp_tsv = write_tmp_tsv(consolidated_deps)
+        self.assertTrue(os.path.isfile(tmp_tsv))
+        self.addCleanup(os.unlink, tmp_tsv)
+        with open(tmp_tsv) as f:
+            content = f.read()
+        expected = ''.join([b_dep.to_line(), a_dep.to_line()])
+        self.assertEqual(expected, content)
 
     def test_main(self):
         with patch('deptree.consolidate_deps',
