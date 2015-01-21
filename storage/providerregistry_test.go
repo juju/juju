@@ -64,6 +64,18 @@ func (s *providerRegistrySuite) TestSupportedEnvironProviders(c *gc.C) {
 	c.Assert(storage.IsProviderSupported("openstack", ptypeBar), jc.IsFalse)
 }
 
+func (s *providerRegistrySuite) TestRegisterEnvironProvidersMultipleCalls(c *gc.C) {
+	ptypeFoo := storage.ProviderType("foo")
+	ptypeBar := storage.ProviderType("bar")
+	storage.RegisterEnvironStorageProviders("ec2", ptypeFoo)
+	storage.RegisterEnvironStorageProviders("ec2", ptypeBar)
+	c.Assert(storage.IsProviderSupported("ec2", ptypeFoo), jc.IsTrue)
+	c.Assert(storage.IsProviderSupported("ec2", ptypeBar), jc.IsTrue)
+	defaultProvider, ok := storage.DefaultProviderForEnviron("ec2")
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(defaultProvider, gc.Equals, ptypeFoo)
+}
+
 func (s *providerRegistrySuite) DefaultProviderForEnviron(c *gc.C) {
 	ptypeFoo := storage.ProviderType("foo")
 	ptypeBar := storage.ProviderType("bar")

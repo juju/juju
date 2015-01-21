@@ -44,8 +44,14 @@ var supportedEnvironProviders = make(map[string][]ProviderType)
 // RegisterEnvironStorageProviders records which storage provider types
 // are valid for an environment.
 // The first provider type in the slice is the default provider.
+// If this is called more than once, the new providers are appended to the
+// current slice.
 func RegisterEnvironStorageProviders(envType string, providers ...ProviderType) {
-	supportedEnvironProviders[envType] = providers
+	existing := supportedEnvironProviders[envType]
+	for _, p := range providers {
+		existing = append(existing, p)
+	}
+	supportedEnvironProviders[envType] = existing
 }
 
 // Returns true is provider is supported for the environment.
