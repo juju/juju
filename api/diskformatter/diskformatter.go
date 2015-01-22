@@ -50,8 +50,8 @@ func (st *State) WatchBlockDevices() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// BlockDevice returns details of block devices with the specified tags.
-func (st *State) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+// BlockDevices returns details of block devices with the specified tags.
+func (st *State) BlockDevices(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 	var result params.BlockDeviceResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -59,7 +59,7 @@ func (st *State) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, e
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	err := st.facade.FacadeCall("BlockDevice", args, &result)
+	err := st.facade.FacadeCall("BlockDevices", args, &result)
 	if err != nil {
 		return params.BlockDeviceResults{}, err
 	}
@@ -69,9 +69,9 @@ func (st *State) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, e
 	return result, nil
 }
 
-// BlockDeviceStorageInstance returns the details of storage instances that
+// BlockDeviceStorageInstances returns the details of storage instance that
 // each named block device is assigned to.
-func (st *State) BlockDeviceStorageInstance(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+func (st *State) BlockDeviceStorageInstances(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 	var results params.StorageInstanceResults
 	args := params.Entities{
 		Entities: make([]params.Entity, len(tags)),
@@ -79,7 +79,7 @@ func (st *State) BlockDeviceStorageInstance(tags []names.DiskTag) (params.Storag
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	err := st.facade.FacadeCall("BlockDeviceStorageInstance", args, &results)
+	err := st.facade.FacadeCall("BlockDeviceStorageInstances", args, &results)
 	if err != nil {
 		return params.StorageInstanceResults{}, err
 	}

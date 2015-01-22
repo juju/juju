@@ -35,7 +35,7 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 		c.Check(objType, gc.Equals, "DiskFormatter")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "BlockDevice")
+		c.Check(request, gc.Equals, "BlockDevices")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
 		})
@@ -80,7 +80,7 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
 		c.Check(objType, gc.Equals, "DiskFormatter")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "BlockDeviceStorageInstance")
+		c.Check(request, gc.Equals, "BlockDeviceStorageInstances")
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
 		})

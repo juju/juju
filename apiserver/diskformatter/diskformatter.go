@@ -94,8 +94,8 @@ func (a *DiskFormatterAPI) watchOneBlockDevices(tag names.UnitTag) (string, []st
 	return "", nil, watcher.EnsureErr(w)
 }
 
-// BlockDevice returns details about each specified block device.
-func (a *DiskFormatterAPI) BlockDevice(args params.Entities) (params.BlockDeviceResults, error) {
+// BlockDevices returns details about each specified block device.
+func (a *DiskFormatterAPI) BlockDevices(args params.Entities) (params.BlockDeviceResults, error) {
 	result := params.BlockDeviceResults{
 		Results: make([]params.BlockDeviceResult, len(args.Entities)),
 	}
@@ -118,9 +118,9 @@ func (a *DiskFormatterAPI) BlockDevice(args params.Entities) (params.BlockDevice
 	return result, nil
 }
 
-// BlockDeviceStorageInstance returns details of storage instances corresponding
+// BlockDeviceStorageInstances returns details of storage instances corresponding
 // to each specified block device.
-func (a *DiskFormatterAPI) BlockDeviceStorageInstance(args params.Entities) (params.StorageInstanceResults, error) {
+func (a *DiskFormatterAPI) BlockDeviceStorageInstances(args params.Entities) (params.StorageInstanceResults, error) {
 	result := params.StorageInstanceResults{
 		Results: make([]params.StorageInstanceResult, len(args.Entities)),
 	}

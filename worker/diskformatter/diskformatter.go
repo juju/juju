@@ -32,8 +32,8 @@ const defaultFilesystemType = "ext4"
 // the block devices assigned to storage instances owned by the unit.
 type BlockDeviceAccessor interface {
 	WatchBlockDevices() (watcher.StringsWatcher, error)
-	BlockDevice([]names.DiskTag) (params.BlockDeviceResults, error)
-	BlockDeviceStorageInstance([]names.DiskTag) (params.StorageInstanceResults, error)
+	BlockDevices([]names.DiskTag) (params.BlockDeviceResults, error)
+	BlockDeviceStorageInstances([]names.DiskTag) (params.StorageInstanceResults, error)
 }
 
 // NewWorker returns a new worker that creates filesystems on block devices
@@ -80,7 +80,7 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 	}
 
 	// Map block devices to the storage instances they are assigned to.
-	results, err := f.accessor.BlockDeviceStorageInstance(blockDeviceTags)
+	results, err := f.accessor.BlockDeviceStorageInstances(blockDeviceTags)
 	if err != nil {
 		return errors.Annotate(err, "cannot get assigned storage instances")
 	}
@@ -117,7 +117,7 @@ func (f *diskFormatter) Handle(diskNames []string) error {
 }
 
 func (f *diskFormatter) attachedBlockDevices(tags []names.DiskTag) ([]storage.BlockDevice, error) {
-	results, err := f.accessor.BlockDevice(tags)
+	results, err := f.accessor.BlockDevices(tags)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get block devices")
 	}
