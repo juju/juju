@@ -21,7 +21,7 @@ var logger = loggo.GetLogger("juju.worker.envworkermanager")
 // will be killed when an environment goes away.
 func NewEnvWorkerManager(
 	st InitialState,
-	startEnvWorkers func(*state.State) (worker.Runner, error),
+	startEnvWorkers func(InitialState, *state.State) (worker.Runner, error),
 ) worker.Worker {
 	m := &envWorkerManager{
 		st:              st,
@@ -36,18 +36,21 @@ func NewEnvWorkerManager(
 }
 
 // InitialState defines the State functionality used by
-// envWorkerManager. It mainly exists to support testing.
+// envWorkerManager and/or could be useful to startEnvWorkers
+// funcs. It mainly exists to support testing.
 type InitialState interface {
 	WatchEnvironments() state.StringsWatcher
 	ForEnviron(names.EnvironTag) (*state.State, error)
 	GetEnvironment(names.EnvironTag) (*state.Environment, error)
+	EnvironUUID() string
+	Machine(string) (*state.Machine, error)
 }
 
 type envWorkerManager struct {
 	runner          worker.Runner
 	tomb            tomb.Tomb
 	st              InitialState
-	startEnvWorkers func(*state.State) (worker.Runner, error)
+	startEnvWorkers func(InitialState, *state.State) (worker.Runner, error)
 }
 
 // Kill satisfies the Worker interface.
@@ -106,7 +109,7 @@ func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
 			return nil, errors.Annotatef(err, "failed to open state for environment %s", envTag.Id())
 		}
 
-		envRunner, err := m.startEnvWorkers(st)
+		envRunner, err := m.startEnvWorkers(m.st, st)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

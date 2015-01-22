@@ -188,6 +188,8 @@ func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
 	for {
 		select {
 		case r := <-s.runnerC:
+			c.Assert(r.ssEnvUUID, gc.Equals, s.State.EnvironUUID())
+
 			runners = append(runners, r)
 			if len(runners) == expectedCount {
 				s.checkNoRunnersStart(c) // Check no more runners start
@@ -214,9 +216,10 @@ func (s *suite) checkNoRunnersStart(c *gc.C) {
 // startEnvWorkers is passed to NewEnvWorkerManager in these tests. It
 // creates fake Runner instances when envWorkerManager starts workers
 // for an environment.
-func (s *suite) startEnvWorkers(st *state.State) (worker.Runner, error) {
+func (s *suite) startEnvWorkers(ssSt envworkermanager.InitialState, st *state.State) (worker.Runner, error) {
 	runner := &fakeRunner{
-		envUUID: st.EnvironUUID(),
+		ssEnvUUID: ssSt.EnvironUUID(),
+		envUUID:   st.EnvironUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -241,9 +244,10 @@ func waitOrPanic(wait func() error) error {
 // testing.
 type fakeRunner struct {
 	worker.Runner
-	tomb    tomb.Tomb
-	envUUID string
-	killed  bool
+	tomb      tomb.Tomb
+	ssEnvUUID string
+	envUUID   string
+	killed    bool
 }
 
 func (r *fakeRunner) Kill() {
