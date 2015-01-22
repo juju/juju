@@ -69,6 +69,18 @@ def consolidate_deps(dep_files, verbose=False):
     return deps, conflicts
 
 
+def include_deps(deps, include, verbose=False):
+    redefined = []
+    added = []
+    for dep in include:
+        if dep.package in deps:
+            redefined.append(dep)
+        else:
+            added.append(dep)
+        deps[dep.package] = dep
+    return redefined, added
+
+
 def write_tmp_tsv(deps, verbose=False):
     """Write the deps to a temp file and return its path.
 
@@ -86,6 +98,7 @@ def main(args=None):
     exitcode = 0
     args = get_args(args)
     deps, conflicts = consolidate_deps(args.dep_files, verbose=args.verbose)
+    redefined, added = include_deps(deps, args.include, verbose=args.verbose)
     consolidated_tsv = write_tmp_tsv(deps)
     try:
         pass

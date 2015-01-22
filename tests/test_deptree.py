@@ -5,6 +5,7 @@ from unittest import TestCase
 from deptree import (
     consolidate_deps,
     Dependency,
+    include_deps,
     get_args,
     main,
     write_tmp_tsv,
@@ -110,6 +111,21 @@ class DepTreeTestCase(TestCase):
             deps, conflicts = consolidate_deps([a_dep_file, b_dep_file])
         self.assertEqual([(b_dep_file, conflict_dep)], conflicts)
         self.assertEqual(expected_deps, deps)
+
+    def test_include_deps(self):
+        deps = {
+            'github/foo': Dependency('github/foo', 'git', 'rev123', None),
+            'github/bar': Dependency('github/bar', 'git', 'rev456', None),
+        }
+        include = [
+            Dependency('github/bar', 'git', 'redefined', None),
+            Dependency('github/baz', 'git', 'added', None),
+        ]
+        redefined, added = include_deps(deps, include)
+        self.assertEqual([include[0]], redefined)
+        self.assertEqual([include[1]], added)
+        self.assertEqual(include[0], deps['github/bar'])
+        self.assertEqual(include[1], deps['github/baz'])
 
     def test_write_tmp_tsv(self):
         a_dep = Dependency('github/foo', 'git', 'rev123', None)
