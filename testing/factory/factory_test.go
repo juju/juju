@@ -186,7 +186,7 @@ func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
-	machine, password := s.Factory.MakeMachine(c, nil)
+	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
@@ -215,7 +215,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
-	machine, pwd := s.Factory.MakeMachine(c, &factory.MachineParams{
+	machine, pwd := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Series:     series,
 		Jobs:       jobs,
 		Password:   password,

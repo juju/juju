@@ -45,7 +45,7 @@ func (s *annotationSuite) TestEnvironmentAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
-	machine, _ := s.Factory.MakeMachine(c, &factory.MachineParams{
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	s.testSetGetEntitiesAnnotations(c, machine.Tag())
@@ -105,7 +105,7 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
-	machine, _ := s.Factory.MakeMachine(c, &factory.MachineParams{
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})

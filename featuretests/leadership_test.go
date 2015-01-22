@@ -48,7 +48,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
 	// Create a machine to manage the environment.
-	stateServer, password := s.Factory.MakeMachine(c, &factory.MachineParams{
+	stateServer, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		InstanceId: "id-1",
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
@@ -57,7 +57,7 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
 
 	// Create a machine to host some units.
-	unitHostMachine, _ := s.Factory.MakeMachine(c, &factory.MachineParams{
+	unitHostMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Nonce:    agent.BootstrapNonce,
 		Password: password,
 	})

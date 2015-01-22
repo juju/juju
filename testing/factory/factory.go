@@ -237,7 +237,16 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 // values in params, if they are missing, some meaningful empty values will be
 // set.
 // If params is not specified, defaults are used.
-func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) (*state.Machine, string) {
+func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+	machine, _ := factory.MakeMachineReturningPassword(c, params)
+	return machine
+}
+
+// MakeMachineReturningPassword will add a machine with values defined in
+// params. For some values in params, if they are missing, some meaningful
+// empty values will be set. If params is not specified, defaults are used.
+// The machine and its password are returned.
+func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,7 +322,7 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 		params = &UnitParams{}
 	}
 	if params.Machine == nil {
-		params.Machine, _ = factory.MakeMachine(c, nil)
+		params.Machine = factory.MakeMachine(c, nil)
 	}
 	if params.Service == nil {
 		params.Service = factory.MakeService(c, nil)

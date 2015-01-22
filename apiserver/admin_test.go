@@ -875,7 +875,7 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	defer envState.Close()
 
 	f2 := factory.NewFactory(envState)
-	machine, password := f2.MakeMachine(c, &factory.MachineParams{
+	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "nonce",
 	})
 

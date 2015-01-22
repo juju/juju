@@ -48,7 +48,7 @@ func (s *MachineSuite) TestMachineAdd(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineRemove(c *gc.C) {
-	machine, _ := s.Factory.MakeMachine(c, nil)
+	machine := s.Factory.MakeMachine(c, nil)
 
 	ctx, err := s.RunMachineCommand(c, "remove", machine.Id())
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")
