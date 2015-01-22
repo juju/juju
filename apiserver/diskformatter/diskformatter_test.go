@@ -54,6 +54,7 @@ func (s *DiskFormatterSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: &params.Error{Message: "WatchUnitMachineBlockDevices fails", Code: ""}},
+			// disk-1 does not exist, so we get ErrPerm.
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})

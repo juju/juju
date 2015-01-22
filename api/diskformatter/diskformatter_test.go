@@ -57,6 +57,17 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 	c.Assert(results.Results, gc.DeepEquals, devices)
 }
 
+func (s *DiskFormatterSuite) TestBlockDeviceResultCountMismatch(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		*(result.(*params.BlockDeviceResults)) = params.BlockDeviceResults{
+			[]params.BlockDeviceResult{{}, {}},
+		}
+		return nil
+	})
+	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
+	c.Assert(func() { st.BlockDevice(nil) }, gc.PanicMatches, "expected 0 results, got 2")
+}
+
 func (s *DiskFormatterSuite) TestBlockDeviceAttached(c *gc.C) {
 	attachment := []params.BoolResult{{
 		Result: true,

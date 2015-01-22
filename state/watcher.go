@@ -2406,7 +2406,7 @@ func (w *blockDevicesWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// initial retrieves the currently attached block devices.
+// current retrieves the currently attached block devices.
 func (w *blockDevicesWatcher) current() (map[string]blockDeviceDoc, error) {
 	blockDevices, closer := w.st.getCollection(blockDevicesC)
 	defer closer()

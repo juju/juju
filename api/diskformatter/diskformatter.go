@@ -4,8 +4,6 @@
 package diskformatter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
@@ -42,7 +40,7 @@ func (st *State) WatchBlockDevices() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		panic(errors.Errorf("expected 1 result, got %d", len(results.Results)))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -66,7 +64,7 @@ func (st *State) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, e
 		return params.BlockDeviceResults{}, err
 	}
 	if len(result.Results) != len(tags) {
-		return params.BlockDeviceResults{}, fmt.Errorf("expected %d result, got %d", len(tags), len(result.Results))
+		panic(errors.Errorf("expected %d results, got %d", len(tags), len(result.Results)))
 	}
 	return result, nil
 }
@@ -86,7 +84,7 @@ func (st *State) BlockDeviceAttached(tags []names.DiskTag) (params.BoolResults, 
 		return params.BoolResults{}, err
 	}
 	if len(result.Results) != len(tags) {
-		return params.BoolResults{}, fmt.Errorf("expected %d result, got %d", len(tags), len(result.Results))
+		panic(errors.Errorf("expected %d results, got %d", len(tags), len(result.Results)))
 	}
 	return result, nil
 }
@@ -106,7 +104,7 @@ func (st *State) BlockDeviceStorageInstance(tags []names.DiskTag) (params.Storag
 		return params.StorageInstanceResults{}, err
 	}
 	if len(results.Results) != len(tags) {
-		return params.StorageInstanceResults{}, errors.Errorf("expected %d result, got %d", len(tags), len(results.Results))
+		panic(errors.Errorf("expected %d results, got %d", len(tags), len(results.Results)))
 	}
 	return results, nil
 }
