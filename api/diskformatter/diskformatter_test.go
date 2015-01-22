@@ -23,7 +23,7 @@ type DiskFormatterSuite struct {
 	coretesting.BaseSuite
 }
 
-func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
+func (s *DiskFormatterSuite) TestBlockDevices(c *gc.C) {
 	devices := []params.BlockDeviceResult{{
 		Result: storage.BlockDevice{DeviceName: "sda", Size: 123},
 	}, {
@@ -48,7 +48,7 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 	})
 
 	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	results, err := st.BlockDevice([]names.DiskTag{
+	results, err := st.BlockDevices([]names.DiskTag{
 		names.NewDiskTag("0"),
 		names.NewDiskTag("1"),
 	})
@@ -65,10 +65,10 @@ func (s *DiskFormatterSuite) TestBlockDeviceResultCountMismatch(c *gc.C) {
 		return nil
 	})
 	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	c.Assert(func() { st.BlockDevice(nil) }, gc.PanicMatches, "expected 0 results, got 2")
+	c.Assert(func() { st.BlockDevices(nil) }, gc.PanicMatches, "expected 0 results, got 2")
 }
 
-func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
+func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 	storageInstances := []params.StorageInstanceResult{{
 		Result: storage.StorageInstance{Id: "whatever"},
 	}, {
@@ -93,7 +93,7 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
 	})
 
 	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	results, err := st.BlockDeviceStorageInstance([]names.DiskTag{
+	results, err := st.BlockDeviceStorageInstances([]names.DiskTag{
 		names.NewDiskTag("0"),
 		names.NewDiskTag("1"),
 	})
@@ -107,8 +107,8 @@ func (s *DiskFormatterSuite) TestAPIErrors(c *gc.C) {
 		return errors.New("blargh")
 	})
 	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	_, err := st.BlockDevice(nil)
+	_, err := st.BlockDevices(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
-	_, err = st.BlockDeviceStorageInstance(nil)
+	_, err = st.BlockDeviceStorageInstances(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
 }
