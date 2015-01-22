@@ -79,12 +79,10 @@ func (s *environmentmanagerSuite) TestListEnvironmentsBadUser(c *gc.C) {
 func (s *environmentmanagerSuite) TestListEnvironments(c *gc.C) {
 	s.SetFeatureFlags(feature.MESS)
 	owner := names.NewUserTag("user@remote")
-	envState := s.Factory.MakeEnvironment(c, &factory.EnvParams{
-		Name: "first", Owner: owner})
-	envState.Close()
-	envState = s.Factory.MakeEnvironment(c, &factory.EnvParams{
-		Name: "second", Owner: owner})
-	envState.Close()
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "first", Owner: owner}).Close()
+	s.Factory.MakeEnvironment(c, &factory.EnvParams{
+		Name: "second", Owner: owner}).Close()
 
 	envManager := s.OpenAPI(c)
 	envs, err := envManager.ListEnvironments("user@remote")

@@ -213,7 +213,6 @@ func (f *FacadeRegistry) GetFactory(name string, version int) (FacadeFactory, er
 // This can be used for introspection purposes (to determine what methods are
 // available, etc).
 func (f *FacadeRegistry) GetType(name string, version int) (reflect.Type, error) {
-	logger.Debugf("GetType: %s, %d", name, version)
 	record, err := f.lookup(name, version)
 	if err != nil {
 		return nil, err
