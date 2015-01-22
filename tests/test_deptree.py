@@ -69,7 +69,7 @@ class DepTreeTestCase(TestCase):
         args = get_args(['-d', '-v', '-i', 'foo', './bar', 'baz', 'qux'])
         self.assertTrue(args.verbose)
         self.assertTrue(args.dry_run)
-        self.assertEqual(['foo'], args.ignore)
+        self.assertEqual(['foo'], args.include)
         self.assertEqual('./bar', args.srcdir)
         self.assertEqual(['baz', 'qux'], args.dep_files)
 

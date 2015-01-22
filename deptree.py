@@ -108,8 +108,8 @@ def get_args(args=None):
         '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
     parser.add_argument(
-        '-i', '--ignore', action='append', default=[],
-        help='undocument dependencies to be ignored.')
+        '-i', '--include', action='append', default=[],
+        help='Include an additional dependency. eg for/bar:git:123abc0:')
     parser.add_argument('srcdir', help='The src dir.')
     parser.add_argument(
         'dep_files', nargs='+',
