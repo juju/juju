@@ -25,6 +25,9 @@ type StorageInstance interface {
 	// Id returns the unique ID of the storage instance.
 	Id() string
 
+	// Kind returns the storage instance kind.
+	Kind() StorageKind
+
 	// Owner returns the tag of the service or unit that owns this storage
 	// instance.
 	Owner() names.Tag
@@ -53,6 +56,16 @@ type StorageInstance interface {
 	Remove() error
 }
 
+// StorageKind defines the type of a store: whether it is a block device
+// or a filesystem.
+type StorageKind int
+
+const (
+	StorageKindUnknown StorageKind = iota
+	StorageKindBlock
+	StorageKindFilesystem
+)
+
 type storageInstance struct {
 	st  *State
 	doc storageInstanceDoc
@@ -64,6 +77,10 @@ func (s *storageInstance) Tag() names.Tag {
 
 func (s *storageInstance) Id() string {
 	return s.doc.Id
+}
+
+func (s *storageInstance) Kind() StorageKind {
+	return s.doc.Kind
 }
 
 func (s *storageInstance) Owner() names.Tag {
@@ -132,11 +149,12 @@ type storageInstanceDoc struct {
 	DocID   string `bson:"_id"`
 	EnvUUID string `bson:"env-uuid"`
 
-	Id           string   `bson:"id"`
-	Owner        string   `bson:"owner"`
-	StorageName  string   `bson:"storagename"`
-	Pool         string   `bson:"pool"`
-	BlockDevices []string `bson:"blockdevices,omitempty"`
+	Id           string      `bson:"id"`
+	Kind         StorageKind `bson:"storagekind"`
+	Owner        string      `bson:"owner"`
+	StorageName  string      `bson:"storagename"`
+	Pool         string      `bson:"pool"`
+	BlockDevices []string    `bson:"blockdevices,omitempty"`
 
 	Info   *StorageInstanceInfo   `bson:"info,omitempty"`
 	Params *StorageInstanceParams `bson:"params,omitempty"`
@@ -168,16 +186,38 @@ func newStorageInstanceId(st *State, store string) (string, error) {
 	return fmt.Sprintf("%s/%v", store, seq), nil
 }
 
+// StorageInstance returns the StorageInstance with the specified ID.
+func (st *State) StorageInstance(id string) (StorageInstance, error) {
+	storageInstances, cleanup := st.getCollection(storageInstancesC)
+	defer cleanup()
+
+	s := storageInstance{st: st}
+	err := storageInstances.FindId(id).One(&s.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("storage instance %q", id)
+	} else if err != nil {
+		return nil, errors.Annotate(err, "cannot get storage instance details")
+	}
+	return &s, nil
+}
+
 func createStorageInstanceOps(
 	st *State,
 	ownerTag names.Tag,
 	charmMeta *charm.Meta,
 	cons map[string]StorageConstraints,
 ) (ops []txn.Op, storageInstanceIds []string, err error) {
+
+	type template struct {
+		storageName string
+		meta        charm.Storage
+		cons        StorageConstraints
+	}
+
 	// Create a StorageInstanceParams for each store (one for each Count
 	// in the constraint), ignoring shared stores. We store the params
 	// directly on the storage instances.
-	allParams := make(map[string][]StorageInstanceParams)
+	templates := make([]template, 0, len(cons))
 	for store, cons := range cons {
 		charmStorage, ok := charmMeta.Storage[store]
 		if !ok {
@@ -186,38 +226,49 @@ func createStorageInstanceOps(
 		if charmStorage.Shared {
 			continue
 		}
-		// Note: Pool is recorded on the StorageInstance itself, below.
-		params := StorageInstanceParams{
-			Size:     cons.Size,
-			Location: charmStorage.Location,
-			ReadOnly: charmStorage.ReadOnly,
-		}
-		countParams := make([]StorageInstanceParams, int(cons.Count))
-		for i := range countParams {
-			countParams[i] = params
-		}
-		allParams[store] = countParams
+		templates = append(templates, template{
+			storageName: store,
+			meta:        charmStorage,
+			cons:        cons,
+		})
 	}
 
-	ops = make([]txn.Op, 0, len(allParams))
-	storageInstanceIds = make([]string, 0, len(allParams))
-	for store, params := range allParams {
-		for _, params := range params {
-			id, err := newStorageInstanceId(st, store)
+	ops = make([]txn.Op, 0, len(templates))
+	storageInstanceIds = make([]string, 0, len(templates))
+	for _, t := range templates {
+		params := StorageInstanceParams{
+			Size:     t.cons.Size,
+			Location: t.meta.Location,
+			ReadOnly: t.meta.ReadOnly,
+		}
+
+		owner := ownerTag.String()
+		var kind StorageKind
+		switch t.meta.Type {
+		case charm.StorageBlock:
+			kind = StorageKindBlock
+		case charm.StorageFilesystem:
+			kind = StorageKindFilesystem
+		default:
+			return nil, nil, errors.Errorf("unknown storage type %q", t.meta.Type)
+		}
+
+		for i := uint64(0); i < t.cons.Count; i++ {
+			id, err := newStorageInstanceId(st, t.storageName)
 			if err != nil {
 				return nil, nil, errors.Annotate(err, "cannot generate storage instance name")
 			}
-			paramsCopy := params
 			ops = append(ops, txn.Op{
 				C:      storageInstancesC,
 				Id:     id,
 				Assert: txn.DocMissing,
 				Insert: &storageInstanceDoc{
 					Id:          id,
-					Owner:       ownerTag.String(),
-					StorageName: store,
-					Pool:        cons[store].Pool,
-					Params:      &paramsCopy,
+					Kind:        kind,
+					Owner:       owner,
+					StorageName: t.storageName,
+					Pool:        t.cons.Pool,
+					Params:      &params,
 				},
 			})
 			storageInstanceIds = append(storageInstanceIds, id)

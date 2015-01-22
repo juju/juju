@@ -63,6 +63,21 @@ func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	})
 }
 
+func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
+	info := []network.InterfaceInfo{
+		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
+		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
+		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
+	}
+	expectedInfo := []network.InterfaceInfo{
+		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
+		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
+		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
+	}
+	network.SortInterfaceInfo(info)
+	c.Assert(info, jc.DeepEquals, expectedInfo)
+}
+
 type NetworkSuite struct {
 	testing.BaseSuite
 }

@@ -162,7 +162,6 @@ func (s *MultiEnvStateSuite) Reset(c *gc.C) {
 var _ = gc.Suite(&MultiEnvStateSuite{})
 
 func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
-
 	for i, test := range []struct {
 		about        string
 		getWatcher   func(*state.State) interface{}
@@ -175,24 +174,21 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				return st.WatchEnvironMachines()
 			},
 			triggerEvent: func(st *state.State) {
-				m, err := st.AddMachine("trusty", state.JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
 			},
 		},
 		{
 			about: "containers",
 			getWatcher: func(st *state.State) interface{} {
-				var err error
-				m, err := st.AddMachine("trusty", state.JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
-
 				return m.WatchAllContainers()
 			},
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
-
 				_, err = st.AddMachineInsideMachine(
 					state.MachineTemplate{
 						Series: "trusty",
@@ -206,11 +202,9 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 		}, {
 			about: "LXC only containers",
 			getWatcher: func(st *state.State) interface{} {
-				var err error
-				m, err := st.AddMachine("trusty", state.JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, nil)
 				c.Assert(m.Id(), gc.Equals, "0")
-
 				return m.WatchContainers(instance.LXC)
 			},
 			triggerEvent: func(st *state.State) {
@@ -237,7 +231,6 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				m, err := st.Machine("0")
 				c.Assert(err, jc.ErrorIsNil)
-
 				f := factory.NewFactory(st)
 				f.MakeUnit(c, &factory.UnitParams{Machine: m})
 			},
@@ -288,6 +281,42 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
+			about: "network interfaces",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{})
+				c.Assert(m.Id(), gc.Equals, "0")
+
+				return m.WatchInterfaces()
+			},
+			setUpState: func(st *state.State) bool {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+
+				_, err = st.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
+				c.Assert(err, jc.ErrorIsNil)
+
+				_, err = m.AddNetworkInterface(state.NetworkInterfaceInfo{
+					MACAddress:    "aa:bb:cc:dd:ee:ff",
+					InterfaceName: "eth0",
+					NetworkName:   "net1",
+					IsVirtual:     false,
+				})
+				c.Assert(err, jc.ErrorIsNil)
+				return true
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = m.NetworkInterfaces()
+				c.Assert(err, jc.ErrorIsNil)
+
+				ifaces, err := m.NetworkInterfaces()
+				c.Assert(err, jc.ErrorIsNil)
+				err = ifaces[0].Disable()
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
 			about: "cleanups",
 			getWatcher: func(st *state.State) interface{} {
 				return st.WatchCleanups()
@@ -302,8 +331,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				// add and destroy a relation, so there is something to cleanup.
 				eps, err := st.InferEndpoints("wordpress", "mysql")
 				c.Assert(err, jc.ErrorIsNil)
-				r, err := st.AddRelation(eps...)
-				c.Assert(err, jc.ErrorIsNil)
+				r := f.MakeRelation(c, &factory.RelationParams{Endpoints: eps})
 				err = r.Destroy()
 				c.Assert(err, jc.ErrorIsNil)
 
@@ -314,10 +342,54 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
+			about: "reboots",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{})
+				c.Assert(m.Id(), gc.Equals, "0")
+				w, err := m.WatchForRebootEvent()
+				c.Assert(err, jc.ErrorIsNil)
+				return w
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				err = m.SetRebootFlag(true)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
+			about: "block devices",
+			getWatcher: func(st *state.State) interface{} {
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{})
+				c.Assert(m.Id(), gc.Equals, "0")
+
+				return m.WatchBlockDevices()
+
+			},
+			setUpState: func(st *state.State) bool {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				sdb := state.BlockDeviceInfo{DeviceName: "sdb"}
+				err = m.SetMachineBlockDevices(sdb)
+				c.Assert(err, jc.ErrorIsNil)
+				return false
+			},
+			triggerEvent: func(st *state.State) {
+				m, err := st.Machine("0")
+				c.Assert(err, jc.ErrorIsNil)
+				sdb := state.BlockDeviceInfo{DeviceName: "sdb", Label: "fatty"}
+				err = m.SetMachineBlockDevices(sdb)
+				c.Assert(err, jc.ErrorIsNil)
+			},
+		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
-				m, err := st.AddMachine("trusty", state.JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
+				f := factory.NewFactory(st)
+				m := f.MakeMachine(c, &factory.MachineParams{
+					Jobs:   []state.MachineJob{state.JobHostUnits},
+					Series: "trusty",
+				})
 				c.Assert(m.Id(), gc.Equals, "0")
 
 				return m.Watch()
@@ -353,8 +425,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				err = svc.UpdateConfigSettings(charm.Settings{"blog-title": "awesome"})
 				c.Assert(err, jc.ErrorIsNil)
 			},
-		},
-		{
+		}, {
 			about: "action status",
 			getWatcher: func(st *state.State) interface{} {
 				f := factory.NewFactory(st)
@@ -406,8 +477,6 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 					nwc := wc.(statetesting.NotifyWatcherC)
 					// consume initial event
 					nwc.AssertOneChange()
-					// nwc.AssertChange()
-					nwc.AssertNoChange()
 				default:
 					c.Fatalf("unknown watcher type %T", w)
 				}
@@ -422,6 +491,7 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 				c.Logf("Making changes to environment %s", w1.State.EnvironUUID())
 				// switch on type of watcher here
 				if test.setUpState != nil {
+
 					assertChanges := test.setUpState(w1.State)
 					if assertChanges {
 						// Consume events from setup.
@@ -429,7 +499,6 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 						w1.AssertNoChange()
 						w2.AssertNoChange()
 					}
-
 				}
 				test.triggerEvent(w1.State)
 				w1.AssertChanges()
@@ -441,6 +510,8 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 			defer wc1.Stop()
 			wc2 := getTestWatcher(s.OtherState)
 			defer wc2.Stop()
+			wc2.AssertNoChange()
+			wc1.AssertNoChange()
 			checkIsolationForEnv(wc1, wc2)
 			checkIsolationForEnv(wc2, wc1)
 		}()

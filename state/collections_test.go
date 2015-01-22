@@ -24,6 +24,7 @@ type collectionsTestCase struct {
 	test          func() (int, error)
 	expectedCount int
 	expectedPanic string
+	expectedError string
 }
 
 func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
@@ -127,6 +128,15 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 	// (otherwise tests may not fail when they should)
 	c.Assert(m0.Id(), gc.Equals, otherM0.Id())
 
+	getIfaceId := func(st *state.State) bson.ObjectId {
+		var doc bson.M
+		coll, closer := state.GetRawCollection(st, state.NetworkInterfacesC)
+		defer closer()
+		err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).One(&doc)
+		c.Assert(err, jc.ErrorIsNil)
+		return doc["_id"].(bson.ObjectId)
+	}
+
 	// Also add a network interface to test collections with ObjectId ids
 	_, err := s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
 	c.Assert(err, jc.ErrorIsNil)
@@ -138,14 +148,20 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Grab the document id of the just added network interface for use in tests.
-	ifaceId := func() bson.ObjectId {
-		var doc bson.M
-		coll, closer := state.GetRawCollection(s.State, state.NetworkInterfacesC)
-		defer closer()
-		err = coll.Find(nil).One(&doc)
-		c.Assert(err, jc.ErrorIsNil)
-		return doc["_id"].(bson.ObjectId)
-	}()
+	ifaceId := getIfaceId(s.State)
+
+	// Add a network interface to the other environment to test collections that rely on the env-uuid field.
+	_, err = st1.AddNetwork(state.NetworkInfo{"net2", "net2", "0.1.2.4/24", 0})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = otherM0.AddNetworkInterface(state.NetworkInterfaceInfo{
+		MACAddress:    "91:de:f1:02:f6:f0",
+		InterfaceName: "foo1",
+		NetworkName:   "net2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Grab the document id of the network interface just added to the other environment for use in tests.
+	otherIfaceId := getIfaceId(st1)
 
 	machines0, closer := state.GetCollection(s.State, state.MachinesC)
 	defer closer()
@@ -259,12 +275,13 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 1,
 		},
 		{
-			label: "FindId panics if id isn't a string",
+			label: "FindId adds env-uuid field",
 			test: func() (int, error) {
-				machines0.FindId(99)
-				return 0, nil
+				return networkInterfaces.FindId(otherIfaceId).Count()
 			},
-			expectedPanic: "multi-environment collections only use string or ObjectId ids. got: 99",
+			// expect to find no networks, as we are searching with the id of
+			// the network in the other environment.
+			expectedCount: 0,
 		},
 		{
 			label: "Insert works",
@@ -328,12 +345,12 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 			expectedCount: 2, // Expect machine-1 in first env and machine-0 in second env
 		},
 		{
-			label: "RemoveId panics if id isn't a string",
+			label: "RemoveId filters by env-uuid field",
 			test: func() (int, error) {
-				machines0.RemoveId(99)
-				return 0, nil
+				err := networkInterfaces.RemoveId(otherIfaceId)
+				return 0, err
 			},
-			expectedPanic: "multi-environment collections only use string or ObjectId ids. got: 99",
+			expectedError: "not found",
 		},
 		{
 			label: "RemoveAll filters by env",
@@ -396,7 +413,11 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 
 		if t.expectedPanic == "" {
 			count, err := t.test()
-			c.Assert(err, jc.ErrorIsNil)
+			if t.expectedError != "" {
+				c.Assert(err, gc.ErrorMatches, t.expectedError)
+			} else {
+				c.Assert(err, jc.ErrorIsNil)
+			}
 			c.Check(count, gc.Equals, t.expectedCount)
 		} else {
 			c.Check(func() { t.test() }, gc.PanicMatches, t.expectedPanic)
