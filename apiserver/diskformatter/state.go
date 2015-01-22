@@ -4,6 +4,7 @@
 package diskformatter
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
@@ -28,15 +29,15 @@ func (s stateShim) WatchUnitMachineBlockDevices(
 ) (watcher.StringsWatcher, error) {
 	u, err := s.State.Unit(tag.Id())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	mid, err := u.AssignedMachineId()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	m, err := s.State.Machine(mid)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return m.WatchBlockDevices(), nil
 }

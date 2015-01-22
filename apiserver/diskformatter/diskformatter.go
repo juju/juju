@@ -28,7 +28,7 @@ type DiskFormatterAPI struct {
 	getAuthFunc common.GetAuthFunc
 }
 
-// NewDiskFormatterAPI creates a new client-side DiskFormatter API facade.
+// NewDiskFormatterAPI creates a new server-side DiskFormatter API facade.
 func NewDiskFormatterAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -192,7 +192,6 @@ func (a *DiskFormatterAPI) oneBlockDevice(tag string, canAccess common.AuthFunc)
 
 // NOTE: purposefully not using field keys below, so
 // the code breaks if structures change.
-// this breaks if changes.
 
 func storageBlockDevice(dev state.BlockDevice) (storage.BlockDevice, error) {
 	if dev == nil {

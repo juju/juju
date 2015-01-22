@@ -30,7 +30,7 @@ var getState = func(st *state.State) stateInterface {
 	return stateShim{st}
 }
 
-// NewDiskManagerAPI creates a new client-side DiskManager API facade.
+// NewDiskManagerAPI creates a new server-side DiskManager API facade.
 func NewDiskManagerAPI(
 	st *state.State,
 	resources *common.Resources,
