@@ -92,6 +92,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 			"multi1to10": 1,
 			"multi2up":   2,
 		})
+		c.Assert(storageInstances[0].Kind(), gc.Equals, state.StorageKindBlock)
 	}
 }
 

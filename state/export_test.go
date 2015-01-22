@@ -32,18 +32,19 @@ const (
 )
 
 var (
-	ToolstorageNewStorage       = &toolstorageNewStorage
-	ImageStorageNewStorage      = &imageStorageNewStorage
-	MachineIdLessThan           = machineIdLessThan
-	NewAddress                  = newAddress
-	StateServerAvailable        = &stateServerAvailable
-	GetOrCreatePorts            = getOrCreatePorts
-	GetPorts                    = getPorts
-	PortsGlobalKey              = portsGlobalKey
-	CurrentUpgradeId            = currentUpgradeId
-	NowToTheSecond              = nowToTheSecond
-	PickAddress                 = &pickAddress
-	CreateMachineBlockDeviceOps = createMachineBlockDeviceOps
+	ToolstorageNewStorage         = &toolstorageNewStorage
+	ImageStorageNewStorage        = &imageStorageNewStorage
+	MachineIdLessThan             = machineIdLessThan
+	NewAddress                    = newAddress
+	StateServerAvailable          = &stateServerAvailable
+	GetOrCreatePorts              = getOrCreatePorts
+	GetPorts                      = getPorts
+	PortsGlobalKey                = portsGlobalKey
+	CurrentUpgradeId              = currentUpgradeId
+	NowToTheSecond                = nowToTheSecond
+	PickAddress                   = &pickAddress
+	CreateMachineBlockDeviceOps   = createMachineBlockDeviceOps
+	SetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
 )
 
 type (

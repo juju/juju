@@ -36,7 +36,7 @@ func init() {
 	common.RegisterStandardFacade("Reboot", 1, NewRebootAPI)
 }
 
-// NewRebootAPI creates a new client-side RebootAPI facade.
+// NewRebootAPI creates a new server-side RebootAPI facade.
 func NewRebootAPI(st *state.State, resources *common.Resources, auth common.Authorizer) (*RebootAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
