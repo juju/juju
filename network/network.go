@@ -79,7 +79,8 @@ type InterfaceInfo struct {
 	// NetworkName is juju-internal name of the network.
 	NetworkName string
 
-	// ProviderId is a provider-specific network id.
+	// ProviderId is a provider-specific subnet id.
+	// TODO(dimitern) Rename this to SubnetId.
 	ProviderId Id
 
 	// VLANTag needs to be between 1 and 4094 for VLANs and 0 for
@@ -117,7 +118,7 @@ type InterfaceInfo struct {
 
 	// Gateway address, if set, defines the default gateway to
 	// configure for this network interface. For containers this
-	// usually (one of) the host address(es).
+	// usually is (one of) the host address(es).
 	GatewayAddress Address
 
 	// ExtraConfig can contain any valid setting and its value allowed

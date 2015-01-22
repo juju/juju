@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/diskformatter"
 	"github.com/juju/juju/api/diskmanager"
 	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/api/firewaller"
@@ -212,12 +213,24 @@ func (st *State) Uniter() (*uniter.State, error) {
 	return uniter.NewState(st, unitTag), nil
 }
 
+// DiskManager returns a version of the state that provides functionality
+// required by the diskmanager worker.
 func (st *State) DiskManager() (*diskmanager.State, error) {
 	machineTag, ok := st.authTag.(names.MachineTag)
 	if !ok {
 		return nil, errors.Errorf("expected MachineTag, got %#v", st.authTag)
 	}
 	return diskmanager.NewState(st, machineTag), nil
+}
+
+// DiskFormatter returns a version of the state that provides functionality
+// required by the diskformatter worker.
+func (st *State) DiskFormatter() (*diskformatter.State, error) {
+	unitTag, ok := st.authTag.(names.UnitTag)
+	if !ok {
+		return nil, errors.Errorf("expected UnitTag, got %#v", st.authTag)
+	}
+	return diskformatter.NewState(st, unitTag), nil
 }
 
 // Firewaller returns a version of the state that provides functionality

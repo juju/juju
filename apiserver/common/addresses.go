@@ -16,6 +16,7 @@ type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
 	CACert() string
+	EnvironUUID() string
 	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
@@ -80,6 +81,12 @@ func (a *APIAddresser) CACert() params.BytesResult {
 	return params.BytesResult{
 		Result: []byte(a.getter.CACert()),
 	}
+}
+
+// EnvironUUID returns the environment UUID to connect to the environment
+// that the current connection is for.
+func (a *APIAddresser) EnvironUUID() params.StringResult {
+	return params.StringResult{Result: a.getter.EnvironUUID()}
 }
 
 // StateAddresser implements a common set of methods for getting state

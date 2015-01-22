@@ -1,0 +1,6 @@
+name: storage-block
+summary: A charm needing block storage
+description: See above
+storage:
+    data:
+        type: block

@@ -372,7 +372,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	disks, err := machineDiskParams(m)
+	volumes, err := machineVolumeParams(m)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -396,7 +396,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 		Placement:   m.Placement(),
 		Networks:    networks,
 		Jobs:        jobs,
-		Disks:       disks,
+		Volumes:     volumes,
 	}, nil
 }
 
@@ -513,10 +513,10 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
-// machineDiskParams retrieves DiskParams for the disks that should be
+// machineVolumeParams retrieves VolumeParams for the volumes that should be
 // provisioned with and attached to the machine. The client should ignore
 // parameters that it does not know how to handle.
-func machineDiskParams(m *state.Machine) ([]storage.DiskParams, error) {
+func machineVolumeParams(m *state.Machine) ([]storage.VolumeParams, error) {
 	blockDevices, err := m.BlockDevices()
 	if err != nil {
 		return nil, err
@@ -524,18 +524,19 @@ func machineDiskParams(m *state.Machine) ([]storage.DiskParams, error) {
 	if len(blockDevices) == 0 {
 		return nil, nil
 	}
-	allParams := make([]storage.DiskParams, len(blockDevices))
+	allParams := make([]storage.VolumeParams, len(blockDevices))
 	for i, dev := range blockDevices {
 		params, ok := dev.Params()
 		if !ok {
-			return nil, errors.Errorf("cannot get parameters for disk %q", dev.Name())
+			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
 		}
-		allParams[i] = storage.DiskParams{
+		allParams[i] = storage.VolumeParams{
 			dev.Name(),
 			params.Size,
 			// TODO(axw) when pools are implemented,
 			// set Options here.
 			nil,
+			"", // no instance ID yet
 		}
 	}
 	return allParams, nil
@@ -555,6 +556,7 @@ func blockDevicesToState(in []storage.BlockDevice) (map[string]state.BlockDevice
 			dev.UUID,
 			dev.Serial,
 			dev.Size,
+			dev.FilesystemType,
 			dev.InUse,
 		}
 	}
@@ -684,7 +686,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 		if err != nil {
 			return err
 		}
-		blockDevices, err := blockDevicesToState(arg.Disks)
+		blockDevices, err := blockDevicesToState(arg.Volumes)
 		if err != nil {
 			return err
 		}

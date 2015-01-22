@@ -32,18 +32,19 @@ const (
 )
 
 var (
-	ToolstorageNewStorage       = &toolstorageNewStorage
-	ImageStorageNewStorage      = &imageStorageNewStorage
-	MachineIdLessThan           = machineIdLessThan
-	NewAddress                  = newAddress
-	StateServerAvailable        = &stateServerAvailable
-	GetOrCreatePorts            = getOrCreatePorts
-	GetPorts                    = getPorts
-	PortsGlobalKey              = portsGlobalKey
-	CurrentUpgradeId            = currentUpgradeId
-	NowToTheSecond              = nowToTheSecond
-	PickAddress                 = &pickAddress
-	CreateMachineBlockDeviceOps = createMachineBlockDeviceOps
+	ToolstorageNewStorage         = &toolstorageNewStorage
+	ImageStorageNewStorage        = &imageStorageNewStorage
+	MachineIdLessThan             = machineIdLessThan
+	NewAddress                    = newAddress
+	StateServerAvailable          = &stateServerAvailable
+	GetOrCreatePorts              = getOrCreatePorts
+	GetPorts                      = getPorts
+	PortsGlobalKey                = portsGlobalKey
+	CurrentUpgradeId              = currentUpgradeId
+	NowToTheSecond                = nowToTheSecond
+	PickAddress                   = &pickAddress
+	CreateMachineBlockDeviceOps   = createMachineBlockDeviceOps
+	SetProvisionedBlockDeviceInfo = setProvisionedBlockDeviceInfo
 )
 
 type (
@@ -72,7 +73,7 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 }
 
 func newMultiEnvRunnerForHooks(st *State) jujutxn.Runner {
-	runner := newMultiEnvRunner(st.EnvironUUID(), st.db)
+	runner := newMultiEnvRunner(st.EnvironUUID(), st.db, txnAssertEnvIsAlive)
 	st.transactionRunner = runner
 	return getRawRunner(runner)
 }
@@ -107,13 +108,20 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
-	c.Assert(ch, gc.NotNil)
-	return AddTestingServiceWithNetworks(c, st, name, ch, owner, nil)
+	return addTestingService(c, st, name, ch, owner, nil, nil)
 }
 
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
+	return addTestingService(c, st, name, ch, owner, networks, nil)
+}
+
+func AddTestingServiceWithStorage(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, storage map[string]StorageConstraints) *Service {
+	return addTestingService(c, st, name, ch, owner, nil, storage)
+}
+
+func addTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string, storage map[string]StorageConstraints) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(name, owner.String(), ch, networks)
+	service, err := st.AddService(name, owner.String(), ch, networks, storage)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -288,8 +296,9 @@ func GetRawCollection(st *State, name string) (*mgo.Collection, func()) {
 
 func NewMultiEnvRunnerForTesting(envUUID string, baseRunner jujutxn.Runner) jujutxn.Runner {
 	return &multiEnvRunner{
-		rawRunner: baseRunner,
-		envUUID:   envUUID,
+		rawRunner:      baseRunner,
+		envUUID:        envUUID,
+		assertEnvAlive: true,
 	}
 }
 

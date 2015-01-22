@@ -56,9 +56,7 @@ func NewErrRoot(err error) *errRoot {
 // Just enough to let you probe some of the interfaces of ApiHandler, but not
 // enough to actually do any RPC calls
 func TestingApiRoot(st *state.State) rpc.MethodFinder {
-	srv := &Server{state: st}
-	h := newApiRoot(srv, common.NewResources(), nil)
-	return h
+	return newApiRoot(st, common.NewResources(), nil)
 }
 
 // TestingUpgradingApiHandler returns a limited srvRoot

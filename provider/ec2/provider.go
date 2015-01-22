@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"launchpad.net/goamz/ec2"
+	"gopkg.in/amz.v2/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

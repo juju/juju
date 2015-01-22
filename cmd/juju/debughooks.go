@@ -58,7 +58,10 @@ func (c *DebugHooksCommand) validateHooks() error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
-	service := names.UnitService(c.Target)
+	service, err := names.UnitService(c.Target)
+	if err != nil {
+		return err
+	}
 	relations, err := c.apiClient.ServiceCharmRelations(service)
 	if err != nil {
 		return err

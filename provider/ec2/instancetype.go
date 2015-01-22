@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	"launchpad.net/goamz/aws"
+	"gopkg.in/amz.v2/aws"
 
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/juju/arch"

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/imagestorage"
 )
 
@@ -29,13 +30,15 @@ type imagesDownloadHandler struct {
 }
 
 func (h *imagesDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.validateEnvironUUID(r); err != nil {
+	stateWrapper, err := h.validateEnvironUUID(r)
+	if err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
+	defer stateWrapper.cleanup()
 	switch r.Method {
 	case "GET":
-		err := h.processGet(r, w)
+		err := h.processGet(r, w, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			h.sendError(w, http.StatusInternalServerError, err.Error())
@@ -68,7 +71,7 @@ func (h *imagesDownloadHandler) sendError(w http.ResponseWriter, statusCode int,
 }
 
 // processGet handles an image GET request.
-func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWriter) error {
+func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWriter, st *state.State) error {
 	// Get the parameters from the query.
 	kind := r.URL.Query().Get(":kind")
 	series := r.URL.Query().Get(":series")
@@ -76,7 +79,7 @@ func (h *imagesDownloadHandler) processGet(r *http.Request, resp http.ResponseWr
 	envuuid := r.URL.Query().Get(":envuuid")
 
 	// Get the image details from storage.
-	storage := h.state.ImageStorage()
+	storage := st.ImageStorage()
 	metadata, imageReader, err := storage.Image(kind, series, arch)
 	// Not in storage, so go fetch it.
 	if errors.IsNotFound(err) {

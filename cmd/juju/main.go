@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
@@ -185,7 +186,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
 
 	// Manage and control actions.
-	if featureflag.Enabled(action.FeatureFlag) {
+	if featureflag.Enabled(feature.Actions) {
 		r.Register(action.NewSuperCommand())
 	}
 

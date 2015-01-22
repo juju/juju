@@ -1,0 +1,105 @@
+@startuml
+
+hide circle
+hide empty methods
+hide empty fields
+
+namespace juju.charm {
+	class StorageMetadata {
+		Name: string
+		Description : string
+		Kind : StorageKind
+		ReadOnly : bool
+		Shared : bool
+		Location: string
+		CountMin : int
+		CountMax : int
+	}
+
+	enum StorageKind {
+		block
+		filesystem
+		object
+	}
+
+	Charm "1" *.. "*" StorageMetadata : specifies >
+}
+
+namespace juju.juju.state <<Database>> {
+	class BlockDevice {
+		Storage : Storage
+		Machine : Machine
+		Params : BlockDeviceParams
+		Life : Life
+	}
+
+	class BlockDeviceParams {
+		Size : int
+		Pool : StoragePool
+	}
+
+	class StorageConstraints {
+		Service : Service
+		StorageName : string
+		Size : int
+		Count : int
+		Pool : StoragePool
+	}
+
+	class StoragePool {
+		StorageProvider : string
+		Attributes : map[string]string
+	}
+
+	class StorageInstance {
+		Name : string
+		Pool : StoragePool
+		Life : Life
+	}
+
+	Machine "0-1" *.. "*" BlockDevice : < attached
+	BlockDevice "1" *.. "0-1" StorageInstance : assigned >
+	BlockDevice "1" *.. "0-1" BlockDeviceParams : has >
+	Unit "1" *.. "*" StorageInstance : owns >
+	Service "1" *.. "*" StorageInstance : owns (shared) >
+	Service "1" *.. "*" StorageConstraints : records >
+	Service "1" -- "1" juju.charm.Charm
+	StorageInstance ..* StoragePool
+
+	note as N1
+		Non-shared storage instances
+		are owned by and managed by a
+		unit, shared storage instances
+		are owned by a service and managed
+		by a unit of that service with
+		with a lease.
+	end note
+	StorageInstance .. N1
+
+	note as N2
+		Unprovisioned BlockDevices
+		have BlockDeviceParams to
+		pass to the provisioner.
+	end note
+	BlockDeviceParams .. N2
+}
+
+namespace juju.juju.storage {
+	BlockDevice ..> juju.juju.state.BlockDevice
+	StorageInstance ..> juju.juju.state.StorageInstance
+
+	note as N3
+		These objects contain a subset
+		of information from their
+		counterparts in the state package.
+	end note
+	BlockDevice -- N3
+	StorageInstance -- N3
+}
+
+namespace juju.names {
+	DiskTag ..> juju.juju.state.BlockDevice : identifies
+	StorageTag ..> juju.juju.state.StorageInstance : identifies
+}
+
+@enduml

@@ -130,6 +130,8 @@ type MachineInfo struct {
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
 	Jobs                     []MachineJob
 	Addresses                []network.Address
+	HasVote                  bool
+	WantsVote                bool
 }
 
 func (i *MachineInfo) EntityId() EntityId {

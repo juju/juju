@@ -1705,23 +1705,6 @@ func (s *ServiceSuite) TestWatchService(c *gc.C) {
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
-func (s *ServiceSuite) TestAnnotatorForService(c *gc.C) {
-	testAnnotator(c, func() (state.Annotator, error) {
-		return s.State.Service("mysql")
-	})
-}
-
-func (s *ServiceSuite) TestAnnotationRemovalForService(c *gc.C) {
-	annotations := map[string]string{"mykey": "myvalue"}
-	err := s.mysql.SetAnnotations(annotations)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.mysql.Annotations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
-}
-
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
 // Check that GetOwnerTag returns user-admin even

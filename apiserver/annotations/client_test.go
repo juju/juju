@@ -49,6 +49,13 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	s.testSetGetEntitiesAnnotations(c, machine.Tag())
+
+	// on machine removal
+	err := machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAnnotationsRemoval(c, machine.Tag())
 }
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
@@ -62,6 +69,22 @@ func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
 		Charm: charm,
 	})
 	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
+
+	// on service removal
+	err := wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAnnotationsRemoval(c, wordpress.Tag())
+}
+
+func (s *annotationSuite) assertAnnotationsRemoval(c *gc.C, tag names.Tag) {
+	entity := tag.String()
+	entities := params.Entities{[]params.Entity{params.Entity{entity}}}
+	ann := s.annotationsApi.Get(entities)
+	c.Assert(ann.Results, gc.HasLen, 1)
+
+	aResult := ann.Results[0]
+	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
+	c.Assert(aResult.Annotations, gc.HasLen, 0)
 }
 
 func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
@@ -79,7 +102,6 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 	aResult := got.Results[0]
 	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
 	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*permission denied.*")
-
 }
 
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
@@ -95,6 +117,13 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 		Machine: machine,
 	})
 	s.testSetGetEntitiesAnnotations(c, unit.Tag())
+
+	// on unit removal
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAnnotationsRemoval(c, wordpress.Tag())
 }
 
 func (s *annotationSuite) makeRelation(c *gc.C) (*state.Service, *state.Relation) {

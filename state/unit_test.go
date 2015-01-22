@@ -1659,25 +1659,6 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
-func (s *UnitSuite) TestAnnotatorForUnit(c *gc.C) {
-	testAnnotator(c, func() (state.Annotator, error) {
-		return s.State.Unit("wordpress/0")
-	})
-}
-
-func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
-	annotations := map[string]string{"mykey": "myvalue"}
-	err := s.unit.SetAnnotations(annotations)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.unit.Annotations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
-}
-
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
