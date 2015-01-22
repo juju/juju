@@ -141,7 +141,8 @@ func (s interfaceInfoSlice) Less(i, j int) bool {
 	return iface1.DeviceIndex < iface2.DeviceIndex
 }
 
-// Sort a slice of InterfaceInfo on DeviceIndex in ascending order
+// SortInterfaceInfo sorts a slice of InterfaceInfo on DeviceIndex in ascending
+// order.
 func SortInterfaceInfo(interfaces []InterfaceInfo) {
 	sort.Sort(interfaceInfoSlice(interfaces))
 }
