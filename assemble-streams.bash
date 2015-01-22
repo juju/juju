@@ -437,7 +437,7 @@ generate_streams() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         rm -r $JUJU_PATH
         return
     fi
@@ -512,7 +512,7 @@ generate_mirrors() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     ${SCRIPT_DIR}/generate_mirrors.py $JUJU_DIST/tools/
@@ -547,7 +547,7 @@ sign_metadata() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     meta_files=$(ls ${JUJU_DIST}/tools/streams/v1/*.json)

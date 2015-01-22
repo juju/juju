@@ -94,7 +94,7 @@ publish_to_aws() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 1.1: Publishing $PURPOSE to AWS one-tree."
@@ -122,7 +122,7 @@ publish_to_canonistack() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 2.1: Publishing $PURPOSE to canonistack one-tree."
@@ -151,7 +151,7 @@ publish_to_hp() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 3.1: Publishing $PURPOSE to HP Cloud one-tree."
@@ -172,7 +172,7 @@ publish_to_azure() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish released $JUJU_DIST
@@ -198,7 +198,7 @@ publish_to_joyent() {
     #
     # New one-tree support.
     #
-    if [[ $PURPOSE =~ ^(released|proposed|weekly|testing)$ ]]; then
+    if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
     echo "Phase 5.1: Publishing $PURPOSE to Joyent one-tree."
