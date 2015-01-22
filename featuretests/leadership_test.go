@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package feature_tests
+package featuretests
 
 import (
 	"fmt"
@@ -20,16 +20,10 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
-)
-
-const (
-	stubServiceNm = "stub-service"
-	stubUnitNm    = "stub-unit/0"
 )
 
 type leadershipSuite struct {
@@ -38,6 +32,8 @@ type leadershipSuite struct {
 	clientFacade base.ClientFacade
 	facadeCaller base.FacadeCaller
 	machineAgent *agentcmd.MachineAgent
+	unitId       string
+	serviceId    string
 }
 
 func (s *leadershipSuite) SetUpTest(c *gc.C) {
@@ -51,30 +47,29 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	fakeEnsureMongo := agenttesting.FakeEnsure{}
 	s.AgentSuite.PatchValue(&cmdutil.EnsureMongoServer, fakeEnsureMongo.FakeEnsureMongo)
 
-	f := factory.NewFactory(s.State)
-
-	// Create a machine to manage the environment, and set all
-	// passwords to something known.
-	const password = "machine-password-1234567890"
-	stateServer := f.MakeMachine(c, &factory.MachineParams{
+	// Create a machine to manage the environment.
+	stateServer, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		InstanceId: "id-1",
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
-		Password:   password,
 	})
 	c.Assert(stateServer.PasswordValid(password), gc.Equals, true)
 	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
 
 	// Create a machine to host some units.
-	unitHostMachine := f.MakeMachine(c, &factory.MachineParams{
+	unitHostMachine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Nonce:    agent.BootstrapNonce,
 		Password: password,
 	})
 
 	// Create a service and an instance of that service so that we can
 	// create a client.
-	service := f.MakeService(c, &factory.ServiceParams{})
-	unit := f.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
+	service := s.Factory.MakeService(c, &factory.ServiceParams{})
+	s.serviceId = service.Tag().Id()
+
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Machine: unitHostMachine, Service: service})
+	s.unitId = unit.UnitTag().Id()
+
 	c.Assert(unit.SetPassword(password), gc.IsNil)
 	unitState := s.OpenAPIAs(c, unit.Tag(), password)
 
@@ -84,11 +79,9 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.facadeCaller, gc.NotNil)
 
 	// Tweak and write out the config file for the state server.
-	writeStateAgentConfig(
+	s.writeStateAgentConfig(
 		c,
-		s.MongoInfo(c),
-		s.DataDir(),
-		names.NewMachineTag(stateServer.Id()),
+		stateServer.Tag(),
 		password,
 		version.Current,
 	)
@@ -118,7 +111,7 @@ func (s *leadershipSuite) TestClaimLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	duration, err := client.ClaimLeadership(stubServiceNm, stubUnitNm)
+	duration, err := client.ClaimLeadership(s.serviceId, s.unitId)
 
 	c.Assert(err, gc.IsNil)
 	c.Check(duration, gc.Equals, 30*time.Second)
@@ -129,10 +122,10 @@ func (s *leadershipSuite) TestReleaseLeadership(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(stubServiceNm, stubUnitNm)
+	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 
-	err = client.ReleaseLeadership(stubServiceNm, stubUnitNm)
+	err = client.ReleaseLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -141,19 +134,19 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	client := leadership.NewClient(s.clientFacade, s.facadeCaller)
 	defer func() { err := client.Close(); c.Assert(err, gc.IsNil) }()
 
-	_, err := client.ClaimLeadership(stubServiceNm, stubUnitNm)
+	_, err := client.ClaimLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 
 	unblocked := make(chan struct{})
 	go func() {
-		err = client.BlockUntilLeadershipReleased(stubServiceNm)
+		err = client.BlockUntilLeadershipReleased(s.serviceId)
 		c.Check(err, gc.IsNil)
 		unblocked <- struct{}{}
 	}()
 
 	time.Sleep(coretesting.ShortWait)
 
-	err = client.ReleaseLeadership(stubServiceNm, stubUnitNm)
+	err = client.ReleaseLeadership(s.serviceId, s.unitId)
 	c.Assert(err, gc.IsNil)
 
 	select {
@@ -163,21 +156,21 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	}
 }
 
-func writeStateAgentConfig(
+func (s *leadershipSuite) writeStateAgentConfig(
 	c *gc.C,
-	stateInfo *mongo.MongoInfo,
-	dataDir string,
 	tag names.Tag,
 	password string,
 	vers version.Binary,
 ) agent.ConfigSetterWriter {
 
+	stateInfo := s.MongoInfo(c)
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
-			DataDir:           dataDir,
+			DataDir:           s.DataDir(),
 			Tag:               tag,
+			Environment:       s.State.EnvironTag(),
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             agent.BootstrapNonce,

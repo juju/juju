@@ -132,7 +132,12 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
 	lnames, err := storage.List(stor, prefix)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lnames, gc.DeepEquals, names)
+	i := len(lnames)
+	j := len(names)
+	c.Assert(i, gc.Equals, j)
+	for i, _ := range lnames {
+		c.Assert(lnames[i], jc.SamePath, names[i])
+	}
 }
 
 type readerWithClose struct {

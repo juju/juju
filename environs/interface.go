@@ -131,11 +131,13 @@ type Environ interface {
 	// AllocateAddress.
 	ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error
 
-	// Subnets returns basic information about all subnets known
-	// by the provider for the environment, for a specific instance. A
-	// provider may return all networks instead of just those for the
-	// instance (provider specific).
-	Subnets(inst instance.Id) ([]network.SubnetInfo, error)
+	// Subnets returns basic information about subnets known
+	// by the provider for the environment.
+	Subnets(inst instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error)
+
+	// NetworkInterfaces requests information about the network
+	// interfaces on the given instance.
+	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
 
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter

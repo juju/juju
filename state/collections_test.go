@@ -97,7 +97,7 @@ func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
 		{
 			label: "RemoveAll",
 			test: func() (int, error) {
-				_, err := coll.RemoveAll(bson.D{{"createdby", s.owner.Name()}})
+				_, err := coll.RemoveAll(bson.D{{"createdby", s.Owner.Name()}})
 				c.Assert(err, jc.ErrorIsNil)
 				return coll.Count()
 			},

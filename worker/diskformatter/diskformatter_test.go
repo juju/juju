@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/names"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/watcher"
@@ -39,9 +38,10 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		},
 	}, {
 		Result: storage.BlockDevice{
-			Name:       "1",
-			DeviceName: "sdb",
-			UUID:       "edc2348a-a2bc-4b15-b7f3-cb951b3489ad",
+			Name:           "1",
+			DeviceName:     "sdb",
+			UUID:           "edc2348a-a2bc-4b15-b7f3-cb951b3489ad",
+			FilesystemType: "btrfs",
 		},
 	}, {
 		Result: storage.BlockDevice{
@@ -65,38 +65,31 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 		},
 	}}
 
-	blockDeviceDatastoreResults := []params.DatastoreResult{{
-		Result: storage.Datastore{
-			Name: "needs-a-filesystem",
-			Kind: storage.DatastoreKindFilesystem,
+	blockDeviceStorageInstanceResults := []params.StorageInstanceResult{{
+		Result: storage.StorageInstance{
+			Id:   "needs-a-filesystem",
+			Kind: storage.StorageKindFilesystem,
 		},
 	}, {
-		Result: storage.Datastore{
-			Name:       "already-has-a-filesystem",
-			Kind:       storage.DatastoreKindFilesystem,
-			Filesystem: &storage.Filesystem{Type: "btrfs"},
+		Result: storage.StorageInstance{
+			Id:   "already-has-a-filesystem",
+			Kind: storage.StorageKindFilesystem,
 		},
 	}, {
-		Result: storage.Datastore{
-			Name: "doesnt-need-a-filesystem",
-			Kind: storage.DatastoreKindBlock,
+		Result: storage.StorageInstance{
+			Id:   "doesnt-need-a-filesystem",
+			Kind: storage.StorageKindBlock,
 		},
 	}, {
 		Error: &params.Error{
 			Code:    params.CodeNotAssigned,
-			Message: "3 is not assigned to a datastore",
-		},
-	}, {
-		Error: &params.Error{
-			Code:    params.CodeNotFound,
-			Message: "4 not found",
+			Message: "3 is not assigned to a storage instance",
 		},
 	}}
 
-	watcher := &mockAttachedBlockDeviceWatcher{
+	accessor := &mockBlockDeviceAccessor{
 		changes: make(chan []string),
-		stopped: make(chan struct{}),
-		attachedBlockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 			expect := make([]names.DiskTag, len(ids))
 			for i, id := range ids {
 				expect[i] = names.NewDiskTag(id)
@@ -104,50 +97,41 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 			c.Assert(tags, gc.DeepEquals, expect)
 			return params.BlockDeviceResults{blockDeviceResults}, nil
 		},
-	}
-
-	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
-		expect := make([]names.DiskTag, 0, len(blockDeviceResults))
-		for _, result := range blockDeviceResults {
-			if result.Result.Name == "" {
-				continue
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+			expect := make([]names.DiskTag, 0, len(blockDeviceResults))
+			for i, result := range blockDeviceResults {
+				if result.Error != nil {
+					continue
+				}
+				expect = append(expect, names.NewDiskTag(ids[i]))
 			}
-			expect = append(expect, names.NewDiskTag(result.Result.Name))
-		}
-		c.Assert(tags, gc.DeepEquals, expect)
-		return params.DatastoreResults{blockDeviceDatastoreResults}, nil
-	}
-
-	done := make(chan struct{})
-	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
-		c.Assert(fs, gc.DeepEquals, []params.BlockDeviceFilesystem{{
-			DiskTag:   "disk-0",
-			Datastore: "needs-a-filesystem",
-			Filesystem: storage.Filesystem{
-				Type: "ext4",
-			},
-		}})
-		testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
-		close(done)
-		return nil
+			c.Assert(tags, gc.DeepEquals, expect)
+			return params.StorageInstanceResults{blockDeviceStorageInstanceResults}, nil
+		},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
-	w := diskformatter.NewWorker(watcher, getter, setter)
-	defer w.Wait()
-	defer w.Kill()
-	watcher.changes <- ids
+
+	w := diskformatter.NewWorker(accessor)
+	accessor.changes <- ids
+	done := make(chan struct{})
+	go func() {
+		w.Kill()
+		w.Wait()
+		close(done)
+	}()
 
 	select {
 	case <-done:
+		testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for diskformatter to update")
 	}
 }
 
 func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
-	watcher := &mockAttachedBlockDeviceWatcher{
-		attachedBlockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
+	accessor := &mockBlockDeviceAccessor{
+		blockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
 				Result: storage.BlockDevice{
 					Name:       "0",
@@ -157,165 +141,99 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 				},
 			}}}, nil
 		},
-	}
-	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
-		return params.DatastoreResults{[]params.DatastoreResult{{
-			Result: storage.Datastore{
-				Name: "needs-a-filesystem",
-				Kind: storage.DatastoreKindFilesystem,
-			},
-		}}}, nil
-	}
-	var called bool
-	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
-		c.Assert(fs, gc.DeepEquals, []params.BlockDeviceFilesystem{{
-			DiskTag:    "disk-0",
-			Datastore:  "needs-a-filesystem",
-			Filesystem: storage.Filesystem{Type: "ext4"},
-		}})
-		called = true
-		return nil
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
+				Result: storage.StorageInstance{
+					Id:   "needs-a-filesystem",
+					Kind: storage.StorageKindFilesystem,
+				},
+			}}}, nil
+		},
 	}
 
 	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
-	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
+	formatter := diskformatter.NewDiskFormatter(accessor)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(called, jc.IsTrue)
+	testing.AssertEchoArgs(c, "mkfs.ext4", "/dev/disk/by-label/dev0-label")
 }
 
-func (s *DiskFormatterWorkerSuite) TestAttachedBlockDevicesError(c *gc.C) {
-	watcher := &mockAttachedBlockDeviceWatcher{
-		attachedBlockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-			return params.BlockDeviceResults{}, errors.New("AttachedBlockDevices failed")
+func (s *DiskFormatterWorkerSuite) TestBlockDeviceError(c *gc.C) {
+	accessor := &mockBlockDeviceAccessor{
+		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+			return params.BlockDeviceResults{}, errors.New("BlockDevice failed")
 		},
 	}
-	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
-		c.Fatalf("BlockDeviceDatastores should not be called")
-		return params.DatastoreResults{}, nil
-	}
-	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
-		c.Fatalf("SetBlockDeviceFilesystems should not be called")
-		return nil
-	}
-	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
+	formatter := diskformatter.NewDiskFormatter(accessor)
 	err := formatter.Handle([]string{"0"})
-	c.Assert(err, gc.ErrorMatches, "cannot get block devices: AttachedBlockDevices failed")
+	c.Assert(err, gc.ErrorMatches, "cannot get block devices: BlockDevice failed")
 }
 
-func (s *DiskFormatterWorkerSuite) TestBlockDeviceDatastoresError(c *gc.C) {
-	watcher := &mockAttachedBlockDeviceWatcher{
-		attachedBlockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
+func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) {
+	accessor := &mockBlockDeviceAccessor{
+		blockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
 				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
 			}}}, nil
 		},
-	}
-	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
-		return params.DatastoreResults{}, errors.New("BlockDeviceDatastores failed")
-	}
-	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
-		c.Fatalf("SetBlockDeviceFilesystems should not be called")
-		return nil
-	}
-	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
-	err := formatter.Handle([]string{"0"})
-	c.Assert(err, gc.ErrorMatches, "cannot get assigned datastores: BlockDeviceDatastores failed")
-}
-
-func (s *DiskFormatterWorkerSuite) TestSetBlockDeviceFilesystemsError(c *gc.C) {
-	watcher := &mockAttachedBlockDeviceWatcher{
-		attachedBlockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
-				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
-			}}}, nil
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+			return params.StorageInstanceResults{}, errors.New("BlockDeviceStorageInstance failed")
 		},
 	}
-	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
-		return params.DatastoreResults{[]params.DatastoreResult{{
-			Result: storage.Datastore{
-				Name: "needs-a-filesystem",
-				Kind: storage.DatastoreKindFilesystem,
-			},
-		}}}, nil
-	}
-	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
-		return errors.New("SetBlockDeviceFilesystems failed")
-	}
-	testing.PatchExecutableAsEchoArgs(c, s, "mkfs.ext4")
-	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
+	formatter := diskformatter.NewDiskFormatter(accessor)
 	err := formatter.Handle([]string{"0"})
-	c.Assert(err, gc.ErrorMatches, "cannot set filesystems: SetBlockDeviceFilesystems failed")
+	c.Assert(err, gc.ErrorMatches, "cannot get assigned storage instances: BlockDeviceStorageInstance failed")
 }
 
 func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
-	watcher := &mockAttachedBlockDeviceWatcher{
-		attachedBlockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+	accessor := &mockBlockDeviceAccessor{
+		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
 				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
 			}}}, nil
 		},
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
+				Result: storage.StorageInstance{
+					Id:   "needs-a-filesystem",
+					Kind: storage.StorageKindFilesystem,
+				},
+			}}}, nil
+		},
 	}
-	var getter blockDeviceDatastoreGetterFunc = func(tags []names.DiskTag) (params.DatastoreResults, error) {
-		return params.DatastoreResults{[]params.DatastoreResult{{
-			Result: storage.Datastore{
-				Name: "needs-a-filesystem",
-				Kind: storage.DatastoreKindFilesystem,
-			},
-		}}}, nil
-	}
-	var setter blockDeviceFilesystemSetterFunc = func(fs []params.BlockDeviceFilesystem) error {
-		c.Fatalf("SetBlockDeviceFilesystems should not be called (mkfs failed)")
-		return nil
-	}
-	// Failure to create a filesystem should not cause the handler to error;
-	// we should not see a SetBlockDeviceFilesystems call for that block device's
-	// datastore though.
+	// Failure to create a filesystem should not cause the handler to error.
 	testing.PatchExecutableThrowError(c, s, "mkfs.ext4", 1)
-	formatter := diskformatter.NewDiskFormatter(watcher, getter, setter)
+	formatter := diskformatter.NewDiskFormatter(accessor)
 	err := formatter.Handle([]string{"0"})
 	c.Assert(err, gc.IsNil)
 }
 
-type mockAttachedBlockDeviceWatcher struct {
-	changes              chan []string
-	stopped              chan struct{}
-	attachedBlockDevices func([]names.DiskTag) (params.BlockDeviceResults, error)
+type mockBlockDeviceAccessor struct {
+	changes                     chan []string
+	blockDevices                func([]names.DiskTag) (params.BlockDeviceResults, error)
+	blockDeviceStorageInstances func([]names.DiskTag) (params.StorageInstanceResults, error)
 }
 
-func (m *mockAttachedBlockDeviceWatcher) Changes() <-chan []string {
+func (m *mockBlockDeviceAccessor) Changes() <-chan []string {
 	return m.changes
 }
 
-func (m *mockAttachedBlockDeviceWatcher) Stop() error {
-	select {
-	case <-m.stopped:
-	default:
-		close(m.stopped)
-	}
+func (m *mockBlockDeviceAccessor) Stop() error {
 	return nil
 }
 
-func (m *mockAttachedBlockDeviceWatcher) Err() error {
+func (m *mockBlockDeviceAccessor) Err() error {
 	return nil
 }
 
-func (m *mockAttachedBlockDeviceWatcher) WatchAttachedBlockDevices() (watcher.StringsWatcher, error) {
+func (m *mockBlockDeviceAccessor) WatchBlockDevices() (watcher.StringsWatcher, error) {
 	return m, nil
 }
 
-func (m *mockAttachedBlockDeviceWatcher) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-	return m.attachedBlockDevices(tags)
+func (m *mockBlockDeviceAccessor) BlockDevices(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+	return m.blockDevices(tags)
 }
 
-type blockDeviceDatastoreGetterFunc func([]names.DiskTag) (params.DatastoreResults, error)
-
-func (f blockDeviceDatastoreGetterFunc) BlockDeviceDatastore(tags []names.DiskTag) (params.DatastoreResults, error) {
-	return f(tags)
-}
-
-type blockDeviceFilesystemSetterFunc func([]params.BlockDeviceFilesystem) error
-
-func (f blockDeviceFilesystemSetterFunc) SetBlockDeviceFilesystem(fs []params.BlockDeviceFilesystem) error {
-	return f(fs)
+func (m *mockBlockDeviceAccessor) BlockDeviceStorageInstances(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+	return m.blockDeviceStorageInstances(tags)
 }

@@ -183,7 +183,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 // instance id cannot be changed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics,
-	networks []params.Network, interfaces []params.NetworkInterface, disks []storage.BlockDevice,
+	networks []params.Network, interfaces []params.NetworkInterface, volumes []storage.BlockDevice,
 ) error {
 	var result params.ErrorResults
 	args := params.InstancesInfo{
@@ -194,7 +194,7 @@ func (m *Machine) SetInstanceInfo(
 			Characteristics: characteristics,
 			Networks:        networks,
 			Interfaces:      interfaces,
-			Disks:           disks,
+			Volumes:         volumes,
 		}},
 	}
 	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)

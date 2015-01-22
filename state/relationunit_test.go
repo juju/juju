@@ -77,7 +77,7 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	rus := RUs{pr.ru0, pr.ru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -294,7 +294,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	rel := pr.ru0.Relation()
 
 	// Enter two units, and check that Destroying the service sets the
@@ -361,7 +361,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
@@ -412,7 +412,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
-		pr := NewPeerRelation(c, st, s.owner)
+		pr := NewPeerRelation(c, st, s.Owner)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()
 		return w
@@ -420,7 +420,7 @@ func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -637,7 +637,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
-	pr := NewPeerRelation(c, s.State, s.owner)
+	pr := NewPeerRelation(c, s.State, s.Owner)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()

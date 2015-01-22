@@ -97,6 +97,30 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 	}
 }
 
+func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
+	var (
+		errPinger testPinger = func() error {
+			return stderrors.New("ping error")
+		}
+		okPinger testPinger = func() error {
+			return nil
+		}
+	)
+
+	someErr := stderrors.New("foo")
+
+	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger)(someErr),
+		jc.IsFalse)
+	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger, okPinger)(someErr),
+		jc.IsFalse)
+	c.Assert(ConnectionIsFatal(logger, okPinger, errPinger)(someErr),
+		jc.IsTrue)
+	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger, errPinger)(someErr),
+		jc.IsTrue)
+	c.Assert(ConnectionIsFatal(logger, errPinger, okPinger, okPinger)(someErr),
+		jc.IsTrue)
+}
+
 func (*toolSuite) TestIsFatal(c *gc.C) {
 
 	for i, test := range isFatalTests {

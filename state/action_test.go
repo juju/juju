@@ -409,7 +409,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// per contract, there should be at minimum an initial empty Change() result
-	wc.AssertChange()
+	wc.AssertChangeMaybeIncluding(expectActionIds(a1, a2)...)
 	wc.AssertNoChange()
 }
 

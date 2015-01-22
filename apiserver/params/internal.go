@@ -143,6 +143,37 @@ type EnvironmentResult struct {
 	UUID  string
 }
 
+// EnvironmentCreateArgs holds the arguments that are necessary to create
+// and environment.
+type EnvironmentCreateArgs struct {
+	// OwnerTag represents the user that will own the new environment.
+	// The OwnerTag must be a valid user tag.  If the user tag represents
+	// a local user, that user must exist.
+	OwnerTag string
+
+	// Account holds the provider specific account details necessary to
+	// interact with the provider to create, list and destroy machines.
+	Account map[string]interface{}
+
+	// Config defines the environment config, which includes the name of the
+	// environment.  An environment UUID is allocated by the API server during
+	// the creation of the environment.
+	Config map[string]interface{}
+}
+
+// Environment holds the result of an API call returning a name and UUID
+// for an environment.
+type Environment struct {
+	Name     string
+	UUID     string
+	OwnerTag string
+}
+
+// EnvironmentList holds information about a list of environments.
+type EnvironmentList struct {
+	Environments []Environment
+}
+
 // ResolvedModeResult holds a resolved mode or an error.
 type ResolvedModeResult struct {
 	Error *Error
@@ -406,7 +437,7 @@ type InstanceInfo struct {
 	Characteristics *instance.HardwareCharacteristics
 	Networks        []Network
 	Interfaces      []NetworkInterface
-	Disks           []storage.BlockDevice
+	Volumes         []storage.BlockDevice
 }
 
 // InstancesInfo holds the parameters for making a SetInstanceInfo
@@ -707,7 +738,7 @@ type ProvisioningInfo struct {
 	Placement   string
 	Networks    []string
 	Jobs        []multiwatcher.MachineJob
-	Disks       []storage.DiskParams
+	Volumes     []storage.VolumeParams
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.
@@ -791,15 +822,28 @@ type BlockDevicesResults struct {
 }
 
 // BlockDeviceFilesystem holds the parameters for recording information about
-// the filesystem corresponding to the specified block device.
+// the specified block device's filesystem.
 type BlockDeviceFilesystem struct {
-	DiskTag    string             `json:"disktag"`
-	Datastore  string             `json:"datastore"`
-	Filesystem storage.Filesystem `json:"filesystem"`
+	DiskTag        string `json:"disktag"`
+	StorageTag     string `json:"storagetag"`
+	FilesystemType string `json:"fstype"`
 }
 
 // SetBlockDeviceFilesystem holds the parameters for recording information about
 // the filesystems corresponding to the specified block devices.
 type SetBlockDeviceFilesystem struct {
 	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
+}
+
+// StorageInstanceResult holds the result of an API call to retrieve details
+// of a storage instance.
+type StorageInstanceResult struct {
+	Result storage.StorageInstance `json:"result"`
+	Error  *Error                  `json:"error,omitempty"`
+}
+
+// StorageInstanceResult holds the result of an API call to retrieve details
+// of multiple storage instances.
+type StorageInstanceResults struct {
+	Results []StorageInstanceResult `json:"results,omitempty"`
 }
