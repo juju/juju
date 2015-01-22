@@ -611,6 +611,10 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 	staticNICNoCIDR, staticNICBadCIDR := staticNIC, staticNIC
 	staticNICNoCIDR.CIDR = ""
 	staticNICBadCIDR.CIDR = "bad"
+	// Test when NoAutoStart is true gateway is not added, even if there.
+	staticNICNoAutoWithGW := staticNIC
+	staticNICNoAutoWithGW.NoAutoStart = true
+
 	allNICs := []network.InterfaceInfo{dhcpNIC, staticNIC, extraConfigNIC}
 	for _, test := range []struct {
 		config            *container.NetworkConfig
@@ -714,6 +718,17 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
 		logContains: `WARNING juju.container.lxc invalid CIDR "bad" for interface "eth1", using /24 as fallback`,
+	}, {
+		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICNoAutoWithGW}),
+		nics:   []network.InterfaceInfo{staticNICNoAutoWithGW},
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.name = eth1",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
+			"lxc.network.ipv4 = 0.1.2.3/20",
+		},
+		logContains: `WARNING juju.container.lxc not setting IPv4 gateway "0.1.2.1" for non-auto start interface "eth1"`,
 	}} {
 		restorer := gitjujutesting.PatchValue(lxc.DiscoverHostNIC, func() (net.Interface, error) {
 			return net.Interface{

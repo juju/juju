@@ -620,6 +620,16 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 				nic.IPv4Address += fmt.Sprintf("/%d", ones)
 			}
 		}
+		if nic.NoAutoStart && nic.IPv4Gateway != "" {
+			// LXC refuses to add an ipv4 gateway when the NIC is not
+			// brought up.
+			logger.Warningf(
+				"not setting IPv4 gateway %q for non-auto start interface %q",
+				nic.IPv4Gateway, nic.Name,
+			)
+			nic.IPv4Gateway = ""
+		}
+
 		data.Interfaces = append(data.Interfaces, nic)
 	}
 	templateName := multipleNICsTemplate
