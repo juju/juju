@@ -227,11 +227,8 @@ func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.E
 	if err != nil {
 		return nil, err
 	}
-	// Since we know the tag kind is a machine, we can safely cast
-	// to a machine.
 	machine, ok := entity.(*state.Machine)
 	if !ok {
-		// but always be paranoid
 		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
 	}
 	for _, job := range machine.Jobs() {

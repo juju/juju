@@ -921,7 +921,7 @@ func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loginSuite) TestOtherEnvironmentFromStateServerOnlyIfManageEnviron(c *gc.C) {
+func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
