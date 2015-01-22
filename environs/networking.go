@@ -4,17 +4,8 @@
 package environs
 
 import (
-	"io"
-	"os"
-
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
 
 // Networking defines the methods of networking capable environments have
@@ -51,5 +42,6 @@ type NetworkingEnviron interface {
 // supports networking. It returns an interface containing Environ and
 // Networking in this case.
 func SupportsNetworking(environ Environ) (NetworkingEnviron, bool) {
-	return environ.(NetworkingEnviron)
+	ne, ok := environ.(NetworkingEnviron)
+	return ne, ok
 }

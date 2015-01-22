@@ -701,26 +701,28 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
 
-	instanceIds, err := env.StateServerInstances()
+	instanceIds, err := netenv.StateServerInstances()
 	c.Assert(err, jc.ErrorIsNil)
 
 	instId := instanceIds[0]
 	addr := network.Address{Value: "8.0.0.4"}
 
 	// Invalid instance found
-	err = env.AllocateAddress(instId+"foo", "", addr)
+	err = netenv.AllocateAddress(instId+"foo", "", addr)
 	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
 
 	// No network interface
-	err = env.AllocateAddress(instId, "", addr)
+	err = netenv.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
 }
 
@@ -740,6 +742,8 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Enviro
 
 func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
 
 	addr := network.Address{Value: "8.0.0.4"}
 	var actualAddr network.Address
@@ -749,13 +753,15 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr)
+	err := netenv.AllocateAddress(instId, "", addr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualAddr, gc.Equals, addr)
 }
 
 func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
 
 	addr := network.Address{Value: "8.0.0.4"}
 	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
@@ -763,15 +769,17 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr)
+	err := netenv.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 
-	err = env.AllocateAddress(instId, "", network.Address{})
+	err = netenv.AllocateAddress(instId, "", network.Address{})
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 }
 
 func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
 
 	addr := network.Address{Value: "8.0.0.4"}
 	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
@@ -779,30 +787,35 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	}
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
-	err := env.AllocateAddress(instId, "", addr)
+	err := netenv.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
 func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
 	addr := network.Address{Value: "8.0.0.4"}
 	// Allocate the address first so we can release it
-	err := env.AllocateAddress(instId, "", addr)
+	err := netenv.AllocateAddress(instId, "", addr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = env.ReleaseAddress(instId, "", addr)
+	err = netenv.ReleaseAddress(instId, "", addr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Releasing a second time tests that the first call actually released
 	// it plus tests the error handling of ReleaseAddress
-	err = env.ReleaseAddress(instId, "", addr)
+	err = netenv.ReleaseAddress(instId, "", addr)
 	msg := fmt.Sprintf("failed to unassign IP address \"%v\" for instance \"%v\".*", addr.Value, instId)
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
+
+	subnets, err := netenv.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultSubnets := []network.SubnetInfo{{
@@ -818,13 +831,19 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 
 func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	_, err := env.Subnets("", []network.Id{})
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
+
+	_, err := netenv.Subnets("", []network.Id{})
 	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
 }
 
 func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
+
+	_, err := netenv.Subnets("", []network.Id{"subnet-0", "Missing"})
 	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
 }
 
