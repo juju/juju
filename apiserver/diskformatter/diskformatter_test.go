@@ -62,7 +62,7 @@ func (s *DiskFormatterSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(s.st.unitTags, gc.DeepEquals, []names.UnitTag{s.tag})
 }
 
-func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
+func (s *DiskFormatterSuite) TestBlockDevices(c *gc.C) {
 	s.st.devices = map[string]state.BlockDevice{
 		"0": &mockBlockDevice{
 			name:            "0",
@@ -91,7 +91,7 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 		"storage/1": &mockStorageInstance{owner: names.NewServiceTag("mysql")},
 	}
 
-	results, err := s.api.BlockDevice(params.Entities{
+	results, err := s.api.BlockDevices(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "disk-0"},
 			{Tag: "disk-1"}, // different owner
@@ -128,7 +128,7 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 	})
 }
 
-func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
+func (s *DiskFormatterSuite) TestBlockDeviceStorageInstances(c *gc.C) {
 	s.st.devices = map[string]state.BlockDevice{
 		"0": &mockBlockDevice{
 			name:            "0",
@@ -156,7 +156,7 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
 		},
 	}
 
-	results, err := s.api.BlockDeviceStorageInstance(params.Entities{
+	results, err := s.api.BlockDeviceStorageInstances(params.Entities{
 		Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
