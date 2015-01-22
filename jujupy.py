@@ -506,9 +506,12 @@ class Status:
         status_yaml = yaml_loads(text)
         return cls(status_yaml, text)
 
-    def iter_machines(self):
+    def iter_machines(self, containers=False):
         for machine_name, machine in sorted(self.status['machines'].items()):
             yield machine_name, machine
+            if containers:
+                for contained, unit in machine.get('containers', {}).items():
+                    yield contained, unit
 
     def iter_new_machines(self, old_status):
         for machine, data in self.iter_machines():
@@ -517,10 +520,8 @@ class Status:
             yield machine, data
 
     def agent_items(self):
-        for machine_name, machine in self.iter_machines():
+        for machine_name, machine in self.iter_machines(containers=True):
             yield machine_name, machine
-            for contained, unit in machine.get('containers', {}).items():
-                yield contained, unit
         for service in sorted(self.status['services'].values()):
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit

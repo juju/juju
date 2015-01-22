@@ -3,6 +3,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 from collections import OrderedDict
+from contextlib import contextmanager
 from datetime import datetime
 import json
 import logging
@@ -207,6 +208,7 @@ class StageAttempt:
 
     @classmethod
     def get_test_info(cls):
+        """Describe the tests provided by this Stage."""
         return {cls.test_id: {'title': cls.title}}
 
     def do_stage(self, old, new):
@@ -259,6 +261,18 @@ class StageAttempt:
 
 
 class SteppedStageAttempt:
+    """Subclasses of this class implement an industrial test stage with steps.
+
+    Every Stage provides at least one test.  The get_test_info() method
+    describes the tests according to their test_id.
+
+    They provide an iter_steps() iterator that acts as a coroutine.  Each test
+    has one or more steps, and iter_steps iterates through all the steps of
+    every test in the Stage.  For every step, it yields yields a dictionary.
+    If the dictionary contains {'result': True}, the test is complete,
+    but there may be further tests.  False could be used, but in practise,
+    failures are typically handled by raising exceptions.
+    """
 
     @staticmethod
     def _iter_for_result(iterator):
@@ -332,20 +346,24 @@ class SteppedStageAttempt:
         return self._iter_test_results(old_iter, new_iter)
 
 
-class BootstrapAttempt(StageAttempt):
+class BootstrapAttempt(SteppedStageAttempt):
     """Implementation of a bootstrap stage."""
 
-    title = 'bootstrap'
+    @staticmethod
+    def get_test_info():
+        """Describe the tests provided by this Stage."""
+        return {'bootstrap': {'title': 'bootstrap'}}
 
-    test_id = 'bootstrap'
-
-    def _operation(self, client):
+    def iter_steps(self, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
+        results = {'test_id': 'bootstrap'}
+        yield results
         with temp_bootstrap_env(get_juju_home(), client):
             client.bootstrap()
-
-    def _result(self, client):
-        client.wait_for_started()
-        return True
+        with wait_for_started(client):
+            yield results
+        results['result'] = True
+        yield results
 
 
 def make_substrate(client, required_attrs):
@@ -368,6 +386,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return OrderedDict([
             ('destroy-env', {'title': 'destroy environment'}),
             ('substrate-clean', {'title': 'check substrate clean'})])
@@ -400,6 +419,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
                 'Security group(s) not cleaned up: {}.'.format(group_text))
 
     def iter_steps(cls, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'destroy-env'}
         yield results
         groups = cls.get_security_groups(client)
@@ -429,14 +449,53 @@ class EnsureAvailabilityAttempt(StageAttempt):
         return True
 
 
+@contextmanager
+def wait_until_removed(client, to_remove, timeout=30):
+    """Wait until none of the machines are listed in status.
+
+    This is implemented as a context manager so that it is coroutine-friendly.
+    The start of the timeout begins at the with statement, but the actual
+    waiting (if any) is done when exiting the with block.
+    """
+    timeout_iter = until_timeout(timeout)
+    yield
+    to_remove = set(to_remove)
+    for ignored in timeout_iter:
+        status = client.get_status()
+        machines = [k for k, v in status.iter_machines(containers=True) if
+                    k in to_remove]
+        if machines == []:
+            break
+    else:
+        raise Exception('Timed out waiting for removal')
+
+
+@contextmanager
+def wait_for_started(client):
+    """Wait until all agents are listed as started.
+
+    This is implemented as a context manager so that it is coroutine-friendly.
+    The start of the timeout begins at the with statement, but the actual
+    waiting (if any) is done when exiting the with block.
+    """
+    timeout_start = datetime.now()
+    yield
+    client.wait_for_started(start=timeout_start)
+
+
 class DeployManyAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return OrderedDict([
             ('add-machine-many', {'title': 'add many machines'}),
             ('ensure-machines', {'title': 'Ensure sufficient machines'}),
             ('deploy-many', {'title': 'deploy many'}),
+            ('remove-machine-many-lxc', {
+                'title': 'remove many machines (lxc)'}),
+            ('remove-machine-many-instance', {
+                'title': 'remove many machines (instance)'}),
             ])
 
     def __init__(self, host_count=5, container_count=8):
@@ -451,6 +510,7 @@ class DeployManyAttempt(SteppedStageAttempt):
             other.host_count, other.container_count)
 
     def iter_steps(self, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'add-machine-many'}
         yield results
         old_status = client.get_status()
@@ -485,14 +545,37 @@ class DeployManyAttempt(SteppedStageAttempt):
         yield results
         results = {'test_id': 'deploy-many'}
         yield results
-        for machine_name in sorted(new_machines, key=int):
+        service_names = []
+        machine_names = sorted(new_machines, key=int)
+        for machine_name in machine_names:
             target = 'lxc:{}'.format(machine_name)
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
+                service_names.append(service)
         timeout_start = datetime.now()
         yield results
-        client.wait_for_started(start=timeout_start)
+        status = client.wait_for_started(start=timeout_start)
+        results['result'] = True
+        yield results
+        results = {'test_id': 'remove-machine-many-lxc'}
+        yield results
+        services = [status.status['services'][key] for key in service_names]
+        lxc_machines = set()
+        for service in services:
+            for unit in service['units'].values():
+                lxc_machines.add(unit['machine'])
+                client.juju('remove-machine', ('--force', unit['machine']))
+        with wait_until_removed(client, lxc_machines):
+            yield results
+        results['result'] = True
+        yield results
+        results = {'test_id': 'remove-machine-many-instance'}
+        yield results
+        for machine_name in machine_names:
+            client.juju('remove-machine', (machine_name,))
+        with wait_until_removed(client, machine_names):
+            yield results
         results['result'] = True
         yield results
 
@@ -518,6 +601,7 @@ class DeployManyFactory:
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by DeployManyAttempt."""
         return DeployManyAttempt.get_test_info()
 
     def __call__(self):
@@ -528,9 +612,11 @@ class BackupRestoreAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return {'back-up-restore': {'title': 'Back-up / restore'}}
 
     def iter_steps(cls, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'back-up-restore'}
         yield results
         backup_file = client.backup()
@@ -542,8 +628,8 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         wait_for_state_server_to_shutdown(host, client, instance_id)
         yield results
         client.juju('restore', (backup_file,))
-        yield results
-        client.wait_for_started()
+        with wait_for_started(client):
+            yield results
         results['result'] = True
         yield results
 
