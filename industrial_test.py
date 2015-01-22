@@ -208,6 +208,7 @@ class StageAttempt:
 
     @classmethod
     def get_test_info(cls):
+        """Describe the tests provided by this Stage."""
         return {cls.test_id: {'title': cls.title}}
 
     def do_stage(self, old, new):
@@ -260,6 +261,18 @@ class StageAttempt:
 
 
 class SteppedStageAttempt:
+    """Subclasses of this class implement an industrial test stage with steps.
+
+    Every Stage provides at least one test.  The get_test_info() method
+    describes the tests according to their test_id.
+
+    They provide an iter_steps() iterator that acts as a coroutine.  Each test
+    has one or more steps, and iter_steps iterates through all the steps of
+    every test in the Stage.  For every step, it yields yields a dictionary.
+    If the dictionary contains {'result': True}, the test is complete,
+    but there may be further tests.  False could be used, but in practise,
+    failures are typically handled by raising exceptions.
+    """
 
     @staticmethod
     def _iter_for_result(iterator):
@@ -338,9 +351,11 @@ class BootstrapAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return {'bootstrap': {'title': 'bootstrap'}}
 
     def iter_steps(self, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'bootstrap'}
         yield results
         with temp_bootstrap_env(get_juju_home(), client):
@@ -371,6 +386,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return OrderedDict([
             ('destroy-env', {'title': 'destroy environment'}),
             ('substrate-clean', {'title': 'check substrate clean'})])
@@ -403,6 +419,7 @@ class DestroyEnvironmentAttempt(SteppedStageAttempt):
                 'Security group(s) not cleaned up: {}.'.format(group_text))
 
     def iter_steps(cls, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'destroy-env'}
         yield results
         groups = cls.get_security_groups(client)
@@ -434,6 +451,12 @@ class EnsureAvailabilityAttempt(StageAttempt):
 
 @contextmanager
 def wait_until_removed(client, to_remove, timeout=30):
+    """Wait until none of the machines are listed in status.
+
+    This is implemented as a context manager so that it is coroutine-friendly.
+    The start of the timeout begins at the with statement, but the actual
+    waiting (if any) is done when exiting the with block.
+    """
     timeout_iter = until_timeout(timeout)
     yield
     to_remove = set(to_remove)
@@ -449,6 +472,12 @@ def wait_until_removed(client, to_remove, timeout=30):
 
 @contextmanager
 def wait_for_started(client):
+    """Wait until all agents are listed as started.
+
+    This is implemented as a context manager so that it is coroutine-friendly.
+    The start of the timeout begins at the with statement, but the actual
+    waiting (if any) is done when exiting the with block.
+    """
     timeout_start = datetime.now()
     yield
     client.wait_for_started(start=timeout_start)
@@ -458,6 +487,7 @@ class DeployManyAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return OrderedDict([
             ('add-machine-many', {'title': 'add many machines'}),
             ('ensure-machines', {'title': 'Ensure sufficient machines'}),
@@ -480,6 +510,7 @@ class DeployManyAttempt(SteppedStageAttempt):
             other.host_count, other.container_count)
 
     def iter_steps(self, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'add-machine-many'}
         yield results
         old_status = client.get_status()
@@ -570,6 +601,7 @@ class DeployManyFactory:
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by DeployManyAttempt."""
         return DeployManyAttempt.get_test_info()
 
     def __call__(self):
@@ -580,9 +612,11 @@ class BackupRestoreAttempt(SteppedStageAttempt):
 
     @staticmethod
     def get_test_info():
+        """Describe the tests provided by this Stage."""
         return {'back-up-restore': {'title': 'Back-up / restore'}}
 
     def iter_steps(cls, client):
+        """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'back-up-restore'}
         yield results
         backup_file = client.backup()
