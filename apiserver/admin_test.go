@@ -875,11 +875,8 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	defer envState.Close()
 
 	f2 := factory.NewFactory(envState)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	machine := f2.MakeMachine(c, &factory.MachineParams{
-		Password: password,
-		Nonce:    "nonce",
+	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "nonce",
 	})
 
 	info.EnvironTag = envState.EnvironTag()
