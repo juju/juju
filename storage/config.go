@@ -35,3 +35,9 @@ func (c *Config) Attrs() map[string]interface{} {
 	}
 	return attrs
 }
+
+// ValueString returns the named config attribute as a string.
+func (c *Config) ValueString(name string) (string, bool) {
+	v, ok := c.attrs[name].(string)
+	return v, ok
+}

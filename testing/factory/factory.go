@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/names"
@@ -30,7 +31,7 @@ type Factory struct {
 	st *state.State
 }
 
-var index int
+var index uint32
 
 func NewFactory(st *state.State) *Factory {
 	return &Factory{st: st}
@@ -113,8 +114,8 @@ func (*Factory) RandomSuffix(prefix string) string {
 }
 
 func (factory *Factory) UniqueInteger() int {
-	index++
-	return index
+	index = atomic.AddUint32(&index, 1)
+	return int(index)
 }
 
 func (factory *Factory) UniqueString(prefix string) string {
@@ -239,6 +240,15 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 // set.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+	machine, _ := factory.MakeMachineReturningPassword(c, params)
+	return machine
+}
+
+// MakeMachineReturningPassword will add a machine with values defined in
+// params. For some values in params, if they are missing, some meaningful
+// empty values will be set. If params is not specified, defaults are used.
+// The machine and its password are returned.
+func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -246,7 +256,7 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
-	return machine
+	return machine, params.Password
 }
 
 // MakeCharm creates a charm with the values specified in params.
