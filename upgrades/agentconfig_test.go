@@ -209,7 +209,7 @@ func (s *migrateAgentEnvUUIDSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *migrateAgentEnvUUIDSuite) primeConfig(c *gc.C) {
-	s.machine, s.password = s.Factory.MakeMachine(c, &factory.MachineParams{
+	s.machine, s.password = s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "a nonce",
 	})
 	initialConfig, err := agent.NewAgentConfig(agent.AgentConfigParams{
