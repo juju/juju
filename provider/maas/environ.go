@@ -1332,6 +1332,8 @@ func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.Int
 	return result, nil
 }
 
+// listConnectedMacs calls the MAAS list_connected_macs API to fetch all the
+// the MAC addresses attached to a specific network.
 func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string, error) {
 	client := environ.getMAASClient().GetSubObject("networks").GetSubObject(network.Name)
 	json, err := client.CallGet("list_connected_macs", nil)
