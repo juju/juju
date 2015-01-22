@@ -1086,10 +1086,11 @@ func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
 	netInfo, err := suite.makeEnviron().NetworkInterfaces(test_instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedInfo := []network.SubnetInfo{
-		{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42, AllocatableIPLow: net.ParseIP("192.168.2.0"), AllocatableIPHigh: net.ParseIP("192.168.2.127")},
-		{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
-		{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0, AllocatableIPLow: net.ParseIP("192.168.1.129"), AllocatableIPHigh: net.ParseIP("192.168.1.255")}}
+	expectedInfo := []network.InterfaceInfo{
+		{DeviceIndex: 1, MACAddress: "aa:bb:cc:dd:ee:f1", CIDR: "192.168.2.1/24", ProviderSubnetId: "LAN", VLANTag: 42, InterfaceName: "eth0"},
+		{DeviceIndex: 2, MACAddress: "aa:bb:cc:dd:ee:f2", CIDR: "192.168.3.1/24", ProviderSubnetId: "Virt", InterfaceName: "vnet1"},
+		{DeviceIndex: 0, MACAddress: "aa:bb:cc:dd:ee:ff", CIDR: "192.168.1.1/24", ProviderSubnetId: "WLAN", InterfaceName: "wlan0", Disabled: true},
+	}
 	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
