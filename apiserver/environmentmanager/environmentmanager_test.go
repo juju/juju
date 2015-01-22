@@ -210,7 +210,7 @@ func (s *envManagerSuite) TestCreateEnvironmentBadAgentVersion(c *gc.C) {
 func (s *envManagerSuite) TestListEnvironmentsForSelf(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
-	result, err := s.envmanager.ListEnvironments(user.String())
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Environments, gc.HasLen, 0)
 }
@@ -224,7 +224,7 @@ func (s *envManagerSuite) checkEnvironmentMatches(c *gc.C, env params.Environmen
 func (s *envManagerSuite) TestListEnvironmentsAdminSelf(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
-	result, err := s.envmanager.ListEnvironments(user.String())
+	result, err := s.envmanager.ListEnvironments(params.Entity{user.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Environments, gc.HasLen, 1)
 	expected, err := s.State.Environment()
@@ -236,7 +236,7 @@ func (s *envManagerSuite) TestListEnvironmentsAdminListsOther(c *gc.C) {
 	user := s.AdminUserTag(c)
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("external@remote")
-	result, err := s.envmanager.ListEnvironments(other.String())
+	result, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Environments, gc.HasLen, 0)
 }
@@ -245,6 +245,6 @@ func (s *envManagerSuite) TestListEnvironmentsDenied(c *gc.C) {
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
-	_, err := s.envmanager.ListEnvironments(other.String())
+	_, err := s.envmanager.ListEnvironments(params.Entity{other.String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

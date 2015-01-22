@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -22,14 +23,14 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.environmentmanager")
 
 func init() {
-	common.RegisterStandardFacade("EnvironmentManager", 1, NewEnvironmentManagerAPI)
+	common.RegisterStandardFacadeForFeature("EnvironmentManager", 1, NewEnvironmentManagerAPI, feature.MESS)
 }
 
 // EnvironmentManager defines the methods on the environmentmanager API end
 // point.
 type EnvironmentManager interface {
 	CreateEnvironment(args params.EnvironmentCreateArgs) (params.Environment, error)
-	ListEnvironments(forUser string) (params.EnvironmentList, error)
+	ListEnvironments(user params.Entity) (params.EnvironmentList, error)
 }
 
 // EnvironmentManagerAPI implements the environment manager interface and is
@@ -229,7 +230,7 @@ func (em *EnvironmentManagerAPI) CreateEnvironment(args params.EnvironmentCreate
 // has access to in the current server.  Only that state server owner
 // can list environments for any user (at this stage).  Other users
 // can only ask about their own environments.
-func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.EnvironmentList, error) {
+func (em *EnvironmentManagerAPI) ListEnvironments(user params.Entity) (params.EnvironmentList, error) {
 	result := params.EnvironmentList{}
 
 	stateServerEnv, err := em.state.StateServerEnvironment()
@@ -238,7 +239,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.Enviro
 	}
 	adminUser := stateServerEnv.Owner()
 
-	userTag, err := names.ParseUserTag(forUser)
+	userTag, err := names.ParseUserTag(user.Tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -259,6 +260,7 @@ func (em *EnvironmentManagerAPI) ListEnvironments(forUser string) (params.Enviro
 			UUID:     env.UUID(),
 			OwnerTag: env.Owner().String(),
 		})
+		logger.Debugf("list env: %s, %s, %s", env.Name(), env.UUID(), env.Owner())
 	}
 
 	return result, nil
