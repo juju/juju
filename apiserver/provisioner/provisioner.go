@@ -556,6 +556,7 @@ func blockDevicesToState(in []storage.BlockDevice) (map[string]state.BlockDevice
 			dev.UUID,
 			dev.Serial,
 			dev.Size,
+			dev.FilesystemType,
 			dev.InUse,
 		}
 	}

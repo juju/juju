@@ -1081,6 +1081,21 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	return test_instance
 }
 
+func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+
+	netInfo, err := suite.makeEnviron().NetworkInterfaces(test_instance.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.InterfaceInfo{
+		{DeviceIndex: 0, MACAddress: "aa:bb:cc:dd:ee:ff", CIDR: "192.168.1.1/24", ProviderSubnetId: "WLAN", InterfaceName: "wlan0", Disabled: true},
+		{DeviceIndex: 1, MACAddress: "aa:bb:cc:dd:ee:f1", CIDR: "192.168.2.1/24", ProviderSubnetId: "LAN", VLANTag: 42, InterfaceName: "eth0"},
+		{DeviceIndex: 2, MACAddress: "aa:bb:cc:dd:ee:f2", CIDR: "192.168.3.1/24", ProviderSubnetId: "Virt", InterfaceName: "vnet1"},
+	}
+	network.SortInterfaceInfo(netInfo)
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
+}
+
 func (suite *environSuite) TestSubnets(c *gc.C) {
 	test_instance := suite.createSubnets(c)
 

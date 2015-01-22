@@ -229,7 +229,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
 }
 
-func (s *SettingsSuite) TestCreateSettingsEscape(c *gc.C) {
+func (s *SettingsSuite) TestcreateSettingsEscape(c *gc.C) {
 	// Check that createSettings works as expected.
 	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
 	node, err := createSettings(s.state, s.key, options)
@@ -449,6 +449,22 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 	c.Assert(nodeOne.key, gc.Equals, nodeTwo.key)
 	c.Assert(nodeOne.disk, gc.DeepEquals, nodeTwo.disk)
 	c.Assert(nodeOne.core, gc.DeepEquals, nodeTwo.core)
+}
+
+func (s *SettingsSuite) TestList(c *gc.C) {
+	_, err := createSettings(s.state, "key#1", map[string]interface{}{"foo1": "bar1"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = createSettings(s.state, "key#2", map[string]interface{}{"foo2": "bar2"})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = createSettings(s.state, "another#1", map[string]interface{}{"foo2": "bar2"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	nodes, err := listSettings(s.state, "key#")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodes, jc.DeepEquals, map[string]map[string]interface{}{
+		"key#1": {"foo1": "bar1"},
+		"key#2": {"foo2": "bar2"},
+	})
 }
 
 // cleanMgoSettings will remove MongoDB-specific settings but not unescape any

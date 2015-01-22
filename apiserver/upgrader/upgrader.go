@@ -64,7 +64,7 @@ type UpgraderAPI struct {
 	authorizer common.Authorizer
 }
 
-// NewUpgraderAPI creates a new client-side UpgraderAPI facade.
+// NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
 	st *state.State,
 	resources *common.Resources,

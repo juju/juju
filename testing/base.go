@@ -5,7 +5,9 @@ package testing
 
 import (
 	"os"
+	"strings"
 
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -14,6 +16,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/wrench"
 )
+
+var logger = loggo.GetLogger("juju.testing")
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
@@ -55,6 +59,15 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 		os.Setenv(name, value)
 	}
 	utils.SetHome(s.oldHomeEnv)
+}
+
+func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
+	flags := strings.Join(flag, ",")
+	if err := os.Setenv(osenv.JujuFeatureFlagEnvKey, flags); err != nil {
+		panic(err)
+	}
+	logger.Debugf("setting feature flags: %s", flags)
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
 // BaseSuite provides required functionality for all test suites

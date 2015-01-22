@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/client"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -42,20 +43,22 @@ type charmsHandler struct {
 type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.validateEnvironUUID(r); err != nil {
+	stateWrapper, err := h.validateEnvironUUID(r)
+	if err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
+	defer stateWrapper.cleanup()
 
 	switch r.Method {
 	case "POST":
-		if err := h.authenticate(r); err != nil {
+		if err := stateWrapper.authenticate(r); err != nil {
 			h.authError(w, h)
 			return
 		}
 		// Add a local charm to the store provider.
 		// Requires a "series" query specifying the series to use for the charm.
-		charmURL, err := h.processPost(r)
+		charmURL, err := h.processPost(r, stateWrapper.state)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
@@ -65,7 +68,7 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Retrieve or list charm files.
 		// Requires "url" (charm URL) and an optional "file" (the path to the
 		// charm file) to be included in the query.
-		if charmArchivePath, filePath, err := h.processGet(r); err != nil {
+		if charmArchivePath, filePath, err := h.processGet(r, stateWrapper.state); err != nil {
 			// An error occurred retrieving the charm bundle.
 			if errors.IsNotFound(err) {
 				h.sendError(w, http.StatusNotFound, err.Error())
@@ -188,7 +191,7 @@ func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message
 }
 
 // processPost handles a charm upload POST request after authentication.
-func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
+func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.URL, error) {
 	query := r.URL.Query()
 	series := query.Get("series")
 	if series == "" {
@@ -223,13 +226,13 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	preparedURL, err := h.state.PrepareLocalCharmUpload(archiveURL)
+	preparedURL, err := st.PrepareLocalCharmUpload(archiveURL)
 	if err != nil {
 		return nil, err
 	}
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = h.repackageAndUploadCharm(archive, preparedURL)
+	err = h.repackageAndUploadCharm(st, archive, preparedURL)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +330,7 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 // repackageAndUploadCharm expands the given charm archive to a
 // temporary directoy, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func (h *charmsHandler) repackageAndUploadCharm(archive *charm.CharmArchive, curl *charm.URL) error {
+func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := ioutil.TempDir("", "charm-download")
 	if err != nil {
@@ -357,7 +360,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.CharmArchive, cur
 
 	// Store the charm archive in environment storage.
 	return client.StoreCharmArchive(
-		h.state,
+		st,
 		curl,
 		archive,
 		&repackagedArchive,
@@ -368,7 +371,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.CharmArchive, cur
 
 // processGet handles a charm file GET request after authentication.
 // It returns the bundle path, the requested file path (if any) and an error.
-func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
+func (h *charmsHandler) processGet(r *http.Request, st *state.State) (string, string, error) {
 	query := r.URL.Query()
 
 	// Retrieve and validate query parameters.
@@ -396,7 +399,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	// Check if the charm archive is already in the cache.
 	if _, err := os.Stat(charmArchivePath); os.IsNotExist(err) {
 		// Download the charm archive and save it to the cache.
-		if err = h.downloadCharm(curl, charmArchivePath); err != nil {
+		if err = h.downloadCharm(st, curl, charmArchivePath); err != nil {
 			return "", "", errors.Annotate(err, "unable to retrieve and save the charm")
 		}
 	} else if err != nil {
@@ -407,9 +410,9 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 
 // downloadCharm downloads the given charm name from the provider storage and
 // saves the corresponding zip archive to the given charmArchivePath.
-func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) error {
-	storage := storage.NewStorage(h.state.EnvironUUID(), h.state.MongoSession())
-	ch, err := h.state.Charm(curl)
+func (h *charmsHandler) downloadCharm(st *state.State, curl *charm.URL, charmArchivePath string) error {
+	storage := storage.NewStorage(st.EnvironUUID(), st.MongoSession())
+	ch, err := st.Charm(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot get charm from state")
 	}

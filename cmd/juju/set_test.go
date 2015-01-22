@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -98,7 +99,7 @@ func (s *SetSuite) TestSetOptionFail(c *gc.C) {
 	assertSetFail(c, s.dir, []string{"=bar"}, "error: expected \"key=value\", got \"=bar\"\n")
 	assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
-	}, "error: cannot read option from file \"missing.txt\": .* no such file or directory\n")
+	}, "error: cannot read option from file \"missing.txt\": .* "+utils.NoSuchFileErrRegexp+"\n")
 	assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
 	}, "error: size of option file is larger than 5M\n")
@@ -111,7 +112,7 @@ func (s *SetSuite) TestSetConfig(c *gc.C) {
 	assertSetFail(c, s.dir, []string{
 		"--config",
 		"missing.yaml",
-	}, "error.*no such file or directory\n")
+	}, "error.* "+utils.NoSuchFileErrRegexp+"\n")
 
 	assertSetSuccess(c, s.dir, s.svc, []string{
 		"--config",

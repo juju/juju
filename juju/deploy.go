@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 )
 
 // DeployServiceParams contains the arguments required to deploy the referenced
@@ -33,6 +34,7 @@ type DeployServiceParams struct {
 	ToMachineSpec string
 	// Networks holds a list of networks to required to start on boot.
 	Networks []string
+	Storage  map[string]storage.Constraints
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -79,6 +81,7 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		args.ServiceOwner,
 		args.Charm,
 		args.Networks,
+		stateStorageConstraints(args.Storage),
 	)
 	if err != nil {
 		return nil, err
@@ -179,4 +182,16 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 		units[i] = unit
 	}
 	return units, nil
+}
+
+func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageConstraints {
+	result := make(map[string]state.StorageConstraints)
+	for name, cons := range cons {
+		result[name] = state.StorageConstraints{
+			Pool:  cons.Pool,
+			Size:  cons.Size,
+			Count: cons.Count,
+		}
+	}
+	return result
 }

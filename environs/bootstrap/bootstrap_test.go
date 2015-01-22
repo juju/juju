@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"fmt"
+	"runtime"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -119,6 +120,9 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
 	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
@@ -135,6 +139,9 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Currently does not work because of jujud problems")
+	}
 	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"

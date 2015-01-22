@@ -319,11 +319,45 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 
+	// TODO(axw) stop checking feature flag once storage has graduated.
+	var storageConstraints map[string]storage.Constraints
+	if featureflag.Enabled(storage.FeatureFlag) {
+		// Validate the storage parameters against the charm metadata,
+		// and ensure there are no conflicting parameters.
+		if err := validateCharmStorage(args, ch); err != nil {
+			return err
+		}
+		// Handle stores with no corresponding constraints.
+		for store, charmStorage := range ch.Meta().Storage {
+			if _, ok := args.Storage[store]; ok {
+				// TODO(axw) if pool is not specified, we should set it to
+				// the environment's default pool.
+				continue
+			}
+			if charmStorage.Shared {
+				// TODO(axw) get the environment's default shared storage
+				// pool, and create constraints here.
+				return errors.Errorf(
+					"no constraints specified for shared charm storage %q",
+					store,
+				)
+			}
+			// TODO(axw) when storage pools, providers etc. are implemented,
+			// and we have a "loop" storage provider, we should create minimal
+			// constraints with the "loop" pool here.
+			return errors.Errorf(
+				"no constraints specified for charm storage %q, loop not implemented",
+				store,
+			)
+		}
+		storageConstraints = args.Storage
+	}
+
 	var settings charm.Settings
 	if len(args.ConfigYAML) > 0 {
 		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
 	} else if len(args.Config) > 0 {
-		// Parse config in a compatile way (see function comment).
+		// Parse config in a compatible way (see function comment).
 		settings, err = parseSettingsCompatible(ch, args.Config)
 	}
 	if err != nil {
@@ -346,6 +380,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 			Constraints:    args.Constraints,
 			ToMachineSpec:  args.ToMachineSpec,
 			Networks:       requestedNetworks,
+			Storage:        storageConstraints,
 		})
 	return err
 }
@@ -356,6 +391,20 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 // constraints).
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
+}
+
+func validateCharmStorage(args params.ServiceDeploy, ch *state.Charm) error {
+	if len(args.Storage) == 0 {
+		return nil
+	}
+	if len(args.ToMachineSpec) != 0 {
+		// TODO(axw) when we support dynamic disk provisioning, we can
+		// relax this. We will need to consult the storage provider to
+		// decide whether or not this is allowable.
+		return errors.New("cannot specify storage and machine placement")
+	}
+	// Remaining validation is done in state.AddService.
+	return nil
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,
@@ -740,14 +789,27 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	}
 
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	var allBlockDevices []state.BlockDeviceParams
+	var blockDeviceParams []state.BlockDeviceParams
 	if featureflag.Enabled(storage.FeatureFlag) {
+		// TODO(axw) unify storage and free block device constraints in state.
 		for _, cons := range p.Disks {
-			params, err := c.api.state.BlockDeviceParams(cons, nil, "")
-			if err != nil {
-				return nil, errors.Annotate(err, "cannot compute block device parameters")
+			if cons.Pool != "" {
+				// TODO(axw) implement pools. If pool is not specified,
+				// determine default pool and set here.
+				return nil, errors.Errorf("storage pools not implemented")
 			}
-			allBlockDevices = append(allBlockDevices, params...)
+			if cons.Size == 0 {
+				return nil, errors.Errorf("invalid size %v", cons.Size)
+			}
+			if cons.Count == 0 {
+				return nil, errors.Errorf("invalid count %v", cons.Count)
+			}
+			params := state.BlockDeviceParams{
+				Size: cons.Size,
+			}
+			for i := uint64(0); i < cons.Count; i++ {
+				blockDeviceParams = append(blockDeviceParams, params)
+			}
 		}
 	}
 
@@ -758,7 +820,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	template := state.MachineTemplate{
 		Series:       p.Series,
 		Constraints:  p.Constraints,
-		BlockDevices: allBlockDevices,
+		BlockDevices: blockDeviceParams,
 		InstanceId:   p.InstanceId,
 		Jobs:         jobs,
 		Nonce:        p.Nonce,
