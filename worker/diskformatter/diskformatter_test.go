@@ -89,7 +89,7 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 
 	accessor := &mockBlockDeviceAccessor{
 		changes: make(chan []string),
-		blockDevice: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 			expect := make([]names.DiskTag, len(ids))
 			for i, id := range ids {
 				expect[i] = names.NewDiskTag(id)
@@ -97,7 +97,7 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 			c.Assert(tags, gc.DeepEquals, expect)
 			return params.BlockDeviceResults{blockDeviceResults}, nil
 		},
-		blockDeviceStorageInstance: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 			expect := make([]names.DiskTag, 0, len(blockDeviceResults))
 			for i, result := range blockDeviceResults {
 				if result.Error != nil {
@@ -131,7 +131,7 @@ func (s *DiskFormatterWorkerSuite) TestWorker(c *gc.C) {
 
 func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 	accessor := &mockBlockDeviceAccessor{
-		blockDevice: func([]names.DiskTag) (params.BlockDeviceResults, error) {
+		blockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
 				Result: storage.BlockDevice{
 					Name:       "0",
@@ -141,7 +141,7 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 				},
 			}}}, nil
 		},
-		blockDeviceStorageInstance: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
 				Result: storage.StorageInstance{
 					Id:   "needs-a-filesystem",
@@ -160,7 +160,7 @@ func (s *DiskFormatterWorkerSuite) TestMakeDefaultFilesystem(c *gc.C) {
 
 func (s *DiskFormatterWorkerSuite) TestBlockDeviceError(c *gc.C) {
 	accessor := &mockBlockDeviceAccessor{
-		blockDevice: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{}, errors.New("BlockDevice failed")
 		},
 	}
@@ -171,12 +171,12 @@ func (s *DiskFormatterWorkerSuite) TestBlockDeviceError(c *gc.C) {
 
 func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) {
 	accessor := &mockBlockDeviceAccessor{
-		blockDevice: func([]names.DiskTag) (params.BlockDeviceResults, error) {
+		blockDevices: func([]names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
 				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
 			}}}, nil
 		},
-		blockDeviceStorageInstance: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 			return params.StorageInstanceResults{}, errors.New("BlockDeviceStorageInstance failed")
 		},
 	}
@@ -187,12 +187,12 @@ func (s *DiskFormatterWorkerSuite) TestBlockDeviceStorageInstanceError(c *gc.C) 
 
 func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 	accessor := &mockBlockDeviceAccessor{
-		blockDevice: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+		blockDevices: func(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 			return params.BlockDeviceResults{[]params.BlockDeviceResult{{
 				Result: storage.BlockDevice{Name: "0", DeviceName: "sda"},
 			}}}, nil
 		},
-		blockDeviceStorageInstance: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+		blockDeviceStorageInstances: func(tags []names.DiskTag) (params.StorageInstanceResults, error) {
 			return params.StorageInstanceResults{[]params.StorageInstanceResult{{
 				Result: storage.StorageInstance{
 					Id:   "needs-a-filesystem",
@@ -209,9 +209,9 @@ func (s *DiskFormatterWorkerSuite) TestCannotMakeFilesystem(c *gc.C) {
 }
 
 type mockBlockDeviceAccessor struct {
-	changes                    chan []string
-	blockDevice                func([]names.DiskTag) (params.BlockDeviceResults, error)
-	blockDeviceStorageInstance func([]names.DiskTag) (params.StorageInstanceResults, error)
+	changes                     chan []string
+	blockDevices                func([]names.DiskTag) (params.BlockDeviceResults, error)
+	blockDeviceStorageInstances func([]names.DiskTag) (params.StorageInstanceResults, error)
 }
 
 func (m *mockBlockDeviceAccessor) Changes() <-chan []string {
@@ -230,10 +230,10 @@ func (m *mockBlockDeviceAccessor) WatchBlockDevices() (watcher.StringsWatcher, e
 	return m, nil
 }
 
-func (m *mockBlockDeviceAccessor) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, error) {
-	return m.blockDevice(tags)
+func (m *mockBlockDeviceAccessor) BlockDevices(tags []names.DiskTag) (params.BlockDeviceResults, error) {
+	return m.blockDevices(tags)
 }
 
-func (m *mockBlockDeviceAccessor) BlockDeviceStorageInstance(tags []names.DiskTag) (params.StorageInstanceResults, error) {
-	return m.blockDeviceStorageInstance(tags)
+func (m *mockBlockDeviceAccessor) BlockDeviceStorageInstances(tags []names.DiskTag) (params.StorageInstanceResults, error) {
+	return m.blockDeviceStorageInstances(tags)
 }
