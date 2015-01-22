@@ -262,6 +262,11 @@ func (manager *containerManager) CreateContainer(
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "lxc container cloning failed")
 		}
+		// Update the network config of the newly cloned container.
+		lines := strings.Split(generateNetworkConfig(network), "\n")
+		if err := replaceContainerConfig(name, lines); err != nil {
+			return nil, nil, errors.Annotate(err, "failed to update network config")
+		}
 	} else {
 		// Note here that the lxcObjectFacotry only returns a valid container
 		// object, and doesn't actually construct the underlying lxc container on
@@ -514,6 +519,10 @@ func replaceContainerConfig(name string, lines []string) error {
 			continue
 		}
 		newLine := prefix + " = " + newValue + "\n"
+		if newLine == line+"\n" {
+			// No need to change and pollute the log.
+			continue
+		}
 		logger.Tracef(
 			"replacing %q with %q in container %q config %q",
 			line, newLine, name, path,
