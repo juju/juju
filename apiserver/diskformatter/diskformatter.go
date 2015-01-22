@@ -118,32 +118,6 @@ func (a *DiskFormatterAPI) BlockDevice(args params.Entities) (params.BlockDevice
 	return result, nil
 }
 
-// BlockDeviceAttached reports whether or not each of the specified block
-// devices is attached to the machine containing the authenticated unit
-// agent.
-func (a *DiskFormatterAPI) BlockDeviceAttached(args params.Entities) (params.BoolResults, error) {
-	result := params.BoolResults{
-		Results: make([]params.BoolResult, len(args.Entities)),
-	}
-	canAccess, err := a.getAuthFunc()
-	if err != nil {
-		return params.BoolResults{}, err
-	}
-	one := func(entity params.Entity) (bool, error) {
-		blockDevice, _, err := a.oneBlockDevice(entity.Tag, canAccess)
-		if err != nil {
-			return false, err
-		}
-		return blockDevice.Attached(), nil
-	}
-	for i, entity := range args.Entities {
-		attached, err := one(entity)
-		result.Results[i].Result = attached
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // BlockDeviceStorageInstance returns details of storage instances corresponding
 // to each specified block device.
 func (a *DiskFormatterAPI) BlockDeviceStorageInstance(args params.Entities) (params.StorageInstanceResults, error) {
@@ -176,6 +150,10 @@ func (a *DiskFormatterAPI) oneBlockDevice(tag string, canAccess common.AuthFunc)
 	}
 	blockDevice, err := a.st.BlockDevice(diskTag.Id())
 	if err != nil {
+		return nil, nil, common.ErrPerm
+	}
+	if !blockDevice.Attached() {
+		// ignore unattached block devices
 		return nil, nil, common.ErrPerm
 	}
 	storageInstanceId, ok := blockDevice.StorageInstance()

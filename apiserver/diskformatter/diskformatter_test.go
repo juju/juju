@@ -68,12 +68,22 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 			name:            "0",
 			storageInstance: "storage/0",
 			info:            &state.BlockDeviceInfo{},
+			attached:        true,
 		},
-		"1": &mockBlockDevice{storageInstance: "storage/1"},
-		"2": &mockBlockDevice{},
+		"1": &mockBlockDevice{
+			storageInstance: "storage/1",
+			attached:        true,
+		},
+		"2": &mockBlockDevice{
+			attached: true,
+		},
 		"3": &mockBlockDevice{
 			name:            "3",
 			storageInstance: "storage/0",
+			attached:        true,
+		},
+		"4": &mockBlockDevice{
+			attached: false,
 		},
 	}
 	s.st.storageInstances = map[string]state.StorageInstance{
@@ -87,7 +97,8 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 			{Tag: "disk-1"}, // different owner
 			{Tag: "disk-2"}, // no storage instance
 			{Tag: "disk-3"}, // not provisioned
-			{Tag: "disk-4"}, // missing
+			{Tag: "disk-4"}, // unattached
+			{Tag: "disk-5"}, // missing
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,6 +109,7 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 			{Error: &params.Error{Message: `block device "3" not provisioned`, Code: "not provisioned"}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
+			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},
 		},
 	})
 	c.Assert(s.st.calls, gc.DeepEquals, []string{
@@ -105,54 +117,14 @@ func (s *DiskFormatterSuite) TestBlockDevice(c *gc.C) {
 		"BlockDevice", "StorageInstance",
 		"BlockDevice", // no storage instance
 		"BlockDevice", "StorageInstance",
+		"BlockDevice", // unattached
 		"BlockDevice", // missing
 	})
 	c.Assert(s.st.blockDeviceNames, gc.DeepEquals, []string{
-		"0", "1", "2", "3", "4",
+		"0", "1", "2", "3", "4", "5",
 	})
 	c.Assert(s.st.storageInstanceIds, gc.DeepEquals, []string{
 		"storage/0", "storage/1", "storage/0",
-	})
-}
-
-func (s *DiskFormatterSuite) TestBlockDeviceAttached(c *gc.C) {
-	s.st.devices = map[string]state.BlockDevice{
-		"0": &mockBlockDevice{
-			name:            "0",
-			storageInstance: "storage/0",
-			attached:        true,
-			info:            &state.BlockDeviceInfo{},
-		},
-		"1": &mockBlockDevice{
-			name:            "1",
-			storageInstance: "storage/0",
-			attached:        false,
-			info:            &state.BlockDeviceInfo{},
-		},
-	}
-	s.st.storageInstances = map[string]state.StorageInstance{
-		"storage/0": &mockStorageInstance{owner: s.tag},
-	}
-
-	results, err := s.api.BlockDeviceAttached(params.Entities{
-		Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.BoolResults{
-		Results: []params.BoolResult{
-			{Result: true},
-			{Result: false},
-		},
-	})
-	c.Assert(s.st.calls, gc.DeepEquals, []string{
-		"BlockDevice", "StorageInstance",
-		"BlockDevice", "StorageInstance",
-	})
-	c.Assert(s.st.blockDeviceNames, gc.DeepEquals, []string{
-		"0", "1",
-	})
-	c.Assert(s.st.storageInstanceIds, gc.DeepEquals, []string{
-		"storage/0", "storage/0",
 	})
 }
 
@@ -162,11 +134,13 @@ func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
 			name:            "0",
 			storageInstance: "storage/0",
 			info:            &state.BlockDeviceInfo{},
+			attached:        true,
 		},
 		"1": &mockBlockDevice{
 			name:            "1",
 			storageInstance: "storage/1",
 			info:            &state.BlockDeviceInfo{},
+			attached:        true,
 		},
 	}
 	s.st.storageInstances = map[string]state.StorageInstance{

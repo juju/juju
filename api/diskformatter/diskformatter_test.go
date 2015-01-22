@@ -68,38 +68,6 @@ func (s *DiskFormatterSuite) TestBlockDeviceResultCountMismatch(c *gc.C) {
 	c.Assert(func() { st.BlockDevice(nil) }, gc.PanicMatches, "expected 0 results, got 2")
 }
 
-func (s *DiskFormatterSuite) TestBlockDeviceAttached(c *gc.C) {
-	attachment := []params.BoolResult{{
-		Result: true,
-	}, {
-		Error: &params.Error{Message: "MSG", Code: "621"},
-	}}
-
-	var called bool
-	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Check(objType, gc.Equals, "DiskFormatter")
-		c.Check(version, gc.Equals, 0)
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "BlockDeviceAttached")
-		c.Check(arg, gc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{Tag: "disk-0"}, {Tag: "disk-1"}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
-		*(result.(*params.BoolResults)) = params.BoolResults{attachment}
-		called = true
-		return nil
-	})
-
-	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
-	results, err := st.BlockDeviceAttached([]names.DiskTag{
-		names.NewDiskTag("0"),
-		names.NewDiskTag("1"),
-	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(called, jc.IsTrue)
-	c.Assert(results.Results, gc.DeepEquals, attachment)
-}
-
 func (s *DiskFormatterSuite) TestBlockDeviceStorageInstance(c *gc.C) {
 	storageInstances := []params.StorageInstanceResult{{
 		Result: storage.StorageInstance{Id: "whatever"},
@@ -140,8 +108,6 @@ func (s *DiskFormatterSuite) TestAPIErrors(c *gc.C) {
 	})
 	st := diskformatter.NewState(apiCaller, names.NewUnitTag("service/0"))
 	_, err := st.BlockDevice(nil)
-	c.Check(err, gc.ErrorMatches, "blargh")
-	_, err = st.BlockDeviceAttached(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
 	_, err = st.BlockDeviceStorageInstance(nil)
 	c.Check(err, gc.ErrorMatches, "blargh")

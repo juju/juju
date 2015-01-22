@@ -33,7 +33,6 @@ const defaultFilesystemType = "ext4"
 type BlockDeviceAccessor interface {
 	WatchBlockDevices() (watcher.StringsWatcher, error)
 	BlockDevice([]names.DiskTag) (params.BlockDeviceResults, error)
-	BlockDeviceAttached([]names.DiskTag) (params.BoolResults, error)
 	BlockDeviceStorageInstance([]names.DiskTag) (params.StorageInstanceResults, error)
 }
 
@@ -122,32 +121,16 @@ func (f *diskFormatter) attachedBlockDevices(tags []names.DiskTag) ([]storage.Bl
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get block devices")
 	}
-	attached, err := f.accessor.BlockDeviceAttached(tags)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get block device attachment status")
-	}
-	if len(results.Results) != len(attached.Results) {
-		return nil, errors.New("BlockDevice and BlockDeviceAttached returned a different number of results")
-	}
 	blockDevices := make([]storage.BlockDevice, 0, len(tags))
 	for i := range results.Results {
 		result := results.Results[i]
-		attached := attached.Results[i]
 		if result.Error != nil {
 			if !errors.IsNotFound(result.Error) {
 				logger.Errorf("could not get details for block device %q", tags[i])
 			}
 			continue
 		}
-		if attached.Error != nil {
-			if !errors.IsNotFound(attached.Error) {
-				logger.Errorf("could not get attachment status for block device %q", tags[i])
-			}
-			continue
-		}
-		if attached.Result {
-			blockDevices = append(blockDevices, result.Result)
-		}
+		blockDevices = append(blockDevices, result.Result)
 	}
 	return blockDevices, nil
 }

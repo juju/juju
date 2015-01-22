@@ -69,26 +69,6 @@ func (st *State) BlockDevice(tags []names.DiskTag) (params.BlockDeviceResults, e
 	return result, nil
 }
 
-// BlockDeviceAttached reports whether or not the specified block devices are
-// attached and visible to their associated machines.
-func (st *State) BlockDeviceAttached(tags []names.DiskTag) (params.BoolResults, error) {
-	var result params.BoolResults
-	args := params.Entities{
-		Entities: make([]params.Entity, len(tags)),
-	}
-	for i, tag := range tags {
-		args.Entities[i].Tag = tag.String()
-	}
-	err := st.facade.FacadeCall("BlockDeviceAttached", args, &result)
-	if err != nil {
-		return params.BoolResults{}, err
-	}
-	if len(result.Results) != len(tags) {
-		panic(errors.Errorf("expected %d results, got %d", len(tags), len(result.Results)))
-	}
-	return result, nil
-}
-
 // BlockDeviceStorageInstance returns the details of storage instances that
 // each named block device is assigned to.
 func (st *State) BlockDeviceStorageInstance(tags []names.DiskTag) (params.StorageInstanceResults, error) {
