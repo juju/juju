@@ -70,11 +70,11 @@ func (s *FactorySuite) setUpCacheMethods(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FactorySuite) updateCache(relId int, unitName string, settings params.RelationSettings) {
+func (s *FactorySuite) updateCache(relId int, unitName string, settings params.Settings) {
 	runner.UpdateCachedSettings(s.factory, relId, unitName, settings)
 }
 
-func (s *FactorySuite) getCache(relId int, unitName string) (params.RelationSettings, bool) {
+func (s *FactorySuite) getCache(relId int, unitName string) (params.Settings, bool) {
 	return runner.CachedSettings(s.factory, relId, unitName)
 }
 
@@ -261,8 +261,8 @@ func (s *FactorySuite) TestNewHookRunnerPrunesNonMemberCaches(c *gc.C) {
 	// Write cached member settings for a member and a non-member.
 	s.setUpCacheMethods(c)
 	s.membership[0] = []string{"rel0/0"}
-	s.updateCache(0, "rel0/0", params.RelationSettings{"keep": "me"})
-	s.updateCache(0, "rel0/1", params.RelationSettings{"drop": "me"})
+	s.updateCache(0, "rel0/0", params.Settings{"keep": "me"})
+	s.updateCache(0, "rel0/1", params.Settings{"drop": "me"})
 
 	rnr, err := s.factory.NewHookRunner(hook.Info{Kind: hooks.Install})
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +271,7 @@ func (s *FactorySuite) TestNewHookRunnerPrunesNonMemberCaches(c *gc.C) {
 
 	settings0, found := s.getCache(0, "rel0/0")
 	c.Assert(found, jc.IsTrue)
-	c.Assert(settings0, jc.DeepEquals, params.RelationSettings{"keep": "me"})
+	c.Assert(settings0, jc.DeepEquals, params.Settings{"keep": "me"})
 
 	settings1, found := s.getCache(0, "rel0/1")
 	c.Assert(found, jc.IsFalse)
@@ -285,7 +285,7 @@ func (s *FactorySuite) TestNewHookRunnerPrunesNonMemberCaches(c *gc.C) {
 	// Nothing's really in scope, so the call would fail if they weren't.
 	settings0, err = relCtx.ReadSettings("rel0/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings0, jc.DeepEquals, params.RelationSettings{"keep": "me"})
+	c.Assert(settings0, jc.DeepEquals, params.Settings{"keep": "me"})
 
 	// Verify that the non-member settings were purged by looking them up and
 	// checking for the expected error.
@@ -298,7 +298,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationJoinedUpdatesRelationContextAndC
 	// Write some cached settings for r/0, so we can verify the cache gets cleared.
 	s.setUpCacheMethods(c)
 	s.membership[1] = []string{"r/0"}
-	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
+	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
 
 	rnr, err := s.factory.NewHookRunner(hook.Info{
 		Kind:       hooks.RelationJoined,
@@ -322,8 +322,8 @@ func (s *FactorySuite) TestNewHookRunnerRelationChangedUpdatesRelationContextAnd
 	// the change for r/4 clears its cache but leaves r/0's alone.
 	s.setUpCacheMethods(c)
 	s.membership[1] = []string{"r/0", "r/4"}
-	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
-	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
+	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
+	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 
 	rnr, err := s.factory.NewHookRunner(hook.Info{
 		Kind:       hooks.RelationChanged,
@@ -338,7 +338,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationChangedUpdatesRelationContextAnd
 	rel := s.AssertRelationContext(c, ctx, 1, "r/4")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
-	c.Assert(cached0, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(cached0, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(member, jc.IsTrue)
 	cached4, member := s.getCache(1, "r/4")
 	c.Assert(cached4, gc.IsNil)
@@ -350,8 +350,8 @@ func (s *FactorySuite) TestNewHookRunnerRelationDepartedUpdatesRelationContextAn
 	// the depart for r/0 leaves r/4's cache alone (while discarding r/0's).
 	s.setUpCacheMethods(c)
 	s.membership[1] = []string{"r/0", "r/4"}
-	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
-	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
+	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
+	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 
 	rnr, err := s.factory.NewHookRunner(hook.Info{
 		Kind:       hooks.RelationDeparted,
@@ -369,7 +369,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationDepartedUpdatesRelationContextAn
 	c.Assert(cached0, gc.IsNil)
 	c.Assert(member, jc.IsFalse)
 	cached4, member := s.getCache(1, "r/4")
-	c.Assert(cached4, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(cached4, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(member, jc.IsTrue)
 }
 
@@ -382,8 +382,8 @@ func (s *FactorySuite) TestNewHookRunnerRelationBrokenRetainsCaches(c *gc.C) {
 	// relations and ignore everything else.
 	s.setUpCacheMethods(c)
 	s.membership[1] = []string{"r/0", "r/4"}
-	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
-	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
+	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
+	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 
 	rnr, err := s.factory.NewHookRunner(hook.Info{
 		Kind:       hooks.RelationBroken,
@@ -395,10 +395,10 @@ func (s *FactorySuite) TestNewHookRunnerRelationBrokenRetainsCaches(c *gc.C) {
 	rel := s.AssertRelationContext(c, ctx, 1, "")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
-	c.Assert(cached0, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(cached0, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(member, jc.IsTrue)
 	cached4, member := s.getCache(1, "r/4")
-	c.Assert(cached4, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(cached4, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(member, jc.IsTrue)
 }
 

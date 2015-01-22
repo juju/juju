@@ -104,7 +104,7 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 		APIAddresser:               common.NewAPIAddresser(st, resources),
 		EnvironWatcher:             common.NewEnvironWatcher(st, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
-		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, authorizer),
+		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, resources, authorizer),
 
 		st:            st,
 		auth:          authorizer,
@@ -1032,13 +1032,13 @@ func (u *uniterBaseAPI) LeaveScope(args params.RelationUnits) (params.ErrorResul
 
 // ReadSettings returns the local settings of each given set of
 // relation/unit.
-func (u *uniterBaseAPI) ReadSettings(args params.RelationUnits) (params.RelationSettingsResults, error) {
-	result := params.RelationSettingsResults{
-		Results: make([]params.RelationSettingsResult, len(args.RelationUnits)),
+func (u *uniterBaseAPI) ReadSettings(args params.RelationUnits) (params.SettingsResults, error) {
+	result := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(args.RelationUnits)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.RelationSettingsResults{}, err
+		return params.SettingsResults{}, err
 	}
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
@@ -1061,13 +1061,13 @@ func (u *uniterBaseAPI) ReadSettings(args params.RelationUnits) (params.Relation
 
 // ReadRemoteSettings returns the remote settings of each given set of
 // relation/local unit/remote unit.
-func (u *uniterBaseAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.RelationSettingsResults, error) {
-	result := params.RelationSettingsResults{
-		Results: make([]params.RelationSettingsResult, len(args.RelationUnitPairs)),
+func (u *uniterBaseAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
+	result := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(args.RelationUnitPairs)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.RelationSettingsResults{}, err
+		return params.SettingsResults{}, err
 	}
 	for i, arg := range args.RelationUnitPairs {
 		unit, err := names.ParseUnitTag(arg.LocalUnit)
@@ -1527,8 +1527,8 @@ func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, e
 	}, nil
 }
 
-func convertRelationSettings(settings map[string]interface{}) (params.RelationSettings, error) {
-	result := make(params.RelationSettings)
+func convertRelationSettings(settings map[string]interface{}) (params.Settings, error) {
+	result := make(params.Settings)
 	for k, v := range settings {
 		// All relation settings should be strings.
 		sval, ok := v.(string)
@@ -1552,36 +1552,54 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 	return tags, nil
 }
 
-func leadershipSettingsAccessorFactory(st *state.State, auth common.Authorizer) *leadershipapiserver.LeadershipSettingsAccessor {
-	watcherFactory := func(serviceId string) <-chan struct{} {
-		watcher := state.NewLeadershipSettingsWatcher(st, state.LeadershipSettingsDocId(serviceId))
-		notifierFacade := make(chan struct{})
-		go func() {
-			<-watcher.Changes()
-			notifierFacade <- struct{}{}
-		}()
-		return notifierFacade
+func leadershipSettingsAccessorFactory(
+	st *state.State,
+	resources *common.Resources,
+	auth common.Authorizer,
+) *leadershipapiserver.LeadershipSettingsAccessor {
+	registerWatcher := func(serviceId string) (string, error) {
+		settingsWatcher := st.WatchLeadershipSettings(serviceId)
+		if _, ok := <-settingsWatcher.Changes(); ok {
+			return resources.Register(settingsWatcher), nil
+		}
+
+		return "", watcher.EnsureErr(settingsWatcher)
 	}
-	getSettings := func(serviceId string) (map[string]interface{}, error) {
+	// TODO(katco-): <2015-01-21 Wed>
+	// Due to time constraints, we're translating between
+	// map[string]interface{} and map[string]string. At some point we
+	// should support a native read of this format straight from
+	// state.
+	getSettings := func(serviceId string) (map[string]string, error) {
 		settings, err := st.ReadSettings(state.LeadershipSettingsDocId(serviceId))
 		if err != nil {
 			return nil, err
 		}
-		return settings.Map(), nil
+		// Perform the conversion
+		rawMap := settings.Map()
+		leadershipSettings := make(map[string]string)
+		for k, v := range rawMap {
+			leadershipSettings[k] = v.(string)
+		}
+		return leadershipSettings, nil
 	}
-	writeSettings := func(serviceId string, settings map[string]interface{}) error {
-		currentSettings, err := st.ReadSettings(state.LeadershipSettingsDocId(serviceId))
+	writeSettings := func(serviceId string, settings map[string]string) error {
+		currentSettings, err := st.ReadLeadershipSettings(serviceId)
 		if err != nil {
 			return err
 		}
-		currentSettings.Update(settings)
+		rawSettings := make(map[string]interface{})
+		for k, v := range settings {
+			rawSettings[k] = v
+		}
+		currentSettings.Update(rawSettings)
 		_, err = currentSettings.Write()
 		return errors.Annotate(err, "could not write changes")
 	}
 	ldrMgr := leadership.NewLeadershipManager(lease.Manager())
 	return leadershipapiserver.NewLeadershipSettingsAccessor(
 		auth,
-		watcherFactory,
+		registerWatcher,
 		getSettings,
 		writeSettings,
 		ldrMgr.Leader,

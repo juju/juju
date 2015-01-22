@@ -40,10 +40,11 @@ var facadeVersions = map[string]int{
 	"Upgrader":             0,
 	"Firewaller":           1,
 	"Rsyslog":              0,
-	"Uniter":               1,
+	"Uniter":               2,
 	"Action":               0,
 	"Service":              1,
 	"EnvironmentManager":   1,
+	"LeadershipService":    1,
 }
 
 // bestVersion tries to find the newest version in the version list that we can

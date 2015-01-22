@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 )
@@ -41,28 +42,42 @@ func newStateForVersion(
 		uniterFacade,
 		version,
 	)
-	return &State{
-		EnvironWatcher:     common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:       common.NewAPIAddresser(facadeCaller),
-		LeadershipSettings: NewLeadershipSettingsAccessor(facadeCaller),
-		facade:             facadeCaller,
-		unitTag:            authTag,
+	state := &State{
+		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
+		APIAddresser:   common.NewAPIAddresser(facadeCaller),
+		facade:         facadeCaller,
+		unitTag:        authTag,
+	}
+
+	if version >= 2 {
+		newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {
+			return watcher.NewNotifyWatcher(caller, result)
+		}
+		state.LeadershipSettings = NewLeadershipSettingsAccessor(
+			facadeCaller.FacadeCall,
+			newWatcher,
+			ErrIfNotVersionFn(2, state.BestAPIVersion()),
+		)
+	}
+
+	return state
+}
+
+func newStateForVersionFn(version int) func(base.APICaller, names.UnitTag) *State {
+	return func(caller base.APICaller, authTag names.UnitTag) *State {
+		return newStateForVersion(caller, authTag, version)
 	}
 }
 
 // newStateV0 creates a new client-side Uniter facade, version 0.
-func newStateV0(caller base.APICaller, authTag names.UnitTag) *State {
-	return newStateForVersion(caller, authTag, 0)
-}
+var newStateV0 = newStateForVersionFn(0)
 
 // newStateV1 creates a new client-side Uniter facade, version 1.
-func newStateV1(caller base.APICaller, authTag names.UnitTag) *State {
-	return newStateForVersion(caller, authTag, 1)
-}
+var newStateV1 = newStateForVersionFn(1)
 
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV1
+var NewState = newStateForVersionFn(2)
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -328,4 +343,16 @@ func (st *State) environment1dot16() (*Environment, error) {
 	return &Environment{
 		uuid: result.Result,
 	}, nil
+}
+
+// ErrIfNotVersionFn returns a function which can be used to check for
+// the minimum supported version, and, if appropriate, generate an
+// error.
+func ErrIfNotVersionFn(minVersion int, bestApiVersion int) func(string) error {
+	return func(fnName string) error {
+		if minVersion <= bestApiVersion {
+			return nil
+		}
+		return errors.NotImplementedf("%s(...) requires v%d+", fnName, minVersion)
+	}
 }

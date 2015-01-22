@@ -21,6 +21,7 @@ import (
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	agenttesting "github.com/juju/juju/cmd/jujud/agent/testing"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -80,9 +81,12 @@ func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.facadeCaller, gc.NotNil)
 
 	// Tweak and write out the config file for the state server.
-	s.writeStateAgentConfig(
+	writeStateAgentConfig(
 		c,
+		s.MongoInfo(c),
+		s.DataDir(),
 		stateServer.Tag(),
+		s.State.EnvironTag(),
 		password,
 		version.Current,
 	)
@@ -157,41 +161,6 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 	}
 }
 
-func (s *leadershipSuite) writeStateAgentConfig(
-	c *gc.C,
-	tag names.Tag,
-	password string,
-	vers version.Binary,
-) agent.ConfigSetterWriter {
-
-	stateInfo := s.MongoInfo(c)
-	port := gitjujutesting.FindTCPPort()
-	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
-	conf, err := agent.NewStateMachineConfig(
-		agent.AgentConfigParams{
-			DataDir:           s.DataDir(),
-			Tag:               tag,
-			Environment:       s.State.EnvironTag(),
-			UpgradedToVersion: vers.Number,
-			Password:          password,
-			Nonce:             agent.BootstrapNonce,
-			StateAddresses:    stateInfo.Addrs,
-			APIAddresses:      apiAddr,
-			CACert:            stateInfo.CACert,
-		},
-		params.StateServingInfo{
-			Cert:         coretesting.ServerCert,
-			PrivateKey:   coretesting.ServerKey,
-			CAPrivateKey: coretesting.CAKey,
-			StatePort:    gitjujutesting.MgoServer.Port(),
-			APIPort:      port,
-		})
-	c.Assert(err, gc.IsNil)
-	conf.SetPassword(password)
-	c.Assert(conf.Write(), gc.IsNil)
-	return conf
-}
-
 type uniterLeadershipSuite struct {
 	agenttesting.AgentSuite
 
@@ -205,11 +174,26 @@ type uniterLeadershipSuite struct {
 
 func (s *uniterLeadershipSuite) TestReadLeadershipSettings(c *gc.C) {
 
+	// First, the unit must be elected leader; otherwise merges will be denied.
+	leaderClient := leadership.NewClient(s.clientFacade, s.facadeCaller)
+	defer func() { err := leaderClient.Close(); c.Assert(err, gc.IsNil) }()
+	_, err := leaderClient.ClaimLeadership(s.serviceId, s.unitId)
+	c.Assert(err, gc.IsNil)
+
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
+
+	// Toss a few settings in.
+	desiredSettings := map[string]string{
+		"foo": "bar",
+		"baz": "biz",
+	}
+
+	err = client.LeadershipSettings.Merge(s.serviceId, desiredSettings)
+	c.Assert(err, gc.IsNil)
 
 	settings, err := client.LeadershipSettings.Read(s.serviceId)
 	c.Assert(err, gc.IsNil)
-	c.Assert(settings, gc.NotNil)
+	c.Check(settings, gc.DeepEquals, desiredSettings)
 }
 
 func (s *uniterLeadershipSuite) TestMergeLeadershipSettings(c *gc.C) {
@@ -253,17 +237,17 @@ func (s *uniterLeadershipSuite) TestSettingsChangeNotifier(c *gc.C) {
 	client := uniter.NewState(s.facadeCaller.RawAPICaller(), names.NewUnitTag(s.unitId))
 
 	// Listen for changes
-	sawChanges := make(chan error)
+	sawChanges := make(chan struct{})
 	go func() {
-		err := <-client.LeadershipSettings.SettingsChangeNotifier(s.serviceId)
-		sawChanges <- err
+		watcher, err := client.LeadershipSettings.WatchLeadershipSettings(s.serviceId)
+		c.Assert(err, gc.IsNil)
+		sawChanges <- <-watcher.Changes()
 	}()
 
-	err = client.LeadershipSettings.Merge(s.serviceId, map[string]interface{}{"foo": "bar"})
+	err = client.LeadershipSettings.Merge(s.serviceId, map[string]string{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
-	err = <-sawChanges
-	c.Assert(err, gc.IsNil)
+	<-sawChanges
 }
 
 func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
@@ -281,12 +265,10 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to manage the environment, and set all
 	// passwords to something known.
-	const password = "machine-password-1234567890"
-	stateServer := s.factory.MakeMachine(c, &factory.MachineParams{
+	stateServer, password := s.factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		InstanceId: "id-1",
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
-		Password:   password,
 	})
 	c.Assert(stateServer.PasswordValid(password), gc.Equals, true)
 	c.Assert(stateServer.SetMongoPassword(password), gc.IsNil)
@@ -319,6 +301,7 @@ func (s *uniterLeadershipSuite) SetUpTest(c *gc.C) {
 		s.MongoInfo(c),
 		s.DataDir(),
 		names.NewMachineTag(stateServer.Id()),
+		s.State.EnvironTag(),
 		password,
 		version.Current,
 	)
@@ -341,4 +324,41 @@ func (s *uniterLeadershipSuite) TearDownTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.AgentSuite.TearDownTest(c)
+}
+
+func writeStateAgentConfig(
+	c *gc.C,
+	stateInfo *mongo.MongoInfo,
+	dataDir string,
+	tag names.Tag,
+	environTag names.EnvironTag,
+	password string,
+	vers version.Binary,
+) agent.ConfigSetterWriter {
+
+	port := gitjujutesting.FindTCPPort()
+	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
+	conf, err := agent.NewStateMachineConfig(
+		agent.AgentConfigParams{
+			DataDir:           dataDir,
+			Tag:               tag,
+			Environment:       environTag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             agent.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiAddr,
+			CACert:            stateInfo.CACert,
+		},
+		params.StateServingInfo{
+			Cert:         coretesting.ServerCert,
+			PrivateKey:   coretesting.ServerKey,
+			CAPrivateKey: coretesting.CAKey,
+			StatePort:    gitjujutesting.MgoServer.Port(),
+			APIPort:      port,
+		})
+	c.Assert(err, gc.IsNil)
+	conf.SetPassword(password)
+	c.Assert(conf.Write(), gc.IsNil)
+	return conf
 }

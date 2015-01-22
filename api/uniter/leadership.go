@@ -4,32 +4,45 @@
 package uniter
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 )
 
-type facadeCaller interface {
-	FacadeCall(request string, params, response interface{}) error
+// NewLeadershipSettingsAccessor returns a new LeadershipSettingsAccessor.
+func NewLeadershipSettingsAccessor(
+	caller FacadeCallFn,
+	newWatcher NewNotifyWatcherFn,
+	checkApiVersion CheckApiVersionFn,
+) *LeadershipSettingsAccessor {
+	return &LeadershipSettingsAccessor{caller, newWatcher, checkApiVersion}
 }
 
-// NewLeadershipSettingsAccessor returns a new LeadershipSettingsAccessor.
-func NewLeadershipSettingsAccessor(caller facadeCaller) *LeadershipSettingsAccessor {
-	return &LeadershipSettingsAccessor{caller}
-}
+type FacadeCallFn func(request string, params, response interface{}) error
+type NewNotifyWatcherFn func(params.NotifyWatchResult) watcher.NotifyWatcher
+type CheckApiVersionFn func(functionName string) error
 
 // LeadershipSettingsAccessor provides a type that can make RPC calls
 // to a service which can read, write, and watch leadership settings.
 type LeadershipSettingsAccessor struct {
-	//base.ClientFacade
-	facadeCaller
+	facadeCaller     FacadeCallFn
+	newNotifyWatcher NewNotifyWatcherFn
+	checkApiVersion  CheckApiVersionFn
 }
 
 // Merge merges the provided settings into the leadership settings for
 // the given service ID. Only leaders of a given service may perform
 // this operation.
-func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[string]interface{}) error {
+func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[string]string) error {
+
+	if err := lsa.checkApiVersion("Merge"); err != nil {
+		return err
+	}
+
 	results, err := lsa.bulkMerge(lsa.prepareMerge(serviceId, settings))
 	if err != nil {
 		return errors.Annotate(err, "could not merge settings")
@@ -39,7 +52,12 @@ func (lsa *LeadershipSettingsAccessor) Merge(serviceId string, settings map[stri
 
 // Read retrieves the leadership settings for the given service
 // ID. Anyone may perform this operation.
-func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]interface{}, error) {
+func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]string, error) {
+
+	if err := lsa.checkApiVersion("Read"); err != nil {
+		return nil, err
+	}
+
 	results, err := lsa.bulkRead(lsa.prepareRead(serviceId))
 	if err != nil {
 		return nil, errors.Annotate(err, "could not read leadership settings")
@@ -47,34 +65,39 @@ func (lsa *LeadershipSettingsAccessor) Read(serviceId string) (map[string]interf
 	return results.Results[0].Settings, results.Results[0].Error
 }
 
-// SettingsChangeNotifier returns a channel which can be used to wait
+// WatchLeadershipSettings returns a watcher which can be used to wait
 // for leadership settings changes to be made for a given service ID.
-func (lsa *LeadershipSettingsAccessor) SettingsChangeNotifier(serviceId string) <-chan error {
-	notifier := make(chan error)
-	go func() {
-		var results params.ErrorResults
-		err := lsa.FacadeCall("BlockUntilChanges", params.LeadershipWatchSettingsParam{names.NewServiceTag(serviceId).String()}, &results)
-		if err != nil {
-			notifier <- errors.Annotate(err, "could not block on leadership settings changes")
-		}
-		notifier <- results.Results[0].Error
-	}()
-	return notifier
+func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(serviceId string) (watcher.NotifyWatcher, error) {
+
+	if err := lsa.checkApiVersion("WatchLeadershipSettings"); err != nil {
+		return nil, err
+	}
+
+	var results params.NotifyWatchResults
+	if err := lsa.facadeCaller(
+		"WatchLeadershipSettings",
+		params.Entities{[]params.Entity{{names.NewServiceTag(serviceId).String()}}},
+		&results,
+	); err != nil {
+		return nil, errors.Annotate(err, "could not watch leadership settings")
+	}
+	fmt.Printf("%v", results)
+	return lsa.newNotifyWatcher(results.Results[0]), nil
 }
 
 //
 // Prepare functions for building bulk-calls.
 //
 
-func (lsa *LeadershipSettingsAccessor) prepareMerge(serviceId string, settings map[string]interface{}) params.MergeLeadershipSettingsParam {
+func (lsa *LeadershipSettingsAccessor) prepareMerge(serviceId string, settings map[string]string) params.MergeLeadershipSettingsParam {
 	return params.MergeLeadershipSettingsParam{
 		ServiceTag: names.NewServiceTag(serviceId).String(),
 		Settings:   settings,
 	}
 }
 
-func (lsa *LeadershipSettingsAccessor) prepareRead(serviceId string) params.GetLeadershipSettingsParams {
-	return params.GetLeadershipSettingsParams{ServiceTag: names.NewServiceTag(serviceId).String()}
+func (lsa *LeadershipSettingsAccessor) prepareRead(serviceId string) params.Entity {
+	return params.Entity{Tag: names.NewServiceTag(serviceId).String()}
 }
 
 //
@@ -89,17 +112,17 @@ func (lsa *LeadershipSettingsAccessor) bulkMerge(args ...params.MergeLeadershipS
 
 	bulkArgs := params.MergeLeadershipSettingsBulkParams{Params: args}
 	var results params.ErrorResults
-	return &results, lsa.FacadeCall("Merge", bulkArgs, &results)
+	return &results, lsa.facadeCaller("Merge", bulkArgs, &results)
 }
 
-func (lsa *LeadershipSettingsAccessor) bulkRead(args ...params.GetLeadershipSettingsParams) (*params.GetLeadershipSettingsBulkResults, error) {
+func (lsa *LeadershipSettingsAccessor) bulkRead(args ...params.Entity) (*params.GetLeadershipSettingsBulkResults, error) {
 
 	// Don't make the jump over the network if we don't have to.
 	if len(args) <= 0 {
 		return &params.GetLeadershipSettingsBulkResults{}, nil
 	}
 
-	bulkArgs := params.GetLeadershipSettingsBulkParams{Params: args}
+	bulkArgs := params.Entities{Entities: args}
 	var results params.GetLeadershipSettingsBulkResults
-	return &results, lsa.FacadeCall("Read", bulkArgs, &results)
+	return &results, lsa.facadeCaller("Read", bulkArgs, &results)
 }

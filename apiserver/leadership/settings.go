@@ -14,34 +14,34 @@ import (
 // LeadershipSettingsAccessor.
 func NewLeadershipSettingsAccessor(
 	authorizer common.Authorizer,
-	settingsChangeNotifierFn SettingsChangeNotifierFn,
+	registerWatcherFn RegisterWatcherFn,
 	getSettingsFn GetSettingsFn,
 	mergeSettingsChunkFn MergeSettingsChunkFn,
 	isLeaderFn IsLeaderFn,
 ) *LeadershipSettingsAccessor {
 
 	return &LeadershipSettingsAccessor{
-		authorizer:               authorizer,
-		settingsChangeNotifierFn: settingsChangeNotifierFn,
-		getSettingsFn:            getSettingsFn,
-		mergeSettingsChunkFn:     mergeSettingsChunkFn,
-		isLeaderFn:               isLeaderFn,
+		authorizer:           authorizer,
+		registerWatcherFn:    registerWatcherFn,
+		getSettingsFn:        getSettingsFn,
+		mergeSettingsChunkFn: mergeSettingsChunkFn,
+		isLeaderFn:           isLeaderFn,
 	}
 }
 
 // SettingsChangeNotifierFn declares a function-type which will return
 // a channel that can be blocked on to be notified of setting changes
 // for the provided document key.
-type SettingsChangeNotifierFn func(docKey string) <-chan struct{}
+type RegisterWatcherFn func(serviceId string) (watcherId string, _ error)
 
 // GetSettingsFn declares a function-type which will return leadership
 // settings for the given service ID.
-type GetSettingsFn func(serviceId string) (map[string]interface{}, error)
+type GetSettingsFn func(serviceId string) (map[string]string, error)
 
 // MergeSettingsChunk declares a function-type which will write the
 // provided settings chunk into the greater leadership settings for
 // the provided service ID.
-type MergeSettingsChunkFn func(serviceId string, settings map[string]interface{}) error
+type MergeSettingsChunkFn func(serviceId string, settings map[string]string) error
 
 // IsLeaderFn declares a function-type which will return whether the
 // given service-unit-id combination is currently the leader.
@@ -50,11 +50,11 @@ type IsLeaderFn func(serviceId, unitId string) bool
 // LeadershipSettingsAccessor provides a type which can read, write,
 // and watch leadership settings.
 type LeadershipSettingsAccessor struct {
-	authorizer               common.Authorizer
-	settingsChangeNotifierFn SettingsChangeNotifierFn
-	getSettingsFn            GetSettingsFn
-	mergeSettingsChunkFn     MergeSettingsChunkFn
-	isLeaderFn               IsLeaderFn
+	authorizer           common.Authorizer
+	registerWatcherFn    RegisterWatcherFn
+	getSettingsFn        GetSettingsFn
+	mergeSettingsChunkFn MergeSettingsChunkFn
+	isLeaderFn           IsLeaderFn
 }
 
 // Merge merges in the provided leadership settings. Only leaders for
@@ -79,6 +79,14 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 			continue
 		}
 
+		// TODO(katco-): <2015-01-21 Wed>
+		// There is a race-condition here: if this unit should lose
+		// leadership status between the check above, and actually
+		// writing the settings, another unit could obtain leadership,
+		// write settings, and then those settings could be
+		// overwritten by this request. This will be addressed in a
+		// future PR.
+
 		err := lsa.mergeSettingsChunkFn(serviceTag.Id(), arg.Settings)
 		if err != nil {
 			currErr.Error = common.ServerError(err)
@@ -90,14 +98,14 @@ func (lsa *LeadershipSettingsAccessor) Merge(bulkArgs params.MergeLeadershipSett
 
 // Read reads leadership settings for the provided service ID. Any
 // unit of the service may perform this operation.
-func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.GetLeadershipSettingsBulkParams) (params.GetLeadershipSettingsBulkResults, error) {
+func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.Entities) (params.GetLeadershipSettingsBulkResults, error) {
 
-	results := make([]params.GetLeadershipSettingsResult, len(bulkArgs.Params))
-	for argIdx, arg := range bulkArgs.Params {
+	results := make([]params.GetLeadershipSettingsResult, len(bulkArgs.Entities))
+	for argIdx, arg := range bulkArgs.Entities {
 
 		result := &results[argIdx]
 
-		serviceTag, parseErr := parseServiceTag(arg.ServiceTag)
+		serviceTag, parseErr := parseServiceTag(arg.Tag)
 		if parseErr != nil {
 			result.Error = parseErr
 			continue
@@ -105,6 +113,7 @@ func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.GetLeadershipSetting
 
 		if !lsa.authorizer.AuthUnitAgent() {
 			result.Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 
 		settings, err := lsa.getSettingsFn(serviceTag.Id())
@@ -119,19 +128,29 @@ func (lsa *LeadershipSettingsAccessor) Read(bulkArgs params.GetLeadershipSetting
 	return params.GetLeadershipSettingsBulkResults{results}, nil
 }
 
-// BlockUntilChanges will block the caller until leadership settings
+// WatchLeadershipSettings will block the caller until leadership settings
 // for the given service ID change.
-func (lsa *LeadershipSettingsAccessor) BlockUntilChanges(arg params.LeadershipWatchSettingsParam) (params.ErrorResults, error) {
+func (lsa *LeadershipSettingsAccessor) WatchLeadershipSettings(arg params.Entities) (params.NotifyWatchResults, error) {
 
-	results := make([]params.ErrorResult, 1)
+	results := make([]params.NotifyWatchResult, len(arg.Entities))
+	for entIdx, entity := range arg.Entities {
+		result := &results[entIdx]
 
-	serviceTag, parseErr := parseServiceTag(arg.ServiceTag)
-	if parseErr != nil {
-		results[0].Error = parseErr
-	} else {
-		<-lsa.settingsChangeNotifierFn(serviceTag.Id())
+		serviceTag, parseErr := parseServiceTag(entity.Tag)
+		if parseErr != nil {
+			result.Error = parseErr
+			continue
+		}
+
+		watcherId, err := lsa.registerWatcherFn(serviceTag.Id())
+		if err != nil {
+			result.Error = common.ServerError(err)
+			continue
+		}
+
+		result.NotifyWatcherId = watcherId
 	}
-	return params.ErrorResults{Results: results}, nil
+	return params.NotifyWatchResults{Results: results}, nil
 }
 
 // parseServiceTag attempts to parse the given serviceTag, and if it

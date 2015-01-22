@@ -1,8 +1,12 @@
 package state
 
-import "gopkg.in/mgo.v2/txn"
+import (
+	"fmt"
 
-const settingsKey = "leadership-settings-"
+	"gopkg.in/mgo.v2/txn"
+)
+
+const settingsKey = "s#%s#leader"
 
 func addLeadershipSettingsOp(serviceId string) txn.Op {
 	return txn.Op{
@@ -22,5 +26,5 @@ func removeLeadershipSettingsOp(serviceId string) txn.Op {
 }
 
 func LeadershipSettingsDocId(serviceId string) string {
-	return settingsKey + serviceId
+	return fmt.Sprintf(settingsKey, serviceId)
 }

@@ -107,7 +107,7 @@ func (ru *RelationUnit) LeaveScope() error {
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
 func (ru *RelationUnit) Settings() (*Settings, error) {
-	var results params.RelationSettingsResults
+	var results params.SettingsResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
 			Relation: ru.relation.tag.String(),
@@ -135,12 +135,12 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, error) {
+func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 	if !names.IsValidUnit(uname) {
 		return nil, errors.Errorf("%q is not a valid unit", uname)
 	}
 	tag := names.NewUnitTag(uname)
-	var results params.RelationSettingsResults
+	var results params.SettingsResults
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{
 			Relation:   ru.relation.tag.String(),

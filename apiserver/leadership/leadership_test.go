@@ -19,8 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Ensure the LeadershipService conforms to the interface at compile-time.
-var _ LeadershipService = (*leadershipService)(nil)
+func init() {
+	// Ensure the LeadershipService conforms to the interface at compile-time.
+	var _ LeadershipService = (*leadershipService)(nil)
+
+	gc.Suite(&leadershipSuite{})
+}
 
 type leadershipSuite struct{}
 

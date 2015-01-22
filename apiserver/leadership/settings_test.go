@@ -7,13 +7,17 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+func init() {
+	gc.Suite(&settingsSuite{})
+}
+
 type settingsSuite struct{}
 
 func (s *settingsSuite) TestReadSettings(c *gc.C) {
 
-	settingsToReturn := map[string]interface{}{"foo": "bar"}
+	settingsToReturn := params.Settings(map[string]string{"foo": "bar"})
 	numGetSettingCalls := 0
-	getSettings := func(serviceId string) (map[string]interface{}, error) {
+	getSettings := func(serviceId string) (map[string]string, error) {
 		numGetSettingCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
 		return settingsToReturn, nil
@@ -21,32 +25,22 @@ func (s *settingsSuite) TestReadSettings(c *gc.C) {
 	stubAuthorizer := &stubAuthorizer{}
 	accessor := NewLeadershipSettingsAccessor(stubAuthorizer, nil, getSettings, nil, nil)
 
-	results, err := accessor.Read(params.GetLeadershipSettingsBulkParams{
-		[]params.GetLeadershipSettingsParams{
-			{ServiceTag: names.NewServiceTag(StubServiceNm).String()},
+	results, err := accessor.Read(params.Entities{
+		[]params.Entity{
+			{Tag: names.NewServiceTag(StubServiceNm).String()},
 		},
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(numGetSettingCalls, gc.Equals, 1)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	// NOTE: Beware of map-ordering if you add more keys-values to
-	// "settingsToReturn".
 	c.Check(results.Results[0].Settings, gc.DeepEquals, settingsToReturn)
 }
 
 func (s *settingsSuite) TestWriteSettings(c *gc.C) {
-	settingsToReturn := map[string]interface{}{"foo": "bar"}
-
-	numGetSettingCalls := 0
-	getSettings := func(serviceId string) (map[string]interface{}, error) {
-		numGetSettingCalls++
-		c.Check(serviceId, gc.Equals, StubServiceNm)
-		return settingsToReturn, nil
-	}
 
 	numWriteSettingCalls := 0
-	writeSettings := func(serviceId string, settings map[string]interface{}) error {
+	writeSettings := func(serviceId string, settings map[string]string) error {
 		numWriteSettingCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
 		return nil
@@ -60,37 +54,61 @@ func (s *settingsSuite) TestWriteSettings(c *gc.C) {
 		return true
 	}
 
-	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, getSettings, writeSettings, isLeader)
+	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, nil, writeSettings, isLeader)
 
 	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
 		[]params.MergeLeadershipSettingsParam{
 			{
 				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
-				Settings:   map[string]interface{}{"baz": "biz"},
+				Settings:   map[string]string{"baz": "biz"},
 			},
 		},
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Check(numWriteSettingCalls, gc.Equals, 1)
+	c.Check(numIsLeaderCalls, gc.Equals, 1)
+}
+
+func (s *settingsSuite) TestWriteSettingFailsForNonLeader(c *gc.C) {
+	numIsLeaderCalls := 0
+	isLeader := func(serviceId, unitId string) bool {
+		numIsLeaderCalls++
+		c.Check(serviceId, gc.Equals, StubServiceNm)
+		c.Check(unitId, gc.Equals, StubUnitNm)
+		return false
+	}
+
+	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, nil, nil, nil, isLeader)
+
+	results, err := accessor.Merge(params.MergeLeadershipSettingsBulkParams{
+		[]params.MergeLeadershipSettingsParam{
+			{
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				Settings:   map[string]string{"baz": "biz"},
+			},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
 
 func (s *settingsSuite) TestBlockUntilChanges(c *gc.C) {
 
 	numSettingsWatcherCalls := 0
-	settingsNotifier := func(serviceId string) <-chan struct{} {
+	registerWatcher := func(serviceId string) (string, error) {
 		numSettingsWatcherCalls++
 		c.Check(serviceId, gc.Equals, StubServiceNm)
-		notifier := make(chan struct{})
-		go func() { notifier <- struct{}{} }()
-		return notifier
+		return "foo", nil
 	}
 
-	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, settingsNotifier, nil, nil, nil)
+	accessor := NewLeadershipSettingsAccessor(&stubAuthorizer{}, registerWatcher, nil, nil, nil)
 
-	results, err := accessor.BlockUntilChanges(params.LeadershipWatchSettingsParam{
-		names.NewServiceTag(StubServiceNm).String(),
-	})
+	results, err := accessor.WatchLeadershipSettings(params.Entities{[]params.Entity{
+		{names.NewServiceTag(StubServiceNm).String()},
+	}})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)

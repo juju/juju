@@ -10,10 +10,10 @@ import (
 )
 
 // SettingsFunc returns the relation settings for a unit.
-type SettingsFunc func(unitName string) (params.RelationSettings, error)
+type SettingsFunc func(unitName string) (params.Settings, error)
 
 // SettingsMap is a map from unit name to relation settings.
-type SettingsMap map[string]params.RelationSettings
+type SettingsMap map[string]params.Settings
 
 // RelationCache stores a relation's remote unit membership and settings.
 // Member settings are stored until invalidated or removed by name; settings
@@ -61,7 +61,7 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 
 // Settings returns the settings of the named remote unit. It's valid to get
 // the settings of any unit that has ever been in the relation.
-func (cache *RelationCache) Settings(unitName string) (params.RelationSettings, error) {
+func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
 		if !isMember {
