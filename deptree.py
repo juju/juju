@@ -11,6 +11,14 @@ import tempfile
 
 class Dependency:
 
+    @staticmethod
+    def from_option(option_value):
+        parts = option_value.split(':')
+        if len(parts) < 3 or len(parts) > 4:
+            raise argparse.ArgumentTypeError(
+                'Expected form of package:vcs:rev')
+        return Dependency(*parts)
+
     def __init__(self, package, vcs, revid, revno=None):
         self.package = package
         self.vcs = vcs
@@ -97,7 +105,7 @@ def main(args=None):
     return exitcode
 
 
-def get_args(args=None):
+def get_args(argv=None):
     """Return the argument parser for this program."""
     parser = argparse.ArgumentParser(
         "Pin a composite source tree to specific versions.")
@@ -109,12 +117,14 @@ def get_args(args=None):
         help='Increase verbosity.')
     parser.add_argument(
         '-i', '--include', action='append', default=[],
-        help='Include an additional dependency. eg for/bar:git:123abc0:')
+        help='Include an additional dependency. eg package:vcs:revision,')
     parser.add_argument('srcdir', help='The src dir.')
     parser.add_argument(
         'dep_files', nargs='+',
         help='the dependencies.tsv files to merge')
-    return parser.parse_args(args)
+    args = parser.parse_args(argv)
+    args.include = [Dependency.from_option(o) for o in args.include]
+    return args
 
 
 if __name__ == '__main__':

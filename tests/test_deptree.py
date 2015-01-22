@@ -14,6 +14,18 @@ from utils import temp_dir
 
 def DependencyTestCase(TestCase):
 
+    def test_from_option(self):
+        dep = Dependency.from_option('foo/bar:git:123abc0:')
+        self.assertEqual('foo/bar', dep.package)
+        self.assertEqual('git', dep.vcs)
+        self.assertEqual('123abc0', dep.revid)
+        self.assertIs(None, dep.revno)
+        dep = Dependency.from_option('foo/bar:git:123abc0')
+        self.assertEqual('foo/bar', dep.package)
+        self.assertEqual('git', dep.vcs)
+        self.assertEqual('123abc0', dep.revid)
+        self.assertIs(None, dep.revno)
+
     def test_init(self):
         dep = Dependency('github/foo', 'git', 'rev123')
         self.assertEqual('github/foo', dep.package)
@@ -66,10 +78,11 @@ def DependencyTestCase(TestCase):
 class DepTreeTestCase(TestCase):
 
     def test_get_args(self):
-        args = get_args(['-d', '-v', '-i', 'foo', './bar', 'baz', 'qux'])
+        args = get_args(
+            ['-d', '-v', '-i', 'foo:git:rev', './bar', 'baz', 'qux'])
         self.assertTrue(args.verbose)
         self.assertTrue(args.dry_run)
-        self.assertEqual(['foo'], args.include)
+        self.assertEqual([Dependency('foo', 'git', 'rev')], args.include)
         self.assertEqual('./bar', args.srcdir)
         self.assertEqual(['baz', 'qux'], args.dep_files)
 
