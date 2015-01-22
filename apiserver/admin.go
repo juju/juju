@@ -124,8 +124,10 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		}
 	}
 
+	var agentPingerNeeded = true
 	var isUser bool
-	if kind, err := names.TagKind(req.AuthTag); err != nil || kind != names.UserTagKind {
+	kind, err := names.TagKind(req.AuthTag)
+	if err != nil || kind != names.UserTagKind {
 		// Users are not rate limited, all other entities are
 		if !a.srv.limiter.Acquire() {
 			logger.Debugf("rate limiting, try again later")
@@ -144,10 +146,28 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 			// transitory and potentially confusing errors from failed
 			// logins with a more helpful one.
 			return fail, MaintenanceNoLoginError
-		} else {
+		}
+		// Here we have a special case.  The machine agents that manage
+		// environments in the state server environment need to be able to
+		// open API connections to other environments.  In those cases, we
+		// need to look in the state server database to check the creds
+		// against the machine if and only if the entity tag is a machine tag,
+		// and the machine exists in the state server environment, and the
+		// machine has the manage state job.  If all those parts are valid, we
+		// can then check the credentials against the state server environment
+		// machine.
+		if kind != names.MachineTagKind {
 			return fail, err
 		}
-		return fail, err
+		entity, err = a.checkCredsOfStateServerMachine(req)
+		if err != nil {
+			return fail, err
+		}
+		// If we are here, then the entity will refer to a state server
+		// machine in the state server environment, and we don't need a pinger
+		// for it as we already have one running in the machine agent api
+		// worker for the state server environment.
+		agentPingerNeeded = false
 	}
 	a.root.entity = entity
 
@@ -159,8 +179,10 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	// to serve to them.
 	a.loggedIn = true
 
-	if err := startPingerIfAgent(a.root, entity); err != nil {
-		return fail, err
+	if agentPingerNeeded {
+		if err := startPingerIfAgent(a.root, entity); err != nil {
+			return fail, err
+		}
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
@@ -193,6 +215,33 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		Facades:    DescribeFacades(),
 		UserInfo:   maybeUserInfo,
 	}, nil
+}
+
+// checkCredsOfStateServerMachine checks the special case of a state server
+// machine creating an API connection for a different environment so it can
+// run API workers for that environment to do things like provisioning
+// machines.
+func (a *admin) checkCredsOfStateServerMachine(req params.LoginRequest) (state.Entity, error) {
+	// Check the credentials against the state server environment.
+	entity, err := doCheckCreds(a.srv.state, req)
+	if err != nil {
+		return nil, err
+	}
+	// Since we know the tag kind is a machine, we can safely cast
+	// to a machine.
+	machine, ok := entity.(*state.Machine)
+	if !ok {
+		// but always be paranoid
+		return nil, errors.Errorf("entity should be a machine, but is %T", entity)
+	}
+	for _, job := range machine.Jobs() {
+		if job == state.JobManageEnviron {
+			return entity, nil
+		}
+	}
+	// The machine does exist in the state server environment, but it
+	// doesn't manage environments, so reject it.
+	return nil, common.ErrBadCreds
 }
 
 func (a *admin) maintenanceInProgress() bool {
