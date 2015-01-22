@@ -104,16 +104,6 @@ func (*environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (*environSuite) TestSupportAddressAllocation(c *gc.C) {
-	testConfig := minimalConfig(c)
-	env, err := local.Provider.Open(testConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests

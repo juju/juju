@@ -102,19 +102,21 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ {
+func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.NetworkingEnviron {
 	s.TestConfig["prefer-ipv6"] = preferIPv6
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
-	c.Assert(e, gc.NotNil)
+	c.Assert(env, gc.NotNil)
+	netenv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsTrue)
 
-	err = bootstrap.EnsureNotBootstrapped(e)
+	err = bootstrap.EnsureNotBootstrapped(netenv)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	return e
+	return netenv
 }
 
 func (s *suite) TestAvailabilityZone(c *gc.C) {
@@ -135,10 +137,8 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	ne, ok := environs.SupportsNetworking(e)
-	c.Assert(ok, jc.IsTrue)
 
-	inst, _ := jujutesting.AssertStartInstance(c, ne, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -146,15 +146,15 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	dummy.Listen(opc)
 
 	newAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := ne.AllocateAddress(inst.Id(), netId, newAddress)
+	err := e.AllocateAddress(inst.Id(), netId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertAllocateAddress(c, ne, opc, inst.Id(), netId, newAddress)
+	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 
 	newAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = ne.AllocateAddress(inst.Id(), netId, newAddress)
+	err = e.AllocateAddress(inst.Id(), netId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAllocateAddress(c, ne, opc, inst.Id(), netId, newAddress)
+	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 }
 
 func (s *suite) TestReleaseAddress(c *gc.C) {
@@ -163,10 +163,8 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	ne, ok := environs.SupportsNetworking(e)
-	c.Assert(ok, jc.IsTrue)
 
-	inst, _ := jujutesting.AssertStartInstance(c, ne, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -174,15 +172,15 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 	dummy.Listen(opc)
 
 	address := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := ne.ReleaseAddress(inst.Id(), netId, address)
+	err := e.ReleaseAddress(inst.Id(), netId, address)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertReleaseAddress(c, ne, opc, inst.Id(), netId, address)
+	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
 
 	address = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = ne.ReleaseAddress(inst.Id(), netId, address)
+	err = e.ReleaseAddress(inst.Id(), netId, address)
 	c.Assert(err, jc.ErrorIsNil)
-	assertReleaseAddress(c, ne, opc, inst.Id(), netId, address)
+	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
 }
 
 func (s *suite) TestNetworkInterfaces(c *gc.C) {
@@ -191,8 +189,6 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	ne, ok := environs.SupportsNetworking(e)
-	c.Assert(ok, jc.IsTrue)
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -226,10 +222,10 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		GatewayAddress: network.NewAddress("0.2.2.1", network.ScopeUnknown),
 		ExtraConfig:    nil,
 	}}
-	info, err := ne.NetworkInterfaces(instance.Id("i-42"))
+	info, err := e.NetworkInterfaces(instance.Id("i-42"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expectInfo)
-	assertInterfaces(c, ne, opc, instance.Id("i-42"), expectInfo)
+	assertInterfaces(c, e, opc, instance.Id("i-42"), expectInfo)
 }
 
 func (s *suite) TestSubnets(c *gc.C) {
@@ -238,8 +234,6 @@ func (s *suite) TestSubnets(c *gc.C) {
 		err := e.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
-	ne, ok := environs.SupportsNetworking(e)
-	c.Assert(ok, jc.IsTrue)
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -248,10 +242,10 @@ func (s *suite) TestSubnets(c *gc.C) {
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
-	netInfo, err := ne.Subnets("", []network.Id{"dummy-private", "dummy-public"})
+	netInfo, err := e.Subnets("", []network.Id{"dummy-private", "dummy-public"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
-	assertSubnets(c, ne, opc, expectInfo)
+	assertSubnets(c, e, opc, expectInfo)
 }
 
 func (s *suite) TestPreferIPv6On(c *gc.C) {

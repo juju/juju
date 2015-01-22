@@ -623,11 +623,6 @@ func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
 }
 
-// SupportAddressAllocation is specified on the Networking interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 // PrecheckInstance is specified in the state.Prechecker interface.
 func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" && placement != "valid" {
@@ -1003,6 +998,13 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		return nil, environs.ErrNoInstances
 	}
 	return
+}
+
+// SupportAddressAllocation takes a network.Id and returns a bool
+// and an error. The bool indicates whether that network supports
+// static ip address allocation.
+func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 // AllocateAddress requests an address to be allocated for the

@@ -26,6 +26,11 @@ type Networking interface {
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given instance.
 	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
+
+	// SupportAddressAllocation takes a network.Id and returns a bool
+	// and an error. The bool indicates whether that network supports
+	// static ip address allocation.
+	SupportAddressAllocation(netId network.Id) (bool, error)
 }
 
 // NetworkingEnviron combines the standard Environ interface with the

@@ -70,11 +70,6 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{localArch}, nil
 }
 
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *localEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)

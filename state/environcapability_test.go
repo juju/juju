@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -28,10 +27,6 @@ type mockEnvironCapability struct {
 }
 
 func (p *mockEnvironCapability) SupportedArchitectures() ([]string, error) {
-	panic("unused")
-}
-
-func (e *mockEnvironCapability) SupportAddressAllocation(netId network.Id) (bool, error) {
 	panic("unused")
 }
 

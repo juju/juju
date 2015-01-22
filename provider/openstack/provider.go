@@ -567,11 +567,6 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,

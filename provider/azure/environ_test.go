@@ -188,19 +188,6 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
-func (s *environSuite) TestSupportNetworks(c *gc.C) {
-	env := s.setupEnvWithDummyMetadata(c)
-	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
-	env := s.setupEnvWithDummyMetadata(c)
-	result, err := env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Config().Name()), jc.IsTrue)
@@ -1388,6 +1375,8 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	envAttrs := makeAzureConfigMap(c)
 	envAttrs["location"] = "North Europe"
 	env := makeEnvironWithConfig(c, envAttrs)
+	_, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsFalse)
 	s.setDummyStorage(c, env)
 	images := []*imagemetadata.ImageMetadata{
 		{

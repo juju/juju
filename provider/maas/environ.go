@@ -224,7 +224,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, nil
 }
 
-// SupportAddressAllocation is specified on the EnvironCapability interface.
+// SupportAddressAllocation is specified on the Networking interface.
 func (env *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
 	caps, err := env.getCapabilities()
 	if err != nil {
@@ -468,17 +468,6 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		zones[i] = inst.(*maasInstance).zone()
 	}
 	return zones, nil
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-// TODO(mue) Check how to change due to new approach!
-func (env *maasEnviron) SupportNetworks() bool {
-	caps, err := env.getCapabilities()
-	if err != nil {
-		logger.Debugf("getCapabilities failed: %v", err)
-		return false
-	}
-	return caps.Contains(capNetworksManagement)
 }
 
 type maasPlacement struct {
