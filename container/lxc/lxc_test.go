@@ -32,9 +32,11 @@ import (
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -196,6 +198,199 @@ func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		}
 	}
+}
+
+func (*LxcSuite) TestParseConfigLine(c *gc.C) {
+	for i, test := range []struct {
+		about   string
+		input   string
+		setting string
+		value   string
+	}{{
+		about:   "empty line",
+		input:   "",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "line with spaces",
+		input:   "  line  with spaces   ",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "comments",
+		input:   "# comment",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "commented setting",
+		input:   "#lxc.flag = disabled",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "comments with spaces",
+		input:   "  # comment  with   spaces ",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "not a setting",
+		input:   "anything here",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "valid setting, no whitespace",
+		input:   "lxc.setting=value",
+		setting: "lxc.setting",
+		value:   "value",
+	}, {
+		about:   "valid setting, with whitespace",
+		input:   "  lxc.setting  =  value  ",
+		setting: "lxc.setting",
+		value:   "value",
+	}, {
+		about:   "valid setting, with comment on the value",
+		input:   "lxc.setting = value  # comment # foo  ",
+		setting: "lxc.setting",
+		value:   "value",
+	}, {
+		about:   "valid setting, with comment, spaces and extra equals",
+		input:   "lxc.my.best.setting = foo=bar, but   # not really ",
+		setting: "lxc.my.best.setting",
+		value:   "foo=bar, but",
+	}} {
+		c.Logf("test %d: %s", i, test.about)
+		setting, value := lxc.ParseConfigLine(test.input)
+		c.Check(setting, gc.Equals, test.setting)
+		c.Check(value, gc.Equals, test.value)
+		if setting == "" {
+			c.Check(value, gc.Equals, "")
+		}
+	}
+}
+
+func (s *LxcSuite) TestReplaceContainerConfig(c *gc.C) {
+	networkConfig := container.BridgeNetworkConfig("nic42", []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/20",
+		InterfaceName:  "eth0",
+		MACAddress:     "aa:bb:cc:dd:ee:f0",
+		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+	}, {
+		DeviceIndex:   1,
+		InterfaceName: "eth1",
+	}})
+
+	manager := s.makeManager(c, "test")
+	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	machineConfig.Config = envConfig
+	instance := containertesting.CreateContainerWithMachineAndNetworkConfig(
+		c, manager, machineConfig, networkConfig,
+	)
+	name := string(instance.Id())
+
+	// Append a few extra lines to the config.
+	extraLines := []string{
+		"  lxc.rootfs =  /some/thing  # else ",
+		"",
+		"  # just comment  ",
+		"lxc.network.vlan.id=42",
+		"something else  # ignore  ",
+		"lxc.network.type=veth",
+		"lxc.network.link = foo  # comment",
+		"lxc.network.hwaddr = bar",
+	}
+	for _, line := range extraLines {
+		err = lxc.AppendToContainerConfig(name, line+"\n")
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	expectedConf := `
+# network config
+# interface "eth0"
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.name = eth0
+lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
+lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4.gateway = 0.1.2.1
+lxc.network.mtu = 4321
+
+# interface "eth1"
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.name = eth1
+lxc.network.mtu = 4321
+
+
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+` + strings.Join(extraLines, "\n") + "\n"
+
+	configPath := lxc.ContainerConfigFilename(name)
+	lxcConfContents, err := ioutil.ReadFile(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), gc.Equals, expectedConf)
+
+	linesToReplace := []string{
+		"", // empty lines are ignored
+		"  lxc.network.type = bar # free drinks  !! ", // formatting is sanitized.
+		"  # comments are ignored",
+		"lxc.network.type=foo",                   // replace the second "type".
+		"lxc.network.name = em0 # renamed now",   // replace the first "name"
+		"lxc.network.name = em1",                 // replace the second "name"
+		"lxc.network.mtu = 1234",                 // replace only the first "mtu".
+		"lxc.network.hwaddr = ff:ee:dd:cc:bb:aa", // replace the first "hwaddr".
+		"lxc.network.hwaddr=deadbeef",            // replace second "hwaddr".
+		"lxc.network.hwaddr=nonsense",            // no third "hwaddr", so append.
+		"lxc.network.hwaddr = ",                  // no fourth "hwaddr" to remove - ignored.
+		"lxc.network.link=",                      // remove only the first "link"
+		"lxc.network.vlan.id=69",                 // replace.
+		"lxc.missing = appended",                 // missing - appended.
+		"lxc.network.type = phys",                // replace the third "type".
+		"lxc.mount.entry=",                       // delete existing "entry".
+		"lxc.rootfs = /foo/bar",                  // replace first "rootfs".
+		"lxc.rootfs = /bar/foo",                  // append new.
+	}
+	replacedConf := `
+# network config
+# interface "eth0"
+lxc.network.type = bar
+lxc.network.flags = up
+lxc.network.name = em0
+lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
+lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4.gateway = 0.1.2.1
+lxc.network.mtu = 1234
+
+# interface "eth1"
+lxc.network.type = foo
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.name = em1
+lxc.network.mtu = 4321
+
+
+lxc.rootfs = /foo/bar
+
+  # just comment  
+lxc.network.vlan.id = 69
+something else  # ignore  
+lxc.network.type = phys
+lxc.network.link = foo  # comment
+lxc.network.hwaddr = deadbeef
+lxc.network.hwaddr = nonsense
+lxc.missing = appended
+lxc.rootfs = /bar/foo
+`
+	err = lxc.ReplaceContainerConfig(name, linesToReplace)
+	c.Assert(err, jc.ErrorIsNil)
+	lxcConfContents, err = ioutil.ReadFile(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), gc.Equals, replacedConf)
 }
 
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {

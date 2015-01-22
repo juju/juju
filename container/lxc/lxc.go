@@ -406,14 +406,155 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 }
 
 func appendToContainerConfig(name, line string) error {
-	file, err := os.OpenFile(
-		containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
+	filePath := containerConfigFilename(name)
+	logger.Tracef("appending %q to container %q config file %q", line, name, filePath)
+	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	_, err = file.WriteString(line)
 	return err
+}
+
+// parseConfigLine tries to parse a line from an LXC config file.
+// Empty lines, comments, and lines not starting with "lxc." are
+// ignored. If successful the setting and its value are returned
+// stripped of leading/trailing whitespace and line comments (e.g.
+// "lxc.rootfs" and "/some/path"), otherwise both results are empty.
+func parseConfigLine(line string) (setting, value string) {
+	input := strings.TrimSpace(line)
+	if len(input) == 0 ||
+		strings.HasPrefix(input, "#") ||
+		!strings.HasPrefix(input, "lxc.") {
+		return "", ""
+	}
+	parts := strings.SplitN(input, "=", 2)
+	if len(parts) != 2 {
+		// Still not what we're looking for.
+		return "", ""
+	}
+	setting = strings.TrimSpace(parts[0])
+	value = strings.TrimSpace(parts[1])
+	if strings.Contains(value, "#") {
+		parts = strings.SplitN(value, "#", 2)
+		if len(parts) == 2 {
+			value = strings.TrimSpace(parts[0])
+		}
+	}
+	return setting, value
+}
+
+// replaceContainerConfig replaces all lines in the config file of the
+// container with the given name with the contents of lines. Lines
+// typically consist of "lxc.some.setting.name = some value". Any
+// occurrences of any setting in lines will be replaced with the value
+// of that setting. Order is preserved. If the value is empty, the
+// setting will be removed if found. Settings that are not found and
+// have values will be appended (also if more values are given than
+// exist).
+//
+// For example, with lines := []string{"lxc.bar=", "lxc.foo = bar",
+// "lxc.foo = baz # xx"}, and existing config file contents like
+// "lxc.foo = off\nlxc.bar = 42", the generated new config file
+// will be "lxc.foo = bar\nlxc.foo = baz # xx\n".
+func replaceContainerConfig(name string, lines []string) error {
+	if len(lines) == 0 {
+		return nil
+	}
+	// Extract unique set of line prefixes to match later. Also, keep
+	// a slice of values to replace for each key, as well as a slice
+	// of parsed prefixes to preserve the order when replacing or
+	// appending.
+	parsedLines := make(map[string][]string)
+	var parsedPrefixes []string
+	for _, line := range lines {
+		prefix, value := parseConfigLine(line)
+		if prefix == "" {
+			// Ignore comments, empty lines, and unknown prefixes.
+			continue
+		}
+		if values, found := parsedLines[prefix]; !found {
+			parsedLines[prefix] = []string{value}
+		} else {
+			values = append(values, value)
+			parsedLines[prefix] = values
+		}
+		parsedPrefixes = append(parsedPrefixes, prefix)
+	}
+
+	path := containerConfigFilename(name)
+	file, err := os.OpenFile(path, os.O_RDWR, 0644)
+	if err != nil {
+		return errors.Annotatef(err, "cannot open config %q for container %q", path, name)
+	}
+	defer file.Close()
+
+	// Read the original config and prepare the output to replace it
+	// with.
+	var output bytes.Buffer
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		prefix, _ := parseConfigLine(line)
+		values, found := parsedLines[prefix]
+		if !found || len(values) == 0 {
+			// No need to change, just preserve.
+			output.WriteString(line + "\n")
+			continue
+		}
+		// We need to change this line. Pop the first value of the
+		// list and set it.
+		var newValue string
+		newValue, values = values[0], values[1:]
+		parsedLines[prefix] = values
+
+		if newValue == "" {
+			logger.Tracef("removing %q from container %q config %q", line, name, path)
+			continue
+		}
+		newLine := prefix + " = " + newValue + "\n"
+		logger.Tracef(
+			"replacing %q with %q in container %q config %q",
+			line, newLine, name, path,
+		)
+		output.WriteString(newLine)
+	}
+	if err := scanner.Err(); err != nil {
+		return errors.Annotatef(err, "cannot read config for container %q", name)
+	}
+
+	// Now process any prefixes with values still left for appending,
+	// in the original order.
+	for _, prefix := range parsedPrefixes {
+		values := parsedLines[prefix]
+		for _, value := range values {
+			if value == "" {
+				// No need to remove what's not there.
+				continue
+			}
+			newLine := prefix + " = " + value + "\n"
+			logger.Tracef("appending %q to container %q config %q", newLine, name, path)
+			output.WriteString(newLine)
+		}
+		// Reset the values, so we only append the once per prefix.
+		parsedLines[prefix] = []string{}
+	}
+
+	// Reset the original file and overwrite it.
+	if _, err := file.Seek(0, os.SEEK_SET); err != nil {
+		return errors.Annotatef(err, "cannot seek config %q for container %q", path, name)
+	}
+	if err := file.Truncate(0); err != nil {
+		return errors.Annotatef(err, "cannot replace config %q for container %q", path, name)
+	}
+	if _, err := output.WriteTo(file); err != nil {
+		return errors.Annotatef(err, "cannot write new config %q for container %q", path, name)
+	}
+	if err := file.Sync(); err != nil {
+		return errors.Annotatef(err, "cannot sync new config %q for container %q", path, name)
+	}
+	return nil
 }
 
 func autostartContainer(name string) error {
@@ -694,6 +835,7 @@ func generateNetworkConfig(config *container.NetworkConfig) string {
 func writeLxcConfig(network *container.NetworkConfig, directory string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
+	logger.Tracef("writing lxc.conf to %q", configFilename)
 	if err := ioutil.WriteFile(configFilename, []byte(networkConfig), 0644); err != nil {
 		return "", err
 	}
