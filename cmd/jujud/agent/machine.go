@@ -634,7 +634,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	// TODO(axw) stop checking feature flag once storage has graduated.
 	if featureflag.Enabled(storage.FeatureFlag) {
 		runner.StartWorker("diskmanager", func() (worker.Worker, error) {
-			logger.Debugf("diskmanager woo")
 			api, err := st.DiskManager()
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -157,15 +157,16 @@ func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUpdatesProvisioned(c *gc.C
 		"0": sda,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	devices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(devices[0].Attached(), jc.IsFalse)
 
-	sda.UUID = "feedface"
 	err = m.SetMachineBlockDevices(sda)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertBlockDevices(c, m, map[string]state.BlockDeviceInfo{
 		"0": sda,
 	})
-
-	devices, err := m.BlockDevices()
+	devices, err = m.BlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devices[0].Attached(), jc.IsTrue)
 }

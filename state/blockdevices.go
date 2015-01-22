@@ -183,7 +183,7 @@ func setMachineBlockDevices(st *State, machineId string, newInfo []BlockDeviceIn
 				if blockDevicesSame(oldInfo, newInfo) {
 					// Merge the two structures by replacing the old document's
 					// BlockDeviceInfo with the new one.
-					if oldInfo != newInfo {
+					if oldInfo != newInfo || !oldDev.doc.Attached {
 						ops = append(ops, txn.Op{
 							C:      blockDevicesC,
 							Id:     oldDev.doc.DocID,

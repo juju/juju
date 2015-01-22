@@ -50,7 +50,7 @@ func (st *State) WatchBlockDevices() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// BlockDevices returns details of block devices with the specified tags.
+// BlockDevices returns details of attached block devices with the specified tags.
 func (st *State) BlockDevices(tags []names.DiskTag) (params.BlockDeviceResults, error) {
 	var result params.BlockDeviceResults
 	args := params.Entities{
