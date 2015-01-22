@@ -130,7 +130,7 @@ type MachineConfig struct {
 	// Series represents the machine series.
 	Series string
 
-	// MachineAgentServiceName is the Upstart service name for the Juju machine agent.
+	// MachineAgentServiceName is the init service name for the Juju machine agent.
 	MachineAgentServiceName string
 
 	// ProxySettings define normal http, https and ftp proxies.

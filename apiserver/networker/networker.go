@@ -30,7 +30,7 @@ type NetworkerAPI struct {
 	getAuthFunc common.GetAuthFunc
 }
 
-// NewNetworkerAPI creates a new client-side Networker API facade.
+// NewNetworkerAPI creates a new server-side Networker API facade.
 func NewNetworkerAPI(
 	st *state.State,
 	resources *common.Resources,

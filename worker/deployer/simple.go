@@ -43,8 +43,8 @@ type SimpleContext struct {
 	// running the deployer.
 	agentConfig agent.Config
 
-	// initDir specifies the directory used by upstart on the local system.
-	// It is typically set to "/etc/init".
+	// initDir specifies the directory used by init on the local system.
+	// For upstart, it is typically set to "/etc/init".
 	initDir string
 }
 
@@ -134,7 +134,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 	defer removeOnErr(&err, conf.Dir())
 
-	// Install an upstart job that runs the unit agent.
+	// Install an init service that runs the unit agent.
 	logPath := path.Join(logDir, tag.String()+".log")
 	cmd := strings.Join([]string{
 		filepath.FromSlash(path.Join(toolsDir, jujunames.Jujud)), "unit",

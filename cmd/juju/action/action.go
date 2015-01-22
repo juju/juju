@@ -15,10 +15,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 )
 
-// FeatureFlag is the name of the feature for the JUJU_DEV_FEATURE_FLAGS
-// envar.  Add this string to the envar to enable this action command.
-const FeatureFlag string = "action"
-
 var actionDoc = `
 "juju action" executes and manages actions on units; it queues up new actions,
 monitors the status of the running actions, and retrieves the results of the

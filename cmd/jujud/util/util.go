@@ -96,7 +96,7 @@ func AgentDone(logger loggo.Logger, err error) error {
 	}
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
-			// Return and let upstart deal with the restart.
+			// Return and let the init system deal with the restart.
 			err = errors.Annotate(err, "cannot change agent tools")
 			logger.Infof(err.Error())
 			return err
@@ -116,12 +116,17 @@ type Pinger interface {
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(logger loggo.Logger, conn Pinger) func(err error) bool {
+func ConnectionIsFatal(logger loggo.Logger, conns ...Pinger) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
 		}
-		return ConnectionIsDead(logger, conn)
+		for _, conn := range conns {
+			if ConnectionIsDead(logger, conn) {
+				return true
+			}
+		}
+		return false
 	}
 }
 

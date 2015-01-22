@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/action"
 	cmdtesting "github.com/juju/juju/cmd/testing"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -255,12 +255,11 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	copy(commandNamesWithoutAction, commandNames[:index])
 	commandNamesWithoutAction = append(commandNamesWithoutAction, commandNames[index+1:]...)
 
-	// 1. Default Commands. Disable all features.
-	setFeatureFlags("")
+	// 1. Default Commands. All features are initially disabled.
 	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNamesWithoutAction)
 
 	// 2. Enable Action feature, and test again.
-	setFeatureFlags(action.FeatureFlag)
+	s.SetFeatureFlags(feature.Actions)
 	c.Assert(getHelpCommandNames(c), jc.DeepEquals, commandNames)
 }
 

@@ -806,6 +806,20 @@ func (s *loginSuite) TestStateServerEnvironment(c *gc.C) {
 	s.assertRemoteEnvironment(c, st, s.State.EnvironTag())
 }
 
+func (s *loginSuite) TestStateServerEnvironmentBadCreds(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	c.Assert(info.EnvironTag, gc.Equals, s.State.EnvironTag())
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	adminUser := s.AdminUserTag(c)
+	err = st.Login(adminUser.String(), "bad-password", "")
+	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
+}
+
 func (s *loginSuite) TestNonExistentEnvironment(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
@@ -875,11 +889,8 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 	defer envState.Close()
 
 	f2 := factory.NewFactory(envState)
-	password, err := utils.RandomPassword()
-	c.Assert(err, jc.ErrorIsNil)
-	machine := f2.MakeMachine(c, &factory.MachineParams{
-		Password: password,
-		Nonce:    "nonce",
+	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Nonce: "nonce",
 	})
 
 	info.EnvironTag = envState.EnvironTag()
@@ -889,6 +900,42 @@ func (s *loginSuite) TestMachineLoginOtherEnvironment(c *gc.C) {
 
 	err = st.Login(machine.Tag().String(), password, "nonce")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestOtherEnvironmentFromStateServer(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	machine, password := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+
+	envState := s.Factory.MakeEnvironment(c, nil)
+	defer envState.Close()
+	info.EnvironTag = envState.EnvironTag()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.Login(machine.Tag().String(), password, "nonce")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *loginSuite) TestOtherEnvironmentWhenNotStateServer(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+
+	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
+
+	envState := s.Factory.MakeEnvironment(c, nil)
+	defer envState.Close()
+	info.EnvironTag = envState.EnvironTag()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, jc.ErrorIsNil)
+	defer st.Close()
+
+	err = st.Login(machine.Tag().String(), password, "nonce")
+	c.Assert(err, gc.ErrorMatches, `invalid entity name or password`)
 }
 
 func (s *loginSuite) assertRemoteEnvironment(c *gc.C, st *api.State, expected names.EnvironTag) {
