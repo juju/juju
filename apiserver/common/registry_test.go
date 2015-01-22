@@ -49,9 +49,25 @@ func (*facadeRegistrySuite) TestGetFactoryUnknown(c *gc.C) {
 	c.Check(f, gc.IsNil)
 }
 
+func (s *facadeRegistrySuite) TestRegisterForFeature(c *gc.C) {
+	common.SanitizeFacades(s)
+	var v interface{}
+	common.RegisterFacadeForFeature("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem(), "magic")
+	f, err := common.Facades.GetFactory("myfacade", 0)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+
+	s.SetFeatureFlags("magic")
+
+	f, err = common.Facades.GetFactory("myfacade", 0)
+	c.Assert(err, jc.ErrorIsNil)
+	val, err := f(nil, nil, nil, "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(val, gc.Equals, "myobject")
+}
+
 func (*facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
 	f, err := r.GetFactory("name", 1)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
@@ -246,7 +262,7 @@ func (*facadeRegistrySuite) TestDescriptionFromVersionsAreSorted(c *gc.C) {
 
 func (*facadeRegistrySuite) TestRegisterAndList(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
 	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{0}},
 	})
@@ -254,10 +270,10 @@ func (*facadeRegistrySuite) TestRegisterAndList(c *gc.C) {
 
 func (*facadeRegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("other", 0, validIdFactory, intPtrType), gc.IsNil)
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
-	c.Assert(r.Register("third", 2, validIdFactory, intPtrType), gc.IsNil)
-	c.Assert(r.Register("third", 3, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("other", 0, validIdFactory, intPtrType, ""), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
+	c.Assert(r.Register("third", 2, validIdFactory, intPtrType, ""), gc.IsNil)
+	c.Assert(r.Register("third", 3, validIdFactory, intPtrType, ""), gc.IsNil)
 	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{0}},
 		{Name: "other", Versions: []int{0}},
@@ -265,15 +281,29 @@ func (*facadeRegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	})
 }
 
+func (s *facadeRegistrySuite) TestRegisterAndListMultipleWithFeatures(c *gc.C) {
+	r := &common.FacadeRegistry{}
+	c.Assert(r.Register("other", 0, validIdFactory, intPtrType, "special"), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
+	c.Assert(r.Register("name", 1, validIdFactory, intPtrType, "special"), gc.IsNil)
+	c.Assert(r.Register("third", 2, validIdFactory, intPtrType, ""), gc.IsNil)
+	c.Assert(r.Register("third", 3, validIdFactory, intPtrType, "magic"), gc.IsNil)
+	s.SetFeatureFlags("magic")
+	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
+		{Name: "name", Versions: []int{0}},
+		{Name: "third", Versions: []int{2, 3}},
+	})
+}
+
 func (*facadeRegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	err := r.Register("name", 0, validIdFactory, intPtrType)
+	err := r.Register("name", 0, validIdFactory, intPtrType, "")
 	c.Assert(err, jc.ErrorIsNil)
 	secondIdFactory := func(*state.State, *common.Resources, common.Authorizer, string) (interface{}, error) {
 		var i = 200
 		return &i, nil
 	}
-	err = r.Register("name", 0, secondIdFactory, intPtrType)
+	err = r.Register("name", 0, secondIdFactory, intPtrType, "")
 	c.Check(err, gc.ErrorMatches, `object "name\(0\)" already registered`)
 	f, err := r.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,7 +316,7 @@ func (*facadeRegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 
 func (*facadeRegistrySuite) TestGetFactory(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
 	f, err := r.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f, gc.NotNil)
@@ -299,7 +329,7 @@ func (*facadeRegistrySuite) TestGetFactory(c *gc.C) {
 
 func (*facadeRegistrySuite) TestGetType(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
 	typ, err := r.GetType("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(typ, gc.Equals, intPtrType)
@@ -312,7 +342,7 @@ func (*facadeRegistrySuite) TestDiscardHandlesNotPresent(c *gc.C) {
 
 func (*facadeRegistrySuite) TestDiscardRemovesEntry(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
 	_, err := r.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	r.Discard("name", 0)
@@ -325,8 +355,8 @@ func (*facadeRegistrySuite) TestDiscardRemovesEntry(c *gc.C) {
 
 func (*facadeRegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
-	c.Assert(r.Register("name", 1, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType, ""), gc.IsNil)
+	c.Assert(r.Register("name", 1, validIdFactory, intPtrType, ""), gc.IsNil)
 	r.Discard("name", 0)
 	_, err := r.GetFactory("name", 0)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)

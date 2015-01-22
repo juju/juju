@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/state"
 )
@@ -25,11 +26,21 @@ type FacadeFactory func(
 type facadeRecord struct {
 	factory    FacadeFactory
 	facadeType reflect.Type
+	// If the feature is not the empty string, then this facade
+	// is only returned when that feature flag is set.
+	feature string
 }
 
 // RegisterFacade updates the global facade registry with a new version of a new type.
 func RegisterFacade(name string, version int, factory FacadeFactory, facadeType reflect.Type) {
-	err := Facades.Register(name, version, factory, facadeType)
+	RegisterFacadeForFeature(name, version, factory, facadeType, "")
+}
+
+// RegisterFacadeForFeature updates the global facade registry with a new
+// version of a new type. If the feature is non-empty, this facade is only
+// available when the specified feature flag is set.
+func RegisterFacadeForFeature(name string, version int, factory FacadeFactory, facadeType reflect.Type, feature string) {
+	err := Facades.Register(name, version, factory, facadeType, feature)
 	if err != nil {
 		// This is meant to be called during init() so errors should be
 		// considered fatal.
@@ -113,11 +124,22 @@ func wrapNewFacade(newFunc interface{}) (FacadeFactory, reflect.Type, error) {
 // With that syntax, we will create a helper function that wraps calling NewFoo
 // with the right parameters, and returns the *Type correctly.
 func RegisterStandardFacade(name string, version int, newFunc interface{}) {
+	RegisterStandardFacadeForFeature(name, version, newFunc, "")
+}
+
+// RegisterStandardFacadeForFeature registers a factory function for a normal
+// New* style function. This requires that the function has the form:
+// NewFoo(*state.State, *common.Resources, common.Authorizer) (*Type, error)
+// With that syntax, we will create a helper function that wraps calling
+// NewFoo with the right parameters, and returns the *Type correctly. If the
+// feature is non-empty, this facade is only available when the specified
+// feature flag is set.
+func RegisterStandardFacadeForFeature(name string, version int, newFunc interface{}, feature string) {
 	wrapped, facadeType, err := wrapNewFacade(newFunc)
 	if err != nil {
 		panic(err)
 	}
-	RegisterFacade(name, version, wrapped, facadeType)
+	RegisterFacadeForFeature(name, version, wrapped, facadeType, feature)
 }
 
 // Facades is the registry that tracks all of the Facades that will be exposed in the API.
@@ -144,13 +166,14 @@ type FacadeRegistry struct {
 // this facade, and facadeType defines the concrete type that the returned object will be.
 // The Type information is used to define what methods will be exported in the
 // API, and it must exactly match the actual object returned by the factory.
-func (f *FacadeRegistry) Register(name string, version int, factory FacadeFactory, facadeType reflect.Type) error {
+func (f *FacadeRegistry) Register(name string, version int, factory FacadeFactory, facadeType reflect.Type, feature string) error {
 	if f.facades == nil {
 		f.facades = make(map[string]versions, 1)
 	}
 	record := facadeRecord{
 		factory:    factory,
 		facadeType: facadeType,
+		feature:    feature,
 	}
 	if vers, ok := f.facades[name]; ok {
 		if _, ok := vers[version]; ok {
@@ -168,7 +191,9 @@ func (f *FacadeRegistry) Register(name string, version int, factory FacadeFactor
 func (f *FacadeRegistry) lookup(name string, version int) (facadeRecord, error) {
 	if versions, ok := f.facades[name]; ok {
 		if record, ok := versions[version]; ok {
-			return record, nil
+			if featureflag.Enabled(record.feature) {
+				return record, nil
+			}
 		}
 	}
 	return facadeRecord{}, errors.NotFoundf("%s(%d)", name, version)
@@ -188,6 +213,7 @@ func (f *FacadeRegistry) GetFactory(name string, version int) (FacadeFactory, er
 // This can be used for introspection purposes (to determine what methods are
 // available, etc).
 func (f *FacadeRegistry) GetType(name string, version int) (reflect.Type, error) {
+	logger.Debugf("GetType: %s, %d", name, version)
 	record, err := f.lookup(name, version)
 	if err != nil {
 		return nil, err
@@ -206,8 +232,10 @@ type FacadeDescription struct {
 // more friendly form for List().
 func descriptionFromVersions(name string, vers versions) FacadeDescription {
 	intVersions := make([]int, 0, len(vers))
-	for version := range vers {
-		intVersions = append(intVersions, version)
+	for version, record := range vers {
+		if featureflag.Enabled(record.feature) {
+			intVersions = append(intVersions, version)
+		}
 	}
 	sort.Ints(intVersions)
 	return FacadeDescription{
@@ -223,10 +251,13 @@ func (f *FacadeRegistry) List() []FacadeDescription {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	descriptions := make([]FacadeDescription, len(f.facades))
-	for i, name := range names {
+	descriptions := make([]FacadeDescription, 0, len(f.facades))
+	for _, name := range names {
 		facades := f.facades[name]
-		descriptions[i] = descriptionFromVersions(name, facades)
+		description := descriptionFromVersions(name, facades)
+		if len(description.Versions) > 0 {
+			descriptions = append(descriptions, description)
+		}
 	}
 	return descriptions
 }
