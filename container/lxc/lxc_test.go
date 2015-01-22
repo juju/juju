@@ -355,7 +355,8 @@ lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 		"lxc.rootfs = /foo/bar",                  // replace first "rootfs".
 		"lxc.rootfs = /bar/foo",                  // append new.
 	}
-	replacedConf := `
+	newConfig := strings.Join(linesToReplace, "\n")
+	updatedConfig := `
 # network config
 # interface "eth0"
 lxc.network.type = bar
@@ -386,11 +387,35 @@ lxc.network.hwaddr = nonsense
 lxc.missing = appended
 lxc.rootfs = /bar/foo
 `
-	err = lxc.ReplaceContainerConfig(name, linesToReplace)
+	err = lxc.ReplaceContainerConfig(name, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	lxcConfContents, err = ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(lxcConfContents), gc.Equals, replacedConf)
+	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
+
+	// Now test the example in replaceContainerConfig's doc string.
+	oldConfig := `
+lxc.foo = off
+
+lxc.bar=42
+`
+	newConfig = `
+lxc.bar=
+lxc.foo = bar
+lxc.foo = baz # xx
+`
+	updatedConfig = `
+lxc.foo = bar
+
+lxc.foo = baz
+`
+	err = ioutil.WriteFile(configPath, []byte(oldConfig), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = lxc.ReplaceContainerConfig(name, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	lxcConfContents, err = ioutil.ReadFile(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
 }
 
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {

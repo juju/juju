@@ -263,8 +263,8 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Annotate(err, "lxc container cloning failed")
 		}
 		// Update the network config of the newly cloned container.
-		lines := strings.Split(generateNetworkConfig(network), "\n")
-		if err := replaceContainerConfig(name, lines); err != nil {
+		networkConfig := generateNetworkConfig(network)
+		if err := replaceContainerConfig(name, networkConfig); err != nil {
 			return nil, nil, errors.Annotate(err, "failed to update network config")
 		}
 	} else {
@@ -450,20 +450,21 @@ func parseConfigLine(line string) (setting, value string) {
 	return setting, value
 }
 
-// replaceContainerConfig replaces all lines in the config file of the
-// container with the given name with the contents of lines. Lines
-// typically consist of "lxc.some.setting.name = some value". Any
+// replaceContainerConfig replaces all lines in the current config
+// file of the container with the given name with the contents of
+// newConfig. First, newConfig is split into multiple lines. Then any
 // occurrences of any setting in lines will be replaced with the value
 // of that setting. Order is preserved. If the value is empty, the
 // setting will be removed if found. Settings that are not found and
 // have values will be appended (also if more values are given than
 // exist).
 //
-// For example, with lines := []string{"lxc.bar=", "lxc.foo = bar",
-// "lxc.foo = baz # xx"}, and existing config file contents like
-// "lxc.foo = off\nlxc.bar = 42", the generated new config file
-// will be "lxc.foo = bar\nlxc.foo = baz # xx\n".
-func replaceContainerConfig(name string, lines []string) error {
+// For example, with existing config like "lxc.foo = off\nlxc.bar=42\n",
+// and newConfig like "lxc.bar=\nlxc.foo = bar\nlxc.foo = baz # xx",
+// the updated config file contains "lxc.foo = bar\nlxc.foo = baz\n".
+// TestReplaceContainerConfig has this example in code.
+func replaceContainerConfig(name, newConfig string) error {
+	lines := strings.Split(newConfig, "\n")
 	if len(lines) == 0 {
 		return nil
 	}
