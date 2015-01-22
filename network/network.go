@@ -6,6 +6,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	"github.com/juju/loggo"
 )
@@ -128,6 +129,21 @@ type InterfaceInfo struct {
 	// inside an "iface" section of a interfaces(5) config file, e.g.
 	// "up", "down", "mtu", etc.
 	ExtraConfig map[string]string
+}
+
+type interfaceInfoSlice []InterfaceInfo
+
+func (s interfaceInfoSlice) Len() int      { return len(s) }
+func (s interfaceInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s interfaceInfoSlice) Less(i, j int) bool {
+	iface1 := s[i]
+	iface2 := s[j]
+	return iface1.DeviceIndex < iface2.DeviceIndex
+}
+
+// Sort a slice of InterfaceInfo on DeviceIndex
+func SortInterfaceInfo(interfaces []InterfaceInfo) {
+	sort.Sort(interfaceInfoSlice(interfaces))
 }
 
 // ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and
