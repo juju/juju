@@ -26,9 +26,14 @@ type EnsureAvailabilitySuite struct {
 	fake *fakeHAClient
 }
 
+// Initialize numStateServers to an invalid number to validate
+// that ensure-availability doesn't call into the API when its
+// pre-checks fail.
+const invalidNumServers = -2
+
 func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.fake = &fakeHAClient{numStateServers: -2}
+	s.fake = &fakeHAClient{numStateServers: invalidNumServers}
 }
 
 type fakeHAClient struct {
@@ -52,8 +57,12 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 	f.series = series
 	f.placement = placement
 
-	if numStateServers <= 1 {
+	if f.err != nil {
 		return f.result, f.err
+	}
+
+	if numStateServers <= 1 {
+		return f.result, nil
 	}
 
 	// If numStateServers > 1, we need to pretend that we added some machines
@@ -62,7 +71,7 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 		f.result.Added = append(f.result.Added, fmt.Sprintf("machine-%d", i))
 	}
 
-	return f.result, f.err
+	return f.result, nil
 }
 
 var _ = gc.Suite(&EnsureAvailabilitySuite{})
@@ -185,7 +194,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 		c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and non-negative")
 	}
 
-	c.Assert(s.fake.numStateServers, gc.Equals, -2)
+	// Verify that ensure-availability didn't call into the API
+	c.Assert(s.fake.numStateServers, gc.Equals, invalidNumServers)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {

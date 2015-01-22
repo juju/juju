@@ -11,6 +11,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // EnvironmentSuite tests the connectivity of all the environment subcommands.
@@ -76,25 +77,14 @@ func (s *EnvironmentSuite) TestUnset(c *gc.C) {
 func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
 	// Add a state server to the environment, and ensure that it is
 	// considered 'alive' so that calls don't spawn new instances
-	_, err := s.State.AddMachine("precise", state.JobManageEnviron)
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.BackingState.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	machine0Pinger, err := m.SetAgentPresence()
-	c.Assert(err, jc.ErrorIsNil)
-	s.BackingState.StartSync()
-	err = m.WaitAgentPresence(testing.LongWait)
-	c.Assert(err, jc.ErrorIsNil)
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
 
 	ctx, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals,
-		"maintaining machines: 0\n"+
-			"adding machines: 1, 2\n\n")
-
-	if machine0Pinger != nil {
-		machine0Pinger.Kill()
-		machine0Pinger = nil
-	}
+		"adding machines: 1, 2, 3\n"+
+			"demoting machines 0\n\n")
 
 }
