@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	uniterstorage "github.com/juju/juju/worker/uniter/storage"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -72,6 +73,7 @@ type Uniter struct {
 	f         filter.Filter
 	unit      *uniter.Unit
 	relations Relations
+	storage   Storage
 
 	deployer          *deployerProxy
 	operationFactory  operation.Factory
@@ -191,6 +193,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return errors.Annotatef(err, "cannot create relations")
 	}
 	u.relations = relations
+	storage, err := uniterstorage.NewStorage(u.st, unitTag, u.tomb.Dying())
+	if err != nil {
+		return errors.Annotatef(err, "cannot create storage")
+	}
+	u.storage = storage
 
 	deployer, err := charm.NewDeployer(
 		u.paths.State.CharmDir,

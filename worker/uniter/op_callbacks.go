@@ -49,6 +49,9 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 	if hi.Kind.IsRelation() {
 		return opc.u.relations.PrepareHook(hi)
 	}
+	if hi.Kind.IsStorage() {
+		return opc.u.storage.PrepareHook(hi)
+	}
 	return string(hi.Kind), nil
 }
 
@@ -56,6 +59,9 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 	if hi.Kind.IsRelation() {
 		return opc.u.relations.CommitHook(hi)
+	}
+	if hi.Kind.IsStorage() {
+		return opc.u.storage.CommitHook(hi)
 	}
 	if hi.Kind == hooks.ConfigChanged {
 		opc.u.ranConfigChanged = true

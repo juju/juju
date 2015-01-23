@@ -54,6 +54,10 @@ type Filter interface {
 	// relations whose Life status has changed.
 	RelationsEvents() <-chan []int
 
+	// StorageEvents returns a channel that will receive the ids of the unit's storage
+	// instances when they change.
+	StorageEvents() <-chan []string
+
 	// WantUpgradeEvent controls whether the filter will generate upgrade
 	// events for unforced service charm changes.
 	WantUpgradeEvent(mustForce bool)
