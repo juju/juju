@@ -1,7 +1,7 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package relation
+package hook
 
 import (
 	"launchpad.net/tomb"
@@ -9,19 +9,18 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker/uniter/hook"
 )
 
-// HookSender maintains a HookSource and delivers its hooks via a channel.
-type HookSender interface {
+// Sender maintains a Source and delivers its hooks via a channel.
+type Sender interface {
 	Stop() error
 }
 
-// NewHookSender starts sending hooks from source onto the out channel, and will
-// continue to do so until Stop()ped (or the source is exhausted). NewHookSender
+// NewSender starts sending hooks from source onto the out channel, and will
+// continue to do so until Stop()ped (or the source is exhausted). NewSender
 // takes ownership of the supplied source, and responsibility for cleaning it up;
 // but it will not close the out channel.
-func NewHookSender(out chan<- hook.Info, source HookSource) HookSender {
+func NewSender(out chan<- Info, source Source) Sender {
 	sender := &hookSender{
 		out: out,
 	}
@@ -33,13 +32,13 @@ func NewHookSender(out chan<- hook.Info, source HookSource) HookSender {
 	return sender
 }
 
-// hookSender implements HookSender.
+// hookSender implements Sender.
 type hookSender struct {
 	tomb tomb.Tomb
-	out  chan<- hook.Info
+	out  chan<- Info
 }
 
-// Stop stops the HookSender and returns any errors encountered during
+// Stop stops the Sender and returns any errors encountered during
 // operation or while shutting down.
 func (sender *hookSender) Stop() error {
 	sender.tomb.Kill(nil)
@@ -49,9 +48,9 @@ func (sender *hookSender) Stop() error {
 // loop synchronously delivers the source's change events to its update method,
 // and, whenever the source is nonempty, repeatedly sends its first scheduled
 // event on the out chan (and pops it from the source).
-func (sender *hookSender) loop(source HookSource) error {
-	var next hook.Info
-	var out chan<- hook.Info
+func (sender *hookSender) loop(source Source) error {
+	var next Info
+	var out chan<- Info
 	for {
 		if source.Empty() {
 			out = nil
@@ -68,7 +67,7 @@ func (sender *hookSender) loop(source HookSource) error {
 			if !ok {
 				return errors.New("hook source stopped providing updates")
 			}
-			if err := source.Update(change); err != nil {
+			if err := change.Apply(); err != nil {
 				return errors.Trace(err)
 			}
 		}

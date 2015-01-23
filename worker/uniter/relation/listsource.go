@@ -8,7 +8,7 @@ import (
 )
 
 type listSource struct {
-	NoUpdates
+	hook.NoUpdates
 	hooks []hook.Info
 }
 
@@ -18,21 +18,21 @@ func (q *listSource) Empty() bool {
 
 func (q *listSource) Next() hook.Info {
 	if q.Empty() {
-		panic("HookSource is empty")
+		panic("source is empty")
 	}
 	return q.hooks[0]
 }
 
 func (q *listSource) Pop() {
 	if q.Empty() {
-		panic("HookSource is empty")
+		panic("source is empty")
 	}
 	q.hooks = q.hooks[1:]
 }
 
-// NewListSource returns a HookSource that generates only the supplied hooks, in
+// NewListSource returns a Source that generates only the supplied hooks, in
 // order; and which cannot be updated.
-func NewListSource(list []hook.Info) HookSource {
+func NewListSource(list []hook.Info) hook.Source {
 	source := &listSource{hooks: make([]hook.Info, len(list))}
 	copy(source.hooks, list)
 	return source

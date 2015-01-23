@@ -37,7 +37,7 @@ type Peek interface {
 
 // NewPeeker returns a new Peeker providing a view of the supplied source
 // (of which it takes ownership).
-func NewPeeker(source HookSource) Peeker {
+func NewPeeker(source hook.Source) Peeker {
 	p := &peeker{
 		peeks: make(chan Peek),
 	}
@@ -69,7 +69,7 @@ func (p *peeker) Stop() error {
 
 // loop delivers events from the source's Changes channel to its Update method,
 // continually, unless a Peek is active.
-func (p *peeker) loop(source HookSource) error {
+func (p *peeker) loop(source hook.Source) error {
 	for {
 		var next *peek
 		var peeks chan Peek
@@ -92,7 +92,7 @@ func (p *peeker) loop(source HookSource) error {
 			if !ok {
 				return errors.New("hook source stopped providing updates")
 			}
-			if err := source.Update(change); err != nil {
+			if err := change.Apply(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -101,7 +101,7 @@ func (p *peeker) loop(source HookSource) error {
 
 // peek implements Peek.
 type peek struct {
-	source HookSource
+	source hook.Source
 	done   chan struct{}
 }
 

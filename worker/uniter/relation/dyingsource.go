@@ -14,7 +14,7 @@ import (
 // NewDyingHookSource returns a new HookSource that generates all hooks
 // necessary to clean up the supplied initial relation hook state, while
 // preserving the guarantees Juju makes about hook execution order.
-func NewDyingHookSource(initial *State) HookSource {
+func NewDyingHookSource(initial *State) hook.Source {
 	var list []hook.Info
 
 	// Honour any expected relation-changed hook.
