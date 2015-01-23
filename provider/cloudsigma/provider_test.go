@@ -8,9 +8,10 @@ import (
 	"io"
 	"testing"
 
-	tt "github.com/juju/juju/testing"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+
+	tt "github.com/juju/juju/testing"
 )
 
 var live = flag.Bool("live", false, "run tests on live CloudSigma account")

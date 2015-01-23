@@ -7,9 +7,11 @@ import (
 	"fmt"
 
 	"github.com/Altoros/gosigma"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/environs/config"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to
@@ -116,7 +118,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	}
 	for field := range configFields {
 		if newAttrs[field] == "" {
-			return nil, fmt.Errorf("%s: must not be empty", field)
+			return nil, errors.Errorf("rs: must not be empty", field)
 		}
 	}
 
@@ -124,7 +126,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	if old != nil {
 		for _, field := range configImmutableFields {
 			if old.attrs[field] != newAttrs[field] {
-				return nil, fmt.Errorf(
+				return nil, errors.Errorf(
 					"%s: cannot change from %v to %v",
 					field, old.attrs[field], newAttrs[field],
 				)
@@ -145,7 +147,6 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 
 	return ecfg, nil
 }
-
 
 // configChanged checks if CloudSigma client environment configuration is changed
 func (c environConfig) clientConfigChanged(newConfig *environConfig) bool {

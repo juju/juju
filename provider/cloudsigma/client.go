@@ -5,24 +5,23 @@ package cloudsigma
 
 import (
 	"encoding/base64"
-	"fmt"
-	"strings"
 
 	"github.com/Altoros/gosigma"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	ar "github.com/juju/juju/juju/arch"
-	"github.com/juju/loggo"
-	"github.com/juju/utils"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
-// This file contains implementation of CloudSigma client.
 type environClient struct {
-	conn    *gosigma.Client
-	uuid    string
-	storage *environStorage
-	config  *environConfig
+	conn   *gosigma.Client
+	uuid   string
+	config *environConfig
 }
 
 type tracer struct{}
@@ -35,16 +34,15 @@ func (tracer) Logf(format string, args ...interface{}) {
 var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	uuid, ok := cfg.UUID()
 	if !ok {
-		return nil, fmt.Errorf("Environ uuid must not be empty")
+		return nil, errors.New("Environ uuid must not be empty")
 	}
 
-	logger.Debugf("creating CloudSigma client: region=%s, user=%s, password=%s, name=%q",
-		cfg.region(), cfg.username(), strings.Repeat("*", len(cfg.password())), uuid)
+	logger.Debugf("creating CloudSigma client: id=%q", uuid)
 
 	// create connection to CloudSigma
 	conn, err := gosigma.NewClient(cfg.region(), cfg.username(), cfg.password(), nil)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// configure trace logger
@@ -58,7 +56,7 @@ var newClient = func(cfg *environConfig) (client *environClient, err error) {
 		config: cfg,
 	}
 
-	return
+	return client, nil
 }
 
 const (
@@ -85,7 +83,7 @@ func (c *environClient) isMyServer(s gosigma.Server) bool {
 	return false
 }
 
-// this function is used to filter servers in the CloudSigma account
+// isMyStateServer is used to filter servers in the CloudSigma account
 func (c environClient) isMyStateServer(s gosigma.Server) bool {
 	if v, ok := s.Get(jujuMetaInstance); ok && v == jujuMetaInstanceStateServer {
 		return c.isMyEnvironment(s)
@@ -93,7 +91,7 @@ func (c environClient) isMyStateServer(s gosigma.Server) bool {
 	return false
 }
 
-// instances returns a list of CloudSigma servers
+// instances returns a list of CloudSigma servers for this environment
 func (c *environClient) instances() ([]gosigma.Server, error) {
 	return c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyServer)
 }
@@ -113,51 +111,39 @@ func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	return m, nil
 }
 
-// returns address of the state server.
-// this function is used when we move storage from local temporary storage to remote storage, that is located on the state server
-func (c *environClient) stateServerAddress() (string, string, bool) {
-	logger.Debugf("query state...")
+//getStateServerIds get list of ids for all state server instances
+func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
+	logger.Tracef("query state...")
 
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyStateServer)
 	if err != nil {
-		return "", "", false
+		return []instance.Id{}, err
 	}
 
-	logger.Debugf("...servers count: %d", len(servers))
-	if logger.LogLevel() <= loggo.TRACE {
-		for _, s := range servers {
-			logger.Tracef("... %s", s)
-		}
+	if len(servers) == 0 {
+		return []instance.Id{}, environs.ErrNotBootstrapped
 	}
 
-	for _, s := range servers {
-		if s.Status() != gosigma.ServerRunning {
-			continue
-		}
-		if addrs := s.IPv4(); len(addrs) != 0 {
-			return s.UUID(), addrs[0], true
-		}
+	ids = make([]instance.Id, len(servers))
+
+	for i, server := range servers {
+		logger.Tracef("State server id: %s", server.UUID())
+		ids[i] = instance.Id(server.UUID())
 	}
 
-	return "", "", false
+	return ids, nil
 }
 
-// stop instance
+//stopInstance stops the CloudSigma server corresponding to the given instance ID.
 func (c *environClient) stopInstance(id instance.Id) error {
 	uuid := string(id)
 	if uuid == "" {
-		return fmt.Errorf("invalid instance id")
+		return errors.New("invalid instance id")
 	}
-
-	var err error
 
 	s, err := c.conn.Server(uuid)
 	if err != nil {
 		return err
-	}
-
-	if c.storage != nil && c.isMyStateServer(s) {
-		c.storage.onStateInstanceStop(uuid)
 	}
 
 	err = s.StopWait()
@@ -169,10 +155,10 @@ func (c *environClient) stopInstance(id instance.Id) error {
 	return nil
 }
 
-// start new instance
+//newInstance creates and starts new instance
 func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata, userData []byte) (srv gosigma.Server, drv gosigma.Drive, arch string, err error) {
 
-	cleanup := func() {
+	defer func() {
 		if err == nil {
 			return
 		}
@@ -183,59 +169,57 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		}
 		srv = nil
 		drv = nil
-	}
-	defer cleanup()
+	}()
 
 	if args.MachineConfig == nil {
-		err = fmt.Errorf("invalid configuration for new instance")
-		return
+		err = errors.New("invalid configuration for new instance: MachineConfig is nil")
+		return nil, nil, "", err
 	}
 
-	logger.Tracef("Tools: %v", args.Tools.URLs())
-	logger.Tracef("Juju Constraints:" + args.Constraints.String())
-	logger.Tracef("MachineConfig: %#v", args.MachineConfig)
+	logger.Debugf("Tools: %v", args.Tools.URLs())
+	logger.Debugf("Juju Constraints:" + args.Constraints.String())
+	logger.Debugf("MachineConfig: %#v", args.MachineConfig)
 
-	constraints, err := newConstraints(args.MachineConfig.Bootstrap,
-		args.Constraints, img)
+	constraints, err := newConstraints(args.MachineConfig.Bootstrap, args.Constraints, img)
 	if err != nil {
-		return
+		return nil, nil, "", err
 	}
 	logger.Debugf("CloudSigma Constraints: %v", constraints)
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
 	if err != nil {
-		err = fmt.Errorf("query drive template: %v", err)
-		return
+		err = errors.Errorf("query drive template: %v", err)
+		return nil, nil, "", err
 	}
 
 	baseName := "juju-" + c.uuid + "-" + args.MachineConfig.MachineId
 
 	cloneParams := gosigma.CloneParams{Name: baseName}
 	if drv, err = originalDrive.CloneWait(cloneParams, nil); err != nil {
-		err = fmt.Errorf("error cloning drive: %v", err)
-		return
+		err = errors.Errorf("error cloning drive: %v", err)
+		return nil, nil, "", err
 	}
 
 	if drv.Size() < constraints.driveSize {
 		if err = drv.ResizeWait(constraints.driveSize); err != nil {
-			err = fmt.Errorf("error resizing drive: %v", err)
-			return
+			err = errors.Errorf("error resizing drive: %v", err)
+			return nil, nil, "", err
 		}
 	}
 
 	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv, userData)
 	if err != nil {
-		return
+		return nil, nil, "", err
 	}
 
 	if srv, err = c.conn.CreateServer(cc); err != nil {
-		err = fmt.Errorf("error creating new instance: %v", err)
-		return
+		err = errors.Errorf("error creating new instance: %v", err)
+		return nil, nil, "", err
 	}
 
 	if err = srv.Start(); err != nil {
-		err = fmt.Errorf("error booting new instance: %v", err)
-		return
+		err = errors.Errorf("error booting new instance: %v", err)
+		return nil, nil, "", err
 	}
 
 	// populate root drive hardware characteristics
@@ -245,10 +229,10 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	case "32":
 		arch = ar.I386
 	default:
-		err = fmt.Errorf("unknown arch: %v", arch)
+		err = errors.Errorf("unknown arch: %v", arch)
 	}
 
-	return
+	return srv, drv, arch, nil
 }
 
 func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive, userData []byte) (cc gosigma.Components, err error) {
@@ -260,7 +244,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 
 	vncpass, err := utils.RandomPassword()
 	if err != nil {
-		err = fmt.Errorf("error generating password: %v", err)
+		err = errors.Errorf("error generating password: %v", err)
 		return
 	}
 	cc.SetVNCPassword(vncpass)
@@ -269,7 +253,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	cc.AttachDrive(1, "0:0", "virtio", drv.UUID())
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 
-	if args.MachineConfig.Bootstrap {
+	if multiwatcher.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceStateServer)
 	} else {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceServer)
@@ -278,10 +262,10 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	cc.SetMeta(jujuMetaEnvironment, c.uuid)
 	data, err := utils.Gunzip(userData)
 	if err != nil {
-		return
+		return cc, err
 	}
 	cc.SetMeta(jujuMetaCoudInit, base64.StdEncoding.EncodeToString(data))
 	cc.SetMeta(jujuMetaBase64, jujuMetaCoudInit)
 
-	return
+	return cc, nil
 }

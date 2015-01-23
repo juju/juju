@@ -4,13 +4,12 @@
 package cloudsigma
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/Altoros/gosigma"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -33,7 +32,6 @@ type environ struct {
 
 	ecfg                   *environConfig
 	client                 *environClient
-	storage                *environStorage
 	supportedArchitectures []string
 }
 
@@ -70,13 +68,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 			return err
 		}
 
-		storage, err := newStorage(ecfg, client)
-		if err != nil {
-			return err
-		}
-
 		env.client = client
-		env.storage = storage
 	}
 
 	env.ecfg = ecfg
@@ -93,7 +85,7 @@ func (env *environ) Config() *config.Config {
 
 // Storage returns storage specific to the environment.
 func (env environ) Storage() storage.Storage {
-	return env.storage
+	panic("Storage is not implemented in cloudsigma provider")
 }
 
 // Bootstrap initializes the state for the environment, possibly
@@ -111,37 +103,11 @@ func (env environ) Storage() storage.Storage {
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
 func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (string, string, environs.BootstrapFinalizer, error) {
-	arch, series, finalizer, err := common.Bootstrap(ctx, env, params)
-
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	newFinalizer := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) (err error) {
-		err = finalizer(ctx, mcfg)
-		if err != nil {
-			return err
-		}
-
-		// provide additional agent config for localstorage, if any
-		if env.storage.tmp {
-			_, addr, ok := env.client.stateServerAddress()
-			if !ok {
-				return fmt.Errorf("Can't obtain state server address")
-			}
-			if err := env.prepareStorage(addr, mcfg); err != nil {
-				return fmt.Errorf("failed prepare storage: %v", err)
-			}
-		}
-
-		return err
-	}
-
-	return arch, series, newFinalizer, err
+	return common.Bootstrap(ctx, env, params)
 }
 
 func (e *environ) StateServerInstances() ([]instance.Id, error) {
-	return common.ProviderStateInstances(e, e.Storage())
+	return e.client.getStateServerIds()
 }
 
 // Destroy shuts down all known machines and destroys the
@@ -165,7 +131,6 @@ func (env *environ) Destroy() error {
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
 func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	logger.Infof("cloudsigma:environ:PrecheckInstance")
 	return nil
 }
 

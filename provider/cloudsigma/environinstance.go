@@ -4,19 +4,14 @@
 package cloudsigma
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 
@@ -37,7 +32,7 @@ var findInstanceImage = func(
 		return nil, err
 	}
 	if len(matchingImages) == 0 {
-		return nil, fmt.Errorf("no matching image meta data")
+		return nil, errors.New("no matching image meta data")
 	}
 
 	return matchingImages[0], nil
@@ -53,15 +48,15 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (
 	logger.Infof("sigmaEnviron.StartInstance...")
 
 	if args.MachineConfig == nil {
-		return nil, fmt.Errorf("machine configuration is nil")
+		return nil, errors.New("machine configuration is nil")
 	}
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, fmt.Errorf("starting instances with networks is not supported yet")
+		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 
 	if len(args.Tools) == 0 {
-		return nil, fmt.Errorf("tools not found")
+		return nil, errors.New("tools not found")
 	}
 
 	region, _ := env.Region()
@@ -94,7 +89,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (
 	client := env.client
 	server, rootdrive, arch, err := client.newInstance(args, img, userData)
 	if err != nil {
-		return nil, fmt.Errorf("failed start instance: %v", err)
+		return nil, errors.Errorf("failed start instance: %v", err)
 	}
 
 	inst := &sigmaInstance{server: server}
@@ -105,7 +100,7 @@ func (env *environ) StartInstance(args environs.StartInstanceParams) (
 		return nil, err
 	}
 
-	logger.Tracef("hardware: %v", hwch)
+	logger.Debugf("hardware: %v", hwch)
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: hwch,
@@ -183,7 +178,7 @@ func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 
 // StopInstances shuts down the given instances.
 func (env *environ) StopInstances(instances ...instance.Id) error {
-	logger.Infof("stop instances %+v", instances)
+	logger.Debugf("stop instances %+v", instances)
 
 	var err error
 
@@ -194,40 +189,6 @@ func (env *environ) StopInstances(instances ...instance.Id) error {
 	}
 
 	return err
-}
-
-func (env *environ) prepareStorage(addr string, mcfg *cloudinit.MachineConfig) error {
-	storagePort := env.ecfg.storagePort()
-	storageDir := mcfg.DataDir + "/" + storageSubdir
-
-	logger.Debugf("Moving local temporary storage to %s:%d (%s)...", addr, storagePort, storageDir)
-	if err := env.storage.MoveToSSH("ubuntu", addr); err != nil {
-		return err
-	}
-
-	if strings.Contains(mcfg.Tools.URL, "%s") {
-		mcfg.Tools.URL = fmt.Sprintf(mcfg.Tools.URL, "file://"+storageDir)
-		logger.Tracef("Tools URL patched to %q", mcfg.Tools.URL)
-	}
-
-	// prepare configuration for local storage at bootstrap host
-	storageConfig := storageConfig{
-		ecfg:        env.ecfg,
-		storageDir:  storageDir,
-		storageAddr: addr,
-		storagePort: storagePort,
-	}
-
-	agentEnv, err := localstorage.StoreConfig(&storageConfig)
-	if err != nil {
-		return err
-	}
-
-	for k, v := range agentEnv {
-		mcfg.AgentEnvironment[k] = v
-	}
-
-	return nil
 }
 
 // AllocateAddress requests a new address to be allocated for the

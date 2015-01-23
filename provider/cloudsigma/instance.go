@@ -4,8 +4,9 @@
 package cloudsigma
 
 import (
-	"fmt"
 	"github.com/Altoros/gosigma"
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
@@ -16,7 +17,7 @@ type sigmaInstance struct {
 	server gosigma.Server
 }
 
-var ErrNoDNSName = fmt.Errorf("IPv4 address not found")
+var ErrNoDNSName = errors.New("IPv4 address not found")
 
 // Id returns a provider-generated identifier for the Instance.
 func (i sigmaInstance) Id() instance.Id {
@@ -41,7 +42,7 @@ func (i sigmaInstance) Status() string {
 // Refresh refreshes local knowledge of the instance from the provider.
 func (i sigmaInstance) Refresh() error {
 	if i.server == nil {
-		return fmt.Errorf("invalid instance")
+		return errors.New("invalid instance")
 	}
 	err := i.server.Refresh()
 	logger.Tracef("sigmaInstance.Refresh: %s", err)
@@ -129,7 +130,7 @@ func (i sigmaInstance) findIPv4() string {
 
 func (i *sigmaInstance) hardware(arch string, driveSize uint64) (*instance.HardwareCharacteristics, error) {
 	if i.server == nil {
-		return nil, fmt.Errorf("Server is not initialized.")
+		return nil, errors.New("Server is not initialized.")
 	}
 	memory := i.server.Mem() / gosigma.Megabyte
 	cores := uint64(i.server.SMP())

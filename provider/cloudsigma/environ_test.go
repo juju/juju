@@ -4,12 +4,13 @@
 package cloudsigma
 
 import (
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type environSuite struct {
@@ -35,13 +36,8 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) TestBase(c *gc.C) {
-	var emptyStorage environStorage
-
 	s.PatchValue(&newClient, func(*environConfig) (*environClient, error) {
 		return nil, nil
-	})
-	s.PatchValue(&newStorage, func(*environConfig, *environClient) (*environStorage, error) {
-		return &emptyStorage, nil
 	})
 
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
@@ -52,9 +48,6 @@ func (s *environSuite) TestBase(c *gc.C) {
 	cfg := env.Config()
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
-
-	environstrage, ok := env.(environs.EnvironStorage)
-	c.Check(environstrage.Storage(), gc.Equals, &emptyStorage)
 
 	c.Check(env.PrecheckInstance("", constraints.Value{}, ""), gc.IsNil)
 

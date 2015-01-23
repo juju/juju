@@ -8,12 +8,13 @@ package cloudsigma
 import (
 	"fmt"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
@@ -34,7 +35,6 @@ func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	}
 	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames), nil
 }
-
 
 type environProvider struct{}
 
@@ -105,15 +105,15 @@ func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error)
 	// that your checks are always applied.
 	newEcfg, err := validateConfig(cfg, nil)
 	if err != nil {
-		return nil, fmt.Errorf("invalid config: %v", err)
+		return nil, errors.Errorf("invalid config: %v", err)
 	}
 	if old != nil {
 		oldEcfg, err := validateConfig(old, nil)
 		if err != nil {
-			return nil, fmt.Errorf("invalid base config: %v", err)
+			return nil, errors.Errorf("invalid base config: %v", err)
 		}
 		if newEcfg, err = validateConfig(cfg, oldEcfg); err != nil {
-			return nil, fmt.Errorf("invalid config change: %v", err)
+			return nil, errors.Errorf("invalid config change: %v", err)
 		}
 	}
 
@@ -140,7 +140,7 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 				// All your secret attributes must be strings at the moment. Sorry.
 				// It's an expedient and hopefully temporary measure that helps us
 				// plug a security hole in the API.
-				return nil, fmt.Errorf(
+				return nil, errors.Errorf(
 					"secret %q field must have a string value; got %v",
 					field, value,
 				)

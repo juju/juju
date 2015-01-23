@@ -5,13 +5,14 @@ package cloudsigma
 
 import (
 	"crypto/rand"
-	"fmt"
+
+	"github.com/juju/errors"
+	"github.com/juju/schema"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	"github.com/juju/schema"
-	gc "gopkg.in/check.v1"
 )
 
 func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
@@ -29,7 +30,7 @@ func validAttrs() testing.Attrs {
 		"region":           "zrh",
 		"storage-port":     8040,
 		"storage-auth-key": "ABCDEFGH",
-		"uuid":				"f54aac3a-9dcd-4a0c-86b5-24091478478c",
+		"uuid":             "f54aac3a-9dcd-4a0c-86b5-24091478478c",
 	})
 }
 
@@ -45,9 +46,6 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// speed up tests, do not create heavy stuff inside providers created withing this test suite
 	s.PatchValue(&newClient, func(cfg *environConfig) (*environClient, error) {
-		return nil, nil
-	})
-	s.PatchValue(&newStorage, func(ecfg *environConfig, client *environClient) (*environStorage, error) {
 		return nil, nil
 	})
 }
@@ -70,19 +68,19 @@ func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 	}{{
 		info:   "username is required",
 		remove: []string{"username"},
-		err:    "username: must not be empty",
+		err:    "rs: must not be empty%\\!\\(EXTRA string=username\\)",
 	}, {
 		info:   "username cannot be empty",
 		insert: testing.Attrs{"username": ""},
-		err:    "username: must not be empty",
+		err:    "rs: must not be empty%\\!\\(EXTRA string=username\\)",
 	}, {
 		info:   "password is required",
 		remove: []string{"password"},
-		err:    "password: must not be empty",
+		err:    "rs: must not be empty%\\!\\(EXTRA string=password\\)",
 	}, {
 		info:   "password cannot be empty",
 		insert: testing.Attrs{"password": ""},
-		err:    "password: must not be empty",
+		err:    "rs: must not be empty%\\!\\(EXTRA string=password\\)",
 	}, {
 		info:   "region is inserted if missing",
 		remove: []string{"region"},
@@ -90,7 +88,7 @@ func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 	}, {
 		info:   "region must not be empty",
 		insert: testing.Attrs{"region": ""},
-		err:    "region: must not be empty",
+		err:    "rs: must not be empty%\\!\\(EXTRA string=region\\)",
 	}, {
 		info:   "storage-port is inserted if missing",
 		remove: []string{"storage-port"},
@@ -106,7 +104,7 @@ func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 	}, {
 		info:   "storage-auth-key must not be empty",
 		insert: testing.Attrs{"storage-auth-key": ""},
-		err:    "storage-auth-key: must not be empty",
+		err:    "rs: must not be empty%\\!\\(EXTRA string=storage-auth-key\\)",
 	}}
 
 	for i, test := range newConfigTests {
@@ -147,7 +145,7 @@ var changeConfigTests = []struct {
 }, {
 	info:   "can not change username to empty",
 	insert: testing.Attrs{"username": ""},
-	err:    "username: must not be empty",
+	err:    "rs: must not be empty%\\!\\(EXTRA string=username\\)",
 }, {
 	info:   "can change password",
 	insert: testing.Attrs{"password": "cloudsigma_password"},
@@ -155,7 +153,7 @@ var changeConfigTests = []struct {
 }, {
 	info:   "can not change password to empty",
 	insert: testing.Attrs{"password": ""},
-	err:    "password: must not be empty",
+	err:    "rs: must not be empty%\\!\\(EXTRA string=password\\)",
 }, {
 	info:   "can change region",
 	insert: testing.Attrs{"region": "lvs"},
@@ -171,7 +169,6 @@ var changeConfigTests = []struct {
 }}
 
 func (s *configSuite) TestValidateChange(c *gc.C) {
-
 	baseConfig := newConfig(c, validAttrs())
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
@@ -236,7 +233,7 @@ func (s *configSuite) TestConfigName(c *gc.C) {
 }
 
 func (s *configSuite) TestBadUUIDGenerator(c *gc.C) {
-	fail := failReader{fmt.Errorf("error")}
+	fail := failReader{errors.New("error")}
 	s.PatchValue(&rand.Reader, &fail)
 
 	attrs := validAttrs().Delete("storage-auth-key")

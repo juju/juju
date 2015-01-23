@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/Altoros/gosigma/mock"
+	"github.com/juju/loggo"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -16,8 +19,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/loggo"
-	gc "gopkg.in/check.v1"
 )
 
 type environInstanceSuite struct {
@@ -63,10 +64,6 @@ func (s *environInstanceSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) environs.Environ {
-	var emptyStorage environStorage
-	s.PatchValue(&newStorage, func(*environConfig, *environClient) (*environStorage, error) {
-		return &emptyStorage, nil
-	})
 	s.PatchValue(&findInstanceImage, func(env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
 		img := &imagemetadata.ImageMetadata{
 			Id: validImageId,
@@ -91,10 +88,10 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 0)
 
-	uuid0 := addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "1.1.1.1")
-	uuid1 := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "2.2.2.2")
-	addTestClientServer(c, jujuMetaInstanceServer, "other-env", "0.1.1.1")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "other-env", "0.2.2.2")
+	uuid0 := addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	uuid1 := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	addTestClientServer(c, jujuMetaInstanceServer, "other-env")
+	addTestClientServer(c, jujuMetaInstanceStateServer, "other-env")
 
 	instances, err = env.AllInstances()
 	c.Assert(instances, gc.NotNil)

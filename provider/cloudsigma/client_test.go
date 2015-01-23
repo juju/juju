@@ -11,6 +11,10 @@ import (
 	"github.com/Altoros/gosigma"
 	"github.com/Altoros/gosigma/data"
 	"github.com/Altoros/gosigma/mock"
+	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
@@ -19,9 +23,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/loggo"
-	"github.com/juju/utils"
-	gc "gopkg.in/check.v1"
 )
 
 type clientSuite struct {
@@ -51,7 +52,6 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *clientSuite) TearDownTest(c *gc.C) {
-	mock.Reset()
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -81,7 +81,7 @@ func (s *clientSuite) TestClientNew(c *gc.C) {
 	c.Check(cli, gc.IsNil)
 }
 
-func addTestClientServer(c *gc.C, instance, env, ip string) string {
+func addTestClientServer(c *gc.C, instance, env string) string {
 	json := `{"meta": {`
 	if instance != "" {
 		json += fmt.Sprintf(`"juju-instance": "%s"`, instance)
@@ -89,13 +89,7 @@ func addTestClientServer(c *gc.C, instance, env, ip string) string {
 			json += fmt.Sprintf(`, "juju-environment": "%s"`, env)
 		}
 	}
-	json += fmt.Sprintf(`}, "status": "running", "nics":[{
-            "runtime": {
-                "interface_type": "public",
-                "ip_v4": {
-                    "resource_uri": "/api/2.0/ips/%s/",
-                    "uuid": "%s"
-                }}}]}`, ip, ip)
+	json += `}, "status": "running"}`
 	r := strings.NewReader(json)
 	s, err := data.ReadServer(r)
 	c.Assert(err, gc.IsNil)
@@ -104,12 +98,12 @@ func addTestClientServer(c *gc.C, instance, env, ip string) string {
 }
 
 func (s *clientSuite) TestClientInstances(c *gc.C) {
-	addTestClientServer(c, "", "", "")
-	addTestClientServer(c, jujuMetaInstanceServer, "alien", "")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "alien", "")
-	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "1.1.1.1")
-	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "2.2.2.2")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "3.3.3.3")
+	addTestClientServer(c, "", "")
+	addTestClientServer(c, jujuMetaInstanceServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
+	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
@@ -124,32 +118,29 @@ func (s *clientSuite) TestClientInstances(c *gc.C) {
 	c.Assert(sm, gc.NotNil)
 	c.Check(sm, gc.HasLen, 3)
 
-	uuid, ip, rc := cli.stateServerAddress()
-	c.Check(uuid, gc.Equals, suuid)
-	c.Check(ip, gc.Equals, "3.3.3.3")
-	c.Check(rc, gc.Equals, true)
+	ids, err := cli.getStateServerIds()
+	c.Check(err, gc.IsNil)
+	c.Check(len(ids), gc.Equals, 1)
+	c.Check(string(ids[0]), gc.Equals, suuid)
 }
 
 func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
-	addTestClientServer(c, "", "", "")
-	addTestClientServer(c, jujuMetaInstanceServer, "alien", "")
-	addTestClientServer(c, jujuMetaInstanceStateServer, "alien", "")
-	addTestClientServer(c, jujuMetaInstanceServer, "client-test", "1.1.1.1")
-	addTestClientServer(c, jujuMetaInstanceServer, "client-test", "2.2.2.2")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "client-test", "3.3.3.3")
+	addTestClientServer(c, "", "")
+
+	addTestClientServer(c, jujuMetaInstanceServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceStateServer, "alien")
+	addTestClientServer(c, jujuMetaInstanceServer, "client-test")
+	addTestClientServer(c, jujuMetaInstanceServer, "client-test")
+	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "client-test")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
 
-	cli.storage = &environStorage{uuid: suuid, tmp: true}
-
 	err = cli.stopInstance(instance.Id(suuid))
 	c.Assert(err, gc.IsNil)
 
-	uuid, ip, rc := cli.stateServerAddress()
-	c.Check(uuid, gc.Equals, "")
-	c.Check(ip, gc.Equals, "")
-	c.Check(rc, gc.Equals, false)
+	_, err = cli.getStateServerIds()
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *clientSuite) TestClientInvalidStopInstance(c *gc.C) {
@@ -176,10 +167,8 @@ func (s *clientSuite) TestClientInvalidServer(c *gc.C) {
 	_, err = cli.instanceMap()
 	c.Check(err, gc.ErrorMatches, "broken connection")
 
-	uuid, ip, ok := cli.stateServerAddress()
-	c.Check(uuid, gc.Equals, "")
-	c.Check(ip, gc.Equals, "")
-	c.Check(ok, gc.Equals, false)
+	_, err = cli.getStateServerIds()
+	c.Check(err, gc.ErrorMatches, "broken connection")
 }
 
 func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
@@ -244,8 +233,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	cs, err := newConstraints(params.MachineConfig.Bootstrap,
-		params.Constraints, img)
+	cs, err := newConstraints(params.MachineConfig.Bootstrap, params.Constraints, img)
 	c.Assert(cs, gc.NotNil)
 	c.Check(err, gc.IsNil)
 

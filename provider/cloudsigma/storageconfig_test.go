@@ -4,9 +4,10 @@
 package cloudsigma
 
 import (
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 func newStorageConfig(c *gc.C, attrs testing.Attrs) *storageConfig {

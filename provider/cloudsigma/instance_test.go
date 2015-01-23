@@ -9,10 +9,11 @@ import (
 	"github.com/Altoros/gosigma"
 	"github.com/Altoros/gosigma/data"
 	"github.com/Altoros/gosigma/mock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 type instanceSuite struct {

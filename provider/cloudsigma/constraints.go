@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/Altoros/gosigma"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 )
@@ -20,7 +21,11 @@ type sigmaConstraints struct {
 	mem           uint64
 }
 
-const defaultCPUPower = 2000
+const (
+	defaultCPUPower = 2000
+	defaultMemoryGB = 5
+)
+
 // newConstraints creates new CloudSigma constraints from juju common constraints
 func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.ImageMetadata) (*sigmaConstraints, error) {
 	var sc sigmaConstraints
@@ -28,7 +33,7 @@ func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.Ima
 	sc.driveTemplate = img.Id
 
 	if size := jc.RootDisk; bootstrap && size == nil {
-		sc.driveSize = 5 * gosigma.Gigabyte
+		sc.driveSize = defaultMemoryGB * gosigma.Gigabyte
 	} else if size != nil {
 		sc.driveSize = *size * gosigma.Megabyte
 	}
