@@ -3,7 +3,10 @@ from __future__ import print_function
 __metaclass__ = type
 
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import (
+    contextmanager,
+    nested,
+    )
 from cStringIO import StringIO
 from datetime import timedelta
 import errno
@@ -176,7 +179,7 @@ class EnvJujuClient:
         self.full_path = full_path
         self.debug = debug
 
-    def _shell_environ(self):
+    def _shell_environ(self, juju_home=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
@@ -185,9 +188,11 @@ class EnvJujuClient:
         if self.full_path is not None:
             env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),
                                          env['PATH'])
+        if juju_home is not None:
+            env['JUJU_HOME'] = juju_home
         return env
 
-    def bootstrap(self, upload_tools=False):
+    def bootstrap(self, upload_tools=False, juju_home=None):
         """Bootstrap, using sudo if necessary."""
         if self.env.hpcloud:
             constraints = 'mem=2G'
@@ -198,7 +203,8 @@ class EnvJujuClient:
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
-        self.juju('bootstrap', args, self.env.needs_sudo())
+        self.juju('bootstrap', args, self.env.needs_sudo(),
+                  juju_home=juju_home)
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
@@ -255,13 +261,13 @@ class EnvJujuClient:
         return self.juju('set-env', (option_value,))
 
     def juju(self, command, args, sudo=False, check=True, include_e=True,
-             timeout=None):
+             timeout=None, juju_home=None):
         """Run a command under juju for the current environment."""
         args = self._full_args(command, sudo, args, include_e=include_e,
                                timeout=timeout)
         print(' '.join(args))
         sys.stdout.flush()
-        env = self._shell_environ()
+        env = self._shell_environ(juju_home)
         if check:
             return subprocess.check_call(args, env=env)
         return subprocess.call(args, env=env)
@@ -432,7 +438,7 @@ def uniquify_local(env):
 
 
 @contextmanager
-def _temp_env(new_config, parent=None):
+def _temp_env(new_config, parent=None, set_home=True):
     """Use the supplied config as juju environment.
 
     This is not a fully-formed version for bootstrapping.  See
@@ -442,13 +448,26 @@ def _temp_env(new_config, parent=None):
         temp_environments = get_environments_path(temp_juju_home)
         with open(temp_environments, 'w') as config_file:
             yaml.safe_dump(new_config, config_file)
-        with scoped_environ():
-            os.environ['JUJU_HOME'] = temp_juju_home
+        if set_home:
+            context = scoped_environ()
+        else:
+            context = nested()
+        with context:
+            if set_home:
+                os.environ['JUJU_HOME'] = temp_juju_home
             yield temp_juju_home
 
 
 @contextmanager
-def temp_bootstrap_env(juju_home, client):
+def temp_bootstrap_env(juju_home, client, set_home=True):
+    """Create a temporary environment for bootstrapping.
+
+    This involves creating a temporary juju home directory and returning its
+    location.
+
+    :param set_home: Set JUJU_HOME to match the temporary home in this
+        context.  If False, juju_home should be supplied to bootstrap.
+    """
     # Always bootstrap a matching environment.
     config = dict(client.env.config)
     config['agent-version'] = client.get_matching_agent_version()
@@ -473,7 +492,7 @@ def temp_bootstrap_env(juju_home, client):
                 "/var/lib/lxc", 2000000, "LXC containers")
     new_config = {'environments': {client.env.environment: config}}
     jenv_path = get_jenv_path(juju_home, client.env.environment)
-    with _temp_env(new_config, juju_home) as temp_juju_home:
+    with _temp_env(new_config, juju_home, set_home) as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
@@ -483,7 +502,7 @@ def temp_bootstrap_env(juju_home, client):
         ensure_dir(os.path.join(juju_home, 'environments'))
         os.symlink(new_jenv_path, jenv_path)
         try:
-            yield
+            yield temp_juju_home
         finally:
             # replace symlink with file before deleting temp home.
             try:
