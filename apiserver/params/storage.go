@@ -6,7 +6,7 @@ package params
 // StorageInstance holds data for a storage instance.
 type StorageInstance struct {
 	StorageTag    string
-	UnitName      string
+	OwnerTag      string
 	StorageName   string
 	AvailableSize int
 	TotalSize     int
