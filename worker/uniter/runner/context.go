@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -127,6 +128,9 @@ type HookContext struct {
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
+
+	// storageInstances contains the storageInstances associated with a unit,
+	storageInstances []storage.StorageInstance
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -186,6 +190,10 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 
 func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
+}
+
+func (ctx *HookContext) StorageInstances() ([]storage.StorageInstance, bool) {
+	return ctx.storageInstances, len(ctx.storageInstances) > 0
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {

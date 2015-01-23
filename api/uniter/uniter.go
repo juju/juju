@@ -23,6 +23,7 @@ const uniterFacade = "Uniter"
 type State struct {
 	*common.EnvironWatcher
 	*common.APIAddresser
+	*StorageAccessor
 
 	LeadershipSettings *LeadershipSettingsAccessor
 	facade             base.FacadeCaller
@@ -43,10 +44,11 @@ func newStateForVersion(
 		version,
 	)
 	state := &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller,
-		unitTag:        authTag,
+		EnvironWatcher:  common.NewEnvironWatcher(facadeCaller),
+		APIAddresser:    common.NewAPIAddresser(facadeCaller),
+		StorageAccessor: NewStorageAccessor(facadeCaller),
+		facade:          facadeCaller,
+		unitTag:         authTag,
 	}
 
 	if version >= 2 {
@@ -75,9 +77,12 @@ var newStateV0 = newStateForVersionFn(0)
 // newStateV1 creates a new client-side Uniter facade, version 1.
 var newStateV1 = newStateForVersionFn(1)
 
+// newStateV2 creates a new client-side Uniter facade, version 2.
+var newStateV2 = newStateForVersionFn(2)
+
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateForVersionFn(2)
+var NewState = newStateV2
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
