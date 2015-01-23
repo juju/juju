@@ -847,3 +847,12 @@ type StorageInstanceResult struct {
 type StorageInstanceResults struct {
 	Results []StorageInstanceResult `json:"results,omitempty"`
 }
+
+type UnitStorageInstances struct {
+	Instances []storage.StorageInstance `json:"instances,omitempty"`
+	Error     *Error                    `json:"error,omitempty"`
+}
+
+type UnitStorageInstancesResults struct {
+	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
+}

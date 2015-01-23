@@ -22,6 +22,7 @@ const uniterFacade = "Uniter"
 type State struct {
 	*common.EnvironWatcher
 	*common.APIAddresser
+	*StorageAccessor
 
 	facade base.FacadeCaller
 	// unitTag contains the authenticated unit's tag.
@@ -41,10 +42,11 @@ func newStateForVersion(
 		version,
 	)
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller,
-		unitTag:        authTag,
+		EnvironWatcher:  common.NewEnvironWatcher(facadeCaller),
+		APIAddresser:    common.NewAPIAddresser(facadeCaller),
+		StorageAccessor: NewStorageAccessor(facadeCaller),
+		facade:          facadeCaller,
+		unitTag:         authTag,
 	}
 }
 
@@ -58,9 +60,14 @@ func newStateV1(caller base.APICaller, authTag names.UnitTag) *State {
 	return newStateForVersion(caller, authTag, 1)
 }
 
+// newStateV2 creates a new client-side Uniter facade, version 2.
+func newStateV2(caller base.APICaller, authTag names.UnitTag) *State {
+	return newStateForVersion(caller, authTag, 2)
+}
+
 // NewState creates a new client-side Uniter facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV1
+var NewState = newStateV2
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.

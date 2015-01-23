@@ -7,6 +7,9 @@ package hook
 import (
 	"fmt"
 
+	"github.com/juju/utils/featureflag"
+
+	"github.com/juju/juju/storage"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4/hooks"
 )
@@ -31,6 +34,9 @@ type Info struct {
 	// ActionId is the state State.actions ID of the Action document to
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
+
+	// StorageIds is the ids of storage instances relevant to the hook.
+	StorageIds []string `yaml:"storage-ids,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -48,6 +54,11 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
 		}
 		return nil
+	case hooks.StorageAttached, hooks.StorageDetached:
+		// TODO: stop checking feature flag once storage has graduated.
+		if true || featureflag.Enabled(storage.FeatureFlag) {
+			return nil
+		}
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
 }

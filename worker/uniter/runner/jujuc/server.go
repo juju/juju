@@ -13,13 +13,16 @@ import (
 	"net/rpc"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -42,12 +45,16 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
 	"add-metric" + cmdSuffix:    NewAddMetricCommand,
 	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
+	"storage-get" + cmdSuffix:   NewStorageGetCommand,
 }
 
 // CommandNames returns the names of all jujuc commands.
 func CommandNames() (names []string) {
 	for name := range newCommands {
-		names = append(names, name)
+		// TODO: stop checking feature flag once storage has graduated.
+		if !strings.HasPrefix(name, "storage-") || featureflag.Enabled(storage.FeatureFlag) {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	return
@@ -57,7 +64,7 @@ func CommandNames() (names []string) {
 // against the supplied Context.
 func NewCommand(ctx Context, name string) (cmd.Command, error) {
 	f := newCommands[name]
-	if f == nil {
+	if f == nil || (strings.HasPrefix(name, "storage-") && !featureflag.Enabled(storage.FeatureFlag)) {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}
 	return f(ctx), nil
