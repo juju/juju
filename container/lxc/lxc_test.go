@@ -32,9 +32,11 @@ import (
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -196,6 +198,226 @@ func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		}
 	}
+}
+
+func (*LxcSuite) TestParseConfigLine(c *gc.C) {
+	for i, test := range []struct {
+		about   string
+		input   string
+		setting string
+		value   string
+	}{{
+		about:   "empty line",
+		input:   "",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "line with spaces",
+		input:   "  line  with spaces   ",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "comments",
+		input:   "# comment",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "commented setting",
+		input:   "#lxc.flag = disabled",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "comments with spaces",
+		input:   "  # comment  with   spaces ",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "not a setting",
+		input:   "anything here",
+		setting: "",
+		value:   "",
+	}, {
+		about:   "valid setting, no whitespace",
+		input:   "lxc.setting=value",
+		setting: "lxc.setting",
+		value:   "value",
+	}, {
+		about:   "valid setting, with whitespace",
+		input:   "  lxc.setting  =  value  ",
+		setting: "lxc.setting",
+		value:   "value",
+	}, {
+		about:   "valid setting, with comment on the value",
+		input:   "lxc.setting = value  # comment # foo  ",
+		setting: "lxc.setting",
+		value:   "value",
+	}, {
+		about:   "valid setting, with comment, spaces and extra equals",
+		input:   "lxc.my.best.setting = foo=bar, but   # not really ",
+		setting: "lxc.my.best.setting",
+		value:   "foo=bar, but",
+	}} {
+		c.Logf("test %d: %s", i, test.about)
+		setting, value := lxc.ParseConfigLine(test.input)
+		c.Check(setting, gc.Equals, test.setting)
+		c.Check(value, gc.Equals, test.value)
+		if setting == "" {
+			c.Check(value, gc.Equals, "")
+		}
+	}
+}
+
+func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
+	networkConfig := container.BridgeNetworkConfig("nic42", []network.InterfaceInfo{{
+		DeviceIndex:    0,
+		CIDR:           "0.1.2.0/20",
+		InterfaceName:  "eth0",
+		MACAddress:     "aa:bb:cc:dd:ee:f0",
+		Address:        network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		GatewayAddress: network.NewAddress("0.1.2.1", network.ScopeUnknown),
+	}, {
+		DeviceIndex:   1,
+		InterfaceName: "eth1",
+	}})
+
+	manager := s.makeManager(c, "test")
+	machineConfig, err := containertesting.MockMachineConfig("1/lxc/0")
+	c.Assert(err, jc.ErrorIsNil)
+	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	machineConfig.Config = envConfig
+	instance := containertesting.CreateContainerWithMachineAndNetworkConfig(
+		c, manager, machineConfig, networkConfig,
+	)
+	name := string(instance.Id())
+
+	// Append a few extra lines to the config.
+	extraLines := []string{
+		"  lxc.rootfs =  /some/thing  # else ",
+		"",
+		"  # just comment  ",
+		"lxc.network.vlan.id=42",
+		"something else  # ignore  ",
+		"lxc.network.type=veth",
+		"lxc.network.link = foo  # comment",
+		"lxc.network.hwaddr = bar",
+	}
+	configPath := lxc.ContainerConfigFilename(name)
+	configFile, err := os.OpenFile(configPath, os.O_RDWR|os.O_APPEND, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = configFile.WriteString(strings.Join(extraLines, "\n") + "\n")
+	c.Assert(err, jc.ErrorIsNil)
+	err = configFile.Close()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedConf := `
+# network config
+# interface "eth0"
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.name = eth0
+lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
+lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4.gateway = 0.1.2.1
+lxc.network.mtu = 4321
+
+# interface "eth1"
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.name = eth1
+lxc.network.mtu = 4321
+
+
+lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
+` + strings.Join(extraLines, "\n") + "\n"
+
+	lxcConfContents, err := ioutil.ReadFile(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), gc.Equals, expectedConf)
+
+	linesToReplace := []string{
+		"", // empty lines are ignored
+		"  lxc.network.type = bar # free drinks  !! ", // formatting is sanitized.
+		"  # comments are ignored",
+		"lxc.network.type=foo",                   // replace the second "type".
+		"lxc.network.name = em0 # renamed now",   // replace the first "name"
+		"lxc.network.name = em1",                 // replace the second "name"
+		"lxc.network.mtu = 1234",                 // replace only the first "mtu".
+		"lxc.network.hwaddr = ff:ee:dd:cc:bb:aa", // replace the first "hwaddr".
+		"lxc.network.hwaddr=deadbeef",            // replace second "hwaddr".
+		"lxc.network.hwaddr=nonsense",            // no third "hwaddr", so append.
+		"lxc.network.hwaddr = ",                  // no fourth "hwaddr" to remove - ignored.
+		"lxc.network.link=",                      // remove only the first "link"
+		"lxc.network.vlan.id=69",                 // replace.
+		"lxc.missing = appended",                 // missing - appended.
+		"lxc.network.type = phys",                // replace the third "type".
+		"lxc.mount.entry=",                       // delete existing "entry".
+		"lxc.rootfs = /foo/bar",                  // replace first "rootfs".
+		"lxc.rootfs = /bar/foo",                  // append new.
+	}
+	newConfig := strings.Join(linesToReplace, "\n")
+	updatedConfig := `
+# network config
+# interface "eth0"
+lxc.network.type = bar
+lxc.network.flags = up
+lxc.network.name = em0
+lxc.network.hwaddr = ff:ee:dd:cc:bb:aa
+lxc.network.ipv4 = 0.1.2.3/20
+lxc.network.ipv4.gateway = 0.1.2.1
+lxc.network.mtu = 1234
+
+# interface "eth1"
+lxc.network.type = foo
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.network.name = em1
+lxc.network.mtu = 4321
+
+
+lxc.rootfs = /foo/bar
+
+  # just comment  
+lxc.network.vlan.id = 69
+something else  # ignore  
+lxc.network.type = phys
+lxc.network.link = foo  # comment
+lxc.network.hwaddr = deadbeef
+lxc.network.hwaddr = nonsense
+lxc.missing = appended
+lxc.rootfs = /bar/foo
+`
+	err = lxc.UpdateContainerConfig(name, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	lxcConfContents, err = ioutil.ReadFile(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
+
+	// Now test the example in updateContainerConfig's doc string.
+	oldConfig := `
+lxc.foo = off
+
+lxc.bar=42
+`
+	newConfig = `
+lxc.bar=
+lxc.foo = bar
+lxc.foo = baz # xx
+`
+	updatedConfig = `
+lxc.foo = bar
+
+lxc.foo = baz
+`
+	err = ioutil.WriteFile(configPath, []byte(oldConfig), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = lxc.UpdateContainerConfig(name, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	lxcConfContents, err = ioutil.ReadFile(configPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
 }
 
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
@@ -436,7 +658,7 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
-	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
+	mountLine := "lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0"
 	c.Assert(string(config), jc.Contains, mountLine)
 	c.Assert(autostartLink, jc.IsSymlink)
 }
@@ -540,7 +762,7 @@ lxc.network.flags = up
 lxc.network.mtu = 4321
 
 lxc.start.auto = 1
-lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
 `
 	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
@@ -611,6 +833,10 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 	staticNICNoCIDR, staticNICBadCIDR := staticNIC, staticNIC
 	staticNICNoCIDR.CIDR = ""
 	staticNICBadCIDR.CIDR = "bad"
+	// Test when NoAutoStart is true gateway is not added, even if there.
+	staticNICNoAutoWithGW := staticNIC
+	staticNICNoAutoWithGW.NoAutoStart = true
+
 	allNICs := []network.InterfaceInfo{dhcpNIC, staticNIC, extraConfigNIC}
 	for _, test := range []struct {
 		config            *container.NetworkConfig
@@ -714,6 +940,17 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 			"lxc.network.ipv4.gateway = 0.1.2.1",
 		},
 		logContains: `WARNING juju.container.lxc invalid CIDR "bad" for interface "eth1", using /24 as fallback`,
+	}, {
+		config: container.BridgeNetworkConfig("foo", []network.InterfaceInfo{staticNICNoAutoWithGW}),
+		nics:   []network.InterfaceInfo{staticNICNoAutoWithGW},
+		rendered: []string{
+			"lxc.network.type = veth",
+			"lxc.network.link = foo",
+			"lxc.network.name = eth1",
+			"lxc.network.hwaddr = aa:bb:cc:dd:ee:f1",
+			"lxc.network.ipv4 = 0.1.2.3/20",
+		},
+		logContains: `WARNING juju.container.lxc not setting IPv4 gateway "0.1.2.1" for non-auto start interface "eth1"`,
 	}} {
 		restorer := gitjujutesting.PatchValue(lxc.DiscoverHostNIC, func() (net.Interface, error) {
 			return net.Interface{
