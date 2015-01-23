@@ -22,6 +22,7 @@ func NewStorageAccessor(facade base.FacadeCaller) *StorageAccessor {
 	return &StorageAccessor{facade}
 }
 
+// StorageInstances returns the storage instances for a unit.
 func (sa *StorageAccessor) StorageInstances(unitTag names.Tag) ([]storage.StorageInstance, error) {
 	if sa.facade.BestAPIVersion() < 2 {
 		// StorageInstances() was introduced in UniterAPIV2.

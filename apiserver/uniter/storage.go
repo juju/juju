@@ -33,6 +33,7 @@ func NewStorageAPI(
 	}, nil
 }
 
+// UnitStorageInstances returns the storage instances for a collection of units.
 func (s *StorageAPI) UnitStorageInstances(args params.Entities) (params.UnitStorageInstancesResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
