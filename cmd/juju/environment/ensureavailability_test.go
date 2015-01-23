@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package environment_test
@@ -61,8 +61,14 @@ func (f *fakeHAClient) EnsureAvailability(numStateServers int, cons constraints.
 		return f.result, f.err
 	}
 
-	if numStateServers <= 1 {
+	if numStateServers == 1 {
 		return f.result, nil
+	}
+
+	// In the real HAClient, specifying a numStateServers value of 0
+	// indicates that the default value (3) should be used
+	if numStateServers == 0 {
+		numStateServers = 3
 	}
 
 	// If numStateServers > 1, we need to pretend that we added some machines
@@ -148,13 +154,14 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatJson(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
-	ctx, err := s.runEnsureAvailability(c, "--series", "series", "-n", "3")
+	// Also test with -n 5 to validate numbers other than 1 and 3
+	ctx, err := s.runEnsureAvailability(c, "--series", "series", "-n", "5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
 		"maintaining machines: 0\n"+
-			"adding machines: 1, 2\n\n")
+			"adding machines: 1, 2, 3, 4\n\n")
 
-	c.Assert(s.fake.numStateServers, gc.Equals, 3)
+	c.Assert(s.fake.numStateServers, gc.Equals, 5)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
 	c.Assert(s.fake.series, gc.Equals, "series")
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
@@ -199,9 +206,13 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
+	// If the number of state servers is specified as "0", the API will
+	// then use the default number of 3.
 	ctx, err := s.runEnsureAvailability(c, "-n", "0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	c.Assert(s.fake.numStateServers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)
@@ -210,9 +221,13 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo0(c *gc.C) {
+	// If the number of state servers is not specified, we pass in 0 to the
+	// API.  The API will then use the default number of 3.
 	ctx, err := s.runEnsureAvailability(c)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	c.Assert(s.fake.numStateServers, gc.Equals, 0)
 	c.Assert(&s.fake.cons, jc.Satisfies, constraints.IsEmpty)

@@ -81,6 +81,8 @@ func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
 
 	ctx, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Machine 0 is demoted because it hasn't reported its presence
 	c.Assert(testing.Stdout(ctx), gc.Equals,
 		"adding machines: 1, 2, 3\n"+
 			"demoting machines 0\n\n")
