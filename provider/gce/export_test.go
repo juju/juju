@@ -50,7 +50,7 @@ func ParsePlacement(env *environ, placement string) (*instPlacement, error) {
 	return env.parsePlacement(placement)
 }
 
-func FinishMachineConfg(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
+func FinishMachineConfig(env *environ, args environs.StartInstanceParams, spec *instances.InstanceSpec) error {
 	return env.finishMachineConfig(args, spec)
 }
 

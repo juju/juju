@@ -89,6 +89,10 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 }
 
 func (s *environBrokerSuite) TestFinishMachineConfig(c *gc.C) {
+	err := gce.FinishMachineConfig(s.Env, s.StartInstArgs, s.spec)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(s.StartInstArgs.MachineConfig.Tools, gc.NotNil)
 }
 
 func (s *environBrokerSuite) TestBuildInstanceSpec(c *gc.C) {
