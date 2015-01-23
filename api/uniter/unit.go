@@ -648,3 +648,25 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
+
+// WatchStorageInstances returns a watcher for observing changes to the
+// unit's storage instances.
+func (u *Unit) WatchStorageInstances() (watcher.StringsWatcher, error) {
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchStorageInstances", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewStringsWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}
