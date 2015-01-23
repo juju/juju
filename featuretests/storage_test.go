@@ -45,9 +45,10 @@ func (s *apiStorageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakeStorage or similar is available
 	storageTag := names.NewStorageTag("shared-fs/0")
 	found, err := s.storageClient.Show([]names.StorageTag{storageTag})
-	c.Assert(err.Error(), gc.Matches, ".*not implemented.*")
+	c.Assert(err.Error(), gc.Matches, ".*permission denied.*")
 	c.Assert(found, gc.HasLen, 0)
 }
 
@@ -64,11 +65,12 @@ func (s *cmdStorageSuite) SetUpTest(c *gc.C) {
 
 func runShow(c *gc.C, args []string) *cmd.Context {
 	context, err := testing.RunCommand(c, envcmd.Wrap(&cmdstorage.ShowCommand{}), args...)
-	c.Assert(err.Error(), gc.Matches, ".*This needs to plug into a real deal! not implemented.*")
+	c.Assert(err.Error(), gc.Matches, ".*permission denied.*")
 	return context
 }
 
 func (s *cmdStorageSuite) TestStorageShowCmdStack(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakeStorage or similar is available
 	context := runShow(c, []string{"shared-fs/0"})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""

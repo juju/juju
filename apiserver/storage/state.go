@@ -3,24 +3,17 @@
 
 package storage
 
-import (
-	"github.com/juju/errors"
-	"github.com/juju/juju/state"
-
-	"github.com/juju/juju/apiserver/params"
-)
+import "github.com/juju/juju/state"
 
 type storageAccess interface {
-	Show(entities params.Entities) (params.StorageInstancesResult, error)
+	StorageInstance(id string) (state.StorageInstance, error)
 }
 
 type stateShim struct {
 	state *state.State
 }
 
-// Show calls state to get information about storage instances
-func (s stateShim) Show(entities params.Entities) (params.StorageInstancesResult, error) {
-	nothing := params.StorageInstancesResult{}
-	// TODO(anastasiamac) plug into a real implementation. This is just a placeholder.
-	return nothing, errors.NotImplementedf("This needs to plug into a real deal!")
+// StorageInstance calls state to get information about storage instance
+func (s stateShim) StorageInstance(id string) (state.StorageInstance, error) {
+	return s.state.StorageInstance(id)
 }

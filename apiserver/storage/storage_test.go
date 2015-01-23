@@ -34,11 +34,12 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *storageSuite) TestShowStorage(c *gc.C) {
+	// TODO(anastasiamac) update when s.Factory.MakeStorage or similar is available
 	storageTag := "test-storage"
 	entity := params.Entity{Tag: storageTag}
 
 	found, err := s.api.Show(params.Entities{Entities: []params.Entity{entity}})
-	c.Assert(err.Error(), gc.Matches, ".*not implemented.*")
+	c.Assert(err.Error(), gc.Matches, ".*permission denied*")
 	c.Assert(found.Results, gc.HasLen, 0)
 	c.Assert(found.Results, gc.IsNil)
 }

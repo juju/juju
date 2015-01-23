@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -19,7 +21,7 @@ var getState = func(st *state.State) storageAccess {
 }
 
 type StorageAPI interface {
-	Show(wanted params.StorageInstance) ([]params.StorageInstance, error)
+	Show(entities params.Entities) (params.StorageInstancesResult, error)
 }
 
 // API implements the storage interface and is the concrete
@@ -46,5 +48,29 @@ func NewAPI(
 }
 
 func (api *API) Show(entities params.Entities) (params.StorageInstancesResult, error) {
-	return api.storage.Show(entities)
+	all := make([]params.StorageInstance, len(entities.Entities))
+	for i, entity := range entities.Entities {
+		aTag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return params.StorageInstancesResult{}, common.ErrPerm
+		}
+		stateInstance, err := api.storage.StorageInstance(aTag.Id())
+		if err != nil {
+			return params.StorageInstancesResult{}, common.ErrPerm
+		}
+		all[i] = api.getStorageInstance(stateInstance)
+	}
+	return params.StorageInstancesResult{Results: all}, nil
+}
+
+func (api *API) getStorageInstance(si state.StorageInstance) params.StorageInstance {
+	result := params.StorageInstance{}
+	result.OwnerTag = si.Owner().String()
+	result.StorageTag = si.Tag().String()
+	result.StorageName = si.StorageName()
+
+	prms, _ := si.Params()
+	result.Location = prms.Location
+	result.TotalSize = prms.Size
+	return result
 }

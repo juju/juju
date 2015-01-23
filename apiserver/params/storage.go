@@ -7,9 +7,10 @@ package params
 type StorageInstance struct {
 	StorageTag    string
 	OwnerTag      string
+	Location      string
 	StorageName   string
-	AvailableSize int
-	TotalSize     int
+	AvailableSize uint64
+	TotalSize     uint64
 	Tags          []string
 }
 
