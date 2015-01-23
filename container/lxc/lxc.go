@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
@@ -264,7 +265,7 @@ func (manager *containerManager) CreateContainer(
 		}
 		// Update the network config of the newly cloned container.
 		networkConfig := generateNetworkConfig(network)
-		if err := replaceContainerConfig(name, networkConfig); err != nil {
+		if err := updateContainerConfig(name, networkConfig); err != nil {
 			return nil, nil, errors.Annotate(err, "failed to update network config")
 		}
 	} else {
@@ -410,18 +411,6 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	return execEnv, closer, nil
 }
 
-func appendToContainerConfig(name, line string) error {
-	filePath := containerConfigFilename(name)
-	logger.Tracef("appending %q to container %q config file %q", line, name, filePath)
-	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = file.WriteString(line)
-	return err
-}
-
 // parseConfigLine tries to parse a line from an LXC config file.
 // Empty lines, comments, and lines not starting with "lxc." are
 // ignored. If successful the setting and its value are returned
@@ -450,20 +439,23 @@ func parseConfigLine(line string) (setting, value string) {
 	return setting, value
 }
 
-// replaceContainerConfig replaces all lines in the current config
-// file of the container with the given name with the contents of
-// newConfig. First, newConfig is split into multiple lines. Then any
-// occurrences of any setting in lines will be replaced with the value
-// of that setting. Order is preserved. If the value is empty, the
-// setting will be removed if found. Settings that are not found and
-// have values will be appended (also if more values are given than
-// exist).
+// updateContainerConfig selectively replaces, deletes, and/or appends
+// lines in the named container's current config file, depending on
+// the contents of newConfig. First, newConfig is split into multiple
+// lines and parsed, ignoring comments, empty lines and spaces. Then
+// the occurrence of a setting in a line of the config file will be
+// replaced by values from newConfig. Values in newConfig are only
+// used once (in the order provided), so multiple replacements must be
+// supplied as multiple input values for the same setting in
+// newConfig. If the value of a setting is empty, the setting will be
+// removed if found. Settings that are not found and have values will
+// be appended (also if more values are given than exist).
 //
 // For example, with existing config like "lxc.foo = off\nlxc.bar=42\n",
 // and newConfig like "lxc.bar=\nlxc.foo = bar\nlxc.foo = baz # xx",
 // the updated config file contains "lxc.foo = bar\nlxc.foo = baz\n".
-// TestReplaceContainerConfig has this example in code.
-func replaceContainerConfig(name, newConfig string) error {
+// TestUpdateContainerConfig has this example in code.
+func updateContainerConfig(name, newConfig string) error {
 	lines := strings.Split(newConfig, "\n")
 	if len(lines) == 0 {
 		return nil
@@ -490,16 +482,16 @@ func replaceContainerConfig(name, newConfig string) error {
 	}
 
 	path := containerConfigFilename(name)
-	file, err := os.OpenFile(path, os.O_RDWR, 0644)
+	currentConfig, err := ioutil.ReadFile(path)
 	if err != nil {
 		return errors.Annotatef(err, "cannot open config %q for container %q", path, name)
 	}
-	defer file.Close()
+	input := bytes.NewBuffer(currentConfig)
 
 	// Read the original config and prepare the output to replace it
 	// with.
 	var output bytes.Buffer
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(input)
 	for scanner.Scan() {
 		line := scanner.Text()
 		prefix, _ := parseConfigLine(line)
@@ -551,18 +543,9 @@ func replaceContainerConfig(name, newConfig string) error {
 		parsedLines[prefix] = []string{}
 	}
 
-	// Reset the original file and overwrite it.
-	if _, err := file.Seek(0, os.SEEK_SET); err != nil {
-		return errors.Annotatef(err, "cannot seek config %q for container %q", path, name)
-	}
-	if err := file.Truncate(0); err != nil {
-		return errors.Annotatef(err, "cannot replace config %q for container %q", path, name)
-	}
-	if _, err := output.WriteTo(file); err != nil {
+	// Reset the original file and overwrite it atomically.
+	if err := utils.AtomicWriteFile(path, output.Bytes(), 0644); err != nil {
 		return errors.Annotatef(err, "cannot write new config %q for container %q", path, name)
-	}
-	if err := file.Sync(); err != nil {
-		return errors.Annotatef(err, "cannot sync new config %q for container %q", path, name)
 	}
 	return nil
 }
@@ -582,7 +565,7 @@ func autostartContainer(name string) error {
 		logger.Tracef("auto-restart link created")
 	} else {
 		logger.Tracef("Setting auto start to true in lxc config.")
-		return appendToContainerConfig(name, "lxc.start.auto = 1\n")
+		return updateContainerConfig(name, "lxc.start.auto = 1\n")
 	}
 	return nil
 }
@@ -598,7 +581,7 @@ func mountHostLogDir(name, logDir string) error {
 	line := fmt.Sprintf(
 		"lxc.mount.entry=%s var/log/juju none defaults,bind 0 0\n",
 		logDir)
-	return appendToContainerConfig(name, line)
+	return updateContainerConfig(name, line)
 }
 
 func (manager *containerManager) DestroyContainer(id instance.Id) error {

@@ -12,8 +12,7 @@ var (
 	ContainerDirFilesystem  = containerDirFilesystem
 	GenerateNetworkConfig   = generateNetworkConfig
 	ParseConfigLine         = parseConfigLine
-	ReplaceContainerConfig  = replaceContainerConfig
-	AppendToContainerConfig = appendToContainerConfig
+	UpdateContainerConfig   = updateContainerConfig
 	DiscoverHostNIC         = &discoverHostNIC
 	NetworkConfigTemplate   = networkConfigTemplate
 	RestartSymlink          = restartSymlink

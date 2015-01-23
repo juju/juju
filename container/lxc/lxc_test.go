@@ -267,7 +267,7 @@ func (*LxcSuite) TestParseConfigLine(c *gc.C) {
 	}
 }
 
-func (s *LxcSuite) TestReplaceContainerConfig(c *gc.C) {
+func (s *LxcSuite) TestUpdateContainerConfig(c *gc.C) {
 	networkConfig := container.BridgeNetworkConfig("nic42", []network.InterfaceInfo{{
 		DeviceIndex:    0,
 		CIDR:           "0.1.2.0/20",
@@ -302,10 +302,13 @@ func (s *LxcSuite) TestReplaceContainerConfig(c *gc.C) {
 		"lxc.network.link = foo  # comment",
 		"lxc.network.hwaddr = bar",
 	}
-	for _, line := range extraLines {
-		err = lxc.AppendToContainerConfig(name, line+"\n")
-		c.Assert(err, jc.ErrorIsNil)
-	}
+	configPath := lxc.ContainerConfigFilename(name)
+	configFile, err := os.OpenFile(configPath, os.O_RDWR|os.O_APPEND, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = configFile.WriteString(strings.Join(extraLines, "\n") + "\n")
+	c.Assert(err, jc.ErrorIsNil)
+	err = configFile.Close()
+	c.Assert(err, jc.ErrorIsNil)
 
 	expectedConf := `
 # network config
@@ -327,10 +330,9 @@ lxc.network.name = eth1
 lxc.network.mtu = 4321
 
 
-lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
 ` + strings.Join(extraLines, "\n") + "\n"
 
-	configPath := lxc.ContainerConfigFilename(name)
 	lxcConfContents, err := ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), gc.Equals, expectedConf)
@@ -387,13 +389,13 @@ lxc.network.hwaddr = nonsense
 lxc.missing = appended
 lxc.rootfs = /bar/foo
 `
-	err = lxc.ReplaceContainerConfig(name, newConfig)
+	err = lxc.UpdateContainerConfig(name, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	lxcConfContents, err = ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
 
-	// Now test the example in replaceContainerConfig's doc string.
+	// Now test the example in updateContainerConfig's doc string.
 	oldConfig := `
 lxc.foo = off
 
@@ -411,7 +413,7 @@ lxc.foo = baz
 `
 	err = ioutil.WriteFile(configPath, []byte(oldConfig), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = lxc.ReplaceContainerConfig(name, newConfig)
+	err = lxc.UpdateContainerConfig(name, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	lxcConfContents, err = ioutil.ReadFile(configPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -656,7 +658,7 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	autostartLink := lxc.RestartSymlink(name)
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
-	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
+	mountLine := "lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0"
 	c.Assert(string(config), jc.Contains, mountLine)
 	c.Assert(autostartLink, jc.IsSymlink)
 }
@@ -760,7 +762,7 @@ lxc.network.flags = up
 lxc.network.mtu = 4321
 
 lxc.start.auto = 1
-lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+lxc.mount.entry = /var/log/juju var/log/juju none defaults,bind 0 0
 `
 	c.Assert(string(config), gc.Equals, expected)
 	c.Assert(autostartLink, jc.DoesNotExist)
