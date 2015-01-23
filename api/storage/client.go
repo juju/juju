@@ -6,6 +6,7 @@ package storage
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -27,9 +28,10 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-func (c *Client) Show(unitName, storageName string) ([]params.StorageInstance, error) {
+func (c *Client) Show(storageId string) ([]params.StorageInstance, error) {
 	result := params.StorageInstancesResult{}
-	wanted := params.StorageInstance{UnitName: unitName, StorageName: storageName}
+	storageTag := names.NewStorageTag(storageId)
+	wanted := params.Entity{Tag: storageTag.String()}
 	if err := c.facade.FacadeCall("Show", wanted, &result); err != nil {
 		return nil, errors.Trace(err)
 	}

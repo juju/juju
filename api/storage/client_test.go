@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -22,8 +23,8 @@ var _ = gc.Suite(&storageMockSuite{})
 func (s *storageMockSuite) TestShow(c *gc.C) {
 	var called bool
 
-	unitName := "test-unit"
-	storageName := "test-storage"
+	storageId := "shared-fs/0"
+	storageTag := names.NewStorageTag(storageId).String()
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string,
 			version int,
@@ -35,21 +36,20 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "Show")
 
-			wanted, ok := a.(params.StorageInstance)
+			wanted, ok := a.(params.Entity)
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(wanted.UnitName, gc.DeepEquals, unitName)
-			c.Assert(wanted.StorageName, gc.DeepEquals, storageName)
+			c.Assert(wanted.Tag, gc.DeepEquals, storageTag)
 			if results, k := result.(*params.StorageInstancesResult); k {
-				results.Results = []params.StorageInstance{wanted}
+				one := params.StorageInstance{StorageTag: storageTag}
+				results.Results = []params.StorageInstance{one}
 			}
 
 			return nil
 		})
 	storageClient := storage.NewClient(apiCaller)
-	found, err := storageClient.Show(unitName, storageName)
+	found, err := storageClient.Show(storageId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, gc.HasLen, 1)
-	c.Assert(found[0].UnitName, gc.DeepEquals, unitName)
-	c.Assert(found[0].StorageName, gc.DeepEquals, storageName)
+	c.Assert(found[0].StorageTag, gc.DeepEquals, storageTag)
 	c.Assert(called, jc.IsTrue)
 }

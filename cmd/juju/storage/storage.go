@@ -15,7 +15,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.storage")
 
 const storageCmdDoc = `
 "juju storage" is used to manage storage instances in
- Juju environment.
+ the Juju environment.
 `
 
 const storageCmdPurpose = "manage storage instances"

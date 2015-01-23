@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/storage"
 	"github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type storageSuite struct {
@@ -36,26 +34,11 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *storageSuite) TestShowStorage(c *gc.C) {
-	unit := s.createTestUnit(c)
-	wanted := params.StorageInstance{UnitName: unit.Name(), StorageName: "test-storage"}
+	storageTag := "test-storage"
+	entity := params.Entity{Tag: storageTag}
 
-	found, err := s.api.Show(wanted)
+	found, err := s.api.Show(entity)
 	c.Assert(err.Error(), gc.Matches, ".*not implemented.*")
 	c.Assert(found.Results, gc.HasLen, 0)
-	c.Assert(found.Results, gc.DeepEquals, []params.StorageInstance{})
-}
-
-func (s *storageSuite) createTestUnit(c *gc.C) *state.Unit {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeService(c, &factory.ServiceParams{
-		Charm: charm,
-	})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Service: wordpress,
-		Machine: machine,
-	})
-	return unit
+	c.Assert(found.Results, gc.IsNil)
 }

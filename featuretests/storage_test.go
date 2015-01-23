@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type apiStorageSuite struct {
@@ -46,25 +44,10 @@ func (s *apiStorageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
-	unit := s.createTestUnit(c)
-	found, err := s.storageClient.Show(unit.Name(), "test-storage")
+	storageId := "shared-fs/0"
+	found, err := s.storageClient.Show(storageId)
 	c.Assert(err.Error(), gc.Matches, ".*not implemented.*")
 	c.Assert(found, gc.HasLen, 0)
-}
-
-func (s *apiStorageSuite) createTestUnit(c *gc.C) *state.Unit {
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
-	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := s.Factory.MakeService(c, &factory.ServiceParams{
-		Charm: charm,
-	})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Service: wordpress,
-		Machine: machine,
-	})
-	return unit
 }
 
 type cmdStorageSuite struct {
@@ -85,7 +68,7 @@ func runShow(c *gc.C, args []string) *cmd.Context {
 }
 
 func (s *cmdStorageSuite) TestStorageShowCmdStack(c *gc.C) {
-	context := runShow(c, []string{"--unit", "test-unit", "--storage", "test-storage"})
+	context := runShow(c, []string{"shared-fs/0"})
 	obtained := strings.Replace(testing.Stdout(context), "\n", "", -1)
 	expected := ""
 	c.Assert(obtained, gc.Equals, expected)
