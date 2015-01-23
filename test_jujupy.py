@@ -178,7 +178,8 @@ class TestEnvJujuClient(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 EnvJujuClient(env, None, None).bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+                'bootstrap', ('--constraints', 'mem=2G'), False,
+                juju_home=None)
 
     def test_bootstrap_maas(self):
         env = Environment('maas', '')
@@ -187,7 +188,8 @@ class TestEnvJujuClient(TestCase):
             with patch.object(client.env, 'maas', lambda: True):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
+                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False,
+                juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -196,7 +198,8 @@ class TestEnvJujuClient(TestCase):
             with patch.object(client.env, 'needs_sudo', lambda: False):
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+                'bootstrap', ('--constraints', 'mem=2G'), False,
+                juju_home=None)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -205,7 +208,7 @@ class TestEnvJujuClient(TestCase):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap()
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True)
+                'bootstrap', ('--constraints', 'mem=2G'), True, juju_home=None)
 
     def test_bootstrap_upload_tools(self):
         env = Environment('foo', '')
@@ -215,7 +218,17 @@ class TestEnvJujuClient(TestCase):
                 client.bootstrap(upload_tools=True)
             mock.assert_called_with(
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True)
+                True, juju_home=None)
+
+    def test_bootstrap_juju_home(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client.env, 'needs_sudo', lambda: True):
+            with patch.object(client, 'juju', autospec=True) as mock:
+                client.bootstrap(upload_tools=True, juju_home='temp-home')
+            mock.assert_called_with(
+                'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
+                True, juju_home='temp-home')
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
@@ -627,6 +640,19 @@ class TestEnvJujuClient(TestCase):
             'timeout', '58.00s', 'juju', '--show-log', 'foo', '-e', 'qux',
             'bar', 'baz'))
 
+    def test_juju_juju_home(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with scoped_environ():
+            os.environ['JUJU_HOME'] = 'foo'
+            with patch('subprocess.check_call') as cc_mock:
+                client.juju('foo', ('bar', 'baz'))
+                self.assertEqual(cc_mock.mock_calls[0][2]['env']['JUJU_HOME'],
+                                 'foo')
+                client.juju('foo', ('bar', 'baz'), juju_home='asdf')
+                self.assertEqual(cc_mock.mock_calls[1][2]['env']['JUJU_HOME'],
+                                 'asdf')
+
     def test_juju_backup_with_tgz(self):
         env = SimpleEnvironment('qux')
         client = EnvJujuClient(env, None, '/foobar/baz')
@@ -765,6 +791,30 @@ class TestTempJujuEnv(TestCase):
                     }}})
                 stub_bootstrap()
 
+    def test_temp_bootstrap_env_provides_dir(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with temp_dir() as fake_home:
+            juju_home = os.path.join(fake_home, 'asdf')
+
+            def side_effect(*args, **kwargs):
+                os.mkdir(juju_home)
+                return juju_home
+
+            with patch('utility.mkdtemp', side_effect=side_effect):
+                with temp_bootstrap_env(fake_home, client) as temp_home:
+                    pass
+        self.assertEqual(temp_home, juju_home)
+
+    def test_temp_bootstrap_env_no_set_home(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with temp_dir() as fake_home:
+            with scoped_environ():
+                os.environ['JUJU_HOME'] = 'foo'
+                with temp_bootstrap_env(fake_home, client, set_home=False):
+                    self.assertEqual(os.environ['JUJU_HOME'], 'foo')
+
     def test_output(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = EnvJujuClient.by_version(env)
@@ -873,7 +923,8 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+                'bootstrap', ('--constraints', 'mem=2G'), False,
+                juju_home=None)
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
@@ -881,7 +932,8 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), False)
+                'bootstrap', ('--constraints', 'mem=2G'), False,
+                juju_home=None)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
@@ -890,7 +942,7 @@ class TestJujuClientDevel(TestCase):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client.bootstrap(env)
             mock.assert_called_with(
-                'bootstrap', ('--constraints', 'mem=2G'), True)
+                'bootstrap', ('--constraints', 'mem=2G'), True, juju_home=None)
 
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')

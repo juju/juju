@@ -358,8 +358,9 @@ class BootstrapAttempt(SteppedStageAttempt):
         """Iterate the steps of this Stage.  See SteppedStageAttempt."""
         results = {'test_id': 'bootstrap'}
         yield results
-        with temp_bootstrap_env(get_juju_home(), client):
-            client.bootstrap()
+        with temp_bootstrap_env(
+                get_juju_home(), client, set_home=False) as juju_home:
+            client.bootstrap(juju_home=juju_home)
         with wait_for_started(client):
             yield results
         results['result'] = True
