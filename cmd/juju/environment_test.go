@@ -78,7 +78,6 @@ func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
 	s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageEnviron},
 	})
-
 	ctx, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)
 
