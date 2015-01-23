@@ -28,11 +28,13 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-func (c *Client) Show(storageId string) ([]params.StorageInstance, error) {
+func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
 	result := params.StorageInstancesResult{}
-	storageTag := names.NewStorageTag(storageId)
-	wanted := params.Entity{Tag: storageTag.String()}
-	if err := c.facade.FacadeCall("Show", wanted, &result); err != nil {
+	entities := make([]params.Entity, len(tags))
+	for i, tag := range tags {
+		entities[i] = params.Entity{Tag: tag.String()}
+	}
+	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result.Results, nil

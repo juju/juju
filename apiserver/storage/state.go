@@ -11,15 +11,15 @@ import (
 )
 
 type storageAccess interface {
-	Show(wanted params.Entity) (params.StorageInstancesResult, error)
+	Show(entities params.Entities) (params.StorageInstancesResult, error)
 }
 
 type stateShim struct {
 	state *state.State
 }
 
-// Show calls state to get information about storage instance
-func (s stateShim) Show(wanted params.Entity) (params.StorageInstancesResult, error) {
+// Show calls state to get information about storage instances
+func (s stateShim) Show(entities params.Entities) (params.StorageInstancesResult, error) {
 	nothing := params.StorageInstancesResult{}
 	// TODO(anastasiamac) plug into a real implementation. This is just a placeholder.
 	return nothing, errors.NotImplementedf("This needs to plug into a real deal!")

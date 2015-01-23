@@ -45,6 +45,6 @@ func NewAPI(
 	}, nil
 }
 
-func (api *API) Show(wanted params.Entity) (params.StorageInstancesResult, error) {
-	return api.storage.Show(wanted)
+func (api *API) Show(entities params.Entities) (params.StorageInstancesResult, error) {
+	return api.storage.Show(entities)
 }

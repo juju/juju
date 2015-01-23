@@ -42,15 +42,15 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 		c,
 		[]string{"shared-fs/0"},
 		// Default format is yaml
-		`storage-tag: storage-shared-fs-0
-unit-name: unitName
-storage-name: storageName
-available-size: 30
-total-size: 100
-tags:
-- tests
-- well
-- maybe
+		`- storage-tag: storage-shared-fs-0
+  unit-name: unitName
+  storage-name: storageName
+  available-size: 30
+  total-size: 100
+  tags:
+  - tests
+  - well
+  - maybe
 `,
 	)
 }
@@ -59,15 +59,35 @@ func (s *ShowSuite) TestShowJSON(c *gc.C) {
 	s.assertValidShow(
 		c,
 		[]string{"shared-fs/0", "--format", "json"},
-		`{"storage-tag":"storage-shared-fs-0","unit-name":"unitName","storage-name":"storageName","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}
+		`[{"storage-tag":"storage-shared-fs-0","unit-name":"unitName","storage-name":"storageName","available-size":30,"total-size":100,"tags":["tests","well","maybe"]}]
 `,
 	)
 }
 
 func (s *ShowSuite) TestShowMultipleReturn(c *gc.C) {
-	s.mockAPI.wantMore = true
-	_, err := runShow(c, []string{"shared-fs/0"})
-	c.Assert(err.Error(), gc.Matches, ".*expected 1 result, got 2.*")
+	s.assertValidShow(
+		c,
+		[]string{"shared-fs/0", "db-dir/1000"},
+		`- storage-tag: storage-shared-fs-0
+  unit-name: unitName
+  storage-name: storageName
+  available-size: 30
+  total-size: 100
+  tags:
+  - tests
+  - well
+  - maybe
+- storage-tag: storage-db-dir-1000
+  unit-name: unitName
+  storage-name: storageName
+  available-size: 30
+  total-size: 100
+  tags:
+  - tests
+  - well
+  - maybe
+`,
+	)
 }
 
 func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
@@ -79,25 +99,24 @@ func (s *ShowSuite) assertValidShow(c *gc.C, args []string, expected string) {
 }
 
 type mockStorageAPI struct {
-	wantMore bool
 }
 
 func (s mockStorageAPI) Close() error {
 	return nil
 }
 
-func (s mockStorageAPI) Show(storageId string) ([]params.StorageInstance, error) {
-	one := params.StorageInstance{
-		StorageTag:    names.NewStorageTag(storageId).String(),
-		UnitName:      "unitName",
-		StorageName:   "storageName",
-		AvailableSize: 30,
-		TotalSize:     100,
-		Tags:          []string{"tests", "well", "maybe"},
-	}
-	results := []params.StorageInstance{one}
-	if s.wantMore {
-		results = append(results, one)
+func (s mockStorageAPI) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
+	results := make([]params.StorageInstance, len(tags))
+
+	for i, tag := range tags {
+		results[i] = params.StorageInstance{
+			StorageTag:    tag.String(),
+			UnitName:      "unitName",
+			StorageName:   "storageName",
+			AvailableSize: 30,
+			TotalSize:     100,
+			Tags:          []string{"tests", "well", "maybe"},
+		}
 	}
 	return results, nil
 }

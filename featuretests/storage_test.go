@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/names"
 )
 
 type apiStorageSuite struct {
@@ -44,8 +45,8 @@ func (s *apiStorageSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *apiStorageSuite) TestStorageShow(c *gc.C) {
-	storageId := "shared-fs/0"
-	found, err := s.storageClient.Show(storageId)
+	storageTag := names.NewStorageTag("shared-fs/0")
+	found, err := s.storageClient.Show([]names.StorageTag{storageTag})
 	c.Assert(err.Error(), gc.Matches, ".*not implemented.*")
 	c.Assert(found, gc.HasLen, 0)
 }
