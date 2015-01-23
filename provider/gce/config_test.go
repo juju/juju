@@ -31,7 +31,8 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-type testSpec []struct {
+// TODO(ericsnow) Add comment here explaining configTestSpec.
+type configTestSpec struct {
 	info   string
 	insert testing.Attrs
 	remove []string
@@ -45,7 +46,28 @@ type testSpec []struct {
 	skipIfOldConfig bool
 }
 
-var newConfigTests = testSpec{{
+func (ts configTestSpec) checkSuccess(c *gc.C, cfg *config.Config, err error) {
+	if !c.Check(err, jc.ErrorIsNil) {
+		return
+	}
+
+	attrs := cfg.AllAttrs()
+	for field, value := range ts.expect {
+		c.Check(attrs[field], gc.Equals, value)
+	}
+}
+
+func (ts configTestSpec) checkFailure(c *gc.C, err error, msg string) {
+	c.Check(err, gc.ErrorMatches, msg+": "+ts.err)
+}
+
+func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *config.Config) {
+	for field, value := range cfg.UnknownAttrs() {
+		c.Check(attrs[field], gc.Equals, value)
+	}
+}
+
+var newConfigTests = []configTestSpec{{
 	info:   "client-id is required",
 	remove: []string{"client-id"},
 	err:    "client-id: expected string, got nothing",
@@ -105,29 +127,21 @@ var newConfigTests = testSpec{{
 
 func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
-		c.Logf("test %d: %s", i, test.info)
 		if test.skipIfNotValidated {
-			c.Logf("skipping %d: %s", i, test.info)
+			c.Logf("skipping test %d: %s", i, test.info)
 			continue
 		}
+		c.Logf("test %d: %s", i, test.info)
 
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := environ.Config().AllAttrs()
-			for field, value := range test.expect {
-				c.Logf("%+v", attrs)
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		// Check the result
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config")
 		} else {
-			if err != nil {
-				c.Check(environ, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid config: "+test.err)
+			test.checkSuccess(c, environ.Config(), err)
 		}
 	}
 }
@@ -139,19 +153,12 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range test.expect {
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		// Check the result
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config")
 		} else {
-			if err != nil {
-				c.Check(validatedConfig, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid config: "+test.err)
+			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
 }
@@ -172,24 +179,18 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 		attrs["uuid"] = uuid
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := gce.Provider.Validate(knownGoodConfig, testConfig)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range validAttrs() {
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		// Check the result
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid base config")
 		} else {
-			if err != nil {
-				c.Check(validatedConfig, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid base config: "+test.err)
+			c.Check(err, jc.ErrorIsNil)
+			test.checkAttrs(c, validAttrs(), validatedConfig)
 		}
 	}
 }
 
-var changeConfigTests = testSpec{{
+var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
 	expect: validAttrs(),
 }, {
@@ -229,19 +230,12 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		attrs["uuid"] = uuid
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := gce.Provider.Validate(testConfig, baseConfig)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range test.expect {
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		// Check the result.
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config change")
 		} else {
-			if err != nil {
-				c.Check(validatedConfig, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
+			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
 }
@@ -258,19 +252,13 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		attrs["uuid"] = uuid
 		testConfig := newConfig(c, attrs)
 		err = environ.SetConfig(testConfig)
-		newAttrs := environ.Config().AllAttrs()
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			for field, value := range test.expect {
-				c.Check(newAttrs[field], gc.Equals, value)
-			}
+
+		// Check the result.
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config change")
+			test.checkAttrs(c, environ.Config().AllAttrs(), baseConfig)
 		} else {
-			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
-			for field, value := range baseConfig.UnknownAttrs() {
-				c.Check(newAttrs[field], gc.Equals, value)
-			}
+			test.checkSuccess(c, environ.Config(), err)
 		}
 	}
 }
