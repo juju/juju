@@ -515,9 +515,15 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
+
+	svc, err := service.NewServices()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
-	mongo.RemoveService(env.config.namespace())
+	svc, err := mongo.NewService(env.config.namespace(), nil)
+	svc.Remove()
 	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
 
 	// Finally, remove the data-dir.
