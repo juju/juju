@@ -22,14 +22,18 @@ var _ = gc.Suite(&environAZSuite{})
 func (s *environAZSuite) TestAvailabilityZones(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("a-zone", google.StatusUp),
+		google.NewZone("b-zone", google.StatusUp),
 	}
 
 	zones, err := s.Env.AvailabilityZones()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(zones, gc.HasLen, 1)
+	c.Check(zones, gc.HasLen, 2)
 	c.Check(zones[0].Name(), gc.Equals, "a-zone")
 	c.Check(zones[0].Available(), jc.IsTrue)
+	c.Check(zones[1].Name(), gc.Equals, "b-zone")
+	c.Check(zones[1].Available(), jc.IsTrue)
+
 }
 
 func (s *environAZSuite) TestAvailabilityZonesAPI(c *gc.C) {
@@ -155,7 +159,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesOccupied(c *gc.C) {
 	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(zones, jc.DeepEquals, []string{"home-zone-b"})
+	c.Check(zones, jc.DeepEquals, []string{"home-zone-b", "home-zone"})
 }
 
 func (s *environAZSuite) TestParseAvailabilityZonesWrongRegion(c *gc.C) {

@@ -25,7 +25,8 @@ func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 
 	var result []common.AvailabilityZone
 	for _, zone := range zones {
-		result = append(result, &zone)
+		zoneCopy := zone
+		result = append(result, &zoneCopy)
 	}
 	return result, nil
 }
