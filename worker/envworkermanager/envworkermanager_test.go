@@ -28,14 +28,16 @@ var _ = gc.Suite(&suite{})
 
 type suite struct {
 	statetesting.StateSuite
-	factory *factory.Factory
-	runnerC chan *fakeRunner
+	factory  *factory.Factory
+	runnerC  chan *fakeRunner
+	startErr error
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.factory = factory.NewFactory(s.State)
 	s.runnerC = make(chan *fakeRunner, 1)
+	s.startErr = nil
 }
 
 func (s *suite) makeEnvironment(c *gc.C) *state.State {
@@ -179,6 +181,15 @@ func (s *suite) TestNonFatalErrorCausesRunnerRestart(c *gc.C) {
 	s.seeRunnersStart(c, 1)
 }
 
+func (s *suite) TestStateIsClosedIfStartEnvWorkersFails(c *gc.C) {
+	// If State is not closed when startEnvWorkers errors, MgoSuite's
+	// dirty socket detection will pick up the leaked socket and
+	// panic.
+	s.startErr = worker.ErrTerminateAgent // This will make envWorkerManager exit.
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	waitOrPanic(m.Wait)
+}
+
 func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
 	if expectedCount < 1 {
 		panic("expectedCount must be >= 1")
@@ -217,6 +228,9 @@ func (s *suite) checkNoRunnersStart(c *gc.C) {
 // creates fake Runner instances when envWorkerManager starts workers
 // for an environment.
 func (s *suite) startEnvWorkers(ssSt envworkermanager.InitialState, st *state.State) (worker.Runner, error) {
+	if s.startErr != nil {
+		return nil, s.startErr
+	}
 	runner := &fakeRunner{
 		ssEnvUUID: ssSt.EnvironUUID(),
 		envUUID:   st.EnvironUUID(),
