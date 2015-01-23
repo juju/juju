@@ -96,7 +96,7 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 	}
 }
 
-func (*environSuite) TestSupportNetworks(c *gc.C) {
+func (*environSuite) TestSupportsNetworking(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, jc.ErrorIsNil)

@@ -705,7 +705,7 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
-func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
+func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := t.Prepare(c)
 	_, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)

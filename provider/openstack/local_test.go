@@ -829,7 +829,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
 }
 
-func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
+func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c)
 	_, ok := environs.SupportsNetworking(env)
 	c.Assert(ok, jc.IsFalse)

@@ -1006,7 +1006,7 @@ func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error)
 }
 
 // AllocateAddress requests an address to be allocated for the
-// given instance on the given network.
+// given instance on the given subnet.
 func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
 		return err
