@@ -28,7 +28,7 @@ type EnsureAvailabilitySuite struct {
 
 // Initialize numStateServers to an invalid number to validate
 // that ensure-availability doesn't call into the API when its
-// pre-checks fail.
+// pre-checks fail
 const invalidNumServers = -2
 
 func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
