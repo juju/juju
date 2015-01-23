@@ -990,13 +990,13 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 
 func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	env := suite.makeEnviron()
-	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
+func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportAddressAllocation("")
+	supported, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
 }

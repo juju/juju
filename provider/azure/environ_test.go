@@ -1375,8 +1375,8 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	envAttrs := makeAzureConfigMap(c)
 	envAttrs["location"] = "North Europe"
 	env := makeEnvironWithConfig(c, envAttrs)
-	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsFalse)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsFalse)
 	s.setDummyStorage(c, env)
 	images := []*imagemetadata.ImageMetadata{
 		{

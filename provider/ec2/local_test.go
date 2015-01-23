@@ -202,8 +202,8 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 
 func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
 	env := t.Prepare(c)
-	netenv, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 	return netenv
 }
 
@@ -707,8 +707,8 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
-	_, ok := environs.SupportsNetworking(env)
-	c.Assert(ok, jc.IsTrue)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
@@ -838,22 +838,22 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
 }
 
-func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
+func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
 	})
 	env := t.prepareEnviron(c)
-	result, err := env.SupportAddressAllocation("")
+	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
 }
 
-func (t *localServerSuite) TestSupportAddressAllocationCaches(c *gc.C) {
+func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"none"},
 	})
 	env := t.prepareEnviron(c)
-	result, err := env.SupportAddressAllocation("")
+	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
 
@@ -862,17 +862,17 @@ func (t *localServerSuite) TestSupportAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
 	})
-	result, err = env.SupportAddressAllocation("")
+	result, err = env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
 }
 
-func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
+func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"none"},
 	})
 	env := t.prepareEnviron(c)
-	result, err := env.SupportAddressAllocation("")
+	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
 }

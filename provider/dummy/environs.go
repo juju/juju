@@ -157,14 +157,14 @@ type OpDestroy struct {
 type OpAllocateAddress struct {
 	Env        string
 	InstanceId instance.Id
-	NetworkId  network.Id
+	SubnetId   network.Id
 	Address    network.Address
 }
 
 type OpReleaseAddress struct {
 	Env        string
 	InstanceId instance.Id
-	NetworkId  network.Id
+	SubnetId   network.Id
 	Address    network.Address
 }
 
@@ -1000,16 +1000,14 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	return
 }
 
-// SupportAddressAllocation takes a network.Id and returns a bool
-// and an error. The bool indicates whether that network supports
-// static ip address allocation.
-func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+	return true, nil
 }
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
 		return err
 	}
@@ -1024,7 +1022,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
-		NetworkId:  netId,
+		SubnetId:   subnetId,
 		Address:    addr,
 	}
 	return nil
@@ -1032,7 +1030,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("ReleaseAddress"); err != nil {
 		return err
 	}
@@ -1047,7 +1045,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	estate.ops <- OpReleaseAddress{
 		Env:        env.name,
 		InstanceId: instId,
-		NetworkId:  netId,
+		SubnetId:   subnetId,
 		Address:    addr,
 	}
 	return nil
