@@ -18,12 +18,8 @@ const (
 	DirectiveNoVerify = "noverify"
 )
 
-const (
-	initDir = "init"
-)
-
 var (
-	prefixes = []string{
+	jujuPrefixes = []string{
 		"juju-",
 		"jujud-",
 	}
@@ -36,7 +32,8 @@ var (
 // Services exposes the high-level functionality of an underlying init
 // system, relative to juju.
 type Services struct {
-	services
+	configs *serviceConfigs
+	init    InitSystem
 }
 
 // NewServices populates a new Services and returns it. This includes
@@ -46,25 +43,46 @@ type Services struct {
 // services located there are extracted and cached. A service conf must
 // be there already or be added via the Add method before Services will
 // recognize it as juju-managed.
-func NewServices(dataDir string) (*Services, error) {
-	// Get the underlying init system.
-	name, err := discoverInitSystem()
+func NewServices(dataDir string, args ...string) (*Services, error) {
+	if len(args) > 1 {
+		return nil, errors.Errorf("at most 1 arg expected, got %d", len(args))
+	}
+
+	// Get the init system.
+	init, err := extractInitSystem(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newInitSystem := initSystems[name]
-	init := newInitSystem()
 
 	// Build the Services.
-	services := Services{services{
-		baseDir:  filepath.Join(dataDir, initDir),
-		initname: name,
-		init:     init,
-	}}
+	services := Services{
+		configs: newConfigs(dataDir, name, jujuPrefixes...),
+		init:    init,
+	}
 
 	// Ensure that the list of known services is cached.
-	err = services.refresh()
+	err = services.config.refresh()
 	return &services, errors.Trace(err)
+}
+
+func extractInitSystem(args []string) (common.InitSystem, error) {
+	// Get the init system name from the args.
+	var name string
+	if numArgs != 0 {
+		name = numArgs[0]
+	}
+
+	// Fall back to discovery.
+	if name == "" {
+		name, err := discoverInitSystem()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
+	// Return the corresponding init system.
+	newInitSystem := initSystems[name]
+	return newInitSystem(), nil
 }
 
 // List collects the names of all juju-managed services and returns it.
@@ -107,8 +125,8 @@ func (s Services) List(directives ...string) ([]string, error) {
 
 // Start starts the named juju-managed service (if enabled).
 func (s Services) Start(name string) error {
-	if err := s.ensure(name); err != nil {
-		return errors.Annotatef(err, "service %q", name)
+	if err := s.ensureManaged(name); err != nil {
+		return errors.Trace(err)
 	}
 
 	err := s.init.Start(name)
@@ -125,10 +143,14 @@ func (s Services) Start(name string) error {
 // Stop stops the named juju-managed service. If it isn't running or
 // isn't enabled then nothing happens.
 func (s Services) Stop(name string) error {
-	if err := s.ensure(name); err != nil {
-		return errors.Annotatef(err, "service %q", name)
+	if err := s.ensureManaged(name); err != nil {
+		return errors.Trace(err)
 	}
+	err := s.stop(name)
+	return errors.Trace(err)
+}
 
+func (s Services) stop(name string) error {
 	err := s.init.Stop(name)
 	if errors.IsNotFound(err) {
 		// Either it is already stopped or it isn't enabled.
@@ -139,13 +161,10 @@ func (s Services) Stop(name string) error {
 
 // IsRunning determines whether or not the named service is running.
 func (s Services) IsRunning(name string) (bool, error) {
-	if err := s.ensure(name); err != nil {
-		return false, errors.Annotatef(err, "service %q", name)
+	if err := s.ensureManaged(name); err != nil {
+		return errors.Trace(err)
 	}
-	return s.isRunning(name)
-}
 
-func (s Services) isRunning(name string) (bool, error) {
 	info, err := s.init.Info(name)
 	if errors.IsNotFound(err) {
 		// Not enabled.
@@ -159,14 +178,22 @@ func (s Services) isRunning(name string) (bool, error) {
 
 // Enable adds the named service to the underlying init system.
 func (s Services) Enable(name string) error {
-	if err := s.ensure(name); err != nil {
-		return errors.Annotatef(err, "service %q", name)
+	confDir := s.configs.lookup(name)
+	if confDir == nil {
+		return errors.NotFoundf("service %q", name)
 	}
 
-	confdir := s.confDir(name)
-	err := s.init.Enable(name, confdir.filename())
+	err := s.init.Enable(name, confDir.filename())
 	if errors.IsAlreadyExists(err) {
-		// It is already enabled.
+		// It is already enabled. Make sure the enabled one is
+		// managed by juju.
+		same, err := s.compareConf(name, confDir)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !same {
+			return errors.Anntatef(ErrNotManaged, "service %q", name)
+		}
 		return nil
 	}
 	return errors.Trace(err)
@@ -174,8 +201,8 @@ func (s Services) Enable(name string) error {
 
 // Disable removes the named service from the underlying init system.
 func (s Services) Disable(name string) error {
-	if err := s.ensure(name); err != nil {
-		return errors.Annotatef(err, "service %q", name)
+	if err := s.ensureManaged(name); err != nil {
+		return errors.Trace(err)
 	}
 
 	// TODO(ericsnow) Require that the service be stopped already?
@@ -193,169 +220,128 @@ func (s Services) disable(name string) error {
 	return errors.Trace(err)
 }
 
-// StopAndDisable is a helper that simply calls Stop and Disable for the
-// named service.
-func (s Services) StopAndDisable(name string) error {
-	if err := s.Stop(name); err != nil {
-		return errors.Trace(err)
-	}
-	err := s.disable(name)
-	return errors.Trace(err)
-}
-
 // IsEnabled determines whether or not the named service has been
-// added to the underlying init system.
+// added to the underlying init system. If a different service
+// (determined by comparing confs) with the same name is enabled then
+// errors.AlreadyExists is returned.
 func (s Services) IsEnabled(name string) (bool, error) {
-	if err := s.ensure(name); err != nil {
-		return false, errors.Annotatef(err, "service %q", name)
-	}
-	return s.isEnabled(name)
-}
-
-// Conf extracts the service Conf for the named service. This is useful
-// when comparing an existing service against a proposed one.
-func (s Services) Conf(name string) (*common.Conf, error) {
-	if err := s.ensure(name); err != nil {
-		return nil, errors.Annotatef(err, "service %q", name)
+	if err := s.ensureManaged(name); err != nil {
+		return false, errors.Trace(err)
 	}
 
-	conf, err := s.init.Conf(name)
-	return conf, errors.Trace(err)
+	enabled, err := s.init.IsEnabled(name)
+	return enabled, errors.Trace(err)
 }
 
 // Add adds the named service to the directory of juju-related
 // service configurations. The provided Conf is used to generate the
-// conf file and possibly a script file. Adding a service triggers a
-// refresh of the cache of juju-managed service names.
-func (s Services) Add(name string, conf *common.Conf) error {
-	confdir := s.confDir(name)
-	if err := confdir.validate(); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := confdir.write(conf, s.init); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update the list of juju-managed services.
-	err := s.refresh()
+// conf file and possibly a script file.
+func (s ManagedServices) Add(name string, conf *common.Conf) error {
+	err := s.configs.add(name, conf, s.init)
 	return errors.Trace(err)
 }
 
 // Remove removes the conf for the named service from the directory of
 // juju-related service configurations. If the service is running or
 // otherwise enabled then it is stopped and disabled before the
-// removal takes place. Removing a service triggers a refresh of the
-// cache of juju-managed service names.
+// removal takes place. If the service is not managed by juju then
+// nothing happens.
 func (s Services) Remove(name string) error {
-	if err := s.ensure(name); err != nil {
-		return errors.Annotatef(err, "service %q", name)
+	confDir := s.configs.lookup(name)
+	if confDir == nil {
+		return nil
+	}
+	enabled := s.init.IsEnabled(name)
+	if enabled {
+		// We must do this before removing the conf directory.
+		same, err := s.compareConf(name, confDir)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		enabled = same
 	}
 
-	// Stop and disable first, if necessary.
-	enabled, err := s.isEnabled(name)
-	if err != nil {
+	// Remove the managed service config.
+	if err := s.configs.remove(name); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Stop and disable the service, if necessary.
 	if enabled {
-		if err := s.StopAndDisable(name); err != nil {
+		if err := s.stop(name); err != nil {
+			return errors.Trace(err)
+		}
+		if err := s.disable(name); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	// Delete the service conf directory.
-	confdir := s.confDir(name)
-	if err := confdir.remove(); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Update the list of juju-managed services.
-	err = s.refresh()
-	return errors.Trace(err)
-}
-
-type services struct {
-	baseDir    string
-	initname   string
-	init       common.InitSystem
-	skipEnsure bool
-
-	names []string
-}
-
-func (s services) refresh() error {
-	// TODO(ericsnow) Support filtering this list down?
-	names, err := s.list()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	s.names = names
 	return nil
 }
 
-func (s services) isknown(name string) bool {
-	for _, known := range s.names {
-		if name == known {
-			return true
-		}
-	}
-	return false
+// Check verifies the managed conf for the named service to ensure
+// it matches the provided Conf.
+func (s Services) Check(name string, conf *common.Conf) (bool, error) {
+	// TODO(ericsnow) Finish this.
+	return false, nil
 }
 
-func (s services) list() ([]string, error) {
-	dirnames, err := listSubdirectories(s.baseDir)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var names []string
-	for _, name := range dirnames {
-		if !hasPrefix(name, prefixes...) {
-			continue
-		}
-		if err := s.confDir(name).validate(); err == nil {
-			names = append(names, name)
-		}
-	}
-	return names, nil
+// IsManaged determines whether or not the named service is
+// managed by juju.
+func (s Services) IsManaged(name string) bool {
+	return s.configs.lookup(name) != nil
 }
 
-func (s services) confDir(name string) *confDir {
-	return &confDir{
-		dirname:    filepath.Join(s.baseDir, name),
-		initSystem: s.initname,
-	}
-}
-
-func (s services) confFile(name string) string {
-	confname := fmt.Sprintf(filenameConf, s.initname)
-	return filepath.Join(s.baseDir, name, confname)
-}
-
-func (s Services) ensure(name string) error {
-	if !s.isknown(name) {
+func (s Services) ensureManaged(name string) error {
+	confDir := s.configs.lookup(name)
+	if confDir == nil {
 		return errors.NotFoundf("service %q", name)
 	}
 
-	if s.skipEnsure {
-		return nil
-	}
-
-	matched, err := s.isEnabled(name)
+	enabled, err := s.init.IsEnabled(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !matched {
-		return errors.Trace(ErrNotManaged)
+	if !enabled {
+		return nil
 	}
+
+	// Make sure that the juju-managed conf matches the enabled one.
+	same, err := s.compareConf(name, confDir)
+	if errors.IsNotSupported(err) {
+		// We'll just have to trust.
+		return nil
+	}
+	if !same {
+		msg := "managed conf for service %q does not match existing service"
+		return errors.Annotatef(ErrNotManaged, msg, name)
+	}
+
 	return nil
 }
 
-func (s services) filterActual(names []string) ([]string, error) {
+func (s services) compareConf(name string, confDir *confDir) (bool, error) {
+	conf, err := s.init.Conf(name)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	data := confDir.conf()
+	expected, err := s.init.Deserialize(data)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	return (*conf == *expected), nil
+}
+
+func (s Services) filterActual(names []string) ([]string, error) {
 	var filtered []string
 	for _, name := range names {
 		matched, err := s.isEnabled(name)
+		if errors.Cause(err) == ErrNotManaged {
+			continue
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -366,8 +352,31 @@ func (s services) filterActual(names []string) ([]string, error) {
 	return filtered, nil
 }
 
-func (s services) isEnabled(name string) (bool, error) {
-	filename := s.confFile(name)
-	enabled, err := s.init.IsEnabled(name, filename)
-	return enabled, errors.Trace(err)
+// TODO(ericsnow) Eliminate isEnabled.
+func (s Services) isEnabled(name string, confDir *confDir) (bool, error) {
+	// confDir should not be nil.
+
+	enabled, err := s.init.IsEnabled(name)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if !enabled {
+		return false, nil
+	}
+
+	same, err := s.compareConf(name, confDir)
+	if errors.IsNotSupported(err) {
+		// We'll just have to trust.
+		return true, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	if !same {
+		msg := "managed conf for service %q does not match existing service"
+		return false, errors.Annotatef(ErrNotManaged, msg, name)
+	}
+
+	return true, nil
 }

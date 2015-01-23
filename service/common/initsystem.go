@@ -34,10 +34,7 @@ type InitSystem interface {
 	Disable(name string) error
 
 	// IsEnabled determines whether or not the named service is enabled.
-	// If any filenames are provided then they are compared against the
-	// existing conf file (if one exists). If none match then false is
-	// returned.
-	IsEnabled(name string, filenames ...string) (bool, error)
+	IsEnabled(name string) (bool, error)
 
 	// Info gathers information about the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.
@@ -49,7 +46,7 @@ type InitSystem interface {
 
 	// Serialize converts the provided Conf into the file format
 	// recognized by the init system.
-	Serialize(conf *Conf) ([]byte, error)
+	Serialize(name string, conf *Conf) ([]byte, error)
 
 	// Deserialize converts the provided data into a Conf according to
 	// the init system's conf file format. If the data does not

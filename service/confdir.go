@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/service/common"
 )
@@ -29,6 +30,15 @@ type confDir struct {
 	// dirname is the absolute path to the service's conf directory.
 	dirname    string
 	initSystem string
+	fops       fileOperations
+}
+
+func newConfDir(name, initDir, initSystem string) *confDir {
+	return &confDir{
+		dirname:    filepath.Join(initDir, name),
+		initSystem: initSystem,
+		fops:       &fileOps{},
+	}
 }
 
 func (cd confDir) name() string {
@@ -48,8 +58,8 @@ func (cd confDir) validate() error {
 
 	// The conf file must exist.
 	confname := cd.confname()
-	_, err := stat(filepath.Join(cd.dirname, confname))
-	if os.IsNotExist(err) {
+	exists, err := cd.fops.exists(filepath.Join(cd.dirname, confname))
+	if !exists {
 		return errors.NotValidf("%q missing conf file %q", cd.dirname, confname)
 	}
 	if err != nil {
@@ -59,14 +69,27 @@ func (cd confDir) validate() error {
 	return nil
 }
 
-var stat = os.Stat
+func (cd confDir) create() error {
+	exists, err := cd.fops.exists(cd.dirname)
+	if exists {
+		// TODO(ericsnow) Allow if using a different init system?
+		return errors.AlreadyExistsf("service conf dir %q", cd.dirname)
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(ericsnow) Are these the right permissions?
+	if err := cd.fops.mkdirs(cd.dirname, 0777); err != nil {
+		return errors.Trace(err)
+	}
 
-func (cd confDir) readfile(name string) (string, error) {
-	data, err := readfile(filepath.Join(cd.dirname, name))
-	return string(data), errors.Trace(err)
+	return nil
 }
 
-var readfile = ioutil.ReadFile
+func (cd confDir) readfile(name string) (string, error) {
+	data, err := cd.fops.readfile(filepath.Join(cd.dirname, name))
+	return string(data), errors.Trace(err)
+}
 
 func (cd confDir) conf() (string, error) {
 	return cd.readfile(cd.confname())
@@ -76,40 +99,15 @@ func (cd confDir) script() (string, error) {
 	return cd.readfile(filenameScript)
 }
 
-func (cd confDir) write(conf *common.Conf, init common.InitSystem) error {
-	_, err := stat(cd.dirname)
-	if err == nil {
-		return errors.AlreadyExistsf("service conf dir %q", cd.dirname)
-	}
-	if !os.IsNotExist(err) {
-		return errors.Trace(err)
-	}
-
-	// Make a copy so we don't mutate.
-	copied := *conf
-	conf = &copied
-
-	// Write out the script if necessary.
-	script, err := conf.Script()
+func (cd confDir) writeConf(conf *common.Conf, data []byte) error {
+	// Handle any extraneous files.
+	conf, err := cd.normalizeConf(conf)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	conf.Cmd = script
-	conf.ExtraScript = ""
-	if !cd.isSimple(script) {
-		filename, err := cd.writeScript(script)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		conf.Cmd = filename
 	}
 
 	// Write out the conf.
-	data, err := init.Serialize(conf)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	file, err := create(cd.filename())
+	file, err := cd.fops.create(cd.filename())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,6 +117,28 @@ func (cd confDir) write(conf *common.Conf, init common.InitSystem) error {
 	}
 
 	return nil
+}
+
+func (cd confDir) normalizeConf(conf *common.Conf) (*common.Conf, error) {
+	// Make a copy so we don't mutate.
+	copied := *conf
+	conf = &copied
+
+	// Write out the script if necessary.
+	script, err := conf.Script()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conf.Cmd = script
+	conf.ExtraScript = ""
+	if !cd.isSimple(script) {
+		filename, err := cd.writeScript(script)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		conf.Cmd = filename
+	}
+	return conf, nil
 }
 
 func (cd confDir) isSimple(script string) bool {
@@ -131,7 +151,7 @@ func (cd confDir) isSimple(script string) bool {
 func (cd confDir) writeScript(script string) (string, error) {
 	filename := filepath.Join(cd.dirname, filenameScript)
 
-	file, err := create(filename)
+	file, err := cd.fops.create(filename)
 	if err != nil {
 		return "", errors.Annotate(err, "while writing script")
 	}
@@ -141,18 +161,18 @@ func (cd confDir) writeScript(script string) (string, error) {
 		return "", errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Set the proper permissions.
+
 	return filename, nil
 }
 
-var create = func(filename string) (io.WriteCloser, error) {
-	return os.Create(filename)
-}
-
 func (cd confDir) remove() error {
-	if err := remove(cd.dirname); err != nil {
+	err := cd.fops.remove(cd.dirname)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
 		return errors.Annotatef(err, "while removing conf dir for %q", cd.name())
 	}
 	return nil
 }
-
-var remove = os.RemoveAll

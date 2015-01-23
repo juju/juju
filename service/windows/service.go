@@ -31,9 +31,60 @@ cmd.exe /C call sc config $serviceName start=delayed-auto
 if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
 `
 
+type initSystem struct{}
+
 func NewInitSystem() common.InitSystem {
+	return &initSystem{}
+}
+
+func (is *initSystem) List(include ...string) ([]string, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Start(name string) error {
 	// TODO(ericsnow) Finish!
 	return nil
+}
+
+func (is *initSystem) Stop(name string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) Enable(name, filename string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) Disable(name string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) IsEnabled(name string, filenames ...string) (bool, error) {
+	// TODO(ericsnow) Finish!
+	return false, nil
+}
+
+func (is *initSystem) Info(name string) (*common.ServiceInfo, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Conf(name string) (*common.Conf, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Serialize(conf *common.Conf) ([]byte, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Deserialize(data []byte) (*common.Conf, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
 }
 
 // Service represents a service running on the current system

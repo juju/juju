@@ -17,9 +17,9 @@ import (
 
 // These are the names of the juju-compatible init systems.
 const (
-	initSystemWindows = "windows"
-	initSystemUpstart = "upstart"
-	//initSystemSystemd = "systemd"
+	InitSystemWindows = "windows"
+	InitSystemUpstart = "upstart"
+	//InitSystemSystemd = "systemd"
 )
 
 var (
@@ -28,9 +28,9 @@ var (
 		//"/sbin/systemd": initSystemSystemd,
 	}
 	initSystems = map[string](func() common.InitSystem){
-		initSystemWindows: windows.NewInitSystem,
-		initSystemUpstart: upstart.NewInitSystem,
-		//initSystemSystemd: systemd.NewInitSystem,
+		InitSystemWindows: windows.NewInitSystem,
+		InitSystemUpstart: upstart.NewInitSystem,
+		//InitSystemSystemd: systemd.NewInitSystem,
 	}
 )
 

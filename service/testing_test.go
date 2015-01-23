@@ -44,6 +44,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&readfile, s.FakeFiles.ReadFile)
 	s.PatchValue(&create, s.FakeFiles.Create)
 	s.PatchValue(&remove, s.FakeFiles.RemoveAll)
+	s.PatchValue(&mkdirs, s.FakeFiles.MakedirAll)
 }
 
 // TODO(ericsnow) Use the fake in the testing repo as soon as it lands.

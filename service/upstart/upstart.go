@@ -17,8 +17,91 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/service/common"
 )
+
+const (
+	confDir = "/etc/init"
+)
+
+type initSystem struct{}
+
+func NewInitSystem() common.InitSystem {
+	return &initSystem{}
+}
+
+func (is *initSystem) List(include ...string) ([]string, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Start(name string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) Stop(name string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) Enable(name, filename string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) Disable(name string) error {
+	// TODO(ericsnow) Finish!
+	return nil
+}
+
+func (is *initSystem) IsEnabled(name string, filenames ...string) (bool, error) {
+	// TODO(ericsnow) Finish!
+	return false, nil
+}
+
+func (is *initSystem) Info(name string) (*common.ServiceInfo, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Conf(name string) (*common.Conf, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+func (is *initSystem) Serialize(conf *common.Conf) ([]byte, error) {
+	if err := validate(conf); err != nil {
+		return nil, err
+	}
+
+	// TODO(ericsnow) We can do better than this!
+	var buf bytes.Buffer
+	if err := confT.Execute(&buf, conf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (is *initSystem) Deserialize(data []byte) (*common.Conf, error) {
+	// TODO(ericsnow) Finish!
+	return nil, nil
+}
+
+// validate returns an error if the service is not adequately defined.
+func validate(conf *common.Conf) error {
+	if conf.InitDir == "" {
+		return errors.New("missing InitDir")
+	}
+	if conf.Desc == "" {
+		return errors.New("missing Desc")
+	}
+	if conf.Cmd == "" {
+		return errors.New("missing Cmd")
+	}
+	return nil
+}
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 
@@ -57,16 +140,7 @@ func (s *Service) validate() error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
-	if s.Conf.InitDir == "" {
-		return errors.New("missing InitDir")
-	}
-	if s.Conf.Desc == "" {
-		return errors.New("missing Desc")
-	}
-	if s.Conf.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
-	return nil
+	return validate(s.Conf)
 }
 
 // render returns the upstart configuration for the service as a slice of bytes.
