@@ -21,7 +21,7 @@ var getState = func(st *state.State) storageAccess {
 }
 
 type StorageAPI interface {
-	Show(entities params.Entities) (params.StorageInstancesResult, error)
+	Show(entities params.Entities) (params.StorageShowResults, error)
 }
 
 // API implements the storage interface and is the concrete
@@ -47,30 +47,32 @@ func NewAPI(
 	}, nil
 }
 
-func (api *API) Show(entities params.Entities) (params.StorageInstancesResult, error) {
-	all := make([]params.StorageInstance, len(entities.Entities))
+func (api *API) Show(entities params.Entities) (params.StorageShowResults, error) {
+	all := make([]params.StorageShowResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
-		aTag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			return params.StorageInstancesResult{}, common.ErrPerm
-		}
-		stateInstance, err := api.storage.StorageInstance(aTag.Id())
-		if err != nil {
-			return params.StorageInstancesResult{}, common.ErrPerm
-		}
-		all[i] = api.getStorageInstance(stateInstance)
+		all[i] = api.createStorageInstanceResult(entity.Tag)
 	}
-	return params.StorageInstancesResult{Results: all}, nil
+	return params.StorageShowResults{Results: all}, nil
+}
+
+func (api *API) createStorageInstanceResult(tag string) params.StorageShowResult {
+	aTag, err := names.ParseTag(tag)
+	if err != nil {
+		return params.StorageShowResult{Error: common.ServerError(common.ErrPerm)}
+	}
+	stateInstance, err := api.storage.StorageInstance(aTag.Id())
+	if err != nil {
+		return params.StorageShowResult{Error: common.ServerError(common.ErrPerm)}
+	}
+	return params.StorageShowResult{Result: api.getStorageInstance(stateInstance)}
 }
 
 func (api *API) getStorageInstance(si state.StorageInstance) params.StorageInstance {
-	result := params.StorageInstance{}
-	result.OwnerTag = si.Owner().String()
-	result.StorageTag = si.Tag().String()
-	result.StorageName = si.StorageName()
-
-	prms, _ := si.Params()
-	result.Location = prms.Location
-	result.TotalSize = prms.Size
-	return result
+	return params.StorageInstance{
+		OwnerTag:    si.Owner().String(),
+		StorageTag:  si.Tag().String(),
+		StorageName: si.StorageName(),
+		Location:    "",
+		TotalSize:   0,
+	}
 }

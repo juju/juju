@@ -14,7 +14,14 @@ type StorageInstance struct {
 	Tags          []string
 }
 
-// StorageInstancesResult holds a collection of storage instances.
-type StorageInstancesResult struct {
-	Results []StorageInstance
+// StorageShowResults holds a collection of storage instances.
+type StorageShowResults struct {
+	Results []StorageShowResult
+}
+
+// StorageShowResult holds information about a storage instance
+// or error related to its retrieval.
+type StorageShowResult struct {
+	Result StorageInstance
+	Error  *Error
 }

@@ -39,7 +39,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 	entity := params.Entity{Tag: storageTag}
 
 	found, err := s.api.Show(params.Entities{Entities: []params.Entity{entity}})
-	c.Assert(err.Error(), gc.Matches, ".*permission denied*")
-	c.Assert(found.Results, gc.HasLen, 0)
-	c.Assert(found.Results, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(found.Results, gc.HasLen, 1)
+	c.Assert(found.Results[0].Error.Error(), gc.Matches, ".*permission denied*")
 }

@@ -45,11 +45,13 @@ func (s *storageMockSuite) TestShow(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			c.Assert(args.Entities, gc.HasLen, 2)
 
-			if results, k := result.(*params.StorageInstancesResult); k {
-				instances := make([]params.StorageInstance, len(args.Entities))
+			if results, k := result.(*params.StorageShowResults); k {
+				instances := make([]params.StorageShowResult, len(args.Entities))
 				for i, entity := range args.Entities {
 					c.Assert(expected.Contains(entity.Tag), jc.IsTrue)
-					instances[i] = params.StorageInstance{StorageTag: entity.Tag}
+					instances[i] = params.StorageShowResult{
+						Result: params.StorageInstance{StorageTag: entity.Tag},
+					}
 				}
 				results.Results = instances
 			}

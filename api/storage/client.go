@@ -29,13 +29,20 @@ func NewClient(st base.APICallCloser) *Client {
 }
 
 func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error) {
-	result := params.StorageInstancesResult{}
+	found := params.StorageShowResults{}
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
 		entities[i] = params.Entity{Tag: tag.String()}
 	}
-	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &result); err != nil {
+	if err := c.facade.FacadeCall("Show", params.Entities{Entities: entities}, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return result.Results, nil
+	info := []params.StorageInstance{}
+	for _, result := range found.Results {
+		if result.Error != nil {
+			return nil, errors.New(result.Error.Error())
+		}
+		info = append(info, result.Result)
+	}
+	return info, nil
 }
