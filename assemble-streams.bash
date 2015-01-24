@@ -572,7 +572,8 @@ cleanup() {
     find ${DEST_DEBS} -name "*.tgz" -delete
     # Remove the unused separate tree.
     if [[ $PURPOSE =~ ^(devel)$ ]]; then
-        rm -r $DESTINATION/juju-dist/$PURPOSE/tools/*
+        rm -r $DESTINATION/juju-dist/$PURPOSE/tools/releaes/*
+        rm -r $DESTINATION/juju-dist/$PURPOSE/tools/streams/v1/*
     fi
 }
 
