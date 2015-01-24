@@ -16,6 +16,7 @@ var (
 	CheckInstanceType                          = checkInstanceType
 	GetMetadata                                = getMetadata
 	GetDisks                                   = getDisks
+	ConfigImmutable                            = configImmutableFields
 )
 
 func ExposeInstBase(inst *environInstance) *google.Instance {

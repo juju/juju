@@ -38,12 +38,6 @@ type configTestSpec struct {
 	remove []string
 	expect testing.Attrs
 	err    string
-	// skipIfNotValidated should be set to true if you are using a config.Config
-	// that had environConfig.attrs applied to it (via Apply). See gce.Provider.Validate.
-	skipIfNotValidated bool
-	// skipIfOldConfig should be set to true if you are going to pass an old
-	// config to gce.Provider.Validate.
-	skipIfOldConfig bool
 }
 
 func (ts configTestSpec) checkSuccess(c *gc.C, cfg *config.Config, err error) {
@@ -65,6 +59,23 @@ func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *
 	for field, value := range cfg.UnknownAttrs() {
 		c.Check(attrs[field], gc.Equals, value)
 	}
+}
+
+func (ts configTestSpec) attrFixes() testing.Attrs {
+	if ts.err != "" {
+		return nil
+	}
+
+	attrs := make(testing.Attrs)
+	for field, value := range ts.insert {
+		for _, immutable := range gce.ConfigImmutable {
+			if field == immutable {
+				attrs[field] = value
+				break
+			}
+		}
+	}
+	return attrs
 }
 
 var newConfigTests = []configTestSpec{{
@@ -108,17 +119,15 @@ var newConfigTests = []configTestSpec{{
 	insert: testing.Attrs{"project-id": ""},
 	err:    "project-id: must not be empty",
 }, {
-	info:               "image-endpoint is inserted if missing",
-	remove:             []string{"image-endpoint"},
-	expect:             testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
-	skipIfNotValidated: true,
+	info:   "image-endpoint is inserted if missing",
+	remove: []string{"image-endpoint"},
+	expect: testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
 }, {
 	info:   "image-endpoint can be empty",
 	insert: testing.Attrs{"image-endpoint": ""},
-	// This is not set to the default value because
+	// We do not expect the default value because
 	// an explict call to config.Apply never happens.
-	expect:          testing.Attrs{"image-endpoint": ""},
-	skipIfOldConfig: true,
+	expect: testing.Attrs{"image-endpoint": ""},
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
@@ -127,10 +136,6 @@ var newConfigTests = []configTestSpec{{
 
 func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
-		if test.skipIfNotValidated {
-			c.Logf("skipping test %d: %s", i, test.info)
-			continue
-		}
 		c.Logf("test %d: %s", i, test.info)
 
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
@@ -170,22 +175,35 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		if test.skipIfNotValidated || test.skipIfOldConfig {
-			c.Logf("skipping %d: %s", i, test.info)
-			continue
-		}
 
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
 		attrs["uuid"] = uuid
-		testConfig := newConfig(c, attrs)
-		validatedConfig, err := gce.Provider.Validate(knownGoodConfig, testConfig)
+		oldcfg := newConfig(c, attrs)
+		newcfg := knownGoodConfig
+		expected := validAttrs()
+
+		// In the case of immutable fields, the new config may need
+		// to be updated to match the old config.
+		fixes := test.attrFixes()
+		if len(fixes) > 0 {
+			updated, err := newcfg.Apply(fixes)
+			c.Check(err, jc.ErrorIsNil)
+			newcfg = updated
+			expected = expected.Merge(fixes)
+		}
+
+		// Validate the new config (relative to the old one) using the
+		// provider.
+		validatedConfig, err := gce.Provider.Validate(newcfg, oldcfg)
 
 		// Check the result
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid base config")
 		} else {
 			c.Check(err, jc.ErrorIsNil)
-			test.checkAttrs(c, validAttrs(), validatedConfig)
+			// We verify that Validate filled in the defaults
+			// appropriately without
+			test.checkAttrs(c, expected, validatedConfig)
 		}
 	}
 }
