@@ -71,13 +71,31 @@ gce:
   type: gce
 
   # Google Auth Info
+  # The GCE provider uses OAuth to authenticate. This requires that
+  # you set it up and get the relevant credentials. For more information
+  # see https://cloud.google.com/compute/docs/api/how-tos/authorization.
+  # Once you have the information, enter it here. All three of these are
+  # required and have specific meaning to GCE.
   private-key: 
   client-email:
   client-id:
 
   # Google instance info
-  # region: us-central1
+  # To provision instances and perform related operations, the provider
+  # will need to know which GCE project to use and into which region to
+  # provision. While the region has a default, the project ID is
+  # required. For information on the project ID, see
+  # https://cloud.google.com/compute/docs/projects and regarding regions
+  # see https://cloud.google.com/compute/docs/zones.
   project-id:
+  # region: us-central1
+
+  # The GCE provider uses pre-built images when provisioning instances.
+  # You can customize the location in which to find them with the
+  # image-endpoint setting. The default value is the a location within
+  # GCE, so it will give you the best speed when bootstrapping or adding
+  # machines. For more information on the image cache see
+  # https://cloud-images.ubuntu.com/.
   # image-endpoint: https://www.googleapis.com
 `[1:]
 	c.Assert(s.provider.BoilerplateConfig(), gc.Equals, boilerplateConfig)
