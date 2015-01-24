@@ -578,7 +578,7 @@ REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
-INIT_VERSION="1.20"
+INIT_VERSION="1.21"
 while getopts "r:s:t:i:n" o; do
     case "${o}" in
         r)
