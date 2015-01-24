@@ -38,7 +38,7 @@ func (s *DeploySuite) testPrepareAlreadyDone(
 		CharmURL: curl("cs:quantal/hive-23"),
 	})
 	c.Check(newState, gc.IsNil)
-	c.Check(err, gc.Equals, operation.ErrSkipExecute)
+	c.Check(errors.Cause(err), gc.Equals, operation.ErrSkipExecute)
 	c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, expectClearResolvedFlag)
 }
 
