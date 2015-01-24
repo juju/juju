@@ -11,6 +11,16 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
+// TODO(ericsnow) While not strictly config-related, we could use some
+// mechanism by which we can validate the values we've hard-coded in
+// this provider match up with the external authoritative sources. One
+// example of this is the data stored in instancetypes.go. Similarly
+// we should also ensure the cloud-images metadata is correct and
+// up-to-date, though that is more the responsibility of that team.
+// Regardless, it may be useful to include a tool somewhere in juju
+// that we can use to validate this provider's potentially out-of-date
+// data.
+
 // The GCE-specific config keys.
 const (
 	cfgPrivateKey    = "private-key"
