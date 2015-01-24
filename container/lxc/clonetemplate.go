@@ -173,7 +173,15 @@ func EnsureCloneTemplate(
 
 	// Create the container.
 	logger.Tracef("create the template container")
-	if err := createContainer(lxcContainer, network, containerDirectory, extraCreateArgs, templateParams, caCert); err != nil {
+	err = createContainer(
+		lxcContainer,
+		containerDirectory,
+		network,
+		extraCreateArgs,
+		templateParams,
+		caCert,
+	)
+	if err != nil {
 		logger.Errorf("lxc template container creation failed: %v", err)
 		return nil, err
 	}
