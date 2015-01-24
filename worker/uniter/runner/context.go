@@ -131,6 +131,9 @@ type HookContext struct {
 
 	// storageInstances contains the storageInstances associated with a unit,
 	storageInstances []storage.StorageInstance
+
+	// storageId is the id of the storage instance associated with the running hook.
+	storageId string
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -192,8 +195,17 @@ func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
 }
 
-func (ctx *HookContext) StorageInstances() ([]storage.StorageInstance, bool) {
-	return ctx.storageInstances, len(ctx.storageInstances) > 0
+func (ctx *HookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
+	return ctx.StorageInstance(ctx.storageId)
+}
+
+func (ctx *HookContext) StorageInstance(storageId string) (*storage.StorageInstance, bool) {
+	for _, storageInstance := range ctx.storageInstances {
+		if storageInstance.Id == ctx.storageId {
+			return &storageInstance, true
+		}
+	}
+	return nil, false
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {

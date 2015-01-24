@@ -35,8 +35,8 @@ type Info struct {
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
 
-	// StorageIds is the ids of storage instances relevant to the hook.
-	StorageIds []string `yaml:"storage-ids,omitempty"`
+	// StorageId is the id of the storage instance relevant to the hook.
+	StorageId string `yaml:"storage-id,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.

@@ -64,7 +64,11 @@ func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
 	return nil
 }
 
-func (dummyHookContext) StorageInstances() ([]storage.StorageInstance, bool) {
+func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
+	return nil, false
+}
+
+func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, bool) {
 	return nil, false
 }
 

@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/names"
 )
 
 var _ = gc.Suite(&storageSuite{})

@@ -114,18 +114,19 @@ func (c *Context) AvailabilityZone() (string, bool) {
 	return "us-east-1a", true
 }
 
-func (c *Context) StorageInstances() ([]storage.StorageInstance, bool) {
-	return []storage.StorageInstance{
-		{
-			"1234",
-			storage.StorageKindBlock,
-			"/dev/sda",
-		},
-		{
-			"abcd",
-			storage.StorageKindFilesystem,
-			"/mnt/data",
-		},
+func (c *Context) StorageInstance(storageId string) (*storage.StorageInstance, bool) {
+	return &storage.StorageInstance{
+		"1234",
+		storage.StorageKindBlock,
+		"/dev/sda",
+	}, true
+}
+
+func (c *Context) HookStorageInstance() (*storage.StorageInstance, bool) {
+	return &storage.StorageInstance{
+		"1234",
+		storage.StorageKindBlock,
+		"/dev/sda",
 	}, true
 }
 
