@@ -137,7 +137,7 @@ init_tools_maybe() {
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
         echo "Seeding devel with $INIT_VERSION released agents"
-        cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
+        cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "weekly" ]]; then
         echo "Seeding weekly with $INIT_VERSION released agents"
@@ -570,6 +570,10 @@ cleanup() {
     # future runs of the script.
     find ${DEST_DEBS} -name "*.deb" -delete
     find ${DEST_DEBS} -name "*.tgz" -delete
+    # Remove the unused separate tree.
+    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+        rm -r $DESTINATION/juju-dist/$PURPOSE/tools/*
+    fi
 }
 
 
