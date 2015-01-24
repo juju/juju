@@ -29,13 +29,18 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.config = cfg
 }
 
-// TODO(ericsnow) Add comment here explaining configTestSpec.
+// configTestSpec defines a subtest to run in a table driven test.
 type configTestSpec struct {
-	info   string
+	// info describes the subtest.
+	info string
+	// insert holds attrs that should be merged into the config.
 	insert testing.Attrs
+	// remove has the names of attrs that should be removed.
 	remove []string
+	// expect defines the expected attributes in a success case.
 	expect testing.Attrs
-	err    string
+	// err is the error message to expect in a failure case.
+	err string
 }
 
 func (ts configTestSpec) checkSuccess(c *gc.C, cfg *config.Config, err error) {
