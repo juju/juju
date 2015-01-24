@@ -6,6 +6,7 @@ package storage
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/feature"
@@ -58,11 +59,15 @@ func (api *API) Show(entities params.Entities) (params.StorageShowResults, error
 func (api *API) createStorageInstanceResult(tag string) params.StorageShowResult {
 	aTag, err := names.ParseTag(tag)
 	if err != nil {
-		return params.StorageShowResult{Error: common.ServerError(common.ErrPerm)}
+		return params.StorageShowResult{
+			Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag)),
+		}
 	}
 	stateInstance, err := api.storage.StorageInstance(aTag.Id())
 	if err != nil {
-		return params.StorageShowResult{Error: common.ServerError(common.ErrPerm)}
+		return params.StorageShowResult{
+			Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag)),
+		}
 	}
 	return params.StorageShowResult{Result: api.getStorageInstance(stateInstance)}
 }

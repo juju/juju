@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"strings"
 )
 
 var logger = loggo.GetLogger("juju.api.storage")
@@ -38,11 +39,16 @@ func (c *Client) Show(tags []names.StorageTag) ([]params.StorageInstance, error)
 		return nil, errors.Trace(err)
 	}
 	info := []params.StorageInstance{}
+	var errorStrings []string
 	for _, result := range found.Results {
 		if result.Error != nil {
-			return nil, errors.New(result.Error.Error())
+			errorStrings = append(errorStrings, result.Error.Error())
+			continue
 		}
 		info = append(info, result.Result)
+	}
+	if len(errorStrings) > 0 {
+		return nil, errors.New(strings.Join(errorStrings, ", "))
 	}
 	return info, nil
 }
