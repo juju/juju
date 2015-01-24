@@ -13,23 +13,21 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-// TODO(ericsnow) Use s.NewConfig(c, attrs) instead.
-func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
-	cfg, err := testing.EnvironConfig(c).Apply(attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
-}
-
-// TODO(ericsnow) Use s.NewConfig(c).AllAttrs() instead.
-func validAttrs() testing.Attrs {
-	return gce.ConfigAttrs
-}
-
 type ConfigSuite struct {
 	gce.BaseSuite
+
+	config *config.Config
 }
 
 var _ = gc.Suite(&ConfigSuite{})
+
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	cfg, err := testing.EnvironConfig(c).Apply(gce.ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.config = cfg
+}
 
 // TODO(ericsnow) Add comment here explaining configTestSpec.
 type configTestSpec struct {
@@ -59,6 +57,17 @@ func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *
 	for field, value := range cfg.UnknownAttrs() {
 		c.Check(attrs[field], gc.Equals, value)
 	}
+}
+
+func (ts configTestSpec) attrs() testing.Attrs {
+	return gce.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
+}
+
+func (ts configTestSpec) config(c *gc.C) *config.Config {
+	attrs := ts.attrs()
+	cfg, err := testing.EnvironConfig(c).Apply(attrs)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
 }
 
 func (ts configTestSpec) attrFixes() testing.Attrs {
@@ -138,8 +147,7 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		testConfig := newConfig(c, attrs)
+		testConfig := test.config(c)
 		environ, err := environs.New(testConfig)
 
 		// Check the result
@@ -155,8 +163,8 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		testConfig := newConfig(c, attrs)
+
+		testConfig := test.config(c)
 		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
 
 		// Check the result
@@ -169,18 +177,13 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 }
 
 // TODO(wwitzel3) refactor to the provider_test file
-func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
-	knownGoodConfig := newConfig(c, validAttrs())
-	uuid, ok := knownGoodConfig.UUID()
-	c.Assert(ok, jc.IsTrue)
+func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["uuid"] = uuid
-		oldcfg := newConfig(c, attrs)
-		newcfg := knownGoodConfig
-		expected := validAttrs()
+		oldcfg := test.config(c)
+		newcfg := s.config
+		expected := gce.ConfigAttrs
 
 		// In the case of immutable fields, the new config may need
 		// to be updated to match the old config.
@@ -210,7 +213,7 @@ func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: validAttrs(),
+	expect: gce.ConfigAttrs,
 }, {
 	info:   "cannot change private-key",
 	insert: testing.Attrs{"private-key": "okkult"},
@@ -239,15 +242,11 @@ var changeConfigTests = []configTestSpec{{
 
 // TODO(wwitzel3) refactor this to the provider_test file.
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs())
-	uuid, ok := baseConfig.UUID()
-	c.Assert(ok, jc.IsTrue)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["uuid"] = uuid
-		testConfig := newConfig(c, attrs)
-		validatedConfig, err := gce.Provider.Validate(testConfig, baseConfig)
+
+		testConfig := test.config(c)
+		validatedConfig, err := gce.Provider.Validate(testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -259,22 +258,19 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs())
-	uuid, ok := baseConfig.UUID()
-	c.Assert(ok, jc.IsTrue)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(baseConfig)
+
+		environ, err := environs.New(s.config)
 		c.Assert(err, jc.ErrorIsNil)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["uuid"] = uuid
-		testConfig := newConfig(c, attrs)
+
+		testConfig := test.config(c)
 		err = environ.SetConfig(testConfig)
 
 		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config change")
-			test.checkAttrs(c, environ.Config().AllAttrs(), baseConfig)
+			test.checkAttrs(c, environ.Config().AllAttrs(), s.config)
 		} else {
 			test.checkSuccess(c, environ.Config(), err)
 		}
