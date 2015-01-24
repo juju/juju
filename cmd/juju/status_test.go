@@ -1803,7 +1803,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
-	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks)
+	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)

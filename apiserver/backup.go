@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-// TODO(ericsnow) This file should be in the apiserver/backups package.
-
 var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
 	stor := backups.NewStorage(st)
 	return backups.NewBackups(stor), stor
@@ -32,17 +30,21 @@ type backupHandler struct {
 }
 
 func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
-	if err := h.validateEnvironUUID(req); err != nil {
+	// Validate before authenticate because the authentication is dependent
+	// on the state connection that is determined during the validation.
+	stateWrapper, err := h.validateEnvironUUID(req)
+	if err != nil {
 		h.sendError(resp, http.StatusNotFound, err.Error())
 		return
 	}
+	defer stateWrapper.cleanup()
 
-	if err := h.authenticate(req); err != nil {
+	if err := stateWrapper.authenticate(req); err != nil {
 		h.authError(resp, h)
 		return
 	}
 
-	backups, closer := newBackups(h.state)
+	backups, closer := newBackups(stateWrapper.state)
 	defer closer.Close()
 
 	switch req.Method {

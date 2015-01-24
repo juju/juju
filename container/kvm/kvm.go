@@ -118,11 +118,12 @@ func (manager *containerManager) CreateContainer(
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create container directory: %v", err)
+		return nil, nil, errors.Annotate(err, "failed to create container directory")
 	}
 	logger.Tracef("write cloud-init")
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
+		logger.Infof("machine config api %#v", *machineConfig.APIInfo)
 		err = errors.Annotate(err, "failed to write user data")
 		logger.Infof(err.Error())
 		return nil, nil, err

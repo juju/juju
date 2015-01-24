@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
@@ -437,12 +438,18 @@ func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
-	c.Assert(s.machine.Tag().String(), gc.Equals, "machine-1")
+	tag := s.machine.MachineTag()
+	c.Assert(tag.Kind(), gc.Equals, names.MachineTagKind)
+	c.Assert(tag.Id(), gc.Equals, "1")
+
+	// To keep gccgo happy, don't compare an interface with a struct.
+	var asTag names.Tag = tag
+	c.Assert(s.machine.Tag(), gc.Equals, asTag)
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	info := testing.NewMongoInfo()
+	st, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -465,7 +472,7 @@ func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st1, err := state.Open(info, testing.NewDialOpts(), state.Policy(nil))
 	c.Assert(err, jc.ErrorIsNil)
 	defer st1.Close()
 
@@ -1391,25 +1398,6 @@ func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 		<-w.Changes()
 		return w
 	})
-}
-
-func (s *MachineSuite) TestAnnotatorForMachine(c *gc.C) {
-	testAnnotator(c, func() (state.Annotator, error) {
-		return s.State.Machine(s.machine.Id())
-	})
-}
-
-func (s *MachineSuite) TestAnnotationRemovalForMachine(c *gc.C) {
-	annotations := map[string]string{"mykey": "myvalue"}
-	err := s.machine.SetAnnotations(annotations)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.machine.Annotations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
 
 func (s *MachineSuite) TestConstraintsFromEnvironment(c *gc.C) {

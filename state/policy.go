@@ -184,13 +184,13 @@ func (st *State) supportsUnitPlacement() error {
 	}
 	cfg, err := st.EnvironConfig()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	capability, err := st.policy.EnvironCapability(cfg)
 	if errors.IsNotImplemented(err) {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if capability == nil {
 		return fmt.Errorf("policy returned nil EnvironCapability without an error")

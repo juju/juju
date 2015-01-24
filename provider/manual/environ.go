@@ -267,11 +267,17 @@ func (*manualEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Addr
 	return errors.NotSupportedf("ReleaseAddress")
 }
 
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not supported on this provider yet.
+func (*manualEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotSupportedf("NetworkInterfaces")
+}
+
 // Subnets returns basic information about all subnets known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the manual provider yet.
-func (*manualEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (*manualEnviron) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	return nil, errors.NotSupportedf("Subnets")
 }
 

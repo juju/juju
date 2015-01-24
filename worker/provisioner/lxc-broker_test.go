@@ -78,6 +78,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
+			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}

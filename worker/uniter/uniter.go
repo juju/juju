@@ -131,7 +131,7 @@ func (u *Uniter) setupLocks() (err error) {
 	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by upstart.
+		// before unlocking, and have been restarted by the init system.
 		parts := strings.SplitN(message, ":", 2)
 		if len(parts) > 1 && parts[0] == u.unit.Name() {
 			if err := u.hookLock.BreakLock(); err != nil {

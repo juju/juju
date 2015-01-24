@@ -37,4 +37,7 @@ var (
 	EnsureSystemSSHKeyRedux               = ensureSystemSSHKeyRedux
 	UpdateAuthorizedKeysForSystemIdentity = updateAuthorizedKeysForSystemIdentity
 	AddAvaililityZoneToInstanceData       = addAvaililityZoneToInstanceData
+
+	// 123 upgrade functions
+	AddEnvironmentUUIDToAgentConfig = addEnvironmentUUIDToAgentConfig
 )

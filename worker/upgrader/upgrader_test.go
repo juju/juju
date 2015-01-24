@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -159,7 +160,8 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	newTools.URL = fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/5.4.5-precise-amd64", s.APIState.Addr())
+	newTools.URL = fmt.Sprintf("https://%s/environment/%s/tools/5.4.5-precise-amd64",
+		s.APIState.Addr(), coretesting.EnvironmentTag.Id())
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
@@ -238,7 +240,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	target := agenttools.ToolsDir(s.DataDir(), newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.DataDir(), "anAgent"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(link, gc.Equals, target)
+	c.Assert(link, jc.SamePath, target)
 }
 
 func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
@@ -283,7 +285,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	// TODO: ReadTools *should* be returning some form of errors.NotFound,
 	// however, it just passes back a fmt.Errorf so we live with it
 	// c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(err, gc.ErrorMatches, "cannot read tools metadata in tools directory.*no such file or directory")
+	c.Check(err, gc.ErrorMatches, "cannot read tools metadata in tools directory.*"+utils.NoSuchFileErrRegexp)
 }
 
 func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
@@ -307,7 +309,8 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/5.4.2-precise-amd64", s.APIState.Addr())
+	downgradeTools.URL = fmt.Sprintf("https://%s/environment/%s/tools/5.4.2-precise-amd64",
+		s.APIState.Addr(), coretesting.EnvironmentTag.Id())
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -337,7 +340,8 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, jc.ErrorIsNil)
-	downgradeTools.URL = fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/5.3.0-precise-amd64", s.APIState.Addr())
+	downgradeTools.URL = fmt.Sprintf("https://%s/environment/%s/tools/5.3.0-precise-amd64",
+		s.APIState.Addr(), coretesting.EnvironmentTag.Id())
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 

@@ -5,10 +5,10 @@ package apiserver
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,26 +23,69 @@ type errorSender interface {
 
 // httpHandler handles http requests through HTTPS in the API server.
 type httpHandler struct {
-	state *state.State
+	// rename the state variable to catch all uses of it
+	// state server state connection, used for validation
+	ssState *state.State
+	// strictValidation means that empty envUUID values are not valid.
+	strictValidation bool
+	// stateServerEnvOnly only validates the state server environment
+	stateServerEnvOnly bool
+}
+
+// httpStateWrapper reflects a state connection for a given http connection.
+type httpStateWrapper struct {
+	state       *state.State
+	cleanupFunc func()
+}
+
+func (h *httpHandler) getEnvironUUID(r *http.Request) string {
+	return r.URL.Query().Get(":envuuid")
+}
+
+// authError sends an unauthorized error.
+func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
+	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
+	sender.sendError(w, http.StatusUnauthorized, "unauthorized")
+}
+
+func (h *httpHandler) validateEnvironUUID(r *http.Request) (*httpStateWrapper, error) {
+	envUUID := h.getEnvironUUID(r)
+	envState, needsClosing, err := validateEnvironUUID(validateArgs{
+		st:                 h.ssState,
+		envUUID:            envUUID,
+		strict:             h.strictValidation,
+		stateServerEnvOnly: h.stateServerEnvOnly,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	wrapper := &httpStateWrapper{state: envState}
+	if needsClosing {
+		wrapper.cleanupFunc = func() {
+			logger.Debugf("close connection to environment: %s", envState.EnvironUUID())
+			envState.Close()
+		}
+	}
+	return wrapper, nil
 }
 
 // authenticate parses HTTP basic authentication and authorizes the
 // request by looking up the provided tag and password against state.
-func (h *httpHandler) authenticate(r *http.Request) error {
+func (h *httpStateWrapper) authenticate(r *http.Request) error {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
-		return fmt.Errorf("invalid request format")
+		return errors.New("invalid request format")
 	}
 	// Challenge is a base64-encoded "tag:pass" string.
 	// See RFC 2617, Section 2.
 	challenge, err := base64.StdEncoding.DecodeString(parts[1])
 	if err != nil {
-		return fmt.Errorf("invalid request format")
+		return errors.New("invalid request format")
 	}
 	tagPass := strings.SplitN(string(challenge), ":", 2)
 	if len(tagPass) != 2 {
-		return fmt.Errorf("invalid request format")
+		return errors.New("invalid request format")
 	}
 	// Only allow users, not agents.
 	if _, err := names.ParseUserTag(tagPass[0]); err != nil {
@@ -56,34 +99,8 @@ func (h *httpHandler) authenticate(r *http.Request) error {
 	return err
 }
 
-func (h *httpHandler) getEnvironUUID(r *http.Request) string {
-	return r.URL.Query().Get(":envuuid")
-}
-
-func (h *httpHandler) validateEnvironUUID(r *http.Request) error {
-	// Note: this is only true until we have support for multiple
-	// environments. For now, there is only one, so we make sure that is
-	// the one being addressed.
-	envUUID := h.getEnvironUUID(r)
-	logger.Tracef("got a request for env %q", envUUID)
-	if envUUID == "" {
-		return nil
+func (h *httpStateWrapper) cleanup() {
+	if h.cleanupFunc != nil {
+		h.cleanupFunc()
 	}
-	env, err := h.state.Environment()
-	if err != nil {
-		logger.Infof("error looking up environment: %v", err)
-		return err
-	}
-	if env.UUID() != envUUID {
-		logger.Infof("environment uuid mismatch: %v != %v",
-			envUUID, env.UUID())
-		return common.UnknownEnvironmentError(envUUID)
-	}
-	return nil
-}
-
-// authError sends an unauthorized error.
-func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
-	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	sender.sendError(w, http.StatusUnauthorized, "unauthorized")
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -181,7 +182,7 @@ func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
+	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": "+utils.NoSuchFileErrRegexp)
 }
 
 func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {

@@ -57,6 +57,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
+		Environment:       testing.EnvironmentTag,
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:           testing.ServerCert,
@@ -174,6 +175,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
+		Environment:       testing.EnvironmentTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,6 +200,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
+		Environment:       testing.EnvironmentTag,
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, jc.ErrorIsNil)

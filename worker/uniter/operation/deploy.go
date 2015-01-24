@@ -47,7 +47,7 @@ func (d *deploy) String() string {
 // Prepare is part of the Operation interface.
 func (d *deploy) Prepare(state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if d.revert {
 		if err := d.deployer.NotifyRevert(); err != nil {
@@ -64,7 +64,7 @@ func (d *deploy) Prepare(state State) (*State, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := d.deployer.Stage(info, d.abort); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// note: yes, this *should* be in Prepare, not Execute. Before we can safely
 	// write out local state referencing the charm url (by returning the new
@@ -74,7 +74,7 @@ func (d *deploy) Prepare(state State) (*State, error) {
 	// failures on resume in which we try to obtain archive info for a charm that
 	// has already been removed from the state server.
 	if err := d.callbacks.SetCurrentCharm(d.charmURL); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return d.getState(state, Pending), nil
 }

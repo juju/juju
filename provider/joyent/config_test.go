@@ -368,7 +368,7 @@ var prepareConfigTests = []struct {
 }, {
 	info:   "bad private-key-path errors, not panics",
 	insert: coretesting.Attrs{"private-key-path": "~/.ssh/no-such-file"},
-	err:    "invalid Joyent provider config: open .*: no such file or directory",
+	err:    "invalid Joyent provider config: open .*: " + utils.NoSuchFileErrRegexp,
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {

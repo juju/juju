@@ -194,7 +194,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
-	user, err := s.State.User(s.owner)
+	user, err := s.State.User(s.Owner)
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.Disable()
 	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")

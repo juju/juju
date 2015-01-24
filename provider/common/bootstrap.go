@@ -35,7 +35,24 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
+func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+) (arch, series string, _ environs.BootstrapFinalizer, err error) {
+	if result, series, finalizer, err := BootstrapInstance(ctx, env, args); err == nil {
+		return *result.Hardware.Arch, series, finalizer, nil
+	} else {
+		return "", "", nil, err
+	}
+}
+
+// BootstrapInstance creates a new instance with the series and architecture
+// of its choice, constrained to those of the available tools, and
+// returns the instance result, series, and a function that
+// must be called to finalize the bootstrap process by transferring
+// the tools and installing the initial Juju state server.
+// This method is called by Bootstrap above, which implements environs.Bootstrap, but
+// is also exported so that providers can manipulate the started instance.
+func BootstrapInstance(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams,
+) (_ *environs.StartInstanceResult, series string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
@@ -44,7 +61,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	series = config.PreferredSeries(env.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
-		return "", "", nil, err
+		return nil, "", nil, err
 	}
 
 	// Get the bootstrap SSH client. Do this early, so we know
@@ -53,12 +70,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	if client == nil {
 		// This should never happen: if we don't have OpenSSH, then
 		// go.crypto/ssh should be used with an auto-generated key.
-		return "", "", nil, fmt.Errorf("no SSH client available")
+		return nil, "", nil, fmt.Errorf("no SSH client available")
 	}
 
 	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, series)
 	if err != nil {
-		return "", "", nil, err
+		return nil, "", nil, err
 	}
 	machineConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	machineConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
@@ -84,7 +101,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		Placement:     args.Placement,
 	})
 	if err != nil {
-		return "", "", nil, errors.Annotate(err, "cannot start bootstrap instance")
+		return nil, "", nil, errors.Annotate(err, "cannot start bootstrap instance")
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", result.Instance.Id())
 
@@ -97,7 +114,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		maybeSetBridge(mcfg)
 		return FinishBootstrap(ctx, client, result.Instance, mcfg)
 	}
-	return *result.Hardware.Arch, series, finalize, nil
+	return result, series, finalize, nil
 }
 
 // FinishBootstrap completes the bootstrap process by connecting

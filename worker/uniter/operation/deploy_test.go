@@ -23,412 +23,511 @@ var _ = gc.Suite(&DeploySuite{})
 
 type newDeploy func(operation.Factory, *corecharm.URL) (operation.Operation, error)
 
-func newInstall(factory operation.Factory, charmURL *corecharm.URL) (operation.Operation, error) {
-	return factory.NewInstall(charmURL)
-}
-
-func newUpgrade(factory operation.Factory, charmURL *corecharm.URL) (operation.Operation, error) {
-	return factory.NewUpgrade(charmURL)
-}
-
-func newRevertUpgrade(factory operation.Factory, charmURL *corecharm.URL) (operation.Operation, error) {
-	return factory.NewRevertUpgrade(charmURL)
-}
-
-func newResolvedUpgrade(factory operation.Factory, charmURL *corecharm.URL) (operation.Operation, error) {
-	return factory.NewResolvedUpgrade(charmURL)
-}
-
-type deployInfo struct {
-	newDeploy               newDeploy
-	expectKind              operation.Kind
-	expectNotifyRevert      bool
-	expectNotifyResolved    bool
-	expectClearResolvedFlag bool
-}
-
-var allDeployInfo = []deployInfo{{
-	newDeploy:  newInstall,
-	expectKind: operation.Install,
-}, {
-	newDeploy:  newUpgrade,
-	expectKind: operation.Upgrade,
-}, {
-	newDeploy:               newRevertUpgrade,
-	expectKind:              operation.Upgrade,
-	expectNotifyRevert:      true,
-	expectClearResolvedFlag: true,
-}, {
-	newDeploy:               newResolvedUpgrade,
-	expectKind:              operation.Upgrade,
-	expectNotifyResolved:    true,
-	expectClearResolvedFlag: true,
-}}
-
-func (s *DeploySuite) TestPrepareAlreadyDone(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		callbacks := &DeployCallbacks{
-			MockClearResolvedFlag: &MockNoArgs{},
-		}
-		factory := operation.NewFactory(nil, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/hive-23"))
-		c.Assert(err, jc.ErrorIsNil)
-		newState, err := op.Prepare(operation.State{
-			Kind:     info.expectKind,
-			Step:     operation.Done,
-			CharmURL: curl("cs:quantal/hive-23"),
-		})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.Equals, operation.ErrSkipExecute)
-		c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, info.expectClearResolvedFlag)
+func (s *DeploySuite) testPrepareAlreadyDone(
+	c *gc.C, newDeploy newDeploy, kind operation.Kind, expectClearResolvedFlag bool,
+) {
+	callbacks := &DeployCallbacks{
+		MockClearResolvedFlag: &MockNoArgs{},
 	}
+	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Prepare(operation.State{
+		Kind:     kind,
+		Step:     operation.Done,
+		CharmURL: curl("cs:quantal/hive-23"),
+	})
+	c.Check(newState, gc.IsNil)
+	c.Check(errors.Cause(err), gc.Equals, operation.ErrSkipExecute)
+	c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, expectClearResolvedFlag)
 }
 
-func (s *DeploySuite) TestClearResolvedFlagError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		if !info.expectClearResolvedFlag {
-			continue
-		}
-		callbacks := &DeployCallbacks{
-			MockClearResolvedFlag: &MockNoArgs{err: errors.New("blort")},
-		}
-		factory := operation.NewFactory(nil, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/hive-23"))
-		c.Assert(err, jc.ErrorIsNil)
-		newState, err := op.Prepare(operation.State{})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.ErrorMatches, "blort")
-		c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, info.expectClearResolvedFlag)
+func (s *DeploySuite) TestPrepareAlreadyDone_Install(c *gc.C) {
+	s.testPrepareAlreadyDone(c,
+		(operation.Factory).NewInstall,
+		operation.Install,
+		false,
+	)
+}
+
+func (s *DeploySuite) TestPrepareAlreadyDone_Upgrade(c *gc.C) {
+	s.testPrepareAlreadyDone(c,
+		(operation.Factory).NewUpgrade,
+		operation.Upgrade,
+		false,
+	)
+}
+
+func (s *DeploySuite) TestPrepareAlreadyDone_RevertUpgrade(c *gc.C) {
+	s.testPrepareAlreadyDone(c,
+		(operation.Factory).NewRevertUpgrade,
+		operation.Upgrade,
+		true,
+	)
+}
+
+func (s *DeploySuite) TestPrepareAlreadyDone_ResolvedUpgrade(c *gc.C) {
+	s.testPrepareAlreadyDone(c,
+		(operation.Factory).NewResolvedUpgrade,
+		operation.Upgrade,
+		true,
+	)
+}
+
+func (s *DeploySuite) testClearResolvedFlagError(c *gc.C, newDeploy newDeploy) {
+	callbacks := &DeployCallbacks{
+		MockClearResolvedFlag: &MockNoArgs{err: errors.New("blort")},
 	}
+	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "blort")
+	c.Check(callbacks.MockClearResolvedFlag.called, jc.IsTrue)
 }
 
-func (s *DeploySuite) TestNotifyDeployerError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		if !(info.expectNotifyRevert || info.expectNotifyResolved) {
-			continue
-		}
-		callbacks := &DeployCallbacks{
-			MockClearResolvedFlag: &MockNoArgs{},
-		}
-		deployer := &MockDeployer{}
-		expectCall := &MockNoArgs{err: errors.New("snh")}
-		switch {
-		case info.expectNotifyRevert:
-			deployer.MockNotifyRevert = expectCall
-		case info.expectNotifyResolved:
-			deployer.MockNotifyResolved = expectCall
-		default:
-			continue
-		}
-		factory := operation.NewFactory(deployer, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/hive-23"))
-		c.Assert(err, jc.ErrorIsNil)
+func (s *DeploySuite) TestClearResolvedFlagError_RevertUpgrade(c *gc.C) {
+	s.testClearResolvedFlagError(c, (operation.Factory).NewRevertUpgrade)
+}
 
-		newState, err := op.Prepare(operation.State{})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.ErrorMatches, "snh")
-		c.Check(expectCall.called, jc.IsTrue)
+func (s *DeploySuite) TestClearResolvedFlagError_ResolvedUpgrade(c *gc.C) {
+	s.testClearResolvedFlagError(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *DeploySuite) testNotifyDeployerError(
+	c *gc.C, newDeploy newDeploy, expectNotifyRevert bool,
+) {
+	callbacks := &DeployCallbacks{
+		MockClearResolvedFlag: &MockNoArgs{},
 	}
-}
-
-func (s *DeploySuite) TestPrepareArchiveInfoError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		callbacks := &DeployCallbacks{
-			MockClearResolvedFlag: &MockNoArgs{},
-			MockGetArchiveInfo:    &MockGetArchiveInfo{err: errors.New("pew")},
-		}
-		deployer := &MockDeployer{
-			MockNotifyRevert:   &MockNoArgs{},
-			MockNotifyResolved: &MockNoArgs{},
-		}
-		factory := operation.NewFactory(deployer, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/hive-23"))
-		c.Assert(err, jc.ErrorIsNil)
-
-		newState, err := op.Prepare(operation.State{})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.ErrorMatches, "pew")
-		c.Check(callbacks.MockGetArchiveInfo.gotCharmURL, gc.DeepEquals, curl("cs:quantal/hive-23"))
-		c.Check(deployer.MockNotifyRevert.called, gc.Equals, info.expectNotifyRevert)
-		c.Check(deployer.MockNotifyResolved.called, gc.Equals, info.expectNotifyResolved)
-		c.Check(callbacks.MockClearResolvedFlag.called, gc.Equals, info.expectClearResolvedFlag)
+	deployer := &MockDeployer{}
+	expectCall := &MockNoArgs{err: errors.New("snh")}
+	if expectNotifyRevert {
+		deployer.MockNotifyRevert = expectCall
+	} else {
+		deployer.MockNotifyResolved = expectCall
 	}
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "snh")
+	c.Check(expectCall.called, jc.IsTrue)
 }
 
-func (s *DeploySuite) TestPrepareStageError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		callbacks := &DeployCallbacks{
-			MockClearResolvedFlag: &MockNoArgs{},
-			MockGetArchiveInfo:    &MockGetArchiveInfo{info: &MockBundleInfo{}},
-		}
-		deployer := &MockDeployer{
-			MockNotifyRevert:   &MockNoArgs{},
-			MockNotifyResolved: &MockNoArgs{},
-			MockStage:          &MockStage{err: errors.New("squish")},
-		}
-		var abort <-chan struct{} = make(chan struct{})
-		factory := operation.NewFactory(deployer, nil, callbacks, abort)
-		op, err := info.newDeploy(factory, curl("cs:quantal/hive-23"))
-		c.Assert(err, jc.ErrorIsNil)
+func (s *DeploySuite) TestNotifyDeployerError_RevertUpgrade(c *gc.C) {
+	s.testNotifyDeployerError(c, (operation.Factory).NewRevertUpgrade, true)
+}
 
-		newState, err := op.Prepare(operation.State{})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.ErrorMatches, "squish")
-		c.Check(*deployer.MockStage.gotInfo, gc.Equals, callbacks.MockGetArchiveInfo.info)
-		c.Check(*deployer.MockStage.gotAbort, gc.Equals, abort)
+func (s *DeploySuite) TestNotifyDeployerError_ResolvedUpgrade(c *gc.C) {
+	s.testNotifyDeployerError(c, (operation.Factory).NewResolvedUpgrade, false)
+}
+
+func (s *DeploySuite) testPrepareArchiveInfoError(c *gc.C, newDeploy newDeploy) {
+	callbacks := &DeployCallbacks{
+		MockClearResolvedFlag: &MockNoArgs{},
+		MockGetArchiveInfo:    &MockGetArchiveInfo{err: errors.New("pew")},
 	}
-}
-
-func (s *DeploySuite) TestPrepareSetCharmError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		callbacks := &DeployCallbacks{
-			MockClearResolvedFlag: &MockNoArgs{},
-			MockGetArchiveInfo:    &MockGetArchiveInfo{},
-			MockSetCurrentCharm:   &MockSetCurrentCharm{err: errors.New("blargh")},
-		}
-		deployer := &MockDeployer{
-			MockNotifyRevert:   &MockNoArgs{},
-			MockNotifyResolved: &MockNoArgs{},
-			MockStage:          &MockStage{},
-		}
-		factory := operation.NewFactory(deployer, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/hive-23"))
-		c.Assert(err, jc.ErrorIsNil)
-
-		newState, err := op.Prepare(operation.State{})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.ErrorMatches, "blargh")
-		c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.DeepEquals, curl("cs:quantal/hive-23"))
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
 	}
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "pew")
+	c.Check(callbacks.MockGetArchiveInfo.gotCharmURL, gc.DeepEquals, curl("cs:quantal/hive-23"))
 }
 
-func (s *DeploySuite) TestPrepareSuccess(c *gc.C) {
-	var stateChangeTests = []struct {
-		description string
-		kind        operation.Kind
-		before      operation.State
-		after       operation.State
-	}{{
-		description: "sets kind/step/url over blank state",
-		kind:        operation.Install,
-		after: operation.State{
+func (s *DeploySuite) TestPrepareArchiveInfoError_Install(c *gc.C) {
+	s.testPrepareArchiveInfoError(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestPrepareArchiveInfoError_Upgrade(c *gc.C) {
+	s.testPrepareArchiveInfoError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestPrepareArchiveInfoError_RevertUpgrade(c *gc.C) {
+	s.testPrepareArchiveInfoError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestPrepareArchiveInfoError_ResolvedUpgrade(c *gc.C) {
+	s.testPrepareArchiveInfoError(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *DeploySuite) testPrepareStageError(c *gc.C, newDeploy newDeploy) {
+	callbacks := &DeployCallbacks{
+		MockClearResolvedFlag: &MockNoArgs{},
+		MockGetArchiveInfo:    &MockGetArchiveInfo{info: &MockBundleInfo{}},
+	}
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+		MockStage:          &MockStage{err: errors.New("squish")},
+	}
+	var abort <-chan struct{} = make(chan struct{})
+	factory := operation.NewFactory(deployer, nil, callbacks, abort)
+	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "squish")
+	c.Check(*deployer.MockStage.gotInfo, gc.Equals, callbacks.MockGetArchiveInfo.info)
+	c.Check(*deployer.MockStage.gotAbort, gc.Equals, abort)
+}
+
+func (s *DeploySuite) TestPrepareStageError_Install(c *gc.C) {
+	s.testPrepareStageError(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestPrepareStageError_Upgrade(c *gc.C) {
+	s.testPrepareStageError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestPrepareStageError_RevertUpgrade(c *gc.C) {
+	s.testPrepareStageError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestPrepareStageError_ResolvedUpgrade(c *gc.C) {
+	s.testPrepareStageError(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *DeploySuite) testPrepareSetCharmError(c *gc.C, newDeploy newDeploy) {
+	callbacks := &DeployCallbacks{
+		MockClearResolvedFlag: &MockNoArgs{},
+		MockGetArchiveInfo:    &MockGetArchiveInfo{},
+		MockSetCurrentCharm:   &MockSetCurrentCharm{err: errors.New("blargh")},
+	}
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+		MockStage:          &MockStage{},
+	}
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/hive-23"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "blargh")
+	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.DeepEquals, curl("cs:quantal/hive-23"))
+}
+
+func (s *DeploySuite) TestPrepareSetCharmError_Install(c *gc.C) {
+	s.testPrepareSetCharmError(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestPrepareSetCharmError_Upgrade(c *gc.C) {
+	s.testPrepareSetCharmError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestPrepareSetCharmError_RevertUpgrade(c *gc.C) {
+	s.testPrepareSetCharmError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestPrepareSetCharmError_ResolvedUpgrade(c *gc.C) {
+	s.testPrepareSetCharmError(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *DeploySuite) testPrepareSuccess(c *gc.C, newDeploy newDeploy, before, after operation.State) {
+	callbacks := NewDeployCallbacks()
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+		MockStage:          &MockStage{},
+	}
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Prepare(before)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(newState, gc.DeepEquals, &after)
+	c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.DeepEquals, curl("cs:quantal/nyancat-4"))
+}
+
+func (s *DeploySuite) TestPrepareSuccess_Install_BlankSlate(c *gc.C) {
+	s.testPrepareSuccess(c,
+		(operation.Factory).NewInstall,
+		operation.State{},
+		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Pending,
 			CharmURL: curl("cs:quantal/nyancat-4"),
 		},
-	}, {
-		description: "sets kind/step/url over queued install",
-		kind:        operation.Install,
-		before: operation.State{
+	)
+}
+
+func (s *DeploySuite) TestPrepareSuccess_Install_Queued(c *gc.C) {
+	s.testPrepareSuccess(c,
+		(operation.Factory).NewInstall,
+		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Queued,
 			CharmURL: curl("cs:quantal/nyancat-4"),
 		},
-		after: operation.State{
+		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Pending,
 			CharmURL: curl("cs:quantal/nyancat-4"),
 		},
-	}, {
-		description: "preserves hook when pending RunHook interrupted",
-		kind:        operation.Upgrade,
-		before: operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		after: operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Pending,
-			CharmURL: curl("cs:quantal/nyancat-4"),
-			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
-		},
-	}, {
-		description: "preserves hook when Upgrade interrupted",
-		kind:        operation.Upgrade,
-		before: operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Pending,
-			CharmURL: curl("cs:quantal/random-23"),
-			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		after: operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Pending,
-			CharmURL: curl("cs:quantal/nyancat-4"),
-			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
-		},
-	}, {
-		description: "drops hook in other situations, preserves started/metrics",
-		kind:        operation.Upgrade,
-		before:      overwriteState,
-		after: operation.State{
-			Kind:               operation.Upgrade,
-			Step:               operation.Pending,
-			CharmURL:           curl("cs:quantal/nyancat-4"),
-			Started:            true,
-			CollectMetricsTime: 1234567,
-		},
-	}}
+	)
+}
 
-	for i, test := range stateChangeTests {
-		c.Logf("test %d: %s", i, test.description)
-
-		for j, info := range allDeployInfo {
-			c.Logf("variant %d", j)
-			if info.expectKind != test.kind {
-				continue
-			}
-			callbacks := NewDeployCallbacks()
-			deployer := &MockDeployer{
-				MockNotifyRevert:   &MockNoArgs{},
-				MockNotifyResolved: &MockNoArgs{},
-				MockStage:          &MockStage{},
-			}
-			factory := operation.NewFactory(deployer, nil, callbacks, nil)
-			op, err := info.newDeploy(factory, curl("cs:quantal/nyancat-4"))
-			c.Assert(err, jc.ErrorIsNil)
-
-			newState, err := op.Prepare(test.before)
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(newState, gc.DeepEquals, &test.after)
-			c.Check(callbacks.MockSetCurrentCharm.gotCharmURL, gc.DeepEquals, curl("cs:quantal/nyancat-4"))
-		}
+func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreservePendingHook(c *gc.C) {
+	for i, newDeploy := range []newDeploy{
+		(operation.Factory).NewUpgrade,
+		(operation.Factory).NewRevertUpgrade,
+		(operation.Factory).NewResolvedUpgrade,
+	} {
+		c.Logf("variant %d", i)
+		s.testPrepareSuccess(c,
+			newDeploy,
+			operation.State{
+				Kind: operation.RunHook,
+				Step: operation.Pending,
+				Hook: &hook.Info{Kind: hooks.ConfigChanged},
+			},
+			operation.State{
+				Kind:     operation.Upgrade,
+				Step:     operation.Pending,
+				CharmURL: curl("cs:quantal/nyancat-4"),
+				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			},
+		)
 	}
 }
 
-func (s *DeploySuite) TestExecuteError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		callbacks := NewDeployCallbacks()
-		deployer := &MockDeployer{
-			MockNotifyRevert:   &MockNoArgs{},
-			MockNotifyResolved: &MockNoArgs{},
-			MockStage:          &MockStage{},
-			MockDeploy:         &MockNoArgs{err: errors.New("rasp")},
-		}
-		factory := operation.NewFactory(deployer, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/nyancat-4"))
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = op.Prepare(operation.State{})
-		c.Assert(err, jc.ErrorIsNil)
-
-		newState, err := op.Execute(operation.State{})
-		c.Check(newState, gc.IsNil)
-		c.Check(err, gc.ErrorMatches, "rasp")
-		c.Check(deployer.MockDeploy.called, jc.IsTrue)
+func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveOriginalPendingHook(c *gc.C) {
+	for i, newDeploy := range []newDeploy{
+		(operation.Factory).NewUpgrade,
+		(operation.Factory).NewRevertUpgrade,
+		(operation.Factory).NewResolvedUpgrade,
+	} {
+		c.Logf("variant %d", i)
+		s.testPrepareSuccess(c,
+			newDeploy,
+			operation.State{
+				Kind:     operation.Upgrade,
+				Step:     operation.Pending,
+				CharmURL: curl("cs:quantal/random-23"),
+				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			},
+			operation.State{
+				Kind:     operation.Upgrade,
+				Step:     operation.Pending,
+				CharmURL: curl("cs:quantal/nyancat-4"),
+				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			},
+		)
 	}
 }
 
-func (s *DeploySuite) TestExecuteSuccess(c *gc.C) {
-	var stateChangeTests = []struct {
-		description string
-		kind        operation.Kind
-		before      operation.State
-		after       operation.State
-	}{{
-		description: "install over blank slate",
-		kind:        operation.Install,
-		after: operation.State{
+func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveNoHook(c *gc.C) {
+	for i, newDeploy := range []newDeploy{
+		(operation.Factory).NewUpgrade,
+		(operation.Factory).NewRevertUpgrade,
+		(operation.Factory).NewResolvedUpgrade,
+	} {
+		c.Logf("variant %d", i)
+		s.testPrepareSuccess(c,
+			newDeploy,
+			overwriteState,
+			operation.State{
+				Kind:               operation.Upgrade,
+				Step:               operation.Pending,
+				CharmURL:           curl("cs:quantal/nyancat-4"),
+				Started:            true,
+				CollectMetricsTime: 1234567,
+			},
+		)
+	}
+}
+
+func (s *DeploySuite) testExecuteError(c *gc.C, newDeploy newDeploy) {
+	callbacks := NewDeployCallbacks()
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+		MockStage:          &MockStage{},
+		MockDeploy:         &MockNoArgs{err: errors.New("rasp")},
+	}
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/nyancat-4"))
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "rasp")
+	c.Check(deployer.MockDeploy.called, jc.IsTrue)
+}
+
+func (s *DeploySuite) TestExecuteError_Install(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestExecuteError_Upgrade(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestExecuteError_RevertUpgrade(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestExecuteError_ResolvedUpgrade(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *DeploySuite) testExecuteSuccess(
+	c *gc.C, newDeploy newDeploy, before, after operation.State,
+) {
+	deployer := NewMockDeployer()
+	callbacks := NewDeployCallbacks()
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/lol-1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	midState, err := op.Prepare(before)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(midState, gc.NotNil)
+
+	newState, err := op.Execute(*midState)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(newState, gc.DeepEquals, &after)
+	c.Check(deployer.MockDeploy.called, jc.IsTrue)
+}
+
+func (s *DeploySuite) TestExecuteSuccess_Install_BlankSlate(c *gc.C) {
+	s.testExecuteSuccess(c,
+		(operation.Factory).NewInstall,
+		operation.State{},
+		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Done,
 			CharmURL: curl("cs:quantal/lol-1"),
 		},
-	}, {
-		description: "install queued",
-		kind:        operation.Install,
-		before: operation.State{
+	)
+}
+
+func (s *DeploySuite) TestExecuteSuccess_Install_Queued(c *gc.C) {
+	s.testExecuteSuccess(c,
+		(operation.Factory).NewInstall,
+		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Queued,
 			CharmURL: curl("cs:quantal/lol-1"),
 		},
-		after: operation.State{
+		operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Done,
 			CharmURL: curl("cs:quantal/lol-1"),
 		},
-	}, {
-		description: "upgrade after hook",
-		kind:        operation.Upgrade,
-		before: operation.State{
-			Kind: operation.Continue,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		after: operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Done,
-			CharmURL: curl("cs:quantal/lol-1"),
-		},
-	}, {
-		description: "upgrade interrupts hook",
-		kind:        operation.Upgrade,
-		before: operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		},
-		after: operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Done,
-			CharmURL: curl("cs:quantal/lol-1"),
-			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
-		},
-	}, {
-		description: "upgrade preserves started/metrics",
-		kind:        operation.Upgrade,
-		before:      overwriteState,
-		after: operation.State{
-			Kind:               operation.Upgrade,
-			Step:               operation.Done,
-			CharmURL:           curl("cs:quantal/lol-1"),
-			Started:            true,
-			CollectMetricsTime: 1234567,
-		},
-	}}
+	)
+}
 
-	for i, test := range stateChangeTests {
-		c.Logf("test %d: %s", i, test.description)
-		for j, info := range allDeployInfo {
-			c.Logf("variant %d", j)
-			if test.kind != info.expectKind {
-				continue
-			}
-			deployer := NewMockDeployer()
-			callbacks := NewDeployCallbacks()
-			factory := operation.NewFactory(deployer, nil, callbacks, nil)
-			op, err := info.newDeploy(factory, curl("cs:quantal/lol-1"))
-			c.Assert(err, jc.ErrorIsNil)
-
-			midState, err := op.Prepare(test.before)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(midState, gc.NotNil)
-
-			newState, err := op.Execute(*midState)
-			c.Check(err, jc.ErrorIsNil)
-			c.Check(newState, gc.DeepEquals, &test.after)
-			c.Check(deployer.MockDeploy.called, jc.IsTrue)
-		}
+func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreservePendingHook(c *gc.C) {
+	for i, newDeploy := range []newDeploy{
+		(operation.Factory).NewUpgrade,
+		(operation.Factory).NewRevertUpgrade,
+		(operation.Factory).NewResolvedUpgrade,
+	} {
+		c.Logf("variant %d", i)
+		s.testExecuteSuccess(c,
+			newDeploy,
+			operation.State{
+				Kind: operation.RunHook,
+				Step: operation.Pending,
+				Hook: &hook.Info{Kind: hooks.ConfigChanged},
+			},
+			operation.State{
+				Kind:     operation.Upgrade,
+				Step:     operation.Done,
+				CharmURL: curl("cs:quantal/lol-1"),
+				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			},
+		)
 	}
 }
 
-func (s *DeploySuite) TestCommitMetricsError(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		callbacks := NewDeployCommitCallbacks(errors.New("glukh"))
-		factory := operation.NewFactory(nil, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/x-0"))
-		c.Assert(err, jc.ErrorIsNil)
-		newState, err := op.Commit(operation.State{})
-		c.Check(err, gc.ErrorMatches, "glukh")
-		c.Check(newState, gc.IsNil)
+func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveOriginalPendingHook(c *gc.C) {
+	for i, newDeploy := range []newDeploy{
+		(operation.Factory).NewUpgrade,
+		(operation.Factory).NewRevertUpgrade,
+		(operation.Factory).NewResolvedUpgrade,
+	} {
+		c.Logf("variant %d", i)
+		s.testExecuteSuccess(c,
+			newDeploy,
+			operation.State{
+				Kind:     operation.Upgrade,
+				Step:     operation.Pending,
+				CharmURL: curl("cs:quantal/wild-9"),
+				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			},
+			operation.State{
+				Kind:     operation.Upgrade,
+				Step:     operation.Done,
+				CharmURL: curl("cs:quantal/lol-1"),
+				Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+			},
+		)
 	}
+}
+
+func (s *DeploySuite) TestExecuteSuccess_Upgrade_PreserveNoHook(c *gc.C) {
+	for i, newDeploy := range []newDeploy{
+		(operation.Factory).NewUpgrade,
+		(operation.Factory).NewRevertUpgrade,
+		(operation.Factory).NewResolvedUpgrade,
+	} {
+		c.Logf("variant %d", i)
+		s.testExecuteSuccess(c,
+			newDeploy,
+			overwriteState,
+			operation.State{
+				Kind:               operation.Upgrade,
+				Step:               operation.Done,
+				CharmURL:           curl("cs:quantal/lol-1"),
+				Started:            true,
+				CollectMetricsTime: 1234567,
+			},
+		)
+	}
+}
+
+func (s *DeploySuite) testCommitMetricsError(c *gc.C, newDeploy newDeploy) {
+	callbacks := NewDeployCommitCallbacks(errors.New("glukh"))
+	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Commit(operation.State{})
+	c.Check(err, gc.ErrorMatches, "glukh")
+	c.Check(newState, gc.IsNil)
+}
+
+func (s *DeploySuite) TestCommitMetricsError_Install(c *gc.C) {
+	s.testCommitMetricsError(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestCommitMetricsError_Upgrade(c *gc.C) {
+	s.testCommitMetricsError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestCommitMetricsError_RevertUpgrade(c *gc.C) {
+	s.testCommitMetricsError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestCommitMetricsError_ResolvedUpgrade(c *gc.C) {
+	s.testCommitMetricsError(c, (operation.Factory).NewResolvedUpgrade)
 }
 
 func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
@@ -449,51 +548,63 @@ func (s *DeploySuite) TestCommitQueueInstallHook(c *gc.C) {
 	})
 }
 
-func (s *DeploySuite) TestCommitQueueUpgradeHook(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		if info.expectKind != operation.Upgrade {
-			continue
-		}
-		callbacks := NewDeployCommitCallbacks(nil)
-		factory := operation.NewFactory(nil, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/x-0"))
-		c.Assert(err, jc.ErrorIsNil)
-		newState, err := op.Commit(operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Done,
-			CharmURL: nil, // doesn't actually matter here
-		})
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(newState, gc.DeepEquals, &operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Queued,
-			Hook: &hook.Info{Kind: hooks.UpgradeCharm},
-		})
-	}
+func (s *DeploySuite) testCommitQueueUpgradeHook(c *gc.C, newDeploy newDeploy) {
+	callbacks := NewDeployCommitCallbacks(nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Commit(operation.State{
+		Kind:     operation.Upgrade,
+		Step:     operation.Done,
+		CharmURL: nil, // doesn't actually matter here
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(newState, gc.DeepEquals, &operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Queued,
+		Hook: &hook.Info{Kind: hooks.UpgradeCharm},
+	})
 }
 
-func (s *DeploySuite) TestCommitInterruptedHook(c *gc.C) {
-	for i, info := range allDeployInfo {
-		c.Logf("test %d", i)
-		if info.expectKind != operation.Upgrade {
-			continue
-		}
-		callbacks := NewDeployCommitCallbacks(nil)
-		factory := operation.NewFactory(nil, nil, callbacks, nil)
-		op, err := info.newDeploy(factory, curl("cs:quantal/x-0"))
-		c.Assert(err, jc.ErrorIsNil)
-		newState, err := op.Commit(operation.State{
-			Kind:     operation.Upgrade,
-			Step:     operation.Done,
-			CharmURL: nil, // doesn't actually matter here
-			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
-		})
-		c.Check(err, jc.ErrorIsNil)
-		c.Check(newState, gc.DeepEquals, &operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		})
-	}
+func (s *DeploySuite) TestCommitQueueUpgradeHook_Upgrade(c *gc.C) {
+	s.testCommitQueueUpgradeHook(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestCommitQueueUpgradeHook_RevertUpgrade(c *gc.C) {
+	s.testCommitQueueUpgradeHook(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestCommitQueueUpgradeHook_ResolvedUpgrade(c *gc.C) {
+	s.testCommitQueueUpgradeHook(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *DeploySuite) testCommitInterruptedHook(c *gc.C, newDeploy newDeploy) {
+	callbacks := NewDeployCommitCallbacks(nil)
+	factory := operation.NewFactory(nil, nil, callbacks, nil)
+	op, err := newDeploy(factory, curl("cs:quantal/x-0"))
+	c.Assert(err, jc.ErrorIsNil)
+	newState, err := op.Commit(operation.State{
+		Kind:     operation.Upgrade,
+		Step:     operation.Done,
+		CharmURL: nil, // doesn't actually matter here
+		Hook:     &hook.Info{Kind: hooks.ConfigChanged},
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(newState, gc.DeepEquals, &operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	})
+}
+
+func (s *DeploySuite) TestCommitInterruptedHook_Upgrade(c *gc.C) {
+	s.testCommitInterruptedHook(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestCommitInterruptedHook_RevertUpgrade(c *gc.C) {
+	s.testCommitInterruptedHook(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestCommitInterruptedHook_ResolvedUpgrade(c *gc.C) {
+	s.testCommitInterruptedHook(c, (operation.Factory).NewResolvedUpgrade)
 }

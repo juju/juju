@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	jc "github.com/juju/testing/checkers"
+	amzec2 "gopkg.in/amz.v2/ec2"
 	gc "gopkg.in/check.v1"
-	amzec2 "launchpad.net/goamz/ec2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/ec2"
@@ -81,7 +81,7 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 
 func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
 	mapping, blockDeviceInfo, err := ec2.GetBlockDeviceMappings(
-		"pv", &environs.StartInstanceParams{Disks: []storage.DiskParams{{
+		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
 			Name: "0", Size: 1234,
 		}, {
 			Name: "1", Size: 4321,

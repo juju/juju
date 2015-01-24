@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -31,12 +32,16 @@ func init() {
 
 const FakeDefaultSeries = "trusty"
 
+// EnvironmentTag is a defined known valid UUID that can be used in testing.
+var EnvironmentTag = names.NewEnvironTag("deadbeef-0bad-f00d-0000-4b1d0d06f00d")
+
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
+		"uuid":                      EnvironmentTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",

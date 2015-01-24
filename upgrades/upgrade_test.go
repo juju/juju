@@ -330,6 +330,18 @@ var areUpgradesDefinedTests = []areUpgradesDefinedTest{
 		fromVersion: "",
 		expected:    true,
 	},
+	{
+		about:       "upgrade between pre-final versions",
+		fromVersion: "1.21-beta4",
+		toVersion:   "1.21-beta5",
+		expected:    true,
+	},
+	{
+		about:       "no upgrades when version hasn't changed, even with release tags",
+		fromVersion: "1.21-beta5",
+		toVersion:   "1.21-beta5",
+		expected:    false,
+	},
 }
 
 func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
@@ -500,6 +512,20 @@ var upgradeTests = []upgradeTest{
 		targets:       targets(upgrades.HostMachine),
 		expectedSteps: []string{"step 1 - 1.20.0", "step 2 - 1.20.0", "step 1 - 1.21.0"},
 	},
+	{
+		about:         "nothing happens when the version hasn't changed but contains a tag",
+		fromVersion:   "1.21-alpha1",
+		toVersion:     "1.21-alpha1",
+		targets:       targets(upgrades.DatabaseMaster),
+		expectedSteps: []string{},
+	},
+	{
+		about:         "upgrades between pre-final versions should run steps for the final version",
+		fromVersion:   "1.21-beta2",
+		toVersion:     "1.21-beta3",
+		targets:       targets(upgrades.DatabaseMaster),
+		expectedSteps: []string{"state step 1 - 1.21.0", "step 1 - 1.21.0"},
+	},
 }
 
 func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
@@ -640,12 +666,12 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 
 func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.21.0", "1.22.0"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.21.0", "1.22.0", "1.23.0"})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
-	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.22.0"})
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.22.0", "1.23.0"})
 }
 
 func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {

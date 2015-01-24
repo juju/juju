@@ -51,6 +51,11 @@ func (s *apiAddresserSuite) TestCACert(c *gc.C) {
 	c.Assert(string(result.Result), gc.Equals, "a cert")
 }
 
+func (s *apiAddresserSuite) TestEnvironUUID(c *gc.C) {
+	result := s.addresser.EnvironUUID()
+	c.Assert(string(result.Result), gc.Equals, "the environ uuid")
+}
+
 var _ common.AddressAndCertGetter = fakeAddresses{}
 
 type fakeAddresses struct{}
@@ -65,6 +70,10 @@ func (fakeAddresses) APIAddressesFromMachines() ([]string, error) {
 
 func (fakeAddresses) CACert() string {
 	return "a cert"
+}
+
+func (fakeAddresses) EnvironUUID() string {
+	return "the environ uuid"
 }
 
 func (fakeAddresses) APIHostPorts() ([][]network.HostPort, error) {
