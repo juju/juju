@@ -130,15 +130,15 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 }
 
 func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
-	storageInstances, ok := ctx.StorageInstances()
-	c.Assert(storageInstances, gc.HasLen, 0)
+	storageInstances, ok := ctx.HookStorageInstance()
+	c.Assert(storageInstances, gc.IsNil)
 	c.Assert(ok, jc.IsFalse)
 }
 
-func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, instances []storage.StorageInstance) {
-	fromCache, ok := ctx.StorageInstances()
+func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, instance storage.StorageInstance) {
+	fromCache, ok := ctx.HookStorageInstance()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(instances, jc.SameContents, fromCache)
+	c.Assert(instance, jc.DeepEquals, *fromCache)
 }
 
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
@@ -291,16 +291,18 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	rnr, err := factory.NewHookRunner(hook.Info{
-		Kind:       hooks.StorageAttached,
-		StorageIds: []string{"1"},
+		Kind:      hooks.StorageAttached,
+		StorageId: "data/0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertPaths(c, rnr)
 	ctx := rnr.Context()
 	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
-	s.AssertStorageContext(c, ctx, []storage.StorageInstance{
-		{Id: "data/0", Kind: storage.StorageKindBlock, Location: ""}},
+	s.AssertStorageContext(c, ctx, storage.StorageInstance{
+		Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
 	)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)

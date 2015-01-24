@@ -159,6 +159,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}
 	if hookInfo.Kind.IsStorage() {
+		ctx.storageId = hookInfo.StorageId
 		if err := f.updateStorage(ctx); err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -5,17 +5,17 @@ package jujuc
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/storage"
 )
 
 // StorageGetCommand implements the storage-get command.
 type StorageGetCommand struct {
 	cmd.CommandBase
-	ctx                Context
-	storageInstanceIds []string
-	out                cmd.Output
+	ctx               Context
+	storageInstanceId string
+	keys              []string
+	out               cmd.Output
 }
 
 func NewStorageGetCommand(ctx Context) cmd.Command {
@@ -24,12 +24,12 @@ func NewStorageGetCommand(ctx Context) cmd.Command {
 
 func (c *StorageGetCommand) Info() *cmd.Info {
 	doc := `
-When no <storageInstanceId> is supplied, all storage instances are printed.
+When no <key> is supplied, all keys values are printed.
 `
 	return &cmd.Info{
 		Name:    "storage-get",
-		Args:    "[<storageInstanceId>]*",
-		Purpose: "print storage information",
+		Args:    "<storageInstanceId> <key> [<key>]*",
+		Purpose: "print information for storage instance with specified id",
 		Doc:     doc,
 	}
 }
@@ -39,33 +39,39 @@ func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *StorageGetCommand) Init(args []string) error {
-	c.storageInstanceIds = args
+	if len(args) < 1 {
+		return errors.New("no storage instance specified")
+	}
+	if len(args) < 2 {
+		return errors.New("no attribute keys specified")
+	}
+	c.storageInstanceId = args[0]
+	c.keys = args[1:]
 	return nil
 }
 
-func wantInstance(storageId string, storageIds []string) bool {
-	for _, id := range storageIds {
-		if id == storageId {
-			return true
-		}
-	}
-	return false
-}
-
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
-	storageInstances, ok := c.ctx.StorageInstances()
+	storageInstance, ok := c.ctx.StorageInstance(c.storageInstanceId)
 	if !ok {
 		return nil
 	}
-	var value []storage.StorageInstance
-	if len(c.storageInstanceIds) > 0 {
-		for _, instance := range storageInstances {
-			if wantInstance(instance.Id, c.storageInstanceIds) {
-				value = append(value, instance)
-			}
+	values := make(map[string]interface{})
+	var singleValue interface{}
+	for _, key := range c.keys {
+		switch key {
+		case "kind":
+			values[key] = storageInstance.Kind
+		case "location":
+			values[key] = storageInstance.Location
+		default:
+			return errors.Errorf("invalid storage instance key %q", key)
 		}
-	} else {
-		value = storageInstances
+		singleValue = values[key]
 	}
-	return c.out.Write(ctx, value)
+	// For single values with smart formatting, we want just the value printed,
+	// not "key: value".
+	if len(c.keys) == 1 && c.out.Name() == "smart" {
+		return c.out.Write(ctx, singleValue)
+	}
+	return c.out.Write(ctx, values)
 }

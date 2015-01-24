@@ -100,8 +100,12 @@ type Context interface {
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
 
-	// StorageInstances returns the storage instances associated with a unit.
-	StorageInstances() ([]storage.StorageInstance, bool)
+	// StorageInstance returns the storage instance with the given id.
+	StorageInstance(storageId string) (*storage.StorageInstance, bool)
+
+	// HookStorageInstance returns the storage instances associated
+	// the executing hook.
+	HookStorageInstance() (*storage.StorageInstance, bool)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

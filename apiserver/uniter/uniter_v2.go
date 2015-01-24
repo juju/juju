@@ -20,7 +20,7 @@ type UniterAPIV2 struct {
 	StorageAPI
 }
 
-// NewUniterAPIV2 creates a new instance of the Uniter API, version 1.
+// NewUniterAPIV2 creates a new instance of the Uniter API, version 2.
 func NewUniterAPIV2(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV2, error) {
 	baseAPI, err := NewUniterAPIV1(st, resources, authorizer)
 	if err != nil {
