@@ -197,6 +197,10 @@ type ActionReceiver interface {
 	// PendingActions returns the list of Actions queued for this
 	// ActionReceiver.
 	PendingActions() ([]*Action, error)
+
+	// RunningActions returns the list of Actions currently running for
+	// this ActionReceiver.
+	RunningActions() ([]*Action, error)
 }
 
 var (
