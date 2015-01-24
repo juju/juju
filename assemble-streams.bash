@@ -468,6 +468,14 @@ generate_streams() {
     find $JUJU_DIST/tools/streams/v1/ -name "*gpg" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*sjson" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
+    # Shim the product file name change.
+    STREAM_DIR="$JUJU_DIST/tools/streams/v1"
+    for kind in released proposed devel; do
+        if [[ ! -e $STREAM_DIR/com.ubuntu.juju-$kind-tools.json && -e $STREAM_DIR/com.ubuntu.juju:$kind:tools.json ]]; then
+            cp $STREAM_DIR/com.ubuntu.juju:$kind:tools.json \
+                $STREAM_DIR/com.ubuntu.juju-$kind-tools.json
+        fi
+    done
     # Generate the json metadata.
     $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
