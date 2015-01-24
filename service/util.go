@@ -4,7 +4,7 @@
 package service
 
 import (
-	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -51,7 +51,7 @@ func contains(strList []string, str string) bool {
 
 type fileOperations interface {
 	exists(name string) (bool, error)
-	mkdirAll(dirname string) error
+	mkdirAll(dirname string, mode os.FileMode) error
 	readFile(filename string) ([]byte, error)
 	createFile(filename string) (io.WriteCloser, error)
 	removeAll(name string) error
@@ -70,19 +70,19 @@ func (fileOps) exists(name string) (bool, error) {
 	return true, nil
 }
 
-func (fileOps) mkdirs(dirname string, mode os.FileMode) error {
+func (fileOps) mkdirAll(dirname string, mode os.FileMode) error {
 	return os.MkdirAll(dirname, mode)
 }
 
-func (fileOps) readfile(filename string) ([]byte, error) {
+func (fileOps) readFile(filename string) ([]byte, error) {
 	return ioutil.ReadFile(filename)
 }
 
-func (fileOps) create(filename string) (io.WriteCloser, error) {
+func (fileOps) createFile(filename string) (io.WriteCloser, error) {
 	return os.Create(filename)
 }
 
-func (fileOps) remove(name string) error {
+func (fileOps) removeAll(name string) error {
 	return os.RemoveAll(name)
 }
 

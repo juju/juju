@@ -76,12 +76,12 @@ func (s *confDirSuite) TestScript(c *gc.C) {
 	c.Check(content, gc.Equals, "<script file contents>")
 }
 
-func (s *confDirSuite) TestWrite(c *gc.C) {
+func (s *confDirSuite) TestWriteConf(c *gc.C) {
 	s.FakeInit.Data = []byte("<upstart conf>")
 	s.FakeFiles.File = s.FakeFiles
 	s.FakeFiles.SetErrors(os.ErrNotExist)
 
-	err := s.Confdir.write(s.Conf, s.FakeInit)
+	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeFiles.CheckCalls(c, []FakeCall{{
@@ -113,19 +113,19 @@ func (s *confDirSuite) TestWrite(c *gc.C) {
 	}})
 }
 
-func (s *confDirSuite) TestWriteExists(c *gc.C) {
-	err := s.Confdir.write(s.Conf, s.FakeInit)
+func (s *confDirSuite) TestWriteConfExists(c *gc.C) {
+	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
-func (s *confDirSuite) TestWriteMultiline(c *gc.C) {
+func (s *confDirSuite) TestWriteConfMultiline(c *gc.C) {
 	s.Conf.Cmd = "spam\neggs"
 	s.FakeInit.Data = []byte("<upstart conf>")
 	s.FakeFiles.File = s.FakeFiles
 	s.FakeFiles.SetErrors(os.ErrNotExist)
 
-	err := s.Confdir.write(s.Conf, s.FakeInit)
+	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeFiles.CheckCalls(c, []FakeCall{{
@@ -169,13 +169,13 @@ func (s *confDirSuite) TestWriteMultiline(c *gc.C) {
 	}})
 }
 
-func (s *confDirSuite) TestWriteExtra(c *gc.C) {
+func (s *confDirSuite) TestWriteConfExtra(c *gc.C) {
 	s.Conf.ExtraScript = "eggs"
 	s.FakeInit.Data = []byte("<upstart conf>")
 	s.FakeFiles.File = s.FakeFiles
 	s.FakeFiles.SetErrors(os.ErrNotExist)
 
-	err := s.Confdir.write(s.Conf, s.FakeInit)
+	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeFiles.CheckCalls(c, []FakeCall{{

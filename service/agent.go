@@ -5,10 +5,13 @@ package service
 
 import (
 	"fmt"
-	"path"
+	"path/filepath"
+	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/service/common"
 )
 
@@ -41,10 +44,6 @@ type AgentPaths struct {
 	LogDir  string
 }
 
-func (as AgentPaths) ToolsDir() string {
-	return tools.ToolsDir(as.DataDir, as.Tag)
-}
-
 // TODO(ericsnow) Support explicitly setting the calculated values
 // (e.g. executable) in AgentService?
 // TODO(ericsnow) Refactor environs/cloudinit.MachineConfig relative
@@ -66,6 +65,10 @@ type AgentService struct {
 // TODO(ericsnow) Is guarding against unset fields really necessary.
 // We could add a Validate method; or for the less efficient one-off
 // case, we could add an error return on the dynamic attr methods.
+
+func (as AgentService) ToolsDir() string {
+	return tools.ToolsDir(as.DataDir, as.Tag)
+}
 
 func (as AgentService) init() (string, error) {
 	if as.initSystem != "" {
@@ -96,11 +99,11 @@ func (as AgentService) executable() string {
 
 func (as AgentService) logfile() string {
 	name := as.Tag + logSuffix
-	return path.Join(as.LogDir, name)
+	return filepath.Join(as.LogDir, name)
 }
 
 // Conf returns the init config for the agent described by AgentService.
-func (as AgentService) Conf() *common.Conf {
+func (as AgentService) Conf() (*common.Conf, error) {
 
 	init, err := as.init()
 	if err != nil {
@@ -130,11 +133,15 @@ func (as AgentService) confWindows() *common.Conf {
 		as.MachineID)
 
 	cmd := []string{
-		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'Jujud machine agent' '%s'`, name, serviceString),
-		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, name),
-		fmt.Sprintf(`Start-Service %s`, name),
+		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'Jujud machine agent' '%s'`, as.Name, serviceString),
+		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, as.Name),
+		fmt.Sprintf(`Start-Service %s`, as.Name),
 	}
-	return cmd
+
+	return &common.Conf{
+		Desc: fmt.Sprintf("juju %s agent", as.Tag),
+		Cmd:  strings.Join(cmd, "\r\n"),
+	}
 }
 
 func (as AgentService) confLinux() *common.Conf {

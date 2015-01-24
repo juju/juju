@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/service/common"
 )
 
@@ -25,15 +24,30 @@ const (
 	confDir = "/etc/init"
 )
 
-type initSystem struct{}
-
-func NewInitSystem() common.InitSystem {
-	return &initSystem{}
+type initSystem struct {
+	initDir string
 }
 
+func NewInitSystem() common.InitSystem {
+	return &initSystem{
+		initDir: confDir,
+	}
+}
+
+var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+
 func (is *initSystem) List(include ...string) ([]string, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
+	var services []string
+	fis, err := ioutil.ReadDir(is.initDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, fi := range fis {
+		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
+			services = append(services, groups[1])
+		}
+	}
+	return services, nil
 }
 
 func (is *initSystem) Start(name string) error {
@@ -56,7 +70,7 @@ func (is *initSystem) Disable(name string) error {
 	return nil
 }
 
-func (is *initSystem) IsEnabled(name string, filenames ...string) (bool, error) {
+func (is *initSystem) IsEnabled(name string) (bool, error) {
 	// TODO(ericsnow) Finish!
 	return false, nil
 }
@@ -71,7 +85,7 @@ func (is *initSystem) Conf(name string) (*common.Conf, error) {
 	return nil, nil
 }
 
-func (is *initSystem) Serialize(conf *common.Conf) ([]byte, error) {
+func (is *initSystem) Serialize(name string, conf *common.Conf) ([]byte, error) {
 	if err := validate(conf); err != nil {
 		return nil, err
 	}
@@ -140,7 +154,7 @@ func (s *Service) validate() error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
-	return validate(s.Conf)
+	return validate(&s.Conf)
 }
 
 // render returns the upstart configuration for the service as a slice of bytes.

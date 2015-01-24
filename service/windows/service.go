@@ -5,10 +5,10 @@
 package windows
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
@@ -38,8 +38,17 @@ func NewInitSystem() common.InitSystem {
 }
 
 func (is *initSystem) List(include ...string) ([]string, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
+	com := exec.RunParams{
+		Commands: `(Get-Service).Name`,
+	}
+	out, err := exec.RunCommands(com)
+	if err != nil {
+		return nil, err
+	}
+	if out.Code != 0 {
+		return nil, errors.Errorf("Error running %s: %s", com.Commands, string(out.Stderr))
+	}
+	return strings.Fields(string(out.Stdout)), nil
 }
 
 func (is *initSystem) Start(name string) error {
@@ -62,7 +71,7 @@ func (is *initSystem) Disable(name string) error {
 	return nil
 }
 
-func (is *initSystem) IsEnabled(name string, filenames ...string) (bool, error) {
+func (is *initSystem) IsEnabled(name string) (bool, error) {
 	// TODO(ericsnow) Finish!
 	return false, nil
 }
@@ -77,7 +86,7 @@ func (is *initSystem) Conf(name string) (*common.Conf, error) {
 	return nil, nil
 }
 
-func (is *initSystem) Serialize(conf *common.Conf) ([]byte, error) {
+func (is *initSystem) Serialize(name string, conf *common.Conf) ([]byte, error) {
 	// TODO(ericsnow) Finish!
 	return nil, nil
 }

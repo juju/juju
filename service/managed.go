@@ -4,6 +4,8 @@
 package service
 
 import (
+	"path/filepath"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service/common"
@@ -27,7 +29,7 @@ func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs 
 	}
 	return &serviceConfigs{
 		baseDir:    filepath.Join(baseDir, initDir),
-		initSystem: name,
+		initSystem: initSystem,
 		prefixes:   prefixes,
 	}
 }
@@ -42,7 +44,7 @@ func (sc serviceConfigs) refresh() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	s.names = names
+	sc.names = names
 	return nil
 }
 
@@ -83,11 +85,11 @@ func (sc serviceConfigs) add(name string, conf *common.Conf, serializer serializ
 	}
 
 	confDir := sc.newDir(name)
-	if err := confdir.create(); err != nil {
+	if err := confDir.create(); err != nil {
 		return errors.Trace(err)
 	}
 
-	conf, err = confDir.normalizeConf(conf)
+	conf, err := confDir.normalizeConf(conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -97,7 +99,7 @@ func (sc serviceConfigs) add(name string, conf *common.Conf, serializer serializ
 		return errors.Trace(err)
 	}
 
-	if err := confdir.writeConf(data); err != nil {
+	if err := confDir.writeConf(data); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -107,7 +109,7 @@ func (sc serviceConfigs) add(name string, conf *common.Conf, serializer serializ
 }
 
 func (sc serviceConfigs) remove(name string) error {
-	confDir := sc.get(name)
+	confDir := sc.lookup(name)
 	if confDir == nil {
 		return errors.NotFoundf("service %q", name)
 	}
@@ -116,9 +118,9 @@ func (sc serviceConfigs) remove(name string) error {
 		return errors.Trace(err)
 	}
 
-	for i, managed := range s.names {
+	for i, managed := range sc.names {
 		if name == managed {
-			s.names = append(s.names[:i], s.names[i+1]...)
+			sc.names = append(sc.names[:i], sc.names[i+1:]...)
 			break
 		}
 	}

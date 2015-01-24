@@ -24,8 +24,8 @@ const (
 
 var (
 	linuxInitNames = map[string]string{
-		"/sbin/init": initSystemUpstart,
-		//"/sbin/systemd": initSystemSystemd,
+		"/sbin/init": InitSystemUpstart,
+		//"/sbin/systemd": InitSystemSystemd,
 	}
 	initSystems = map[string](func() common.InitSystem){
 		InitSystemWindows: windows.NewInitSystem,
@@ -38,7 +38,7 @@ var (
 // returns its name.
 func discoverInitSystem() (string, error) {
 	if version.Current.OS == version.Windows {
-		return initSystemWindows, nil
+		return InitSystemWindows, nil
 	}
 
 	executable, err := findInitExecutable()

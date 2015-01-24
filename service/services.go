@@ -4,9 +4,6 @@
 package service
 
 import (
-	"fmt"
-	"path/filepath"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service/common"
@@ -33,7 +30,7 @@ var (
 // system, relative to juju.
 type Services struct {
 	configs *serviceConfigs
-	init    InitSystem
+	init    common.InitSystem
 }
 
 // NewServices populates a new Services and returns it. This includes
@@ -56,7 +53,7 @@ func NewServices(dataDir string, args ...string) (*Services, error) {
 
 	// Build the Services.
 	services := Services{
-		configs: newConfigs(dataDir, name, jujuPrefixes...),
+		configs: newConfigs(dataDir, initname, jujuPrefixes...),
 		init:    init,
 	}
 
@@ -68,8 +65,8 @@ func NewServices(dataDir string, args ...string) (*Services, error) {
 func extractInitSystem(args []string) (common.InitSystem, error) {
 	// Get the init system name from the args.
 	var name string
-	if numArgs != 0 {
-		name = numArgs[0]
+	if len(args) != 0 {
+		name = args[0]
 	}
 
 	// Fall back to discovery.
@@ -105,7 +102,7 @@ func (s Services) List(directives ...string) ([]string, error) {
 	// Select only desired names.
 	var names []string
 	if runningOnly {
-		running, err := s.init.List(s.names...)
+		running, err := s.init.List(s.configs.names...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -117,7 +114,7 @@ func (s Services) List(directives ...string) ([]string, error) {
 		}
 		names = running
 	} else {
-		names = s.names
+		names = s.configs.names
 	}
 
 	return names, nil
@@ -162,7 +159,7 @@ func (s Services) stop(name string) error {
 // IsRunning determines whether or not the named service is running.
 func (s Services) IsRunning(name string) (bool, error) {
 	if err := s.ensureManaged(name); err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
 
 	info, err := s.init.Info(name)
@@ -192,7 +189,7 @@ func (s Services) Enable(name string) error {
 			return errors.Trace(err)
 		}
 		if !same {
-			return errors.Anntatef(ErrNotManaged, "service %q", name)
+			return errors.Annotatef(ErrNotManaged, "service %q", name)
 		}
 		return nil
 	}
@@ -236,7 +233,7 @@ func (s Services) IsEnabled(name string) (bool, error) {
 // Add adds the named service to the directory of juju-related
 // service configurations. The provided Conf is used to generate the
 // conf file and possibly a script file.
-func (s ManagedServices) Add(name string, conf *common.Conf) error {
+func (s Services) Add(name string, conf *common.Conf) error {
 	err := s.configs.add(name, conf, s.init)
 	return errors.Trace(err)
 }
@@ -251,7 +248,10 @@ func (s Services) Remove(name string) error {
 	if confDir == nil {
 		return nil
 	}
-	enabled := s.init.IsEnabled(name)
+	enabled, err := s.init.IsEnabled(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if enabled {
 		// We must do this before removing the conf directory.
 		same, err := s.compareConf(name, confDir)
@@ -320,13 +320,16 @@ func (s Services) ensureManaged(name string) error {
 	return nil
 }
 
-func (s services) compareConf(name string, confDir *confDir) (bool, error) {
+func (s Services) compareConf(name string, confDir *confDir) (bool, error) {
 	conf, err := s.init.Conf(name)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 
-	data := confDir.conf()
+	data, err := confDir.conf()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	expected, err := s.init.Deserialize(data)
 	if err != nil {
 		return false, errors.Trace(err)

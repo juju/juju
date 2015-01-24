@@ -5,14 +5,11 @@ package service
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/service/common"
 )
@@ -79,35 +76,28 @@ func (cd confDir) create() error {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) Are these the right permissions?
-	if err := cd.fops.mkdirs(cd.dirname, 0777); err != nil {
+	if err := cd.fops.mkdirAll(cd.dirname, 0777); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (cd confDir) readfile(name string) (string, error) {
-	data, err := cd.fops.readfile(filepath.Join(cd.dirname, name))
-	return string(data), errors.Trace(err)
+func (cd confDir) readfile(name string) ([]byte, error) {
+	data, err := cd.fops.readFile(filepath.Join(cd.dirname, name))
+	return data, errors.Trace(err)
 }
 
-func (cd confDir) conf() (string, error) {
+func (cd confDir) conf() ([]byte, error) {
 	return cd.readfile(cd.confname())
 }
 
-func (cd confDir) script() (string, error) {
+func (cd confDir) script() ([]byte, error) {
 	return cd.readfile(filenameScript)
 }
 
-func (cd confDir) writeConf(conf *common.Conf, data []byte) error {
-	// Handle any extraneous files.
-	conf, err := cd.normalizeConf(conf)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Write out the conf.
-	file, err := cd.fops.create(cd.filename())
+func (cd confDir) writeConf(data []byte) error {
+	file, err := cd.fops.createFile(cd.filename())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -151,7 +141,7 @@ func (cd confDir) isSimple(script string) bool {
 func (cd confDir) writeScript(script string) (string, error) {
 	filename := filepath.Join(cd.dirname, filenameScript)
 
-	file, err := cd.fops.create(filename)
+	file, err := cd.fops.createFile(filename)
 	if err != nil {
 		return "", errors.Annotate(err, "while writing script")
 	}
@@ -167,7 +157,7 @@ func (cd confDir) writeScript(script string) (string, error) {
 }
 
 func (cd confDir) remove() error {
-	err := cd.fops.remove(cd.dirname)
+	err := cd.fops.removeAll(cd.dirname)
 	if os.IsNotExist(err) {
 		return nil
 	}
