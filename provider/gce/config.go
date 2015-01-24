@@ -142,9 +142,9 @@ func (c *environConfig) imageEndpoint() string {
 // auth build a new Auth based on the config and returns it.
 func (c *environConfig) auth() google.Auth {
 	return google.Auth{
-		ClientID:    c.attrs[cfgClientID].(string),
-		ClientEmail: c.attrs[cfgClientEmail].(string),
-		PrivateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
+		ClientID:    c.clientID(),
+		ClientEmail: c.clientEmail(),
+		PrivateKey:  []byte(c.privateKey()),
 	}
 }
 
@@ -152,8 +152,8 @@ func (c *environConfig) auth() google.Auth {
 // The resulting connection must still have its Connect called.
 func (c *environConfig) newConnection() *google.Connection {
 	return &google.Connection{
-		Region:    c.attrs[cfgRegion].(string),
-		ProjectID: c.attrs[cfgProjectID].(string),
+		Region:    c.region(),
+		ProjectID: c.projectID(),
 	}
 }
 
