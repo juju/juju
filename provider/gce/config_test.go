@@ -13,39 +13,86 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-// TODO(ericsnow) Use s.NewConfig(c, attrs) instead.
-func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
+type ConfigSuite struct {
+	gce.BaseSuite
+
+	config *config.Config
+}
+
+var _ = gc.Suite(&ConfigSuite{})
+
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	cfg, err := testing.EnvironConfig(c).Apply(gce.ConfigAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.config = cfg
+}
+
+// configTestSpec defines a subtest to run in a table driven test.
+type configTestSpec struct {
+	// info describes the subtest.
+	info string
+	// insert holds attrs that should be merged into the config.
+	insert testing.Attrs
+	// remove has the names of attrs that should be removed.
+	remove []string
+	// expect defines the expected attributes in a success case.
+	expect testing.Attrs
+	// err is the error message to expect in a failure case.
+	err string
+}
+
+func (ts configTestSpec) checkSuccess(c *gc.C, cfg *config.Config, err error) {
+	if !c.Check(err, jc.ErrorIsNil) {
+		return
+	}
+
+	attrs := cfg.AllAttrs()
+	for field, value := range ts.expect {
+		c.Check(attrs[field], gc.Equals, value)
+	}
+}
+
+func (ts configTestSpec) checkFailure(c *gc.C, err error, msg string) {
+	c.Check(err, gc.ErrorMatches, msg+": "+ts.err)
+}
+
+func (ts configTestSpec) checkAttrs(c *gc.C, attrs map[string]interface{}, cfg *config.Config) {
+	for field, value := range cfg.UnknownAttrs() {
+		c.Check(attrs[field], gc.Equals, value)
+	}
+}
+
+func (ts configTestSpec) attrs() testing.Attrs {
+	return gce.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
+}
+
+func (ts configTestSpec) config(c *gc.C) *config.Config {
+	attrs := ts.attrs()
 	cfg, err := testing.EnvironConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
 }
 
-// TODO(ericsnow) Use s.NewConfig(c).AllAttrs() instead.
-func validAttrs() testing.Attrs {
-	return gce.ConfigAttrs
+func (ts configTestSpec) attrFixes() testing.Attrs {
+	if ts.err != "" {
+		return nil
+	}
+
+	attrs := make(testing.Attrs)
+	for field, value := range ts.insert {
+		for _, immutable := range gce.ConfigImmutable {
+			if field == immutable {
+				attrs[field] = value
+				break
+			}
+		}
+	}
+	return attrs
 }
 
-type ConfigSuite struct {
-	gce.BaseSuite
-}
-
-var _ = gc.Suite(&ConfigSuite{})
-
-type testSpec []struct {
-	info   string
-	insert testing.Attrs
-	remove []string
-	expect testing.Attrs
-	err    string
-	// skipIfNotValidated should be set to true if you are using a config.Config
-	// that had environConfig.attrs applied to it (via Apply). See gce.Provider.Validate.
-	skipIfNotValidated bool
-	// skipIfOldConfig should be set to true if you are going to pass an old
-	// config to gce.Provider.Validate.
-	skipIfOldConfig bool
-}
-
-var newConfigTests = testSpec{{
+var newConfigTests = []configTestSpec{{
 	info:   "client-id is required",
 	remove: []string{"client-id"},
 	err:    "client-id: expected string, got nothing",
@@ -86,17 +133,15 @@ var newConfigTests = testSpec{{
 	insert: testing.Attrs{"project-id": ""},
 	err:    "project-id: must not be empty",
 }, {
-	info:               "image-endpoint is inserted if missing",
-	remove:             []string{"image-endpoint"},
-	expect:             testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
-	skipIfNotValidated: true,
+	info:   "image-endpoint is inserted if missing",
+	remove: []string{"image-endpoint"},
+	expect: testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
 }, {
 	info:   "image-endpoint can be empty",
 	insert: testing.Attrs{"image-endpoint": ""},
-	// This is not set to the default value because
+	// We do not expect the default value because
 	// an explict call to config.Apply never happens.
-	expect:          testing.Attrs{"image-endpoint": ""},
-	skipIfOldConfig: true,
+	expect: testing.Attrs{"image-endpoint": ""},
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
@@ -106,28 +151,15 @@ var newConfigTests = testSpec{{
 func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		if test.skipIfNotValidated {
-			c.Logf("skipping %d: %s", i, test.info)
-			continue
-		}
 
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		testConfig := newConfig(c, attrs)
+		testConfig := test.config(c)
 		environ, err := environs.New(testConfig)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := environ.Config().AllAttrs()
-			for field, value := range test.expect {
-				c.Logf("%+v", attrs)
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		// Check the result
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config")
 		} else {
-			if err != nil {
-				c.Check(environ, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid config: "+test.err)
+			test.checkSuccess(c, environ.Config(), err)
 		}
 	}
 }
@@ -136,62 +168,57 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		testConfig := newConfig(c, attrs)
+
+		testConfig := test.config(c)
 		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range test.expect {
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		// Check the result
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config")
 		} else {
-			if err != nil {
-				c.Check(validatedConfig, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid config: "+test.err)
+			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
 }
 
 // TODO(wwitzel3) refactor to the provider_test file
-func (*ConfigSuite) TestValidateOldConfig(c *gc.C) {
-	knownGoodConfig := newConfig(c, validAttrs())
-	uuid, ok := knownGoodConfig.UUID()
-	c.Assert(ok, jc.IsTrue)
+func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		if test.skipIfNotValidated || test.skipIfOldConfig {
-			c.Logf("skipping %d: %s", i, test.info)
-			continue
+
+		oldcfg := test.config(c)
+		newcfg := s.config
+		expected := gce.ConfigAttrs
+
+		// In the case of immutable fields, the new config may need
+		// to be updated to match the old config.
+		fixes := test.attrFixes()
+		if len(fixes) > 0 {
+			updated, err := newcfg.Apply(fixes)
+			c.Check(err, jc.ErrorIsNil)
+			newcfg = updated
+			expected = expected.Merge(fixes)
 		}
 
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["uuid"] = uuid
-		testConfig := newConfig(c, attrs)
-		validatedConfig, err := gce.Provider.Validate(knownGoodConfig, testConfig)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range validAttrs() {
-				c.Check(attrs[field], gc.Equals, value)
-			}
+		// Validate the new config (relative to the old one) using the
+		// provider.
+		validatedConfig, err := gce.Provider.Validate(newcfg, oldcfg)
+
+		// Check the result
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid base config")
 		} else {
-			if err != nil {
-				c.Check(validatedConfig, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid base config: "+test.err)
+			c.Check(err, jc.ErrorIsNil)
+			// We verify that Validate filled in the defaults
+			// appropriately without
+			test.checkAttrs(c, expected, validatedConfig)
 		}
 	}
 }
 
-var changeConfigTests = testSpec{{
+var changeConfigTests = []configTestSpec{{
 	info:   "no change, no error",
-	expect: validAttrs(),
+	expect: gce.ConfigAttrs,
 }, {
 	info:   "cannot change private-key",
 	insert: testing.Attrs{"private-key": "okkult"},
@@ -220,61 +247,37 @@ var changeConfigTests = testSpec{{
 
 // TODO(wwitzel3) refactor this to the provider_test file.
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs())
-	uuid, ok := baseConfig.UUID()
-	c.Assert(ok, jc.IsTrue)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["uuid"] = uuid
-		testConfig := newConfig(c, attrs)
-		validatedConfig, err := gce.Provider.Validate(testConfig, baseConfig)
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			attrs := validatedConfig.AllAttrs()
-			for field, value := range test.expect {
-				c.Check(attrs[field], gc.Equals, value)
-			}
+
+		testConfig := test.config(c)
+		validatedConfig, err := gce.Provider.Validate(testConfig, s.config)
+
+		// Check the result.
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config change")
 		} else {
-			if err != nil {
-				c.Check(validatedConfig, gc.IsNil)
-			}
-			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
+			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
 }
 
 func (s *ConfigSuite) TestSetConfig(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs())
-	uuid, ok := baseConfig.UUID()
-	c.Assert(ok, jc.IsTrue)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
-		environ, err := environs.New(baseConfig)
+
+		environ, err := environs.New(s.config)
 		c.Assert(err, jc.ErrorIsNil)
-		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
-		attrs["uuid"] = uuid
-		testConfig := newConfig(c, attrs)
+
+		testConfig := test.config(c)
 		err = environ.SetConfig(testConfig)
-		newAttrs := environ.Config().AllAttrs()
-		if test.err == "" {
-			if !c.Check(err, jc.ErrorIsNil) {
-				continue
-			}
-			for field, value := range test.expect {
-				c.Check(newAttrs[field], gc.Equals, value)
-			}
+
+		// Check the result.
+		if test.err != "" {
+			test.checkFailure(c, err, "invalid config change")
+			test.checkAttrs(c, environ.Config().AllAttrs(), s.config)
 		} else {
-			c.Check(err, gc.ErrorMatches, "invalid config change: "+test.err)
-			for field, value := range baseConfig.UnknownAttrs() {
-				c.Check(newAttrs[field], gc.Equals, value)
-			}
+			test.checkSuccess(c, environ.Config(), err)
 		}
 	}
 }
-
-// TODO(ericsnow) Add a test to verify the official cloud-images metadata?
-// TODO(ericsnow) Add a test to check environs.ImageMetadataSoures(env).
-// TODO(ericsnow) Add a test to check tools.GetMetadataSoures(env).

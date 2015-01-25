@@ -11,6 +11,16 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
+// TODO(ericsnow) While not strictly config-related, we could use some
+// mechanism by which we can validate the values we've hard-coded in
+// this provider match up with the external authoritative sources. One
+// example of this is the data stored in instancetypes.go. Similarly
+// we should also ensure the cloud-images metadata is correct and
+// up-to-date, though that is more the responsibility of that team.
+// Regardless, it may be useful to include a tool somewhere in juju
+// that we can use to validate this provider's potentially out-of-date
+// data.
+
 // The GCE-specific config keys.
 const (
 	cfgPrivateKey    = "private-key"
@@ -28,13 +38,31 @@ gce:
   type: gce
 
   # Google Auth Info
+  # The GCE provider uses OAuth to authenticate. This requires that
+  # you set it up and get the relevant credentials. For more information
+  # see https://cloud.google.com/compute/docs/api/how-tos/authorization.
+  # Once you have the information, enter it here. All three of these are
+  # required and have specific meaning to GCE.
   private-key: 
   client-email:
   client-id:
 
   # Google instance info
-  # region: us-central1
+  # To provision instances and perform related operations, the provider
+  # will need to know which GCE project to use and into which region to
+  # provision. While the region has a default, the project ID is
+  # required. For information on the project ID, see
+  # https://cloud.google.com/compute/docs/projects and regarding regions
+  # see https://cloud.google.com/compute/docs/zones.
   project-id:
+  # region: us-central1
+
+  # The GCE provider uses pre-built images when provisioning instances.
+  # You can customize the location in which to find them with the
+  # image-endpoint setting. The default value is the a location within
+  # GCE, so it will give you the best speed when bootstrapping or adding
+  # machines. For more information on the image cache see
+  # https://cloud-images.ubuntu.com/.
   # image-endpoint: https://www.googleapis.com
 `[1:]
 
@@ -114,9 +142,9 @@ func (c *environConfig) imageEndpoint() string {
 // auth build a new Auth based on the config and returns it.
 func (c *environConfig) auth() google.Auth {
 	return google.Auth{
-		ClientID:    c.attrs[cfgClientID].(string),
-		ClientEmail: c.attrs[cfgClientEmail].(string),
-		PrivateKey:  []byte(c.attrs[cfgPrivateKey].(string)),
+		ClientID:    c.clientID(),
+		ClientEmail: c.clientEmail(),
+		PrivateKey:  []byte(c.privateKey()),
 	}
 }
 
@@ -124,8 +152,8 @@ func (c *environConfig) auth() google.Auth {
 // The resulting connection must still have its Connect called.
 func (c *environConfig) newConnection() *google.Connection {
 	return &google.Connection{
-		Region:    c.attrs[cfgRegion].(string),
-		ProjectID: c.attrs[cfgProjectID].(string),
+		Region:    c.region(),
+		ProjectID: c.projectID(),
 	}
 }
 
@@ -167,8 +195,9 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 		return nil, errors.Trace(handleInvalidField(err))
 	}
 
-	// TODO(ericsnow) Follow up with someone on if it is appropriate
-	// to call Apply here.
+	// Calling Apply here is required to get the updates populated in
+	// the underlying config.  It is even more important if the config
+	// is modified in this function.
 	cfg, err = ecfg.Config.Apply(ecfg.attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
