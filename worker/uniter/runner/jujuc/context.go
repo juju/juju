@@ -103,7 +103,7 @@ type Context interface {
 	// StorageInstance returns the storage instance with the given id.
 	StorageInstance(storageId string) (*storage.StorageInstance, bool)
 
-	// HookStorageInstance returns the storage instances associated
+	// HookStorageInstance returns the storage instance associated
 	// the executing hook.
 	HookStorageInstance() (*storage.StorageInstance, bool)
 }
