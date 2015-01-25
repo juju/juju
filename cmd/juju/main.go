@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 	// Import the providers.
+	"github.com/juju/juju/cmd/juju/charms"
 	_ "github.com/juju/juju/provider/all"
 )
 
@@ -196,6 +197,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Operation protection commands
 	r.Register(wrapEnvCommand(&block.BlockCommand{}))
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
+
+	r.Register(charms.NewSuperCommand())
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
