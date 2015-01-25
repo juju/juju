@@ -23,5 +23,5 @@ type StorageShowResults struct {
 // or error related to its retrieval.
 type StorageShowResult struct {
 	Result StorageInstance
-	Error  *Error
+	Error  ErrorResult
 }

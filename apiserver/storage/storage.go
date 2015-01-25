@@ -60,13 +60,15 @@ func (api *API) createStorageInstanceResult(tag string) params.StorageShowResult
 	aTag, err := names.ParseTag(tag)
 	if err != nil {
 		return params.StorageShowResult{
-			Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag)),
+			Error: params.ErrorResult{
+				Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag))},
 		}
 	}
 	stateInstance, err := api.storage.StorageInstance(aTag.Id())
 	if err != nil {
 		return params.StorageShowResult{
-			Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag)),
+			Error: params.ErrorResult{
+				Error: common.ServerError(errors.Annotatef(common.ErrPerm, "getting %v", tag))},
 		}
 	}
 	return params.StorageShowResult{Result: api.getStorageInstance(stateInstance)}
