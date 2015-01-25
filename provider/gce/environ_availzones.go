@@ -4,8 +4,6 @@
 package gce
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
@@ -111,11 +109,8 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 	logger.Infof("found %d zones: %v", len(zoneInstances), zoneInstances)
 
 	var zoneNames []string
-	region := env.ecfg.region()
 	for _, z := range zoneInstances {
-		if region == "" || strings.HasPrefix(z.ZoneName, region+"-") {
-			zoneNames = append(zoneNames, z.ZoneName)
-		}
+		zoneNames = append(zoneNames, z.ZoneName)
 	}
 
 	if len(zoneNames) == 0 {

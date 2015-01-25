@@ -164,7 +164,6 @@ func (s *environAZSuite) TestParseAvailabilityZonesOccupied(c *gc.C) {
 
 func (s *environAZSuite) TestParseAvailabilityZonesWrongRegion(c *gc.C) {
 	s.FakeConn.Zones = []google.AvailabilityZone{
-		// TODO(ericsnow) This doesn't work if the order is reversed!
 		google.NewZone("a-zone", google.StatusUp),
 		google.NewZone("home-zone", google.StatusUp),
 	}
@@ -172,7 +171,7 @@ func (s *environAZSuite) TestParseAvailabilityZonesWrongRegion(c *gc.C) {
 	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(zones, jc.DeepEquals, []string{"home-zone"})
+	c.Check(zones, jc.DeepEquals, []string{"a-zone", "home-zone"})
 }
 
 func (s *environAZSuite) TestParseAvailabilityZonesNoneFound(c *gc.C) {
