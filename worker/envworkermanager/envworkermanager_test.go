@@ -28,14 +28,16 @@ var _ = gc.Suite(&suite{})
 
 type suite struct {
 	statetesting.StateSuite
-	factory *factory.Factory
-	runnerC chan *fakeRunner
+	factory  *factory.Factory
+	runnerC  chan *fakeRunner
+	startErr error
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.factory = factory.NewFactory(s.State)
 	s.runnerC = make(chan *fakeRunner, 1)
+	s.startErr = nil
 }
 
 func (s *suite) makeEnvironment(c *gc.C) *state.State {
@@ -179,6 +181,15 @@ func (s *suite) TestNonFatalErrorCausesRunnerRestart(c *gc.C) {
 	s.seeRunnersStart(c, 1)
 }
 
+func (s *suite) TestStateIsClosedIfStartEnvWorkersFails(c *gc.C) {
+	// If State is not closed when startEnvWorkers errors, MgoSuite's
+	// dirty socket detection will pick up the leaked socket and
+	// panic.
+	s.startErr = worker.ErrTerminateAgent // This will make envWorkerManager exit.
+	m := envworkermanager.NewEnvWorkerManager(s.State, s.startEnvWorkers)
+	waitOrPanic(m.Wait)
+}
+
 func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
 	if expectedCount < 1 {
 		panic("expectedCount must be >= 1")
@@ -188,6 +199,8 @@ func (s *suite) seeRunnersStart(c *gc.C, expectedCount int) []*fakeRunner {
 	for {
 		select {
 		case r := <-s.runnerC:
+			c.Assert(r.ssEnvUUID, gc.Equals, s.State.EnvironUUID())
+
 			runners = append(runners, r)
 			if len(runners) == expectedCount {
 				s.checkNoRunnersStart(c) // Check no more runners start
@@ -214,9 +227,13 @@ func (s *suite) checkNoRunnersStart(c *gc.C) {
 // startEnvWorkers is passed to NewEnvWorkerManager in these tests. It
 // creates fake Runner instances when envWorkerManager starts workers
 // for an environment.
-func (s *suite) startEnvWorkers(st *state.State) (worker.Runner, error) {
+func (s *suite) startEnvWorkers(ssSt envworkermanager.InitialState, st *state.State) (worker.Runner, error) {
+	if s.startErr != nil {
+		return nil, s.startErr
+	}
 	runner := &fakeRunner{
-		envUUID: st.EnvironUUID(),
+		ssEnvUUID: ssSt.EnvironUUID(),
+		envUUID:   st.EnvironUUID(),
 	}
 	s.runnerC <- runner
 	return runner, nil
@@ -241,9 +258,10 @@ func waitOrPanic(wait func() error) error {
 // testing.
 type fakeRunner struct {
 	worker.Runner
-	tomb    tomb.Tomb
-	envUUID string
-	killed  bool
+	tomb      tomb.Tomb
+	ssEnvUUID string
+	envUUID   string
+	killed    bool
 }
 
 func (r *fakeRunner) Kill() {

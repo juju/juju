@@ -34,11 +34,12 @@ func init() {
 
 func listBlockDevices() ([]storage.BlockDevice, error) {
 	columns := []string{
-		"KNAME", // kernel name
-		"SIZE",  // size
-		"LABEL", // filesystem label
-		"UUID",  // filesystem UUID
-		"TYPE",  // device type
+		"KNAME",  // kernel name
+		"SIZE",   // size
+		"LABEL",  // filesystem label
+		"UUID",   // filesystem UUID
+		"FSTYPE", // filesystem type
+		"TYPE",   // device type
 	}
 
 	logger.Debugf("executing lsblk")
@@ -77,6 +78,8 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				dev.Label = pair[2]
 			case "UUID":
 				dev.UUID = pair[2]
+			case "FSTYPE":
+				dev.FilesystemType = pair[2]
 			case "TYPE":
 				deviceType = pair[2]
 			default:

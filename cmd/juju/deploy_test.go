@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -198,6 +200,31 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 	cons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
+}
+
+func (s *DeploySuite) TestStorageWithoutFeatureFlag(c *gc.C) {
+	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
+	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --storage")
+}
+
+func (s *DeploySuite) TestStorage(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "storage-block")
+	err := runDeploy(c, "local:storage-block", "--storage", "data=1G")
+	c.Assert(err, jc.ErrorIsNil)
+	curl := charm.MustParseURL("local:trusty/storage-block-1")
+	service, _ := s.AssertService(c, "storage-block", curl, 1, 0)
+
+	cons, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": state.StorageConstraints{
+			Count: 1,
+			Size:  1024,
+		},
+	})
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {

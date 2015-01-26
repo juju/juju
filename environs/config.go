@@ -157,6 +157,15 @@ func RegisterProvider(name string, p EnvironProvider, alias ...string) {
 	}
 }
 
+// RegisteredProviders enumerate all the environ providers which have been registered.
+func RegisteredProviders() []string {
+	var p []string
+	for k := range providers {
+		p = append(p, k)
+	}
+	return p
+}
+
 // Provider returns the previously registered provider with the given type.
 func Provider(providerType string) (EnvironProvider, error) {
 	if alias, ok := providerAliases[providerType]; ok {

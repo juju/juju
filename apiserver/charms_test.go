@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -30,19 +31,22 @@ import (
 
 type authHttpSuite struct {
 	jujutesting.JujuConnSuite
-	userTag            string
+	userTag            names.UserTag
 	password           string
 	archiveContentType string
+	envUUID            string
 }
 
 func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.password = "password"
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
-	s.userTag = user.Tag().String()
+	s.userTag = user.UserTag()
+	s.envUUID = s.State.EnvironUUID()
 }
 
 func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
+	c.Logf("sendRequest: %s", uri)
 	req, err := http.NewRequest(method, uri, body)
 	c.Assert(err, jc.ErrorIsNil)
 	if tag != "" && password != "" {
@@ -63,8 +67,20 @@ func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
 	}
 }
 
+func (s *authHttpSuite) setupOtherEnvironment(c *gc.C) *state.State {
+	envState := s.Factory.MakeEnvironment(c, nil)
+	s.AddCleanup(func(*gc.C) { envState.Close() })
+	user := s.Factory.MakeUser(c, nil)
+	_, err := envState.AddEnvironmentUser(user.UserTag(), s.userTag)
+	c.Assert(err, jc.ErrorIsNil)
+	s.userTag = user.UserTag()
+	s.password = "password"
+	s.envUUID = envState.EnvironUUID()
+	return envState
+}
+
 func (s *authHttpSuite) authRequest(c *gc.C, method, uri, contentType string, body io.Reader) (*http.Response, error) {
-	return s.sendRequest(c, s.userTag, s.password, method, uri, contentType, body)
+	return s.sendRequest(c, s.userTag.String(), s.password, method, uri, contentType, body)
 }
 
 func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path string) (*http.Response, error) {
@@ -250,10 +266,20 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	environ, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/environment/%s/charms", environ.UUID())
+	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	resp, err := s.uploadRequest(c, url.String(), true, ch.Path)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+}
+
+func (s *charmsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
+	envState := s.setupOtherEnvironment(c)
+	// Check that we can upload charms to https://host:port/ENVUUID/charms
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
 	resp, err := s.uploadRequest(c, url.String(), true, ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
@@ -428,12 +454,12 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
+	// Backwards compatibility check, that we can GET from charms at
+	// https://host:port/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	// Backwards compatibility check, that we can GET from charms at
-	// https://host:port/charms
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = "/charms"
 	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
@@ -446,18 +472,28 @@ func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	// Check that we can GET from charms at https://host:port/ENVUUID/charms
-	environ, err := s.State.Environment()
+	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
+	url.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+}
+
+func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
+	envState := s.setupOtherEnvironment(c)
+
+	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	_, err := s.uploadRequest(
+		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/environment/%s/charms", environ.UUID())
+	url.Path = fmt.Sprintf("/environment/%s/charms", envState.EnvironUUID())
 	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
-	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
 	url.Path = "/environment/dead-beef-123456/charms"
 	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
@@ -513,7 +549,11 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 
 func (s *charmsSuite) charmsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path += "/charms"
+	if s.envUUID == "" {
+		uri.Path = "/charms"
+	} else {
+		uri.Path = fmt.Sprintf("/environment/%s/charms", s.envUUID)
+	}
 	uri.RawQuery = query
 	return uri
 }

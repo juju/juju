@@ -197,6 +197,7 @@ type ServiceDeploy struct {
 	Constraints   constraints.Value
 	ToMachineSpec string
 	Networks      []string
+	Storage       map[string]storage.Constraints
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -888,16 +889,3 @@ const (
 	// been asked to offer.
 	StatusRunning Status = "running"
 )
-
-// DatastoreResult holds the result of an API call to retrieve details
-// of a datastore.
-type DatastoreResult struct {
-	Result storage.Datastore `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
-}
-
-// DatastoreResult holds the result of an API call to retrieve details
-// of multiple datastores.
-type DatastoreResults struct {
-	Results []DatastoreResult `json:"results,omitempty"`
-}

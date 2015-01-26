@@ -822,15 +822,28 @@ type BlockDevicesResults struct {
 }
 
 // BlockDeviceFilesystem holds the parameters for recording information about
-// the filesystem corresponding to the specified block device.
+// the specified block device's filesystem.
 type BlockDeviceFilesystem struct {
-	DiskTag    string             `json:"disktag"`
-	Datastore  string             `json:"datastore"`
-	Filesystem storage.Filesystem `json:"filesystem"`
+	DiskTag        string `json:"disktag"`
+	StorageTag     string `json:"storagetag"`
+	FilesystemType string `json:"fstype"`
 }
 
 // SetBlockDeviceFilesystem holds the parameters for recording information about
 // the filesystems corresponding to the specified block devices.
 type SetBlockDeviceFilesystem struct {
 	Filesystems []BlockDeviceFilesystem `json:"filesystems"`
+}
+
+// StorageInstanceResult holds the result of an API call to retrieve details
+// of a storage instance.
+type StorageInstanceResult struct {
+	Result storage.StorageInstance `json:"result"`
+	Error  *Error                  `json:"error,omitempty"`
+}
+
+// StorageInstanceResult holds the result of an API call to retrieve details
+// of multiple storage instances.
+type StorageInstanceResults struct {
+	Results []StorageInstanceResult `json:"results,omitempty"`
 }

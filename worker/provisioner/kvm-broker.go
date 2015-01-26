@@ -56,7 +56,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (*envi
 	if bridgeDevice == "" {
 		bridgeDevice = kvm.DefaultKvmBridge
 	}
-	network := container.BridgeNetworkConfig(bridgeDevice)
+	network := container.BridgeNetworkConfig(bridgeDevice, args.NetworkInfo)
 
 	series := args.Tools.OneSeries()
 	args.MachineConfig.MachineContainerType = instance.KVM
