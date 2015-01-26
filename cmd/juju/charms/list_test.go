@@ -56,24 +56,19 @@ func (s *CharmsListCommandSuite) TestListAllCharms(c *gc.C) {
 `)
 }
 
-func (s *CharmsListCommandSuite) TestListNamedCharms(c *gc.C) {
-	fewCharms := []string{"charm",
-		"local:charm",
-		"local:charm--1",
-		"local:charm-1",
-		"local:series/charm",
-		"local:series/charm-3",
-		"local:series/charm-0",
-	}
+func (s *CharmsListCommandSuite) TestListNamedCharm(c *gc.C) {
+	fewCharms := []string{"charm"}
 	context, err := testing.RunCommand(c, envcmd.Wrap(&charms.ListCommand{}), fewCharms...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `- charm
-- local:charm
-- local:charm--1
-- local:charm-1
-- local:series/charm
-- local:series/charm-3
-- local:series/charm-0
+`)
+}
+
+func (s *CharmsListCommandSuite) TestListCharmJSON(c *gc.C) {
+	args := []string{"--format", "json", "charm"}
+	context, err := testing.RunCommand(c, envcmd.Wrap(&charms.ListCommand{}), args...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(testing.Stdout(context), gc.Equals, `["charm"]
 `)
 }
 

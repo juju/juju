@@ -12,7 +12,15 @@ const ListCommandDoc = `
 List charm URLs for requested charms.
 If no charms are requested, URLs for all charms
 in the Juju environment will be listed.
-`
+
+options:
+    -e, --environment (= "")
+        juju environment to operate in
+    --format (= yaml)
+        specify output format (json|yaml)
+    [<charm names>]
+        list URLs for these charms only
+    `
 
 // CharmsListAPI defines the API methods that the list command uses.
 type CharmsListAPI interface {
@@ -31,7 +39,7 @@ type ListCommand struct {
 func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Args:    "<charm names>",
+		Args:    "[<charm names>]",
 		Purpose: "lists charm URLs",
 		Doc:     ListCommandDoc,
 	}
@@ -40,7 +48,10 @@ func (c *ListCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CharmsCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+	})
 }
 
 // Init implements Command.Init.
