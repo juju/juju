@@ -71,7 +71,7 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := common.NewStatusSetter(st, getCanModify)
+	s := common.NewEntityStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},
@@ -115,7 +115,7 @@ func (*statusSetterSuite) TestSetStatusError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := common.NewStatusSetter(&fakeState{}, getCanModify)
+	s := common.NewEntityStatusSetter(&fakeState{}, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{{"x0", "", "", nil}},
 	}
@@ -127,7 +127,7 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := common.NewStatusSetter(&fakeState{}, getCanModify)
+	s := common.NewEntityStatusSetter(&fakeState{}, getCanModify)
 	result, err := s.SetStatus(params.SetStatus{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
@@ -154,7 +154,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4
 		}, nil
 	}
-	s := common.NewStatusSetter(st, getCanModify)
+	s := common.NewEntityStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: "machine-0", Data: nil},

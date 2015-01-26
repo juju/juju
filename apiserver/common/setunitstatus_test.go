@@ -71,7 +71,7 @@ func (*unitStatusSetterSuite) TestSetUnitStatus(c *gc.C) {
 			{"unit-x-7", params.StatusActive, "bar", nil},
 		},
 	}
-	result, err := s.SetUnitStatus(args)
+	result, err := s.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

@@ -125,9 +125,10 @@ func (s *uniterBaseSuite) testSetStatus(
 		SetStatus(args params.SetStatus) (params.ErrorResults, error)
 	},
 ) {
-	err := s.wordpressUnit.SetStatus(state.StatusActive, "blah", nil)
+	wordpressUnitAgent := s.wordpressUnit.Agent()
+	err := wordpressUnitAgent.SetStatus(state.StatusActive, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.SetStatus(state.StatusStopping, "foo", nil)
+	err = s.mysqlUnit.Agent().SetStatus(state.StatusStopping, "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.SetStatus{
@@ -147,12 +148,12 @@ func (s *uniterBaseSuite) testSetStatus(
 	})
 
 	// Verify mysqlUnit - no change.
-	status, info, _, err := s.mysqlUnit.Status()
+	status, info, _, err := s.mysqlUnit.Agent().Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusStopping)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
-	status, info, _, err = s.wordpressUnit.Status()
+	status, info, _, err = s.wordpressUnit.Agent().Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusStopping)
 	c.Assert(info, gc.Equals, "foobar")

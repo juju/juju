@@ -21,7 +21,7 @@ type agentStatusSetterSuite struct{}
 var _ = gc.Suite(&agentStatusSetterSuite{})
 
 type fakeAgentStatusSetter struct {
-	state.Entity
+	state.Unit
 	status state.Status
 	info   string
 	data   map[string]interface{}
@@ -40,7 +40,7 @@ func (s *fakeAgentStatusSetter) SetStatus(status state.Status, info string, data
 	return s.err
 }
 
-func (*agentStatusSetterSuite) TestSetAgentStatus(c *gc.C) {
+func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeAgentStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
@@ -75,7 +75,7 @@ func (*agentStatusSetterSuite) TestSetAgentStatus(c *gc.C) {
 			{"unit-x-7", params.StatusActive, "bar", nil},
 		},
 	}
-	result, err := s.SetAgentStatus(args)
+	result, err := s.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

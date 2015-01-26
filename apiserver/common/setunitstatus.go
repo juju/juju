@@ -13,21 +13,26 @@ import (
 )
 
 type UnitStatusSetter struct {
-	st           state.EntityFinder
-	getCanModify GetAuthFunc
+	StatusSetter
 }
 
 // NewUnitStatusSetter returns a new UnitStatusSetter. The GetAuthFunc will be
 // used on each invocation of SetStatus to determine current
 // permissions.
 func NewUnitStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *UnitStatusSetter {
-	return &UnitStatusSetter{
-		st:           st,
-		getCanModify: getCanModify,
+	statusSetter := &UnitStatusSetter{
+		StatusSetter{
+			st:           st,
+			getCanModify: getCanModify,
+		},
 	}
+	setterFunc := func() SetterFunc { return statusSetter.setStatus }
+	statusSetter.getSetterFunc = setterFunc
+	return statusSetter
+
 }
 
-func (s *UnitStatusSetter) setUnitEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
+func (s *UnitStatusSetter) setUnitEntityStatus(tag names.UnitTag, status params.Status, info string, data map[string]interface{}) error {
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -40,30 +45,7 @@ func (s *UnitStatusSetter) setUnitEntityStatus(tag names.Tag, status params.Stat
 	}
 }
 
-// SetStatus sets the status of each given entity.
-func (s *UnitStatusSetter) SetUnitStatus(args params.SetStatus) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		//TODO: This should be a param just for this, as should be params.SetStatus
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canModify, err := s.getCanModify()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	for i, arg := range args.Entities {
-		tag, err := names.ParseTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = ServerError(ErrPerm)
-			continue
-		}
-		err = ErrPerm
-		if canModify(tag) {
-			err = s.setUnitEntityStatus(tag, arg.Status, arg.Info, arg.Data)
-		}
-		result.Results[i].Error = ServerError(err)
-	}
-	return result, nil
+func (s *UnitStatusSetter) setStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
+	unitTag := tag.(names.UnitTag)
+	return s.setUnitEntityStatus(unitTag, status, info, data)
 }

@@ -145,7 +145,7 @@ type AgentStatusSetter interface {
 }
 
 type AgentUnit interface {
-	Agent() StatusSetter
+	Agent() StatusSetterGetter
 }
 
 type StatusSetter interface {
@@ -154,6 +154,11 @@ type StatusSetter interface {
 
 type StatusGetter interface {
 	Status() (status Status, info string, data map[string]interface{}, err error)
+}
+
+type StatusSetterGetter interface {
+	StatusSetter
+	StatusGetter
 }
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -262,6 +267,62 @@ func unitAgentStatusValid(status Status) bool {
 // SetStatus operation for a unit agent.
 func (doc *unitAgentStatusDoc) validateSet() error {
 	if !unitAgentStatusValid(doc.Status) {
+		return errors.Errorf("cannot set invalid status %q", doc.Status)
+	}
+	switch doc.Status {
+	// For safety; no code will use these deprecated values.
+	case StatusPending, StatusDown, StatusStarted, StatusStopped:
+		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
+	case StatusAllocating, StatusFailed:
+		return errors.Errorf("cannot set status %q", doc.Status)
+	case StatusError:
+		if doc.StatusInfo == "" {
+			return errors.Errorf("cannot set status %q without info", doc.Status)
+		}
+	}
+	if doc.StatusData != nil && doc.Status != StatusError {
+		return errors.Errorf("cannot set status data when status is %q", doc.Status)
+	}
+	return nil
+}
+
+type unitStatusDoc struct {
+	statusDoc
+}
+
+// newUnitStatusDoc creates a new unitStatusDoc with the given status and other data.
+func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (*unitStatusDoc, error) {
+	doc := &unitStatusDoc{statusDoc{
+		Status:     status,
+		StatusInfo: info,
+		StatusData: data,
+	}}
+	if err := doc.validateSet(); err != nil {
+		return nil, err
+	}
+	return doc, nil
+}
+
+// unitStatusValid returns true if status has a known value for units.
+func unitStatusValid(status Status) bool {
+	switch status {
+	case
+		StatusAllocating,
+		StatusInstalling,
+		StatusActive,
+		StatusStopping,
+		StatusFailed,
+		StatusError:
+		return true
+	default:
+		return false
+	}
+}
+
+// validateSet returns an error if the unitStatusDoc does not represent a sane
+// SetStatus operation for a unit.
+func (doc *unitStatusDoc) validateSet() error {
+	if !unitStatusValid(doc.Status) {
 		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	switch doc.Status {

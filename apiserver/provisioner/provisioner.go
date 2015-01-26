@@ -28,7 +28,7 @@ func init() {
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.Remover
-	*common.StatusSetter
+	*common.EntityStatusSetter
 	*common.DeadEnsurer
 	*common.PasswordChanger
 	*common.LifeGetter
@@ -86,7 +86,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
-		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		EntityStatusSetter:     common.NewEntityStatusSetter(st, getAuthFunc),
 		DeadEnsurer:            common.NewDeadEnsurer(st, getAuthFunc),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),

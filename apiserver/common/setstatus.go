@@ -15,34 +15,9 @@ import (
 // StatusSetter implements a common SetStatus method for use by
 // various facades.
 type StatusSetter struct {
-	st           state.EntityFinder
-	getCanModify GetAuthFunc
-}
-
-// NewStatusSetter returns a new StatusSetter. The GetAuthFunc will be
-// used on each invocation of SetStatus to determine current
-// permissions.
-func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSetter {
-	return &StatusSetter{
-		st:           st,
-		getCanModify: getCanModify,
-	}
-}
-
-func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
-	entity, err := s.st.FindEntity(tag)
-	if err != nil {
-		return err
-	}
-	switch entity := entity.(type) {
-	case state.AgentUnit:
-		agent := entity.Agent()
-		return agent.SetStatus(state.Status(status), info, data)
-	case state.StatusSetter:
-		return entity.SetStatus(state.Status(status), info, data)
-	default:
-		return NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
-	}
+	st            state.EntityFinder
+	getCanModify  GetAuthFunc
+	getSetterFunc GetSetterFunc
 }
 
 // SetStatus sets the status of each given entity.
@@ -57,6 +32,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
+	setter := s.getSetterFunc()
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
@@ -65,7 +41,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 		}
 		err = ErrPerm
 		if canModify(tag) {
-			err = s.setEntityStatus(tag, arg.Status, arg.Info, arg.Data)
+			err = setter(tag, arg.Status, arg.Info, arg.Data)
 		}
 		result.Results[i].Error = ServerError(err)
 	}
@@ -77,7 +53,18 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if err != nil {
 		return err
 	}
-	statusGetter, ok := entity0.(state.StatusGetter)
+
+	var entity state.StatusSetter
+	switch entity0 := entity0.(type) {
+	case state.AgentUnit:
+		entity = entity0.Agent()
+	case state.StatusSetter:
+		entity = entity0.(state.StatusSetter)
+	default:
+		return NotSupportedError(tag, "updating status")
+	}
+
+	statusGetter, ok := entity.(state.StatusGetter)
 	if !ok {
 		return NotSupportedError(tag, "getting status")
 	}
@@ -93,10 +80,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 			newData[k] = v
 		}
 	}
-	entity, ok := entity0.(state.StatusSetter)
-	if !ok {
-		return NotSupportedError(tag, "updating status")
-	}
+
 	if len(newData) > 0 && existingStatus != state.StatusError {
 		return fmt.Errorf("%q is not in an error state", tag)
 	}
