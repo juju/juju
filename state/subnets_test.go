@@ -112,13 +112,13 @@ func (s *SubnetSuite) TestAddSubnetErrors(c *gc.C) {
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, gc.ErrorMatches, `.*ProviderId not unique "testing uniqueness".*`)
 
-	// empty provider id should be allowed to be not unique
+	// empty provider id is not allowed
 	subnetInfo.ProviderId = ""
 	_, err = s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetInfo.CIDR = "192.0.0.1/1"
 	_, err = s.State.AddSubnet(subnetInfo)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `.*ProviderId not unique.*`)
 }
 
 func (s *SubnetSuite) TestSubnetEnsureDeadRemove(c *gc.C) {

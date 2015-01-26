@@ -24,6 +24,7 @@ func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
 func (s *steps123Suite) TestStepsFor123(c *gc.C) {
 	expected := []string{
 		"add environment UUID to agent config",
+		"drop old mongo indexes",
 	}
 	assertSteps(c, version.MustParse("1.23.0"), expected)
 }
