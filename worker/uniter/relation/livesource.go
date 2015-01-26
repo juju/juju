@@ -37,6 +37,7 @@ type liveSource struct {
 
 	started bool
 	watcher RelationUnitsWatcher
+	changes chan hook.SourceChange
 }
 
 // unitInfo holds unit information for management by liveSource.
@@ -67,7 +68,7 @@ type unitInfo struct {
 // guarantees Juju makes about hook execution order. If any values have
 // previously been received from w's Changes channel, the HookSource's
 // behaviour is undefined.
-func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
+func NewLiveHookSource(initial *State, w RelationUnitsWatcher) hook.Source {
 	info := map[string]*unitInfo{}
 	for unit, version := range initial.Members {
 		info[unit] = &unitInfo{
@@ -76,12 +77,22 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
 			joined:  true,
 		}
 	}
-	return &liveSource{
+	s := &liveSource{
 		watcher:        w,
 		info:           info,
 		relationId:     initial.RelationId,
 		changedPending: initial.ChangedPending,
+		changes:        make(chan hook.SourceChange),
 	}
+	go func() {
+		defer close(s.changes)
+		for c := range w.Changes() {
+			s.changes <- func() error {
+				return s.Update(c)
+			}
+		}
+	}()
+	return s
 }
 
 // Changes returns a channel sending a stream of RelationUnitsChange events
@@ -89,8 +100,8 @@ func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
 // correctly. In particular, the first event represents the ideal state of
 // the relation, and must be delivered for the source to be able to calculate
 // the desired hooks.
-func (q *liveSource) Changes() <-chan multiwatcher.RelationUnitsChange {
-	return q.watcher.Changes()
+func (q *liveSource) Changes() <-chan hook.SourceChange {
+	return q.changes
 }
 
 // Stop cleans up the liveSource's resources and stops sending changes.

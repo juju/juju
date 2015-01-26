@@ -49,6 +49,8 @@ type filter struct {
 	outRelationsOn   chan []int
 	outMeterStatus   chan struct{}
 	outMeterStatusOn chan struct{}
+	outStorage       chan []string
+	outStorageOn     chan []string
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
 	wantForcedUpgrade chan bool
@@ -94,6 +96,7 @@ type filter struct {
 	relations        []int
 	actionsPending   []string
 	nextAction       *hook.Info
+	storageInstances []string
 
 	// meterStatusCode and meterStatusInfo reflect the meter status values of the unit.
 	meterStatusCode string
@@ -118,6 +121,8 @@ func NewFilter(st *uniter.State, unitTag names.UnitTag) (Filter, error) {
 		outRelationsOn:    make(chan []int),
 		outMeterStatus:    make(chan struct{}),
 		outMeterStatusOn:  make(chan struct{}),
+		outStorage:        make(chan []string),
+		outStorageOn:      make(chan []string),
 		wantForcedUpgrade: make(chan bool),
 		wantResolved:      make(chan struct{}),
 		discardConfig:     make(chan struct{}),
@@ -190,6 +195,12 @@ func (f *filter) ActionEvents() <-chan *hook.Info {
 // relations whose Life status has changed.
 func (f *filter) RelationsEvents() <-chan []int {
 	return f.outRelationsOn
+}
+
+// StorageEvents returns a channel that will receive the ids of the unit's storage
+// instances when they change.
+func (f *filter) StorageEvents() <-chan []string {
+	return f.outStorageOn
 }
 
 // WantUpgradeEvent controls whether the filter will generate upgrade
@@ -341,6 +352,11 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		return err
 	}
 	defer watcher.Stop(addressesw, &f.tomb)
+	storagew, err := f.unit.WatchStorageInstances()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(storagew, &f.tomb)
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial config and address changes, we unblock
@@ -433,6 +449,12 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			f.relationsChanged(ids)
+		case ids, ok := <-storagew.Changes():
+			filterLogger.Debugf("got storage change")
+			if !ok {
+				return watcher.EnsureErr(storagew)
+			}
+			f.storageChanged(ids)
 
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
@@ -454,6 +476,10 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 		case f.outMeterStatus <- nothing:
 			filterLogger.Debugf("sent meter status change event")
 			f.outMeterStatus = nil
+		case f.outStorage <- f.storageInstances:
+			filterLogger.Debugf("sent storage event")
+			f.outStorage = nil
+			f.storageInstances = nil
 
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
@@ -636,6 +662,23 @@ outer:
 	if len(f.relations) != 0 {
 		sort.Ints(f.relations)
 		f.outRelations = f.outRelationsOn
+	}
+}
+
+// storageChanged responds to storage instance changes.
+func (f *filter) storageChanged(ids []string) {
+outer:
+	for _, id := range ids {
+		for _, existing := range f.storageInstances {
+			if id == existing {
+				continue outer
+			}
+		}
+		f.storageInstances = append(f.storageInstances, id)
+	}
+	if len(f.storageInstances) != 0 {
+		sort.Strings(f.storageInstances)
+		f.outStorage = f.outStorageOn
 	}
 }
 

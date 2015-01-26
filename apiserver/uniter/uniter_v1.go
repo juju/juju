@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
@@ -137,6 +138,42 @@ func (u *UniterAPIV1) AssignedMachine(args params.Entities) (params.StringResult
 		}
 	}
 	return result, nil
+}
+
+// WatchStorageInstances returns a StringsWatcher for observing changes to a
+// unit's storage instances.
+func (u *UniterAPIV1) WatchStorageInstances(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	one := func(entity params.Entity) (string, []string, error) {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil || !canAccess(tag) {
+			return "", nil, common.ErrPerm
+		}
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			return "", nil, common.ErrPerm
+		}
+		watch := unit.WatchStorageInstances()
+		if changes, ok := <-watch.Changes(); ok {
+			return u.resources.Register(watch), changes, nil
+		}
+		return "", nil, watcher.EnsureErr(watch)
+	}
+	for i, entity := range args.Entities {
+		id, changes, err := one(entity)
+		if err == nil {
+			results.Results[i].StringsWatcherId = id
+			results.Results[i].Changes = changes
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
 }
 
 func (u *UniterAPIV1) getMachine(tag names.MachineTag) (*state.Machine, error) {
