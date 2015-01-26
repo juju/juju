@@ -5,6 +5,7 @@ package gce
 
 import (
 	"encoding/base64"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"

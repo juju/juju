@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	vtype = "kvm" // FYI, Google *container* engine uses docker.
-
+	vtype  = "kvm"
 	arches = []string{arch.AMD64}
 )
 

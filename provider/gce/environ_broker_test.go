@@ -140,7 +140,7 @@ func (s *environBrokerSuite) TestGetDisks(c *gc.C) {
 
 	diskSpec := diskSpecs[0]
 
-	c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(10))
+	c.Check(diskSpec.SizeHintGB, gc.Equals, uint64(8))
 	c.Check(diskSpec.ImageURL, gc.Equals, "projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141212")
 }
 
