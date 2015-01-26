@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -135,12 +136,16 @@ func (s *environAZSuite) TestParseAvailabilityZonesUnavailable(c *gc.C) {
 }
 
 func (s *environAZSuite) TestParseAvailabilityZonesDistGroup(c *gc.C) {
+	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
+		ZoneName:  "home-zone",
+		Instances: []instance.Id{s.Instance.Id()},
+	}}
 	s.StartInstArgs.DistributionGroup = func() ([]instance.Id, error) {
-		// TODO(ericsnow) What goes here?
-		return []instance.Id{}, nil
+		return []instance.Id{s.Instance.Id()}, nil
 	}
 	s.FakeConn.Zones = []google.AvailabilityZone{
 		google.NewZone("home-zone", google.StatusUp),
+		google.NewZone("away-zone", google.StatusUp),
 	}
 
 	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)

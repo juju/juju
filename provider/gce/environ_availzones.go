@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/provider/gce/google"
 )
 
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
-
 // AvailabilityZones returns all availability zones in the environment.
 func (env *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	zones, err := env.gce.AvailabilityZones(env.ecfg.region())
@@ -74,6 +72,8 @@ func (env *environ) availZoneUp(name string) (*google.AvailabilityZone, error) {
 	}
 	return zone, nil
 }
+
+var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // parseAvailabilityZones returns the availability zones that should be
 // tried for the given instance spec. If a placement argument was

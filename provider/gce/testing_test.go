@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -203,6 +204,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&supportedArchitectures, s.FakeCommon.SupportedArchitectures)
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
 	s.PatchValue(&destroyEnv, s.FakeCommon.Destroy)
+	s.PatchValue(&availabilityZoneAllocations, s.FakeCommon.AvailabilityZoneAllocations)
 	s.PatchValue(&buildInstanceSpec, s.FakeEnviron.BuildInstanceSpec)
 	s.PatchValue(&getHardwareCharacteristics, s.FakeEnviron.GetHardwareCharacteristics)
 	s.PatchValue(&newRawInstance, s.FakeEnviron.NewRawInstance)
@@ -256,6 +258,7 @@ type fakeCommon struct {
 	Arch        string
 	Series      string
 	BSFinalizer environs.BootstrapFinalizer
+	AZInstances []common.AvailabilityZoneInstances
 }
 
 func (fc *fakeCommon) SupportedArchitectures(env environs.Environ, cons *imagemetadata.ImageConstraint) ([]string, error) {
@@ -280,6 +283,17 @@ func (fc *fakeCommon) Destroy(env environs.Environ) error {
 		"env": env,
 	})
 	return fc.err()
+}
+
+func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+	fc.addCall("AvailabilityZoneAllocations", FakeCallArgs{
+		"env":   env,
+		"group": group,
+	})
+	if len(fc.AZInstances) != 0 {
+		return fc.AZInstances, fc.err()
+	}
+	return common.AvailabilityZoneAllocations(env, group)
 }
 
 type fakeEnviron struct {
