@@ -352,6 +352,13 @@ func (context *HookContext) HookVars(paths Paths) []string {
 			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
 		)
 	}
+	if context.actionData != nil {
+		vars = append(vars,
+			"JUJU_ACTION_NAME="+context.actionData.ActionName,
+			"JUJU_ACTION_UUID="+context.actionData.ActionTag.Id(),
+			"JUJU_ACTION_TAG="+context.actionData.ActionTag.String(),
+		)
+	}
 	return append(vars, osDependentEnvVars(paths)...)
 }
 
