@@ -87,7 +87,7 @@ publish_to_aws() {
     else
         local destination="s3://juju-dist/$PURPOSE/"
     fi
-    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+    if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         echo "Phase 1: Publishing $PURPOSE to AWS."
         s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
             $STREAM_PATH $destination
@@ -116,7 +116,7 @@ publish_to_canonistack() {
     fi
     echo "Phase 2: Publishing $PURPOSE to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
-    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+    if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         cd $STREAM_PATH/releases/
         ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
         cd $STREAM_PATH/streams/v1
@@ -145,7 +145,7 @@ publish_to_hp() {
     else
         local destination="$PURPOSE/tools"
     fi
-    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+    if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         echo "Phase 3: Publishing $PURPOSE to HP Cloud."
         source $JUJU_DIR/hptoolsrc
         cd $STREAM_PATH/releases/
@@ -173,7 +173,7 @@ publish_to_azure() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
-    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+    if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
         verify_stream $AZURE_SITE $STREAM_PATH
     fi
@@ -196,7 +196,7 @@ publish_to_joyent() {
     else
         local destination="$PURPOSE/tools"
     fi
-    if [[ $PURPOSE =~ ^(devel)$ ]]; then
+    if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         echo "Phase 5: Publishing $PURPOSE to Joyent."
         source $JUJU_DIR/joyentrc
         cd $STREAM_PATH/releases/
