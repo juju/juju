@@ -509,6 +509,26 @@ class TestAzureAccount(TestCase):
                              'ab\ncd\n')
         self.assertFalse(os.path.exists(substrate.service_client.cert_file))
 
+    def test_convert_instance_ids(self):
+        converted = AzureAccount.convert_instance_ids([
+            'foo-bar-baz', 'foo-bar-qux', 'foo-noo-baz'])
+        self.assertEqual(converted, {
+            'foo-bar': {'baz', 'qux'},
+            'foo-noo': {'baz'},
+            })
+
+    def test_terminate_instances(self):
+        from azure.servicemanagement import ServiceManagementService
+        client = ServiceManagementService('foo', 'bar')
+        account = AzureAccount(client)
+        with patch.object(client, 'shutdown_roles', autospec=True) as sr_mock:
+            with patch.object(client, 'get_deployment_by_slot') as gdbs_mock:
+                gdbs_mock.return_value.name = 'quxx'
+                account.terminate_instances(['foo-bar', 'foo-baz'])
+        sr_mock.assert_called_once_with('foo', 'quxx', set(['bar', 'baz']),
+                                        'StoppedDeallocated')
+        gdbs_mock.assert_called_once_with('foo', 'production')
+
 
 class TestMakeSubstrateManager(TestCase):
 

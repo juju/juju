@@ -321,6 +321,22 @@ class AzureAccount:
                 config['management-subscription-id'], cert_file)
             yield cls(service_client)
 
+    @staticmethod
+    def convert_instance_ids(instance_ids):
+        services = {}
+        for instance_id in instance_ids:
+            service, role = instance_id.rsplit('-', 1)
+            services.setdefault(service, set()).add(role)
+        return services
+
+    def terminate_instances(self, instance_ids):
+        converted = self.convert_instance_ids(instance_ids)
+        for service, roles in converted.items():
+            deployment = self.service_client.get_deployment_by_slot(
+                service, 'production')
+            self.service_client.shutdown_roles(service, deployment.name,
+                                               roles, 'StoppedDeallocated')
+
 
 @contextmanager
 def make_substrate_manager(config):
