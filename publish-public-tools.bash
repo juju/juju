@@ -114,7 +114,7 @@ publish_to_canonistack() {
     else
         local destination="$PURPOSE/tools"
     fi
-    echo "Phase 2: Publishing $PURPOSE to canonistack."
+    echo "Phase 5: Publishing $PURPOSE to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
     if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         cd $STREAM_PATH/releases/
@@ -129,7 +129,7 @@ publish_to_canonistack() {
     if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
-    echo "Phase 2.1: Publishing $PURPOSE to canonistack one-tree."
+    echo "Phase 5.1: Publishing $PURPOSE to canonistack one-tree."
     cd $JUJU_DIST/tools/$PURPOSE/
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
@@ -145,9 +145,10 @@ publish_to_hp() {
     else
         local destination="$PURPOSE/tools"
     fi
+    source $JUJU_DIR/hptoolsrc
     if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
-        echo "Phase 3: Publishing $PURPOSE to HP Cloud."
-        source $JUJU_DIR/hptoolsrc
+        echo "Phase 4: Publishing $PURPOSE to HP Cloud."
+
         cd $STREAM_PATH/releases/
         ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
         cd $STREAM_PATH/streams/v1
@@ -160,7 +161,7 @@ publish_to_hp() {
     if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
-    echo "Phase 3.1: Publishing $PURPOSE to HP Cloud one-tree."
+    echo "Phase 4.1: Publishing $PURPOSE to HP Cloud one-tree."
     cd $JUJU_DIST/tools/$PURPOSE/
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
@@ -171,7 +172,7 @@ publish_to_hp() {
 
 publish_to_azure() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    echo "Phase 4: Publishing $PURPOSE to Azure."
+    echo "Phase 2: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
     if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
         ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
@@ -196,9 +197,9 @@ publish_to_joyent() {
     else
         local destination="$PURPOSE/tools"
     fi
+    source $JUJU_DIR/joyentrc
     if [[ ! $PURPOSE =~ ^(devel)$ ]]; then
-        echo "Phase 5: Publishing $PURPOSE to Joyent."
-        source $JUJU_DIR/joyentrc
+        echo "Phase 3: Publishing $PURPOSE to Joyent."
         cd $STREAM_PATH/releases/
         ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/releases/ *.tgz
         cd $STREAM_PATH/streams/v1
@@ -211,7 +212,7 @@ publish_to_joyent() {
     if [[ $PURPOSE =~ ^(released|weekly|testing)$ ]]; then
         return
     fi
-    echo "Phase 5.1: Publishing $PURPOSE to Joyent one-tree."
+    echo "Phase 3.1: Publishing $PURPOSE to Joyent one-tree."
     cd $JUJU_DIST/tools/$PURPOSE/
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
