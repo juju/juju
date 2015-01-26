@@ -822,6 +822,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 			MACAddress:       iface.MACAddress,
 			CIDR:             cidr,
 			NetworkName:      "", // Not needed for now.
+			ProviderId:       network.Id(iface.Id),
 			ProviderSubnetId: network.Id(iface.SubnetId),
 			VLANTag:          0, // Not supported on EC2.
 			// Not supported on EC2, so fake it.
