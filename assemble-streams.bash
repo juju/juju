@@ -146,7 +146,7 @@ init_tools_maybe() {
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
         if [[ $IS_DEVEL_VERSION == "true" ]]; then
             echo "Seeding testing with all devel agents"
-            cp $DESTINATION/juju-dist/devel/tools/releases/juju-*.tgz \
+            cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
                 $DEST_DIST/tools/releases
         fi
         echo "Seeding testing with all proposed agents"
