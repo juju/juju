@@ -4,6 +4,7 @@
 package diskformatter
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
@@ -35,7 +36,7 @@ func NewDiskFormatterAPI(
 	authorizer common.Authorizer,
 ) (*DiskFormatterAPI, error) {
 
-	if !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
 
@@ -51,165 +52,227 @@ func NewDiskFormatterAPI(
 	}, nil
 }
 
-// WatchBlockDevices returns a StringsWatcher for observing changes
-// to block devices associated with the unit's machine.
-func (a *DiskFormatterAPI) WatchBlockDevices(args params.Entities) (params.StringsWatchResults, error) {
-	result := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+// WatchAttachedVolumes returns a NotifyWatcher for observing changes
+// to the volume attachments of one or more machines.
+func (a *DiskFormatterAPI) WatchAttachedVolumes(args params.Entities) (params.NotifyWatchResults, error) {
+	// We say we're watching volume attachments, but in reality
+	// the stimulus is block devices. Most things don't really
+	// care about block devices, though, they care about "volumes
+	// which are currently attached and visible to the machine".
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return params.StringsWatchResults{}, err
+		return params.NotifyWatchResults{}, err
 	}
 	for i, entity := range args.Entities {
-		unit, err := names.ParseUnitTag(entity.Tag)
-		if err != nil {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil || !canAccess(machineTag) {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
-		var watcherId string
-		var changes []string
-		if canAccess(unit) {
-			watcherId, changes, err = a.watchOneBlockDevices(unit)
+		watcherId, err := a.watchOneBlockDevices(machineTag)
+		if err == nil {
+			result.Results[i].NotifyWatcherId = watcherId
 		}
-		result.Results[i].StringsWatcherId = watcherId
-		result.Results[i].Changes = changes
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-func (a *DiskFormatterAPI) watchOneBlockDevices(tag names.UnitTag) (string, []string, error) {
-	w, err := a.st.WatchUnitMachineBlockDevices(tag)
-	if err != nil {
-		return "", nil, err
-	}
+func (a *DiskFormatterAPI) watchOneBlockDevices(tag names.MachineTag) (string, error) {
+	w := a.st.WatchBlockDevices(tag)
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response.
-	if changes, ok := <-w.Changes(); ok {
-		return a.resources.Register(w), changes, nil
+	if _, ok := <-w.Changes(); ok {
+		return a.resources.Register(w), nil
 	}
-	return "", nil, watcher.EnsureErr(w)
+	return "", watcher.EnsureErr(w)
 }
 
-// BlockDevices returns details about each specified block device.
-func (a *DiskFormatterAPI) BlockDevices(args params.Entities) (params.BlockDeviceResults, error) {
-	result := params.BlockDeviceResults{
-		Results: make([]params.BlockDeviceResult, len(args.Entities)),
+// AttachedVolumes returns details about the volumes attached to the specified
+// machines.
+func (a *DiskFormatterAPI) AttachedVolumes(args params.Entities) (params.VolumeAttachmentsResults, error) {
+	result := params.VolumeAttachmentsResults{
+		Results: make([]params.VolumeAttachmentsResult, len(args.Entities)),
 	}
 	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return params.BlockDeviceResults{}, err
+		return params.VolumeAttachmentsResults{}, err
 	}
-	one := func(entity params.Entity) (storage.BlockDevice, error) {
-		blockDevice, _, err := a.oneBlockDevice(entity.Tag, canAccess)
-		if err != nil {
-			return storage.BlockDevice{}, err
+	one := func(entity params.Entity) ([]params.VolumeAttachment, error) {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil || !canAccess(machineTag) {
+			return nil, common.ErrPerm
 		}
-		return storageBlockDevice(blockDevice)
+		return a.oneAttachedVolumes(machineTag)
 	}
 	for i, entity := range args.Entities {
-		blockDevice, err := one(entity)
-		result.Results[i].Result = blockDevice
+		attachments, err := one(entity)
+		result.Results[i].Attachments = attachments
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-// BlockDeviceStorageInstances returns details of storage instances corresponding
-// to each specified block device.
-func (a *DiskFormatterAPI) BlockDeviceStorageInstances(args params.Entities) (params.StorageInstanceResults, error) {
-	result := params.StorageInstanceResults{
-		Results: make([]params.StorageInstanceResult, len(args.Entities)),
-	}
-	canAccess, err := a.getAuthFunc()
+func (a *DiskFormatterAPI) oneAttachedVolumes(tag names.MachineTag) ([]params.VolumeAttachment, error) {
+	attachments, err := a.st.MachineVolumeAttachments(tag)
 	if err != nil {
-		return params.StorageInstanceResults{}, err
+		return nil, err
 	}
-	one := func(entity params.Entity) (storage.StorageInstance, error) {
-		_, storageInstance, err := a.oneBlockDevice(entity.Tag, canAccess)
+	if len(attachments) == 0 {
+		return nil, nil
+	}
+	blockDevices, err := a.st.BlockDevices(tag)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter attachments without corresponding block device.
+	// The worker will be notified again once the block device
+	// appears.
+	result := make([]params.VolumeAttachment, 0, len(attachments))
+	for _, attachment := range attachments {
+		volume, err := a.st.Volume(attachment.Volume())
 		if err != nil {
-			return storage.StorageInstance{}, err
+			return nil, errors.Trace(err)
 		}
-		return storageStorageInstance(storageInstance)
-	}
-	for i, entity := range args.Entities {
-		storageInstance, err := one(entity)
-		result.Results[i].Result = storageInstance
-		result.Results[i].Error = common.ServerError(err)
+		volumeInfo, err := volume.Info()
+		if err != nil {
+			// Ignore unprovisioned volumes.
+			continue
+		}
+		attachmentInfo, err := attachment.Info()
+		if err != nil {
+			// Ignore unprovisioned attachments.
+			continue
+		}
+		if _, ok := matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo); ok {
+			result = append(result, params.VolumeAttachment{
+				attachment.Volume().String(),
+				volumeInfo.VolumeId,
+				attachment.Machine().String(),
+				"", // instance ID is not important
+				attachmentInfo.DeviceName,
+			})
+		}
 	}
 	return result, nil
 }
 
-func (a *DiskFormatterAPI) oneBlockDevice(tag string, canAccess common.AuthFunc) (state.BlockDevice, state.StorageInstance, error) {
-	diskTag, err := names.ParseDiskTag(tag)
-	if err != nil {
-		return nil, nil, common.ErrPerm
+// matchingBlockDevice finds the block device that matches the
+// provided volume info and volume attachment info.
+func matchingBlockDevice(
+	blockDevices []state.BlockDeviceInfo,
+	volumeInfo state.VolumeInfo,
+	attachmentInfo state.VolumeAttachmentInfo,
+) (*state.BlockDeviceInfo, bool) {
+	for _, dev := range blockDevices {
+		if volumeInfo.Serial != "" {
+			if volumeInfo.Serial == dev.Serial {
+				return &dev, true
+			}
+		} else if attachmentInfo.DeviceName == dev.DeviceName {
+			return &dev, true
+		}
 	}
-	blockDevice, err := a.st.BlockDevice(diskTag.Id())
-	if err != nil {
-		return nil, nil, common.ErrPerm
-	}
-	if !blockDevice.Attached() {
-		// ignore unattached block devices
-		return nil, nil, common.ErrPerm
-	}
-	storageInstanceId, ok := blockDevice.StorageInstance()
-	if !ok {
-		// not assigned to any storage instance
-		return nil, nil, common.ErrPerm
-	}
-	storageInstance, err := a.st.StorageInstance(storageInstanceId)
-	if err != nil || !canAccess(storageInstance.Owner()) {
-		return nil, nil, common.ErrPerm
-	}
-	return blockDevice, storageInstance, nil
+	return nil, false
 }
 
-// NOTE: purposefully not using field keys below, so
-// the code breaks if structures change.
-
-func storageBlockDevice(dev state.BlockDevice) (storage.BlockDevice, error) {
-	if dev == nil {
-		return storage.BlockDevice{}, nil
+// VolumeFormattingInfo returns the information required to format the
+// specified volumes.
+func (a *DiskFormatterAPI) VolumeFormattingInfo(args params.VolumeAttachmentIds) (params.VolumeFormattingInfoResults, error) {
+	result := params.VolumeFormattingInfoResults{
+		Results: make([]params.VolumeFormattingInfoResult, len(args.Ids)),
 	}
-	info, err := dev.Info()
+	canAccess, err := a.getAuthFunc()
 	if err != nil {
-		return storage.BlockDevice{}, err
+		return params.VolumeFormattingInfoResults{}, err
 	}
-	return storage.BlockDevice{
-		dev.Name(),
-		"", // TODO(axw) ProviderId
-		info.DeviceName,
-		info.Label,
-		info.UUID,
-		info.Serial,
-		info.Size,
-		info.FilesystemType,
-		info.InUse,
-	}, nil
-}
-
-func storageStorageInstance(st state.StorageInstance) (storage.StorageInstance, error) {
-	if st == nil {
-		return storage.StorageInstance{}, nil
+	machineBlockDevices := make(map[names.MachineTag][]state.BlockDeviceInfo)
+	one := func(id params.VolumeAttachmentId) (params.VolumeFormattingInfo, error) {
+		var result params.VolumeFormattingInfo
+		machineTag, err := names.ParseMachineTag(id.MachineTag)
+		if err != nil || !canAccess(machineTag) {
+			return result, common.ErrPerm
+		}
+		volumeTag, err := names.ParseDiskTag(id.VolumeTag)
+		if err != nil {
+			return result, common.ErrPerm
+		}
+		volume, err := a.st.Volume(volumeTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		storageTag, ok := volume.StorageInstance()
+		if !ok {
+			// volume is not assigned to any storage.
+			return result, nil
+		}
+		storageInstance, err := a.st.StorageInstance(storageTag)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if storageInstance.Kind() != state.StorageKindFilesystem {
+			// volume is assigned to a non-filesystem
+			// kind storage instance.
+			return result, nil
+		}
+		volumeInfo, err := volume.Info()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		attachment, err := a.st.VolumeAttachment(machineTag, volumeTag)
+		if err != nil {
+			return result, common.ErrPerm
+		}
+		attachmentInfo, err := attachment.Info()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		blockDevices, ok := machineBlockDevices[machineTag]
+		if !ok {
+			blockDevices, err = a.st.BlockDevices(machineTag)
+			if err != nil {
+				return result, errors.Trace(err)
+			}
+			machineBlockDevices[machineTag] = blockDevices
+		}
+		blockDevice, ok := matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo)
+		if !ok {
+			// volume is not visible yet.
+			return result, errors.NotFoundf(
+				"volume %q on machine %q", volumeTag.Id(), machineTag.Id(),
+			)
+		}
+		devicePath, err := storage.BlockDevicePath(storage.BlockDevice{
+			blockDevice.DeviceName,
+			blockDevice.Label,
+			blockDevice.UUID,
+			blockDevice.Serial,
+			blockDevice.Size,
+			blockDevice.FilesystemType,
+			blockDevice.InUse,
+		})
+		if err != nil {
+			return result, errors.Annotate(err, "determining block device path")
+		}
+		if blockDevice.FilesystemType == "" {
+			// We've asserted previously that the volume is assigned to
+			// a filesystem-kind storage instance; since the volume has
+			// been observed to not have a filesystem already, we should
+			// inform the clien that one should be created.
+			result.NeedsFormatting = true
+			result.DevicePath = devicePath
+		}
+		return result, nil
 	}
-	return storage.StorageInstance{
-		st.Id(),
-		storageStorageKind(st.Kind()),
-		"", // TODO(wallyworld) Location
-	}, nil
-}
-
-func storageStorageKind(k state.StorageKind) storage.StorageKind {
-	switch k {
-	case state.StorageKindBlock:
-		return storage.StorageKindBlock
-	case state.StorageKindFilesystem:
-		return storage.StorageKindFilesystem
-	default:
-		return storage.StorageKindUnknown
+	for i, id := range args.Ids {
+		info, err := one(id)
+		result.Results[i].Result = info
+		result.Results[i].Error = common.ServerError(err)
 	}
+	return result, nil
 }

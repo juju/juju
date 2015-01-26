@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/feature"
 	"github.com/juju/names"
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/charm.v4"
@@ -22,8 +22,8 @@ type StorageInstance interface {
 	// Tag returns the tag for the storage instance.
 	Tag() names.Tag
 
-	// Id returns the unique ID of the storage instance.
-	Id() string
+	// StorageTag returns the tag for the storage instance.
+	StorageTag() names.StorageTag
 
 	// Kind returns the storage instance kind.
 	Kind() StorageKind
@@ -37,23 +37,23 @@ type StorageInstance interface {
 	// but identifies the group that the instances belong to.
 	StorageName() string
 
-	// BlockDevices returns the names of the block devices assigned to this
-	// storage instance.
-	BlockDeviceNames() []string
-
 	// Info returns the storage instance's StorageInstanceInfo, or a
 	// NotProvisioned error if the storage instance has not yet been
 	// provisioned.
 	Info() (StorageInstanceInfo, error)
+}
 
-	// Params returns the parameters for provisioning the storage instance,
-	// if it has not already been provisioned. Params returns true if the
-	// returned parameters are usable for provisioning, otherwise false.
-	Params() (StorageInstanceParams, bool)
+// StorageAttachment represents the state of a unit's attachment to a storage
+// instance. A non-shared storage instance will have a single attachment for
+// the storage instance's owning unit, whereas a shared storage instance will
+// have an attachment for each unit of the service owning the storage instance.
+type StorageAttachment interface {
+	// StorageInstance returns the tag of the corresponding storage
+	// instance.
+	StorageInstance() names.StorageTag
 
-	// Remove removes the storage instance and any remaining references to
-	// it. If the storage instance no longer exists, the call is a no-op.
-	Remove() error
+	// Unit returns the tag of the corresponding unit.
+	Unit() names.UnitTag
 }
 
 // StorageKind defines the type of a store: whether it is a block device
@@ -72,11 +72,11 @@ type storageInstance struct {
 }
 
 func (s *storageInstance) Tag() names.Tag {
-	return names.NewStorageTag(s.doc.Id)
+	return s.StorageTag()
 }
 
-func (s *storageInstance) Id() string {
-	return s.doc.Id
+func (s *storageInstance) StorageTag() names.StorageTag {
+	return names.NewStorageTag(s.doc.Id)
 }
 
 func (s *storageInstance) Kind() StorageKind {
@@ -104,46 +104,6 @@ func (s *storageInstance) Info() (StorageInstanceInfo, error) {
 	return *s.doc.Info, nil
 }
 
-func (s *storageInstance) Params() (StorageInstanceParams, bool) {
-	if s.doc.Params == nil {
-		return StorageInstanceParams{}, false
-	}
-	return *s.doc.Params, true
-}
-
-func (s *storageInstance) BlockDeviceNames() []string {
-	return s.doc.BlockDevices
-}
-
-func (s *storageInstance) Remove() error {
-	ops := []txn.Op{{
-		C:      storageInstancesC,
-		Id:     s.doc.Id,
-		Remove: true,
-	}}
-	tag, err := names.ParseTag(s.doc.Owner)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	switch tag.(type) {
-	case names.UnitTag:
-		ops = append(ops, txn.Op{
-			C:      unitsC,
-			Id:     tag.Id(),
-			Update: bson.D{{"$pull", bson.D{{"storageinstances", s.doc.Id}}}},
-		})
-	}
-	for _, blockDevice := range s.doc.BlockDevices {
-		ops = append(ops, txn.Op{
-			C:      blockDevicesC,
-			Id:     blockDevice,
-			Assert: bson.D{{"storageinstanceid", s.doc.Id}},
-			Update: bson.D{{"$unset", bson.D{{"storageinstanceid", nil}}}},
-		})
-	}
-	return s.st.runTransaction(ops)
-}
-
 // storageInstanceDoc describes a charm storage instance.
 type storageInstanceDoc struct {
 	DocID   string `bson:"_id"`
@@ -151,28 +111,55 @@ type storageInstanceDoc struct {
 
 	Id           string      `bson:"id"`
 	Kind         StorageKind `bson:"storagekind"`
+	Life         Life        `bson:"life"`
 	Owner        string      `bson:"owner"`
 	StorageName  string      `bson:"storagename"`
-	Pool         string      `bson:"pool"`
 	BlockDevices []string    `bson:"blockdevices,omitempty"`
 
-	Info   *StorageInstanceInfo   `bson:"info,omitempty"`
-	Params *StorageInstanceParams `bson:"params,omitempty"`
+	Info *StorageInstanceInfo `bson:"info,omitempty"`
 }
 
-// StorageInfo describes information about the storage instance.
+// StorageInstanceInfo records information about the storage instance,
+// such as the provisioned size.
 type StorageInstanceInfo struct {
-	// Location is the location of the storage
-	// instance, e.g. the mount point.
-	Location string `bson:"location"`
+	Size uint64 `bson:"size"`
 }
 
-// StorageInstanceParams records parameters for provisioning a new
-// storage instance.
-type StorageInstanceParams struct {
-	Size     uint64 `bson:"size"`
-	Location string `bson:"location,omitempty"`
-	ReadOnly bool   `bson:"read-only"`
+type storageAttachment struct {
+	doc storageAttachmentDoc
+}
+
+func (s *storageAttachment) StorageInstance() names.StorageTag {
+	return names.NewStorageTag(s.doc.StorageInstance)
+}
+
+func (s *storageAttachment) Unit() names.UnitTag {
+	return names.NewUnitTag(s.doc.Unit)
+}
+
+// storageAttachmentDoc describes a unit's attachment to a charm storage
+// instance.
+type storageAttachmentDoc struct {
+	DocID   string `bson:"_id"`
+	EnvUUID string `bson:"env-uuid"`
+
+	Unit            string `bson:"unitid"`
+	StorageInstance string `bson:"storageinstanceid"`
+	Life            Life   `bson:"life"`
+
+	Info *StorageAttachmentInfo `bson:"info"`
+}
+
+// StorageAttachmentInfo describes unit-specific information about the
+// storage attachment, such as the location where a filesystem is mounted
+// path to a block device.
+type StorageAttachmentInfo struct {
+	// Location is the location of the storage instance,
+	// e.g. the mount point.
+	Location string `bson:"location"`
+
+	// ReadOnly reports whether the attachment is read-only.
+	ReadOnly bool `bson:"read-only"`
 }
 
 // newStorageInstanceId returns a unique storage instance name. The name
@@ -186,21 +173,36 @@ func newStorageInstanceId(st *State, store string) (string, error) {
 	return fmt.Sprintf("%s/%v", store, seq), nil
 }
 
-// StorageInstance returns the StorageInstance with the specified ID.
-func (st *State) StorageInstance(id string) (StorageInstance, error) {
+func storageAttachmentId(unit string, storageInstanceId string) string {
+	return fmt.Sprintf("%s#%s", unitGlobalKey(unit), storageInstanceId)
+}
+
+// StorageInstance returns the StorageInstance with the specified tag.
+func (st *State) StorageInstance(tag names.StorageTag) (StorageInstance, error) {
 	storageInstances, cleanup := st.getCollection(storageInstancesC)
 	defer cleanup()
 
 	s := storageInstance{st: st}
-	err := storageInstances.FindId(id).One(&s.doc)
+	err := storageInstances.FindId(tag.Id()).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("storage instance %q", id)
+		return nil, errors.NotFoundf("storage instance %q", tag.Id())
 	} else if err != nil {
 		return nil, errors.Annotate(err, "cannot get storage instance details")
 	}
 	return &s, nil
 }
 
+// RemoveStorageInstance removes the storage instance with the specified tag.
+func (st *State) RemoveStorageInstance(tag names.StorageTag) error {
+	ops := []txn.Op{{
+		C:      storageInstancesC,
+		Id:     tag.Id(),
+		Remove: true,
+	}}
+	return st.runTransaction(ops)
+}
+
+// createStorageInstanceOps returns txn.Ops for creating storage instances.
 func createStorageInstanceOps(
 	st *State,
 	ownerTag names.Tag,
@@ -214,16 +216,22 @@ func createStorageInstanceOps(
 		cons        StorageConstraints
 	}
 
-	// Create a StorageInstanceParams for each store (one for each Count
-	// in the constraint), ignoring shared stores. We store the params
-	// directly on the storage instances.
+	includeShared := false
+	switch ownerTag.(type) {
+	case names.ServiceTag:
+		includeShared = true
+	case names.UnitTag:
+	default:
+		return nil, nil, errors.Errorf("expected service or unit tag, got %T", ownerTag)
+	}
+
 	templates := make([]template, 0, len(cons))
 	for store, cons := range cons {
 		charmStorage, ok := charmMeta.Storage[store]
 		if !ok {
 			return nil, nil, errors.NotFoundf("charm storage %q", store)
 		}
-		if charmStorage.Shared {
+		if !includeShared && charmStorage.Shared {
 			continue
 		}
 		templates = append(templates, template{
@@ -236,12 +244,6 @@ func createStorageInstanceOps(
 	ops = make([]txn.Op, 0, len(templates))
 	storageInstanceIds = make([]string, 0, len(templates))
 	for _, t := range templates {
-		params := StorageInstanceParams{
-			Size:     t.cons.Size,
-			Location: t.meta.Location,
-			ReadOnly: t.meta.ReadOnly,
-		}
-
 		owner := ownerTag.String()
 		var kind StorageKind
 		switch t.meta.Type {
@@ -267,14 +269,29 @@ func createStorageInstanceOps(
 					Kind:        kind,
 					Owner:       owner,
 					StorageName: t.storageName,
-					Pool:        t.cons.Pool,
-					Params:      &params,
 				},
 			})
 			storageInstanceIds = append(storageInstanceIds, id)
 		}
 	}
 	return ops, storageInstanceIds, nil
+}
+
+// createStorageAttachmentOps returns txn.Ops for creating storage attachments.
+func createStorageAttachmentOps(unit names.UnitTag, storageInstanceIds []string) []txn.Op {
+	ops := make([]txn.Op, len(storageInstanceIds))
+	for i, storageInstanceId := range storageInstanceIds {
+		ops[i] = txn.Op{
+			C:      storageAttachmentsC,
+			Id:     storageAttachmentId(unit.Id(), storageInstanceId),
+			Assert: txn.DocMissing,
+			Insert: &storageAttachmentDoc{
+				Unit:            unit.Id(),
+				StorageInstance: storageInstanceId,
+			},
+		}
+	}
+	return ops
 }
 
 // removeStorageInstancesOps returns the transaction operations to remove all
@@ -299,19 +316,19 @@ func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
 	return ops, nil
 }
 
-func readStorageInstances(st *State, owner names.Tag) ([]StorageInstance, error) {
-	coll, closer := st.getCollection(storageInstancesC)
+func readStorageAttachments(st *State, unit names.UnitTag) ([]StorageAttachment, error) {
+	coll, closer := st.getCollection(storageAttachmentsC)
 	defer closer()
 
-	var docs []storageInstanceDoc
-	if err := coll.Find(bson.D{{"owner", owner.String()}}).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get storage instances for %s", owner)
+	var docs []storageAttachmentDoc
+	if err := coll.Find(bson.D{{"unitid", unit.Id()}}).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachments for %s", unit.Id())
 	}
-	storageInstances := make([]StorageInstance, len(docs))
+	storageAttachments := make([]StorageAttachment, len(docs))
 	for i, doc := range docs {
-		storageInstances[i] = &storageInstance{st, doc}
+		storageAttachments[i] = &storageAttachment{doc}
 	}
-	return storageInstances, nil
+	return storageAttachments, nil
 }
 
 // storageConstraintsDoc contains storage constraints for an entity.
@@ -371,7 +388,7 @@ func readStorageConstraints(st *State, key string) (map[string]StorageConstraint
 
 func validateStorageConstraints(st *State, cons map[string]StorageConstraints, charmMeta *charm.Meta) error {
 	// TODO(axw) stop checking feature flag once storage has graduated.
-	if !featureflag.Enabled(storage.FeatureFlag) {
+	if !featureflag.Enabled(feature.Storage) {
 		return nil
 	}
 	for name, cons := range cons {

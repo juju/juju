@@ -1005,9 +1005,9 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 
 	unit, err := s.storageSvc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	storageInstances, err := unit.StorageInstances()
+	storageAttachments, err := unit.StorageAttachments()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageInstances, gc.HasLen, 1)
+	c.Assert(storageAttachments, gc.HasLen, 1)
 
 	// Add a clean machine.
 	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1025,15 +1025,18 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 	// Check that the machine isn't our clean one.
 	c.Assert(machineId, gc.Not(gc.Equals), clean.Id())
 
-	// Check that requested block devices were added to the machine.
+	// Check that a volume attachments were added to the machine.
 	machine, err := s.State.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := machine.BlockDevices()
+	volumeAttachments, err := s.State.MachineVolumeAttachments(machine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 1)
-	storageInstance, ok := blockDevices[0].StorageInstance()
+	c.Assert(volumeAttachments, gc.HasLen, 1)
+
+	volume, err := s.State.Volume(volumeAttachments[0].Volume())
+	c.Assert(err, jc.ErrorIsNil)
+	volumeStorageInstance, ok := volume.StorageInstance()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(storageInstance, gc.Equals, storageInstances[0].Id())
+	c.Assert(volumeStorageInstance, gc.Equals, storageAttachments[0].StorageInstance())
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {

@@ -71,7 +71,7 @@ func (*Suite) TestRootDiskBlockDeviceMapping(c *gc.C) {
 		args := &environs.StartInstanceParams{
 			Constraints: constraints.Value{RootDisk: t.constraint},
 		}
-		mappings, _, err := getBlockDeviceMappings(paravirtual, args)
+		mappings, _, _, err := getBlockDeviceMappings(paravirtual, args)
 		c.Assert(err, jc.ErrorIsNil)
 		expected := append([]amzec2.BlockDeviceMapping{t.device}, commonInstanceStoreDisks...)
 		c.Assert(mappings, gc.DeepEquals, expected)

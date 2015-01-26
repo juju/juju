@@ -2883,7 +2883,7 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
-	apiParams := make([]params.AddMachineParams, 3)
+	apiParams := make([]params.AddMachineParams, 4)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
@@ -2892,21 +2892,28 @@ func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
 	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
 	apiParams[2].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	apiParams[3].Disks = []storage.Constraints{{Size: 0, Count: 1}}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(machines), gc.Equals, 3)
+	c.Assert(machines, gc.HasLen, 4)
 	c.Assert(machines[0].Machine, gc.Equals, "0")
-	c.Assert(machines[1].Error, gc.ErrorMatches, "storage pools not implemented")
-	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid size 0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: storage pools not implemented")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid count 0")
+	c.Assert(machines[3].Error, gc.ErrorMatches, "cannot add a new machine: validating volume params: invalid size 0")
 
 	m, err := s.BackingState.Machine(machines[0].Machine)
 	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	expectParams := []state.BlockDeviceParams{{Size: 1}, {Size: 1}, {Size: 2}}
-	c.Assert(blockDevices, gc.HasLen, len(expectParams))
-	for i, dev := range blockDevices {
-		params, ok := dev.Params()
+	c.Assert(volumeAttachments, gc.HasLen, 3)
+
+	expectParams := []state.VolumeParams{
+		{Size: 1}, {Size: 1}, {Size: 2},
+	}
+	for i, attachment := range volumeAttachments {
+		volume, err := s.BackingState.Volume(attachment.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		params, ok := volume.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(params, gc.DeepEquals, expectParams[i])
 	}
@@ -2929,9 +2936,9 @@ func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
 	c.Assert(machines[1].Machine, gc.Equals, "1")
 	m, err := s.BackingState.Machine(machines[0].Machine)
 	c.Assert(err, jc.ErrorIsNil)
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.BackingState.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 0)
+	c.Assert(volumeAttachments, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {

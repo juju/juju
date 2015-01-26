@@ -1152,10 +1152,22 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
-func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
+func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 	hc := instance.MustParseHardware("mem=2G")
+
+	volume0 := state.VolumeParams{
+		Size: 123,
+	}
+	volume1 := state.VolumeParams{
+		Size: 456,
+	}
+	volumeAttachment0 := state.VolumeAttachmentParams{}
+	volumeAttachment1 := state.VolumeAttachmentParams{
+		ReadOnly: true,
+	}
+
 	machineTemplate := state.MachineTemplate{
 		Series:                  "precise",
 		Constraints:             cons,
@@ -1163,10 +1175,10 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 		InstanceId:              "inst-id",
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
-		BlockDevices: []state.BlockDeviceParams{{
-			Size: 123,
+		Volumes: []state.MachineVolumeParams{{
+			volume0, volumeAttachment0,
 		}, {
-			Size: 456,
+			volume1, volumeAttachment1,
 		}},
 	}
 	machines, err := s.State.AddMachines(machineTemplate)
@@ -1175,15 +1187,26 @@ func (s *StateSuite) TestAddMachineWithBlockDevices(c *gc.C) {
 	m, err := s.State.Machine(machines[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	blockDevices, err := m.BlockDevices()
+	volumeAttachments, err := s.State.MachineVolumeAttachments(m.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blockDevices, gc.HasLen, 2)
-	for i, dev := range blockDevices {
-		_, err = dev.Info()
+	c.Assert(volumeAttachments, gc.HasLen, 2)
+	if volumeAttachments[0].Volume() == names.NewDiskTag("1") {
+		va := volumeAttachments
+		va[0], va[1] = va[1], va[0]
+	}
+	for i, att := range volumeAttachments {
+		_, err = att.Info()
 		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
-		params, ok := dev.Params()
+		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
-		c.Check(params, gc.Equals, machineTemplate.BlockDevices[i])
+		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
+		volume, err := s.State.Volume(att.Volume())
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = volume.Info()
+		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		volumeParams, ok := volume.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
 	}
 }
 

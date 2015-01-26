@@ -58,9 +58,13 @@ type MachineTemplate struct {
 	// should be part of.
 	RequestedNetworks []string
 
-	// BlockDevices holds the parameters for block devices that should be
-	// created and attached to the machine.
-	BlockDevices []BlockDeviceParams
+	// Volumes holds the parameters for volumes that are to be created
+	// and attached to the machine.
+	Volumes []MachineVolumeParams
+
+	// Volumes holds the parameters for attaching existing volumes to
+	// the machine.
+	VolumeAttachments map[names.DiskTag]VolumeAttachmentParams
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -78,6 +82,13 @@ type MachineTemplate struct {
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
+}
+
+// MachineVolumeParams holds the parameters for creating a volume and
+// attaching it to a new machine.
+type MachineVolumeParams struct {
+	Volume     VolumeParams
+	Attachment VolumeAttachmentParams
 }
 
 // AddMachineInsideNewMachine creates a new machine within a container
@@ -449,13 +460,30 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
 		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
+		createMachineBlockDevicesOp(mdoc.Id),
 	}
 
-	diskOps, _, err := createMachineBlockDeviceOps(st, mdoc.Id, template.BlockDevices...)
-	if err != nil {
-		return nil, txn.Op{}, errors.Trace(err)
+	// Create volumes and volume attachments.
+	//
+	// TODO(axw) created volumes must record the attachment
+	// immediately, to prevent the storage provisioner from
+	// attempting to create the volume until after the machine
+	// has been provisioned.
+	var volumeOps []txn.Op
+	attachmentParams := make(map[names.DiskTag]VolumeAttachmentParams)
+	for _, v := range template.Volumes {
+		op, tag, err := st.addVolumeOp(v.Volume)
+		if err != nil {
+			return nil, txn.Op{}, errors.Trace(err)
+		}
+		volumeOps = append(volumeOps, op)
+		attachmentParams[tag] = v.Attachment
 	}
-	prereqOps = append(prereqOps, diskOps...)
+	if len(volumeOps) > 0 {
+		attachmentOps := createMachineVolumeAttachmentsOps(mdoc.Id, attachmentParams)
+		prereqOps = append(prereqOps, volumeOps...)
+		prereqOps = append(prereqOps, attachmentOps...)
+	}
 
 	return prereqOps, machineOp, nil
 }

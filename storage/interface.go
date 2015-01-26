@@ -6,31 +6,114 @@ package storage
 import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/names"
 )
 
-// FeatureFlag is the name of the feature for the JUJU_DEV_FEATURE_FLAGS
-// envar. Add this string to the envar to enable support for storage.
-const FeatureFlag = "storage"
+// Volume describes a volume (disk, logical volume, etc.)
+type Volume struct {
+	// Name is a unique name assigned by Juju to the volume.
+	Tag names.DiskTag
+
+	// VolumeId is a unique provider-supplied ID for the volume.
+	// VolumeId is required to be unique for the lifetime of the
+	// volume, but may be reused.
+	VolumeId string
+
+	// Serial is the volume's serial number. Not all volumes have a serial
+	// number, so this may be left blank.
+	Serial string
+
+	// Size is the size of the volume, in MiB.
+	Size uint64
+
+	// TODO(axw) record volume persistence
+}
+
+// VolumeAttachment decsribes machine-specific volume attachment information,
+// including how the volume is exposed on the machine.
+type VolumeAttachment struct {
+	// Volume is the unique tag assigned by Juju for the volume
+	// that this attachment corresponds to.
+	Volume names.DiskTag
+
+	// VolumeId is the unique provider-supplied ID for the volume that
+	// this attachment corresponds to.
+	VolumeId string
+
+	// MachineId is the unique tag assigned by Juju for the machine that
+	// this attachment corresponds to.
+	Machine names.MachineTag
+
+	// InstanceId is the unique provider-supplied ID for the cloud
+	// instance that this attachment corresponds to.
+	InstanceId instance.Id
+
+	// DeviceName is the volume's OS-specific device name (e.g. "sdb").
+	//
+	// If the device name may change (e.g. on machine restart), then this
+	// field must be left blank.
+	DeviceName string
+}
 
 // VolumeParams is a fully specified set of parameters for volume creation,
 // derived from one or more of user-specified storage constraints, a
 // storage pool definition, and charm storage metadata.
 type VolumeParams struct {
-	// Name is a unique name assigned by Juju for the requested volume.
-	Name string
+	// Tag is a unique tag name assigned by Juju for the requested volume.
+	Tag names.DiskTag
 
 	// Size is the minimum size of the volume in MiB.
 	Size uint64
 
-	// Options is a set of provider-specific options for storage creation,
-	// as defined in a storage pool.
-	Options map[string]interface{}
+	// Provider is the name of the storage provider that is to be used to
+	// create the volume.
+	Provider ProviderType
 
-	// Instance is the ID of the instance that the volume should be attached
-	// to initially. This will only be empty if the instance is not yet
-	// provisioned, in which case the parameters refer to a volume that is
-	// being created in conjunction with the instance.
-	Instance instance.Id
+	// Attributes is the set of provider-specific attributes to pass to
+	// the storage provider when creating the volume.
+	Attributes map[string]interface{}
+
+	// Attachment identifies the machine that the volume should be attached
+	// to initially, or nil if the volume should not be attached to any
+	// machine. Some providers, such as MAAS, do not support dynamic
+	// attachment, and so provisioning time is the only opportunity to
+	// perform attachment.
+	//
+	// When machine instances are created, the instance provider will be
+	// presented with parameters for any due-to-be-attached volumes. If
+	// once the instance is created there are still unprovisioned volumes,
+	// the dynamic storage provisioner will take care of creating them.
+	Attachment *AttachmentParams
+}
+
+// VolumeAttachmentParams is a set of parameters for volume attachment or
+// detachment.
+type VolumeAttachmentParams struct {
+	AttachmentParams
+
+	// Volume is a unique tag assigned by Juju for the volume that
+	// should be attached/detached.
+	Volume names.DiskTag
+
+	// VolumeId is the unique provider-supplied ID for the volume that
+	// should be attached/detached.
+	VolumeId string
+}
+
+// AttachmentParams describes the parameters for attaching a volume or
+// filesystem to a machine.
+type AttachmentParams struct {
+	// MachineId is the ID of the Juju machine that the storage should be
+	// attached to. Storage providers may use this to perform machine-
+	// specific operations, such as configuring access controls for the
+	// machine.
+	MachineId string
+
+	// InstanceId is the ID of the cloud instance that the storage should
+	// be attached to. This will only be of interest to storage providers
+	// that interact with the instances, such as EBS/EC2. The InstanceId
+	// field will be empty if the instance is not yet provisioned.
+	InstanceId instance.Id
 }
 
 // ProviderType uniquely identifies a storage provider, such as "ebs" or "loop".
@@ -56,24 +139,18 @@ type Provider interface {
 	ValidateConfig(*Config) error
 }
 
-// VolumeSource provides an interface for creating, destroying and
-// describing volumes in the environment. A VolumeSource is configured
-// in a particular way, and corresponds to a storage "pool".
+// VolumeSource provides an interface for creating, destroying, describing,
+// attaching and detaching volumes in the environment. A VolumeSource is
+// configured in a particular way, and corresponds to a storage "pool".
 type VolumeSource interface {
-	// CreateVolumes creates volumes with the specified size, in MiB.
-	//
-	// TODO(axw) CreateVolumes should return something other than
-	// []BlockDevice, so we can communicate additional information
-	// about the volumes that are not relevant at the attachment
-	// level.
-	CreateVolumes(params []VolumeParams) ([]BlockDevice, error)
+	// CreateVolumes creates volumes with the specified parameters. If the
+	// volumes are initially attached, then CreateVolumes returns
+	// information about those attachments too.
+	CreateVolumes(params []VolumeParams) ([]Volume, []VolumeAttachment, error)
 
 	// DescribeVolumes returns the properties of the volumes with the
 	// specified provider volume IDs.
-	//
-	// TODO(axw) as in CreateVolumes, we should return something other
-	// than []BlockDevice here.
-	DescribeVolumes(volIds []string) ([]BlockDevice, error)
+	DescribeVolumes(volIds []string) ([]Volume, error)
 
 	// DestroyVolumes destroys the volumes with the specified provider
 	// volume IDs.
@@ -94,7 +171,7 @@ type VolumeSource interface {
 	// recording in state. For example, the ec2 provider must reject
 	// an attempt to attach a volume to an instance if they are in
 	// different availability zones.
-	AttachVolumes(volIds []string, instId []instance.Id) error
+	AttachVolumes(params []VolumeAttachmentParams) ([]VolumeAttachment, error)
 
 	// DetachVolumes detaches the volumes with the specified provider
 	// volume IDs from the instances with the corresponding index.
@@ -102,5 +179,5 @@ type VolumeSource interface {
 	// TODO(axw) we need to record in state whether or not volumes
 	// are detachable, and reject attempts to attach/detach on
 	// that basis.
-	DetachVolumes(volIds []string, instId []instance.Id) error
+	DetachVolumes(params []VolumeAttachmentParams) error
 }

@@ -589,6 +589,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
+	logger.Debugf("created storage instances for %q: %v", name, storageInstanceIds)
 
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
@@ -664,6 +665,8 @@ func (s *Service) unitStorageInstanceOps(unitName string) (ops []txn.Op, storage
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	attachmentOps := createStorageAttachmentOps(tag, storageInstanceIds)
+	ops = append(ops, attachmentOps...)
 	return ops, storageInstanceIds, nil
 }
 

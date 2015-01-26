@@ -4,10 +4,12 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
 )
@@ -22,7 +24,7 @@ func (s *StorageStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	// This suite is all about storage, so enable the feature by default.
-	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, feature.Storage)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 }
 
@@ -82,67 +84,26 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		storageInstances, err := u.StorageInstances()
+		storageAttachments, err := u.StorageAttachments()
 		c.Assert(err, jc.ErrorIsNil)
 		count := make(map[string]int)
-		for _, si := range storageInstances {
-			count[si.StorageName()]++
+		for _, att := range storageAttachments {
+			c.Assert(att.Unit(), gc.Equals, u.UnitTag())
+			storageInstance, err := s.State.StorageInstance(att.StorageInstance())
+			c.Assert(err, jc.ErrorIsNil)
+			count[storageInstance.StorageName()]++
+			c.Assert(storageInstance.Kind(), gc.Equals, state.StorageKindBlock)
+			_, err = storageInstance.Info()
+			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 		}
 		c.Assert(count, gc.DeepEquals, map[string]int{
 			"multi1to10": 1,
 			"multi2up":   2,
 		})
-		c.Assert(storageInstances[0].Kind(), gc.Equals, state.StorageKindBlock)
 	}
 }
 
-func (s *StorageStateSuite) TestRemoveUnit(c *gc.C) {
-	ch := s.AddTestingCharm(c, "storage-block")
-	storage := map[string]state.StorageConstraints{
-		"data": makeStorageCons("", 1024, 1),
-	}
-	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, storage)
-	unit, err := service.AddUnit()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
-	c.Assert(err, jc.ErrorIsNil)
-
-	storageInstances, err := unit.StorageInstances()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageInstances, gc.HasLen, 1)
-	c.Assert(unit.StorageInstanceIds(), gc.HasLen, 1)
-
-	blockDeviceNames := storageInstances[0].BlockDeviceNames()
-	c.Assert(blockDeviceNames, gc.HasLen, 1)
-	blockDevice, err := s.State.BlockDevice(blockDeviceNames[0])
-	c.Assert(err, jc.ErrorIsNil)
-	blockDeviceStorageInstance, ok := blockDevice.StorageInstance()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(blockDeviceStorageInstance, gc.Equals, unit.StorageInstanceIds()[0])
-
-	err = unit.EnsureDead()
-	c.Assert(err, gc.Equals, state.ErrUnitHasStorageInstances)
-
-	// TODO(axw) implement storage instance lifecycle. We currently
-	// just block the destruction of units while there are storage
-	// instances are present. The unit agent should be destroying
-	// storage instances when the storage instances are marked as
-	// dying.
-
-	// For now, we can force-destroy machines which will remove
-	// storage instances from units.
-	err = storageInstances[0].Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.StorageInstanceIds(), gc.HasLen, 0)
-	err = unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// There should not be any references from the block device back to the
-	// storage instance anymore.
-	blockDevice, err = s.State.BlockDevice(blockDeviceNames[0])
-	c.Assert(err, jc.ErrorIsNil)
-	_, ok = blockDevice.StorageInstance()
-	c.Assert(ok, jc.IsFalse)
-}
+// TODO(axw) StorageInstance can't be destroyed while it has attachments
+// TODO(axw) StorageAttachments can't be added to Dying StorageInstance
+// TODO(axw) StorageInstance becomes Dying when Unit becomes Dying
+// TODO(axw) StorageAttachments become Dying when StorageInstance becomes Dying

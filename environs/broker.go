@@ -39,9 +39,11 @@ type StartInstanceParams struct {
 	// high availability.
 	DistributionGroup func() ([]instance.Id, error)
 
-	// Volumes is a set of parameters for volumes that must be created.
-	// If any of the volumes cannot be created, StartInstance must
-	// return an error.
+	// Volumes is a set of parameters for volumes that should be created.
+	//
+	// StartInstance need not check the value of the Attachment field,
+	// as it is guaranteed that any volumes in this list are designated
+	// for attachment to the instance being started.
 	Volumes []storage.VolumeParams
 
 	// NetworkInfo is an optional list of network interface details,
@@ -67,7 +69,12 @@ type StartInstanceResult struct {
 
 	// Volumes contains a list of volumes created, each one having the
 	// same Name as one of the VolumeParams in StartInstanceParams.Volumes.
-	Volumes []storage.BlockDevice
+	// VolumeAttachment information is reported separately.
+	Volumes []storage.Volume
+
+	// VolumeAttachments contains a attachment-specific information about
+	// volumes that were attached to the started instance.
+	VolumeAttachments []storage.VolumeAttachment
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops
