@@ -290,10 +290,7 @@ func (fc *fakeCommon) AvailabilityZoneAllocations(env common.ZonedEnviron, group
 		"env":   env,
 		"group": group,
 	})
-	if len(fc.AZInstances) != 0 {
-		return fc.AZInstances, fc.err()
-	}
-	return common.AvailabilityZoneAllocations(env, group)
+	return fc.AZInstances, fc.err()
 }
 
 type fakeEnviron struct {

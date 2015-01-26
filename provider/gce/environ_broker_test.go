@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/gce"
-	"github.com/juju/juju/provider/gce/google"
 )
 
 type environBrokerSuite struct {
@@ -116,9 +116,10 @@ func (s *environBrokerSuite) TestFindInstanceSpec(c *gc.C) {
 
 func (s *environBrokerSuite) TestNewRawInstance(c *gc.C) {
 	s.FakeConn.Inst = s.BaseInstance
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("home-zone", google.StatusUp),
-	}
+	s.FakeCommon.AZInstances = []common.AvailabilityZoneInstances{{
+		ZoneName:  "home-zone",
+		Instances: []instance.Id{s.Instance.Id()},
+	}}
 
 	inst, err := gce.NewRawInstance(s.Env, s.StartInstArgs, s.spec)
 

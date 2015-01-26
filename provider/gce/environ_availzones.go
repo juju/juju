@@ -88,6 +88,7 @@ func (env *environ) parseAvailabilityZones(args environs.StartInstanceParams) ([
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		// TODO(ericsnow) Fail if placement.Zone is not in the env's configured region?
 		return []string{placement.Zone.Name()}, nil
 	}
 
