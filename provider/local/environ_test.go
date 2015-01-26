@@ -96,21 +96,12 @@ func (*environSuite) TestSupportedArchitectures(c *gc.C) {
 	}
 }
 
-func (*environSuite) TestSupportNetworks(c *gc.C) {
+func (*environSuite) TestSupportsNetworking(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(environ.SupportNetworks(), jc.IsFalse)
-}
-
-func (*environSuite) TestSupportAddressAllocation(c *gc.C) {
-	testConfig := minimalConfig(c)
-	env, err := local.Provider.Open(testConfig)
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	_, ok := environs.SupportsNetworking(environ)
+	c.Assert(ok, jc.IsFalse)
 }
 
 type localJujuTestSuite struct {

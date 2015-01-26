@@ -102,19 +102,21 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ {
+func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.NetworkingEnviron {
 	s.TestConfig["prefer-ipv6"] = preferIPv6
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
-	c.Assert(e, gc.NotNil)
+	c.Assert(env, gc.NotNil)
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.EnsureNotBootstrapped(e)
+	err = bootstrap.EnsureNotBootstrapped(netenv)
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), netenv, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	return e
+	return netenv
 }
 
 func (s *suite) TestAvailabilityZone(c *gc.C) {
@@ -138,21 +140,21 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
-	netId := network.Id("net1")
+	subnetId := network.Id("net1")
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
 	newAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := e.AllocateAddress(inst.Id(), netId, newAddress)
+	err := e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
+	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress)
 
 	newAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.AllocateAddress(inst.Id(), netId, newAddress)
+	err = e.AllocateAddress(inst.Id(), subnetId, newAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
+	assertAllocateAddress(c, e, opc, inst.Id(), subnetId, newAddress)
 }
 
 func (s *suite) TestReleaseAddress(c *gc.C) {
@@ -164,21 +166,21 @@ func (s *suite) TestReleaseAddress(c *gc.C) {
 
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
-	netId := network.Id("net1")
+	subnetId := network.Id("net1")
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
 	address := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
-	err := e.ReleaseAddress(inst.Id(), netId, address)
+	err := e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, jc.ErrorIsNil)
 
-	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
+	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address)
 
 	address = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
-	err = e.ReleaseAddress(inst.Id(), netId, address)
+	err = e.ReleaseAddress(inst.Id(), subnetId, address)
 	c.Assert(err, jc.ErrorIsNil)
-	assertReleaseAddress(c, e, opc, inst.Id(), netId, address)
+	assertReleaseAddress(c, e, opc, inst.Id(), subnetId, address)
 }
 
 func (s *suite) TestNetworkInterfaces(c *gc.C) {
@@ -274,14 +276,14 @@ func (s *suite) TestPreferIPv6Off(c *gc.C) {
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1"))
 }
 
-func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {
+func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectSubnetId network.Id, expectAddress network.Address) {
 	select {
 	case op := <-opc:
 		addrOp, ok := op.(dummy.OpAllocateAddress)
 		if !ok {
 			c.Fatalf("unexpected op: %#v", op)
 		}
-		c.Check(addrOp.NetworkId, gc.Equals, expectNetId)
+		c.Check(addrOp.SubnetId, gc.Equals, expectSubnetId)
 		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(addrOp.Address, gc.Equals, expectAddress)
 		return
@@ -290,14 +292,14 @@ func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation
 	}
 }
 
-func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {
+func assertReleaseAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectSubnetId network.Id, expectAddress network.Address) {
 	select {
 	case op := <-opc:
 		addrOp, ok := op.(dummy.OpReleaseAddress)
 		if !ok {
 			c.Fatalf("unexpected op: %#v", op)
 		}
-		c.Check(addrOp.NetworkId, gc.Equals, expectNetId)
+		c.Check(addrOp.SubnetId, gc.Equals, expectSubnetId)
 		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(addrOp.Address, gc.Equals, expectAddress)
 		return
