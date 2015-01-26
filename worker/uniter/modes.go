@@ -46,12 +46,12 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	var creator creator
 	switch opState.Kind {
-	case operation.Continue:
-		logger.Infof("continuing after %q hook", opState.Hook.Kind)
-		if opState.Hook.Kind == hooks.Stop {
-			return ModeTerminating, nil
-		}
-		return ModeAbide, nil
+	case operation.RunAction:
+		// TODO(fwereade): we *should* handle interrupted actions, and make sure
+		// they're marked as failed, but that's not for now.
+		logger.Infof("found incomplete action %q; ignoring", opState.ActionId)
+		logger.Infof("recommitting prior %q hook", opState.Hook.Kind)
+		creator = newSkipHookOp(*opState.Hook)
 	case operation.RunHook:
 		switch opState.Step {
 		case operation.Pending:
@@ -64,12 +64,12 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 			logger.Infof("committing %q hook", opState.Hook.Kind)
 			creator = newSkipHookOp(*opState.Hook)
 		}
-	case operation.RunAction:
-		// TODO(fwereade): we *should* handle interrupted actions, and make sure
-		// they're marked as failed, but that's not for now.
-		logger.Infof("found incomplete action %q; ignoring", opState.ActionId)
-		logger.Infof("recommitting prior %q hook", opState.Hook.Kind)
-		creator = newSkipHookOp(*opState.Hook)
+	case operation.Continue:
+		logger.Infof("continuing after %q hook", opState.Hook.Kind)
+		if opState.Hook.Kind == hooks.Stop {
+			return ModeTerminating, nil
+		}
+		return ModeAbide, nil
 	default:
 		return nil, errors.Errorf("unknown operation kind %v", opState.Kind)
 	}
@@ -372,9 +372,6 @@ func modeContext(name string, err *error) func() {
 
 // continueAfter is commonly used at the end of a Mode func.
 func continueAfter(u *Uniter, creator creator) (Mode, error) {
-	if creator == nil {
-		return nil, errors.New("programmer error: no operation creator set")
-	}
 	if err := u.runOperation(creator); err != nil {
 		return nil, errors.Trace(err)
 	}

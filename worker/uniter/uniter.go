@@ -253,32 +253,16 @@ func (u *Uniter) initializeMetricsCollector() error {
 	return nil
 }
 
-// creator exists primarily to make the implementation of the Mode funcs more
-// readable -- the general pattern is to switch to get a creator func (which
-// doesn't allow for the possibility of error) and then to pass the chosen
-// creator down to runOperation (which can then consistently create and run
-// all the operations in the same way).
-type creator func(factory operation.Factory) (operation.Operation, error)
-
-// runOperation uses the uniter's operation factory to run the supplied creation
-// func, and then runs the resulting operation. This is more complex than strictly
-// necessary -- we could easily use the factory and executor directly in the Mode
-// funcs -- but it's in service of having more readable Mode funcs and I think it's
-// worth the cost.
-func (u *Uniter) runOperation(creator creator) error {
-	op, err := creator(u.operationFactory)
-	if err != nil {
-		return errors.Annotatef(err, "cannot create operation")
-	}
-	return u.operationExecutor.Run(op)
-}
-
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
-	// goroutine-safe, but that's not what I'm fixing at the moment. We'll deal
-	// with that when we get a sane ops queue and are no longer depending on the
-	// uniter mode funcs for all the rest of our scheduling.
+	// goroutine-safe, but that's not what I'm fixing at the moment. We could
+	// address this by:
+	//  1) implementing an operation to encapsulate the relations.Update call
+	//  2) (quick+dirty) mutex runOperation until we can
+	//  3) (correct) feed RunCommands requests into the mode funcs (or any queue
+	//     that replaces them) such that they're handled and prioritised like
+	//     every other operation.
 	logger.Tracef("run commands: %s", args.Commands)
 
 	type responseInfo struct {
@@ -296,11 +280,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	op, err := u.operationFactory.NewCommands(commandArgs, sendResponse)
-	if err != nil {
-		return nil, err
-	}
-	err = u.operationExecutor.Run(op)
+	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
 	if err == nil {
 		select {
 		case response := <-responseChan:
@@ -317,4 +297,28 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		u.tomb.Kill(err)
 	}
 	return results, err
+}
+
+// runOperation uses the uniter's operation factory to run the supplied creation
+// func, and then runs the resulting operation.
+//
+// This has a number of advantages over having mode funcs use the factory and
+// executor directly:
+//   * it cuts down on duplicated code in the mode funcs, making the logic easier
+//     to parse
+//   * it narrows the (conceptual) interface exposed to the mode funcs -- one day
+//     we might even be able to use a (real) interface and maybe even approach a
+//     point where we can run direct unit tests(!) on the modes themselves.
+//   * it opens a path to fixing RunCommands -- all operation creation and
+//     execution is done in a single place, and it's much easier to force those
+//     onto a single thread.
+//       * this can't be done quite yet, though, because relation changes are
+//         not yet encapsulated in operations, and that needs to happen before
+//         RunCommands will *actually* be goroutine-safe.
+func (u *Uniter) runOperation(creator creator) error {
+	op, err := creator(u.operationFactory)
+	if err != nil {
+		return errors.Annotatef(err, "cannot create operation")
+	}
+	return u.operationExecutor.Run(op)
 }
