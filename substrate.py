@@ -7,6 +7,9 @@ import subprocess
 import sys
 from time import sleep
 
+from utility import temp_dir
+
+
 sys.path.insert(
     0, os.path.realpath(os.path.join(__file__, '../../juju-release-tools')))
 
@@ -291,12 +294,44 @@ class JoyentAccount:
         self.client.delete_machine(machine_id)
 
 
+class AzureAccount:
+    """Represent an Azure Account."""
+
+    def __init__(self, service_client):
+        """Constructor.
+
+        :param service_client: An instance of
+            azure.servicemanagement.ServiceManagementService.
+        """
+        self.service_client = service_client
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """A context manager for a AzureAccount.
+
+        It writes the certificate to a temp file because the Azure client
+        library requires it, then deletes the temp file when done.
+        """
+        from azure.servicemanagement import ServiceManagementService
+        with temp_dir() as cert_dir:
+            cert_file = os.path.join(cert_dir, 'azure.pem')
+            open(cert_file, 'w').write(config['management-certificate'])
+            service_client = ServiceManagementService(
+                config['management-subscription-id'], cert_file)
+            yield cls(service_client)
+
+
 @contextmanager
 def make_substrate_manager(config):
     """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
+    if config['type'] == 'azure':
+        with AzureAccount.manager_from_config(config) as substrate:
+            yield substrate
+            return
     substrate_factory = {
         'ec2': AWSAccount.from_config,
         'openstack': OpenStackAccount.from_config,

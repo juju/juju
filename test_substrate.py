@@ -19,6 +19,7 @@ from jujuconfig import (
 from jujupy import SimpleEnvironment
 from substrate import (
     AWSAccount,
+    AzureAccount,
     get_libvirt_domstate,
     JoyentAccount,
     OpenStackAccount,
@@ -496,6 +497,19 @@ class TestJoyentAccount(TestCase):
         client.delete_machine.assert_called_once_with('a')
 
 
+class TestAzureAccount(TestCase):
+
+    def test_manager_from_config(self):
+        config = {'management-subscription-id': 'fooasdfbar',
+                  'management-certificate': 'ab\ncd\n'}
+        with AzureAccount.manager_from_config(config) as substrate:
+            self.assertEqual(substrate.service_client.subscription_id,
+                             'fooasdfbar')
+            self.assertEqual(open(substrate.service_client.cert_file).read(),
+                             'ab\ncd\n')
+        self.assertFalse(os.path.exists(substrate.service_client.cert_file))
+
+
 class TestMakeSubstrateManager(TestCase):
 
     def test_make_substrate_manager_aws(self):
@@ -525,6 +539,20 @@ class TestMakeSubstrateManager(TestCase):
             self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
             self.assertEqual(account.client.account, 'user@manta.org')
             self.assertEqual(account.client.key_id, 'key-id@manta.org')
+
+    def test_make_substrate_manager_azure(self):
+        config = {
+            'type': 'azure',
+            'management-subscription-id': 'fooasdfbar',
+            'management-certificate': 'ab\ncd\n'
+            }
+        with make_substrate_manager(config) as substrate:
+            self.assertIs(type(substrate), AzureAccount)
+            self.assertEqual(substrate.service_client.subscription_id,
+                             'fooasdfbar')
+            self.assertEqual(open(substrate.service_client.cert_file).read(),
+                             'ab\ncd\n')
+        self.assertFalse(os.path.exists(substrate.service_client.cert_file))
 
     def test_make_substrate_manager_other(self):
         config = get_os_config()
