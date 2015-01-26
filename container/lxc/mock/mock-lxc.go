@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"github.com/juju/utils"
@@ -131,10 +132,10 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 	// Create the container directory.
 	containerDir := filepath.Join(mock.factory.containerDir, mock.name)
 	if err := os.MkdirAll(containerDir, 0755); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err := utils.CopyFile(mock.configFilename(), configFile); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	mock.setState(golxc.StateStopped)
 	mock.factory.notify(eventArgs(Created, mock.name, extraArgs, templateArgs, envArgs))
@@ -196,10 +197,10 @@ func (mock *mockContainer) Clone(name string, extraArgs []string, templateArgs [
 	// Create the container directory.
 	containerDir := filepath.Join(mock.factory.containerDir, name)
 	if err := os.MkdirAll(containerDir, 0755); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if err := utils.CopyFile(container.configFilename(), mock.configFilename()); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	mock.factory.notify(eventArgs(Cloned, mock.name, extraArgs, templateArgs, nil))
