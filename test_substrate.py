@@ -22,7 +22,7 @@ from substrate import (
     get_libvirt_domstate,
     JoyentAccount,
     OpenStackAccount,
-    make_substrate,
+    make_substrate_manager,
     start_libvirt_domain,
     StillProvisioning,
     stop_libvirt_domain,
@@ -496,40 +496,41 @@ class TestJoyentAccount(TestCase):
         client.delete_machine.assert_called_once_with('a')
 
 
-class TestMakeSubstrate(TestCase):
+class TestMakeSubstrateManager(TestCase):
 
-    def test_make_substrate_aws(self):
+    def test_make_substrate_manager_aws(self):
         aws_env = get_aws_env()
-        aws = make_substrate(aws_env.config)
-        self.assertIs(type(aws), AWSAccount)
-        self.assertEqual(aws.euca_environ, {
-            'EC2_ACCESS_KEY': 'skeleton-key',
-            'EC2_SECRET_KEY': 'secret-skeleton-key',
-            'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
-            })
-        self.assertEqual(aws.region, 'ca-west')
+        with make_substrate_manager(aws_env.config) as aws:
+            self.assertIs(type(aws), AWSAccount)
+            self.assertEqual(aws.euca_environ, {
+                'EC2_ACCESS_KEY': 'skeleton-key',
+                'EC2_SECRET_KEY': 'secret-skeleton-key',
+                'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
+                })
+            self.assertEqual(aws.region, 'ca-west')
 
-    def test_make_substrate_openstack(self):
+    def test_make_substrate_manager_openstack(self):
         config = get_os_config()
-        account = make_substrate(config)
-        self.assertIs(type(account), OpenStackAccount)
-        self.assertEqual(account._username, 'foo')
-        self.assertEqual(account._password, 'bar')
-        self.assertEqual(account._tenant_name, 'baz')
-        self.assertEqual(account._auth_url, 'qux')
-        self.assertEqual(account._region_name, 'quxx')
+        with make_substrate_manager(config) as account:
+            self.assertIs(type(account), OpenStackAccount)
+            self.assertEqual(account._username, 'foo')
+            self.assertEqual(account._password, 'bar')
+            self.assertEqual(account._tenant_name, 'baz')
+            self.assertEqual(account._auth_url, 'qux')
+            self.assertEqual(account._region_name, 'quxx')
 
-    def test_make_substrate_joyent(self):
+    def test_make_substrate_manager_joyent(self):
         config = get_joyent_config()
-        account = make_substrate(config)
-        self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
-        self.assertEqual(account.client.account, 'user@manta.org')
-        self.assertEqual(account.client.key_id, 'key-id@manta.org')
+        with make_substrate_manager(config) as account:
+            self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
+            self.assertEqual(account.client.account, 'user@manta.org')
+            self.assertEqual(account.client.key_id, 'key-id@manta.org')
 
-    def test_make_substrate_other(self):
+    def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'
-        self.assertIs(make_substrate(config), None)
+        with make_substrate_manager(config) as account:
+            self.assertIs(account, None)
 
 
 class TestLibvirt(TestCase):

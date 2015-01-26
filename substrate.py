@@ -1,5 +1,6 @@
 __metaclass__ = type
 
+from contextlib import contextmanager
 import logging
 import os
 import subprocess
@@ -63,11 +64,12 @@ def terminate_instances(env, instance_ids):
                 subprocess.check_call(cmd)
         return
     else:
-        substrate = make_substrate(env.config)
-        if substrate is None:
-            raise ValueError(
-                "This test does not support the %s provider" % provider_type)
-        return substrate.terminate_instances(instance_ids)
+        with make_substrate_manager(env.config) as substrate:
+            if substrate is None:
+                raise ValueError(
+                    "This test does not support the %s provider"
+                    % provider_type)
+            return substrate.terminate_instances(instance_ids)
     print_now("Deleting %s." % ', '.join(instance_ids))
     subprocess.check_call(command_args, env=environ)
 
@@ -289,8 +291,9 @@ class JoyentAccount:
         self.client.delete_machine(machine_id)
 
 
-def make_substrate(config):
-    """Return an Account for the config's substrate.
+@contextmanager
+def make_substrate_manager(config):
+    """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
@@ -299,7 +302,7 @@ def make_substrate(config):
         'openstack': OpenStackAccount.from_config,
         'joyent': JoyentAccount.from_config,
         }
-    return substrate_factory.get(config['type'], lambda x: None)(config)
+    yield substrate_factory.get(config['type'], lambda x: None)(config)
 
 
 def start_libvirt_domain(URI, domain):
