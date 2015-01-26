@@ -417,11 +417,46 @@ generate_streams() {
     find $DEST_DIST/tools/streams/v1/ -name "*gpg" -delete -print
     find $DEST_DIST/tools/streams/v1/ -name "*sjson" -delete -print
     find $DEST_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
+
+    # Colon-to-dashed transition part 1, ensure both sets of files exist.
+    STREAM_DIR="$JUJU_DIST/tools/streams/v1"
+    for kind in released proposed devel; do
+        if [[ ! -e $STREAM_DIR/com.ubuntu.juju-$kind-tools.json \
+              && -e $STREAM_DIR/com.ubuntu.juju:$kind:tools.json ]]; then
+            cp $STREAM_DIR/com.ubuntu.juju:$kind:tools.json \
+                $STREAM_DIR/com.ubuntu.juju-$kind-tools.json
+        fi
+    done
+
     # Generate the json metadata.
     # When 1.21.0 is run this way, the released product file still uses
     # the releases dir.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools $CLEAN -d $DEST_DIST
+
+    # Colon-to-dashed transition part 2, ensure both sets are the same.
+    echo "Reconciling the current product file names with other file names."
+    INDEX_PRODUCT=$(
+        sed -r '/"path":/!d; s,^.*: "([^"]*)".*$,\1,;' $STREAM_DIR/index.json)
+    INDEX2_PRODUCT=$(
+        sed -r '/"path":/!d; s,^.*: "([^"]*)".*$,\1,;' $STREAM_DIR/index2.json)
+    if [[ ! $INDEX2_PRODUCT =~ .*$INDEX_PRODUCT.* ]]; then
+        echo "index and index2 'released' product file name are different:"
+        echo "  found in index.json: $INDEX_PRODUCT"
+        echo "  found in index2.json: $INDEX2_PRODUCT"
+        exit 1
+    fi
+    for product_file in $INDEX_PRODUCT $INDEX2_PRODUCT; do
+        if [[ $product_file =~ .*:.* ]]; then
+            other_file=$(echo "$product_file" | sed -r 's/:/-/g;')
+        else
+            other_file=$(echo "$product_file" | sed -r 's/-/:/g;')
+        fi
+        product_file="$JUJU_DIST/tools/$product_file"
+        other_file="$JUJU_DIST/tools/$other_file"
+        cp $product_file $other_file
+    done
+    echo "Copied current product files to other product files for transition."
 
     # Ensure the new json metadata matches the expected removed and added.
     if [[ $can_validate == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
@@ -617,7 +652,7 @@ REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_LOCAL="false"
 GET_RELEASED_TOOL="true"
-INIT_VERSION="1.21"
+INIT_VERSION="1.21."
 while getopts "r:s:t:i:n" o; do
     case "${o}" in
         r)
