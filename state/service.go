@@ -591,6 +591,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
+	agentGlobalKey := unitAgentGlobalKey(name)
 	udoc := &unitDoc{
 		DocID:            docID,
 		Name:             name,
@@ -613,6 +614,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Insert: udoc,
 		},
 		createStatusOp(s.st, globalKey, sdoc),
+		createStatusOp(s.st, agentGlobalKey, sdoc),
 		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
 		{
 			C:      servicesC,
