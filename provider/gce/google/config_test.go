@@ -35,8 +35,8 @@ func (*configSuite) TestValidateAuthMissingID(c *gc.C) {
 	}
 	err := google.ValidateAuth(auth)
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_ID")
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
+	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_ID")
 }
 
 func (*configSuite) TestValidateAuthBadEmail(c *gc.C) {
@@ -47,8 +47,8 @@ func (*configSuite) TestValidateAuthBadEmail(c *gc.C) {
 	}
 	err := google.ValidateAuth(auth)
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_CLIENT_EMAIL")
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
+	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_CLIENT_EMAIL")
 }
 
 func (*configSuite) TestValidateAuthMissingKey(c *gc.C) {
@@ -58,8 +58,8 @@ func (*configSuite) TestValidateAuthMissingKey(c *gc.C) {
 	}
 	err := google.ValidateAuth(auth)
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PRIVATE_KEY")
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
+	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_PRIVATE_KEY")
 }
 
 func (*configSuite) TestValidateConnection(c *gc.C) {
@@ -78,8 +78,8 @@ func (*configSuite) TestValidateConnectionMissingRegion(c *gc.C) {
 	}
 	err := google.ValidateConnection(&conn)
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_REGION")
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
+	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_REGION")
 }
 
 func (*configSuite) TestValidateConnectionMissingProjectID(c *gc.C) {
@@ -88,6 +88,6 @@ func (*configSuite) TestValidateConnectionMissingProjectID(c *gc.C) {
 	}
 	err := google.ValidateConnection(&conn)
 
-	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValue{})
-	c.Check(err.(*config.InvalidConfigValue).Key, gc.Equals, "GCE_PROJECT_ID")
+	c.Assert(err, gc.FitsTypeOf, &config.InvalidConfigValueError{})
+	c.Check(err.(*config.InvalidConfigValueError).Key, gc.Equals, "GCE_PROJECT_ID")
 }

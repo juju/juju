@@ -210,7 +210,7 @@ func validateConfig(cfg, old *config.Config) (*environConfig, error) {
 // error, translating a {provider/gce/google}.OSEnvVar* value into a
 // GCE config key in the new error.
 func handleInvalidField(err error) error {
-	vErr := err.(*config.InvalidConfigValue)
+	vErr := err.(*config.InvalidConfigValueError)
 	if vErr.Reason == nil && vErr.Value == "" {
 		key := osEnvFields[vErr.Key]
 		return errors.Errorf("%s: must not be empty", key)

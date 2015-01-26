@@ -34,10 +34,10 @@ const (
 // non-empty value.
 func ValidateConnection(conn *Connection) error {
 	if conn.Region == "" {
-		return &config.InvalidConfigValue{Key: OSEnvRegion}
+		return &config.InvalidConfigValueError{Key: OSEnvRegion}
 	}
 	if conn.ProjectID == "" {
-		return &config.InvalidConfigValue{Key: OSEnvProjectID}
+		return &config.InvalidConfigValueError{Key: OSEnvProjectID}
 	}
 	return nil
 }
@@ -52,21 +52,21 @@ func ValidateConnection(conn *Connection) error {
 // address.
 func ValidateAuth(auth Auth) error {
 	if auth.ClientID == "" {
-		return &config.InvalidConfigValue{Key: OSEnvClientID}
+		return &config.InvalidConfigValueError{Key: OSEnvClientID}
 	}
 	if auth.ClientEmail == "" {
-		return &config.InvalidConfigValue{Key: OSEnvClientEmail}
+		return &config.InvalidConfigValueError{Key: OSEnvClientEmail}
 	}
 	if _, err := mail.ParseAddress(auth.ClientEmail); err != nil {
 		err = errors.Trace(err)
-		return &config.InvalidConfigValue{
+		return &config.InvalidConfigValueError{
 			Key:    OSEnvClientEmail,
 			Value:  auth.ClientEmail,
 			Reason: err,
 		}
 	}
 	if len(auth.PrivateKey) == 0 {
-		return &config.InvalidConfigValue{Key: OSEnvPrivateKey}
+		return &config.InvalidConfigValueError{Key: OSEnvPrivateKey}
 	}
 	return nil
 }

@@ -495,7 +495,7 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 
 // InvalidConfigValue is an error type for a config value that failed
 // validation.
-type InvalidConfigValue struct {
+type InvalidConfigValueError struct {
 	// Key is the config key used to access the value.
 	Key string
 	// Value is the value that failed validation.
@@ -505,7 +505,7 @@ type InvalidConfigValue struct {
 }
 
 // Error returns the error string.
-func (e *InvalidConfigValue) Error() string {
+func (e *InvalidConfigValueError) Error() string {
 	msg := fmt.Sprintf("invalid config value for %s: %q", e.Key, e.Value)
 	if e.Reason != nil {
 		msg = msg + ": " + e.Reason.Error()
