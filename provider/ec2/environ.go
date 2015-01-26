@@ -777,10 +777,55 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 	return nil
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
-// not implemented on this provider yet.
-func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.NotImplementedf("NetworkInterfaces")
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+//
+// TODO(dimitern) Implement attachment.instance-id filter for
+// DescribeNetworkInterfaces in goamz ec2test server in order to use
+// that API call instead of DescribeInstances.
+func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	ec2Client := e.ec2()
+	var err error
+	var instancesResp *ec2.InstancesResp
+	for a := shortAttempt.Start(); a.Next(); {
+		instancesResp, err = ec2Client.Instances([]string{string(instId)}, nil)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		// either the instance doesn't exist or we couldn't get through to
+		// the ec2 api
+		return nil, errors.Annotatef(err, "cannot get instance %v info", instId)
+	}
+
+	if len(instancesResp.Reservations) == 0 {
+		return nil, errors.New("unexpected AWS response: instance not found")
+	}
+	if len(instancesResp.Reservations[0].Instances) == 0 {
+		return nil, errors.New("unexpected AWS response: reservation not found")
+	}
+	ec2Interfaces := instancesResp.Reservations[0].Instances[0].NetworkInterfaces
+	result := make([]network.InterfaceInfo, len(ec2Interfaces))
+	for i, iface := range ec2Interfaces {
+		result[i] = network.InterfaceInfo{
+			DeviceIndex: iface.Attachment.DeviceIndex,
+			MACAddress:  iface.MACAddress,
+			CIDR:        "", // Not needed for now.
+			NetworkName: "", // Not needed for now.
+			// TODO(dimitern) This should be iface.Id and
+			// a SubnetId should be added.
+			ProviderId: network.Id(iface.SubnetId),
+			VLANTag:    0, // Not supported on EC2.
+			// Not supported on EC2, so fake it.
+			InterfaceName: fmt.Sprintf("eth%d", iface.Attachment.DeviceIndex),
+			Disabled:      false,
+			NoAutoStart:   false,
+			ConfigType:    network.ConfigUnknown,
+			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
+			// We need a way to get DNSServers, GatewayAddress.
+		}
+	}
+	return result, nil
 }
 
 // Subnets returns basic information about the specified subnets known
