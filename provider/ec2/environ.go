@@ -807,22 +807,29 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	ec2Interfaces := instancesResp.Reservations[0].Instances[0].NetworkInterfaces
 	result := make([]network.InterfaceInfo, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
+		resp, err := ec2Client.Subnets([]string{iface.SubnetId}, nil)
+		if err != nil {
+			return nil, errors.Annotatef(err, "failed to retrieve subnet info")
+		}
+		if len(resp.Subnets) != 0 {
+			return nil, errors.Errorf("odd number of subnets reported")
+		}
+		subnet := resp.Subnets[0]
+		cidr := subnet.CIDRBlock
+
 		result[i] = network.InterfaceInfo{
-			DeviceIndex: iface.Attachment.DeviceIndex,
-			MACAddress:  iface.MACAddress,
-			CIDR:        "", // Not needed for now.
-			NetworkName: "", // Not needed for now.
-			// TODO(dimitern) This should be iface.Id and
-			// a SubnetId should be added.
-			ProviderId: network.Id(iface.SubnetId),
-			VLANTag:    0, // Not supported on EC2.
+			DeviceIndex:      iface.Attachment.DeviceIndex,
+			MACAddress:       iface.MACAddress,
+			CIDR:             cidr,
+			NetworkName:      "", // Not needed for now.
+			ProviderSubnetId: network.Id(iface.SubnetId),
+			VLANTag:          0, // Not supported on EC2.
 			// Not supported on EC2, so fake it.
 			InterfaceName: fmt.Sprintf("eth%d", iface.Attachment.DeviceIndex),
 			Disabled:      false,
 			NoAutoStart:   false,
 			ConfigType:    network.ConfigUnknown,
 			Address:       network.NewAddress(iface.PrivateIPAddress, network.ScopeCloudLocal),
-			// We need a way to get DNSServers, GatewayAddress.
 		}
 	}
 	return result, nil
