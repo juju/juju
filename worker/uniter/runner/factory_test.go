@@ -10,11 +10,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -30,6 +35,8 @@ type FactorySuite struct {
 var _ = gc.Suite(&FactorySuite{})
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = NewRealPaths(c)
 	s.membership = map[int][]string{}
@@ -122,6 +129,18 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx runner.Context) {
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
+func (s *FactorySuite) AssertNotStorageContext(c *gc.C, ctx runner.Context) {
+	storageInstances, ok := ctx.HookStorageInstance()
+	c.Assert(storageInstances, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *FactorySuite) AssertStorageContext(c *gc.C, ctx runner.Context, instance storage.StorageInstance) {
+	fromCache, ok := ctx.HookStorageInstance()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(instance, jc.DeepEquals, *fromCache)
+}
+
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx runner.Context, relId int, remoteUnit string) *runner.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
 	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
@@ -145,6 +164,7 @@ func (s *FactorySuite) TestNewCommandRunnerNoRelation(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewCommandRunnerRelationIdDoesNotExist(c *gc.C) {
@@ -203,6 +223,7 @@ func (s *FactorySuite) TestNewCommandRunnerForceNoRemoteUnit(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "")
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewCommandRunnerForceRemoteUnitMissing(c *gc.C) {
@@ -214,6 +235,7 @@ func (s *FactorySuite) TestNewCommandRunnerForceRemoteUnitMissing(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "blah/123")
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewCommandRunnerInferRemoteUnit(c *gc.C) {
@@ -225,6 +247,7 @@ func (s *FactorySuite) TestNewCommandRunnerInferRemoteUnit(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 0, "foo/2")
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewHookRunner(c *gc.C) {
@@ -235,12 +258,54 @@ func (s *FactorySuite) TestNewHookRunner(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewHookRunnerWithBadHook(c *gc.C) {
 	rnr, err := s.factory.NewHookRunner(hook.Info{})
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `unknown hook kind ""`)
+}
+
+func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
+	// We need to set up a unit that has storage metadata defined.
+	ch := s.AddTestingCharm(c, "storage-block")
+	sCons := map[string]state.StorageConstraints{
+		"data": state.StorageConstraints{Pool: "", Size: 1024, Count: 1},
+	}
+	service := s.AddTestingServiceWithStorage(c, "storage-block", ch, sCons)
+
+	unit := s.AddUnit(c, service)
+	password, err := utils.RandomPassword()
+	err = unit.SetPassword(password)
+	c.Assert(err, jc.ErrorIsNil)
+	st := s.OpenAPIAs(c, unit.Tag(), password)
+	uniter, err := st.Uniter()
+	c.Assert(err, jc.ErrorIsNil)
+
+	factory, err := runner.NewFactory(
+		uniter,
+		unit.Tag().(names.UnitTag),
+		s.getRelationInfos,
+		s.paths,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	rnr, err := factory.NewHookRunner(hook.Info{
+		Kind:      hooks.StorageAttached,
+		StorageId: "data/0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertPaths(c, rnr)
+	ctx := rnr.Context()
+	c.Assert(ctx.UnitName(), gc.Equals, "storage-block/0")
+	s.AssertStorageContext(c, ctx, storage.StorageInstance{
+		Id: "data/0", Kind: storage.StorageKindBlock, Location: ""},
+	)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotRelationContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewHookRunnerWithRelation(c *gc.C) {
@@ -254,6 +319,7 @@ func (s *FactorySuite) TestNewHookRunnerWithRelation(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 1, "")
+	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *FactorySuite) TestNewHookRunnerPrunesNonMemberCaches(c *gc.C) {
@@ -310,6 +376,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationJoinedUpdatesRelationContextAndC
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "r/0")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
 	cached0, member := s.getCache(1, "r/0")
@@ -335,6 +402,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationChangedUpdatesRelationContextAnd
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "r/4")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
@@ -363,6 +431,7 @@ func (s *FactorySuite) TestNewHookRunnerRelationDepartedUpdatesRelationContextAn
 	ctx := rnr.Context()
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1, "r/0")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
 	cached0, member := s.getCache(1, "r/0")
