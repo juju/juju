@@ -150,7 +150,7 @@ init_tools_maybe() {
                 $DEST_DIST/tools/releases
         fi
         echo "Seeding testing with all proposed agents"
-        cp $DESTINATION/juju-dist/proposed/tools/releases/juju-*.tgz \
+        cp $DESTINATION/juju-dist/tools/proposed/juju-*.tgz \
             $DEST_DIST/tools/releases
     fi
 }
@@ -335,7 +335,7 @@ archive_tools() {
 
 copy_proposed_to_release() {
     echo "Phase 6: Copying proposed tools to released."
-    local proposed_releases="$DESTINATION/juju-dist/proposed/tools/releases"
+    local proposed_releases="$DESTINATION/juju-dist/tools/proposed"
     count=$(find $proposed_releases -name "juju-${RELEASE}*.tgz" | wc -l)
     if [[ $((count)) == 0  ]]; then
         echo "Proposed doesn't have any $RELEASE tools."
