@@ -143,10 +143,6 @@ func (s *environAZSuite) TestParseAvailabilityZonesDistGroup(c *gc.C) {
 	s.StartInstArgs.DistributionGroup = func() ([]instance.Id, error) {
 		return []instance.Id{s.Instance.Id()}, nil
 	}
-	s.FakeConn.Zones = []google.AvailabilityZone{
-		google.NewZone("home-zone", google.StatusUp),
-		google.NewZone("away-zone", google.StatusUp),
-	}
 
 	zones, err := gce.ParseAvailabilityZones(s.Env, s.StartInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
