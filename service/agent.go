@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/service/common"
@@ -20,10 +20,12 @@ import (
 const (
 	maxAgentFiles = 20000
 	logSuffix     = ".log"
+	agentPrefix   = "jujud-"
 )
 
 // TODO(ericsnow) Move executables and the exe* consts to the proper
-// spot (agent?).
+// spot (agent?). This is currently sort of addressed in the juju/names
+// package, but that doesn't accommodate remote init systems.
 
 const (
 	exeWindows = "jujud.exe"
@@ -31,17 +33,44 @@ const (
 )
 
 var (
-	executables = map[string]string{
+	agentExecutables = map[string]string{
 		InitSystemWindows: exeWindows,
 		InitSystemUpstart: exeDefault,
 	}
+
+	agentOptions = map[string]string{
+		"machine": "machine-id",
+		"unit":    "unit-name",
+	}
 )
 
-// TODO(ericsnow) Move AgentPaths to juju/paths, agent, or etc.?
+func ListAgents(services *Services) ([]names.Tag, error) {
+	enabled, err := services.ListEnabled()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-type AgentPaths struct {
-	DataDir string
-	LogDir  string
+	start := len(agentPrefix)
+	var tags []names.Tag
+	for _, name := range enabled {
+		if !strings.HasPrefix(name, agentPrefix) {
+			continue
+		}
+		tag, err := names.ParseTag(name[start:])
+		if err != nil {
+			// TODO(ericsnow) Fail here?
+			continue
+		}
+		tags = append(tags, tag)
+	}
+	return tags, nil
+}
+
+// TODO(ericsnow) Move agentPaths to juju/paths, agent, or etc.?
+
+type agentPaths interface {
+	DataDir() string
+	LogDir() string
 }
 
 // TODO(ericsnow) Support explicitly setting the calculated values
@@ -50,14 +79,45 @@ type AgentPaths struct {
 // to AgentService?
 
 type AgentService struct {
-	AgentPaths
+	agentPaths
 
-	Name      string
-	Tag       string
-	MachineID string
-	Env       map[string]string
+	tag names.Tag
+	env map[string]string
 
-	initSystem string // CloudInitInstallCommands sets this.
+	initSystem string
+	option     string
+}
+
+func NewAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*AgentService, error) {
+	svc, err := newAgentService(tag, paths, env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// TODO(ericsnow) This will not work for remote systems.
+	init, err := discoverInitSystem()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svc.initSystem = init
+
+	return svc, nil
+}
+
+func newAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*AgentService, error) {
+	svc := &AgentService{
+		agentPaths: paths,
+		tag:        tag,
+		env:        env,
+	}
+
+	option, ok := agentOptions[svc.tag.Kind()]
+	if !ok {
+		return nil, errors.NotSupportedf("tag %v", svc.tag)
+	}
+	svc.option = option
+
+	return svc, nil
 }
 
 // TODO(ericsnow) Support discovering init system on remote host.
@@ -66,105 +126,66 @@ type AgentService struct {
 // We could add a Validate method; or for the less efficient one-off
 // case, we could add an error return on the dynamic attr methods.
 
-func (as AgentService) ToolsDir() string {
-	return tools.ToolsDir(as.DataDir, as.Tag)
+func (as AgentService) Name() string {
+	return agentPrefix + as.tag.String()
 }
 
-func (as AgentService) init() (string, error) {
-	if as.initSystem != "" {
-		return as.initSystem, nil
-	}
-
-	init, err := discoverInitSystem()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	as.initSystem = init
-	return init, nil
+func (as AgentService) ToolsDir() string {
+	return tools.ToolsDir(as.DataDir(), as.tag.String())
 }
 
 func (as AgentService) executable() string {
-	name := exeDefault
-
-	init, err := as.init()
-	if err == nil {
-		// TODO(ericsnow) Is it safe enough to use the default
-		// executable when the init system is unknown?
-		name = executables[init]
-	}
-
-	return filepath.Join(as.ToolsDir(), name)
+	// TODO(ericsnow) Just use juju/names.Jujud for local?
+	name := agentExecutables[as.initSystem]
+	executable := filepath.Join(as.ToolsDir(), name)
+	return fromSlash(executable, as.initSystem)
 }
 
 func (as AgentService) logfile() string {
-	name := as.Tag + logSuffix
-	return filepath.Join(as.LogDir, name)
+	name := as.tag.String() + logSuffix
+	return filepath.Join(as.LogDir(), name)
+}
+
+func (as AgentService) command() string {
+	// E.g. "jujud" machine --data-dir "..." --machine-id "0"
+	command := fmt.Sprintf(`"%s" %s --data-dir "%s" --%s "%s"`,
+		as.executable(),
+		as.tag.String(),
+		fromSlash(as.DataDir(), as.initSystem),
+		as.option,
+		as.tag.Id(),
+	)
+
+	// The agent always starts with debug turned on. The logger
+	// worker will update this to the system logging environment as soon
+	// as it starts.
+	command += " --debug"
+
+	return command
 }
 
 // Conf returns the init config for the agent described by AgentService.
-func (as AgentService) Conf() (*common.Conf, error) {
+func (as AgentService) Conf() common.Conf {
+	cmd := as.command()
 
-	init, err := as.init()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var conf *common.Conf
-	switch init {
-	case InitSystemWindows:
-		conf = as.confWindows()
-	default:
-		conf = as.confLinux()
-	}
-
-	return conf, nil
-}
-
-// TODO(ericsnow) Move confWindows to service/windows and confLinux
-// to service/common?
-
-func (as AgentService) confWindows() *common.Conf {
-	// This method must convert slashes to backslashes.
-
-	serviceString := fmt.Sprintf(`"%s" machine --data-dir "%s" --machine-id "%s" --debug`,
-		fromSlash(as.executable()),
-		fromSlash(as.DataDir),
-		as.MachineID)
-
-	cmd := []string{
-		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'Jujud machine agent' '%s'`, as.Name, serviceString),
-		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, as.Name),
-		fmt.Sprintf(`Start-Service %s`, as.Name),
-	}
-
-	return &common.Conf{
-		Desc: fmt.Sprintf("juju %s agent", as.Tag),
-		Cmd:  strings.Join(cmd, "\r\n"),
-	}
-}
-
-// fromSlash is borrowed from cloudinit/renderers.go.
-func fromSlash(path string) string {
-	return strings.Replace(path, "/", `\`, -1)
-}
-
-func (as AgentService) confLinux() *common.Conf {
-	// The machine agent always starts with debug turned on. The logger
-	// worker will update this to the system logging environment as soon
-	// as it starts.
 	conf := common.Conf{
-		Desc: fmt.Sprintf("juju %s agent", as.Tag),
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
-		},
-		Cmd: as.executable() +
-			" machine" +
-			" --data-dir " + utils.ShQuote(as.DataDir) +
-			" --machine-id " + as.MachineID +
-			" --debug",
-		Out: as.logfile(),
-		Env: as.Env,
+		Desc: fmt.Sprintf("juju agent for %s", as.tag.String()),
+		Cmd:  cmd,
 	}
-	return &conf
+
+	if as.initSystem == InitSystemWindows {
+		// For Windows we do not set Out, Env, or Limit.
+		return conf
+	}
+
+	// Populate non-Windows settings.
+	conf.Out = as.logfile()
+	conf.Env = as.env
+	if as.tag.Kind() == "machine" {
+		conf.Limit = map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
+		}
+	}
+
+	return conf
 }

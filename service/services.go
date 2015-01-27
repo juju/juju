@@ -5,6 +5,7 @@ package service
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/service/common"
 )
@@ -71,10 +72,11 @@ func extractInitSystem(args []string) (common.InitSystem, string, error) {
 
 	// Fall back to discovery.
 	if name == "" {
-		name, err := discoverInitSystem()
+		discovered, err := discoverInitSystem()
 		if err != nil {
 			return nil, "", errors.Trace(err)
 		}
+		name = discovered
 	}
 
 	// Return the corresponding init system.
@@ -285,6 +287,20 @@ func (s Services) Remove(name string) error {
 	return nil
 }
 
+// Install prepares the service, enables it, and starts it.
+func (s Services) Install(name string, conf *common.Conf) error {
+	if err := s.Add(name, conf); err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.Enable(name); err != nil {
+		return errors.Trace(err)
+	}
+	if err := s.Start(name); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // Check verifies the managed conf for the named service to ensure
 // it matches the provided Conf.
 func (s Services) Check(name string, conf *common.Conf) (bool, error) {
@@ -296,6 +312,20 @@ func (s Services) Check(name string, conf *common.Conf) (bool, error) {
 // managed by juju.
 func (s Services) IsManaged(name string) bool {
 	return s.configs.lookup(name) != nil
+}
+
+func (s *Services) NewService(name string, conf common.Conf) *Service {
+	return newService(name, conf, s)
+}
+
+func (s Services) NewAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*Service, error) {
+	spec, err := newAgentService(tag, paths, env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	svc := s.NewService(spec.Name(), spec.Conf())
+	return svc, nil
 }
 
 func (s Services) ensureManaged(name string) error {
@@ -341,5 +371,6 @@ func (s Services) compareConf(name string, confDir *confDir) (bool, error) {
 		return false, errors.Trace(err)
 	}
 
-	return (*conf == *expected), nil
+	//return (*conf == *expected), nil
+	return conf.Equals(*expected), nil
 }

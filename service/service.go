@@ -12,21 +12,25 @@ import (
 // Service is a convenience wrapper around Services for a single service.
 type Service struct {
 	name     string
+	conf     common.Conf
 	services *Services
-	conf     *common.Conf
 }
 
-func NewService(name, dataDir string, conf *common.Conf, args ...string) (*Service, error) {
+func NewService(name, dataDir string, conf common.Conf, args ...string) (*Service, error) {
 	services, err := NewServices(dataDir, args...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	svc := &Service{
-		name:     name,
-		services: services,
-		conf:     conf,
-	}
+	svc := newService(name, conf, services)
 	return svc, nil
+}
+
+func newService(name string, conf common.Conf, services *Services) *Service {
+	return &Service{
+		name:     name,
+		conf:     conf,
+		services: services,
+	}
 }
 
 func (s Service) Start() error {
@@ -54,7 +58,7 @@ func (s Service) IsEnabled() (bool, error) {
 }
 
 func (s Service) Add() error {
-	return s.services.Add(s.name, s.conf)
+	return s.services.Add(s.name, &s.conf)
 }
 
 func (s Service) Remove() error {
@@ -62,7 +66,7 @@ func (s Service) Remove() error {
 }
 
 func (s Service) Check() (bool, error) {
-	return s.services.Check(s.name, s.conf)
+	return s.services.Check(s.name, &s.conf)
 }
 
 func (s Service) IsManaged() bool {

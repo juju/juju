@@ -6,6 +6,7 @@ package windows
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/juju/errors"
@@ -38,15 +39,9 @@ func NewInitSystem() common.InitSystem {
 }
 
 func (is *initSystem) List(include ...string) ([]string, error) {
-	com := exec.RunParams{
-		Commands: `(Get-Service).Name`,
-	}
-	out, err := exec.RunCommands(com)
+	out, err := runPsCommand(`(Get-Service).Name`)
 	if err != nil {
-		return nil, err
-	}
-	if out.Code != 0 {
-		return nil, errors.Errorf("Error running %s: %s", com.Commands, string(out.Stderr))
+		return nil, errors.Trace(err)
 	}
 	return strings.Fields(string(out.Stdout)), nil
 }
@@ -61,8 +56,34 @@ func (is *initSystem) Stop(name string) error {
 	return nil
 }
 
+func (is *initSystem) readConf(filename string) (*common.Conf, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conf, err := is.Deserialize(data)
+	return conf, errors.Trace(err)
+}
+
 func (is *initSystem) Enable(name, filename string) error {
-	// TODO(ericsnow) Finish!
+	conf, err := is.readConf(filename)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// (from environs/cloudinit/cloudinit_win.go)
+	commands := []string{
+		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'`, name, conf.Desc, conf.Cmd),
+		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, name),
+		fmt.Sprintf(`Start-Service %s`, name),
+	}
+
+	for _, command := range commands {
+		_, err := runPsCommand(command)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 
@@ -108,10 +129,10 @@ func runPsCommand(cmd string) (*exec.ExecResponse, error) {
 	}
 	out, err := exec.RunCommands(com)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if out.Code != 0 {
-		return nil, fmt.Errorf("Error running %s: %s", cmd, string(out.Stderr))
+		return nil, errors.Errorf("running %s: %s", cmd, string(out.Stderr))
 	}
 	return out, nil
 }

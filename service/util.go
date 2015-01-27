@@ -47,6 +47,19 @@ func contains(strList []string, str string) bool {
 	return false
 }
 
+// fromSlash is borrowed from cloudinit/renderers.go.
+func fromSlash(path string, initSystem string) string {
+	// TODO(ericsnow) Is this right?
+	// If initSystem is "" then just do the default.
+
+	// TODO(ericsnow) Just use filepath.FromSlash for local?
+
+	if initSystem == InitSystemWindows {
+		return strings.Replace(path, "/", `\`, -1)
+	}
+	return path
+}
+
 // TODO(ericsnow) Move this to the utils repo.
 
 type fileOperations interface {
