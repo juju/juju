@@ -199,6 +199,7 @@ def make_osx_tarball(binary_paths, version, dest_dir,
         with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
+            ti.mode = 775
             tar.addfile(ti)
             for binary_path in binary_paths:
                 if verbose:
