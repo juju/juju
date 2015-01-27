@@ -811,7 +811,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 		}
-		if len(resp.Subnets) != 0 {
+		if len(resp.Subnets) != 1 {
 			return nil, errors.Errorf("odd number of subnets reported")
 		}
 		subnet := resp.Subnets[0]
