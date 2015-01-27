@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cmd/juju/cachedimages"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -194,6 +195,11 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Operation protection commands
 	r.Register(wrapEnvCommand(&block.BlockCommand{}))
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
+
+	// Manage storage
+	if featureflag.Enabled(feature.Storage) {
+		r.Register(storage.NewSuperCommand())
+	}
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
