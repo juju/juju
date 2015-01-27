@@ -128,8 +128,8 @@ func (as AgentService) confWindows() *common.Conf {
 	// This method must convert slashes to backslashes.
 
 	serviceString := fmt.Sprintf(`"%s" machine --data-dir "%s" --machine-id "%s" --debug`,
-		w.renderer.FromSlash(as.executable()),
-		w.renderer.FromSlash(as.DataDir),
+		fromSlash(as.executable()),
+		fromSlash(as.DataDir),
 		as.MachineID)
 
 	cmd := []string{
@@ -142,6 +142,11 @@ func (as AgentService) confWindows() *common.Conf {
 		Desc: fmt.Sprintf("juju %s agent", as.Tag),
 		Cmd:  strings.Join(cmd, "\r\n"),
 	}
+}
+
+// fromSlash is borrowed from cloudinit/renderers.go.
+func fromSlash(path string) string {
+	return strings.Replace(path, "/", `\`, -1)
 }
 
 func (as AgentService) confLinux() *common.Conf {

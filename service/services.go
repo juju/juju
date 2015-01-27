@@ -46,23 +46,23 @@ func NewServices(dataDir string, args ...string) (*Services, error) {
 	}
 
 	// Get the init system.
-	init, err := extractInitSystem(args)
+	init, initName, err := extractInitSystem(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Build the Services.
 	services := Services{
-		configs: newConfigs(dataDir, initname, jujuPrefixes...),
+		configs: newConfigs(dataDir, initName, jujuPrefixes...),
 		init:    init,
 	}
 
 	// Ensure that the list of known services is cached.
-	err = services.config.refresh()
+	err = services.configs.refresh()
 	return &services, errors.Trace(err)
 }
 
-func extractInitSystem(args []string) (common.InitSystem, error) {
+func extractInitSystem(args []string) (common.InitSystem, string, error) {
 	// Get the init system name from the args.
 	var name string
 	if len(args) != 0 {
@@ -73,50 +73,56 @@ func extractInitSystem(args []string) (common.InitSystem, error) {
 	if name == "" {
 		name, err := discoverInitSystem()
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, "", errors.Trace(err)
 		}
 	}
 
 	// Return the corresponding init system.
 	newInitSystem := initSystems[name]
-	return newInitSystem(), nil
+	return newInitSystem(), name, nil
 }
 
 // List collects the names of all juju-managed services and returns it.
-// Directives may be passed to modify the behavior (e.g. filter the list
-// down).
-func (s Services) List(directives ...string) ([]string, error) {
-	runningOnly := false
-	noVerify := false
-	for _, directive := range directives {
-		switch directive {
-		case DirectiveRunning:
-			runningOnly = true
-		case DirectiveNoVerify:
-			noVerify = true
-		default:
-			return nil, errors.NotFoundf("directive %q", directive)
-		}
+func (s Services) List() ([]string, error) {
+	return s.configs.names, nil
+}
+
+// List running collects the names of all juju-managed services that are
+// current running and returns it.
+func (s Services) ListEnabled() ([]string, error) {
+	enabledList, err := s.init.List(s.configs.names...)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	// Select only desired names.
 	var names []string
-	if runningOnly {
-		running, err := s.init.List(s.configs.names...)
+	for _, managed := range s.configs.names {
+		confDir := s.configs.lookup(managed)
+		if confDir == nil {
+			continue
+		}
+
+		var name string
+		for _, enabled := range enabledList {
+			if enabled == managed {
+				break
+			}
+		}
+		if name == "" {
+			continue
+		}
+
+		// Make sure it is the juju-managed service.
+		same, err := s.compareConf(name, confDir)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if !noVerify {
-			running, err = s.filterActual(running)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
+		if !same {
+			// A service with the same name is enabled.
+			continue
 		}
-		names = running
-	} else {
-		names = s.configs.names
+		names = append(names, name)
 	}
-
 	return names, nil
 }
 
@@ -336,50 +342,4 @@ func (s Services) compareConf(name string, confDir *confDir) (bool, error) {
 	}
 
 	return (*conf == *expected), nil
-}
-
-func (s Services) filterActual(names []string) ([]string, error) {
-	var filtered []string
-	for _, name := range names {
-		matched, err := s.isEnabled(name)
-		if errors.Cause(err) == ErrNotManaged {
-			continue
-		}
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if matched {
-			filtered = append(filtered, name)
-		}
-	}
-	return filtered, nil
-}
-
-// TODO(ericsnow) Eliminate isEnabled.
-func (s Services) isEnabled(name string, confDir *confDir) (bool, error) {
-	// confDir should not be nil.
-
-	enabled, err := s.init.IsEnabled(name)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if !enabled {
-		return false, nil
-	}
-
-	same, err := s.compareConf(name, confDir)
-	if errors.IsNotSupported(err) {
-		// We'll just have to trust.
-		return true, nil
-	}
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	if !same {
-		msg := "managed conf for service %q does not match existing service"
-		return false, errors.Annotatef(ErrNotManaged, msg, name)
-	}
-
-	return true, nil
 }
