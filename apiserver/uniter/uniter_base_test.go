@@ -1406,6 +1406,35 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	}
 }
 
+type beginActions interface {
+	BeginActions(args params.Entities) (params.ErrorResults, error)
+}
+
+func (s *uniterBaseSuite) testBeginActions(c *gc.C, facade beginActions) {
+	ten_seconds_ago := time.Now().Add(-10 * time.Second)
+	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	running, err := s.wordpressUnit.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(running), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{{Tag: good.ActionTag().String()}}}
+	res, err := facade.BeginActions(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res.Results), gc.Equals, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+
+	running, err = s.wordpressUnit.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(running), gc.Equals, 1)
+	c.Assert(running[0].ActionTag(), gc.Equals, good.ActionTag())
+	enqueued, started := running[0].Enqueued(), running[0].Started()
+	c.Assert(ten_seconds_ago.Before(enqueued) || ten_seconds_ago.Equal(enqueued), jc.IsTrue)
+	c.Assert(ten_seconds_ago.Before(started) || ten_seconds_ago.Equal(started), jc.IsTrue)
+	c.Assert(started.After(enqueued) || started.Equal(enqueued), jc.IsTrue)
+}
+
 func (s *uniterBaseSuite) testRelation(
 	c *gc.C,
 	facade interface {
