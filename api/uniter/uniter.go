@@ -222,8 +222,8 @@ func (st *State) ActionBegin(tag names.ActionTag) error {
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
 	}
 	result := outcome.Results[0]
-	if err := result.Error; err != nil {
-		return err
+	if result.Error != nil {
+		return result.Error
 	}
 	return nil
 }
@@ -251,8 +251,8 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
 	}
 	result := outcome.Results[0]
-	if err := result.Error; err != nil {
-		return err
+	if result.Error != nil {
+		return result.Error
 	}
 	return nil
 }
