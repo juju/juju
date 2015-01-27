@@ -162,8 +162,8 @@ func prepareConfig(cfg *config.Config) (*environConfig, error) {
 }
 
 // newValidConfig builds a new environConfig from the provided Config
-// and returns it. This includes applying default values. The resulting
-// config values are validated.
+// and returns it. This includes applying the provided defaults
+// values, if any. The resulting config values are validated.
 func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*environConfig, error) {
 	// Ensure that the provided config is valid.
 	if err := config.Validate(cfg, nil); err != nil {
