@@ -253,7 +253,8 @@ class CrossBuildTestCase(TestCase):
             for path in [juju_binary, readme_file]:
                 with open(path, 'w') as jb:
                     jb.write('juju')
-            os.chmod(juju_binary, 775)
+            os.chmod(juju_binary, 0775)
+            os.chmod(readme_file, 0664)
             make_osx_tarball([juju_binary, readme_file], '1.2.3', base_dir)
             osx_tarball_path = os.path.join(base_dir, 'juju-1.2.3-osx.tar.gz')
             self.assertTrue(os.path.isfile(osx_tarball_path))
@@ -262,6 +263,8 @@ class CrossBuildTestCase(TestCase):
                     ['juju-bin', 'juju-bin/juju', 'juju-bin/README.txt'],
                     tar.getnames())
                 self.assertEqual(
-                    775, tar.getmember('juju-bin').mode)
+                    0775, tar.getmember('juju-bin').mode)
                 self.assertEqual(
-                    775, tar.getmember('juju-bin/juju').mode)
+                    0775, tar.getmember('juju-bin/juju').mode)
+                self.assertEqual(
+                    0664, tar.getmember('juju-bin/README.txt').mode)
