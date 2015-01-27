@@ -50,13 +50,13 @@ func (env *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, 
 }
 
 func (env *environ) availZone(name string) (*google.AvailabilityZone, error) {
-	zones, err := env.AvailabilityZones()
+	zones, err := env.gce.AvailabilityZones(env.ecfg.region())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	for _, z := range zones {
 		if z.Name() == name {
-			return z.(*google.AvailabilityZone), nil
+			return &z, nil
 		}
 	}
 	return nil, errors.NotFoundf("invalid availability zone %q", name)
