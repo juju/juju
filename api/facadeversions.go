@@ -44,7 +44,7 @@ var facadeVersions = map[string]int{
 	"Storage":              1,
 	"StringsWatcher":       0,
 	"Upgrader":             0,
-	"Uniter":               1,
+	"Uniter":               2,
 	"UserManager":          0,
 }
 
