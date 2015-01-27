@@ -71,7 +71,7 @@ func (s *BaseSuiteUnpatched) initEnv(c *gc.C) {
 		name: "google",
 	}
 	cfg := s.NewConfig(c, nil)
-	s.setConfig(cfg)
+	s.setConfig(c, cfg)
 }
 
 func (s *BaseSuiteUnpatched) initInst(c *gc.C) {
@@ -154,9 +154,11 @@ func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 	}}
 }
 
-func (s *BaseSuiteUnpatched) setConfig(cfg *config.Config) {
+func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
-	s.EnvConfig = newEnvConfig(cfg)
+	ecfg, err := newValidConfig(cfg, configDefaults)
+	c.Assert(err, jc.ErrorIsNil)
+	s.EnvConfig = ecfg
 	uuid, _ := cfg.UUID()
 	s.Env.uuid = uuid
 	s.Env.ecfg = s.EnvConfig
@@ -176,7 +178,7 @@ func (s *BaseSuiteUnpatched) NewConfig(c *gc.C, updates testing.Attrs) *config.C
 func (s *BaseSuiteUnpatched) UpdateConfig(c *gc.C, attrs map[string]interface{}) {
 	cfg, err := s.Config.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.setConfig(cfg)
+	s.setConfig(c, cfg)
 }
 
 type BaseSuite struct {

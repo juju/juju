@@ -66,16 +66,6 @@ gce:
   # image-endpoint: https://www.googleapis.com
 `[1:]
 
-// osEnvFields is the mapping from GCE env vars to config keys.
-var osEnvFields = map[string]string{
-	google.OSEnvPrivateKey:    cfgPrivateKey,
-	google.OSEnvClientID:      cfgClientID,
-	google.OSEnvClientEmail:   cfgClientEmail,
-	google.OSEnvRegion:        cfgRegion,
-	google.OSEnvProjectID:     cfgProjectID,
-	google.OSEnvImageEndpoint: cfgImageEndpoint,
-}
-
 // configFields is the spec for each GCE config value's type.
 var configFields = schema.Fields{
 	cfgPrivateKey:    schema.String(),
@@ -108,9 +98,97 @@ var configImmutableFields = []string{
 	cfgImageEndpoint,
 }
 
+// osEnvFields is the mapping from GCE env vars to config keys.
+var osEnvFields = map[string]string{
+	google.OSEnvPrivateKey:    cfgPrivateKey,
+	google.OSEnvClientID:      cfgClientID,
+	google.OSEnvClientEmail:   cfgClientEmail,
+	google.OSEnvRegion:        cfgRegion,
+	google.OSEnvProjectID:     cfgProjectID,
+	google.OSEnvImageEndpoint: cfgImageEndpoint,
+}
+
+func parseOSEnv() (map[string]interface{}, error) {
+	// TODO(ericsnow) Support pulling ID/PK from shell environment variables.
+	return nil, nil
+}
+
+// handleInvalidField converts a config.InvalidConfigValue into a new
+// error, translating a {provider/gce/google}.OSEnvVar* value into a
+// GCE config key in the new error.
+func handleInvalidField(err error) error {
+	vErr := err.(*config.InvalidConfigValueError)
+	if vErr.Reason == nil && vErr.Value == "" {
+		key := osEnvFields[vErr.Key]
+		return errors.Errorf("%s: must not be empty", key)
+	}
+	return err
+}
+
 type environConfig struct {
 	*config.Config
 	attrs map[string]interface{}
+}
+
+// newConfig builds a new environConfig from the provided Config and
+// returns it.
+func newConfig(cfg *config.Config) *environConfig {
+	return &environConfig{
+		Config: cfg,
+		attrs:  cfg.UnknownAttrs(),
+	}
+}
+
+// prepareConfig builds a new environConfig from the provided Config and
+// returns it. This includes some GCE-specific updates (including OS
+// environment variables) and applying default values. The resulting
+// config values are validated.
+func prepareConfig(cfg *config.Config) (*environConfig, error) {
+
+	// Make any necessary updates to the config. This needs to happen
+	// before any defaults are applied.
+	updates, err := parseOSEnv()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cfg, err = cfg.Apply(updates)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Finish the config.
+	ecfg, err := newValidConfig(cfg, configDefaults)
+	return ecfg, errors.Trace(err)
+}
+
+// newValidConfig builds a new environConfig from the provided Config
+// and returns it. This includes applying default values. The resulting
+// config values are validated.
+func newValidConfig(cfg *config.Config, defaults map[string]interface{}) (*environConfig, error) {
+	// Ensure that the provided config is valid.
+	if err := config.Validate(cfg, nil); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Apply the defaults and coerce/validate the custom config attrs.
+	validated, err := cfg.ValidateUnknownAttrs(configFields, defaults)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	validCfg, err := cfg.Apply(validated)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Build the config.
+	ecfg := newConfig(validCfg)
+
+	// Do final validation.
+	if err := ecfg.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return ecfg, nil
 }
 
 func (c *environConfig) privateKey() string {
@@ -157,63 +235,59 @@ func (c *environConfig) newConnection() *google.Connection {
 	}
 }
 
-// validateConfig checks the provided config to ensure its values are
-// acceptable. If "old" is non-nil then then the config is also checked
-// to ensure immutable values have not changed. Default values are set
-// for missing values (for keys that have defaults). A new config is
-// returned containing the resulting valid-and-updated values.
-func validateConfig(cfg, old *config.Config) (*environConfig, error) {
-	// Check for valid changes and coerce the values (base config first
-	// then custom).
-	if err := config.Validate(cfg, old); err != nil {
-		return nil, errors.Trace(err)
+// secret gathers the "secret" config values and returns them.
+func (c *environConfig) secret() map[string]string {
+	secretAttrs := make(map[string]string, len(configSecretFields))
+	for _, key := range configSecretFields {
+		secretAttrs[key] = c.attrs[key].(string)
 	}
-	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	return secretAttrs
+}
 
-	ecfg := &environConfig{cfg, validated}
-
-	// TODO(ericsnow) Support pulling ID/PK from shell environment variables.
-
-	// Check that no immutable fields have changed.
-	if old != nil {
-		attrs := old.UnknownAttrs()
-		for _, field := range configImmutableFields {
-			if attrs[field] != validated[field] {
-				return nil, errors.Errorf("%s: cannot change from %v to %v", field, attrs[field], validated[field])
-			}
+// validate checks GCE-specific config values.
+func (c environConfig) validate() error {
+	// All fields must be populated, even with just the default.
+	for field := range configFields {
+		if c.attrs[field].(string) == "" {
+			return errors.Errorf("%s: must not be empty", field)
 		}
 	}
 
 	// Check sanity of GCE fields.
-	if err := google.ValidateAuth(ecfg.auth()); err != nil {
-		return nil, errors.Trace(handleInvalidField(err))
+	if err := google.ValidateAuth(c.auth()); err != nil {
+		return errors.Trace(handleInvalidField(err))
 	}
-	if err := google.ValidateConnection(ecfg.newConnection()); err != nil {
-		return nil, errors.Trace(handleInvalidField(err))
+	if err := google.ValidateConnection(c.newConnection()); err != nil {
+		return errors.Trace(handleInvalidField(err))
 	}
 
-	// Calling Apply here is required to get the updates populated in
-	// the underlying config.  It is even more important if the config
-	// is modified in this function.
-	cfg, err = ecfg.Config.Apply(ecfg.attrs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ecfg.Config = cfg
-	return ecfg, nil
+	return nil
 }
 
-// handleInvalidField converts a config.InvalidConfigValue into a new
-// error, translating a {provider/gce/google}.OSEnvVar* value into a
-// GCE config key in the new error.
-func handleInvalidField(err error) error {
-	vErr := err.(*config.InvalidConfigValueError)
-	if vErr.Reason == nil && vErr.Value == "" {
-		key := osEnvFields[vErr.Key]
-		return errors.Errorf("%s: must not be empty", key)
+// update applies changes from the provided config to the env config.
+// Changes to any immutable attributes result in an error.
+func (c *environConfig) update(cfg *config.Config) error {
+	// Validate the updates. newValidConfig does not modify the "known"
+	// config attributes so it is safe to call Validate here first.
+	if err := config.Validate(cfg, c.Config); err != nil {
+		return errors.Trace(err)
 	}
-	return err
+
+	updates, err := newValidConfig(cfg, configDefaults)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Check that no immutable fields have changed.
+	attrs := updates.UnknownAttrs()
+	for _, field := range configImmutableFields {
+		if attrs[field] != c.attrs[field] {
+			return errors.Errorf("%s: cannot change from %v to %v", field, c.attrs[field], attrs[field])
+		}
+	}
+
+	// Apply the updates.
+	c.Config = cfg
+	c.attrs = cfg.UnknownAttrs()
+	return nil
 }

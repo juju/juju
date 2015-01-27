@@ -53,6 +53,27 @@ type environ struct {
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
+func newEnviron(ecfg *environConfig) (*environ, error) {
+	uuid, ok := ecfg.UUID()
+	if !ok {
+		return nil, errors.New("UUID not set")
+	}
+
+	// Connect and authenticate.
+	conn := newConnection(ecfg)
+	if err := conn.Connect(ecfg.auth()); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	env := &environ{
+		name: ecfg.Name(),
+		uuid: uuid,
+		ecfg: ecfg,
+		gce:  conn,
+	}
+	return env, nil
+}
+
 // Name returns the name of the environment.
 func (env *environ) Name() string {
 	return env.name
@@ -82,32 +103,18 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 
-	// Build the config.
-	var oldCfg *config.Config
-	if env.ecfg != nil {
-		oldCfg = env.ecfg.Config
+	if env.ecfg == nil {
+		return errors.New("cannot set config on uninitialized env")
 	}
-	cfg, err := providerInstance.Validate(cfg, oldCfg)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	env.ecfg = newEnvConfig(cfg)
 
-	// Connect and authenticate.
-	env.gce = newConnection(env.ecfg)
-	err = env.gce.Connect(env.ecfg.auth())
-	return errors.Trace(err)
+	if err := env.ecfg.update(cfg); err != nil {
+		return errors.Annotate(err, "invalid config change")
+	}
+	return nil
 }
 
 var newConnection = func(ecfg *environConfig) gceConnection {
 	return ecfg.newConnection()
-}
-
-func newEnvConfig(cfg *config.Config) *environConfig {
-	return &environConfig{
-		Config: cfg,
-		attrs:  cfg.UnknownAttrs(),
-	}
 }
 
 // getSnapshot returns a copy of the environment. This is useful for

@@ -29,6 +29,10 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.config = cfg
 }
 
+// TODO(ericsnow) Each test only deals with a single field, so having
+// multiple values in insert and remove (in configTestSpec) is a little
+// misleading and unecessary.
+
 // configTestSpec defines a subtest to run in a table driven test.
 type configTestSpec struct {
 	// info describes the subtest.
@@ -43,9 +47,17 @@ type configTestSpec struct {
 	err string
 }
 
-func (ts configTestSpec) checkSuccess(c *gc.C, cfg *config.Config, err error) {
+func (ts configTestSpec) checkSuccess(c *gc.C, value interface{}, err error) {
 	if !c.Check(err, jc.ErrorIsNil) {
 		return
+	}
+
+	var cfg *config.Config
+	switch typed := value.(type) {
+	case *config.Config:
+		cfg = typed
+	case environs.Environ:
+		cfg = typed.Config()
 	}
 
 	attrs := cfg.AllAttrs()
@@ -68,28 +80,11 @@ func (ts configTestSpec) attrs() testing.Attrs {
 	return gce.ConfigAttrs.Merge(ts.insert).Delete(ts.remove...)
 }
 
-func (ts configTestSpec) config(c *gc.C) *config.Config {
+func (ts configTestSpec) newConfig(c *gc.C) *config.Config {
 	attrs := ts.attrs()
 	cfg, err := testing.EnvironConfig(c).Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	return cfg
-}
-
-func (ts configTestSpec) attrFixes() testing.Attrs {
-	if ts.err != "" {
-		return nil
-	}
-
-	attrs := make(testing.Attrs)
-	for field, value := range ts.insert {
-		for _, immutable := range gce.ConfigImmutable {
-			if field == immutable {
-				attrs[field] = value
-				break
-			}
-		}
-	}
-	return attrs
 }
 
 var newConfigTests = []configTestSpec{{
@@ -137,11 +132,9 @@ var newConfigTests = []configTestSpec{{
 	remove: []string{"image-endpoint"},
 	expect: testing.Attrs{"image-endpoint": "https://www.googleapis.com"},
 }, {
-	info:   "image-endpoint can be empty",
+	info:   "image-endpoint cannot be empty",
 	insert: testing.Attrs{"image-endpoint": ""},
-	// We do not expect the default value because
-	// an explict call to config.Apply never happens.
-	expect: testing.Attrs{"image-endpoint": ""},
+	err:    "image-endpoint: must not be empty",
 }, {
 	info:   "unknown field is not touched",
 	insert: testing.Attrs{"unknown-field": 12345},
@@ -152,14 +145,20 @@ func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		testConfig := test.config(c)
+		testConfig := test.newConfig(c)
 		environ, err := environs.New(testConfig)
 
 		// Check the result
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config")
 		} else {
-			test.checkSuccess(c, environ.Config(), err)
+			if test.remove != nil {
+				// No defaults are set on the existing config.
+				c.Check(err, gc.ErrorMatches, "invalid config: .*")
+				continue
+			}
+
+			test.checkSuccess(c, environ, err)
 		}
 	}
 }
@@ -169,13 +168,14 @@ func (*ConfigSuite) TestValidateNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		testConfig := test.config(c)
+		testConfig := test.newConfig(c)
 		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config")
 		} else {
+			c.Check(validatedConfig, gc.NotNil)
 			test.checkSuccess(c, validatedConfig, err)
 		}
 	}
@@ -186,31 +186,28 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		oldcfg := test.config(c)
+		oldcfg := test.newConfig(c)
 		newcfg := s.config
 		expected := gce.ConfigAttrs
-
-		// In the case of immutable fields, the new config may need
-		// to be updated to match the old config.
-		fixes := test.attrFixes()
-		if len(fixes) > 0 {
-			updated, err := newcfg.Apply(fixes)
-			c.Check(err, jc.ErrorIsNil)
-			newcfg = updated
-			expected = expected.Merge(fixes)
-		}
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
 		validatedConfig, err := gce.Provider.Validate(newcfg, oldcfg)
 
-		// Check the result
+		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid base config")
 		} else {
+			if test.remove != nil {
+				// No defaults are set on the old config.
+				c.Check(err, gc.ErrorMatches, "invalid base config: .*")
+				continue
+			}
+
 			c.Check(err, jc.ErrorIsNil)
 			// We verify that Validate filled in the defaults
-			// appropriately without
+			// appropriately.
+			c.Check(validatedConfig, gc.NotNil)
 			test.checkAttrs(c, expected, validatedConfig)
 		}
 	}
@@ -250,7 +247,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 
-		testConfig := test.config(c)
+		testConfig := test.newConfig(c)
 		validatedConfig, err := gce.Provider.Validate(testConfig, s.config)
 
 		// Check the result.
@@ -269,7 +266,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		environ, err := environs.New(s.config)
 		c.Assert(err, jc.ErrorIsNil)
 
-		testConfig := test.config(c)
+		testConfig := test.newConfig(c)
 		err = environ.SetConfig(testConfig)
 
 		// Check the result.

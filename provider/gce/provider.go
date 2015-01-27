@@ -25,31 +25,37 @@ func init() {
 
 // Open implements environs.EnvironProvider.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	// You should probably not change this method; prefer to cause SetConfig
-	// to completely configure an environment, regardless of the initial state.
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.New("UUID not set")
+	// The config will have come from either state or from a config
+	// file. In either case, the original config came from the env from
+	// a previous call to the Prepare method. That means there is no
+	// need to update the config, e.g. with defaults and OS env values
+	// before we validate it, so we pass nil.
+	ecfg, err := newValidConfig(cfg, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid config")
 	}
-	env := &environ{
-		name: cfg.Name(),
-		uuid: uuid,
-	}
-	if err := env.SetConfig(cfg); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return env, nil
+
+	env, err := newEnviron(ecfg)
+	return env, errors.Trace(err)
 }
 
 // Prepare implements environs.EnvironProvider.
-func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
-	env, err := providerInstance.Open(cfg)
+func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+	// The config generate here will be store in a config file and in
+	// the state DB. So this is the only place we have to update the
+	// config with GCE-specific data, e.g. defaults and OS env values.
+	ecfg, err := prepareConfig(cfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid config")
+	}
+
+	env, err := newEnviron(ecfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if ctx.ShouldVerifyCredentials() {
-		if err := env.(*environ).gce.VerifyCredentials(); err != nil {
+		if err := env.gce.VerifyCredentials(); err != nil {
 			return nil, err
 		}
 	}
@@ -58,36 +64,35 @@ func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config
 
 // Validate implements environs.EnvironProvider.
 func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	// You should almost certainly not change this method; if you need to change
-	// how configs are validated, you should edit validateConfig itself, to ensure
-	// that your checks are always applied.
-	newEcfg, err := validateConfig(cfg, nil)
-	if err != nil {
-		return nil, errors.Annotate(err, "invalid config")
-	}
-	if old != nil {
-		oldEcfg, err := validateConfig(old, nil)
+	if old == nil {
+		ecfg, err := newValidConfig(cfg, configDefaults)
 		if err != nil {
-			return nil, errors.Annotate(err, "invalid base config")
+			return nil, errors.Annotate(err, "invalid config")
 		}
-		if newEcfg, err = validateConfig(cfg, oldEcfg.Config); err != nil {
-			return nil, errors.Annotate(err, "invalid config change")
-		}
+		return ecfg.Config, nil
 	}
-	return cfg.Apply(newEcfg.attrs)
+
+	// The defaults should be set already, so we pass nil.
+	ecfg, err := newValidConfig(old, nil)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid base config")
+	}
+
+	if err := ecfg.update(cfg); err != nil {
+		return nil, errors.Annotate(err, "invalid config change")
+	}
+
+	return ecfg.Config, nil
 }
 
 // SecretAttrs implements environs.EnvironProvider.
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
-	ecfg, err := validateConfig(cfg, nil)
+	// The defaults should be set already, so we pass nil.
+	ecfg, err := newValidConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretAttrs := make(map[string]string, len(configSecretFields))
-	for _, key := range configSecretFields {
-		secretAttrs[key] = ecfg.attrs[key].(string)
-	}
-	return secretAttrs, nil
+	return ecfg.secret(), nil
 }
 
 // BoilerplateConfig implements environs.EnvironProvider.

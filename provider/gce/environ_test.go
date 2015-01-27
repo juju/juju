@@ -51,25 +51,21 @@ func (s *environSuite) TestSetConfigFake(c *gc.C) {
 	err := s.Env.SetConfig(s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(s.FakeConn.Calls, gc.HasLen, 1)
-	c.Check(s.FakeConn.Calls[0].FuncName, gc.Equals, "Connect")
-	c.Check(s.FakeConn.Calls[0].Auth, gc.NotNil)
+	c.Check(s.FakeConn.Calls, gc.HasLen, 0)
 }
 
-func (s *environSuite) TestSetConfigFresh(c *gc.C) {
+func (s *environSuite) TestSetConfigMissing(c *gc.C) {
 	gce.UnsetEnvConfig(s.Env)
 
 	err := s.Env.SetConfig(s.Config)
-	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
-	c.Check(gce.ExposeEnvConnection(s.Env), gc.Equals, s.FakeConn)
+	c.Check(err, gc.ErrorMatches, "cannot set config on uninitialized env")
 }
 
 func (s *environSuite) TestConfig(c *gc.C) {
 	cfg := s.Env.Config()
 
-	c.Check(cfg, gc.Equals, s.Config)
+	c.Check(cfg, jc.DeepEquals, s.Config)
 }
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
