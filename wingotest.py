@@ -36,40 +36,40 @@ def run(*command, **kwargs):
     return output
 
 
-def setup(tarfile_name):
+def setup(tarfile_name, ci_dir, gopath, tmp_dir):
     """Setup the workspace; remove data from previous runs."""
     juju_tars = [
-        n for n in os.listdir(CI_DIR) if 'tar.gz' in n and n != tarfile_name]
+        n for n in os.listdir(ci_dir) if 'tar.gz' in n and n != tarfile_name]
     for name in juju_tars:
-        path = os.path.join(CI_DIR, name)
+        path = os.path.join(ci_dir, name)
         os.remove(path)
         print('Removed {0}'.format(path))
-    if os.path.exists(GOPATH):
-        shutil.rmtree(GOPATH)
-        print('Removed {0}'.format(GOPATH))
-    if os.path.exists(TMP_DIR):
-        shutil.rmtree(TMP_DIR)
+    if os.path.exists(gopath):
+        shutil.rmtree(gopath)
+        print('Removed {0}'.format(gopath))
+    if os.path.exists(tmp_dir):
+        shutil.rmtree(tmp_dir)
     os.mkdir(TMP_DIR)
 
 
-def untar(tarfile_path):
+def untar(tarfile_path, tmp_dir):
     """Untar the tarfile to the workspace temp dir."""
     error_message = None
     try:
         with tarfile.open(name=tarfile_path, mode='r:gz') as tar:
-            tar.extractall(path=TMP_DIR)
+            tar.extractall(path=tmp_dir)
     except tarfile.ReadError:
         error_message = "Not a tar.gz: %s" % tarfile_path
         raise Exception(error_message)
     print('Extracted the Juju source.')
 
 
-def move_source_to_gopath(tarfile_name):
+def move_source_to_gopath(tarfile_name, tmp_dir, gopath):
     """Move the extracted tarfile to the GOPATH."""
     dir_name = tarfile_name.replace('.tar.gz', '')
-    dir_path = os.path.join(TMP_DIR, dir_name)
-    shutil.move(dir_path, GOPATH)
-    print('Moved {0} to {1}'.format(dir_path, GOPATH))
+    dir_path = os.path.join(tmp_dir, dir_name)
+    shutil.move(dir_path, gopath)
+    print('Moved {0} to {1}'.format(dir_path, gopath))
 
 
 def go_test_package(package, go_cmd, gopath):
@@ -104,16 +104,15 @@ def parse_args(args=None):
 def main(argv):
     """Run go test against the content of a tarfile."""
     args = parse_args(argv)
-    # ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
     tarfile_name = args.tarfile
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
     tarfile_path = os.path.abspath(os.path.join(CI_DIR, tarfile_name))
     try:
         print('Testing juju {0} from {1}'.format(
             version, tarfile_name))
-        setup(tarfile_name)
-        untar(tarfile_path)
-        move_source_to_gopath(tarfile_name)
+        setup(tarfile_name, CI_DIR, GOPATH, TMP_DIR)
+        untar(tarfile_path, TMP_DIR)
+        move_source_to_gopath(tarfile_name, TMP_DIR, GOPATH)
         go_test_package(args.package, GO_CMD, GOPATH)
     except Exception as e:
         print(str(e))
