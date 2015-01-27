@@ -847,3 +847,14 @@ type StorageInstanceResult struct {
 type StorageInstanceResults struct {
 	Results []StorageInstanceResult `json:"results,omitempty"`
 }
+
+// UnitStorageInstances holds the storage instances for a given unit.
+type UnitStorageInstances struct {
+	Instances []storage.StorageInstance `json:"instances,omitempty"`
+	Error     *Error                    `json:"error,omitempty"`
+}
+
+// UnitStorageInstancesResults holds the result of a StorageInstances call for a unit.
+type UnitStorageInstancesResults struct {
+	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
+}

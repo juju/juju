@@ -158,6 +158,12 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 		}
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}
+	if hookInfo.Kind.IsStorage() {
+		ctx.storageId = hookInfo.StorageId
+		if err := f.updateStorage(ctx); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	// Metrics are only sent from the collect-metrics hook.
 	if hookInfo.Kind == hooks.CollectMetrics {
 		ctx.canAddMetrics = true
@@ -233,6 +239,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		canAddMetrics:      false,
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
+		storageInstances:   nil,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -318,6 +325,11 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 	return nil
+}
+
+func (f *factory) updateStorage(ctx *HookContext) (err error) {
+	ctx.storageInstances, err = f.state.StorageInstances(f.unit.Tag())
+	return err
 }
 
 func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, string, error) {
