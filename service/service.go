@@ -33,6 +33,14 @@ func newService(name string, conf common.Conf, services *Services) *Service {
 	}
 }
 
+func (s Service) Name() string {
+	return s.name
+}
+
+func (s Service) Conf() common.Conf {
+	return s.conf
+}
+
 func (s Service) Start() error {
 	return s.services.Start(s.name)
 }

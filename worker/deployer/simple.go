@@ -6,20 +6,16 @@ package deployer
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
-	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
 
@@ -119,7 +115,8 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, agentConf.Dir())
 
 	// Install the service into the init system.
-	err := ctx.services.Install(svc.Name(), svc.Conf())
+	svcConf := svc.Conf()
+	err = ctx.services.Install(svc.Name(), &svcConf)
 	return errors.Trace(err)
 }
 
@@ -133,7 +130,7 @@ func (ctx SimpleContext) linkTools(tag names.Tag) (string, error) {
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 
 	// TODO(dfc)
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
+	_, err := tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
 	// TODO(dfc)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -141,7 +138,7 @@ func (ctx SimpleContext) linkTools(tag names.Tag) (string, error) {
 	return toolsDir, nil
 }
 
-func (ctx SimpleContext) newAgentConf(tag names.Tag, initialPassword string) (*agent.AgentConfig, error) {
+func (ctx SimpleContext) newAgentConf(tag names.Tag, initialPassword string) (agent.ConfigSetterWriter, error) {
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
 
@@ -203,16 +200,16 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	agentDir := agent.Dir(dataDir, tag)
 	// Recursivley change mode to 777 on windows to avoid
 	// Operation not permitted errors when deleting the agentDir
-	err := recursiveChmod(agentDir, os.FileMode(0777))
-	if err != nil {
-		return err
+	if err := recursiveChmod(agentDir, os.FileMode(0777)); err != nil {
+		return errors.Trace(err)
 	}
 	if err := os.RemoveAll(agentDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// TODO(dfc) should take a Tag
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
-	return os.Remove(toolsDir)
+	err = os.Remove(toolsDir)
+	return errors.Trace(err)
 }
 
 func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
@@ -244,7 +241,7 @@ func (ctx *SimpleContext) service(tag names.Tag) (*service.Service, error) {
 	}
 	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
 
-	svc, err := ctx.services.NewAgentService(ctx.agentConfig, tag, envVars)
+	svc, err := ctx.services.NewAgentService(tag, ctx.agentConfig, envVars)
 	return svc, errors.Trace(err)
 }
 
