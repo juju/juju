@@ -68,6 +68,8 @@ func (s *SimpleContextSuite) TestDeployRecall(c *gc.C) {
 	s.checkUnitRemoved(c, "foo/123")
 }
 
+// TODO(ericsnow) Drop TestOldDeployedUnitsCanBeRecalled?
+
 func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 	// After r1347 deployer tag is no longer part of the upstart conf filenames,
 	// now only the units' tags are used. This change is with the assumption only
