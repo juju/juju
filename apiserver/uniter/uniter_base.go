@@ -27,7 +27,7 @@ import (
 // and it's intended for embedding.
 type uniterBaseAPI struct {
 	*common.LifeGetter
-	*common.EntityStatusSetter
+	*common.StatusSetter
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
@@ -94,7 +94,7 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
-		EntityStatusSetter: common.NewEntityStatusSetter(st, accessUnit),
+		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:       common.NewAPIAddresser(st, resources),

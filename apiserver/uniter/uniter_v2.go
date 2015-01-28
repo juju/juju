@@ -17,8 +17,6 @@ func init() {
 // UniterAPI implements the API version 2, used by the uniter worker.
 type UniterAPIV2 struct {
 	uniterBaseAPI
-	*common.AgentStatusSetter
-	*common.UnitStatusSetter
 }
 
 // NewUniterAPIV1 creates a new instance of the Uniter API, version 1.

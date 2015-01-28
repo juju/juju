@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common_test
+package uniter_test
 
 import (
 	"fmt"
@@ -16,12 +16,12 @@ import (
 	"github.com/juju/names"
 )
 
-type unitStatusSetterSuite struct{}
+type agentStatusSetterSuite struct{}
 
-var _ = gc.Suite(&unitStatusSetterSuite{})
+var _ = gc.Suite(&agentStatusSetterSuite{})
 
-type fakeUnitStatusSetter struct {
-	state.Entity
+type fakeAgentStatusSetter struct {
+	state.Unit
 	status state.Status
 	info   string
 	data   map[string]interface{}
@@ -29,22 +29,26 @@ type fakeUnitStatusSetter struct {
 	fetchError
 }
 
-func (s *fakeUnitStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
+func (s *fakeAgentStatusSetter) Agent() state.StatusSetterGetter {
+	return s
+}
+
+func (s *fakeAgentStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
 	s.status = status
 	s.info = info
 	s.data = data
 	return s.err
 }
 
-func (*unitStatusSetterSuite) TestSetUnitStatus(c *gc.C) {
+func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeUnitStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
-			u("x/1"): &fakeUnitStatusSetter{status: state.StatusInstalling, info: "blah"},
-			u("x/2"): &fakeUnitStatusSetter{status: state.StatusActive, info: "foo"},
-			u("x/3"): &fakeUnitStatusSetter{status: state.StatusError, info: "some info"},
-			u("x/4"): &fakeUnitStatusSetter{fetchError: "x3 error"},
-			u("x/5"): &fakeUnitStatusSetter{status: state.StatusStopping, info: "blah"},
+			u("x/0"): &fakeAgentStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
+			u("x/1"): &fakeAgentStatusSetter{status: state.StatusInstalling, info: "blah"},
+			u("x/2"): &fakeAgentStatusSetter{status: state.StatusActive, info: "foo"},
+			u("x/3"): &fakeAgentStatusSetter{status: state.StatusError, info: "some info"},
+			u("x/4"): &fakeAgentStatusSetter{fetchError: "x3 error"},
+			u("x/5"): &fakeAgentStatusSetter{status: state.StatusStopping, info: "blah"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -58,7 +62,7 @@ func (*unitStatusSetterSuite) TestSetUnitStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := common.NewUnitStatusSetter(st, getCanModify)
+	s := common.NewAgentStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},
@@ -85,8 +89,8 @@ func (*unitStatusSetterSuite) TestSetUnitStatus(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	get := func(tag names.Tag) *fakeUnitStatusSetter {
-		return st.entities[tag].(*fakeUnitStatusSetter)
+	get := func(tag names.Tag) *fakeAgentStatusSetter {
+		return st.entities[tag].(*fakeAgentStatusSetter)
 	}
 	c.Assert(get(u("x/1")).status, gc.Equals, state.StatusActive)
 	c.Assert(get(u("x/1")).info, gc.Equals, "bar")

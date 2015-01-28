@@ -21,7 +21,7 @@ func init() {
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
-	*common.EntityStatusSetter
+	*common.StatusSetter
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
@@ -45,7 +45,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	}
 	return &MachinerAPI{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
-		EntityStatusSetter: common.NewEntityStatusSetter(st, getCanModify),
+		StatusSetter:       common.NewStatusSetter(st, getCanModify),
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),

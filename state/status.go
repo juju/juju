@@ -13,7 +13,6 @@ import (
 var (
 	_ StatusSetter = (*Machine)(nil)
 	_ StatusSetter = (*Unit)(nil)
-	_ AgentUnit    = (*Unit)(nil)
 	_ StatusGetter = (*Machine)(nil)
 	_ StatusGetter = (*Unit)(nil)
 )

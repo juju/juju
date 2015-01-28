@@ -643,7 +643,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		ops = append(ops, createConstraintsOp(s.st, globalKey, cons))
+		ops = append(ops, createConstraintsOp(s.st, agentGlobalKey, cons))
 	}
 	return name, ops, nil
 }
@@ -726,8 +726,9 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		Assert: append(observedFieldsMatch, asserts...),
 		Remove: true,
 	},
-		removeConstraintsOp(s.st, u.globalKey()),
+		removeConstraintsOp(s.st, u.globalAgentKey()),
 		removeStatusOp(s.st, u.globalKey()),
+		removeStatusOp(s.st, u.globalAgentKey()),
 		removeMeterStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),

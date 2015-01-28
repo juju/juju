@@ -48,7 +48,7 @@ type API struct {
 	resources *common.Resources
 	client    *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
-	statusSetter *common.EntityStatusSetter
+	statusSetter *common.StatusSetter
 	toolsFinder  *common.ToolsFinder
 }
 
@@ -73,7 +73,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 			state:        st,
 			auth:         authorizer,
 			resources:    resources,
-			statusSetter: common.NewEntityStatusSetter(st, common.AuthAlways()),
+			statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
 			toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
 		},
 		check: common.NewBlockChecker(st)}, nil

@@ -756,7 +756,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Return an agent by its unit name
-func (u *Unit) Agent() StatusSetterGetter {
+func (u *Unit) Agent() Entity {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
 }
 
@@ -995,8 +995,8 @@ func (u *Unit) UnitTag() names.UnitTag {
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
-	u.st.pwatcher.Watch(u.globalKey(), ch)
-	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
+	u.st.pwatcher.Watch(u.globalAgentKey(), ch)
+	defer u.st.pwatcher.Unwatch(u.globalAgentKey(), ch)
 	for i := 0; i < 2; i++ {
 		select {
 		case change := <-ch:
@@ -1267,7 +1267,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 
 // Constraints returns the unit's deployment constraints.
 func (u *Unit) Constraints() (*constraints.Value, error) {
-	cons, err := readConstraints(u.st, u.globalKey())
+	cons, err := readConstraints(u.st, u.globalAgentKey())
 	if errors.IsNotFound(err) {
 		// Lack of constraints indicates lack of unit.
 		return nil, errors.NotFoundf("unit")

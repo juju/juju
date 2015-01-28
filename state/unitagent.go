@@ -29,7 +29,7 @@ func newUnitAgent(st *State, tag names.Tag, name string) *UnitAgent {
 
 // String returns the unit agent as string.
 func (u *UnitAgent) String() string {
-	return u.name
+	return "pirulo" + u.name
 }
 
 // Status returns the status of the unit.
@@ -69,4 +69,9 @@ func unitAgentGlobalKey(name string) string {
 // globalKey returns the global database key for the unit.
 func (u *UnitAgent) globalKey() string {
 	return unitAgentGlobalKey(u.name)
+}
+
+// Tag returns a name identifying this agent's unit.
+func (u *UnitAgent) Tag() names.Tag {
+	return u.tag
 }

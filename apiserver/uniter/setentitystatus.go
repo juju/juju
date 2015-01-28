@@ -1,0 +1,22 @@
+// Copyright 2015 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package uniter
+
+import (
+	"github.com/juju/juju/apiserver/common"
+
+	"github.com/juju/juju/state"
+)
+
+type EntityStatusSetter struct {
+	*common.StatusSetter
+}
+
+// NewEntityStatusSetter returns a new StatusSetter. The GetAuthFunc will be
+// used on each invocation of SetStatus to determine current
+// permissions.
+func NewEntityStatusSetter(st state.EntityFinder, getCanModify common.GetAuthFunc) *EntityStatusSetter {
+	statusSetter := common.NewStatusSetter(st, getCanModify)
+	return &EntityStatusSetter{statusSetter}
+}
