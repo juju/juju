@@ -7,7 +7,7 @@ HOST="$1"
 PACKAGE=${2:-github.com/juju/juju}
 
 CYG_CI_DIR="/cygdrive/c/Users/Administrator/ci"
-PYTHON_CMD="/cygdrive/c/python27/python"
+CYG_PYTHON_CMD="/cygdrive/c/python27/python"
 CI_DIR='\\Users\\Administrator\\ci'
 GO_CMD='\\go\\bin\\go.exe'
 SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
@@ -23,7 +23,7 @@ if [ $? -ne 0 ]; then
 fi
 
 ssh $SSH_OPTIONS Administrator@$HOST \
-    $PYTHON_CMD $CI_DIR'\\gotesttarfile.py' -v -g $GO_CMD -p $PACKAGE \
+    $CYG_PYTHON_CMD $CI_DIR'\\gotesttarfile.py' -v -g $GO_CMD -p $PACKAGE \
     --remove $CI_DIR'\\'$TARFILE
 EXIT_STATUS=$?
 

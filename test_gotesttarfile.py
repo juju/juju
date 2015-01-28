@@ -54,19 +54,19 @@ class gotesttarfileTestCase(TestCase):
     def test_go_test_package(self):
         with temp_dir() as gopath:
             package_path = os.path.join(
-                gopath, 'src', 'github', 'juju', 'juju')
+                gopath, 'src', 'github.com', 'juju', 'juju')
             os.makedirs(package_path)
             with patch('gotesttarfile.run', return_value=[0, 'success'],
                        autospec=True) as run_mock:
                 devnull = open(os.devnull, 'w')
                 with patch('sys.stdout', devnull):
                     returncode = go_test_package(
-                        'github/juju/juju', 'go', gopath)
-                    self.assertEqual(0, returncode)
-                    args, kwargs = run_mock.call_args
-                    self.assertEqual(('go', 'test', './...'), args)
-                    self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
-                    self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
+                        'github.com/juju/juju', 'go', gopath)
+        self.assertEqual(0, returncode)
+        args, kwargs = run_mock.call_args
+        self.assertEqual(('go', 'test', './...'), args)
+        self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
+        self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
 
     def test_parse_args(self):
         args = parse_args(
@@ -90,5 +90,5 @@ class gotesttarfileTestCase(TestCase):
         self.assertFalse(kwargs['delete'])
         self.assertFalse(kwargs['verbose'])
         args, kwargs = gt_mock.call_args
-        self.assertEqual(('github/juju/juju', 'go', gopath), args)
+        self.assertEqual(('github.com/juju/juju', 'go', gopath), args)
         self.assertFalse(kwargs['verbose'])

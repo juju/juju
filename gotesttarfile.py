@@ -39,17 +39,12 @@ def run(*command, **kwargs):
 
 def untar_gopath(tarfile_path, gopath, delete=False, verbose=False):
     """Untar the tarfile to the gopath."""
-    error_message = None
     with temp_dir() as tmp_dir:
-        try:
-            with tarfile.open(name=tarfile_path, mode='r:gz') as tar:
-                tar.extractall(path=tmp_dir)
-        except tarfile.ReadError:
-            error_message = "Not a tar.gz: %s" % tarfile_path
-            raise Exception(error_message)
+        with tarfile.open(name=tarfile_path, mode='r:gz') as tar:
+            tar.extractall(path=tmp_dir)
         if verbose:
             print('Extracted the Juju source.')
-        dir_name = os.path.basename(tarfile_path.replace('.tar.gz', ''))
+        dir_name = os.path.basename(tarfile_path).replace('.tar.gz', '')
         dir_path = os.path.join(tmp_dir, dir_name)
         shutil.move(dir_path, gopath)
         if verbose:
@@ -62,6 +57,9 @@ def untar_gopath(tarfile_path, gopath, delete=False, verbose=False):
 
 def go_test_package(package, go_cmd, gopath, verbose=False):
     """Run the package unit tests."""
+    # Set GOPATH and GOARCH to ensure the go command tests extracted
+    # tarfile using the arch the win-agent is compiled with. The
+    # default go env might be 386 used to create a win client.
     env = dict(os.environ)
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
@@ -88,7 +86,7 @@ def parse_args(args=None):
     parser.add_argument(
         '-g', '--go', default='go', help='The go comand.')
     parser.add_argument(
-        '-p', '--package', default='github/juju/juju',
+        '-p', '--package', default='github.com/juju/juju',
         help='The package to test.')
     parser.add_argument(
         '-r', '--remove-tarfile', action='store_true', default=False,
@@ -106,6 +104,7 @@ def main(argv=None):
     tarfile_name = os.path.basename(tarfile_path)
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
     try:
+        raise ValueError('curtis wants fail.')
         if args.verbose:
             print('Testing juju %s from %s' % (version, tarfile_name))
         with temp_dir() as workspace:
