@@ -255,7 +255,17 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p environProvider) RestrictedConfigAttributes() []string {
+	return []string{"region", "auth-url", "auth-mode"}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, jujuerrors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()

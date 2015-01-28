@@ -537,7 +537,17 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (p *environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p *environProvider) RestrictedConfigAttributes() []string {
+	return nil
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return p.prepare(cfg)
+}
+
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err

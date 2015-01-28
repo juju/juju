@@ -4,8 +4,6 @@
 package environmentmanager_test
 
 import (
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -13,8 +11,12 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/environmentmanager"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type environmentmanagerSuite struct {
@@ -32,6 +34,27 @@ func (s *environmentmanagerSuite) OpenAPI(c *gc.C) *environmentmanager.Client {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { conn.Close() })
 	return environmentmanager.NewClient(conn)
+}
+
+func (s *environmentmanagerSuite) TestConfigSkeleton(c *gc.C) {
+	s.SetFeatureFlags(feature.MESS)
+	envManager := s.OpenAPI(c)
+	result, err := envManager.ConfigSkeleton("", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The apiPort changes every test run as the dummy provider
+	// looks for a random open port.
+	apiPort := s.Environ.Config().APIPort()
+
+	// Numbers coming over the api are floats, not ints.
+	c.Assert(result, jc.DeepEquals, params.EnvironConfig{
+		"type":        "dummy",
+		"ca-cert":     coretesting.CACert,
+		"state-port":  float64(1234),
+		"api-port":    float64(apiPort),
+		"syslog-port": float64(2345),
+	})
+
 }
 
 func (s *environmentmanagerSuite) TestCreateEnvironmentBadUser(c *gc.C) {

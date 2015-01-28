@@ -600,7 +600,7 @@ func (c *Client) Close() error {
 
 // EnvironmentGet returns all environment settings.
 func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
-	result := params.EnvironmentGetResults{}
+	result := params.EnvironmentConfigResults{}
 	err := c.facade.FacadeCall("EnvironmentGet", nil, &result)
 	return result.Config, err
 }
