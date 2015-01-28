@@ -104,7 +104,6 @@ def main(argv=None):
     tarfile_name = os.path.basename(tarfile_path)
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
     try:
-        raise ValueError('curtis wants fail.')
         if args.verbose:
             print('Testing juju %s from %s' % (version, tarfile_name))
         with temp_dir() as workspace:
