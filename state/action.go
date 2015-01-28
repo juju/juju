@@ -37,8 +37,7 @@ const (
 	// ActionPending is the default status when an Action is first queued.
 	ActionPending ActionStatus = "pending"
 
-	// ActionRunning indicates that the Action has been selected to run,
-	// but has not yet completed.
+	// ActionRunning indicates that the Action is currently running.
 	ActionRunning ActionStatus = "running"
 )
 const actionMarker string = "_a_"
