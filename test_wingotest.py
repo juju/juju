@@ -1,17 +1,38 @@
 from mock import patch
 import os
 import shutil
+import subprocess
 import tarfile
 from unittest import TestCase
 
 from wingotest import (
     go_test_package,
+    run,
     untar_gopath,
 )
 from utility import temp_dir
 
 
 class WinGoTestTestCase(TestCase):
+
+    def test_run_success(self):
+        env = {'a': 'b'}
+        with patch('subprocess.check_output', return_value='pass') as mock:
+            return_code, output = run('go', 'test', './...', env=env)
+        self.assertEqual(0, return_code)
+        self.assertEqual('pass', output)
+        args, kwargs = mock.call_args
+        self.assertEqual((('go', 'test', './...'), ), args)
+        self.assertIs(env, kwargs['env'])
+        self.assertIs(subprocess.STDOUT, kwargs['stderr'])
+
+    def test_run_fail(self):
+        env = {'a': 'b'}
+        e = subprocess.CalledProcessError(1, ['foo'], output='fail')
+        with patch('subprocess.check_output', side_effect=e):
+            return_code, output = run('go', 'test', './...', env=env)
+        self.assertEqual(1, return_code)
+        self.assertEqual('fail', output)
 
     def test_untar_gopath(self):
         with temp_dir() as base_dir:
