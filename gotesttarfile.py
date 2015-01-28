@@ -116,7 +116,7 @@ def main(argv=None):
                 args.package, args.go, gopath, verbose=args.verbose)
     except Exception as e:
         print(str(e))
-        print(traceback.print_tb(sys.exc_info()[2]))
+        print(traceback.print_exc())
         return 3
     return returncode
 
