@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 SCRIPTS=$(readlink -f $(dirname $0))
-JUJU_HOME={JUJU_HOME:-$(dirname $SCRIPTS)/cloud-city}
+JUJU_HOME=${JUJU_HOME:-$(dirname $SCRIPTS)/cloud-city}
 
 HOST="$1"
 PACKAGE=${2:-github.com/juju/juju}
