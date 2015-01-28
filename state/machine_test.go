@@ -223,6 +223,21 @@ func (s *MachineSuite) TestMachineIsManual(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(machine.IsContainer(), gc.Equals, false)
+	c.Assert(container.IsContainer(), gc.Equals, true)
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m := s.machine0
