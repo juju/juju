@@ -16,12 +16,20 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
 
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
+}
+
+type services interface {
+	ListEnabled() ([]string, error)
+	IsEnabled(name string) (bool, error)
+	Install(name string, conf common.Conf) error
+	NewAgentService(tag names.Tag, paths service.AgentPaths, env map[string]string) (*service.Service, error)
 }
 
 // SimpleContext is a Context that manages unit deployments on the local system.
@@ -36,7 +44,7 @@ type SimpleContext struct {
 	agentConfig agent.Config
 
 	// services is the wrapper around the host's init system.
-	services *service.Services
+	services services
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -63,7 +71,7 @@ func recursiveChmod(path string, mode os.FileMode) error {
 // the specified deployer, that deploys unit agents.
 // Paths to which agents and tools are installed are relative to dataDir.
 func NewSimpleContext(agentConfig agent.Config, api APICalls) (*SimpleContext, error) {
-	services, err := service.NewServices(agentConfig.DataDir())
+	services, err := service.BuildServices(agentConfig.DataDir())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -116,7 +124,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install the service into the init system.
 	svcConf := svc.Conf()
-	err = ctx.services.Install(svc.Name(), &svcConf)
+	err = ctx.services.Install(svc.Name(), svcConf)
 	return errors.Trace(err)
 }
 
@@ -247,7 +255,7 @@ func (ctx *SimpleContext) service(tag names.Tag) (*service.Service, error) {
 
 func removeOnErr(err *error, path string) {
 	if *err != nil {
-		if err := os.Remove(path); err != nil {
+		if err := os.RemoveAll(path); err != nil {
 			logger.Warningf("installer: cannot remove %q: %v", path, err)
 		}
 	}

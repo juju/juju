@@ -10,9 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"regexp"
-	"text/template"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -20,12 +17,9 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-const (
-	maxAgentFiles = 20000
-	confDir       = "/etc/init"
-)
-
 // TODO(ericsnow) Eliminate MachineAgentUpstartService (use NewAgentService).
+
+const maxAgentFiles = 20000
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
 // based on the tag and machineId passed in.
@@ -50,109 +44,6 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId 
 	return svc
 }
 
-type initSystem struct {
-	initDir string
-}
-
-func NewInitSystem() common.InitSystem {
-	return &initSystem{
-		initDir: confDir,
-	}
-}
-
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-
-func (is *initSystem) List(include ...string) ([]string, error) {
-	var services []string
-	fis, err := ioutil.ReadDir(is.initDir)
-	if err != nil {
-		return nil, err
-	}
-	for _, fi := range fis {
-		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
-			services = append(services, groups[1])
-		}
-	}
-	return services, nil
-}
-
-func (is *initSystem) Start(name string) error {
-	// TODO(ericsnow) Finish!
-	return nil
-}
-
-func (is *initSystem) Stop(name string) error {
-	// TODO(ericsnow) Finish!
-	return nil
-}
-
-func (is *initSystem) Enable(name, filename string) error {
-	// TODO(ericsnow) Finish!
-	return nil
-}
-
-func (is *initSystem) Disable(name string) error {
-	// TODO(ericsnow) Finish!
-	return nil
-}
-
-func (is *initSystem) IsEnabled(name string) (bool, error) {
-	// TODO(ericsnow) Finish!
-	return false, nil
-}
-
-func (is *initSystem) Info(name string) (*common.ServiceInfo, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
-}
-
-func (is *initSystem) Conf(name string) (*common.Conf, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
-}
-
-func (is *initSystem) Serialize(name string, conf *common.Conf) ([]byte, error) {
-	if err := validate(conf); err != nil {
-		return nil, err
-	}
-
-	// TODO(ericsnow) We can do better than this!
-	var buf bytes.Buffer
-	if err := confT.Execute(&buf, conf); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (is *initSystem) Deserialize(data []byte) (*common.Conf, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
-}
-
-// validate returns an error if the service is not adequately defined.
-func validate(conf *common.Conf) error {
-	if conf.InitDir == "" {
-		return errors.New("missing InitDir")
-	}
-	if conf.Desc == "" {
-		return errors.New("missing Desc")
-	}
-	if conf.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
-	return nil
-}
-
-var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
-
-// InitDir holds the default init directory name.
-var InitDir = "/etc/init"
-
-var InstallStartRetryAttempts = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 250 * time.Millisecond,
-}
-
 // Service provides visibility into and control over an upstart service.
 type Service struct {
 	Name string
@@ -161,7 +52,7 @@ type Service struct {
 
 func NewService(name string, conf common.Conf) *Service {
 	if conf.InitDir == "" {
-		conf.InitDir = InitDir
+		conf.InitDir = confDir
 	}
 	return &Service{Name: name, Conf: conf}
 }
@@ -180,7 +71,11 @@ func (s *Service) validate() error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
-	return validate(&s.Conf)
+	if s.Conf.InitDir == "" {
+		return errors.New("missing InitDir")
+	}
+	err := validate(s.Conf)
+	return errors.Trace(err)
 }
 
 // render returns the upstart configuration for the service as a slice of bytes.
@@ -188,11 +83,9 @@ func (s *Service) render() ([]byte, error) {
 	if err := s.validate(); err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
-	if err := confT.Execute(&buf, s.Conf); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+
+	data, err := Serialize(s.Name, s.Conf)
+	return data, errors.Trace(err)
 }
 
 // Installed returns whether the service configuration exists in the
@@ -254,18 +147,6 @@ func (s *Service) Start() error {
 		}
 	}
 	return err
-}
-
-func runCommand(args ...string) error {
-	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	out = bytes.TrimSpace(out)
-	if len(out) > 0 {
-		return fmt.Errorf("exec %q: %v (%s)", args, err, out)
-	}
-	return fmt.Errorf("exec %q: %v", args, err)
 }
 
 // Stop stops the service.
@@ -336,28 +217,3 @@ func (s *Service) InstallCommands() ([]string, error) {
 		"start " + s.Name,
 	}, nil
 }
-
-// BUG: %q quoting does not necessarily match libnih quoting rules
-// (as used by upstart); this may become an issue in the future.
-var confT = template.Must(template.New("").Parse(`
-description "{{.Desc}}"
-author "Juju Team <juju@lists.ubuntu.com>"
-start on runlevel [2345]
-stop on runlevel [!2345]
-respawn
-normal exit 0
-{{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
-{{end}}
-{{range $k, $v := .Limit}}limit {{$k}} {{$v}}
-{{end}}
-script
-{{if .ExtraScript}}{{.ExtraScript}}{{end}}
-{{if .Out}}
-  # Ensure log files are properly protected
-  touch {{.Out}}
-  chown syslog:syslog {{.Out}}
-  chmod 0600 {{.Out}}
-{{end}}
-  exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
-end script
-`[1:]))

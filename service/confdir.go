@@ -76,7 +76,7 @@ func (cd confDir) create() error {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) Are these the right permissions?
-	if err := cd.fops.mkdirAll(cd.dirname, 0777); err != nil {
+	if err := cd.fops.mkdirAll(cd.dirname, 0755); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -109,11 +109,7 @@ func (cd confDir) writeConf(data []byte) error {
 	return nil
 }
 
-func (cd confDir) normalizeConf(conf *common.Conf) (*common.Conf, error) {
-	// Make a copy so we don't mutate.
-	copied := *conf
-	conf = &copied
-
+func (cd confDir) normalizeConf(conf common.Conf) (*common.Conf, error) {
 	// Write out the script if necessary.
 	script, err := conf.Script()
 	if err != nil {
@@ -128,7 +124,7 @@ func (cd confDir) normalizeConf(conf *common.Conf) (*common.Conf, error) {
 		}
 		conf.Cmd = filename
 	}
-	return conf, nil
+	return &conf, nil
 }
 
 func (cd confDir) isSimple(script string) bool {

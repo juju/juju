@@ -34,36 +34,42 @@ type Services struct {
 	init    common.InitSystem
 }
 
-// NewServices populates a new Services and returns it. This includes
+// BuildServices populates a new Services and returns it. This includes
 // determining which init system is in use on the current host. The
 // provided data dir is used as the parent of the directory in which all
 // juju-managed service configurations are stored. The names of the
 // services located there are extracted and cached. A service conf must
 // be there already or be added via the Add method before Services will
 // recognize it as juju-managed.
-func NewServices(dataDir string, args ...string) (*Services, error) {
+func BuildServices(dataDir string, args ...string) (*Services, error) {
 	if len(args) > 1 {
 		return nil, errors.Errorf("at most 1 arg expected, got %d", len(args))
 	}
 
 	// Get the init system.
-	init, initName, err := extractInitSystem(args)
+	init, err := extractInitSystem(args)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Build the Services.
-	services := Services{
-		configs: newConfigs(dataDir, initName, jujuPrefixes...),
-		init:    init,
-	}
+	services := NewServices(dataDir, init)
 
 	// Ensure that the list of known services is cached.
 	err = services.configs.refresh()
-	return &services, errors.Trace(err)
+	return services, errors.Trace(err)
 }
 
-func extractInitSystem(args []string) (common.InitSystem, string, error) {
+// NewServices build a Services from the provided data dir and init
+// system and returns it.
+func NewServices(dataDir string, init common.InitSystem) *Services {
+	return &Services{
+		configs: newConfigs(dataDir, init.Name(), jujuPrefixes...),
+		init:    init,
+	}
+}
+
+func extractInitSystem(args []string) (common.InitSystem, error) {
 	// Get the init system name from the args.
 	var name string
 	if len(args) != 0 {
@@ -74,14 +80,19 @@ func extractInitSystem(args []string) (common.InitSystem, string, error) {
 	if name == "" {
 		discovered, err := discoverInitSystem()
 		if err != nil {
-			return nil, "", errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		name = discovered
 	}
 
 	// Return the corresponding init system.
 	newInitSystem := initSystems[name]
-	return newInitSystem(), name, nil
+	return newInitSystem(name), nil
+}
+
+// InitSystem identifies which init system is in use.
+func (s Services) InitSystem() string {
+	return s.init.Name()
 }
 
 // List collects the names of all juju-managed services and returns it.
@@ -107,6 +118,7 @@ func (s Services) ListEnabled() ([]string, error) {
 		var name string
 		for _, enabled := range enabledList {
 			if enabled == managed {
+				name = managed
 				break
 			}
 		}
@@ -166,7 +178,11 @@ func (s Services) stop(name string) error {
 
 // IsRunning determines whether or not the named service is running.
 func (s Services) IsRunning(name string) (bool, error) {
-	if err := s.ensureManaged(name); err != nil {
+	err := s.ensureManaged(name)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
 		return false, errors.Trace(err)
 	}
 
@@ -230,7 +246,11 @@ func (s Services) disable(name string) error {
 // (determined by comparing confs) with the same name is enabled then
 // errors.AlreadyExists is returned.
 func (s Services) IsEnabled(name string) (bool, error) {
-	if err := s.ensureManaged(name); err != nil {
+	err := s.ensureManaged(name)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
 		return false, errors.Trace(err)
 	}
 
@@ -241,7 +261,7 @@ func (s Services) IsEnabled(name string) (bool, error) {
 // Add adds the named service to the directory of juju-related
 // service configurations. The provided Conf is used to generate the
 // conf file and possibly a script file.
-func (s Services) Add(name string, conf *common.Conf) error {
+func (s Services) Add(name string, conf common.Conf) error {
 	err := s.configs.add(name, conf, s.init)
 	return errors.Trace(err)
 }
@@ -288,7 +308,7 @@ func (s Services) Remove(name string) error {
 }
 
 // Install prepares the service, enables it, and starts it.
-func (s Services) Install(name string, conf *common.Conf) error {
+func (s Services) Install(name string, conf common.Conf) error {
 	if err := s.Add(name, conf); err != nil {
 		return errors.Trace(err)
 	}
@@ -298,12 +318,13 @@ func (s Services) Install(name string, conf *common.Conf) error {
 	if err := s.Start(name); err != nil {
 		return errors.Trace(err)
 	}
+	//return errors.Errorf("%+v", s.configs.names)
 	return nil
 }
 
 // Check verifies the managed conf for the named service to ensure
 // it matches the provided Conf.
-func (s Services) Check(name string, conf *common.Conf) (bool, error) {
+func (s Services) Check(name string, conf common.Conf) (bool, error) {
 	// TODO(ericsnow) Finish this.
 	return false, nil
 }
@@ -315,17 +336,12 @@ func (s Services) IsManaged(name string) bool {
 }
 
 func (s *Services) NewService(name string, conf common.Conf) *Service {
-	return newService(name, conf, s)
+	return WrapService(name, conf, s)
 }
 
-func (s Services) NewAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*Service, error) {
-	spec, err := newAgentService(tag, paths, env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	svc := s.NewService(spec.Name(), spec.Conf())
-	return svc, nil
+func (s Services) NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*Service, error) {
+	svc, err := WrapAgentService(tag, paths, env, s)
+	return svc, errors.Trace(err)
 }
 
 func (s Services) ensureManaged(name string) error {
@@ -335,6 +351,9 @@ func (s Services) ensureManaged(name string) error {
 	}
 
 	enabled, err := s.init.IsEnabled(name)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

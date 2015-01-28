@@ -32,10 +32,18 @@ cmd.exe /C call sc config $serviceName start=delayed-auto
 if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
 `
 
-type initSystem struct{}
+type initSystem struct {
+	name string
+}
 
-func NewInitSystem() common.InitSystem {
-	return &initSystem{}
+func NewInitSystem(name string) common.InitSystem {
+	return &initSystem{
+		name: name,
+	}
+}
+
+func (is *initSystem) Name() string {
+	return is.name
 }
 
 func (is *initSystem) List(include ...string) ([]string, error) {
@@ -107,7 +115,7 @@ func (is *initSystem) Conf(name string) (*common.Conf, error) {
 	return nil, nil
 }
 
-func (is *initSystem) Serialize(name string, conf *common.Conf) ([]byte, error) {
+func (is *initSystem) Serialize(name string, conf common.Conf) ([]byte, error) {
 	// TODO(ericsnow) Finish!
 	return nil, nil
 }

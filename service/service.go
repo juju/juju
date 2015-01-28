@@ -5,32 +5,58 @@ package service
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/service/common"
 )
+
+type services interface {
+	InitSystem() string
+	Start(name string) error
+	Stop(name string) error
+	IsRunning(name string) (bool, error)
+	Enable(name string) error
+	Disable(name string) error
+	IsEnabled(name string) (bool, error)
+	Add(name string, conf common.Conf) error
+	Remove(name string) error
+	Check(name string, conf common.Conf) (bool, error)
+	IsManaged(name string) bool
+}
 
 // Service is a convenience wrapper around Services for a single service.
 type Service struct {
 	name     string
 	conf     common.Conf
-	services *Services
+	services services
 }
 
 func NewService(name, dataDir string, conf common.Conf, args ...string) (*Service, error) {
-	services, err := NewServices(dataDir, args...)
+	services, err := BuildServices(dataDir, args...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	svc := newService(name, conf, services)
+	svc := WrapService(name, conf, services)
 	return svc, nil
 }
 
-func newService(name string, conf common.Conf, services *Services) *Service {
+func WrapService(name string, conf common.Conf, services services) *Service {
 	return &Service{
 		name:     name,
 		conf:     conf,
 		services: services,
 	}
+}
+
+func WrapAgentService(tag names.Tag, paths AgentPaths, env map[string]string, services services) (*Service, error) {
+	spec, err := newAgentService(tag, paths, env)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spec.initSystem = services.InitSystem()
+
+	svc := WrapService(spec.Name(), spec.Conf(), services)
+	return svc, nil
 }
 
 func (s Service) Name() string {
@@ -66,7 +92,7 @@ func (s Service) IsEnabled() (bool, error) {
 }
 
 func (s Service) Add() error {
-	return s.services.Add(s.name, &s.conf)
+	return s.services.Add(s.name, s.conf)
 }
 
 func (s Service) Remove() error {
@@ -74,7 +100,7 @@ func (s Service) Remove() error {
 }
 
 func (s Service) Check() (bool, error) {
-	return s.services.Check(s.name, &s.conf)
+	return s.services.Check(s.name, s.conf)
 }
 
 func (s Service) IsManaged() bool {

@@ -27,7 +27,7 @@ var (
 		"/sbin/init": InitSystemUpstart,
 		//"/sbin/systemd": InitSystemSystemd,
 	}
-	initSystems = map[string](func() common.InitSystem){
+	initSystems = map[string](func(string) common.InitSystem){
 		InitSystemWindows: windows.NewInitSystem,
 		InitSystemUpstart: upstart.NewInitSystem,
 		//InitSystemSystemd: systemd.NewInitSystem,

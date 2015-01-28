@@ -44,7 +44,11 @@ var (
 	}
 )
 
-func ListAgents(services *Services) ([]names.Tag, error) {
+type agentServices interface {
+	ListEnabled() ([]string, error)
+}
+
+func ListAgents(services agentServices) ([]names.Tag, error) {
 	enabled, err := services.ListEnabled()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -66,9 +70,9 @@ func ListAgents(services *Services) ([]names.Tag, error) {
 	return tags, nil
 }
 
-// TODO(ericsnow) Move agentPaths to juju/paths, agent, or etc.?
+// TODO(ericsnow) Move AgentPaths to juju/paths, agent, or etc.?
 
-type agentPaths interface {
+type AgentPaths interface {
 	DataDir() string
 	LogDir() string
 }
@@ -79,7 +83,7 @@ type agentPaths interface {
 // to AgentService?
 
 type AgentService struct {
-	agentPaths
+	AgentPaths
 
 	tag names.Tag
 	env map[string]string
@@ -88,7 +92,7 @@ type AgentService struct {
 	option     string
 }
 
-func NewAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*AgentService, error) {
+func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentService, error) {
 	svc, err := newAgentService(tag, paths, env)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -104,9 +108,9 @@ func NewAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*A
 	return svc, nil
 }
 
-func newAgentService(tag names.Tag, paths agentPaths, env map[string]string) (*AgentService, error) {
+func newAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentService, error) {
 	svc := &AgentService{
-		agentPaths: paths,
+		AgentPaths: paths,
 		tag:        tag,
 		env:        env,
 	}
@@ -150,7 +154,7 @@ func (as AgentService) command() string {
 	// E.g. "jujud" machine --data-dir "..." --machine-id "0"
 	command := fmt.Sprintf(`"%s" %s --data-dir "%s" --%s "%s"`,
 		as.executable(),
-		as.tag.String(),
+		as.tag.Kind(),
 		fromSlash(as.DataDir(), as.initSystem),
 		as.option,
 		as.tag.Id(),
@@ -169,7 +173,7 @@ func (as AgentService) Conf() common.Conf {
 	cmd := as.command()
 
 	conf := common.Conf{
-		Desc: fmt.Sprintf("juju agent for %s", as.tag.String()),
+		Desc: fmt.Sprintf("juju agent for %s %s", as.tag.Kind(), as.tag.Id()),
 		Cmd:  cmd,
 	}
 

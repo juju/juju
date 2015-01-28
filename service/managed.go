@@ -39,7 +39,7 @@ func (sc serviceConfigs) newDir(name string) *confDir {
 	return confDir
 }
 
-func (sc serviceConfigs) refresh() error {
+func (sc *serviceConfigs) refresh() error {
 	names, err := sc.list()
 	if err != nil {
 		return errors.Trace(err)
@@ -76,10 +76,10 @@ func (sc serviceConfigs) lookup(name string) *confDir {
 }
 
 type serializer interface {
-	Serialize(name string, conf *common.Conf) ([]byte, error)
+	Serialize(name string, conf common.Conf) ([]byte, error)
 }
 
-func (sc serviceConfigs) add(name string, conf *common.Conf, serializer serializer) error {
+func (sc *serviceConfigs) add(name string, conf common.Conf, serializer serializer) error {
 	if contains(sc.names, name) {
 		return errors.AlreadyExistsf("service %q", name)
 	}
@@ -89,10 +89,11 @@ func (sc serviceConfigs) add(name string, conf *common.Conf, serializer serializ
 		return errors.Trace(err)
 	}
 
-	conf, err := confDir.normalizeConf(conf)
+	normalized, err := confDir.normalizeConf(conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	conf = *normalized
 
 	data, err := serializer.Serialize(name, conf)
 	if err != nil {
@@ -108,7 +109,7 @@ func (sc serviceConfigs) add(name string, conf *common.Conf, serializer serializ
 	return nil
 }
 
-func (sc serviceConfigs) remove(name string) error {
+func (sc *serviceConfigs) remove(name string) error {
 	confDir := sc.lookup(name)
 	if confDir == nil {
 		return errors.NotFoundf("service %q", name)

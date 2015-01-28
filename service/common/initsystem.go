@@ -7,6 +7,9 @@ package common
 // It encompasses all init services on the host, rather than just juju-
 // managed ones.
 type InitSystem interface {
+	// Name returns the init system's name.
+	Name() string
+
 	// List gathers the names of all enabled services in the init system
 	// and returns them. If any names are passed as arguments then the
 	// result will be limited to those names. Otherwise all known
@@ -46,7 +49,7 @@ type InitSystem interface {
 
 	// Serialize converts the provided Conf into the file format
 	// recognized by the init system.
-	Serialize(name string, conf *Conf) ([]byte, error)
+	Serialize(name string, conf Conf) ([]byte, error)
 
 	// Deserialize converts the provided data into a Conf according to
 	// the init system's conf file format. If the data does not
