@@ -67,10 +67,19 @@ def pause(seconds):
 
 def wait_for_port(host, port, closed=False, timeout=30):
     for remaining in until_timeout(timeout):
-        conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        addrinfo = socket.getaddrinfo(host, port, socket.AF_INET,
+                                      socket.SOCK_STREAM)
+        sockaddr = addrinfo[0][4]
+        # Treat Azure messed-up address lookup as a closed port.
+        if sockaddr[0] == '0.0.0.0':
+            if closed:
+                return
+            else:
+                continue
+        conn = socket.socket(*addrinfo[0][:3])
         conn.settimeout(max(remaining, 5))
         try:
-            conn.connect((host, port))
+            conn.connect(sockaddr)
         except socket.timeout:
             if closed:
                 return
