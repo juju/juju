@@ -657,6 +657,7 @@ def parse_args(args=None):
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--new-agent-url')
+    parser.add_argument('--single', action='store_true')
     return parser.parse_args(args)
 
 
@@ -667,11 +668,29 @@ def maybe_write_json(filename, results):
         json.dump(results, json_file, indent=2)
 
 
+def run_single(args):
+    env = SimpleEnvironment.from_config(args.env)
+    env.environment = env.environment + '-single'
+    client = EnvJujuClient.by_version(env,  args.new_juju_path)
+    client.destroy_environment()
+    stages = MultiIndustrialTest.get_stages(args.suite, env.config)
+    stage_attempts = [stage() for stage in stages]
+    try:
+        for stage in stage_attempts:
+            for step in stage.iter_steps(client):
+                print step
+    except:
+        client.destroy_environment()
+
+
 def main():
     configure_logging(logging.INFO)
     args = parse_args()
+    if args.single:
+        run_single(args)
+        return
     mit = MultiIndustrialTest.from_args(args)
-    results = mit.run_tests()
+    results = mit.run_tests(mit)
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results['results']))
 
