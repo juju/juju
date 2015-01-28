@@ -13,6 +13,7 @@ GO_CMD='\\go\\bin\\go.exe'
 SSH_OPTIONS="-i $JUJU_HOME/staging-juju-rsa \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
+set -x
 DOWNLOADED=$($SCRIPTS/jujuci.py get build-revision '*' ./)
 TARFILE=$(basename $(echo "$DOWNLOADED" | grep -F tar.gz))
 source buildvars.bash
