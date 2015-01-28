@@ -213,10 +213,7 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case curl := <-u.f.UpgradeEvents():
 			return ModeUpgrading(curl), nil
 		case ids := <-u.f.RelationsEvents():
-			if err := u.relations.Update(ids); err != nil {
-				return nil, errors.Trace(err)
-			}
-			continue
+			creator = newUpdateRelationsOp(ids)
 		case info := <-u.f.ActionEvents():
 			creator = newActionOp(info.ActionId)
 		case <-u.f.ConfigEvents():
