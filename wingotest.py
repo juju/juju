@@ -8,6 +8,8 @@ import sys
 import tarfile
 import traceback
 
+from utility import temp_dir
+
 
 GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
 
@@ -36,40 +38,49 @@ def run(*command, **kwargs):
     return output
 
 
-def setup(tarfile_name, ci_dir, gopath, tmp_dir):
+def setup_workspace(tarfile_name, ci_dir, gopath, tmp_dir,
+                    dry_run=False, verbose=False):
     """Setup the workspace; remove data from previous runs."""
-    juju_tars = [
-        n for n in os.listdir(ci_dir) if 'tar.gz' in n and n != tarfile_name]
-    for name in juju_tars:
-        path = os.path.join(ci_dir, name)
-        os.remove(path)
-        print('Removed {0}'.format(path))
     if os.path.exists(gopath):
-        shutil.rmtree(gopath)
-        print('Removed {0}'.format(gopath))
+        if not dry_run:
+            shutil.rmtree(gopath)
+        if verbose:
+            print('Removed %s' % gopath)
     if os.path.exists(tmp_dir):
-        shutil.rmtree(tmp_dir)
-    os.mkdir(TMP_DIR)
+        if not dry_run:
+            shutil.rmtree(tmp_dir)
+        if verbose:
+            print('Removed %s' % tmp_dir)
+    if not dry_run:
+        os.mkdir(tmp_dir)
+    if verbose:
+        print('created %s' % tmp_dir)
 
 
-def untar(tarfile_path, tmp_dir):
-    """Untar the tarfile to the workspace temp dir."""
+def untar_gopath(tarfile_path, gopath, delete=False,
+                 dry_run=False, verbose=False):
+    """Untar the tarfile to the gopath."""
     error_message = None
-    try:
-        with tarfile.open(name=tarfile_path, mode='r:gz') as tar:
-            tar.extractall(path=tmp_dir)
-    except tarfile.ReadError:
-        error_message = "Not a tar.gz: %s" % tarfile_path
-        raise Exception(error_message)
-    print('Extracted the Juju source.')
-
-
-def move_source_to_gopath(tarfile_name, tmp_dir, gopath):
-    """Move the extracted tarfile to the GOPATH."""
-    dir_name = tarfile_name.replace('.tar.gz', '')
-    dir_path = os.path.join(tmp_dir, dir_name)
-    shutil.move(dir_path, gopath)
-    print('Moved {0} to {1}'.format(dir_path, gopath))
+    with temp_dir() as tmp_dir:
+        try:
+            with tarfile.open(name=tarfile_path, mode='r:gz') as tar:
+                tar.extractall(path=tmp_dir)
+        except tarfile.ReadError:
+            error_message = "Not a tar.gz: %s" % tarfile_path
+            raise Exception(error_message)
+        if verbose:
+            print('Extracted the Juju source.')
+        dir_name = os.path.basename(tarfile_path.replace('.tar.gz', ''))
+        dir_path = os.path.join(tmp_dir, dir_name)
+        if not dry_run:
+            shutil.move(dir_path, gopath)
+        if verbose:
+            print('Moved %s to %s' % (dir_name, gopath))
+    if delete:
+        if not dry_run:
+            os.unlink(tarfile_path)
+        if verbose:
+            print('Deleted %s' % tarfile_path)
 
 
 def go_test_package(package, go_cmd, gopath):
@@ -94,6 +105,8 @@ def parse_args(args=None):
         '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
     parser.add_argument(
+        '-r', 'remove-tarfile', help='Remove the tarfile after extraction.')
+    parser.add_argument(
         '-p', 'package', default='github/juju/juju',
         help='The package to test.')
     parser.add_argument(
@@ -110,9 +123,12 @@ def main(argv):
     try:
         print('Testing juju {0} from {1}'.format(
             version, tarfile_name))
-        setup(tarfile_name, CI_DIR, GOPATH, TMP_DIR)
-        untar(tarfile_path, TMP_DIR)
-        move_source_to_gopath(tarfile_name, TMP_DIR, GOPATH)
+        setup_workspace(
+            tarfile_name, CI_DIR, GOPATH, TMP_DIR,
+            dry_run=args.dry_run, verbose=args.verbose)
+        untar_gopath(
+            tarfile_path, GOPATH, delete=args.remove_tarfile,
+            dry_run=args.dry_run, verbose=args.verbose)
         go_test_package(args.package, GO_CMD, GOPATH)
     except Exception as e:
         print(str(e))
