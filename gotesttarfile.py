@@ -72,7 +72,10 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
         returncode, output = run(go_cmd, 'test', './...', env=env)
         print(output)
         if verbose:
-            print('Completed unit tests')
+            if returncode == 0:
+                print('SUCCESS')
+            else:
+                print('FAIL')
     return returncode
 
 

@@ -5,7 +5,7 @@ import subprocess
 import tarfile
 from unittest import TestCase
 
-from wingotest import (
+from gotesttarfile import (
     go_test_package,
     main,
     parse_args,
@@ -15,7 +15,7 @@ from wingotest import (
 from utility import temp_dir
 
 
-class WinGoTestTestCase(TestCase):
+class gotesttarfileTestCase(TestCase):
 
     def test_run_success(self):
         env = {'a': 'b'}
@@ -56,7 +56,7 @@ class WinGoTestTestCase(TestCase):
             package_path = os.path.join(
                 gopath, 'src', 'github', 'juju', 'juju')
             os.makedirs(package_path)
-            with patch('wingotest.run', return_value=[0, 'success'],
+            with patch('gotesttarfile.run', return_value=[0, 'success'],
                        autospec=True) as run_mock:
                 devnull = open(os.devnull, 'w')
                 with patch('sys.stdout', devnull):
@@ -78,8 +78,8 @@ class WinGoTestTestCase(TestCase):
         self.assertEqual('juju.tar.gz', args.tarfile)
 
     def test_main(self):
-        with patch('wingotest.untar_gopath', autospec=True) as ug_mock:
-            with patch('wingotest.go_test_package',
+        with patch('gotesttarfile.untar_gopath', autospec=True) as ug_mock:
+            with patch('gotesttarfile.go_test_package',
                        autospec=True, return_value=0) as gt_mock:
                 returncode = main(['/juju.tar.gz'])
         self.assertEqual(0, returncode)
