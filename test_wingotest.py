@@ -19,7 +19,7 @@ class WinGoTestTestCase(TestCase):
         with temp_dir() as ci_dir:
             gopath = os.path.join(ci_dir, 'gogo')
             os.makedirs(gopath)
-            setup_workspace('juju-1.2.3.tar.gz', ci_dir, gopath)
+            setup_workspace(gopath)
             self.assertFalse(os.path.isdir(gopath))
 
     def test_untar_gopath(self):

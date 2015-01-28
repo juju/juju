@@ -38,8 +38,7 @@ def run(*command, **kwargs):
     return output
 
 
-def setup_workspace(tarfile_name, ci_dir, gopath,
-                    dry_run=False, verbose=False):
+def setup_workspace(gopath, dry_run=False, verbose=False):
     """Setup the workspace; remove data from previous runs."""
     if os.path.exists(gopath):
         if not dry_run:
@@ -114,9 +113,7 @@ def main(argv):
     try:
         print('Testing juju {0} from {1}'.format(
             version, tarfile_name))
-        setup_workspace(
-            tarfile_name, CI_DIR, GOPATH, TMP_DIR,
-            dry_run=args.dry_run, verbose=args.verbose)
+        setup_workspace(GOPATH, dry_run=args.dry_run, verbose=args.verbose)
         untar_gopath(
             tarfile_path, GOPATH, delete=args.remove_tarfile,
             dry_run=args.dry_run, verbose=args.verbose)
