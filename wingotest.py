@@ -38,7 +38,7 @@ def run(*command, **kwargs):
     return output
 
 
-def setup_workspace(tarfile_name, ci_dir, gopath, tmp_dir,
+def setup_workspace(tarfile_name, ci_dir, gopath,
                     dry_run=False, verbose=False):
     """Setup the workspace; remove data from previous runs."""
     if os.path.exists(gopath):
@@ -46,15 +46,6 @@ def setup_workspace(tarfile_name, ci_dir, gopath, tmp_dir,
             shutil.rmtree(gopath)
         if verbose:
             print('Removed %s' % gopath)
-    if os.path.exists(tmp_dir):
-        if not dry_run:
-            shutil.rmtree(tmp_dir)
-        if verbose:
-            print('Removed %s' % tmp_dir)
-    if not dry_run:
-        os.mkdir(tmp_dir)
-    if verbose:
-        print('created %s' % tmp_dir)
 
 
 def untar_gopath(tarfile_path, gopath, delete=False,

@@ -15,28 +15,12 @@ from utility import temp_dir
 
 class WinGoTestTestCase(TestCase):
 
-    def test_setup_workspace_pristine(self):
+    def test_setup_workspace(self):
         with temp_dir() as ci_dir:
             gopath = os.path.join(ci_dir, 'gogo')
-            tmp_dir = os.path.join(ci_dir, 'tmp')
-            setup_workspace('juju-1.2.3.tar.gz', ci_dir, gopath, tmp_dir)
-            gopath = os.path.join(ci_dir, 'gogo')
-            self.assertFalse(os.path.isdir(gopath))
-            tmp_dir = os.path.join(ci_dir, 'tmp')
-            self.assertTrue(os.path.isdir(tmp_dir))
-
-    def test_setup_workspace_dirty(self):
-        with temp_dir() as ci_dir:
-            gopath = os.path.join(ci_dir, 'gogo')
-            tmp_dir = os.path.join(ci_dir, 'tmp')
             os.makedirs(gopath)
-            os.makedirs(tmp_dir)
-            with open(os.path.join(tmp_dir, 'f.txt'), 'w') as f:
-                f.write('file')
-            setup_workspace('juju-1.2.3.tar.gz', ci_dir, gopath, tmp_dir)
+            setup_workspace('juju-1.2.3.tar.gz', ci_dir, gopath)
             self.assertFalse(os.path.isdir(gopath))
-            self.assertTrue(os.path.isdir(tmp_dir))
-            self.assertEqual([], os.listdir(tmp_dir))
 
     def test_untar_gopath(self):
         with temp_dir() as base_dir:
