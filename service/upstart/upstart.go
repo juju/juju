@@ -52,7 +52,7 @@ type Service struct {
 
 func NewService(name string, conf common.Conf) *Service {
 	if conf.InitDir == "" {
-		conf.InitDir = confDir
+		conf.InitDir = ConfDir
 	}
 	return &Service{Name: name, Conf: conf}
 }

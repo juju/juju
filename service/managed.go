@@ -4,6 +4,7 @@
 package service
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -27,6 +28,7 @@ func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs 
 	if len(prefixes) == 0 {
 		prefixes = jujuPrefixes
 	}
+	// TODO(ericsnow) Fail if the provided baseDir does not exist?
 	return &serviceConfigs{
 		baseDir:    filepath.Join(baseDir, initDir),
 		initSystem: initSystem,
@@ -50,6 +52,9 @@ func (sc *serviceConfigs) refresh() error {
 
 func (sc serviceConfigs) list() ([]string, error) {
 	dirnames, err := listSubdirectories(sc.baseDir)
+	if os.IsNotExist(errors.Cause(err)) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

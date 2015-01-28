@@ -17,9 +17,10 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
-const (
-	// confDir holds the default init directory name.
-	confDir = "/etc/init"
+// These are vars rather than consts for the sake of testing.
+var (
+	// ConfDir holds the default init directory name.
+	ConfDir = "/etc/init"
 )
 
 var InstallStartRetryAttempts = utils.AttemptStrategy{
@@ -35,7 +36,7 @@ type initSystem struct {
 func NewInitSystem(name string) common.InitSystem {
 	return &initSystem{
 		name:    name,
-		initDir: confDir,
+		initDir: ConfDir,
 	}
 }
 

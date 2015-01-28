@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
@@ -704,7 +703,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		case multiwatcher.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
-				context := newDeployContext(apiDeployer, agentConfig)
+				context, err := newDeployContext(apiDeployer, agentConfig)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case multiwatcher.JobManageEnviron:
@@ -1382,7 +1384,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
+		if err := services.Remove(agentServiceName); err != nil {
 			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
@@ -1450,6 +1452,6 @@ func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
+var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) (deployer.Context, error) {
 	return deployer.NewSimpleContext(agentConfig, st)
 }
