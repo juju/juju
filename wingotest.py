@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from __future__ import print_function
 
 from argparse import ArgumentParser
@@ -66,6 +67,8 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     env['GOARCH'] = 'amd64'
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
+        if verbose:
+            print('Running unit tests in %s' % package)
         returncode, output = run(go_cmd, 'test', './...', env=env)
         print(output)
         if verbose:
