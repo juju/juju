@@ -305,6 +305,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					Parameters: action.Parameters,
 				}
 				exp.Status = params.ActionPending
+				exp.Output = map[string]interface{}{}
 
 				if action.Execute {
 					status := state.ActionCompleted
@@ -387,6 +388,7 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 							Parameters: action.Parameters,
 						},
 						Status: params.ActionPending,
+						Output: map[string]interface{}{},
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}

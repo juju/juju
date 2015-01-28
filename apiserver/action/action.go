@@ -43,35 +43,28 @@ func NewActionAPI(st *state.State, resources *common.Resources, authorizer commo
 func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
-		current := &response.Results[i]
+		placeholder := &response.Results[i]
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			current.Error = common.ServerError(common.ErrBadId)
+			placeholder.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
 		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
-			current.Error = common.ServerError(common.ErrBadId)
+			placeholder.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
 		action, err := a.state.ActionByTag(actionTag)
 		if err != nil {
-			current.Error = common.ServerError(common.ErrBadId)
+			placeholder.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
 		receiverTag, err := names.ActionReceiverTag(action.Receiver())
 		if err != nil {
-			current.Error = common.ServerError(err)
+			placeholder.Error = common.ServerError(err)
 			continue
 		}
-		current.Action = &params.Action{
-			Tag:        actionTag.String(),
-			Receiver:   receiverTag.String(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
-		}
-		current.Status = string(action.Status())
-		current.Output, current.Message = action.Results()
+		response.Results[i] = makeActionResult(receiverTag, action)
 	}
 	return response, nil
 }
@@ -98,26 +91,19 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
-		current := &response.Results[i]
-
+		placeholder := &response.Results[i]
 		receiver, err := tagToActionReceiver(a.state, action.Receiver)
 		if err != nil {
-			current.Error = common.ServerError(err)
+			placeholder.Error = common.ServerError(err)
+			continue
+		}
+		queued, err := receiver.AddAction(action.Name, action.Parameters)
+		if err != nil {
+			placeholder.Error = common.ServerError(err)
 			continue
 		}
 
-		queued, err := receiver.AddAction(action.Name, action.Parameters)
-		if err != nil {
-			current.Error = common.ServerError(err)
-			continue
-		}
-		current.Action = &params.Action{
-			Receiver:   receiver.Tag().String(),
-			Tag:        queued.ActionTag().String(),
-			Name:       queued.Name(),
-			Parameters: queued.Parameters(),
-		}
-		current.Status = string(state.ActionPending)
+		response.Results[i] = makeActionResult(receiver.Tag(), queued)
 	}
 	return response, nil
 }
@@ -126,63 +112,62 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 // all of the Actions that have been queued or run by each of those
 // Entities.
 func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, error) {
-	return a.internalList(arg, combine(actionReceiverToActions, actionReceiverToActionResults))
+	return a.internalList(arg, combine(pendingActions, runningActions, completedActions))
 }
 
 // ListPending takes a list of Entities representing ActionReceivers
 // and returns all of the Actions that are queued for each of those
 // Entities.
 func (a *ActionAPI) ListPending(arg params.Entities) (params.ActionsByReceivers, error) {
-	return a.internalList(arg, actionReceiverToActions)
+	return a.internalList(arg, pendingActions)
+}
+
+// ListRunning takes a list of Entities representing ActionReceivers
+// and returns all of the Actions that have are running on each of those
+// Entities.
+func (a *ActionAPI) ListRunning(arg params.Entities) (params.ActionsByReceivers, error) {
+	return a.internalList(arg, runningActions)
 }
 
 // ListCompleted takes a list of Entities representing ActionReceivers
 // and returns all of the Actions that have been run on each of those
 // Entities.
 func (a *ActionAPI) ListCompleted(arg params.Entities) (params.ActionsByReceivers, error) {
-	return a.internalList(arg, actionReceiverToActionResults)
+	return a.internalList(arg, completedActions)
 }
 
 // Cancel attempts to cancel queued up Actions from running.
 func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Entities))}
 	for i, entity := range arg.Entities {
-		current := &response.Results[i]
+		placeholder := &response.Results[i]
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			current.Error = common.ServerError(common.ErrBadId)
+			placeholder.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
 		actionTag, ok := tag.(names.ActionTag)
 		if !ok {
-			current.Error = common.ServerError(common.ErrBadId)
+			placeholder.Error = common.ServerError(common.ErrBadId)
 			continue
 		}
 		action, err := a.state.ActionByTag(actionTag)
 		if err != nil {
-			current.Error = common.ServerError(err)
+			placeholder.Error = common.ServerError(err)
 			continue
 		}
 		result, err := action.Finish(state.ActionResults{Status: state.ActionCancelled, Message: "action cancelled via the API"})
 		if err != nil {
-			current.Error = common.ServerError(err)
+			placeholder.Error = common.ServerError(err)
 			continue
 		}
 		receiverTag, err := names.ActionReceiverTag(result.Receiver())
 		if err != nil {
-			current.Error = common.ServerError(err)
+			placeholder.Error = common.ServerError(err)
 			continue
 		}
-		current.Action = &params.Action{
-			Tag:        actionTag.String(),
-			Receiver:   receiverTag.String(),
-			Name:       result.Name(),
-			Parameters: result.Parameters(),
-		}
-		current.Status = string(result.Status())
-		output, message := result.Results()
-		current.Message = message
-		current.Output = output
+
+		response.Results[i] = makeActionResult(receiverTag, result)
 	}
 	return response, nil
 }
@@ -276,11 +261,29 @@ func combine(funcs ...extractorFn) extractorFn {
 	}
 }
 
-// actionReceiverToActions iterates through the Actions() queued up for
+// pendingActions iterates through the Actions() queued up for
 // an ActionReceiver, and converts them to a slice of params.Action.
-func actionReceiverToActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
+func pendingActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
+	return convertActions(ar, ar.PendingActions)
+}
+
+// runningActions iterates through the Actions() running on
+// an ActionReceiver, and converts them to a slice of params.Action.
+func runningActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
+	return convertActions(ar, ar.RunningActions)
+}
+
+// completedActions iterates through the Actions() that have completed on
+// an ActionReceiver, and converts them to a slice of params.Action.
+func completedActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
+	return convertActions(ar, ar.CompletedActions)
+}
+
+type getActionsFn func() ([]*state.Action, error)
+
+func convertActions(ar state.ActionReceiver, fn getActionsFn) ([]params.ActionResult, error) {
 	items := []params.ActionResult{}
-	actions, err := ar.PendingActions()
+	actions, err := fn()
 	if err != nil {
 		return items, err
 	}
@@ -288,44 +291,25 @@ func actionReceiverToActions(ar state.ActionReceiver) ([]params.ActionResult, er
 		if action == nil {
 			continue
 		}
-		items = append(items, params.ActionResult{
-			Action: &params.Action{
-				Receiver:   ar.Tag().String(),
-				Tag:        action.ActionTag().String(),
-				Name:       action.Name(),
-				Parameters: action.Parameters(),
-			},
-			Status: string(state.ActionPending),
-		})
+		items = append(items, makeActionResult(ar.Tag(), action))
 	}
 	return items, nil
 }
 
-// actionReceiverToActionResults iterates through the ActionResults()
-// aqueued up for n ActionReceiver, and converts them to a slice of
-// aparams.Action.
-func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.ActionResult, error) {
-	items := []params.ActionResult{}
-	actions, err := ar.CompletedActions()
-	if err != nil {
-		return items, err
+func makeActionResult(actionReceiverTag names.Tag, action *state.Action) params.ActionResult {
+	output, message := action.Results()
+	return params.ActionResult{
+		Action: &params.Action{
+			Receiver:   actionReceiverTag.String(),
+			Tag:        action.ActionTag().String(),
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+		},
+		Status:    string(action.Status()),
+		Message:   message,
+		Output:    output,
+		Enqueued:  action.Enqueued(),
+		Started:   action.Started(),
+		Completed: action.Completed(),
 	}
-	for _, action := range actions {
-		if action == nil {
-			continue
-		}
-		output, message := action.Results()
-		items = append(items, params.ActionResult{
-			Action: &params.Action{
-				Receiver:   ar.Tag().String(),
-				Tag:        action.ActionTag().String(),
-				Name:       action.Name(),
-				Parameters: action.Parameters(),
-			},
-			Status:  string(action.Status()),
-			Message: message,
-			Output:  output,
-		})
-	}
-	return items, nil
 }
