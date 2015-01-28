@@ -14,7 +14,6 @@ from utility import temp_dir
 GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
 
 CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
-TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
 GOPATH = os.path.join(CI_DIR, 'gogo')
 
 
@@ -33,22 +32,17 @@ class WorkingDirectory:
 
 def run(*command, **kwargs):
     """Run a command and return the stdout and stderr output."""
+    returncode = 0
     kwargs['stderr'] = subprocess.STDOUT
-    output = subprocess.check_output(command, **kwargs)
-    return output
+    try:
+        output = subprocess.check_output(command, **kwargs)
+    except subprocess.CalledProcessError as e:
+        returncode = e.returncode
+        output = e.output
+    return returncode, output
 
 
-def setup_workspace(gopath, dry_run=False, verbose=False):
-    """Setup the workspace; remove data from previous runs."""
-    if os.path.exists(gopath):
-        if not dry_run:
-            shutil.rmtree(gopath)
-        if verbose:
-            print('Removed %s' % gopath)
-
-
-def untar_gopath(tarfile_path, gopath, delete=False,
-                 dry_run=False, verbose=False):
+def untar_gopath(tarfile_path, gopath, delete=False, verbose=False):
     """Untar the tarfile to the gopath."""
     error_message = None
     with temp_dir() as tmp_dir:
@@ -62,43 +56,41 @@ def untar_gopath(tarfile_path, gopath, delete=False,
             print('Extracted the Juju source.')
         dir_name = os.path.basename(tarfile_path.replace('.tar.gz', ''))
         dir_path = os.path.join(tmp_dir, dir_name)
-        if not dry_run:
-            shutil.move(dir_path, gopath)
+        shutil.move(dir_path, gopath)
         if verbose:
             print('Moved %s to %s' % (dir_name, gopath))
     if delete:
-        if not dry_run:
-            os.unlink(tarfile_path)
+        os.unlink(tarfile_path)
         if verbose:
             print('Deleted %s' % tarfile_path)
 
 
-def go_test_package(package, go_cmd, gopath):
+def go_test_package(package, go_cmd, gopath, verbose=False):
     """Run the package unit tests."""
     env = dict(os.environ)
     env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
     package_dir = os.path.join(gopath, 'src', package.replace('/', os.sep))
     with WorkingDirectory(package_dir):
-        output = run(go_cmd, 'test', './...', env=env)
+        returncode, output = run(go_cmd, 'test', './...', env=env)
         print(output)
         print('Completed unit tests')
+    return returncode
 
 
 def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("Run go test against the content of a tarfile.")
     parser.add_argument(
-        '-d', '--dry-run', action='store_true', default=False,
-        help='Do not make changes.')
-    parser.add_argument(
         '-v', '--verbose', action='store_true', default=False,
         help='Increase verbosity.')
     parser.add_argument(
-        '-r', 'remove-tarfile', help='Remove the tarfile after extraction.')
+        '-g', '--go', default='go', help='The go comand.')
     parser.add_argument(
-        '-p', 'package', default='github/juju/juju',
+        '-p', '--package', default='github/juju/juju',
         help='The package to test.')
+    parser.add_argument(
+        '-r', '--remove-tarfile', help='Remove the tarfile after extraction.')
     parser.add_argument(
         'tarfile', help='The path to the gopath tarfile.')
     return parser.parse_args(args)
@@ -106,6 +98,7 @@ def parse_args(args=None):
 
 def main(argv):
     """Run go test against the content of a tarfile."""
+    returncode = 0
     args = parse_args(argv)
     tarfile_name = args.tarfile
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
@@ -113,19 +106,18 @@ def main(argv):
     try:
         print('Testing juju {0} from {1}'.format(
             version, tarfile_name))
-        setup_workspace(GOPATH, dry_run=args.dry_run, verbose=args.verbose)
-        untar_gopath(
-            tarfile_path, GOPATH, delete=args.remove_tarfile,
-            dry_run=args.dry_run, verbose=args.verbose)
-        go_test_package(args.package, GO_CMD, GOPATH)
+        with temp_dir() as workspace:
+            gopath = os.path.join(workspace, 'gogo')
+            untar_gopath(
+                tarfile_path, gopath, delete=args.remove_tarfile,
+                verbose=args.verbose)
+            returncode = go_test_package(
+                args.package, args.go, gopath, verbose=args.verbose)
     except Exception as e:
         print(str(e))
-        if isinstance(e, subprocess.CalledProcessError):
-            print("COMMAND OUTPUT:")
-            print(e.output)
         print(traceback.print_tb(sys.exc_info()[2]))
         return 3
-    return 0
+    return returncode
 
 
 if __name__ == '__main__':
