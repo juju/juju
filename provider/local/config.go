@@ -22,14 +22,18 @@ var checkIfRoot = func() bool {
 }
 
 // Attribute keys
-var NetworkBridgeKey = "network-bridge"
+var (
+	ContainerKey     = "container"
+	NetworkBridgeKey = "network-bridge"
+	RootDirKey       = "root-dir"
+)
 
 var (
 	configFields = schema.Fields{
-		"root-dir":       schema.String(),
+		RootDirKey:       schema.String(),
 		"bootstrap-ip":   schema.String(),
 		NetworkBridgeKey: schema.String(),
-		"container":      schema.String(),
+		ContainerKey:     schema.String(),
 		"storage-port":   schema.ForceInt(),
 		"namespace":      schema.String(),
 	}
@@ -38,9 +42,9 @@ var (
 	// these, but did want the familiarity of using something in the 8000
 	// range.
 	configDefaults = schema.Defaults{
-		"root-dir":       "",
+		RootDirKey:       "",
 		NetworkBridgeKey: "",
-		"container":      string(instance.LXC),
+		ContainerKey:     string(instance.LXC),
 		"bootstrap-ip":   schema.Omit,
 		"storage-port":   8040,
 		"namespace":      "",
@@ -67,11 +71,11 @@ func (c *environConfig) namespace() string {
 }
 
 func (c *environConfig) rootDir() string {
-	return c.attrs["root-dir"].(string)
+	return c.attrs[RootDirKey].(string)
 }
 
 func (c *environConfig) container() instance.ContainerType {
-	return instance.ContainerType(c.attrs["container"].(string))
+	return instance.ContainerType(c.attrs[ContainerKey].(string))
 }
 
 // setDefaultNetworkBridge sets default network bridge if none is provided.

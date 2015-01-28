@@ -4,9 +4,9 @@
 package maas
 
 import (
-	"errors"
 	"net/http"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"launchpad.net/gomaasapi"
@@ -40,7 +40,17 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 var errAgentNameAlreadySet = errors.New(
 	"maas-agent-name is already set; this should not be set by hand")
 
-func (p maasEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) RestrictedConfigAttributes() []string {
+	return []string{"maas-server"}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p maasEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+func (p maasEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	oldName, found := attrs["maas-agent-name"]
 	if found && oldName != "" {
