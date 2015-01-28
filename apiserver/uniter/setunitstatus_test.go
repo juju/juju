@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
 )
@@ -58,7 +59,7 @@ func (*unitStatusSetterSuite) TestSetUnitStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := common.NewUnitStatusSetter(st, getCanModify)
+	s := uniter.NewUnitStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},

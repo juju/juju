@@ -32,6 +32,7 @@ func NewUniterAPIV2(st *state.State, resources *common.Resources, authorizer com
 		return nil, err
 	}
 	return &UniterAPIV2{
-		uniterBaseAPI: *baseAPI,
+		UniterAPIV1: *baseAPI,
+		StorageAPI:  *storageAPI,
 	}, nil
 }

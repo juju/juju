@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter_test
+package common_test
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
 )
@@ -72,7 +71,7 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := uniter.NewEntityStatusSetter(st, getCanModify)
+	s := common.NewStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},
@@ -116,7 +115,7 @@ func (*statusSetterSuite) TestSetStatusError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := uniter.NewEntityStatusSetter(&fakeState{}, getCanModify)
+	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{{"x0", "", "", nil}},
 	}
@@ -128,7 +127,7 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := uniter.NewEntityStatusSetter(&fakeState{}, getCanModify)
+	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	result, err := s.SetStatus(params.SetStatus{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
@@ -155,7 +154,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4
 		}, nil
 	}
-	s := uniter.NewEntityStatusSetter(st, getCanModify)
+	s := common.NewStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: "machine-0", Data: nil},

@@ -6,15 +6,49 @@ package uniter_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/apiserver/uniter"
 	"github.com/juju/juju/state"
 	"github.com/juju/names"
 )
+
+func u(unit string) names.Tag    { return names.NewUnitTag(unit) }
+func m(machine string) names.Tag { return names.NewMachineTag(machine) }
+
+type fetchError string
+
+func (f fetchError) error() error {
+	if f == "" {
+		return nil
+	}
+	return fmt.Errorf("%s", string(f))
+}
+
+type entityWithError interface {
+	state.Entity
+	error() error
+}
+
+type fakeState struct {
+	entities map[names.Tag]entityWithError
+}
+
+func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
+	entity, ok := st.entities[tag]
+	if !ok {
+		return nil, errors.NotFoundf("entity %q", tag)
+	}
+	if err := entity.error(); err != nil {
+		return nil, err
+	}
+	return entity, nil
+}
 
 type agentStatusSetterSuite struct{}
 
@@ -62,7 +96,7 @@ func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := common.NewAgentStatusSetter(st, getCanModify)
+	s := uniter.NewStatusAPI(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},
@@ -75,7 +109,7 @@ func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 			{"unit-x-7", params.StatusActive, "bar", nil},
 		},
 	}
-	result, err := s.SetStatus(args)
+	result, err := s.SetAgentStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

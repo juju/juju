@@ -5,7 +5,6 @@ package uniter
 
 import (
 	"github.com/juju/juju/apiserver/common"
-
 	"github.com/juju/juju/state"
 )
 
