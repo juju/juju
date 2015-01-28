@@ -23,3 +23,11 @@ func NewUnsetCommand(api UnsetEnvironmentAPI) *UnsetCommand {
 		api: api,
 	}
 }
+
+// NewEnsureAvailabilityCommand returns an EnsureAvailabilityCommand with the
+// haClient provided as specified.
+func NewEnsureAvailabilityCommand(haClient EnsureAvailabilityClient) *EnsureAvailabilityCommand {
+	return &EnsureAvailabilityCommand{
+		haClient: haClient,
+	}
+}

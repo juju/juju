@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package operation_test
@@ -31,96 +31,183 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.factory = operation.NewFactory(nil, nil, nil, nil)
 }
 
-func (s *FactorySuite) TestNewDeploy(c *gc.C) {
-	op, err := s.factory.NewDeploy(nil, operation.Install)
+func (s *FactorySuite) testNewDeployError(c *gc.C, newDeploy newDeploy) {
+	op, err := newDeploy(s.factory, nil)
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "charm url required")
-
-	charmURL := corecharm.MustParseURL("cs:quantal/wordpress-1")
-	op, err = s.factory.NewDeploy(charmURL, operation.RunHook)
-	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "unknown deploy kind: run-hook")
-
-	op, err = s.factory.NewDeploy(charmURL, operation.Install)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "install cs:quantal/wordpress-1")
-
-	op, err = s.factory.NewDeploy(charmURL, operation.Upgrade)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "upgrade cs:quantal/wordpress-1")
 }
 
-func (s *FactorySuite) TestNewAction(c *gc.C) {
+func (s *FactorySuite) TestNewInstallError(c *gc.C) {
+	s.testNewDeployError(c, (operation.Factory).NewInstall)
+}
+
+func (s *FactorySuite) TestNewUpgradeError(c *gc.C) {
+	s.testNewDeployError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *FactorySuite) TestNewRevertUpgradeError(c *gc.C) {
+	s.testNewDeployError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *FactorySuite) TestNewResolvedUpgradeError(c *gc.C) {
+	s.testNewDeployError(c, (operation.Factory).NewResolvedUpgrade)
+}
+
+func (s *FactorySuite) testNewDeployString(c *gc.C, newDeploy newDeploy, expectPrefix string) {
+	op, err := newDeploy(s.factory, corecharm.MustParseURL("cs:quantal/wordpress-1"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op.String(), gc.Equals, expectPrefix+" cs:quantal/wordpress-1")
+}
+
+func (s *FactorySuite) TestNewInstallString(c *gc.C) {
+	s.testNewDeployString(c, (operation.Factory).NewInstall, "install")
+}
+
+func (s *FactorySuite) TestNewUpgradeString(c *gc.C) {
+	s.testNewDeployString(c, (operation.Factory).NewUpgrade, "upgrade to")
+}
+
+func (s *FactorySuite) TestNewRevertUpgradeString(c *gc.C) {
+	s.testNewDeployString(c,
+		(operation.Factory).NewRevertUpgrade,
+		"clear resolved flag and switch upgrade to",
+	)
+}
+
+func (s *FactorySuite) TestNewResolvedUpgradeString(c *gc.C) {
+	s.testNewDeployString(c,
+		(operation.Factory).NewResolvedUpgrade,
+		"clear resolved flag and continue upgrade to",
+	)
+}
+
+func (s *FactorySuite) TestNewActionError(c *gc.C) {
 	op, err := s.factory.NewAction("lol-something")
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `invalid action id "lol-something"`)
+}
 
-	op, err = s.factory.NewAction(someActionId)
+func (s *FactorySuite) TestNewActionString(c *gc.C) {
+	op, err := s.factory.NewAction(someActionId)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run action "+someActionId)
 }
 
-func (s *FactorySuite) TestNewCommands(c *gc.C) {
-	sendResponse := func(*utilexec.ExecResponse, error) {
-		panic("don't call this")
-	}
-	args := func(commands string, relationId int, remoteUnit string) operation.CommandArgs {
-		return operation.CommandArgs{
-			Commands:       commands,
-			RelationId:     relationId,
-			RemoteUnitName: remoteUnit,
-		}
-	}
-	op, err := s.factory.NewCommands(args("", -1, ""), sendResponse)
-	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "commands required")
-
-	op, err = s.factory.NewCommands(args("any old thing", -1, ""), nil)
-	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "response sender required")
-
-	op, err = s.factory.NewCommands(args("any old thing", -1, "unit/1"), sendResponse)
-	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "remote unit not valid without relation")
-
-	op, err = s.factory.NewCommands(args("any old thing", 0, "lol"), sendResponse)
-	c.Check(op, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, `invalid remote unit name "lol"`)
-
-	op, err = s.factory.NewCommands(args("any old thing", -1, ""), sendResponse)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run commands")
-
-	op, err = s.factory.NewCommands(args("any old thing", 1, ""), sendResponse)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run commands (1)")
-
-	op, err = s.factory.NewCommands(args("any old thing", 1, "unit/1"), sendResponse)
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run commands (1; unit/1)")
+func panicSendResponse(*utilexec.ExecResponse, error) {
+	panic("don't call this")
 }
 
-func (s *FactorySuite) TestNewHook(c *gc.C) {
-	op, err := s.factory.NewHook(hook.Info{Kind: hooks.Kind("gibberish")})
+func commandArgs(commands string, relationId int, remoteUnit string) operation.CommandArgs {
+	return operation.CommandArgs{
+		Commands:       commands,
+		RelationId:     relationId,
+		RemoteUnitName: remoteUnit,
+	}
+}
+
+func (s *FactorySuite) TestNewCommandsSendResponseError(c *gc.C) {
+	op, err := s.factory.NewCommands(commandArgs("anything", -1, ""), nil)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "response sender required")
+}
+
+func (s *FactorySuite) testNewCommandsArgsError(
+	c *gc.C, args operation.CommandArgs, expect string,
+) {
+	op, err := s.factory.NewCommands(args, panicSendResponse)
+	c.Check(op, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, expect)
+}
+
+func (s *FactorySuite) TestNewCommandsArgsError_NoCommand(c *gc.C) {
+	s.testNewCommandsArgsError(c,
+		commandArgs("", -1, ""),
+		"commands required",
+	)
+}
+
+func (s *FactorySuite) TestNewCommandsArgsError_BadRemoteUnit(c *gc.C) {
+	s.testNewCommandsArgsError(c,
+		commandArgs("any old thing", -1, "unit/1"),
+		"remote unit not valid without relation",
+	)
+}
+
+func (s *FactorySuite) TestNewCommandsArgsError_BadRemoteUnitName(c *gc.C) {
+	s.testNewCommandsArgsError(c,
+		commandArgs("any old thing", 0, "lol"),
+		`invalid remote unit name "lol"`,
+	)
+}
+
+func (s *FactorySuite) testNewCommandsString(
+	c *gc.C, args operation.CommandArgs, expect string,
+) {
+	op, err := s.factory.NewCommands(args, panicSendResponse)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(op.String(), gc.Equals, expect)
+}
+
+func (s *FactorySuite) TestNewCommandsString_CommandsOnly(c *gc.C) {
+	s.testNewCommandsString(c,
+		commandArgs("anything", -1, ""),
+		"run commands",
+	)
+}
+
+func (s *FactorySuite) TestNewCommandsString_WithRelation(c *gc.C) {
+	s.testNewCommandsString(c,
+		commandArgs("anything", 0, ""),
+		"run commands (0)",
+	)
+}
+
+func (s *FactorySuite) TestNewCommandsString_WithRelationAndUnit(c *gc.C) {
+	s.testNewCommandsString(c,
+		commandArgs("anything", 3, "unit/123"),
+		"run commands (3; unit/123)",
+	)
+}
+
+func (s *FactorySuite) testNewHookError(c *gc.C, newHook newHook) {
+	op, err := newHook(s.factory, hook.Info{Kind: hooks.Kind("gibberish")})
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `unknown hook kind "gibberish"`)
+}
 
-	op, err = s.factory.NewHook(hook.Info{Kind: hooks.Install})
+func (s *FactorySuite) TestNewHookError_Run(c *gc.C) {
+	s.testNewHookError(c, (operation.Factory).NewRunHook)
+}
+
+func (s *FactorySuite) TestNewHookError_Retry(c *gc.C) {
+	s.testNewHookError(c, (operation.Factory).NewRetryHook)
+}
+
+func (s *FactorySuite) TestNewHookError_Skip(c *gc.C) {
+	s.testNewHookError(c, (operation.Factory).NewSkipHook)
+}
+
+func (s *FactorySuite) TestNewHookString_Run(c *gc.C) {
+	op, err := s.factory.NewRunHook(hook.Info{Kind: hooks.Install})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run install hook")
+}
 
-	op, err = s.factory.NewHook(hook.Info{
+func (s *FactorySuite) TestNewHookString_Retry(c *gc.C) {
+	op, err := s.factory.NewRetryHook(hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 123,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run relation-broken (123) hook")
+	c.Check(op.String(), gc.Equals, "clear resolved flag and run relation-broken (123) hook")
+}
 
-	op, err = s.factory.NewHook(hook.Info{
+func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
+	op, err := s.factory.NewSkipHook(hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "foo/22",
 		RelationId: 123,
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(op.String(), gc.Equals, "run relation-joined (123; foo/22) hook")
+	c.Check(op.String(), gc.Equals, "clear resolved flag and skip run relation-joined (123; foo/22) hook")
 }

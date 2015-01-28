@@ -9,7 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // EnvironmentSuite tests the connectivity of all the environment subcommands.
@@ -70,4 +72,17 @@ func (s *EnvironmentSuite) TestUnset(c *gc.C) {
 	_, err = s.RunEnvironmentCommand(c, "unset", "special")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEnvValueMissing(c, "special")
+}
+
+func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	ctx, err := s.RunEnvironmentCommand(c, "ensure-availability", "-n", "3")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Machine 0 is demoted because it hasn't reported its presence
+	c.Assert(testing.Stdout(ctx), gc.Equals,
+		"adding machines: 1, 2, 3\n"+
+			"demoting machines 0\n\n")
 }

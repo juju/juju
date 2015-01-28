@@ -233,6 +233,10 @@ func (s *uniterV1Suite) TestFinishActionsAuthAccess(c *gc.C) {
 	s.testFinishActionsAuthAccess(c, s.uniter)
 }
 
+func (s *uniterV1Suite) TestBeginActions(c *gc.C) {
+	s.testBeginActions(c, s.uniter)
+}
+
 func (s *uniterV1Suite) TestRelation(c *gc.C) {
 	s.testRelation(c, s.uniter)
 }
