@@ -226,6 +226,30 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 	}, nil
 }
 
+// ActionBegin marks an action as running.
+func (st *State) ActionBegin(tag names.ActionTag) error {
+	var outcome params.ErrorResults
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	}
+
+	err := st.facade.FacadeCall("BeginActions", args, &outcome)
+	if err != nil {
+		return err
+	}
+	if len(outcome.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
+	}
+	result := outcome.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 // ActionFinish captures the structured output of an action.
 func (st *State) ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
 	var outcome params.ErrorResults
@@ -249,8 +273,8 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
 	}
 	result := outcome.Results[0]
-	if err := result.Error; err != nil {
-		return err
+	if result.Error != nil {
+		return result.Error
 	}
 	return nil
 }

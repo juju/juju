@@ -1406,6 +1406,35 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	}
 }
 
+type beginActions interface {
+	BeginActions(args params.Entities) (params.ErrorResults, error)
+}
+
+func (s *uniterBaseSuite) testBeginActions(c *gc.C, facade beginActions) {
+	ten_seconds_ago := time.Now().Add(-10 * time.Second)
+	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	running, err := s.wordpressUnit.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(running), gc.Equals, 0, gc.Commentf("expected no running actions, got %d", len(running)))
+
+	args := params.Entities{Entities: []params.Entity{{Tag: good.ActionTag().String()}}}
+	res, err := facade.BeginActions(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(res.Results), gc.Equals, 1)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+
+	running, err = s.wordpressUnit.RunningActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(running), gc.Equals, 1, gc.Commentf("expected one running action, got %d", len(running)))
+	c.Assert(running[0].ActionTag(), gc.Equals, good.ActionTag())
+	enqueued, started := running[0].Enqueued(), running[0].Started()
+	c.Assert(ten_seconds_ago.Before(enqueued), jc.IsTrue, gc.Commentf("enqueued time should be after 10 seconds ago"))
+	c.Assert(ten_seconds_ago.Before(started), jc.IsTrue, gc.Commentf("started time should be after 10 seconds ago"))
+	c.Assert(started.After(enqueued) || started.Equal(enqueued), jc.IsTrue, gc.Commentf("started should be after or equal to enqueued time"))
+}
+
 func (s *uniterBaseSuite) testRelation(
 	c *gc.C,
 	facade interface {
