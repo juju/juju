@@ -250,14 +250,14 @@ func runSSHKeyImport(keyIds []string) []importedSSHKey {
 			// ignore key comment (e.g., user@host)
 			fingerprint, _, err := ssh.KeyFingerprint(line)
 			keyInfo = append(keyInfo, importedSSHKey{
-				key: line,
+				key:         line,
 				fingerprint: fingerprint,
-				err: errors.Annotatef(err, "invalid ssh key for %s", keyId),
+				err:         errors.Annotatef(err, "invalid ssh key for %s", keyId),
 			})
 		}
 		if !hasKey {
 			keyInfo = append(keyInfo, importedSSHKey{
-			    err: fmt.Errorf("invalid ssh key id: %s", keyId),
+				err: fmt.Errorf("invalid ssh key id: %s", keyId),
 			})
 		}
 	}

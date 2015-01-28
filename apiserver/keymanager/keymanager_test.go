@@ -326,9 +326,9 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 			{Error: apiservertesting.ServerError("invalid ssh key id: lp:multiempty")},
 			{Error: nil},
 			{Error: apiservertesting.ServerError(fmt.Sprintf(
-				`invalid ssh key for lp:multipartial: ` +
-				`generating key fingerprint: ` +
-				`invalid authorized_key "%s"`, keymp[1]))},
+				`invalid ssh key for lp:multipartial: `+
+					`generating key fingerprint: `+
+					`invalid authorized_key "%s"`, keymp[1]))},
 		},
 	})
 	s.assertEnvironKeys(c, append(initialKeys, key3, keymv[0], keymv[1], keymp[0]))
