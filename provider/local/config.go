@@ -22,20 +22,23 @@ var checkIfRoot = func() bool {
 }
 
 // Attribute keys
-var (
+const (
+	BootstrapIpKey   = "bootstrap-ip"
 	ContainerKey     = "container"
+	NamespaceKey     = "namespace"
 	NetworkBridgeKey = "network-bridge"
 	RootDirKey       = "root-dir"
+	StoragePortKey   = "storage-port"
 )
 
 var (
 	configFields = schema.Fields{
 		RootDirKey:       schema.String(),
-		"bootstrap-ip":   schema.String(),
+		BootstrapIpKey:   schema.String(),
 		NetworkBridgeKey: schema.String(),
 		ContainerKey:     schema.String(),
-		"storage-port":   schema.ForceInt(),
-		"namespace":      schema.String(),
+		StoragePortKey:   schema.ForceInt(),
+		NamespaceKey:     schema.String(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
@@ -45,9 +48,9 @@ var (
 		RootDirKey:       "",
 		NetworkBridgeKey: "",
 		ContainerKey:     string(instance.LXC),
-		"bootstrap-ip":   schema.Omit,
-		"storage-port":   8040,
-		"namespace":      "",
+		BootstrapIpKey:   schema.Omit,
+		StoragePortKey:   8040,
+		NamespaceKey:     "",
 	}
 )
 
@@ -67,7 +70,7 @@ func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *envi
 // have the same local provider name, we need to have a simple way to
 // namespace the file locations, but more importantly the containers.
 func (c *environConfig) namespace() string {
-	return c.attrs["namespace"].(string)
+	return c.attrs[NamespaceKey].(string)
 }
 
 func (c *environConfig) rootDir() string {
@@ -123,7 +126,7 @@ func (c *environConfig) logDir() string {
 // As of 1.18 this is only set inside the environment, and not in the
 // .jenv file.
 func (c *environConfig) bootstrapIPAddress() string {
-	addr, _ := c.attrs["bootstrap-ip"].(string)
+	addr, _ := c.attrs[BootstrapIpKey].(string)
 	return addr
 }
 
@@ -132,7 +135,7 @@ func (c *environConfig) stateServerAddr() string {
 }
 
 func (c *environConfig) storagePort() int {
-	return c.attrs["storage-port"].(int)
+	return c.attrs[StoragePortKey].(int)
 }
 
 func (c *environConfig) storageAddr() string {
