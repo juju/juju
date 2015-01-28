@@ -90,7 +90,8 @@ def parse_args(args=None):
         '-p', '--package', default='github/juju/juju',
         help='The package to test.')
     parser.add_argument(
-        '-r', '--remove-tarfile', help='Remove the tarfile after extraction.')
+        '-r', '--remove-tarfile', action='store_true', default=False,
+        help='Remove the tarfile after extraction.')
     parser.add_argument(
         'tarfile', help='The path to the gopath tarfile.')
     return parser.parse_args(args)

@@ -7,6 +7,7 @@ from unittest import TestCase
 
 from wingotest import (
     go_test_package,
+    parse_args,
     run,
     untar_gopath,
 )
@@ -65,3 +66,12 @@ class WinGoTestTestCase(TestCase):
                     self.assertEqual(('go', 'test', './...'), args)
                     self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
                     self.assertEqual(gopath, kwargs['env'].get('GOPATH'))
+
+    def test_parse_args(self):
+        args = parse_args(
+            ['-v', '-g', 'go', '-p' 'github/foo', '-r', 'juju.tar.gz'])
+        self.assertTrue(args.verbose)
+        self.assertEqual('go', args.go)
+        self.assertEqual('github/foo', args.package)
+        self.assertTrue(args.remove_tarfile)
+        self.assertEqual('juju.tar.gz', args.tarfile)
