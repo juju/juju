@@ -4,9 +4,6 @@
 package cloudsigma
 
 import (
-	"crypto/rand"
-
-	"github.com/juju/errors"
 	"github.com/juju/schema"
 	gc "gopkg.in/check.v1"
 
@@ -24,13 +21,11 @@ func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
 
 func validAttrs() testing.Attrs {
 	return testing.FakeConfig().Merge(testing.Attrs{
-		"type":             "cloudsigma",
-		"username":         "user",
-		"password":         "password",
-		"region":           "zrh",
-		"storage-port":     8040,
-		"storage-auth-key": "ABCDEFGH",
-		"uuid":             "f54aac3a-9dcd-4a0c-86b5-24091478478c",
+		"type":     "cloudsigma",
+		"username": "user",
+		"password": "password",
+		"region":   "zrh",
+		"uuid":     "f54aac3a-9dcd-4a0c-86b5-24091478478c",
 	})
 }
 
@@ -89,22 +84,6 @@ func (s *configSuite) TestNewEnvironConfig(c *gc.C) {
 		info:   "region must not be empty",
 		insert: testing.Attrs{"region": ""},
 		err:    "rs: must not be empty%\\!\\(EXTRA string=region\\)",
-	}, {
-		info:   "storage-port is inserted if missing",
-		remove: []string{"storage-port"},
-		expect: testing.Attrs{"storage-port": 8040},
-	}, {
-		info:   "storage-port must be number",
-		insert: testing.Attrs{"storage-port": "abcd"},
-		err:    "storage-port: expected number, got string\\(\"abcd\"\\)",
-	}, {
-		info:   "storage-auth-key is inserted if missing",
-		remove: []string{"storage-auth-key"},
-		expect: testing.Attrs{"storage-auth-key": checker{gc.HasLen, 36}},
-	}, {
-		info:   "storage-auth-key must not be empty",
-		insert: testing.Attrs{"storage-auth-key": ""},
-		err:    "rs: must not be empty%\\!\\(EXTRA string=storage-auth-key\\)",
 	}}
 
 	for i, test := range newConfigTests {
@@ -158,14 +137,6 @@ var changeConfigTests = []struct {
 	info:   "can change region",
 	insert: testing.Attrs{"region": "lvs"},
 	err:    "region: cannot change from .* to .*",
-}, {
-	info:   "can not change storage-port",
-	insert: testing.Attrs{"storage-port": 0},
-	err:    "storage-port: cannot change from .* to .*",
-}, {
-	info:   "can not change storage-auth-key",
-	insert: testing.Attrs{"storage-auth-key": "xxx"},
-	err:    "storage-auth-key: cannot change from .* to .*",
 }}
 
 func (s *configSuite) TestValidateChange(c *gc.C) {
@@ -232,18 +203,6 @@ func (s *configSuite) TestConfigName(c *gc.C) {
 	c.Check(environ.Config().Name(), gc.Equals, "testname")
 }
 
-func (s *configSuite) TestBadUUIDGenerator(c *gc.C) {
-	fail := failReader{errors.New("error")}
-	s.PatchValue(&rand.Reader, &fail)
-
-	attrs := validAttrs().Delete("storage-auth-key")
-	testConfig := newConfig(c, attrs)
-	cfg, err := providerInstance.Prepare(nil, testConfig)
-
-	c.Check(cfg, gc.IsNil)
-	c.Check(err, gc.Equals, fail.err)
-}
-
 func (s *configSuite) TestEnvironConfig(c *gc.C) {
 	testConfig := newConfig(c, validAttrs())
 	ecfg, err := validateConfig(testConfig, nil)
@@ -252,8 +211,6 @@ func (s *configSuite) TestEnvironConfig(c *gc.C) {
 	c.Check(ecfg.username(), gc.Equals, "user")
 	c.Check(ecfg.password(), gc.Equals, "password")
 	c.Check(ecfg.region(), gc.Equals, "zrh")
-	c.Check(ecfg.storagePort(), gc.Equals, 8040)
-	c.Check(ecfg.storageAuthKey(), gc.Equals, "ABCDEFGH")
 }
 
 func (s *configSuite) TestInvalidConfigChange(c *gc.C) {
@@ -278,7 +235,7 @@ var secretAttrsConfigTests = []struct {
 	err    string
 }{{
 	info:   "no change, no error",
-	expect: map[string]string{"storage-auth-key": "ABCDEFGH"},
+	expect: map[string]string{"password": "password"},
 }, {
 	info:   "invalid config",
 	insert: testing.Attrs{"username": ""},

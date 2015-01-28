@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
@@ -81,11 +80,6 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 // for the configuration data is stored in the state.
 func (env *environ) Config() *config.Config {
 	return env.ecfg.Config
-}
-
-// Storage returns storage specific to the environment.
-func (env environ) Storage() storage.Storage {
-	panic("Storage is not implemented in cloudsigma provider")
 }
 
 // Bootstrap initializes the state for the environment, possibly

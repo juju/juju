@@ -185,7 +185,7 @@ func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
 	c.Check(server, gc.IsNil)
 	c.Check(arch, gc.Equals, "")
 	c.Check(drive, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "invalid configuration for new instance")
+	c.Check(err, gc.ErrorMatches, "invalid configuration for new instance: MachineConfig is nil")
 }
 
 func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {

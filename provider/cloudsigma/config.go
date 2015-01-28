@@ -4,8 +4,6 @@
 package cloudsigma
 
 import (
-	"fmt"
-
 	"github.com/Altoros/gosigma"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -28,13 +26,6 @@ cloudsigma:
     #
     # username: <your username>
     # password: <secret>
-
-    # storage-port specifes the TCP port that the
-    # bootstrap machine's Juju storage server will listen
-    # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
-    #
-    # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
-
 `
 
 const (
@@ -45,26 +36,19 @@ var configFields = schema.Fields{
 	"username": schema.String(),
 	"password": schema.String(),
 	"region":   schema.String(),
-
-	"storage-port":     schema.ForceInt(),
-	"storage-auth-key": schema.String(),
 }
 
 var configDefaultFields = schema.Defaults{
 	"username": "",
 	"password": "",
 	"region":   gosigma.DefaultRegion,
-
-	"storage-port": defaultStoragePort,
 }
 
 var configSecretFields = []string{
-	"storage-auth-key",
+	"password",
 }
 
 var configImmutableFields = []string{
-	"storage-port",
-	"storage-auth-key",
 	"region",
 }
 
@@ -78,14 +62,6 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 			return nil, err
 		}
 		attrs["uuid"] = uuid.String()
-	}
-
-	if _, ok := attrs["storage-auth-key"]; !ok {
-		uuid, err := utils.NewUUID()
-		if err != nil {
-			return nil, err
-		}
-		attrs["storage-auth-key"] = uuid.String()
 	}
 
 	return cfg.Apply(attrs)
@@ -174,15 +150,4 @@ func (c environConfig) username() string {
 
 func (c environConfig) password() string {
 	return c.attrs["password"].(string)
-}
-
-func (c environConfig) storagePort() int {
-	return c.attrs["storage-port"].(int)
-}
-
-func (c environConfig) storageAuthKey() string {
-	if v, ok := c.attrs["storage-auth-key"].(string); ok {
-		return v
-	}
-	return ""
 }
