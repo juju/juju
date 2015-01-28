@@ -11,12 +11,6 @@ import traceback
 from utility import temp_dir
 
 
-GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
-
-CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
-GOPATH = os.path.join(CI_DIR, 'gogo')
-
-
 class WorkingDirectory:
     """Context manager for changing the current working directory"""
     def __init__(self, working_path):
@@ -74,12 +68,13 @@ def go_test_package(package, go_cmd, gopath, verbose=False):
     with WorkingDirectory(package_dir):
         returncode, output = run(go_cmd, 'test', './...', env=env)
         print(output)
-        print('Completed unit tests')
+        if verbose:
+            print('Completed unit tests')
     return returncode
 
 
 def parse_args(args=None):
-    """Return the argument parser for this program."""
+    """Return parsed args for this program."""
     parser = ArgumentParser("Run go test against the content of a tarfile.")
     parser.add_argument(
         '-v', '--verbose', action='store_true', default=False,
@@ -97,16 +92,16 @@ def parse_args(args=None):
     return parser.parse_args(args)
 
 
-def main(argv):
+def main(argv=None):
     """Run go test against the content of a tarfile."""
     returncode = 0
     args = parse_args(argv)
-    tarfile_name = args.tarfile
+    tarfile_path = args.tarfile
+    tarfile_name = os.path.basename(tarfile_path)
     version = tarfile_name.split('_')[-1].replace('.tar.gz', '')
-    tarfile_path = os.path.abspath(os.path.join(CI_DIR, tarfile_name))
     try:
-        print('Testing juju {0} from {1}'.format(
-            version, tarfile_name))
+        if args.verbose:
+            print('Testing juju %s from %s' % (version, tarfile_name))
         with temp_dir() as workspace:
             gopath = os.path.join(workspace, 'gogo')
             untar_gopath(

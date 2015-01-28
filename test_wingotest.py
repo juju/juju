@@ -7,6 +7,7 @@ from unittest import TestCase
 
 from wingotest import (
     go_test_package,
+    main,
     parse_args,
     run,
     untar_gopath,
@@ -19,8 +20,8 @@ class WinGoTestTestCase(TestCase):
     def test_run_success(self):
         env = {'a': 'b'}
         with patch('subprocess.check_output', return_value='pass') as mock:
-            return_code, output = run('go', 'test', './...', env=env)
-        self.assertEqual(0, return_code)
+            returncode, output = run('go', 'test', './...', env=env)
+        self.assertEqual(0, returncode)
         self.assertEqual('pass', output)
         args, kwargs = mock.call_args
         self.assertEqual((('go', 'test', './...'), ), args)
@@ -31,8 +32,8 @@ class WinGoTestTestCase(TestCase):
         env = {'a': 'b'}
         e = subprocess.CalledProcessError(1, ['foo'], output='fail')
         with patch('subprocess.check_output', side_effect=e):
-            return_code, output = run('go', 'test', './...', env=env)
-        self.assertEqual(1, return_code)
+            returncode, output = run('go', 'test', './...', env=env)
+        self.assertEqual(1, returncode)
         self.assertEqual('fail', output)
 
     def test_untar_gopath(self):
@@ -59,9 +60,9 @@ class WinGoTestTestCase(TestCase):
                        autospec=True) as run_mock:
                 devnull = open(os.devnull, 'w')
                 with patch('sys.stdout', devnull):
-                    return_code = go_test_package(
+                    returncode = go_test_package(
                         'github/juju/juju', 'go', gopath)
-                    self.assertEqual(0, return_code)
+                    self.assertEqual(0, returncode)
                     args, kwargs = run_mock.call_args
                     self.assertEqual(('go', 'test', './...'), args)
                     self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
@@ -75,3 +76,19 @@ class WinGoTestTestCase(TestCase):
         self.assertEqual('github/foo', args.package)
         self.assertTrue(args.remove_tarfile)
         self.assertEqual('juju.tar.gz', args.tarfile)
+
+    def test_main(self):
+        with patch('wingotest.untar_gopath', autospec=True) as ug_mock:
+            with patch('wingotest.go_test_package',
+                       autospec=True, return_value=0) as gt_mock:
+                returncode = main(['/juju.tar.gz'])
+        self.assertEqual(0, returncode)
+        args, kwargs = ug_mock.call_args
+        self.assertEqual('/juju.tar.gz', args[0])
+        gopath = args[1]
+        self.assertEqual('gogo', gopath.split(os.sep)[-1])
+        self.assertFalse(kwargs['delete'])
+        self.assertFalse(kwargs['verbose'])
+        args, kwargs = gt_mock.call_args
+        self.assertEqual(('github/juju/juju', 'go', gopath), args)
+        self.assertFalse(kwargs['verbose'])
