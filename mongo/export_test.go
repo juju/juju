@@ -3,11 +3,6 @@
 
 package mongo
 
-import (
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-)
-
 var (
 	MakeJournalDirs = makeJournalDirs
 	MongoConfigPath = &configPath
@@ -39,8 +34,4 @@ func NewServiceClosure(s adminService) func(string, string) (adminService, error
 	return func(string, string) (adminService, error) {
 		return s, nil
 	}
-}
-
-func NewTestService(name string, conf common.Conf, raw service.Service) Service {
-	return Service{name, conf, raw}
 }

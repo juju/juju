@@ -1368,7 +1368,14 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
-	var errors []error
+	var errs []error
+
+	services, err := service.DiscoverServices(agentConfig.DataDir())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove the machine agent's jujud service.
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
@@ -1376,25 +1383,30 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 	}
 	if agentServiceName != "" {
 		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
+
 	// Remove the juju-run symlink.
 	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
 
+	// Remove the mongo service.
 	namespace := agentConfig.Value(agent.Namespace)
-	if err := mongo.RemoveService(namespace); err != nil {
-		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
+	mongoService := mongo.ServiceName(namespace)
+	if err := services.Remove(mongoService); err != nil {
+		errs = append(errs, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
 	}
+
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
-	if len(errors) == 0 {
+
+	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errors)
+	return fmt.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {

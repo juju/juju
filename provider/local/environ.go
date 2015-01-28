@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/service"
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
@@ -516,14 +517,16 @@ func (env *localEnviron) Destroy() error {
 		}
 	}
 
-	svc, err := service.NewServices()
+	// Stop the mongo database and machine agent. It's possible that the
+	// service doesn't exist or is not running, so don't check the error.
+	services, err := service.DiscoverServices(env.config.rootDir())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Stop the mongo database and machine agent. It's possible that the
-	// service doesn't exist or is not running, so don't check the error.
-	svc, err := mongo.NewService(env.config.namespace(), nil)
-	svc.Remove()
+	mongoService := mongo.ServiceName(env.config.namespace())
+	if err := services.Remove(mongoService); err != nil {
+		return errors.Trace(err)
+	}
 	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
 
 	// Finally, remove the data-dir.

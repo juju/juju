@@ -32,7 +32,7 @@ type Service struct {
 }
 
 func NewService(name, dataDir string, conf common.Conf, args ...string) (*Service, error) {
-	services, err := BuildServices(dataDir, args...)
+	services, err := DiscoverServices(dataDir, args...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

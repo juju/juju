@@ -71,7 +71,7 @@ func recursiveChmod(path string, mode os.FileMode) error {
 // the specified deployer, that deploys unit agents.
 // Paths to which agents and tools are installed are relative to dataDir.
 func NewSimpleContext(agentConfig agent.Config, api APICalls) (*SimpleContext, error) {
-	services, err := service.BuildServices(agentConfig.DataDir())
+	services, err := service.DiscoverServices(agentConfig.DataDir())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

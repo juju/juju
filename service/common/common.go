@@ -10,6 +10,8 @@ const (
 	StatusStarting = "starting"
 	StatusRunning  = "running"
 	StatusStopping = "stopping"
+
+	StatusEnabled = StatusStopped
 )
 
 // ServiceInfo holds information about an init service, as gathered at

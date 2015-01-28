@@ -34,14 +34,14 @@ type Services struct {
 	init    common.InitSystem
 }
 
-// BuildServices populates a new Services and returns it. This includes
-// determining which init system is in use on the current host. The
-// provided data dir is used as the parent of the directory in which all
-// juju-managed service configurations are stored. The names of the
+// DiscoverServices populates a new Services and returns it. This
+// includes determining which init system is in use on the current host.
+// The provided data dir is used as the parent of the directory in which
+// all juju-managed service configurations are stored. The names of the
 // services located there are extracted and cached. A service conf must
 // be there already or be added via the Add method before Services will
 // recognize it as juju-managed.
-func BuildServices(dataDir string, args ...string) (*Services, error) {
+func DiscoverServices(dataDir string, args ...string) (*Services, error) {
 	if len(args) > 1 {
 		return nil, errors.Errorf("at most 1 arg expected, got %d", len(args))
 	}
