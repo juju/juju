@@ -18,10 +18,6 @@ from jujupy import (
 from utility import temp_dir
 
 
-logger = logging.getLogger()
-logger.level = logging.DEBUG
-
-
 def make_logs(log_dir):
     def write_dumped_files(*args):
         with open(os.path.join(log_dir, 'cloud.log'), 'w') as l:
@@ -50,12 +46,14 @@ class DumpEnvLogsTestCase(TestCase):
         self.handler = logging.StreamHandler(self.stream)
         self.log.addHandler(self.handler)
         self.handler.setLevel(logging.DEBUG)
+        self.log.level = logging.DEBUG
 
         def reset_logger():
             self.log.removeHandler(self.handler)
             self.handler.close()
             for handler in self.old_handlers:
                 self.log.addHandler(handler)
+            self.log.level = logging.NOTSET
 
         self.addCleanup(reset_logger)
 
