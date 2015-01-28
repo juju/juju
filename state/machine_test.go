@@ -1677,7 +1677,99 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Addresses(), jc.SameContents, addresses)
+
+	expectedAddresses := []network.Address{
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+	}
+	c.Assert(machine.Addresses(), jc.DeepEquals, expectedAddresses)
+}
+
+func (s *MachineSuite) TestSetAddressesWithContainers(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	// Create subnet and pick two addresses.
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.10",
+	}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr1, err := subnet.PickNewAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	err = ipAddr1.SetState(state.AddressStateAllocated)
+	c.Assert(err, jc.ErrorIsNil)
+	ipAddr2, err := subnet.PickNewAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	err = ipAddr2.SetState(state.AddressStateAllocated)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// When setting all addresses the subnet addresses have to be
+	// filtered out.
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		ipAddr1.Address(),
+		ipAddr2.Address(),
+	}
+	err = machine.SetAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedAddresses := []network.Address{
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+	}
+	c.Assert(machine.Addresses(), jc.DeepEquals, expectedAddresses)
+}
+
+func (s *MachineSuite) TestSetAddressesOnContainer(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	// Create subnet and pick two addresses.
+	subnetInfo := state.SubnetInfo{
+		CIDR:              "192.168.1.0/24",
+		AllocatableIPLow:  "192.168.1.0",
+		AllocatableIPHigh: "192.168.1.10",
+	}
+	subnet, err := s.State.AddSubnet(subnetInfo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ipAddr, err := subnet.PickNewAddress()
+	c.Assert(err, jc.ErrorIsNil)
+	err = ipAddr.SetState(state.AddressStateAllocated)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create an LXC container inside the machine.
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// When setting all addresses the subnet address has to accepted.
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		ipAddr.Address(),
+	}
+	err = container.SetAddresses(addresses...)
+	c.Assert(err, jc.ErrorIsNil)
+	err = container.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedAddresses := []network.Address{
+		ipAddr.Address(),
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+	}
+	c.Assert(container.Addresses(), jc.DeepEquals, expectedAddresses)
 }
 
 func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
@@ -1693,7 +1785,12 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.MachineAddresses(), gc.DeepEquals, addresses)
+
+	expectedAddresses := []network.Address{
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+	}
+	c.Assert(machine.MachineAddresses(), jc.DeepEquals, expectedAddresses)
 }
 
 func (s *MachineSuite) TestMergedAddresses(c *gc.C) {

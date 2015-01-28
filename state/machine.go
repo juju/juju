@@ -471,6 +471,12 @@ func (m *Machine) ParentId() (string, bool) {
 	return parentId, parentId != ""
 }
 
+// IsContainer returns true if the machine is a container.
+func (m *Machine) IsContainer() bool {
+	_, isContainer := m.ParentId()
+	return isContainer
+}
+
 type HasContainersError struct {
 	MachineId    string
 	ContainerIds []string
@@ -992,13 +998,46 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // setAddresses updates the machine's addresses (either Addresses or
 // MachineAddresses, depending on the field argument).
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
+	var addressesToSet []network.Address
+	if !m.IsContainer() {
+		// Check addresses first. We'll only add those addresses
+		// which are not in the IP address collection.
+		ipAddresses, closer := m.st.getCollection(ipaddressesC)
+		defer closer()
+
+		addressValues := make([]string, len(addresses))
+		for i, address := range addresses {
+			addressValues[i] = address.Value
+		}
+		ipDocs := []ipaddressDoc{}
+		sel := bson.D{{"value", bson.D{{"$in", addressValues}}}, {"state", AddressStateAllocated}}
+		err := ipAddresses.Find(sel).All(&ipDocs)
+		if err != nil {
+			return err
+		}
+	addressesLoop:
+		for _, address := range addresses {
+			for _, ipDoc := range ipDocs {
+				if address.Value == ipDoc.Value {
+					continue addressesLoop
+				}
+			}
+			addressesToSet = append(addressesToSet, address)
+		}
+	} else {
+		// Containers will set all addresses.
+		addressesToSet = make([]network.Address, len(addresses))
+		copy(addressesToSet, addresses)
+	}
+	// Update addresses now.
 	var changed bool
 	envConfig, err := m.st.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	network.SortAddresses(addresses, envConfig.PreferIPv6())
-	stateAddresses := instanceAddressesToAddresses(addresses)
+
+	network.SortAddresses(addressesToSet, envConfig.PreferIPv6())
+	stateAddresses := instanceAddressesToAddresses(addressesToSet)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		changed = false
 		if attempt > 0 {
@@ -1014,7 +1053,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			Id:     m.doc.DocID,
 			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
 		}
-		if !addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
+		if !addressesEqual(addressesToSet, addressesToInstanceAddresses(*field)) {
 			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
 			changed = true
 		}
