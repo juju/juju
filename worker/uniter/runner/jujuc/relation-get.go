@@ -81,7 +81,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	if !found {
 		return fmt.Errorf("unknown relation id")
 	}
-	var settings params.RelationSettings
+	var settings params.Settings
 	if c.UnitName == c.ctx.UnitName() {
 		node, err := r.Settings()
 		if err != nil {

@@ -24,6 +24,7 @@ func init() {
 
 	// Initialize all suites here.
 	gc.Suite(&leadershipSuite{})
+	gc.Suite(&uniterLeadershipSuite{})
 }
 
 func Test(t *testing.T) {

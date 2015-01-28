@@ -70,16 +70,6 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{localArch}, nil
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (*localEnviron) SupportNetworks() bool {
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *localEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)
@@ -447,33 +437,6 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		err = nil
 	}
 	return insts, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not supported on the
-// local provider.
-func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*localEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("ReleaseAddress")
-}
-
-// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
-// not supported on this provider yet.
-func (*localEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.NotSupportedf("NetworkInterfaces")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the local provider yet.
-func (*localEnviron) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotSupportedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

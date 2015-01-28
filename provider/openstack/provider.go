@@ -24,7 +24,6 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -566,18 +565,6 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	})
 	e.supportedArchitectures, err = common.SupportedArchitectures(e, imageConstraint)
 	return e.supportedArchitectures, err
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (e *environ) SupportNetworks() bool {
-	// TODO(dimitern) Once we have support for networking, inquire
-	// about capabilities and return true if supported.
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
 }
 
 var unsupportedConstraints = []string{
@@ -1237,33 +1224,6 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		}
 	}
 	return insts, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// OpenStack provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return jujuerrors.NotImplementedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*environ) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
-}
-
-// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
-// not implemented on this provider yet.
-func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.NotImplementedf("NetworkInterfaces")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the OpenStack provider yet.
-func (*environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
-	return nil, jujuerrors.NotImplementedf("Subnets")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {

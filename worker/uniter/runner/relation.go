@@ -56,7 +56,7 @@ func (ctx *ContextRelation) UnitNames() []string {
 	return ctx.cache.MemberNames()
 }
 
-func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationSettings, err error) {
+func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings, err error) {
 	return ctx.cache.Settings(unit)
 }
 

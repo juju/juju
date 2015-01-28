@@ -3,6 +3,7 @@
 
 // The uniter package implements the API interface used by the uniter
 // worker. This file contains the API facade version 2.
+
 package uniter
 
 import (
@@ -16,12 +17,17 @@ func init() {
 
 // UniterAPI implements the API version 2, used by the uniter worker.
 type UniterAPIV2 struct {
-	uniterBaseAPI
+	UniterAPIV1
+	StorageAPI
 }
 
-// NewUniterAPIV1 creates a new instance of the Uniter API, version 1.
+// NewUniterAPIV2 creates a new instance of the Uniter API, version 2.
 func NewUniterAPIV2(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPIV2, error) {
-	baseAPI, err := newUniterBaseAPI(st, resources, authorizer)
+	baseAPI, err := NewUniterAPIV1(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+	storageAPI, err := NewStorageAPI(st, resources, baseAPI.accessUnit)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package operation
@@ -60,11 +60,32 @@ type Executor interface {
 // Factory creates operations.
 type Factory interface {
 
-	// NewDeploy creates install and upgrade operations for the supplied charm.
-	NewDeploy(charmURL *corecharm.URL, kind Kind) (Operation, error)
+	// NewInstall creates an install operation for the supplied charm.
+	NewInstall(charmURL *corecharm.URL) (Operation, error)
 
-	// NewHook creates an operation to execute the supplied hook.
-	NewHook(hookInfo hook.Info) (Operation, error)
+	// NewUpgrade creates an upgrade operation for the supplied charm.
+	NewUpgrade(charmURL *corecharm.URL) (Operation, error)
+
+	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
+	// and execute an upgrade to the supplied charm that is careful to excise
+	// remnants of a previously failed upgrade to a different charm.
+	NewRevertUpgrade(charmURL *corecharm.URL) (Operation, error)
+
+	// NewResolvedUpgrade creates an operation to clear the unit's resolved flag,
+	// and execute an upgrade to the supplied charm that is careful to preserve
+	// non-overlapping remnants of a previously failed upgrade to the same charm.
+	NewResolvedUpgrade(charmURL *corecharm.URL) (Operation, error)
+
+	// NewRunHook creates an operation to execute the supplied hook.
+	NewRunHook(hookInfo hook.Info) (Operation, error)
+
+	// NewRetryHook creates an operation to clear the unit's resolved flag, and
+	// re-execute the supplied hook.
+	NewRetryHook(hookInfo hook.Info) (Operation, error)
+
+	// NewSkipHook creates an operation to clear the unit's resolved flag, and
+	// mark the supplied hook as completed successfully.
+	NewSkipHook(hookInfo hook.Info) (Operation, error)
 
 	// NewAction creates an operation to execute the supplied action.
 	NewAction(actionId string) (Operation, error)
@@ -112,14 +133,20 @@ type Callbacks interface {
 	NotifyHookCompleted(string, runner.Context)
 	NotifyHookFailed(string, runner.Context)
 
-	// FailAction marks the supplied action failed. It exists so we can test
-	// the operation package without involving the API. It's only used by
+	// InitializeMetricsCollector ensures that the collect-metrics hook timer is
+	// up to date given the current deployed charm. It's only used in deploy
+	// operations.
+	InitializeMetricsCollector() error
+
+	// The following methods exist primarily to allow us to test operation code
+	// without using a live api connection.
+
+	// FailAction marks the supplied action failed. It's only used by
 	// RunActions operations.
 	FailAction(actionId, message string) error
 
-	// GetArchiveInfo is used to find out how to download a charm archive. It
-	// exists so we can test the operation package without involving the API.
-	// It's only used by Deploy operations.
+	// GetArchiveInfo is used to find out how to download a charm archive. It's
+	// only used by Deploy operations.
 	GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error)
 
 	// SetCurrentCharm records intent to deploy a given charm. It must be called
@@ -127,4 +154,9 @@ type Callbacks interface {
 	// no path by which the state server can legitimately garbage collect that
 	// charm or the service's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL *corecharm.URL) error
+
+	// ClearResolvedFlag notifies the state server that the uniter has accepted
+	// the resolved attempt and is trying to progress. It's only used by Resolved
+	// operations (which we generally expect to wrap other operations).
+	ClearResolvedFlag() error
 }

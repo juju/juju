@@ -204,15 +204,8 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (e *environ) SupportNetworks() bool {
-	// TODO(dimitern) Once we have support for VPCs and advanced
-	// networking, return true here.
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+// SupportsAddressAllocation is specified on environs.Networking.
+func (e *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	_, hasDefaultVpc, err := e.defaultVpc()
 	if err != nil {
 		return false, errors.Trace(err)

@@ -54,8 +54,18 @@ func CreateContainerWithMachineConfig(
 	machineConfig *cloudinit.MachineConfig,
 ) instance.Instance {
 
-	network := container.BridgeNetworkConfig("nic42", nil)
-	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
+	networkConfig := container.BridgeNetworkConfig("nic42", nil)
+	return CreateContainerWithMachineAndNetworkConfig(c, manager, machineConfig, networkConfig)
+}
+
+func CreateContainerWithMachineAndNetworkConfig(
+	c *gc.C,
+	manager container.Manager,
+	machineConfig *cloudinit.MachineConfig,
+	networkConfig *container.NetworkConfig,
+) instance.Instance {
+
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", networkConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

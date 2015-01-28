@@ -1657,7 +1657,7 @@ func (s *uniterBaseSuite) testJoinedRelations(
 }
 
 type readSettings interface {
-	ReadSettings(args params.RelationUnits) (params.RelationSettingsResults, error)
+	ReadSettings(args params.RelationUnits) (params.SettingsResults, error)
 }
 
 func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
@@ -1686,10 +1686,10 @@ func (s *uniterBaseSuite) testReadSettings(c *gc.C, facade readSettings) {
 	}}
 	result, err := facade.ReadSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: params.RelationSettings{
+			{Settings: params.Settings{
 				"some": "settings",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1723,15 +1723,15 @@ func (s *uniterBaseSuite) testReadSettingsWithNonStringValuesFails(c *gc.C, faca
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
 	result, err := facade.ReadSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: &params.Error{Message: expectErr}},
 		},
 	})
 }
 
 type readRemoteSettings interface {
-	ReadRemoteSettings(args params.RelationUnitPairs) (params.RelationSettingsResults, error)
+	ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error)
 }
 
 func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSettings) {
@@ -1765,8 +1765,8 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings`
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, jc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(expectErr)},
@@ -1800,9 +1800,9 @@ func (s *uniterBaseSuite) testReadRemoteSettings(c *gc.C, facade readRemoteSetti
 		LocalUnit:  "unit-wordpress-0",
 		RemoteUnit: "unit-mysql-0",
 	}}}
-	expect := params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
-			{Settings: params.RelationSettings{
+	expect := params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
 				"other": "things",
 			}},
 		},
@@ -1843,8 +1843,8 @@ func (s *uniterBaseSuite) testReadRemoteSettingsWithNonStringValuesFails(c *gc.C
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
 	result, err := facade.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.RelationSettingsResults{
-		Results: []params.RelationSettingsResult{
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
 			{Error: &params.Error{Message: expectErr}},
 		},
 	})
@@ -1866,7 +1866,7 @@ func (s *uniterBaseSuite) testUpdateSettings(
 	err = relUnit.EnterScope(settings)
 	s.assertInScope(c, relUnit, true)
 
-	newSettings := params.RelationSettings{
+	newSettings := params.Settings{
 		"some":  "different",
 		"other": "",
 	}

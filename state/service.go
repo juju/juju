@@ -228,6 +228,7 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		removeStorageConstraintsOp(s.globalKey()),
 		removeConstraintsOp(s.st, s.globalKey()),
 		annotationRemoveOp(s.st, s.globalKey()),
+		removeLeadershipSettingsOp(s.Tag().Id()),
 	}
 	return ops
 }
