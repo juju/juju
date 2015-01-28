@@ -1015,14 +1015,14 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		if err != nil {
 			return err
 		}
-	addressesLoop:
+		ipDocValues := set.NewStrings()
+		for _, ipDoc := range ipDocs {
+			ipDocValues.Add(ipDoc.Value)
+		}
 		for _, address := range addresses {
-			for _, ipDoc := range ipDocs {
-				if address.Value == ipDoc.Value {
-					continue addressesLoop
-				}
+			if !ipDocValues.Contains(address.Value) {
+				addressesToSet = append(addressesToSet, address)
 			}
-			addressesToSet = append(addressesToSet, address)
 		}
 	} else {
 		// Containers will set all addresses.

@@ -234,8 +234,8 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(machine.IsContainer(), gc.Equals, false)
-	c.Assert(container.IsContainer(), gc.Equals, true)
+	c.Assert(machine.IsContainer(), jc.IsFalse)
+	c.Assert(container.IsContainer(), jc.IsTrue)
 }
 
 func (s *MachineSuite) TestLifeJobManageEnviron(c *gc.C) {
