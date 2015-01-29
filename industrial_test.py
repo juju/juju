@@ -360,7 +360,9 @@ class BootstrapAttempt(SteppedStageAttempt):
         yield results
         with temp_bootstrap_env(
                 get_juju_home(), client, set_home=False) as juju_home:
-            client.bootstrap(juju_home=juju_home)
+            logging.info('Performing async bootstrap')
+            with client.bootstrap_async(juju_home=juju_home):
+                yield results
         with wait_for_started(client):
             yield results
         results['result'] = True
