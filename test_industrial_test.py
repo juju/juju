@@ -1276,8 +1276,10 @@ class TestBackupRestoreAttempt(TestCase):
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         with patch('subprocess.check_call') as cc_mock:
             with patch('sys.stdout'):
-                self.assertEqual(iterator.next(),
-                                 {'test_id': 'back-up-restore'})
+                with patch('os.unlink') as ul_mock:
+                    self.assertEqual(iterator.next(),
+                                     {'test_id': 'back-up-restore'})
+        ul_mock.assert_called_once_with(os.path.abspath('juju-backup-24.tgz'))
         assert_juju_call(
             self, cc_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',

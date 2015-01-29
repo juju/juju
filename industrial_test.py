@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from datetime import datetime
 import json
 import logging
+import os
 import sys
 
 from deploy_stack import (
@@ -630,6 +631,7 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         wait_for_state_server_to_shutdown(host, client, instance_id)
         yield results
         client.juju('restore', (backup_file,))
+        os.unlink(backup_file)
         with wait_for_started(client):
             yield results
         results['result'] = True
