@@ -21,13 +21,20 @@ type AgentEntityFinder struct {
 	st state.State
 }
 
+func getUnitFromId(st state.State, id string) (state.AgentUnit, error) {
+	return st.Unit(id)
+}
+
+var unitFromId = getUnitFromId
+
 func (a *AgentEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	id := tag.Id()
 	_, ok := tag.(names.UnitTag)
 	if !ok {
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
-	unit, err := a.st.Unit(id)
+
+	id := tag.Id()
+	unit, err := unitFromId(a.st, id)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get unit %q", id)
 	}

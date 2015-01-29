@@ -19,6 +19,16 @@ type EntityEntityFinder struct {
 	st state.EntityFinder
 }
 
+func entityToUnit(entity state.Entity) (state.AgentUnit, error) {
+	unit, ok := entity.(*state.Unit)
+	if !ok {
+		return nil, errors.Errorf("cannot use %T as unit", entity)
+	}
+	return unit, nil
+}
+ 
+var toUnit = entityToUnit
+
 func (e *EntityEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	entity, err := e.st.FindEntity(tag)
 	if err != nil {
@@ -26,11 +36,11 @@ func (e *EntityEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	}
 	_, ok := tag.(names.UnitTag)
 	if !ok {
-		return entity, err
+		return entity, nil
 	}
-	unit, ok := entity.(*state.Unit)
-	if !ok {
-		return nil, errors.Errorf("cannot use %T as unit", entity)
+	unit, err := toUnit(entity)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return unit.Agent(), nil
 }

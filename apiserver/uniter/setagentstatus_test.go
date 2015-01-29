@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -39,6 +40,11 @@ type fakeState struct {
 	entities map[names.Tag]entityWithError
 }
 
+func (st *fakeState) Entity(id string) (entityWithError, bool) {
+	entity, ok := st.entities[u(id)]
+	return entity, ok
+}
+
 func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
 	entity, ok := st.entities[tag]
 	if !ok {
@@ -50,7 +56,9 @@ func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return entity, nil
 }
 
-type agentStatusSetterSuite struct{}
+type agentStatusSetterSuite struct{
+		jujutesting.CleanupSuite
+}
 
 var _ = gc.Suite(&agentStatusSetterSuite{})
 
@@ -63,7 +71,7 @@ type fakeAgentStatusSetter struct {
 	fetchError
 }
 
-func (s *fakeAgentStatusSetter) Agent() state.StatusSetterGetter {
+func (s *fakeAgentStatusSetter) Agent() state.Entity {
 	return s
 }
 
@@ -74,7 +82,8 @@ func (s *fakeAgentStatusSetter) SetStatus(status state.Status, info string, data
 	return s.err
 }
 
-func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
+
+func (s *agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeAgentStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
@@ -96,7 +105,7 @@ func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := uniter.NewStatusAPI(st, getCanModify)
+	sAPI := uniter.NewStatusAPI(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},
@@ -109,7 +118,21 @@ func (*agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 			{"unit-x-7", params.StatusActive, "bar", nil},
 		},
 	}
-	result, err := s.SetAgentStatus(args)
+
+	unitFromId := func (_ state.State, id string) (state.AgentUnit, error) {
+		entity, ok := st.Entity(id)
+		if !ok {
+			return nil, fmt.Errorf("%q is not a valid id", id)
+		}
+		unit, ok := entity.(*fakeAgentStatusSetter)
+		if !ok {
+			return nil, fmt.Errorf("%q is not a valid unit", id)
+		}
+		return unit, nil
+	}
+
+	s.PatchValue(uniter.UnitFromId, unitFromId)
+	result, err := sAPI.SetAgentStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

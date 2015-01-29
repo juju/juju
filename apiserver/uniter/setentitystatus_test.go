@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
+	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,7 +18,9 @@ import (
 	"github.com/juju/names"
 )
 
-type statusSetterSuite struct{}
+type statusSetterSuite struct{
+	jujutesting.CleanupSuite
+}
 
 var _ = gc.Suite(&statusSetterSuite{})
 
@@ -39,6 +42,10 @@ func (s *fakeStatusSetter) SetStatus(status state.Status, info string, data map[
 	return s.err
 }
 
+func (s *fakeStatusSetter) Agent() state.Entity {
+	return s
+}
+
 func (s *fakeStatusSetter) Status() (status state.Status, info string, data map[string]interface{}, err error) {
 	return s.status, s.info, s.data, nil
 }
@@ -50,7 +57,14 @@ func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
 	return s.err
 }
 
-func (*statusSetterSuite) TestSetStatus(c *gc.C) {
+func toUnit(entity state.Entity) (state.AgentUnit, error) {
+		fake := entity.(*fakeStatusSetter)
+//		fake := entity.(*state.Unit)
+		return fake, nil
+}
+
+
+func (s *statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			u("x/0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
@@ -72,7 +86,9 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
-	s := uniter.NewEntityStatusSetter(st, getCanModify)
+
+	s.PatchValue(uniter.ToUnit, toUnit)
+	eSetter := uniter.NewEntityStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{"unit-x-0", params.StatusInstalling, "bar", nil},
@@ -85,7 +101,7 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{"unit-x-7", params.StatusActive, "bar", nil},
 		},
 	}
-	result, err := s.SetStatus(args)
+	result, err := eSetter.SetStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

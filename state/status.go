@@ -137,14 +137,8 @@ type UnitStatusSetter interface {
 	SetUnitStatus(status Status, info string, data map[string]interface{}) error
 }
 
-// AgentStatusSetter identifies an entity that has agent status and therefore
-// needs to behave differently when setting status.
-type AgentStatusSetter interface {
-	SetAgentStatus(status Status, info string, data map[string]interface{}) error
-}
-
 type AgentUnit interface {
-	Agent() StatusSetterGetter
+	Agent() Entity
 }
 
 type StatusSetter interface {

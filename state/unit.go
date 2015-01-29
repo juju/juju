@@ -780,6 +780,11 @@ func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interf
 	return agent.SetStatus(status, info, data)
 }
 
+func (u *Unit) AgentStatus()(status Status, info string, data map[string]interface{}, err error) {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.Status()
+}
+
 // SetStatus sets the status of the unit agent. The optional values
 // allow to pass additional helpful status data.
 // This method relies on globalKey instead of globalAgentKey since it is part of
