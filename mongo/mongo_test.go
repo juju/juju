@@ -109,7 +109,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 func (s *MongoSuite) setService(c *gc.C, namespace, status string) {
 	name := mongo.ServiceName(namespace)
 
-	err := s.services.Add(name, common.Conf{})
+	err := s.services.Manage(name, common.Conf{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	switch status {

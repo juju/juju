@@ -124,7 +124,7 @@ func (fs *FakeServices) IsEnabled(name string) (bool, error) {
 	return fs.Status.Enabled.Contains(name), fs.err()
 }
 
-func (fs *FakeServices) Add(name string, conf common.Conf) error {
+func (fs *FakeServices) Manage(name string, conf common.Conf) error {
 	fs.addCall("Add")
 	if err := fs.err(); err != nil {
 		return err
