@@ -39,8 +39,8 @@ type Services struct {
 // The provided data dir is used as the parent of the directory in which
 // all juju-managed service configurations are stored. The names of the
 // services located there are extracted and cached. A service conf must
-// be there already or be added via the Add method before Services will
-// recognize it as juju-managed.
+// be there already or be added via the Manage method before Services
+// will recognize it as juju-managed.
 func DiscoverServices(dataDir string, args ...string) (*Services, error) {
 	if len(args) > 1 {
 		return nil, errors.Errorf("at most 1 arg expected, got %d", len(args))
@@ -258,10 +258,10 @@ func (s Services) IsEnabled(name string) (bool, error) {
 	return enabled, errors.Trace(err)
 }
 
-// Add adds the named service to the directory of juju-related
+// Manage adds the named service to the directory of juju-related
 // service configurations. The provided Conf is used to generate the
 // conf file and possibly a script file.
-func (s Services) Add(name string, conf common.Conf) error {
+func (s Services) Manage(name string, conf common.Conf) error {
 	err := s.configs.add(name, conf, s.init)
 	return errors.Trace(err)
 }
@@ -309,7 +309,7 @@ func (s Services) Remove(name string) error {
 
 // Install prepares the service, enables it, and starts it.
 func (s Services) Install(name string, conf common.Conf) error {
-	if err := s.Add(name, conf); err != nil {
+	if err := s.Manage(name, conf); err != nil {
 		return errors.Trace(err)
 	}
 	if err := s.Enable(name); err != nil {

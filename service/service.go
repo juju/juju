@@ -18,7 +18,7 @@ type services interface {
 	Enable(name string) error
 	Disable(name string) error
 	IsEnabled(name string) (bool, error)
-	Add(name string, conf common.Conf) error
+	Manage(name string, conf common.Conf) error
 	Remove(name string) error
 	Install(name string, conf common.Conf) error
 	Check(name string, conf common.Conf) (bool, error)
@@ -92,8 +92,8 @@ func (s Service) IsEnabled() (bool, error) {
 	return s.services.IsEnabled(s.name)
 }
 
-func (s Service) Add() error {
-	return s.services.Add(s.name, s.conf)
+func (s Service) Manage() error {
+	return s.services.Manage(s.name, s.conf)
 }
 
 func (s Service) Remove() error {

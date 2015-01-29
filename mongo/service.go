@@ -150,7 +150,7 @@ type Service struct {
 }
 
 func (svc Service) startIfInstalled() (bool, error) {
-	err := svc.Add()
+	err := svc.Manage()
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return false, errors.Trace(err)
 	}
