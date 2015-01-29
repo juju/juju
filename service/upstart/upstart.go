@@ -51,15 +51,13 @@ type Service struct {
 }
 
 func NewService(name string, conf common.Conf) *Service {
-	if conf.InitDir == "" {
-		conf.InitDir = ConfDir
-	}
+	// We ignore conf.InitDir.
 	return &Service{Name: name, Conf: conf}
 }
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return path.Join(s.Conf.InitDir, s.Name+".conf")
+	return path.Join(ConfDir, s.Name+".conf")
 }
 
 func (s *Service) UpdateConfig(conf common.Conf) {
@@ -71,8 +69,8 @@ func (s *Service) validate() error {
 	if s.Name == "" {
 		return errors.New("missing Name")
 	}
-	if s.Conf.InitDir == "" {
-		return errors.New("missing InitDir")
+	if s.Conf.InitDir != "" {
+		return errors.New("unexpected InitDir in conf")
 	}
 	err := validate(s.Conf)
 	return errors.Trace(err)
