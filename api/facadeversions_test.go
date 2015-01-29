@@ -4,6 +4,8 @@
 package api_test
 
 import (
+	"strings"
+
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
@@ -21,7 +23,8 @@ var _ = gc.Suite(&facadeVersionSuite{})
 
 func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// Enable feature flags so we can see them all.
-	s.SetFeatureFlags(feature.MESS)
+	devFeatures := []string{feature.MESS, feature.Storage}
+	s.SetFeatureFlags(strings.Join(devFeatures, ","))
 	// The client side code doesn't want to directly import the server side
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.

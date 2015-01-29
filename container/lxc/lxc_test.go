@@ -420,6 +420,168 @@ lxc.foo = baz
 	c.Assert(string(lxcConfContents), gc.Equals, updatedConfig)
 }
 
+func (*LxcSuite) TestReorderNetworkConfig(c *gc.C) {
+	path := c.MkDir()
+	configFile := filepath.Join(path, "config")
+	for i, test := range []struct {
+		about         string
+		input         string
+		shouldReorder bool
+		expectErr     string
+		output        string
+	}{{
+		about:         "empty input",
+		input:         "",
+		shouldReorder: false,
+		expectErr:     "",
+		output:        "",
+	}, {
+		about: "no network settings",
+		input: `
+# comment
+lxc.foo = bar
+
+  lxc.test=# none
+lxc.bar.foo=42 # comment
+`,
+		shouldReorder: false,
+	}, {
+		about: "just one lxc.network.type",
+		input: `
+# comment
+lxc.foo = bar
+
+lxc.network.type = veth
+
+  lxc.test=# none
+lxc.bar.foo=42 # comment
+`,
+		shouldReorder: false,
+	}, {
+		about: "correctly ordered network config",
+		input: `
+# Network configuration
+lxc.network.type = veth
+lxc.network.hwaddr = aa:bb:cc:dd:ee:f0
+lxc.network.flags = up
+lxc.network.link = br0
+lxc.network.type = veth
+lxc.network.flags = up
+lxc.network.link = br2
+lxc.network.hwaddr = aa:bb:cc:dd:ee:f1
+lxc.network.name = eth1
+lxc.network.type = veth
+lxc.network.flags = up
+lxc.network.link = br3
+lxc.network.hwaddr = aa:bb:cc:dd:ee:f2
+lxc.network.name = eth2
+lxc.hook.mount = /usr/share/lxc/config/hook.sh
+`,
+		shouldReorder: false,
+	}, {
+		about: "1 hwaddr before first type",
+		input: `
+lxc.foo = bar # stays here
+# Network configuration
+  lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
+lxc.network.type = veth    # comment2  
+lxc.network.flags = up # all the rest..
+lxc.network.link = br0 # ..is kept...
+lxc.network.type = veth # ..as it is.
+lxc.network.flags = up
+lxc.network.link = br2
+lxc.hook.mount = /usr/share/lxc/config/hook.sh
+`,
+		shouldReorder: true,
+		output: `
+lxc.foo = bar # stays here
+# Network configuration
+lxc.network.type = veth    # comment2  
+  lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
+lxc.network.flags = up # all the rest..
+lxc.network.link = br0 # ..is kept...
+lxc.network.type = veth # ..as it is.
+lxc.network.flags = up
+lxc.network.link = br2
+lxc.hook.mount = /usr/share/lxc/config/hook.sh
+`,
+	}, {
+		about: "several network lines before first type",
+		input: `
+lxc.foo = bar # stays here
+# Network configuration
+  lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
+lxc.network.flags = up # first up
+lxc.network.link = br0
+lxc.network.type = veth    # comment2  
+lxc.network.type = vlan
+lxc.network.flags = up # all the rest..
+lxc.network.link = br1 # ...is kept...
+lxc.network.vlan.id = 42 # ...as it is.
+lxc.hook.mount = /usr/share/lxc/config/hook.sh
+`,
+		shouldReorder: true,
+		output: `
+lxc.foo = bar # stays here
+# Network configuration
+lxc.network.type = veth    # comment2  
+  lxc.network.hwaddr = aa:bb:cc:dd:ee:f0 # comment
+lxc.network.flags = up # first up
+lxc.network.link = br0
+lxc.network.type = vlan
+lxc.network.flags = up # all the rest..
+lxc.network.link = br1 # ...is kept...
+lxc.network.vlan.id = 42 # ...as it is.
+lxc.hook.mount = /usr/share/lxc/config/hook.sh
+`,
+	}, {
+		about: "one network setting without lxc.network.type",
+		input: `
+# comment
+lxc.foo = bar
+
+lxc.network.anything=goes#badly
+
+  lxc.test=# none
+lxc.bar.foo=42 # comment
+`,
+		expectErr: `cannot have line\(s\) ".*" without lxc.network.type in config ".*"`,
+	}, {
+		about: "several network settings without lxc.network.type",
+		input: `
+# comment
+lxc.foo = bar
+
+lxc.network.anything=goes#badly
+lxc.network.vlan.id = 42
+lxc.network.name = foo
+
+  lxc.test=# none
+lxc.bar.foo=42 # comment
+`,
+		expectErr: `cannot have line\(s\) ".*" without lxc.network.type in config ".*"`,
+	}} {
+		c.Logf("test %d: %q", i, test.about)
+		err := ioutil.WriteFile(configFile, []byte(test.input), 0644)
+		c.Assert(err, jc.ErrorIsNil)
+		wasReordered, err := lxc.ReorderNetworkConfig(configFile)
+		if test.expectErr != "" {
+			c.Check(err, gc.ErrorMatches, test.expectErr)
+			c.Check(wasReordered, gc.Equals, test.shouldReorder)
+			continue
+		}
+		data, err := ioutil.ReadFile(configFile)
+		c.Assert(err, jc.ErrorIsNil)
+		if test.shouldReorder {
+			c.Check(string(data), gc.Equals, test.output)
+			c.Check(wasReordered, jc.IsTrue)
+		} else {
+			c.Check(string(data), gc.Equals, test.input)
+			c.Check(wasReordered, jc.IsFalse)
+		}
+	}
+}
+
 func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	params := container.ManagerConfig{
 		container.ConfigName: name,
@@ -449,8 +611,12 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
-	// Check our container config files.
+	// Check our container config files: initial lxc.conf, the
+	// run-time effective config, and cloud-init userdata.
 	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, name, "lxc.conf"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
+	lxcConfContents, err = ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
 

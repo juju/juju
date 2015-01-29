@@ -947,7 +947,14 @@ func DropOldIndexesv123(st *State) error {
 		defer closer()
 		for _, index := range indexes {
 			if err := c.DropIndex(index...); err != nil {
-				return err
+				format := "error while dropping index: %s"
+				// Failing to drop an index that does not exist does not
+				// warrant raising an error.
+				if err.Error() == "index not found" {
+					upgradesLogger.Infof(format, err.Error())
+				} else {
+					upgradesLogger.Errorf(format, err.Error())
+				}
 			}
 		}
 	}

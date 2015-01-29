@@ -12,6 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -61,6 +62,14 @@ func (dummyHookContext) RelationIds() []int {
 
 func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
 	return nil
+}
+
+func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
+	return nil, false
+}
+
+func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, bool) {
+	return nil, false
 }
 
 func (dummyHookContext) OwnerTag() string {

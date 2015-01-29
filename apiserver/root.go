@@ -42,10 +42,11 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.MethodFinder which it
 // uses to dispatch Api calls appropriately.
 type apiHandler struct {
-	state     *state.State
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	entity    state.Entity
+	state      *state.State
+	closeState bool
+	rpcConn    *rpc.Conn
+	resources  *common.Resources
+	entity     state.Entity
 }
 
 var _ = (*apiHandler)(nil)
@@ -53,17 +54,10 @@ var _ = (*apiHandler)(nil)
 // newApiHandler returns a new apiHandler.
 func newApiHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, reqNotifier *requestNotifier) (*apiHandler, error) {
 	r := &apiHandler{
-		state:     st,
-		resources: common.NewResources(),
-		rpcConn:   rpcConn,
-	}
-	// We need to remember to close state connections that are not for the
-	// state server environment.
-	if st.EnvironUUID() != srv.state.EnvironUUID() {
-		logger.Debugf("add a resource to close the other env state connection")
-		if err := r.resources.RegisterNamed("stateConnection", stateResource{st}); err != nil {
-			return nil, errors.Trace(err)
-		}
+		state:      st,
+		closeState: st.EnvironUUID() != srv.state.EnvironUUID(),
+		resources:  common.NewResources(),
+		rpcConn:    rpcConn,
 	}
 	if err := r.resources.RegisterNamed("machineID", common.StringResource(srv.tag.Id())); err != nil {
 		return nil, errors.Trace(err)
@@ -85,10 +79,18 @@ func (r *apiHandler) getRpcConn() *rpc.Conn {
 	return r.rpcConn
 }
 
-// Kill implements rpc.Killer.  It cleans up any resources that need
+// Kill implements rpc.Killer, cleaning up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *apiHandler) Kill() {
 	r.resources.StopAll()
+}
+
+// Cleanup implements rpc.Cleaner, closing the handler's State instance
+// if required.
+func (r *apiHandler) Cleanup() {
+	if r.closeState {
+		r.state.Close()
+	}
 }
 
 // srvCaller is our implementation of the rpcreflect.MethodCaller interface.
@@ -126,6 +128,7 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
 	state       *state.State
+	closeState  bool
 	resources   *common.Resources
 	authorizer  common.Authorizer
 	objectMutex sync.RWMutex
@@ -133,9 +136,10 @@ type apiRoot struct {
 }
 
 // newApiRoot returns a new apiRoot.
-func newApiRoot(st *state.State, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
+func newApiRoot(st *state.State, closeState bool, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
 	r := &apiRoot{
 		state:       st,
+		closeState:  closeState,
 		resources:   resources,
 		authorizer:  authorizer,
 		objectCache: make(map[objectKey]reflect.Value),
@@ -143,8 +147,17 @@ func newApiRoot(st *state.State, resources *common.Resources, authorizer common.
 	return r
 }
 
+// Kill implements rpc.Killer, stopping the root's resources.
 func (r *apiRoot) Kill() {
 	r.resources.StopAll()
+}
+
+// Cleanup implements rpc.Cleaner, closing the root's State instance if
+// required.
+func (r *apiRoot) Cleanup() {
+	if r.closeState {
+		r.state.Close()
+	}
 }
 
 // FindMethod looks up the given rootName and version in our facade registry

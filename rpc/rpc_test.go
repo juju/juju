@@ -1060,23 +1060,28 @@ func (*rpcSuite) TestClientCloseIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-type KillerRoot struct {
-	killed bool
+type KillerCleanerRoot struct {
+	events []string
 	Root
 }
 
-func (r *KillerRoot) Kill() {
-	r.killed = true
+func (r *KillerCleanerRoot) Kill() {
+	r.events = append(r.events, "kill")
 }
 
-func (*rpcSuite) TestRootIsKilled(c *gc.C) {
-	root := &KillerRoot{}
+func (r *KillerCleanerRoot) Cleanup() {
+	r.events = append(r.events, "cleanup")
+}
+
+func (*rpcSuite) TestRootIsKilledAndCleaned(c *gc.C) {
+	root := &KillerCleanerRoot{}
 	client, srvDone, _, _ := newRPCClientServer(c, root, nil, false)
 	err := client.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(root.killed, jc.IsTrue)
+	// Kill should happen first.
+	c.Assert(root.events, jc.DeepEquals, []string{"kill", "cleanup"})
 }
 
 func (*rpcSuite) TestBidirectional(c *gc.C) {

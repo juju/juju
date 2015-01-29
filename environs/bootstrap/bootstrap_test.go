@@ -354,10 +354,6 @@ func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{"amd64", "arm64"}, nil
 }
 
-func (e *bootstrapEnviron) SupportNetworks() bool {
-	return true
-}
-
 func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return constraints.NewValidator(), nil
 }

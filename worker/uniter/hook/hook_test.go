@@ -5,13 +5,18 @@ package hook_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-type InfoSuite struct{}
+type InfoSuite struct {
+	testing.BaseSuite
+}
 
 var _ = gc.Suite(&InfoSuite{})
 
@@ -48,9 +53,13 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationBroken}, ""},
+	{hook.Info{Kind: hooks.StorageAttached}, ""},
+	{hook.Info{Kind: hooks.StorageDetached}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 	for i, t := range validateTests {
 		c.Logf("test %d", i)
 		err := t.info.Validate()
@@ -60,4 +69,11 @@ func (s *InfoSuite) TestValidate(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
+}
+
+func (s *InfoSuite) TestStorageHooksRequireFeatureFlag(c *gc.C) {
+	err := hook.Info{Kind: hooks.StorageAttached}.Validate()
+	c.Assert(err, gc.ErrorMatches, `unknown hook kind "storage-attached"`)
+	err = hook.Info{Kind: hooks.StorageDetached}.Validate()
+	c.Assert(err, gc.ErrorMatches, `unknown hook kind "storage-detached"`)
 }

@@ -14,7 +14,7 @@ import (
 )
 
 type settingsResult struct {
-	settings params.RelationSettings
+	settings params.Settings
 	err      error
 }
 
@@ -31,7 +31,7 @@ func (s *RelationCacheSuite) SetUpTest(c *gc.C) {
 	s.results = []settingsResult{}
 }
 
-func (s *RelationCacheSuite) ReadSettings(unitName string) (params.RelationSettings, error) {
+func (s *RelationCacheSuite) ReadSettings(unitName string) (params.Settings, error) {
 	result := s.results[len(s.calls)]
 	s.calls = append(s.calls, unitName)
 	return result.settings, result.err
@@ -90,126 +90,126 @@ func (s *RelationCacheSuite) TestSettingsPropagatesError(c *gc.C) {
 
 func (s *RelationCacheSuite) TestSettingsCachesMemberSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
 	for i := 0; i < 2; i++ {
 		settings, err := cache.Settings("x/2")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+		c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 		c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 	}
 }
 
 func (s *RelationCacheSuite) TestInvalidateMemberUncachesMemberSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}, {
-		params.RelationSettings{"baz": "qux"}, nil,
+		params.Settings{"baz": "qux"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.InvalidateMember("x/2")
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestInvalidateMemberUncachesOtherSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}, {
-		params.RelationSettings{"baz": "qux"}, nil,
+		params.Settings{"baz": "qux"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, nil)
 
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.InvalidateMember("x/2")
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestRemoveMemberUncachesMemberSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}, {
-		params.RelationSettings{"baz": "qux"}, nil,
+		params.Settings{"baz": "qux"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.RemoveMember("x/2")
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
 func (s *RelationCacheSuite) TestSettingsCachesOtherSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, nil)
 
 	for i := 0; i < 2; i++ {
 		settings, err := cache.Settings("x/2")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+		c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 		c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 	}
 }
 
 func (s *RelationCacheSuite) TestPrunePreservesMemberSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, []string{"foo/2"})
 
 	settings, err := cache.Settings("foo/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"foo/2"})
 
 	cache.Prune([]string{"foo/2"})
 	settings, err = cache.Settings("foo/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"foo/2"})
 }
 
 func (s *RelationCacheSuite) TestPruneUncachesOtherSettings(c *gc.C) {
 	s.results = []settingsResult{{
-		params.RelationSettings{"foo": "bar"}, nil,
+		params.Settings{"foo": "bar"}, nil,
 	}, {
-		params.RelationSettings{"baz": "qux"}, nil,
+		params.Settings{"baz": "qux"}, nil,
 	}}
 	cache := runner.NewRelationCache(s.ReadSettings, nil)
 
 	settings, err := cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
 
 	cache.Prune(nil)
 	settings, err = cache.Settings("x/2")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }

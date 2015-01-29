@@ -199,7 +199,7 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 
 	gotSettings, err := apiRelUnit.Settings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSettings.Map(), gc.DeepEquals, params.RelationSettings{
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
 		"some":  "settings",
 		"other": "things",
 	})
@@ -233,7 +233,7 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	s.assertInScope(c, myRelUnit, true)
 	gotSettings, err = apiRelUnit.ReadSettings("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSettings, gc.DeepEquals, params.RelationSettings{
+	c.Assert(gotSettings, gc.DeepEquals, params.Settings{
 		"some":  "settings",
 		"other": "things",
 	})

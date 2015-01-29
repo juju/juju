@@ -161,7 +161,7 @@ func (s *ContextRelationSuite) TestLocalSettings(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, map[string]interface{}{"change": "exciting"})
 }
 
-func convertSettings(settings params.RelationSettings) map[string]interface{} {
+func convertSettings(settings params.Settings) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range settings {
 		result[k] = v
@@ -169,8 +169,8 @@ func convertSettings(settings params.RelationSettings) map[string]interface{} {
 	return result
 }
 
-func convertMap(settingsMap map[string]interface{}) params.RelationSettings {
-	result := make(params.RelationSettings)
+func convertMap(settingsMap map[string]interface{}) params.Settings {
+	result := make(params.Settings)
 	for k, v := range settingsMap {
 		result[k] = v.(string)
 	}

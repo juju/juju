@@ -114,10 +114,12 @@ type Conn struct {
 	// nil if nothing is being served.
 	methodFinder MethodFinder
 
-	// killer is the current object that we are serving if it implements
-	// the Killer interface. If we are not serving an object, or if the
-	// interface isn't implemented, killer is nil
-	killer Killer
+	// root is the current object that we are serving.
+	// If it implements the Killer interface, Kill will be called on it
+	// as the connection shuts down.
+	// If it implements the Cleaner interface, Cleanup will be called on
+	// it after the connection has shut down.
+	root interface{}
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -270,18 +272,14 @@ func (conn *Conn) ServeFinder(finder MethodFinder, transformErrors func(error) e
 	conn.serve(finder, finder, transformErrors)
 }
 
-func (conn *Conn) serve(methodFinder MethodFinder, maybeKiller interface{}, transformErrors func(error) error) {
+func (conn *Conn) serve(methodFinder MethodFinder, root interface{}, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	conn.methodFinder = methodFinder
-	if killer, ok := maybeKiller.(Killer); ok {
-		conn.killer = killer
-	} else {
-		conn.killer = nil
-	}
+	conn.root = root
 	conn.transformErrors = transformErrors
 }
 
@@ -318,11 +316,7 @@ func (conn *Conn) Close() error {
 		return nil
 	}
 	conn.closing = true
-	// Kill server requests if appropriate.  Client requests will be
-	// terminated when the input loop finishes.
-	if conn.killer != nil {
-		conn.killer.Kill()
-	}
+	conn.killRequests()
 	conn.mutex.Unlock()
 
 	// Wait for any outstanding server requests to complete
@@ -334,7 +328,26 @@ func (conn *Conn) Close() error {
 		logger.Infof("error closing codec: %v", err)
 	}
 	<-conn.dead
+
+	conn.mutex.Lock()
+	conn.cleanRoot()
+	conn.mutex.Unlock()
+
 	return conn.inputLoopError
+}
+
+// Kill server requests if appropriate. Client requests will be
+// terminated when the input loop finishes.
+func (conn *Conn) killRequests() {
+	if killer, ok := conn.root.(Killer); ok {
+		killer.Kill()
+	}
+}
+
+func (conn *Conn) cleanRoot() {
+	if cleaner, ok := conn.root.(Cleaner); ok {
+		cleaner.Cleanup()
+	}
 }
 
 // ErrorCoder represents an any error that has an associated
@@ -354,6 +367,12 @@ type MethodFinder interface {
 // requests.  The Kill method should return immediately.
 type Killer interface {
 	Kill()
+}
+
+// Cleaner represents a type that can be asked to clean up after
+// itself once the connection has closed.
+type Cleaner interface {
+	Cleanup()
 }
 
 // input reads messages from the connection and handles them
