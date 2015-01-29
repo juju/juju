@@ -95,8 +95,6 @@ func (s *confDirSuite) TestScript(c *gc.C) {
 }
 
 func (s *confDirSuite) TestWriteConf(c *gc.C) {
-	s.FakeFiles.File = s.FakeFiles
-
 	data := []byte("<upstart conf>")
 	err := s.Confdir.writeConf(data)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,13 +121,34 @@ func (s *confDirSuite) TestWriteConf(c *gc.C) {
 }
 
 func (s *confDirSuite) TestNormalizeConf(c *gc.C) {
+	s.Conf.ExtraScript = "<preceding command>"
+
 	conf, err := s.Confdir.normalizeConf(*s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(conf, jc.DeepEquals, &common.Conf{
 		Desc: "a service",
-		Cmd:  "spam",
+		Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 	})
+	s.FakeFiles.CheckCalls(c, []FakeCall{{
+		FuncName: "CreateFile",
+		Args: FakeCallArgs{
+			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
+		},
+	}, {
+		FuncName: "Write",
+		Args: FakeCallArgs{
+			"data": []byte("<preceding command>\nspam"),
+		},
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "Chmod",
+		Args: FakeCallArgs{
+			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
+			"mode": os.FileMode(0755),
+		},
+	}})
 }
 
 func (s *confDirSuite) TestNormalizeConfNop(c *gc.C) {
@@ -155,8 +174,6 @@ func (s *confDirSuite) TestIsSimpleScriptMultiline(c *gc.C) {
 }
 
 func (s *confDirSuite) TestWriteScript(c *gc.C) {
-	s.FakeFiles.File = s.FakeFiles
-
 	script := "<command script>"
 	filename, err := s.Confdir.writeScript(script)
 	c.Assert(err, jc.ErrorIsNil)

@@ -37,6 +37,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	// Patch a few things.
 	s.FakeInit = &fakeInit{}
 	s.FakeFiles = &fakeFiles{}
+	s.FakeFiles.File = s.FakeFiles
 
 	s.PatchValue(&newFileOps, func() fileOperations {
 		return s.FakeFiles
