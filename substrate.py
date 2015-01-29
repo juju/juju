@@ -339,7 +339,7 @@ class AzureAccount:
                 service, embed_detail=True)
             for deployment in properties.deployments:
                 role_names = set(
-                    d_role.name for d_role in deployment.role_list)
+                    d_role.role_name for d_role in deployment.role_list)
                 if role_names.difference(roles) == set():
                     requests.add(self.service_client.delete_deployment(
                         service, deployment.name))

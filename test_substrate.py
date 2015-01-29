@@ -510,7 +510,7 @@ def make_sms(instance_ids):
         deployment.name = service + '-v3'
         for role_name in services[service]:
             role = sm.Role()
-            role.name = role_name
+            role.role_name = role_name
             deployment.role_list.roles.append(role)
         props.deployments.deployments.append(deployment)
         return props
