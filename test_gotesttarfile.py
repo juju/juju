@@ -48,7 +48,7 @@ class gotesttarfileTestCase(TestCase):
             gopath = os.path.join(base_dir, 'gogo')
             untar_gopath(tarfile_path, gopath, delete=True)
             self.assertTrue(os.path.isdir(gopath))
-            self.assertEqual(['bin', 'src', 'pkg'], os.listdir(gopath))
+            self.assertItemsEqual(['bin', 'src', 'pkg'], os.listdir(gopath))
             self.assertFalse(os.path.isfile(tarfile_path))
 
     def test_go_test_package(self):
