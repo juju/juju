@@ -623,15 +623,17 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         results = {'test_id': 'back-up-restore'}
         yield results
         backup_file = client.backup()
-        status = client.get_status()
-        instance_id = status.get_instance_id('0')
-        host = get_machine_dns_name(client, 0)
-        terminate_instances(client.env, [instance_id])
-        yield results
-        wait_for_state_server_to_shutdown(host, client, instance_id)
-        yield results
-        client.juju('restore', (backup_file,))
-        os.unlink(backup_file)
+        try:
+            status = client.get_status()
+            instance_id = status.get_instance_id('0')
+            host = get_machine_dns_name(client, 0)
+            terminate_instances(client.env, [instance_id])
+            yield results
+            wait_for_state_server_to_shutdown(host, client, instance_id)
+            yield results
+            client.juju('restore', (backup_file,))
+        finally:
+            os.unlink(backup_file)
         with wait_for_started(client):
             yield results
         results['result'] = True
