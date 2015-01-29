@@ -151,7 +151,7 @@ func (cd confDir) writeScript(script string) (string, error) {
 	return filename, nil
 }
 
-func (cd confDir) normalizeConf(conf common.Conf) (*common.Conf, error) {
+func (cd confDir) normalizeConf(conf Conf) (*common.Conf, error) {
 	// Write out the script if necessary.
 	script, err := conf.Script()
 	if err != nil {
@@ -166,7 +166,9 @@ func (cd confDir) normalizeConf(conf common.Conf) (*common.Conf, error) {
 		}
 		conf.Cmd = filename
 	}
-	return &conf, nil
+
+	normalConf, err := conf.normalize()
+	return normalConf, errors.Trace(err)
 }
 
 func (cd confDir) isSimpleScript(script string) bool {

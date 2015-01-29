@@ -31,7 +31,7 @@ var (
 // system, relative to juju.
 type Services struct {
 	configs *serviceConfigs
-	init    common.InitSystem
+	init    InitSystem
 }
 
 // DiscoverServices populates a new Services and returns it. This
@@ -62,14 +62,14 @@ func DiscoverServices(dataDir string, args ...string) (*Services, error) {
 
 // NewServices build a Services from the provided data dir and init
 // system and returns it.
-func NewServices(dataDir string, init common.InitSystem) *Services {
+func NewServices(dataDir string, init InitSystem) *Services {
 	return &Services{
 		configs: newConfigs(dataDir, init.Name(), jujuPrefixes...),
 		init:    init,
 	}
 }
 
-func extractInitSystem(args []string) (common.InitSystem, error) {
+func extractInitSystem(args []string) (InitSystem, error) {
 	// Get the init system name from the args.
 	var name string
 	if len(args) != 0 {
@@ -86,7 +86,6 @@ func extractInitSystem(args []string) (common.InitSystem, error) {
 	}
 
 	// Return the corresponding init system.
-	newInitSystem := initSystems[name]
 	return newInitSystem(name), nil
 }
 
@@ -261,7 +260,7 @@ func (s Services) IsEnabled(name string) (bool, error) {
 // Manage adds the named service to the directory of juju-related
 // service configurations. The provided Conf is used to generate the
 // conf file and possibly a script file.
-func (s Services) Manage(name string, conf common.Conf) error {
+func (s Services) Manage(name string, conf Conf) error {
 	err := s.configs.add(name, conf, s.init)
 	return errors.Trace(err)
 }
@@ -308,7 +307,7 @@ func (s Services) Remove(name string) error {
 }
 
 // Install prepares the service, enables it, and starts it.
-func (s Services) Install(name string, conf common.Conf) error {
+func (s Services) Install(name string, conf Conf) error {
 	if err := s.Manage(name, conf); err != nil {
 		return errors.Trace(err)
 	}
@@ -324,7 +323,7 @@ func (s Services) Install(name string, conf common.Conf) error {
 
 // Check verifies the managed conf for the named service to ensure
 // it matches the provided Conf.
-func (s Services) Check(name string, conf common.Conf) (bool, error) {
+func (s Services) Check(name string, conf Conf) (bool, error) {
 	// TODO(ericsnow) Finish this.
 	return false, nil
 }
@@ -335,7 +334,7 @@ func (s Services) IsManaged(name string) bool {
 	return s.configs.lookup(name) != nil
 }
 
-func (s *Services) NewService(name string, conf common.Conf) *Service {
+func (s *Services) NewService(name string, conf Conf) *Service {
 	return WrapService(name, conf, s)
 }
 

@@ -19,7 +19,7 @@ type BaseSuite struct {
 	gitjujutesting.IsolationSuite
 
 	DataDir string
-	Conf    *common.Conf
+	Conf    *Conf
 	Confdir *confDir
 
 	FakeInit  *fakeInit
@@ -30,10 +30,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.DataDir = "/var/lib/juju"
-	s.Conf = &common.Conf{
+	s.Conf = &Conf{Conf: common.Conf{
 		Desc: "a service",
 		Cmd:  "spam",
-	}
+	}}
 
 	// Patch a few things.
 	s.FakeInit = &fakeInit{}

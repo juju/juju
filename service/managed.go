@@ -86,7 +86,7 @@ type serializer interface {
 	Serialize(name string, conf common.Conf) ([]byte, error)
 }
 
-func (sc *serviceConfigs) add(name string, conf common.Conf, serializer serializer) error {
+func (sc *serviceConfigs) add(name string, conf Conf, serializer serializer) error {
 	if contains(sc.names, name) {
 		return errors.AlreadyExistsf("service %q", name)
 	}
@@ -96,15 +96,21 @@ func (sc *serviceConfigs) add(name string, conf common.Conf, serializer serializ
 		return errors.Trace(err)
 	}
 
-	normalized, err := confDir.normalizeConf(conf)
+	normalConf, err := confDir.normalizeConf(conf)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	conf = *normalized
 
-	data, err := serializer.Serialize(name, conf)
-	if err != nil {
-		return errors.Trace(err)
+	var data []byte
+	for {
+		data, err = serializer.Serialize(name, *normalConf)
+		if err == nil {
+			break
+		}
+
+		if err := normalConf.Repair(err); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if err := confDir.writeConf(data); err != nil {

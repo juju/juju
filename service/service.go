@@ -6,8 +6,6 @@ package service
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-
-	"github.com/juju/juju/service/common"
 )
 
 type services interface {
@@ -18,21 +16,21 @@ type services interface {
 	Enable(name string) error
 	Disable(name string) error
 	IsEnabled(name string) (bool, error)
-	Manage(name string, conf common.Conf) error
+	Manage(name string, conf Conf) error
 	Remove(name string) error
-	Install(name string, conf common.Conf) error
-	Check(name string, conf common.Conf) (bool, error)
+	Install(name string, conf Conf) error
+	Check(name string, conf Conf) (bool, error)
 	IsManaged(name string) bool
 }
 
 // Service is a convenience wrapper around Services for a single service.
 type Service struct {
 	name     string
-	conf     common.Conf
+	conf     Conf
 	services services
 }
 
-func NewService(name, dataDir string, conf common.Conf, args ...string) (*Service, error) {
+func NewService(name, dataDir string, conf Conf, args ...string) (*Service, error) {
 	services, err := DiscoverServices(dataDir, args...)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -41,7 +39,7 @@ func NewService(name, dataDir string, conf common.Conf, args ...string) (*Servic
 	return svc, nil
 }
 
-func WrapService(name string, conf common.Conf, services services) *Service {
+func WrapService(name string, conf Conf, services services) *Service {
 	return &Service{
 		name:     name,
 		conf:     conf,
@@ -64,7 +62,7 @@ func (s Service) Name() string {
 	return s.name
 }
 
-func (s Service) Conf() common.Conf {
+func (s Service) Conf() Conf {
 	return s.conf
 }
 

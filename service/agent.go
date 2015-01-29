@@ -169,12 +169,15 @@ func (as AgentService) command() string {
 }
 
 // Conf returns the init config for the agent described by AgentService.
-func (as AgentService) Conf() common.Conf {
+func (as AgentService) Conf() Conf {
 	cmd := as.command()
 
-	conf := common.Conf{
+	normalConf := common.Conf{
 		Desc: fmt.Sprintf("juju agent for %s %s", as.tag.Kind(), as.tag.Id()),
 		Cmd:  cmd,
+	}
+	conf := Conf{
+		Conf: normalConf,
 	}
 
 	if as.initSystem == InitSystemWindows {
