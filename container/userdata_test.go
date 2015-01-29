@@ -48,7 +48,7 @@ func (s *UserDataSuite) TestNewCloudInitConfigWithNetworks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 #cloud-config
-runcmd:
+bootcmd:
 - install -D -m 644 /dev/null '`[1:] + s.networkInterfacesFile + `'
 - |-
   printf '%s\n' '

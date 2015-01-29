@@ -101,8 +101,8 @@ func newCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudini
 		return nil, errors.Annotate(err, "cannot render cloud-init network config")
 	}
 
-	// Now add it to cloud-init as files.
-	cloudConfig.AddTextFile(networkInterfacesFile, buf.String(), 0644)
+	// Now add it to cloud-init as a file created early in the boot process.
+	cloudConfig.AddBootTextFile(networkInterfacesFile, buf.String(), 0644)
 	return cloudConfig, nil
 }
 
