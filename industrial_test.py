@@ -693,7 +693,7 @@ def main():
         run_single(args)
         return
     mit = MultiIndustrialTest.from_args(args)
-    results = mit.run_tests(mit)
+    results = mit.run_tests()
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results['results']))
 
