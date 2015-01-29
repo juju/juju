@@ -18,14 +18,8 @@ type AgentStatusSetter struct {
 }
 
 type AgentEntityFinder struct {
-	st state.State
+	st state.EntityFinder
 }
-
-func getUnitFromId(st state.State, id string) (state.AgentUnit, error) {
-	return st.Unit(id)
-}
-
-var unitFromId = getUnitFromId
 
 func (a *AgentEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	_, ok := tag.(names.UnitTag)
@@ -33,20 +27,25 @@ func (a *AgentEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
 
-	id := tag.Id()
-	unit, err := unitFromId(a.st, id)
+	entity, err := a.st.FindEntity(tag)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get unit %q", id)
+		return nil, errors.Trace(err)
 	}
+
+	unit, err := toUnit(entity)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return unit.Agent(), nil
 }
 
 // NewAgentStatusSetter returns a new AgentStatusSetter. The GetAuthFunc will be
 // used on each invocation of SetStatus to determine current
 // permissions.
-func NewAgentStatusSetter(getCanModify common.GetAuthFunc) *AgentStatusSetter {
+func NewAgentStatusSetter(st state.EntityFinder, getCanModify common.GetAuthFunc) *AgentStatusSetter {
 	statusSetter := common.NewStatusSetter(
-		&AgentEntityFinder{},
+		&AgentEntityFinder{st: st},
 		getCanModify)
 	return &AgentStatusSetter{statusSetter}
 }

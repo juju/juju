@@ -6,8 +6,8 @@ package uniter_test
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names"
 )
 
-type statusSetterSuite struct{
+type statusSetterSuite struct {
 	jujutesting.CleanupSuite
 }
 
@@ -50,19 +50,10 @@ func (s *fakeStatusSetter) Status() (status state.Status, info string, data map[
 	return s.status, s.info, s.data, nil
 }
 
-func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
-	for k, v := range data {
-		s.data[k] = v
-	}
-	return s.err
+func toUnitEntity(entity state.Entity) (state.AgentUnit, error) {
+	fake := entity.(*fakeStatusSetter)
+	return fake, nil
 }
-
-func toUnit(entity state.Entity) (state.AgentUnit, error) {
-		fake := entity.(*fakeStatusSetter)
-//		fake := entity.(*state.Unit)
-		return fake, nil
-}
-
 
 func (s *statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
@@ -87,7 +78,7 @@ func (s *statusSetterSuite) TestSetStatus(c *gc.C) {
 		}, nil
 	}
 
-	s.PatchValue(uniter.ToUnit, toUnit)
+	s.PatchValue(uniter.ToUnit, toUnitEntity)
 	eSetter := uniter.NewEntityStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{

@@ -37,7 +37,7 @@ func (s *StatusAPI) SetStatus(args params.SetStatus) (params.ErrorResults, error
 // SetAgentStatus will set status for agents of Units passed in args, if one
 // of the args is not an Unit it will fail.
 func (s *StatusAPI) SetAgentStatus(args params.SetStatus) (params.ErrorResults, error) {
-	setter := NewAgentStatusSetter(s.getCanModify)
+	setter := NewAgentStatusSetter(s.st, s.getCanModify)
 	return setter.SetStatus(args)
 }
 

@@ -56,8 +56,8 @@ func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return entity, nil
 }
 
-type agentStatusSetterSuite struct{
-		jujutesting.CleanupSuite
+type agentStatusSetterSuite struct {
+	jujutesting.CleanupSuite
 }
 
 var _ = gc.Suite(&agentStatusSetterSuite{})
@@ -76,12 +76,17 @@ func (s *fakeAgentStatusSetter) Agent() state.Entity {
 }
 
 func (s *fakeAgentStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
+	fmt.Printf("called with ERROR %q and %q", s.err, status)
 	s.status = status
 	s.info = info
 	s.data = data
 	return s.err
 }
 
+func toUnitAgent(entity state.Entity) (state.AgentUnit, error) {
+	fake := entity.(*fakeAgentStatusSetter)
+	return fake, nil
+}
 
 func (s *agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 	st := &fakeState{
@@ -119,19 +124,7 @@ func (s *agentStatusSetterSuite) TestSetUnitAgentStatus(c *gc.C) {
 		},
 	}
 
-	unitFromId := func (_ state.State, id string) (state.AgentUnit, error) {
-		entity, ok := st.Entity(id)
-		if !ok {
-			return nil, fmt.Errorf("%q is not a valid id", id)
-		}
-		unit, ok := entity.(*fakeAgentStatusSetter)
-		if !ok {
-			return nil, fmt.Errorf("%q is not a valid unit", id)
-		}
-		return unit, nil
-	}
-
-	s.PatchValue(uniter.UnitFromId, unitFromId)
+	s.PatchValue(uniter.ToUnit, toUnitAgent)
 	result, err := sAPI.SetAgentStatus(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
