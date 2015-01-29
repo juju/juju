@@ -175,3 +175,33 @@ class TestWaitForPort(TestCase):
         socket_mock.assert_called_once_with('foo', 'bar', 'baz')
         connect_mock = socket_mock.return_value.connect
         connect_mock.assert_called_once_with(('192.168.8.3', 27))
+
+    def test_wait_for_port_no_address_closed(self):
+        with patch('socket.getaddrinfo', autospec=True,
+                   side_effect=socket.error(-5, None)) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                wait_for_port('asdf', 26, closed=True)
+        gai_mock.assert_called_once_with('asdf', 26, socket.AF_INET,
+                                         socket.SOCK_STREAM)
+        self.assertEqual(socket_mock.call_count, 0)
+
+    def test_wait_for_port_no_address_open(self):
+        stub_called = False
+        loc = locals()
+
+        def gai_stub(host, port, family, socktype):
+            if loc['stub_called']:
+                raise ValueError()
+            loc['stub_called'] = True
+            raise socket.error(-5, None)
+
+        with patch('socket.getaddrinfo', autospec=True, side_effect=gai_stub,
+                   ) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                with self.assertRaises(ValueError):
+                    wait_for_port('asdf', 26, closed=False)
+        self.assertEqual(gai_mock.mock_calls, [
+            call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+            call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+            ])
+        self.assertEqual(socket_mock.call_count, 0)
