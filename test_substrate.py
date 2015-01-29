@@ -7,6 +7,7 @@ from boto.exception import EC2ResponseError
 from mock import (
     ANY,
     call,
+    create_autospec,
     MagicMock,
     Mock,
     patch,
@@ -497,6 +498,30 @@ class TestJoyentAccount(TestCase):
         client.delete_machine.assert_called_once_with('a')
 
 
+def make_sms(instance_ids):
+    from azure import servicemanagement as sm
+    client = create_autospec(sm.ServiceManagementService('foo', 'bar'))
+
+    services = AzureAccount.convert_instance_ids(instance_ids)
+
+    def get_hosted_service_properties(service, embed_detail):
+        props = sm.HostedService()
+        deployment = sm.Deployment()
+        deployment.name = service + '-v3'
+        for role_name in services[service]:
+            role = sm.Role()
+            role.name = role_name
+            deployment.role_list.roles.append(role)
+        props.deployments.deployments.append(deployment)
+        return props
+
+    client.get_hosted_service_properties.side_effect = (
+        get_hosted_service_properties)
+    client.get_operation_status.return_value = Mock(status='Succeeded')
+    client.delete_role.return_value = sm.AsynchronousOperationResult()
+    return client
+
+
 class TestAzureAccount(TestCase):
 
     def test_manager_from_config(self):
@@ -517,17 +542,34 @@ class TestAzureAccount(TestCase):
             'foo-noo': {'baz'},
             })
 
-    def test_terminate_instances(self):
-        from azure.servicemanagement import ServiceManagementService
-        client = ServiceManagementService('foo', 'bar')
+    def test_terminate_instances_one_role(self):
+        client = make_sms(['foo-bar'])
         account = AzureAccount(client)
-        with patch.object(client, 'shutdown_roles', autospec=True) as sr_mock:
-            with patch.object(client, 'get_deployment_by_slot') as gdbs_mock:
-                gdbs_mock.return_value.name = 'quxx'
-                account.terminate_instances(['foo-bar', 'foo-baz'])
-        sr_mock.assert_called_once_with('foo', 'quxx', set(['bar', 'baz']),
-                                        'StoppedDeallocated')
-        gdbs_mock.assert_called_once_with('foo', 'production')
+        account.terminate_instances(['foo-bar'])
+        client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
+        client.delete_hosted_service.assert_called_once_with('foo')
+
+    def test_terminate_instances_not_all_roles(self):
+        client = make_sms(['foo-bar', 'foo-baz', 'foo-qux'])
+        account = AzureAccount(client)
+        account.terminate_instances(['foo-bar', 'foo-baz'])
+        client.get_hosted_service_properties.assert_called_once_with(
+            'foo', embed_detail=True)
+        self.assertItemsEqual(client.delete_role.mock_calls, [
+            call('foo', 'foo-v3', 'bar'),
+            call('foo', 'foo-v3', 'baz'),
+            ])
+        self.assertEqual(client.delete_deployment.call_count, 0)
+        self.assertEqual(client.delete_hosted_service.call_count, 0)
+
+    def test_terminate_instances_all_roles(self):
+        client = make_sms(['foo-bar', 'foo-baz', 'foo-qux'])
+        account = AzureAccount(client)
+        account.terminate_instances(['foo-bar', 'foo-baz', 'foo-qux'])
+        client.get_hosted_service_properties.assert_called_once_with(
+            'foo', embed_detail=True)
+        client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
+        client.delete_hosted_service.assert_called_once_with('foo')
 
 
 class TestMakeSubstrateManager(TestCase):

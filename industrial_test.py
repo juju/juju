@@ -679,7 +679,8 @@ def run_single(args):
         for stage in stage_attempts:
             for step in stage.iter_steps(client):
                 print step
-    except:
+    except BaseException as e:
+        logging.exception(e)
         client.destroy_environment()
 
 

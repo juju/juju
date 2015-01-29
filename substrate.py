@@ -329,13 +329,43 @@ class AzureAccount:
             services.setdefault(service, set()).add(role)
         return services
 
-    def terminate_instances(self, instance_ids):
+    @contextmanager
+    def terminate_instances_cxt(self, instance_ids):
         converted = self.convert_instance_ids(instance_ids)
+        requests = set()
+        services_to_delete = set(converted.keys())
         for service, roles in converted.items():
-            deployment = self.service_client.get_deployment_by_slot(
-                service, 'production')
-            self.service_client.shutdown_roles(service, deployment.name,
-                                               roles, 'StoppedDeallocated')
+            properties = self.service_client.get_hosted_service_properties(
+                service, embed_detail=True)
+            for deployment in properties.deployments:
+                role_names = set(
+                    d_role.name for d_role in deployment.role_list)
+                if role_names.difference(roles) == set():
+                    requests.add(self.service_client.delete_deployment(
+                        service, deployment.name))
+                else:
+                    services_to_delete.discard(service)
+                    for role in roles:
+                        requests.add(
+                            self.service_client.delete_role(
+                                service, deployment.name, role))
+        yield
+        self.block_on_requests(requests)
+        for service in services_to_delete:
+            self.service_client.delete_hosted_service(service)
+
+    def block_on_requests(self, requests):
+        requests = set(requests)
+        while len(requests) > 0:
+            for request in list(requests):
+                op = self.service_client.get_operation_status(
+                    request.request_id)
+                if op.status == 'Succeeded':
+                    requests.remove(request)
+
+    def terminate_instances(self, instance_ids):
+        with self.terminate_instances_cxt(instance_ids):
+            return
 
 
 @contextmanager
