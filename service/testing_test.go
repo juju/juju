@@ -17,6 +17,7 @@ import (
 type BaseSuite struct {
 	gitjujutesting.IsolationSuite
 
+	DataDir string
 	Conf    *common.Conf
 	Confdir *confDir
 
@@ -27,24 +28,23 @@ type BaseSuite struct {
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	s.DataDir = "/var/lib/juju"
 	s.Conf = &common.Conf{
 		Desc: "a service",
 		Cmd:  "spam",
 	}
 
-	s.Confdir = &confDir{
-		dirname:    "/var/lib/juju/init/jujud-machine-0",
-		initSystem: initSystemUpstart,
-	}
-
 	// Patch a few things.
 	s.FakeInit = &fakeInit{}
 	s.FakeFiles = &fakeFiles{}
-	s.PatchValue(&stat, s.FakeFiles.Stat)
-	s.PatchValue(&readfile, s.FakeFiles.ReadFile)
-	s.PatchValue(&create, s.FakeFiles.Create)
-	s.PatchValue(&remove, s.FakeFiles.RemoveAll)
-	s.PatchValue(&mkdirs, s.FakeFiles.MakedirAll)
+
+	s.PatchValue(&newFileOps, func() fileOperations {
+		return s.FakeFiles
+	})
+
+	name := "jujud-machine-0"
+	initDir := s.DataDir + "/init"
+	s.Confdir = newConfDir(name, initDir, InitSystemUpstart)
 }
 
 // TODO(ericsnow) Use the fake in the testing repo as soon as it lands.
@@ -86,43 +86,62 @@ func (f *fake) CheckCalls(c *gc.C, expected []FakeCall) {
 	c.Check(f.calls, jc.DeepEquals, expected)
 }
 
+// TODO(ericsnow) Move fakeFiles to service/testing.
+
 type fakeFiles struct {
 	fake
 
-	FileInfo os.FileInfo
+	Exists   bool
 	Data     []byte
 	File     io.WriteCloser
 	NWritten int
 }
 
-func (ff *fakeFiles) Stat(filename string) (os.FileInfo, error) {
-	ff.addCall("Stat", FakeCallArgs{
-		"filename": filename,
+func (ff *fakeFiles) exists(name string) (bool, error) {
+	ff.addCall("Exists", FakeCallArgs{
+		"name": name,
 	})
-	return ff.FileInfo, ff.err()
+	return ff.Exists, ff.err()
 }
 
-func (ff *fakeFiles) ReadFile(filename string) ([]byte, error) {
+func (ff *fakeFiles) mkdirAll(dirname string, mode os.FileMode) error {
+	ff.addCall("MkdirAll", FakeCallArgs{
+		"dirname": dirname,
+		"mode":    mode,
+	})
+	return ff.err()
+}
+
+func (ff *fakeFiles) readFile(filename string) ([]byte, error) {
 	ff.addCall("ReadFile", FakeCallArgs{
 		"filename": filename,
 	})
 	return ff.Data, ff.err()
 }
 
-func (ff *fakeFiles) RemoveAll(dirname string) error {
-	ff.addCall("RemoveAll", FakeCallArgs{
-		"dirname": dirname,
-	})
-	return ff.err()
-}
-
-func (ff *fakeFiles) Create(filename string) (io.WriteCloser, error) {
-	ff.addCall("Create", FakeCallArgs{
+func (ff *fakeFiles) createFile(filename string) (io.WriteCloser, error) {
+	ff.addCall("CreateFile", FakeCallArgs{
 		"filename": filename,
 	})
 	return ff.File, ff.err()
 }
 
+func (ff *fakeFiles) removeAll(name string) error {
+	ff.addCall("RemoveAll", FakeCallArgs{
+		"name": name,
+	})
+	return ff.err()
+}
+
+func (ff *fakeFiles) chmod(name string, mode os.FileMode) error {
+	ff.addCall("Chmod", FakeCallArgs{
+		"name": name,
+		"mode": mode,
+	})
+	return ff.err()
+}
+
+// Write Implements io.Writer.
 func (ff *fakeFiles) Write(data []byte) (int, error) {
 	ff.addCall("Write", FakeCallArgs{
 		"data": data,
@@ -130,10 +149,13 @@ func (ff *fakeFiles) Write(data []byte) (int, error) {
 	return ff.NWritten, ff.err()
 }
 
+// Write Implements io.Closer.
 func (ff *fakeFiles) Close() error {
 	ff.addCall("Close", nil)
 	return ff.err()
 }
+
+// TODO(ericsnow) Move fakeInit to service/testing.
 
 type fakeInit struct {
 	fake

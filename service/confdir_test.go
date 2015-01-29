@@ -6,7 +6,6 @@ package service
 import (
 	"os"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -38,13 +37,15 @@ func (s *confDirSuite) TestFilename(c *gc.C) {
 }
 
 func (s *confDirSuite) TestValidate(c *gc.C) {
+	s.FakeFiles.Exists = true
+
 	err := s.Confdir.validate()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "Stat",
+		FuncName: "Exists",
 		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
 		},
 	}})
 }
@@ -57,13 +58,31 @@ func (s *confDirSuite) TestValidateMissingConf(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*missing conf file .*`)
 }
 
+func (s *confDirSuite) TestCreate(c *gc.C) {
+	err := s.Confdir.create()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.FakeFiles.CheckCalls(c, []FakeCall{{
+		FuncName: "Exists",
+		Args: FakeCallArgs{
+			"name": "/var/lib/juju/init/jujud-machine-0",
+		},
+	}, {
+		FuncName: "MkdirAll",
+		Args: FakeCallArgs{
+			"dirname": "/var/lib/juju/init/jujud-machine-0",
+			"mode":    os.FileMode(0755),
+		},
+	}})
+}
+
 func (s *confDirSuite) TestConf(c *gc.C) {
 	s.FakeFiles.Data = []byte("<conf file contents>")
 
 	content, err := s.Confdir.conf()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(content, gc.Equals, "<conf file contents>")
+	c.Check(string(content), gc.Equals, "<conf file contents>")
 }
 
 func (s *confDirSuite) TestScript(c *gc.C) {
@@ -72,149 +91,94 @@ func (s *confDirSuite) TestScript(c *gc.C) {
 	content, err := s.Confdir.script()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(content, gc.Equals, "<script file contents>")
-	c.Check(content, gc.Equals, "<script file contents>")
+	c.Check(string(content), gc.Equals, "<script file contents>")
 }
 
 func (s *confDirSuite) TestWriteConf(c *gc.C) {
-	s.FakeInit.Data = []byte("<upstart conf>")
 	s.FakeFiles.File = s.FakeFiles
-	s.FakeFiles.SetErrors(os.ErrNotExist)
 
-	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
+	data := []byte("<upstart conf>")
+	err := s.Confdir.writeConf(data)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "Stat",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0",
-		},
-	}, {
-		FuncName: "Create",
+		FuncName: "CreateFile",
 		Args: FakeCallArgs{
 			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
 		},
 	}, {
 		FuncName: "Write",
 		Args: FakeCallArgs{
-			"data": []byte("<upstart conf>"),
+			"data": data,
 		},
 	}, {
 		FuncName: "Close",
-	}})
-	s.FakeInit.CheckCalls(c, []FakeCall{{
-		FuncName: "Serialize",
+	}, {
+		FuncName: "Chmod",
 		Args: FakeCallArgs{
-			"conf": &common.Conf{
-				Desc: "a service",
-				Cmd:  "spam",
-			},
+			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+			"mode": os.FileMode(0644),
 		},
 	}})
 }
 
-func (s *confDirSuite) TestWriteConfExists(c *gc.C) {
-	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
-
-	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
-}
-
-func (s *confDirSuite) TestWriteConfMultiline(c *gc.C) {
-	s.Conf.Cmd = "spam\neggs"
-	s.FakeInit.Data = []byte("<upstart conf>")
-	s.FakeFiles.File = s.FakeFiles
-	s.FakeFiles.SetErrors(os.ErrNotExist)
-
-	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
+func (s *confDirSuite) TestNormalizeConf(c *gc.C) {
+	conf, err := s.Confdir.normalizeConf(*s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(conf, jc.DeepEquals, &common.Conf{
+		Desc: "a service",
+		Cmd:  "spam",
+	})
+}
+
+func (s *confDirSuite) TestNormalizeConfNop(c *gc.C) {
+	conf, err := s.Confdir.normalizeConf(*s.Conf)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(conf, jc.DeepEquals, &common.Conf{
+		Desc: "a service",
+		Cmd:  "spam",
+	})
+}
+
+func (s *confDirSuite) TestIsSimpleScript(c *gc.C) {
+	simple := s.Confdir.isSimpleScript("<a script>")
+
+	c.Check(simple, jc.IsTrue)
+}
+
+func (s *confDirSuite) TestIsSimpleScriptMultiline(c *gc.C) {
+	simple := s.Confdir.isSimpleScript("<a script>\n<more script>")
+
+	c.Check(simple, jc.IsFalse)
+}
+
+func (s *confDirSuite) TestWriteScript(c *gc.C) {
+	s.FakeFiles.File = s.FakeFiles
+
+	script := "<command script>"
+	filename, err := s.Confdir.writeScript(script)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(filename, gc.Equals, "/var/lib/juju/init/jujud-machine-0/script.sh")
 	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "Stat",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0",
-		},
-	}, {
-		FuncName: "Create",
+		FuncName: "CreateFile",
 		Args: FakeCallArgs{
 			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
 		},
 	}, {
 		FuncName: "Write",
 		Args: FakeCallArgs{
-			"data": []byte("spam\neggs"),
+			"data": []byte(script),
 		},
 	}, {
 		FuncName: "Close",
 	}, {
-		FuncName: "Create",
+		FuncName: "Chmod",
 		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Write",
-		Args: FakeCallArgs{
-			"data": []byte("<upstart conf>"),
-		},
-	}, {
-		FuncName: "Close",
-	}})
-	s.FakeInit.CheckCalls(c, []FakeCall{{
-		FuncName: "Serialize",
-		Args: FakeCallArgs{
-			"conf": &common.Conf{
-				Desc: "a service",
-				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
-			},
-		},
-	}})
-}
-
-func (s *confDirSuite) TestWriteConfExtra(c *gc.C) {
-	s.Conf.ExtraScript = "eggs"
-	s.FakeInit.Data = []byte("<upstart conf>")
-	s.FakeFiles.File = s.FakeFiles
-	s.FakeFiles.SetErrors(os.ErrNotExist)
-
-	err := s.Confdir.writeConf(s.Conf, s.FakeInit)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "Stat",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0",
-		},
-	}, {
-		FuncName: "Create",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
-		},
-	}, {
-		FuncName: "Write",
-		Args: FakeCallArgs{
-			"data": []byte("eggs\nspam"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Create",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Write",
-		Args: FakeCallArgs{
-			"data": []byte("<upstart conf>"),
-		},
-	}, {
-		FuncName: "Close",
-	}})
-	s.FakeInit.CheckCalls(c, []FakeCall{{
-		FuncName: "Serialize",
-		Args: FakeCallArgs{
-			"conf": &common.Conf{
-				Desc: "a service",
-				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
-			},
+			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
+			"mode": os.FileMode(0755),
 		},
 	}})
 }
@@ -226,7 +190,7 @@ func (s *confDirSuite) TestRemove(c *gc.C) {
 	s.FakeFiles.CheckCalls(c, []FakeCall{{
 		FuncName: "RemoveAll",
 		Args: FakeCallArgs{
-			"dirname": "/var/lib/juju/init/jujud-machine-0",
+			"name": "/var/lib/juju/init/jujud-machine-0",
 		},
 	}})
 }

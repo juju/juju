@@ -42,7 +42,7 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.initDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.testPath)
 	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
-	s.PatchValue(&upstart.InitDir, s.initDir)
+	s.PatchValue(&upstart.ConfDir, s.initDir)
 	s.service = upstart.NewService(
 		"some-service",
 		common.Conf{

@@ -34,8 +34,12 @@ func newConfDir(name, initDir, initSystem string) *confDir {
 	return &confDir{
 		dirname:    filepath.Join(initDir, name),
 		initSystem: initSystem,
-		fops:       &fileOps{},
+		fops:       newFileOps(),
 	}
+}
+
+var newFileOps = func() fileOperations {
+	return &fileOps{}
 }
 
 func (cd confDir) name() string {
@@ -96,17 +100,51 @@ func (cd confDir) script() ([]byte, error) {
 	return cd.readfile(filenameScript)
 }
 
+func (cd confDir) writefile(name string, data []byte) (string, error) {
+	// TODO(ericsnow) Fail if the file already exists?
+	// TODO(ericsnow) Create with desired permissions?
+
+	filename := filepath.Join(cd.dirname, name)
+
+	file, err := cd.fops.createFile(filename)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer file.Close()
+
+	if _, err := file.Write(data); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return filename, nil
+}
+
 func (cd confDir) writeConf(data []byte) error {
-	file, err := cd.fops.createFile(cd.filename())
+	filename, err := cd.writefile(cd.confname(), data)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer file.Close()
-	if _, err := file.Write(data); err != nil {
+
+	// TODO(ericsnow) Are these the right permissions?
+	if err := cd.fops.chmod(filename, 0644); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
+}
+
+func (cd confDir) writeScript(script string) (string, error) {
+	filename, err := cd.writefile(filenameScript, []byte(script))
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// TODO(ericsnow) Are these the right permissions?
+	if err := cd.fops.chmod(filename, 0755); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return filename, nil
 }
 
 func (cd confDir) normalizeConf(conf common.Conf) (*common.Conf, error) {
@@ -117,7 +155,7 @@ func (cd confDir) normalizeConf(conf common.Conf) (*common.Conf, error) {
 	}
 	conf.Cmd = script
 	conf.ExtraScript = ""
-	if !cd.isSimple(script) {
+	if !cd.isSimpleScript(script) {
 		filename, err := cd.writeScript(script)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -127,29 +165,11 @@ func (cd confDir) normalizeConf(conf common.Conf) (*common.Conf, error) {
 	return &conf, nil
 }
 
-func (cd confDir) isSimple(script string) bool {
+func (cd confDir) isSimpleScript(script string) bool {
 	if strings.Contains(script, "\n") {
 		return false
 	}
 	return true
-}
-
-func (cd confDir) writeScript(script string) (string, error) {
-	filename := filepath.Join(cd.dirname, filenameScript)
-
-	file, err := cd.fops.createFile(filename)
-	if err != nil {
-		return "", errors.Annotate(err, "while writing script")
-	}
-	defer file.Close()
-
-	if _, err := file.Write([]byte(script)); err != nil {
-		return "", errors.Trace(err)
-	}
-
-	// TODO(ericsnow) Set the proper permissions.
-
-	return filename, nil
 }
 
 func (cd confDir) remove() error {

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/service/common"
 )
 
+// TODO(ericsnow) Use the fake in the testing repo as soon as it lands.
+
 type ServicesStatus struct {
 	Running set.Strings
 	Enabled set.Strings
