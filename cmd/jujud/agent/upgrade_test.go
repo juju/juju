@@ -432,6 +432,7 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	s.setInstantRetryStrategy(c)
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
 	if !errors.IsNotSupported(err) {
@@ -445,6 +446,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
+	s.setInstantRetryStrategy(c)
 	// We need to first start up a state server that thinks it has already been upgraded.
 	ss, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, ss)

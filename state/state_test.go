@@ -385,13 +385,9 @@ func (s *MultiEnvStateSuite) TestWatchTwoEnvironments(c *gc.C) {
 		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st)
-				m := f.MakeMachine(c, &factory.MachineParams{
-					Jobs:   []state.MachineJob{state.JobHostUnits},
-					Series: "trusty",
-				})
+				m, err := st.AddMachine("trusty", state.JobHostUnits)
+				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
-
 				return m.Watch()
 			},
 			setUpState: func(st *state.State) bool {
