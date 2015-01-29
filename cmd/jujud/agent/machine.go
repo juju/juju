@@ -919,6 +919,7 @@ func (a *MachineAgent) startEnvWorkers(
 	defer func() {
 		if err != nil && runner != nil {
 			runner.Kill()
+			runner.Wait()
 		}
 	}()
 	// Close the API connection when the runner for this environment dies.
@@ -939,10 +940,11 @@ func (a *MachineAgent) startEnvWorkers(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Kill the singular runner when the main runner for this environment dies.
-	go func() {
-		runner.Wait()
-		singularRunner.Kill()
+	defer func() {
+		if err != nil && singularRunner != nil {
+			singularRunner.Kill()
+			singularRunner.Wait()
+		}
 	}()
 
 	// Start workers that depend on a *state.State.
