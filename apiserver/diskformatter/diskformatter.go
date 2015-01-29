@@ -199,6 +199,7 @@ func storageStorageInstance(st state.StorageInstance) (storage.StorageInstance, 
 	return storage.StorageInstance{
 		st.Id(),
 		storageStorageKind(st.Kind()),
+		"", // TODO(wallyworld) Location
 	}, nil
 }
 

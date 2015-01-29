@@ -78,6 +78,7 @@ type leaseReleasedMsg struct {
 
 type leaseManager struct {
 	leasePersistor   leasePersistor
+	retrieveLease    chan Token
 	claimLease       chan Token
 	releaseLease     chan releaseLeaseMsg
 	leaseReleasedSub chan leaseReleasedMsg
@@ -89,6 +90,18 @@ type leaseManager struct {
 func (m *leaseManager) CopyOfLeaseTokens() []Token {
 	m.copyOfTokens <- nil
 	return <-m.copyOfTokens
+}
+
+// RetrieveLease returns the lease token currently stored for the
+// given namespace.
+func (m *leaseManager) RetrieveLease(namespace string) Token {
+	for _, tok := range m.CopyOfLeaseTokens() {
+		if tok.Namespace != namespace {
+			continue
+		}
+		return tok
+	}
+	return Token{}
 }
 
 // Claimlease claims a lease for the given duration for the given

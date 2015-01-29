@@ -988,14 +988,15 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	c.Check(networkInfo, gc.HasLen, 0)
 }
 
-func (suite *environSuite) TestSupportNetworks(c *gc.C) {
+func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 	env := suite.makeEnviron()
-	c.Assert(env.SupportNetworks(), jc.IsTrue)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
+func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportAddressAllocation("")
+	supported, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
 }

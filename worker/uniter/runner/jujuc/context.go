@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 )
 
 type RebootPriority int
@@ -98,6 +99,13 @@ type Context interface {
 
 	// RequestReboot will set the reboot flag to true on the machine agent
 	RequestReboot(prio RebootPriority) error
+
+	// StorageInstance returns the storage instance with the given id.
+	StorageInstance(storageId string) (*storage.StorageInstance, bool)
+
+	// HookStorageInstance returns the storage instance associated
+	// the executing hook.
+	HookStorageInstance() (*storage.StorageInstance, bool)
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -123,12 +131,12 @@ type ContextRelation interface {
 	UnitNames() []string
 
 	// ReadSettings returns the settings of any remote unit in the relation.
-	ReadSettings(unit string) (params.RelationSettings, error)
+	ReadSettings(unit string) (params.Settings, error)
 }
 
 // Settings is implemented by types that manipulate unit settings.
 type Settings interface {
-	Map() params.RelationSettings
+	Map() params.Settings
 	Set(string, string)
 	Delete(string)
 }

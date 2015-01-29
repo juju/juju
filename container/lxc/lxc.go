@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
@@ -65,7 +66,7 @@ func containerDirFilesystem() (string, error) {
 	cmd := exec.Command("df", "--output=fstype", LxcContainerDir)
 	out, err := FsCommandOutput(cmd)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	// The filesystem is the second line.
 	lines := strings.Split(string(out), "\n")
@@ -191,7 +192,6 @@ func (manager *containerManager) CreateContainer(
 	series string,
 	network *container.NetworkConfig,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
-
 	// Check our preconditions
 	if manager == nil {
 		panic("manager is nil")
@@ -258,6 +258,17 @@ func (manager *containerManager) CreateContainer(
 			return nil, nil, errors.Annotate(err, "failed to acquire lock on template")
 		}
 		defer lock.Unlock()
+
+		// Ensure the run-time effective config of the template
+		// container has correctly ordered network settings, otherwise
+		// Clone() below will fail. This is needed in case we haven't
+		// created a new template now but are reusing an existing one.
+		// See LP bug #1414016.
+		configPath := containerConfigFilename(templateContainer.Name())
+		if _, err := reorderNetworkConfig(configPath); err != nil {
+			return nil, nil, errors.Annotate(err, "failed to reorder network settings")
+		}
+
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
 			return nil, nil, errors.Annotate(err, "lxc container cloning failed")
@@ -283,8 +294,16 @@ func (manager *containerManager) CreateContainer(
 			templateParams = append(templateParams, "-T", imageURL)
 			caCert = manager.imageURLGetter.CACert()
 		}
-		if err = createContainer(lxcContainer, network, directory, nil, templateParams, caCert); err != nil {
-			return nil, nil, err
+		err = createContainer(
+			lxcContainer,
+			directory,
+			network,
+			nil,
+			templateParams,
+			caCert,
+		)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -294,6 +313,25 @@ func (manager *containerManager) CreateContainer(
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
 	}
+	// Update the network settings inside the run-time config of the
+	// container (e.g. /var/lib/lxc/<name>/config) before starting it.
+	networkConfig := generateNetworkConfig(network)
+	if err := updateContainerConfig(name, networkConfig); err != nil {
+		return nil, nil, errors.Annotate(err, "failed to update network config")
+	}
+	configPath := containerConfigFilename(name)
+	logger.Tracef("updated network config in %q for container %q", configPath, name)
+	// Ensure the run-time config of the new container has correctly
+	// ordered network settings, otherwise Start() below will fail. We
+	// need this now because after lxc-create or lxc-clone the initial
+	// lxc.conf generated inside createContainer gets merged with
+	// other settings (e.g. system-wide overrides, changes made by
+	// hooks, etc.) and the result can still be incorrectly ordered.
+	// See LP bug #1414016.
+	if _, err := reorderNetworkConfig(configPath); err != nil {
+		return nil, nil, errors.Annotate(err, "failed to reorder network settings")
+	}
+
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
@@ -330,15 +368,22 @@ func (manager *containerManager) CreateContainer(
 	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 
-func createContainer(lxcContainer golxc.Container, network *container.NetworkConfig, containerDirectory string,
-	extraCreateArgs, templateParams []string, caCert []byte,
+func createContainer(
+	lxcContainer golxc.Container,
+	directory string,
+	network *container.NetworkConfig,
+	extraCreateArgs, templateParams []string,
+	caCert []byte,
 ) error {
-	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(network, containerDirectory)
-	if err != nil {
-		return errors.Annotatef(err, "failed to write config file")
+	// Generate initial lxc.conf with networking settings.
+	networkConfig := generateNetworkConfig(network)
+	configPath := filepath.Join(directory, "lxc.conf")
+	if err := ioutil.WriteFile(configPath, []byte(networkConfig), 0644); err != nil {
+		return errors.Annotatef(err, "failed to write container config %q", configPath)
 	}
+	logger.Tracef("wrote initial config %q for container %q", configPath, lxcContainer.Name())
 
+	var err error
 	var execEnv []string = nil
 	var closer func()
 	if caCert != nil {
@@ -350,9 +395,9 @@ func createContainer(lxcContainer golxc.Container, network *container.NetworkCon
 	}
 
 	// Create the container.
-	logger.Debugf("create the lxc container")
+	logger.Debugf("creating lxc container %q", lxcContainer.Name())
 	logger.Debugf("lxc-create template params: %v", templateParams)
-	if err := lxcContainer.Create(configFile, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
+	if err := lxcContainer.Create(configPath, defaultTemplate, extraCreateArgs, templateParams, execEnv); err != nil {
 		return errors.Annotatef(err, "lxc container creation failed")
 	}
 	return nil
@@ -366,12 +411,12 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	env := os.Environ()
 	kv, err := keyvalues.Parse(env, true)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	// Create a wget bash script in a temporary directory.
 	tmpDir, err := ioutil.TempDir("", "wget")
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 	closer = func() {
 		os.RemoveAll(tmpDir)
@@ -381,7 +426,7 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	err = ioutil.WriteFile(caCertPath, caCert, 0755)
 	if err != nil {
 		defer closer()
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Write the wget script.
@@ -392,7 +437,7 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	err = ioutil.WriteFile(filepath.Join(tmpDir, "wget"), []byte(wget), 0755)
 	if err != nil {
 		defer closer()
-		return nil, nil, err
+		return nil, nil, errors.Trace(err)
 	}
 
 	// Update the path to point to the script.
@@ -405,15 +450,245 @@ func wgetEnvironment(caCert []byte) (execEnv []string, closer func(), _ error) {
 	return execEnv, closer, nil
 }
 
+// parseConfigLine tries to parse a line from an LXC config file.
+// Empty lines, comments, and lines not starting with "lxc." are
+// ignored. If successful the setting and its value are returned
+// stripped of leading/trailing whitespace and line comments (e.g.
+// "lxc.rootfs" and "/some/path"), otherwise both results are empty.
+func parseConfigLine(line string) (setting, value string) {
+	input := strings.TrimSpace(line)
+	if len(input) == 0 ||
+		strings.HasPrefix(input, "#") ||
+		!strings.HasPrefix(input, "lxc.") {
+		return "", ""
+	}
+	parts := strings.SplitN(input, "=", 2)
+	if len(parts) != 2 {
+		// Still not what we're looking for.
+		return "", ""
+	}
+	setting = strings.TrimSpace(parts[0])
+	value = strings.TrimSpace(parts[1])
+	if strings.Contains(value, "#") {
+		parts = strings.SplitN(value, "#", 2)
+		if len(parts) == 2 {
+			value = strings.TrimSpace(parts[0])
+		}
+	}
+	return setting, value
+}
+
+// updateContainerConfig selectively replaces, deletes, and/or appends
+// lines in the named container's current config file, depending on
+// the contents of newConfig. First, newConfig is split into multiple
+// lines and parsed, ignoring comments, empty lines and spaces. Then
+// the occurrence of a setting in a line of the config file will be
+// replaced by values from newConfig. Values in newConfig are only
+// used once (in the order provided), so multiple replacements must be
+// supplied as multiple input values for the same setting in
+// newConfig. If the value of a setting is empty, the setting will be
+// removed if found. Settings that are not found and have values will
+// be appended (also if more values are given than exist).
+//
+// For example, with existing config like "lxc.foo = off\nlxc.bar=42\n",
+// and newConfig like "lxc.bar=\nlxc.foo = bar\nlxc.foo = baz # xx",
+// the updated config file contains "lxc.foo = bar\nlxc.foo = baz\n".
+// TestUpdateContainerConfig has this example in code.
+func updateContainerConfig(name, newConfig string) error {
+	lines := strings.Split(newConfig, "\n")
+	if len(lines) == 0 {
+		return nil
+	}
+	// Extract unique set of line prefixes to match later. Also, keep
+	// a slice of values to replace for each key, as well as a slice
+	// of parsed prefixes to preserve the order when replacing or
+	// appending.
+	parsedLines := make(map[string][]string)
+	var parsedPrefixes []string
+	for _, line := range lines {
+		prefix, value := parseConfigLine(line)
+		if prefix == "" {
+			// Ignore comments, empty lines, and unknown prefixes.
+			continue
+		}
+		if values, found := parsedLines[prefix]; !found {
+			parsedLines[prefix] = []string{value}
+		} else {
+			values = append(values, value)
+			parsedLines[prefix] = values
+		}
+		parsedPrefixes = append(parsedPrefixes, prefix)
+	}
+
+	path := containerConfigFilename(name)
+	currentConfig, err := ioutil.ReadFile(path)
+	if err != nil {
+		return errors.Annotatef(err, "cannot open config %q for container %q", path, name)
+	}
+	input := bytes.NewBuffer(currentConfig)
+
+	// Read the original config and prepare the output to replace it
+	// with.
+	var output bytes.Buffer
+	scanner := bufio.NewScanner(input)
+	for scanner.Scan() {
+		line := scanner.Text()
+		prefix, _ := parseConfigLine(line)
+		values, found := parsedLines[prefix]
+		if !found || len(values) == 0 {
+			// No need to change, just preserve.
+			output.WriteString(line + "\n")
+			continue
+		}
+		// We need to change this line. Pop the first value of the
+		// list and set it.
+		var newValue string
+		newValue, values = values[0], values[1:]
+		parsedLines[prefix] = values
+
+		if newValue == "" {
+			logger.Tracef("removing %q from container %q config %q", line, name, path)
+			continue
+		}
+		newLine := prefix + " = " + newValue
+		if newLine == line {
+			// No need to change and pollute the log, just write it.
+			output.WriteString(line + "\n")
+			continue
+		}
+		logger.Tracef(
+			"replacing %q with %q in container %q config %q",
+			line, newLine, name, path,
+		)
+		output.WriteString(newLine + "\n")
+	}
+	if err := scanner.Err(); err != nil {
+		return errors.Annotatef(err, "cannot read config for container %q", name)
+	}
+
+	// Now process any prefixes with values still left for appending,
+	// in the original order.
+	for _, prefix := range parsedPrefixes {
+		values := parsedLines[prefix]
+		for _, value := range values {
+			if value == "" {
+				// No need to remove what's not there.
+				continue
+			}
+			newLine := prefix + " = " + value + "\n"
+			logger.Tracef("appending %q to container %q config %q", newLine, name, path)
+			output.WriteString(newLine)
+		}
+		// Reset the values, so we only append the once per prefix.
+		parsedLines[prefix] = []string{}
+	}
+
+	// Reset the original file and overwrite it atomically.
+	if err := utils.AtomicWriteFile(path, output.Bytes(), 0644); err != nil {
+		return errors.Annotatef(err, "cannot write new config %q for container %q", path, name)
+	}
+	return nil
+}
+
+// reorderNetworkConfig reads the contents of the given container
+// config file and the modifies the contents, if needed, so that any
+// lxc.network.* setting comes after the first lxc.network.type
+// setting preserving the order. Every line formatting is preserved in
+// the modified config, including whitespace and comments. The
+// wasReordered flag will be set if the config was modified.
+//
+// This ensures the lxc tools won't report parsing errors for network
+// settings. See also LP bug #1414016.
+func reorderNetworkConfig(configFile string) (wasReordered bool, err error) {
+	data, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return false, errors.Annotatef(err, "cannot read config %q", configFile)
+	}
+	if len(data) == 0 {
+		// Nothing to do.
+		return false, nil
+	}
+	input := bytes.NewBuffer(data)
+	scanner := bufio.NewScanner(input)
+	var output bytes.Buffer
+	firstNetworkType := ""
+	var networkLines []string
+	mayNeedReordering := true
+	foundFirstType := false
+	doneReordering := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		prefix, _ := parseConfigLine(line)
+		if mayNeedReordering {
+			if strings.HasPrefix(prefix, "lxc.network.type") {
+				if len(networkLines) == 0 {
+					// All good, no need to change.
+					logger.Tracef("correct network settings order in config %q", configFile)
+					return false, nil
+				}
+				// We found the first type.
+				firstNetworkType = line
+				foundFirstType = true
+				logger.Tracef(
+					"moving line(s) %q after line %q in config %q",
+					strings.Join(networkLines, "\n"), firstNetworkType, configFile,
+				)
+			} else if strings.HasPrefix(prefix, "lxc.network.") {
+				if firstNetworkType != "" {
+					// All good, no need to change.
+					logger.Tracef("correct network settings order in config %q", configFile)
+					return false, nil
+				}
+				networkLines = append(networkLines, line)
+				logger.Tracef("need to move line %q in config %q", line, configFile)
+				continue
+			}
+		}
+		output.WriteString(line + "\n")
+		if foundFirstType && len(networkLines) > 0 {
+			// Now add the skipped networkLines.
+			output.WriteString(strings.Join(networkLines, "\n") + "\n")
+			doneReordering = true
+			mayNeedReordering = false
+			firstNetworkType = ""
+			networkLines = nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return false, errors.Annotatef(err, "cannot read config %q", configFile)
+	}
+	if !doneReordering {
+		if len(networkLines) > 0 {
+			logger.Errorf("invalid lxc network settings in config %q", configFile)
+			return false, errors.Errorf(
+				"cannot have line(s) %q without lxc.network.type in config %q",
+				strings.Join(networkLines, "\n"), configFile,
+			)
+		}
+		// No networking settings to reorder.
+		return false, nil
+	}
+	// Reset the original file and overwrite it atomically.
+	if err := utils.AtomicWriteFile(configFile, output.Bytes(), 0644); err != nil {
+		return false, errors.Annotatef(err, "cannot write new config %q", configFile)
+	}
+	logger.Tracef("reordered network settings in config %q", configFile)
+	return true, nil
+}
+
 func appendToContainerConfig(name, line string) error {
-	file, err := os.OpenFile(
-		containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
+	configPath := containerConfigFilename(name)
+	file, err := os.OpenFile(configPath, os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	_, err = file.WriteString(line)
-	return err
+	if err != nil {
+		return err
+	}
+	logger.Tracef("appended %q to config %q", line, configPath)
+	return nil
 }
 
 func autostartContainer(name string) error {
@@ -445,7 +720,7 @@ func mountHostLogDir(name, logDir string) error {
 		return err
 	}
 	line := fmt.Sprintf(
-		"lxc.mount.entry=%s var/log/juju none defaults,bind 0 0\n",
+		"lxc.mount.entry = %s var/log/juju none defaults,bind 0 0\n",
 		logDir)
 	return appendToContainerConfig(name, line)
 }
@@ -620,11 +895,24 @@ func networkConfigTemplate(config container.NetworkConfig) string {
 				nic.IPv4Address += fmt.Sprintf("/%d", ones)
 			}
 		}
+		if nic.NoAutoStart && nic.IPv4Gateway != "" {
+			// LXC refuses to add an ipv4 gateway when the NIC is not
+			// brought up.
+			logger.Warningf(
+				"not setting IPv4 gateway %q for non-auto start interface %q",
+				nic.IPv4Gateway, nic.Name,
+			)
+			nic.IPv4Gateway = ""
+		}
+
 		data.Interfaces = append(data.Interfaces, nic)
 	}
 	templateName := multipleNICsTemplate
 	if len(config.Interfaces) == 0 {
+		logger.Tracef("generating default single NIC network config")
 		templateName = singleNICTemplate
+	} else {
+		logger.Tracef("generating network config with %d NIC(s)", len(config.Interfaces))
 	}
 	tmpl, err := template.New("config").Parse(templateName)
 	if err != nil {
@@ -679,15 +967,6 @@ func generateNetworkConfig(config *container.NetworkConfig) string {
 		logger.Warningf("network type missing, using the default %q config", config.NetworkType)
 	}
 	return networkConfigTemplate(*config)
-}
-
-func writeLxcConfig(network *container.NetworkConfig, directory string) (string, error) {
-	networkConfig := generateNetworkConfig(network)
-	configFilename := filepath.Join(directory, "lxc.conf")
-	if err := ioutil.WriteFile(configFilename, []byte(networkConfig), 0644); err != nil {
-		return "", err
-	}
-	return configFilename, nil
 }
 
 // useRestartDir is used to determine whether or not to use a symlink to the

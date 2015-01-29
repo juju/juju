@@ -1107,8 +1107,8 @@ func (c *Client) AgentVersion() (params.AgentVersionResult, error) {
 
 // EnvironmentGet implements the server-side part of the
 // get-environment CLI command.
-func (c *Client) EnvironmentGet() (params.EnvironmentGetResults, error) {
-	result := params.EnvironmentGetResults{}
+func (c *Client) EnvironmentGet() (params.EnvironmentConfigResults, error) {
+	result := params.EnvironmentConfigResults{}
 	// Get the existing environment config from the state.
 	config, err := c.api.state.EnvironConfig()
 	if err != nil {

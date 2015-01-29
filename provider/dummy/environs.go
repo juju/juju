@@ -157,14 +157,14 @@ type OpDestroy struct {
 type OpAllocateAddress struct {
 	Env        string
 	InstanceId instance.Id
-	NetworkId  network.Id
+	SubnetId   network.Id
 	Address    network.Address
 }
 
 type OpReleaseAddress struct {
 	Env        string
 	InstanceId instance.Id
-	NetworkId  network.Id
+	SubnetId   network.Id
 	Address    network.Address
 }
 
@@ -537,7 +537,17 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (p *environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p *environProvider) RestrictedConfigAttributes() []string {
+	return nil
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return p.prepare(cfg)
+}
+
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err
@@ -621,16 +631,6 @@ func (e *environ) checkBroken(method string) error {
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (*environ) SupportNetworks() bool {
-	return true
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
 }
 
 // PrecheckInstance is specified in the state.Prechecker interface.
@@ -1010,9 +1010,14 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	return
 }
 
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+	return true, nil
+}
+
 // AllocateAddress requests an address to be allocated for the
-// given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+// given instance on the given subnet.
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
 		return err
 	}
@@ -1027,7 +1032,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
-		NetworkId:  netId,
+		SubnetId:   subnetId,
 		Address:    addr,
 	}
 	return nil
@@ -1035,7 +1040,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("ReleaseAddress"); err != nil {
 		return err
 	}
@@ -1050,7 +1055,7 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	estate.ops <- OpReleaseAddress{
 		Env:        env.name,
 		InstanceId: instId,
-		NetworkId:  netId,
+		SubnetId:   subnetId,
 		Address:    addr,
 	}
 	return nil

@@ -4,13 +4,13 @@
 package joyent
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/joyent/gocommon/client"
 	joyenterrors "github.com/joyent/gocommon/errors"
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/joyent/gosign/auth"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
@@ -33,7 +33,17 @@ func init() {
 
 var errNotImplemented = errors.New("not implemented in Joyent provider")
 
-func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (joyentProvider) RestrictedConfigAttributes() []string {
+	return nil
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (joyentProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+func (joyentProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	preparedCfg, err := prepareConfig(cfg)
 	if err != nil {
 		return nil, err

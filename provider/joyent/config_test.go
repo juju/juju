@@ -371,13 +371,13 @@ var prepareConfigTests = []struct {
 	err:    "invalid Joyent provider config: open .*: " + utils.NoSuchFileErrRegexp,
 }}
 
-func (s *ConfigSuite) TestPrepare(c *gc.C) {
+func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
 		testConfig := newConfig(c, attrs)
-		preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
+		preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 			attrs := preparedConfig.Config().AllAttrs()
@@ -401,7 +401,7 @@ func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer os.Remove(keyFilePath)
 	testConfig := newConfig(c, attrs)
-	preparedConfig, err := jp.Provider.Prepare(ctx, testConfig)
+	preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	attrs = preparedConfig.Config().AllAttrs()
 	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)

@@ -137,14 +137,9 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(arches, gc.DeepEquals, arch.AllSupportedArches)
 }
 
-func (s *environSuite) TestSupportNetworks(c *gc.C) {
-	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
-}
-
-func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
-	result, err := s.env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *environSuite) TestSupportsNetworking(c *gc.C) {
+	_, ok := environs.SupportsNetworking(s.env)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {

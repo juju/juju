@@ -348,9 +348,10 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 			label: "RemoveId filters by env-uuid field",
 			test: func() (int, error) {
 				err := networkInterfaces.RemoveId(otherIfaceId)
-				return 0, err
+				c.Assert(err, gc.ErrorMatches, "not found")
+				return networkInterfaces.Count()
 			},
-			expectedError: "not found",
+			expectedCount: 1, // ensure doc was not removed
 		},
 		{
 			label: "RemoveAll filters by env",

@@ -2512,3 +2512,21 @@ func (w *blockDevicesWatcher) loop() error {
 		}
 	}
 }
+
+// WatchLeadershipSettings returns a LeadershipSettingsWatcher for
+// watching -- wait for it -- leadership settings.
+func (st *State) WatchLeadershipSettings(serviceId string) *LeadershipSettingsWatcher {
+	return NewLeadershipSettingsWatcher(st, LeadershipSettingsDocId(serviceId))
+}
+
+// NewLeadershipSettingsWatcher returns a new
+// LeadershipSettingsWatcher.
+func NewLeadershipSettingsWatcher(state *State, key string) *LeadershipSettingsWatcher {
+	return &LeadershipSettingsWatcher{state.watchSettings(key)}
+}
+
+// LeadershipSettingsWatcher provides a type that can watch settings
+// for a provided key.
+type LeadershipSettingsWatcher struct {
+	*settingsWatcher
+}

@@ -439,10 +439,10 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		// Prepare the environment.
 		provider, err := environs.Provider(cfg.Type())
 		c.Assert(err, jc.ErrorIsNil)
-		env, err := provider.Prepare(nil, cfg)
+		cfg, err = provider.PrepareForCreateEnvironment(cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		// Now save the config back.
-		err = st.UpdateEnvironConfig(env.Config().AllAttrs(), nil, nil)
+		err = st.UpdateEnvironConfig(cfg.AllAttrs(), nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	return st

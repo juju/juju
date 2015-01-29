@@ -224,8 +224,8 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, nil
 }
 
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (env *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *maasEnviron) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	caps, err := env.getCapabilities()
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")
@@ -468,16 +468,6 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		zones[i] = inst.(*maasInstance).zone()
 	}
 	return zones, nil
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (env *maasEnviron) SupportNetworks() bool {
-	caps, err := env.getCapabilities()
-	if err != nil {
-		logger.Debugf("getCapabilities failed: %v", err)
-		return false
-	}
-	return caps.Contains(capNetworksManagement)
 }
 
 type maasPlacement struct {
@@ -1224,13 +1214,13 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId, []network.Id{netId})
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+	subnets, err := environ.Subnets(instId, []network.Id{subnetId})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(subnets) != 1 {
-		return errors.Errorf("could not find network matching %v", netId)
+		return errors.Errorf("could not find network matching %v", subnetId)
 	}
 	foundSub := subnets[0]
 
