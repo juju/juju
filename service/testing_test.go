@@ -6,6 +6,7 @@ package service
 import (
 	"io"
 	"os"
+	"time"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -45,7 +46,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	name := "jujud-machine-0"
 	initDir := s.DataDir + "/init"
-	s.Confdir = newConfDir(name, initDir, InitSystemUpstart)
+	s.Confdir = newConfDir(name, initDir, InitSystemUpstart, nil)
 }
 
 // TODO(ericsnow) Use the fake in the testing repo as soon as it lands.
@@ -89,13 +90,66 @@ func (f *fake) CheckCalls(c *gc.C, expected []FakeCall) {
 
 // TODO(ericsnow) Move fakeFiles to service/testing.
 
+type fakeFileInfo struct {
+	Name    string
+	Size    int64
+	Mode    os.FileMode
+	ModTime time.Time
+	IsDir   bool
+}
+
+type fakeFile struct {
+	Info fakeFileInfo
+}
+
+func newFakeFile(name string, size int64) *fakeFile {
+	return &fakeFile{fakeFileInfo{
+		Name: name,
+		Size: size,
+		Mode: 0644,
+	}}
+}
+
+func newFakeDir(name string) *fakeFile {
+	return &fakeFile{fakeFileInfo{
+		Name:  name,
+		Mode:  0755,
+		IsDir: true,
+	}}
+}
+
+func (ff fakeFile) Name() string {
+	return ff.Info.Name
+}
+
+func (ff fakeFile) Size() int64 {
+	return ff.Info.Size
+}
+
+func (ff fakeFile) Mode() os.FileMode {
+	return ff.Info.Mode
+}
+
+func (ff fakeFile) ModTime() time.Time {
+	return ff.Info.ModTime
+}
+
+func (ff fakeFile) IsDir() bool {
+	return ff.Info.IsDir
+}
+
+func (ff fakeFile) Sys() interface{} {
+	return nil
+}
+
 type fakeFiles struct {
 	fake
 
-	Exists   bool
-	Data     []byte
-	File     io.WriteCloser
-	NWritten int
+	Exists     bool
+	DirEntries []os.FileInfo
+	Data       []byte
+	File       io.WriteCloser
+	NWritten   int
 }
 
 func (ff *fakeFiles) exists(name string) (bool, error) {
@@ -111,6 +165,13 @@ func (ff *fakeFiles) mkdirAll(dirname string, mode os.FileMode) error {
 		"mode":    mode,
 	})
 	return ff.err()
+}
+
+func (ff *fakeFiles) readDir(dirname string) ([]os.FileInfo, error) {
+	ff.addCall("ReadDir", FakeCallArgs{
+		"dirname": dirname,
+	})
+	return ff.DirEntries, ff.err()
 }
 
 func (ff *fakeFiles) readFile(filename string) ([]byte, error) {

@@ -22,6 +22,7 @@ type serviceConfigs struct {
 	prefixes   []string
 
 	names []string
+	fops  fileOperations
 }
 
 func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs {
@@ -33,11 +34,12 @@ func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs 
 		baseDir:    filepath.Join(baseDir, initDir),
 		initSystem: initSystem,
 		prefixes:   prefixes,
+		fops:       newFileOps(),
 	}
 }
 
 func (sc serviceConfigs) newDir(name string) *confDir {
-	confDir := newConfDir(name, sc.baseDir, sc.initSystem)
+	confDir := newConfDir(name, sc.baseDir, sc.initSystem, sc.fops)
 	return confDir
 }
 
@@ -51,7 +53,7 @@ func (sc *serviceConfigs) refresh() error {
 }
 
 func (sc serviceConfigs) list() ([]string, error) {
-	dirnames, err := listSubdirectories(sc.baseDir)
+	dirnames, err := listSubdirectories(sc.baseDir, sc.fops)
 	if os.IsNotExist(errors.Cause(err)) {
 		return nil, nil
 	}

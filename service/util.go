@@ -12,23 +12,6 @@ import (
 	"github.com/juju/errors"
 )
 
-func listSubdirectories(dirname string) ([]string, error) {
-	entries, err := ioutil.ReadDir(dirname)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var dirnames []string
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		dirnames = append(dirnames, entry.Name())
-	}
-	return dirnames, nil
-}
-
 func hasPrefix(name string, prefixes ...string) bool {
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(name, prefix) {
@@ -65,11 +48,30 @@ func fromSlash(path string, initSystem string) string {
 type fileOperations interface {
 	exists(name string) (bool, error)
 	mkdirAll(dirname string, mode os.FileMode) error
+	readDir(dirname string) ([]os.FileInfo, error)
 	readFile(filename string) ([]byte, error)
 	createFile(filename string) (io.WriteCloser, error)
 	removeAll(name string) error
 	chmod(name string, mode os.FileMode) error
 }
+
+func listSubdirectories(dirname string, fops fileOperations) ([]string, error) {
+	entries, err := fops.readDir(dirname)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dirnames []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		dirnames = append(dirnames, entry.Name())
+	}
+	return dirnames, nil
+}
+
 type fileOps struct{}
 
 func (fileOps) exists(name string) (bool, error) {
@@ -85,6 +87,10 @@ func (fileOps) exists(name string) (bool, error) {
 
 func (fileOps) mkdirAll(dirname string, mode os.FileMode) error {
 	return os.MkdirAll(dirname, mode)
+}
+
+func (fileOps) readDir(dirname string) ([]os.FileInfo, error) {
+	return ioutil.ReadDir(dirname)
 }
 
 func (fileOps) readFile(filename string) ([]byte, error) {

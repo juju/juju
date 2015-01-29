@@ -4,6 +4,8 @@
 package service
 
 import (
+	"os"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -12,6 +14,14 @@ var _ = gc.Suite(&managedSuite{})
 
 type managedSuite struct {
 	BaseSuite
+
+	configs *serviceConfigs
+}
+
+func (s *managedSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	s.configs = newConfigs(s.DataDir, InitSystemUpstart)
 }
 
 func (s *managedSuite) TestNewConfigs(c *gc.C) {
@@ -23,25 +33,101 @@ func (s *managedSuite) TestNewConfigs(c *gc.C) {
 		initSystem: InitSystemUpstart,
 		prefixes:   []string{"juju-", "jujud-"},
 		names:      nil,
+		fops:       s.FakeFiles,
 	})
 }
 
 func (s *managedSuite) TestNewDir(c *gc.C) {
+	newConfDir := s.configs.newDir("jujud-machine-0")
+
+	c.Check(newConfDir, jc.DeepEquals, &confDir{
+		dirname:    "/var/lib/juju/init/jujud-machine-0",
+		initSystem: InitSystemUpstart,
+		fops:       s.FakeFiles,
+	})
 }
 
 func (s *managedSuite) TestRefresh(c *gc.C) {
+	s.FakeFiles.Exists = true
+	s.FakeFiles.DirEntries = []os.FileInfo{
+		newFakeFile("an-errant-file", 5),
+		newFakeDir("jujud-machine-0"),
+		newFakeDir("an-errant-dir"),
+		newFakeDir("jujud-unit-wordpress-0"),
+	}
+
+	err := s.configs.refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.configs.names, jc.SameContents, []string{
+		"jujud-machine-0",
+		"jujud-unit-wordpress-0",
+	})
+}
+
+func (s *managedSuite) TestRefreshIncomplete(c *gc.C) {
+	s.FakeFiles.DirEntries = []os.FileInfo{
+		newFakeFile("an-errant-file", 5),
+		newFakeDir("jujud-machine-0"),
+		newFakeDir("an-errant-dir"),
+		newFakeDir("jujud-unit-wordpress-0"),
+	}
+
+	err := s.configs.refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.configs.names, jc.SameContents, []string{})
+}
+
+func (s *managedSuite) TestRefreshEmpty(c *gc.C) {
+	err := s.configs.refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.configs.names, jc.SameContents, []string{})
 }
 
 func (s *managedSuite) TestList(c *gc.C) {
+	s.FakeFiles.Exists = true
+	s.FakeFiles.DirEntries = []os.FileInfo{
+		newFakeFile("an-errant-file", 5),
+		newFakeDir("jujud-machine-0"),
+		newFakeDir("an-errant-dir"),
+		newFakeDir("jujud-unit-wordpress-0"),
+	}
+
+	names, err := s.configs.list()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(names, jc.SameContents, []string{
+		"jujud-machine-0",
+		"jujud-unit-wordpress-0",
+	})
 }
 
 func (s *managedSuite) TestLookup(c *gc.C) {
+	s.configs.names = []string{"jujud-machine-0"}
+
+	dir := s.configs.lookup("jujud-machine-0")
+
+	c.Check(dir, jc.DeepEquals, &confDir{
+		dirname:    "/var/lib/juju/init/jujud-machine-0",
+		initSystem: InitSystemUpstart,
+		fops:       s.FakeFiles,
+	})
+}
+
+func (s *managedSuite) TestLookupNotFound(c *gc.C) {
+	dir := s.configs.lookup("jujud-machine-0")
+
+	c.Check(dir, gc.IsNil)
 }
 
 func (s *managedSuite) TestAdd(c *gc.C) {
+	// TODO(ericsnow) Finish!
 }
 
 func (s *managedSuite) TestRemove(c *gc.C) {
+	// TODO(ericsnow) Finish!
 }
 
 /*

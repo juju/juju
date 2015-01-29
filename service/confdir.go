@@ -30,11 +30,15 @@ type confDir struct {
 	fops       fileOperations
 }
 
-func newConfDir(name, initDir, initSystem string) *confDir {
+func newConfDir(name, initDir, initSystem string, fops fileOperations) *confDir {
+	if fops == nil {
+		fops = newFileOps()
+	}
+
 	return &confDir{
 		dirname:    filepath.Join(initDir, name),
 		initSystem: initSystem,
-		fops:       newFileOps(),
+		fops:       fops,
 	}
 }
 
