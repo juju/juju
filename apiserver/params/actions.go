@@ -23,9 +23,13 @@ const (
 	// an error.
 	ActionFailed string = "failed"
 
-	// ActionPending is the status of an Action that has been queued up
-	// but not executed yet.
+	// ActionPending is the status of an Action that has been queued up but
+	// not executed yet.
 	ActionPending string = "pending"
+
+	// ActionRunning is the status of an Action that has been started but
+	// not completed yet.
+	ActionRunning string = "running"
 )
 
 // Actions is a slice of Action for bulk requests.
