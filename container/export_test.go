@@ -6,6 +6,7 @@ package container
 var (
 	NetworkInterfacesFile          = &networkInterfacesFile
 	NewCloudInitConfigWithNetworks = newCloudInitConfigWithNetworks
+	CloudInitUserData              = cloudInitUserData
 )
 
 // IsLocked is used just to see if the local lock instance is locked, and

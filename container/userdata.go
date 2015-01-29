@@ -82,20 +82,13 @@ func newCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudini
 		return cloudConfig, nil
 	}
 
-	// TODO(dimitern) Just use the first NIC for now, add support
-	// for more later.
-	if len(networkConfig.Interfaces) != 1 {
-		logger.Tracef("multiple NICs in cloud-init network config not supported yet")
-		return cloudConfig, nil
-	}
-
 	// Add the loopback NIC which is always needed.
 	loopback := network.InterfaceInfo{
 		InterfaceName: "lo",
 		ConfigType:    network.ConfigDHCP,
 		NoAutoStart:   false,
 	}
-	allNICs := []network.InterfaceInfo{loopback, networkConfig.Interfaces[0]}
+	allNICs := append([]network.InterfaceInfo{loopback}, networkConfig.Interfaces...)
 
 	// Render the config first.
 	tmpl, err := template.New("config").Parse(networkConfigTemplate)
