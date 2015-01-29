@@ -144,7 +144,7 @@ func (s *leadershipSuite) TestUnblock(c *gc.C) {
 
 	unblocked := make(chan struct{})
 	go func() {
-		err = client.BlockUntilLeadershipReleased(s.serviceId)
+		err := client.BlockUntilLeadershipReleased(s.serviceId)
 		c.Check(err, gc.IsNil)
 		unblocked <- struct{}{}
 	}()
