@@ -803,21 +803,19 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 	interfaces, err := env.NetworkInterfaces(instId)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedInterfaces := []network.InterfaceInfo{
-		{
-			DeviceIndex:      0,
-			MACAddress:       "20:01:60:cb:27:37",
-			CIDR:             "10.10.0.0/20",
-			ProviderId:       "eni-0",
-			ProviderSubnetId: "subnet-0",
-			VLANTag:          0,
-			InterfaceName:    "eth0",
-			Disabled:         false,
-			NoAutoStart:      false,
-			ConfigType:       "",
-			Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
-		},
-	}
+	expectedInterfaces := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "20:01:60:cb:27:37",
+		CIDR:             "10.10.0.0/20",
+		ProviderId:       "eni-0",
+		ProviderSubnetId: "subnet-0",
+		VLANTag:          0,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       "",
+		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+	}}
 	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
 }
 

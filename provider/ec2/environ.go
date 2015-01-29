@@ -793,17 +793,17 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
 		// the ec2 api
-		return nil, errors.Annotatef(err, "cannot get instance %v info", instId)
+		return nil, errors.Annotatef(err, "cannot get instance %v network interfaces", instId)
 	}
 	ec2Interfaces := networkInterfacesResp.Interfaces
 	result := make([]network.InterfaceInfo, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
 		resp, err := ec2Client.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
-			return nil, errors.Annotatef(err, "failed to retrieve subnet info")
+			return nil, errors.Annotatef(err, "failed to retrieve subnet %v info", iface.SubnetId)
 		}
 		if len(resp.Subnets) != 1 {
-			return nil, errors.Errorf("odd number of subnets reported")
+			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
 		}
 		subnet := resp.Subnets[0]
 		cidr := subnet.CIDRBlock
