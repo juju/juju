@@ -778,16 +778,14 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-//
-// TODO(dimitern) Implement attachment.instance-id filter for
-// DescribeNetworkInterfaces in goamz ec2test server in order to use
-// that API call instead of DescribeInstances.
 func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
 	ec2Client := e.ec2()
 	var err error
-	var instancesResp *ec2.InstancesResp
+	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
-		instancesResp, err = ec2Client.Instances([]string{string(instId)}, nil)
+		filter := ec2.NewFilter()
+		filter.Add("attachment.instance-id", string(instId))
+		networkInterfacesResp, err = ec2Client.NetworkInterfaces(nil, filter)
 		if err == nil {
 			break
 		}
@@ -797,14 +795,7 @@ func (e *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo
 		// the ec2 api
 		return nil, errors.Annotatef(err, "cannot get instance %v info", instId)
 	}
-
-	if len(instancesResp.Reservations) == 0 {
-		return nil, errors.New("unexpected AWS response: instance not found")
-	}
-	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return nil, errors.New("unexpected AWS response: reservation not found")
-	}
-	ec2Interfaces := instancesResp.Reservations[0].Instances[0].NetworkInterfaces
+	ec2Interfaces := networkInterfacesResp.Interfaces
 	result := make([]network.InterfaceInfo, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
 		resp, err := ec2Client.Subnets([]string{iface.SubnetId}, nil)
