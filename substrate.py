@@ -323,6 +323,10 @@ class AzureAccount:
 
     @staticmethod
     def convert_instance_ids(instance_ids):
+        """Convert juju instance ids into Azure service/role names.
+
+        Return a dict mapping service name to role names.
+        """
         services = {}
         for instance_id in instance_ids:
             service, role = instance_id.rsplit('-', 1)
@@ -331,6 +335,17 @@ class AzureAccount:
 
     @contextmanager
     def terminate_instances_cxt(self, instance_ids):
+        """Terminate instances in a context.
+
+        This context manager requests termination, then allows the "with"
+        block to happen.  When the block is exited, it waits until the
+        operations complete.
+
+        The strategy for terminating instances varies depending on whether all
+        roles are being terminated.  If all roles are being terminated, the
+        deployment and hosted service are deleted.  If not all roles are being
+        terminated, the roles themselves are deleted.
+        """
         converted = self.convert_instance_ids(instance_ids)
         requests = set()
         services_to_delete = set(converted.keys())
@@ -355,6 +370,7 @@ class AzureAccount:
             self.service_client.delete_hosted_service(service)
 
     def block_on_requests(self, requests):
+        """Wait until the requests complete."""
         requests = set(requests)
         while len(requests) > 0:
             for request in list(requests):
@@ -364,6 +380,10 @@ class AzureAccount:
                     requests.remove(request)
 
     def terminate_instances(self, instance_ids):
+        """Terminate the specified instances.
+
+        See terminate_instances_cxt for details.
+        """
         with self.terminate_instances_cxt(instance_ids):
             return
 
