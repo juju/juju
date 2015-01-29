@@ -4,7 +4,10 @@
 package operation
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	corecharm "gopkg.in/juju/charm.v4"
 )
 
 var (
@@ -13,3 +16,22 @@ var (
 	ErrNeedsReboot = errors.New("reboot request issued")
 	ErrHookFailed  = errors.New("hook failed")
 )
+
+type deployConflictError struct {
+	charmURL *corecharm.URL
+}
+
+func (err *deployConflictError) Error() string {
+	return fmt.Sprintf("cannot deploy charm %s", err.charmURL)
+}
+
+func NewDeployConflictError(charmURL *corecharm.URL) error {
+	return &deployConflictError{charmURL}
+}
+
+func IsDeployConflictError(err error) (*corecharm.URL, bool) {
+	if e, ok := err.(*deployConflictError); ok {
+		return e.charmURL, true
+	}
+	return nil, false
+}

@@ -11,6 +11,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
+	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 )
@@ -349,6 +350,46 @@ func (s *DeploySuite) TestPrepareSuccess_Upgrade_PreserveNoHook(c *gc.C) {
 			},
 		)
 	}
+}
+
+func (s *DeploySuite) testExecuteConflictError(c *gc.C, newDeploy newDeploy) {
+	callbacks := NewDeployCallbacks()
+	deployer := &MockDeployer{
+		MockNotifyRevert:   &MockNoArgs{},
+		MockNotifyResolved: &MockNoArgs{},
+		MockStage:          &MockStage{},
+		MockDeploy:         &MockNoArgs{err: charm.ErrConflict},
+	}
+	factory := operation.NewFactory(deployer, nil, callbacks, nil)
+	charmURL := curl("cs:quantal/nyancat-4")
+	op, err := newDeploy(factory, charmURL)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newState, err := op.Execute(operation.State{})
+	c.Check(newState, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot deploy charm cs:quantal/nyancat-4")
+	errURL, ok := operation.IsDeployConflictError(err)
+	c.Check(ok, jc.IsTrue)
+	c.Check(errURL, gc.DeepEquals, charmURL)
+	c.Check(deployer.MockDeploy.called, jc.IsTrue)
+}
+
+func (s *DeploySuite) TestExecuteConflictError_Install(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewInstall)
+}
+
+func (s *DeploySuite) TestExecuteConflictError_Upgrade(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewUpgrade)
+}
+
+func (s *DeploySuite) TestExecuteConflictError_RevertUpgrade(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewRevertUpgrade)
+}
+
+func (s *DeploySuite) TestExecuteConflictError_ResolvedUpgrade(c *gc.C) {
+	s.testExecuteError(c, (operation.Factory).NewResolvedUpgrade)
 }
 
 func (s *DeploySuite) testExecuteError(c *gc.C, newDeploy newDeploy) {
