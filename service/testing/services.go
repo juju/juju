@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 )
 
 // TODO(ericsnow) Use the fake in the testing repo as soon as it lands.
@@ -24,7 +23,7 @@ type ServicesStatus struct {
 type FakeServices struct {
 	init   string
 	Status ServicesStatus
-	Confs  map[string]common.Conf
+	Confs  map[string]service.Conf
 
 	calls []string
 
@@ -35,7 +34,7 @@ type FakeServices struct {
 func NewFakeServices(init string) *FakeServices {
 	return &FakeServices{
 		init:  init,
-		Confs: make(map[string]common.Conf),
+		Confs: make(map[string]service.Conf),
 		Status: ServicesStatus{
 			Running: set.NewStrings(),
 			Enabled: set.NewStrings(),
@@ -124,7 +123,7 @@ func (fs *FakeServices) IsEnabled(name string) (bool, error) {
 	return fs.Status.Enabled.Contains(name), fs.err()
 }
 
-func (fs *FakeServices) Manage(name string, conf common.Conf) error {
+func (fs *FakeServices) Manage(name string, conf service.Conf) error {
 	fs.addCall("Add")
 	if err := fs.err(); err != nil {
 		return err
@@ -147,7 +146,7 @@ func (fs *FakeServices) Remove(name string) error {
 	return fs.err()
 }
 
-func (fs *FakeServices) Check(name string, conf common.Conf) (bool, error) {
+func (fs *FakeServices) Check(name string, conf service.Conf) (bool, error) {
 	fs.addCall("Check")
 
 	passed := true
@@ -164,7 +163,7 @@ func (fs *FakeServices) IsManaged(name string) bool {
 	return fs.Status.Managed.Contains(name)
 }
 
-func (fs *FakeServices) Install(name string, conf common.Conf) error {
+func (fs *FakeServices) Install(name string, conf service.Conf) error {
 	fs.addCall("Install")
 
 	fs.Status.Managed.Add(name)

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 // TODO(ericsnow) Move this whole file over to the agent package?
@@ -172,7 +172,7 @@ func (as AgentService) command() string {
 func (as AgentService) Conf() Conf {
 	cmd := as.command()
 
-	normalConf := common.Conf{
+	normalConf := initsystems.Conf{
 		Desc: fmt.Sprintf("juju agent for %s %s", as.tag.Kind(), as.tag.Id()),
 		Cmd:  cmd,
 	}

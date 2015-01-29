@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 	svctesting "github.com/juju/juju/service/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -95,7 +95,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
 	s.services = svctesting.NewFakeServices(service.InitSystemUpstart)
-	s.PatchValue(mongo.NewService, func(name, dataDir string, conf common.Conf) (*service.Service, error) {
+	s.PatchValue(mongo.NewService, func(name, dataDir string, conf service.Conf) (*service.Service, error) {
 		return service.WrapService(name, conf, s.services), nil
 	})
 	s.installCount = 0 // Reset for each pass.
@@ -109,16 +109,16 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 func (s *MongoSuite) setService(c *gc.C, namespace, status string) {
 	name := mongo.ServiceName(namespace)
 
-	err := s.services.Manage(name, common.Conf{})
+	err := s.services.Manage(name, service.Conf{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	switch status {
-	case common.StatusRunning:
+	case initsystems.StatusRunning:
 		err := s.services.Enable(name)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.services.Start(name)
 		c.Assert(err, jc.ErrorIsNil)
-	case common.StatusEnabled:
+	case initsystems.StatusEnabled:
 		err := s.services.Enable(name)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -221,7 +221,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	namespace := "namespace"
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
-	s.setService(c, namespace, common.StatusRunning)
+	s.setService(c, namespace, initsystems.StatusRunning)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Check(err, jc.ErrorIsNil)
@@ -236,7 +236,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	name := mongo.ServiceName(namespace)
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
-	s.setService(c, namespace, common.StatusEnabled)
+	s.setService(c, namespace, initsystems.StatusEnabled)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,7 +255,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.setService(c, namespace, common.StatusEnabled)
+	s.setService(c, namespace, initsystems.StatusEnabled)
 	failure := errors.New("won't start")
 	// Add, IsEnabled, Check, IsRunning, **Start**
 	s.services.Errors = []error{nil, nil, nil, nil, failure}
@@ -353,7 +353,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	dataDir := c.MkDir()
 	namespace := "namespace"
 
-	s.setService(c, namespace, common.StatusRunning)
+	s.setService(c, namespace, initsystems.StatusRunning)
 	failure := errors.New("shouldn't be called")
 	// Add, IsEnabled, Check, IsRunning, **Start**
 	s.services.Errors = []error{nil, nil, nil, nil, failure}

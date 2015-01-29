@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 const (
@@ -83,7 +83,7 @@ func (sc serviceConfigs) lookup(name string) *confDir {
 }
 
 type serializer interface {
-	Serialize(name string, conf common.Conf) ([]byte, error)
+	Serialize(name string, conf initsystems.Conf) ([]byte, error)
 }
 
 func (sc *serviceConfigs) add(name string, conf Conf, serializer serializer) error {

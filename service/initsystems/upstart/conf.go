@@ -10,24 +10,30 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
-func Serialize(name string, conf common.Conf) ([]byte, error) {
-	if err := validate(conf); err != nil {
-		return nil, err
+// Validate returns an error if the service is not adequately defined.
+func Validate(name string, conf initsystems.Conf) error {
+	err := conf.Validate(name)
+	return errors.Trace(err)
+}
+
+func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
+	if err := Validate(name, conf); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// TODO(ericsnow) We can do better than this!
 	var buf bytes.Buffer
 	if err := confT.Execute(&buf, conf); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return buf.Bytes(), nil
 }
 
-func Deserialize(data []byte) (*common.Conf, error) {
-	conf := common.Conf{}
+func Deserialize(data []byte) (*initsystems.Conf, error) {
+	var conf initsystems.Conf
 
 	// TODO(ericsnow) Is there a better way? This approach is
 	// approximate at best and somewhat fragile.
@@ -76,17 +82,6 @@ func Deserialize(data []byte) (*common.Conf, error) {
 	return &conf, nil
 }
 
-// validate returns an error if the service is not adequately defined.
-func validate(conf common.Conf) error {
-	if conf.Desc == "" {
-		return errors.New("missing Desc")
-	}
-	if conf.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
-	return nil
-}
-
 // BUG: %q quoting does not necessarily match libnih quoting rules
 // (as used by upstart); this may become an issue in the future.
 var confT = template.Must(template.New("").Parse(`
@@ -101,7 +96,6 @@ normal exit 0
 {{range $k, $v := .Limit}}limit {{$k}} {{$v}}
 {{end}}
 script
-{{if .ExtraScript}}{{.ExtraScript}}{{end}}
 {{if .Out}}
   # Ensure log files are properly protected
   touch {{.Out}}

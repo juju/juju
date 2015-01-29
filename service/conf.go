@@ -6,13 +6,13 @@ package service
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 // Conf is responsible for defining services. Its fields
 // represent elements of a service configuration.
 type Conf struct {
-	common.Conf
+	initsystems.Conf
 
 	// TODO(ericsnow) Can we eliminate ExtraScript?
 
@@ -32,11 +32,11 @@ func (c Conf) Script() (string, error) {
 	return c.ExtraScript + "\n" + c.Cmd, nil
 }
 
-func (c Conf) normalize() (*common.Conf, error) {
+func (c Conf) normalize() (*initsystems.Conf, error) {
 	if c.ExtraScript != "" {
 		return nil, errors.NotSupportedf("ExtraScript")
 	}
-	normalConf := common.Conf{
+	normalConf := initsystems.Conf{
 		Desc:  c.Desc,
 		Cmd:   c.Cmd,
 		Env:   c.Env,

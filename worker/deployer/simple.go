@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/version"
 )
 
@@ -28,7 +27,7 @@ type APICalls interface {
 type services interface {
 	ListEnabled() ([]string, error)
 	IsEnabled(name string) (bool, error)
-	Install(name string, conf common.Conf) error
+	Install(name string, conf service.Conf) error
 	NewAgentService(tag names.Tag, paths service.AgentPaths, env map[string]string) (*service.Service, error)
 }
 

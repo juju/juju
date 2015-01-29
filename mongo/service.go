@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 const (
@@ -109,7 +109,7 @@ func (ss ServiceSpec) command() string {
 }
 
 // Conf builds a new service.Conf from the spec and returns it.
-func (ss ServiceSpec) Conf() common.Conf {
+func (ss ServiceSpec) Conf() service.Conf {
 	mongoCmd := ss.command()
 
 	extraScript := ""
@@ -118,19 +118,21 @@ func (ss ServiceSpec) Conf() common.Conf {
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
 
-	conf := common.Conf{
-		Desc: "juju state database",
-		Cmd:  mongoCmd,
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+	conf := service.Conf{
+		Conf: initsystems.Conf{
+			Desc: "juju state database",
+			Cmd:  mongoCmd,
+			Limit: map[string]string{
+				"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
+				"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+			},
 		},
 		ExtraScript: extraScript,
 	}
 	return conf
 }
 
-var newService = func(name, dataDir string, conf common.Conf) (*service.Service, error) {
+var newService = func(name, dataDir string, conf service.Conf) (*service.Service, error) {
 	return service.NewService(name, dataDir, conf)
 }
 

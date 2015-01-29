@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 // These are the filenames that may be in a conf directory.
@@ -151,7 +151,7 @@ func (cd confDir) writeScript(script string) (string, error) {
 	return filename, nil
 }
 
-func (cd confDir) normalizeConf(conf Conf) (*common.Conf, error) {
+func (cd confDir) normalizeConf(conf Conf) (*initsystems.Conf, error) {
 	// Write out the script if necessary.
 	script, err := conf.Script()
 	if err != nil {

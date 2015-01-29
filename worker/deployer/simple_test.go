@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/service"
-	svctesting "github.com/juju/juju/service/testing"
+	svctesting "github.com/juju/juju/service/initsystems/upstart/testing"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -172,7 +172,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
-	initSystem := svctesting.NewFakeUpstartInit()
+	initSystem := svctesting.NewFakeInitSystem()
 	fix.services = service.NewServices(dataDir, initSystem)
 }
 

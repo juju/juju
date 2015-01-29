@@ -5,19 +5,17 @@ package upstart_test
 
 import (
 	//jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/initsystems"
-	iupstart "github.com/juju/juju/service/initsystems/upstart"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/testing"
 )
 
 type UpstartSuite struct {
 	testing.BaseSuite
 	testPath string
-	service  *upstart.Service
 	initDir  string
 }
 
@@ -27,14 +25,17 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.testPath = c.MkDir()
 	s.initDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.testPath)
-	s.PatchValue(&iupstart.ConfDir, s.initDir)
-	s.service = upstart.NewService(
-		"some-service",
-		service.Conf{Conf: initsystems.Conf{
-			Desc: "some service",
-			Cmd:  "some command",
-		}},
-	)
+	s.PatchValue(&initsystems.RetryAttempts, utils.AttemptStrategy{})
+	s.PatchValue(&upstart.ConfDir, s.initDir)
+	/*
+		s.service = upstart.NewService(
+			"some-service",
+			service.Conf{
+				Desc: "some service",
+				Cmd:  "some command",
+			},
+		)
+	*/
 }
 
 // TODO(ericsnow) Port to initsystem_test.go.
@@ -67,7 +68,7 @@ func (s *UpstartSuite) RunningStatus(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestInitDir(c *gc.C) {
-	svc := upstart.NewService("blah", service.Conf{})
+	svc := upstart.NewService("blah", initsystems.Conf{})
 	c.Assert(svc.Conf.InitDir, gc.Equals, "")
 }
 
@@ -167,7 +168,7 @@ func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
-	conf := service.Conf{
+	conf := initsystems.Conf{
 		InitDir: c.MkDir(),
 	}
 	check := func(msg string) {
@@ -194,14 +195,14 @@ respawn
 normal exit 0
 `
 
-func (s *UpstartSuite) dummyConf(c *gc.C) service.Conf {
-	return service.Conf{
+func (s *UpstartSuite) dummyConf(c *gc.C) initsystems.Conf {
+	return initsystems.Conf{
 		Desc: "this is an upstart service",
 		Cmd:  "do something",
 	}
 }
 
-func (s *UpstartSuite) assertInstall(c *gc.C, conf service.Conf, expectEnd string) {
+func (s *UpstartSuite) assertInstall(c *gc.C, conf initsystems.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
 	expectPath := filepath.Join(upstart.ConfDir, "some-service.conf")
 

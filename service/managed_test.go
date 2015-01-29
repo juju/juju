@@ -190,7 +190,7 @@ func (s *managedSuite) TestWriteConf(c *gc.C) {
 	s.FakeInit.CheckCalls(c, []FakeCall{{
 		FuncName: "Serialize",
 		Args: FakeCallArgs{
-			"conf": &common.Conf{
+			"conf": &initsystems.Conf{
 				Desc: "a service",
 				Cmd:  "spam",
 			},
@@ -250,7 +250,7 @@ func (s *managedSuite) TestWriteConfMultiline(c *gc.C) {
 	s.FakeInit.CheckCalls(c, []FakeCall{{
 		FuncName: "Serialize",
 		Args: FakeCallArgs{
-			"conf": &common.Conf{
+			"conf": &initsystems.Conf{
 				Desc: "a service",
 				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 			},
@@ -302,7 +302,7 @@ func (s *managedSuite) TestWriteConfExtra(c *gc.C) {
 	s.FakeInit.CheckCalls(c, []FakeCall{{
 		FuncName: "Serialize",
 		Args: FakeCallArgs{
-			"conf": &common.Conf{
+			"conf": &initsystems.Conf{
 				Desc: "a service",
 				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 			},

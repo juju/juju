@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 // These are the directives that may be passed to Services.List.
@@ -31,7 +31,7 @@ var (
 // system, relative to juju.
 type Services struct {
 	configs *serviceConfigs
-	init    InitSystem
+	init    initsystems.InitSystem
 }
 
 // DiscoverServices populates a new Services and returns it. This
@@ -62,14 +62,14 @@ func DiscoverServices(dataDir string, args ...string) (*Services, error) {
 
 // NewServices build a Services from the provided data dir and init
 // system and returns it.
-func NewServices(dataDir string, init InitSystem) *Services {
+func NewServices(dataDir string, init initsystems.InitSystem) *Services {
 	return &Services{
 		configs: newConfigs(dataDir, init.Name(), jujuPrefixes...),
 		init:    init,
 	}
 }
 
-func extractInitSystem(args []string) (InitSystem, error) {
+func extractInitSystem(args []string) (initsystems.InitSystem, error) {
 	// Get the init system name from the args.
 	var name string
 	if len(args) != 0 {
@@ -193,7 +193,7 @@ func (s Services) IsRunning(name string) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	return (info.Status == common.StatusRunning), nil
+	return (info.Status == initsystems.StatusRunning), nil
 }
 
 // Enable adds the named service to the underlying init system.

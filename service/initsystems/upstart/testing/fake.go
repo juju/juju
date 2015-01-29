@@ -10,31 +10,31 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/initsystems/upstart"
 )
 
 // TODO(ericsnow) Use the fake in the testing repo as soon as it lands.
 
-type FakeUpstartInit struct {
-	Services map[string]common.Conf
+type FakeInitSystem struct {
+	Services map[string]initsystems.Conf
 	Enabled  set.Strings
 	Running  set.Strings
 }
 
-func NewFakeUpstartInit() *FakeUpstartInit {
-	return &FakeUpstartInit{
-		Services: make(map[string]common.Conf),
+func NewFakeInitSystem() *FakeInitSystem {
+	return &FakeInitSystem{
+		Services: make(map[string]initsystems.Conf),
 		Enabled:  set.NewStrings(),
 		Running:  set.NewStrings(),
 	}
 }
 
-func (fui *FakeUpstartInit) Name() string {
+func (fui *FakeInitSystem) Name() string {
 	return service.InitSystemUpstart
 }
 
-func (fui *FakeUpstartInit) List(include ...string) ([]string, error) {
+func (fui *FakeInitSystem) List(include ...string) ([]string, error) {
 	if len(include) == 0 {
 		return fui.Enabled.Values(), nil
 	}
@@ -51,7 +51,7 @@ func (fui *FakeUpstartInit) List(include ...string) ([]string, error) {
 	return names, nil
 }
 
-func (fui *FakeUpstartInit) Start(name string) error {
+func (fui *FakeInitSystem) Start(name string) error {
 	if !fui.Enabled.Contains(name) {
 		return errors.NotFoundf("service %q", name)
 	}
@@ -63,7 +63,7 @@ func (fui *FakeUpstartInit) Start(name string) error {
 	return nil
 }
 
-func (fui *FakeUpstartInit) Stop(name string) error {
+func (fui *FakeInitSystem) Stop(name string) error {
 	if !fui.Enabled.Contains(name) {
 		return errors.NotFoundf("service %q", name)
 	}
@@ -75,7 +75,7 @@ func (fui *FakeUpstartInit) Stop(name string) error {
 	return nil
 }
 
-func (fui *FakeUpstartInit) Enable(name, filename string) error {
+func (fui *FakeInitSystem) Enable(name, filename string) error {
 	if fui.Enabled.Contains(name) {
 		return errors.AlreadyExistsf("service %q", name)
 	}
@@ -94,7 +94,7 @@ func (fui *FakeUpstartInit) Enable(name, filename string) error {
 	return nil
 }
 
-func (fui *FakeUpstartInit) Disable(name string) error {
+func (fui *FakeInitSystem) Disable(name string) error {
 	if !fui.Enabled.Contains(name) {
 		return errors.NotFoundf("service %q", name)
 	}
@@ -104,22 +104,22 @@ func (fui *FakeUpstartInit) Disable(name string) error {
 	return nil
 }
 
-func (fui *FakeUpstartInit) IsEnabled(name string) (bool, error) {
+func (fui *FakeInitSystem) IsEnabled(name string) (bool, error) {
 	return fui.Enabled.Contains(name), nil
 }
 
-func (fui *FakeUpstartInit) Info(name string) (*common.ServiceInfo, error) {
+func (fui *FakeInitSystem) Info(name string) (*initsystems.ServiceInfo, error) {
 	if !fui.Enabled.Contains(name) {
 		return nil, errors.NotFoundf("service %q", name)
 	}
 
-	status := common.StatusStopped
+	status := initsystems.StatusStopped
 	if fui.Running.Contains(name) {
-		status = common.StatusRunning
+		status = initsystems.StatusRunning
 	}
 
 	conf := fui.Services[name]
-	info := common.ServiceInfo{
+	info := initsystems.ServiceInfo{
 		Name:        name,
 		Description: conf.Desc,
 		Status:      status,
@@ -127,7 +127,7 @@ func (fui *FakeUpstartInit) Info(name string) (*common.ServiceInfo, error) {
 	return &info, nil
 }
 
-func (fui *FakeUpstartInit) Conf(name string) (*common.Conf, error) {
+func (fui *FakeInitSystem) Conf(name string) (*initsystems.Conf, error) {
 	if !fui.Enabled.Contains(name) {
 		return nil, errors.NotFoundf("service %q", name)
 	}
@@ -136,12 +136,16 @@ func (fui *FakeUpstartInit) Conf(name string) (*common.Conf, error) {
 	return &conf, nil
 }
 
-func (fui *FakeUpstartInit) Serialize(name string, conf common.Conf) ([]byte, error) {
+func (fui *FakeInitSystem) Validate(name string, conf initsystems.Conf) error {
+	return nil
+}
+
+func (fui *FakeInitSystem) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	data, err := upstart.Serialize(name, conf)
 	return data, errors.Trace(err)
 }
 
-func (fui *FakeUpstartInit) Deserialize(data []byte) (*common.Conf, error) {
+func (fui *FakeInitSystem) Deserialize(data []byte) (*initsystems.Conf, error) {
 	conf, err := upstart.Deserialize(data)
 	return conf, errors.Trace(err)
 }

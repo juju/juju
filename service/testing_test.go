@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 type BaseSuite struct {
@@ -30,7 +30,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.DataDir = "/var/lib/juju"
-	s.Conf = &Conf{Conf: common.Conf{
+	s.Conf = &Conf{Conf: initsystems.Conf{
 		Desc: "a service",
 		Cmd:  "spam",
 	}}
@@ -224,8 +224,8 @@ type fakeInit struct {
 
 	Names   []string
 	Enabled bool
-	SInfo   *common.ServiceInfo
-	SConf   *common.Conf
+	SInfo   *initsystems.ServiceInfo
+	SConf   *initsystems.Conf
 	Data    []byte
 }
 
@@ -273,28 +273,28 @@ func (fi *fakeInit) IsEnabled(name string, filenames ...string) (bool, error) {
 	return fi.Enabled, fi.err()
 }
 
-func (fi *fakeInit) Info(name string) (*common.ServiceInfo, error) {
+func (fi *fakeInit) Info(name string) (*initsystems.ServiceInfo, error) {
 	fi.addCall("Info", FakeCallArgs{
 		"name": name,
 	})
 	return fi.SInfo, fi.err()
 }
 
-func (fi *fakeInit) Conf(name string) (*common.Conf, error) {
+func (fi *fakeInit) Conf(name string) (*initsystems.Conf, error) {
 	fi.addCall("Conf", FakeCallArgs{
 		"name": name,
 	})
 	return fi.SConf, fi.err()
 }
 
-func (fi *fakeInit) Serialize(conf *common.Conf) ([]byte, error) {
+func (fi *fakeInit) Serialize(conf *initsystems.Conf) ([]byte, error) {
 	fi.addCall("Serialize", FakeCallArgs{
 		"conf": conf,
 	})
 	return fi.Data, fi.err()
 }
 
-func (fi *fakeInit) Deserialize(data []byte) (*common.Conf, error) {
+func (fi *fakeInit) Deserialize(data []byte) (*initsystems.Conf, error) {
 	fi.addCall("Deserialize", FakeCallArgs{
 		"data": data,
 	})

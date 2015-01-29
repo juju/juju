@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
 var _ = gc.Suite(&confDirSuite{})
@@ -126,7 +126,7 @@ func (s *confDirSuite) TestNormalizeConf(c *gc.C) {
 	conf, err := s.Confdir.normalizeConf(*s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(conf, jc.DeepEquals, &common.Conf{
+	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
 		Desc: "a service",
 		Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 	})
@@ -155,7 +155,7 @@ func (s *confDirSuite) TestNormalizeConfNop(c *gc.C) {
 	conf, err := s.Confdir.normalizeConf(*s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(conf, jc.DeepEquals, &common.Conf{
+	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
 		Desc: "a service",
 		Cmd:  "spam",
 	})

@@ -9,61 +9,46 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
-	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
 )
 
-// These are vars rather than consts for the sake of testing.
+// Vars for patching in tests.
 var (
 	// ConfDir holds the default init directory name.
 	ConfDir = "/etc/init"
 )
 
-var InstallStartRetryAttempts = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 250 * time.Millisecond,
-}
+var (
+	upstartServicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+	upstartStartedRE  = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
+)
 
-type initSystem struct {
+type upstart struct {
 	name    string
 	initDir string
 }
 
-func NewInitSystem(name string) common.InitSystem {
-	return &initSystem{
+func NewInitSystem(name string) initsystems.InitSystem {
+	return &upstart{
 		name:    name,
 		initDir: ConfDir,
 	}
 }
 
 // confPath returns the path to the service's configuration file.
-func (is initSystem) confPath(name string) string {
+func (is upstart) confPath(name string) string {
 	return path.Join(is.initDir, name+".conf")
 }
 
-func (is *initSystem) ensureEnabled(name string) error {
-	enabled, err := is.IsEnabled(name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !enabled {
-		return errors.NotFoundf("service %q", name)
-	}
-	return nil
-}
-
-func (is initSystem) Name() string {
+func (is upstart) Name() string {
 	return is.name
 }
 
-var servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-
-func (is *initSystem) List(include ...string) ([]string, error) {
+func (is *upstart) List(include ...string) ([]string, error) {
 	// TODO(ericsnow) We should be able to use initctl to do this.
 	var services []string
 	fis, err := ioutil.ReadDir(is.initDir)
@@ -71,15 +56,16 @@ func (is *initSystem) List(include ...string) ([]string, error) {
 		return nil, err
 	}
 	for _, fi := range fis {
-		if groups := servicesRe.FindStringSubmatch(fi.Name()); len(groups) > 0 {
+		groups := upstartServicesRe.FindStringSubmatch(fi.Name())
+		if len(groups) > 0 {
 			services = append(services, groups[1])
 		}
 	}
 	return services, nil
 }
 
-func (is *initSystem) Start(name string) error {
-	if err := is.ensureEnabled(name); err != nil {
+func (is *upstart) Start(name string) error {
+	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -90,7 +76,7 @@ func (is *initSystem) Start(name string) error {
 	// On slower disks, upstart may take a short time to realise
 	// that there is a service there.
 	var err error
-	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+	for attempt := initsystems.RetryAttempts.Start(); attempt.Next(); {
 		if err = is.start(name); err == nil {
 			break
 		}
@@ -98,8 +84,8 @@ func (is *initSystem) Start(name string) error {
 	return errors.Trace(err)
 }
 
-func (is *initSystem) start(name string) error {
-	err := runCommand("start", "--system", name)
+func (is *upstart) start(name string) error {
+	err := initsystems.RunCommand("start", "--system", name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
 		if is.isRunning(name) {
@@ -110,8 +96,8 @@ func (is *initSystem) start(name string) error {
 	return nil
 }
 
-func (is *initSystem) Stop(name string) error {
-	if err := is.ensureEnabled(name); err != nil {
+func (is *upstart) Stop(name string) error {
+	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -119,11 +105,13 @@ func (is *initSystem) Stop(name string) error {
 		return errors.NotFoundf("service %q", name)
 	}
 
-	err := runCommand("stop", "--system", name)
+	err := initsystems.RunCommand("stop", "--system", name)
 	return errors.Trace(err)
 }
 
-func (is *initSystem) Enable(name, filename string) error {
+func (is *upstart) Enable(name, filename string) error {
+	// TODO(ericsnow) Deserialize and validate?
+
 	enabled, err := is.IsEnabled(name)
 	if err != nil {
 		return errors.Trace(err)
@@ -137,8 +125,8 @@ func (is *initSystem) Enable(name, filename string) error {
 	return errors.Trace(err)
 }
 
-func (is *initSystem) Disable(name string) error {
-	if err := is.ensureEnabled(name); err != nil {
+func (is *upstart) Disable(name string) error {
+	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -153,7 +141,7 @@ func (is *initSystem) Disable(name string) error {
 	return os.Remove(is.confPath(name))
 }
 
-func (is *initSystem) IsEnabled(name string) (bool, error) {
+func (is *upstart) IsEnabled(name string) (bool, error) {
 	// TODO(ericsnow) In the general case, relying on the conf file
 	// may not be the safest route. Perhaps we should use initctl?
 	_, err := os.Stat(is.confPath(name))
@@ -166,36 +154,34 @@ func (is *initSystem) IsEnabled(name string) (bool, error) {
 	return true, nil
 }
 
-func (is *initSystem) Info(name string) (*common.ServiceInfo, error) {
-	if err := is.ensureEnabled(name); err != nil {
+func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
+	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	status := common.StatusStopped
+	status := initsystems.StatusStopped
 	if is.isRunning(name) {
-		status = common.StatusRunning
+		status = initsystems.StatusRunning
 	}
 
-	info := &common.ServiceInfo{
+	info := &initsystems.ServiceInfo{
 		Name:   name,
 		Status: status,
 	}
 	return info, nil
 }
 
-var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
-
-func (is *initSystem) isRunning(name string) bool {
+func (is *upstart) isRunning(name string) bool {
 	cmd := exec.Command("status", "--system", name)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// TODO(ericsnow) Are we really okay ignoring the error?
 		return false
 	}
-	return startedRE.Match(out)
+	return upstartStartedRE.Match(out)
 }
 
-func (is *initSystem) Conf(name string) (*common.Conf, error) {
+func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
 	data, err := ioutil.ReadFile(is.confPath(name))
 	if os.IsNotExist(err) {
 		return nil, errors.NotFoundf("service %q", name)
@@ -208,12 +194,17 @@ func (is *initSystem) Conf(name string) (*common.Conf, error) {
 	return conf, errors.Trace(err)
 }
 
-func (is *initSystem) Serialize(name string, conf common.Conf) ([]byte, error) {
+func (is *upstart) Validate(name string, conf initsystems.Conf) error {
+	err := Validate(name, conf)
+	return errors.Trace(err)
+}
+
+func (upstart) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	data, err := Serialize(name, conf)
 	return data, errors.Trace(err)
 }
 
-func (is *initSystem) Deserialize(data []byte) (*common.Conf, error) {
+func (is *upstart) Deserialize(data []byte) (*initsystems.Conf, error) {
 	conf, err := Deserialize(data)
 	return conf, errors.Trace(err)
 }

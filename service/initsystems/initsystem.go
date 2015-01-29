@@ -1,33 +1,10 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+// TODO(ericsnow) Move the initsystems package to a separate repo?
+// To an extent this applies to the service package as well.
 
-import (
-	"io/ioutil"
-	"strings"
-
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/service/windows"
-	"github.com/juju/juju/version"
-)
-
-// These are the names of the juju-compatible init systems.
-const (
-	InitSystemWindows = "windows"
-	InitSystemUpstart = "upstart"
-	//InitSystemSystemd = "systemd"
-)
-
-var (
-	linuxInitNames = map[string]string{
-		"/sbin/init": InitSystemUpstart,
-		//"/sbin/systemd": InitSystemSystemd,
-	}
-)
+package initsystems
 
 // InitSystem represents the functionality provided by an init system.
 // It encompasses all init services on the host, rather than just juju-
@@ -67,65 +44,27 @@ type InitSystem interface {
 
 	// Info gathers information about the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.
-	Info(name string) (*common.ServiceInfo, error)
+	Info(name string) (*ServiceInfo, error)
 
 	// Conf composes a Conf for the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.
-	Conf(name string) (*common.Conf, error)
+	Conf(name string) (*Conf, error)
 
 	// Validate checks the provided service name and conf to ensure
 	// that they are compatible with the init system. If a particular
 	// conf field is not supported by the init system then
-	// errors.NotSupported is returned (see common.Conf). Otherwise
+	// errors.NotSupported is returned (see Conf). Otherwise
 	// any other invalid results in an errors.NotValid error.
-	Validate(name string, conf common.Conf) error
+	Validate(name string, conf Conf) error
 
 	// Serialize converts the provided Conf into the file format
 	// recognized by the init system.
-	Serialize(name string, conf common.Conf) ([]byte, error)
+	Serialize(name string, conf Conf) ([]byte, error)
 
 	// TODO(ericsnow) Pass name in or return it in Deserialize?
 
 	// Deserialize converts the provided data into a Conf according to
 	// the init system's conf file format. If the data does not
 	// correspond to that file format then an error is returned.
-	Deserialize(data []byte) (*common.Conf, error)
-}
-
-func newInitSystem(name string) InitSystem {
-	switch name {
-	case InitSystemWindows:
-		return windows.NewInitSystem(name)
-	case InitSystemUpstart:
-		return upstart.NewInitSystem(name)
-	}
-	return nil
-}
-
-// discoverInitSystem determines which init system is running and
-// returns its name.
-func discoverInitSystem() (string, error) {
-	if version.Current.OS == version.Windows {
-		return InitSystemWindows, nil
-	}
-
-	executable, err := findInitExecutable()
-	if err != nil {
-		return "", errors.Annotate(err, "while finding init exe")
-	}
-
-	name, ok := linuxInitNames[executable]
-	if !ok {
-		return "", errors.New("unrecognized init system")
-	}
-
-	return name, nil
-}
-
-var findInitExecutable = func() (string, error) {
-	data, err := ioutil.ReadFile("/proc/1/cmdline")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return strings.Fields(string(data))[0], nil
+	Deserialize(data []byte) (*Conf, error)
 }
