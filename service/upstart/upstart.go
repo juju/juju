@@ -4,11 +4,7 @@
 package upstart
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"os/exec"
 	"path"
 
 	"github.com/juju/errors"
@@ -86,6 +82,7 @@ func (s *Service) render() ([]byte, error) {
 	return data, errors.Trace(err)
 }
 
+/*
 // Installed returns whether the service configuration exists in the
 // init directory.
 func (s *Service) Installed() bool {
@@ -203,6 +200,7 @@ func (s *Service) Install() error {
 	}
 	return err
 }
+*/
 
 // InstallCommands returns shell commands to install and start the service.
 func (s *Service) InstallCommands() ([]string, error) {
