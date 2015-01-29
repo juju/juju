@@ -56,8 +56,8 @@ var shortAttempt = utils.AttemptStrategy{
 // instance state. Such changes may involve a reboot so we
 // want to allow sufficient time for that to happen.
 var longAttempt = utils.AttemptStrategy{
-	Min:   50,
-	Delay: 5 * time.Second,
+	Min:   60,
+	Delay: 10 * time.Second,
 }
 
 var (
@@ -971,6 +971,7 @@ func (environ *maasEnviron) waitForNodeDeployment(id instance.Id) error {
 		if statusValues[systemId] == "Deployed" {
 			return nil
 		}
+		logger.Debugf("maas instance %v has status %q", id, statusValues[systemId])
 	}
 	return errors.Errorf("instance %q is started but not deployed", id)
 }
