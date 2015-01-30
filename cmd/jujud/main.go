@@ -18,7 +18,6 @@ import (
 	"github.com/juju/utils/featureflag"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
@@ -148,13 +147,14 @@ func Main(args []string) {
 		os.Exit(exit_err)
 	}
 	commandName := filepath.Base(args[0])
-	if commandName == names.Jujud {
+	commandName = stripExtension(commandName)
+	if commandName == "jujud" {
 		code, err = jujuDMain(args, ctx)
-	} else if commandName == names.Jujuc {
+	} else if commandName == "jujuc" {
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = exit_err
 		err = fmt.Errorf("jujuc should not be called directly")
-	} else if commandName == names.JujuRun {
+	} else if commandName == "juju-run" {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)
@@ -163,6 +163,12 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 	os.Exit(code)
+}
+
+// stripExtension removes any trailing file extension from the path.
+func stripExtension(path string) string {
+	x := strings.Split(path, ".")
+	return strings.Join(x[:len(x)-1], ".")
 }
 
 type writerFactory struct{}

@@ -31,7 +31,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -238,7 +237,11 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	// TODO(waigani) Does this test need to download tools? If not,
 	// sync.bundleTools can be mocked to improve test speed.
 	dir := downloadTools(c, t)
-	out, err := exec.Command(filepath.Join(dir, names.Jujud), "version").CombinedOutput()
+	cmd := filepath.Join(dir, "jujud")
+	if runtime.GOOS == "windows" {
+		cmd += ".exe"
+	}
+	out, err := exec.Command(cmd, "version").CombinedOutput()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
 }

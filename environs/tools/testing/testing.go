@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -52,8 +51,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 			vers.Number = *forceVersion
 		}
 
-		tgz, checksum := coretesting.TarGz(
-			coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))
+		tgz, checksum := coretesting.TarGz(coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
 
 		toolsDir, err := ioutil.TempDir("", "juju-tools-"+stream)
 		c.Assert(err, jc.ErrorIsNil)

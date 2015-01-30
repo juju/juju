@@ -4,8 +4,9 @@
 package block_test
 
 import (
-	gc "gopkg.in/check.v1"
 	"strings"
+
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"

@@ -6,11 +6,10 @@ package jujuc
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/symlink"
-
-	"github.com/juju/juju/juju/names"
 )
 
 // EnsureSymlinks creates a symbolic link to jujuc within dir for each
@@ -41,7 +40,10 @@ func EnsureSymlinks(dir string) (err error) {
 		logger.Infof("was a symlink, now looking at %s", dir)
 	}
 
-	jujudPath := filepath.Join(dir, names.Jujud)
+	jujudPath := filepath.Join(dir, "jujud")
+	if runtime.GOOS == "windows" {
+		jujudPath += ".exe"
+	}
 	logger.Debugf("jujud path %s", jujudPath)
 	for _, name := range CommandNames() {
 		// The link operation fails when the target already exists,

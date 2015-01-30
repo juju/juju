@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -47,7 +46,7 @@ func (s *ToolsSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
 }
 
 func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
-	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
+	jujudPath := filepath.Join(s.toolsDir, "jujud")
 	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 

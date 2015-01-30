@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/lease"
 	"github.com/juju/juju/mongo"
@@ -1340,7 +1339,10 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
+	if runtime.GOOS == "windows" {
+		jujud += ".exe"
+	}
 	return symlink.New(jujud, JujuRun)
 }
 

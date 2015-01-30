@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/juju/names"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
@@ -136,8 +136,12 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an init service that runs the unit agent.
 	logPath := path.Join(logDir, tag.String()+".log")
+	jujud := path.Join(toolsDir, "jujud")
+	if runtime.GOOS == "windows" {
+		jujud += ".exe"
+	}
 	cmd := strings.Join([]string{
-		filepath.FromSlash(path.Join(toolsDir, jujunames.Jujud)), "unit",
+		filepath.FromSlash(jujud), "unit",
 		"--data-dir", dataDir,
 		"--unit-name", unitName,
 		"--debug", // TODO: propagate debug state sensibly

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -158,8 +157,7 @@ func InstallFakeDownloadedTools(c *gc.C, dataDir string, vers version.Binary) *c
 }
 
 func makeFakeTools(vers version.Binary) ([]byte, string) {
-	return coretesting.TarGz(
-		coretesting.NewTarFile(names.Jujud, 0777, "jujud contents "+vers.String()))
+	return coretesting.TarGz(coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
 }
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
