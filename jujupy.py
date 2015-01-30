@@ -220,7 +220,6 @@ class EnvJujuClient:
             logging.info('Waiting for bootstrap of {}.'.format(
                 self.env.environment))
 
-
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
             force_arg = ('--force',)
@@ -296,7 +295,7 @@ class EnvJujuClient:
         sys.stdout.flush()
         env = self._shell_environ(juju_home, set_env=True)
         proc = subprocess.Popen(full_args, env=env)
-        yield
+        yield proc
         retcode = proc.wait()
         if retcode != 0:
             raise subprocess.CalledProcessError(retcode, full_args)
