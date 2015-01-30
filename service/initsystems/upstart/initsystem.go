@@ -28,9 +28,9 @@ var (
 )
 
 type fileOperations interface {
-	exists(name) (bool, error)
-	readDir(dirname) ([]os.FileInfo, error)
-	readFile(filename) ([]byte, error)
+	exists(name string) (bool, error)
+	readDir(dirname string) ([]os.FileInfo, error)
+	readFile(filename string) ([]byte, error)
 	symlink(oldname, newname string) error
 }
 
