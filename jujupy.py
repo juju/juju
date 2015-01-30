@@ -289,8 +289,7 @@ class EnvJujuClient:
                    juju_home=None):
         full_args = self._full_args(command, False, args, include_e=include_e,
                                     timeout=timeout)
-        print(' '.join(args))
-        sys.stdout.flush()
+        print_now(' '.join(args))
         env = self._shell_environ(juju_home)
         proc = subprocess.Popen(full_args, env=env)
         yield proc
