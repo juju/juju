@@ -446,9 +446,9 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 try:
                     prepare_environment(
                         env, already_bootstrapped=True, machines=machines)
-                    if sys.platform == 'win32':
-                        # The win client tests only verify the client to the
-                        # state-server.
+                    if sys.platform in ('win32', 'darwin'):
+                        # The win and osx client tests only verify the client
+                        # can bootstrap and call the state-server.
                         return
                     deploy_dummy_stack(env, charm_prefix)
                     if upgrade:
