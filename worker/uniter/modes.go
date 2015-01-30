@@ -370,7 +370,8 @@ func modeContext(name string, err *error) func() {
 	}
 }
 
-// continueAfter is commonly used at the end of a Mode func.
+// continueAfter is commonly used at the end of a Mode func to execute the
+// operation returned by creator and return ModeContinue (or any error).
 func continueAfter(u *Uniter, creator creator) (Mode, error) {
 	if err := u.runOperation(creator); err != nil {
 		return nil, errors.Trace(err)
