@@ -76,9 +76,6 @@ func (c *environConfig) container() instance.ContainerType {
 
 // setDefaultNetworkBridge sets default network bridge if none is provided.
 // Default network bridge varies based on container type.
-// Originally, default values were returned in getter. However,
-// this meant that older clients were getting incorrect defaults
-// (http://pad.lv/1394450)
 func (c *environConfig) setDefaultNetworkBridge() {
 	name := c.networkBridge()
 	switch c.container() {
@@ -87,10 +84,7 @@ func (c *environConfig) setDefaultNetworkBridge() {
 			name = lxc.DefaultLxcBridge
 		}
 	case instance.KVM:
-		if name == "" || name == lxc.DefaultLxcBridge {
-			// Older versions of juju used "lxcbr0" by default,
-			// without checking the container type. See also
-			// http://pad.lv/1307677.
+		if name == "" {
 			name = kvm.DefaultKvmBridge
 		}
 	}
