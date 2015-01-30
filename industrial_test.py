@@ -630,7 +630,8 @@ class BackupRestoreAttempt(SteppedStageAttempt):
         yield results
         wait_for_state_server_to_shutdown(host, client, instance_id)
         yield results
-        client.juju('restore', (backup_file,))
+        with client.juju_async('restore', (backup_file,)):
+            yield results
         with wait_for_started(client):
             yield results
         results['result'] = True

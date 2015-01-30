@@ -1276,14 +1276,19 @@ class TestBackupRestoreAttempt(TestCase):
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        with patch('subprocess.check_call') as cc_mock:
+        with patch('subprocess.Popen') as po_mock:
             with patch('sys.stdout'):
                 self.assertEqual(iterator.next(),
                                  {'test_id': 'back-up-restore'})
         assert_juju_call(
-            self, cc_mock, client, (
+            self, po_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',
                 os.path.abspath('juju-backup-24.tgz')))
+        po_mock.return_value.wait.return_value = 0
+        self.assertEqual(iterator.next(),
+                         {'test_id': 'back-up-restore'})
+
+
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
