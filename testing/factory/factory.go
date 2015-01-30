@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -67,6 +68,7 @@ type MachineParams struct {
 	Nonce           string
 	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
+	Addresses       []network.Address
 }
 
 // ServiceParams is used when specifying parameters for a new service.
@@ -254,6 +256,10 @@ func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachinePar
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
+	if len(params.Addresses) > 0 {
+		err := machine.SetAddresses(params.Addresses...)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	return machine, params.Password
 }
 
@@ -427,9 +433,11 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
-		"name": params.Name,
-		"uuid": uuid.String(),
-		"type": currentCfg.Type(),
+		"name":       params.Name,
+		"uuid":       uuid.String(),
+		"type":       currentCfg.Type(),
+		"state-port": currentCfg.StatePort(),
+		"api-port":   currentCfg.APIPort(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
