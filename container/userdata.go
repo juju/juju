@@ -14,7 +14,6 @@ import (
 
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/network"
 )
 
 var (
@@ -51,7 +50,10 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 
 // networkConfigTemplate defines how to render /etc/network/interfaces
 // file for a container with one or more NICs.
-const networkConfigTemplate = `{{define "static"}}
+const networkConfigTemplate = `
+# loopback interface
+auto lo
+iface lo inet loopback{{define "static"}}
 {{.InterfaceName | printf "# interface %q"}}{{if not .NoAutoStart}}
 auto {{.InterfaceName}}{{end}}
 iface {{.InterfaceName}} inet static
@@ -82,14 +84,6 @@ func newCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudini
 		return cloudConfig, nil
 	}
 
-	// Add the loopback NIC which is always needed.
-	loopback := network.InterfaceInfo{
-		InterfaceName: "lo",
-		ConfigType:    network.ConfigDHCP,
-		NoAutoStart:   false,
-	}
-	allNICs := append([]network.InterfaceInfo{loopback}, networkConfig.Interfaces...)
-
 	// Render the config first.
 	tmpl, err := template.New("config").Parse(networkConfigTemplate)
 	if err != nil {
@@ -97,7 +91,7 @@ func newCloudInitConfigWithNetworks(networkConfig *NetworkConfig) (*coreCloudini
 	}
 
 	var buf bytes.Buffer
-	if err = tmpl.Execute(&buf, allNICs); err != nil {
+	if err = tmpl.Execute(&buf, networkConfig.Interfaces); err != nil {
 		return nil, errors.Annotate(err, "cannot render cloud-init network config")
 	}
 

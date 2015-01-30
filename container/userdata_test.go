@@ -52,10 +52,9 @@ bootcmd:
 - install -D -m 644 /dev/null '`[1:] + s.networkInterfacesFile + `'
 - |-
   printf '%s\n' '
-  # interface "lo"
+  # loopback interface
   auto lo
-  iface lo inet dhcp
-
+  iface lo inet loopback
 
   # interface "eth0"
   auto eth0
