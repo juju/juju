@@ -6,6 +6,7 @@ package service
 import (
 	"os"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +17,33 @@ var _ = gc.Suite(&confDirSuite{})
 
 type confDirSuite struct {
 	BaseSuite
+}
+
+func (s *confDirSuite) checkWritten(c *gc.C, filename, content string, perm os.FileMode) {
+	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "CreateFile",
+		Args: testing.FakeCallArgs{
+			"filename": filename,
+		},
+	}, {
+		FuncName: "Chmod",
+		Args: testing.FakeCallArgs{
+			"name": filename,
+			"perm": perm,
+		},
+	}})
+
+	// TODO(ericsnow) Is it important to check that the Write and Close
+	// happened before the Chmod call?
+
+	s.FakeFile.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Write",
+		Args: testing.FakeCallArgs{
+			"data": []byte(content),
+		},
+	}, {
+		FuncName: "Close",
+	}})
 }
 
 func (s *confDirSuite) TestName(c *gc.C) {
@@ -37,14 +65,14 @@ func (s *confDirSuite) TestFilename(c *gc.C) {
 }
 
 func (s *confDirSuite) TestValidate(c *gc.C) {
-	s.FakeFiles.Exists = true
+	s.FakeFiles.Returns.Exists = true
 
 	err := s.Confdir.validate()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
+	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Exists",
-		Args: FakeCallArgs{
+		Args: testing.FakeCallArgs{
 			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
 		},
 	}})
@@ -62,22 +90,22 @@ func (s *confDirSuite) TestCreate(c *gc.C) {
 	err := s.Confdir.create()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
+	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Exists",
-		Args: FakeCallArgs{
+		Args: testing.FakeCallArgs{
 			"name": "/var/lib/juju/init/jujud-machine-0",
 		},
 	}, {
 		FuncName: "MkdirAll",
-		Args: FakeCallArgs{
+		Args: testing.FakeCallArgs{
 			"dirname": "/var/lib/juju/init/jujud-machine-0",
-			"mode":    os.FileMode(0755),
+			"perm":    os.FileMode(0755),
 		},
 	}})
 }
 
 func (s *confDirSuite) TestConf(c *gc.C) {
-	s.FakeFiles.Data = []byte("<conf file contents>")
+	s.FakeFiles.Returns.Data = []byte("<conf file contents>")
 
 	content, err := s.Confdir.conf()
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,7 +114,7 @@ func (s *confDirSuite) TestConf(c *gc.C) {
 }
 
 func (s *confDirSuite) TestScript(c *gc.C) {
-	s.FakeFiles.Data = []byte("<script file contents>")
+	s.FakeFiles.Returns.Data = []byte("<script file contents>")
 
 	content, err := s.Confdir.script()
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,29 +123,12 @@ func (s *confDirSuite) TestScript(c *gc.C) {
 }
 
 func (s *confDirSuite) TestWriteConf(c *gc.C) {
-	data := []byte("<upstart conf>")
-	err := s.Confdir.writeConf(data)
+	content := "<upstart conf>"
+	err := s.Confdir.writeConf([]byte(content))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "CreateFile",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Write",
-		Args: FakeCallArgs{
-			"data": data,
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			"mode": os.FileMode(0644),
-		},
-	}})
+	expected := "/var/lib/juju/init/jujud-machine-0/upstart.conf"
+	s.checkWritten(c, expected, content, 0644)
 }
 
 func (s *confDirSuite) TestNormalizeConf(c *gc.C) {
@@ -126,29 +137,13 @@ func (s *confDirSuite) TestNormalizeConf(c *gc.C) {
 	conf, err := s.Confdir.normalizeConf(*s.Conf)
 	c.Assert(err, jc.ErrorIsNil)
 
+	expected := "/var/lib/juju/init/jujud-machine-0/script.sh"
 	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
 		Desc: "a service",
-		Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
+		Cmd:  expected,
 	})
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "CreateFile",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
-		},
-	}, {
-		FuncName: "Write",
-		Args: FakeCallArgs{
-			"data": []byte("<preceding command>\nspam"),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
-			"mode": os.FileMode(0755),
-		},
-	}})
+	script := "<preceding command>\nspam"
+	s.checkWritten(c, expected, script, 0755)
 }
 
 func (s *confDirSuite) TestNormalizeConfNop(c *gc.C) {
@@ -178,35 +173,18 @@ func (s *confDirSuite) TestWriteScript(c *gc.C) {
 	filename, err := s.Confdir.writeScript(script)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(filename, gc.Equals, "/var/lib/juju/init/jujud-machine-0/script.sh")
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
-		FuncName: "CreateFile",
-		Args: FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
-		},
-	}, {
-		FuncName: "Write",
-		Args: FakeCallArgs{
-			"data": []byte(script),
-		},
-	}, {
-		FuncName: "Close",
-	}, {
-		FuncName: "Chmod",
-		Args: FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
-			"mode": os.FileMode(0755),
-		},
-	}})
+	expected := "/var/lib/juju/init/jujud-machine-0/script.sh"
+	c.Check(filename, gc.Equals, expected)
+	s.checkWritten(c, expected, script, 0755)
 }
 
 func (s *confDirSuite) TestRemove(c *gc.C) {
 	err := s.Confdir.remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []FakeCall{{
+	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "RemoveAll",
-		Args: FakeCallArgs{
+		Args: testing.FakeCallArgs{
 			"name": "/var/lib/juju/init/jujud-machine-0",
 		},
 	}})

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/service/initsystems"
 )
@@ -27,10 +28,10 @@ type confDir struct {
 	// dirname is the absolute path to the service's conf directory.
 	dirname    string
 	initSystem string
-	fops       fileOperations
+	fops       fs.Operations
 }
 
-func newConfDir(name, initDir, initSystem string, fops fileOperations) *confDir {
+func newConfDir(name, initDir, initSystem string, fops fs.Operations) *confDir {
 	if fops == nil {
 		fops = newFileOps()
 	}
@@ -42,8 +43,8 @@ func newConfDir(name, initDir, initSystem string, fops fileOperations) *confDir 
 	}
 }
 
-var newFileOps = func() fileOperations {
-	return &fileOps{}
+var newFileOps = func() fs.Operations {
+	return &fs.Ops{}
 }
 
 func (cd confDir) name() string {
@@ -63,7 +64,7 @@ func (cd confDir) validate() error {
 
 	// The conf file must exist.
 	confname := cd.confname()
-	exists, err := cd.fops.exists(filepath.Join(cd.dirname, confname))
+	exists, err := cd.fops.Exists(filepath.Join(cd.dirname, confname))
 	if !exists {
 		return errors.NotValidf("%q missing conf file %q", cd.dirname, confname)
 	}
@@ -75,7 +76,7 @@ func (cd confDir) validate() error {
 }
 
 func (cd confDir) create() error {
-	exists, err := cd.fops.exists(cd.dirname)
+	exists, err := cd.fops.Exists(cd.dirname)
 	if exists {
 		// TODO(ericsnow) Allow if using a different init system?
 		return errors.AlreadyExistsf("service conf dir %q", cd.dirname)
@@ -84,7 +85,7 @@ func (cd confDir) create() error {
 		return errors.Trace(err)
 	}
 	// TODO(ericsnow) Are these the right permissions?
-	if err := cd.fops.mkdirAll(cd.dirname, 0755); err != nil {
+	if err := cd.fops.MkdirAll(cd.dirname, 0755); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -92,7 +93,7 @@ func (cd confDir) create() error {
 }
 
 func (cd confDir) readfile(name string) ([]byte, error) {
-	data, err := cd.fops.readFile(filepath.Join(cd.dirname, name))
+	data, err := cd.fops.ReadFile(filepath.Join(cd.dirname, name))
 	return data, errors.Trace(err)
 }
 
@@ -110,7 +111,7 @@ func (cd confDir) writefile(name string, data []byte) (string, error) {
 
 	filename := filepath.Join(cd.dirname, name)
 
-	file, err := cd.fops.createFile(filename)
+	file, err := cd.fops.CreateFile(filename)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -130,7 +131,7 @@ func (cd confDir) writeConf(data []byte) error {
 	}
 
 	// TODO(ericsnow) Are these the right permissions?
-	if err := cd.fops.chmod(filename, 0644); err != nil {
+	if err := cd.fops.Chmod(filename, 0644); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -144,7 +145,7 @@ func (cd confDir) writeScript(script string) (string, error) {
 	}
 
 	// TODO(ericsnow) Are these the right permissions?
-	if err := cd.fops.chmod(filename, 0755); err != nil {
+	if err := cd.fops.Chmod(filename, 0755); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -179,7 +180,7 @@ func (cd confDir) isSimpleScript(script string) bool {
 }
 
 func (cd confDir) remove() error {
-	err := cd.fops.removeAll(cd.dirname)
+	err := cd.fops.RemoveAll(cd.dirname)
 	if os.IsNotExist(err) {
 		return nil
 	}

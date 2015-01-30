@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/service/initsystems"
 )
@@ -25,7 +26,7 @@ type serviceConfigs struct {
 	prefixes   []string
 
 	names []string
-	fops  fileOperations
+	fops  fs.Operations
 }
 
 func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs {
@@ -56,7 +57,7 @@ func (sc *serviceConfigs) refresh() error {
 }
 
 func (sc serviceConfigs) list() ([]string, error) {
-	dirnames, err := listSubdirectories(sc.baseDir, sc.fops)
+	dirnames, err := fs.ListSubdirectoriesOp(sc.baseDir, sc.fops)
 	if os.IsNotExist(errors.Cause(err)) {
 		return nil, nil
 	}
