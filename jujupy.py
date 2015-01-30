@@ -410,7 +410,11 @@ class EnvJujuClient:
         environ = self._shell_environ()
         # juju-backup does not support the -e flag.
         environ['JUJU_ENV'] = self.env.environment
-        output = subprocess.check_output(['juju', 'backup'], env=environ)
+        try:
+            output = subprocess.check_output(['juju', 'backup'], env=environ)
+        except subprocess.CalledProcessError as e:
+            print_now(e.output)
+            raise
         print_now(output)
         backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.(t|tar.)gz)')
         match = backup_file_pattern.search(output)

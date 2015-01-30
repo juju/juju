@@ -1,10 +1,14 @@
 __metaclass__ = type
 
+from contextlib import contextmanager
 import logging
 import os
 import subprocess
 import sys
 from time import sleep
+
+from utility import temp_dir
+
 
 sys.path.insert(
     0, os.path.realpath(os.path.join(__file__, '../../juju-release-tools')))
@@ -63,11 +67,12 @@ def terminate_instances(env, instance_ids):
                 subprocess.check_call(cmd)
         return
     else:
-        substrate = make_substrate(env.config)
-        if substrate is None:
-            raise ValueError(
-                "This test does not support the %s provider" % provider_type)
-        return substrate.terminate_instances(instance_ids)
+        with make_substrate_manager(env.config) as substrate:
+            if substrate is None:
+                raise ValueError(
+                    "This test does not support the %s provider"
+                    % provider_type)
+            return substrate.terminate_instances(instance_ids)
     print_now("Deleting %s." % ', '.join(instance_ids))
     subprocess.check_call(command_args, env=environ)
 
@@ -289,17 +294,116 @@ class JoyentAccount:
         self.client.delete_machine(machine_id)
 
 
-def make_substrate(config):
-    """Return an Account for the config's substrate.
+class AzureAccount:
+    """Represent an Azure Account."""
+
+    def __init__(self, service_client):
+        """Constructor.
+
+        :param service_client: An instance of
+            azure.servicemanagement.ServiceManagementService.
+        """
+        self.service_client = service_client
+
+    @classmethod
+    @contextmanager
+    def manager_from_config(cls, config):
+        """A context manager for a AzureAccount.
+
+        It writes the certificate to a temp file because the Azure client
+        library requires it, then deletes the temp file when done.
+        """
+        from azure.servicemanagement import ServiceManagementService
+        with temp_dir() as cert_dir:
+            cert_file = os.path.join(cert_dir, 'azure.pem')
+            open(cert_file, 'w').write(config['management-certificate'])
+            service_client = ServiceManagementService(
+                config['management-subscription-id'], cert_file)
+            yield cls(service_client)
+
+    @staticmethod
+    def convert_instance_ids(instance_ids):
+        """Convert juju instance ids into Azure service/role names.
+
+        Return a dict mapping service name to role names.
+        """
+        services = {}
+        for instance_id in instance_ids:
+            service, role = instance_id.rsplit('-', 1)
+            services.setdefault(service, set()).add(role)
+        return services
+
+    @contextmanager
+    def terminate_instances_cxt(self, instance_ids):
+        """Terminate instances in a context.
+
+        This context manager requests termination, then allows the "with"
+        block to happen.  When the block is exited, it waits until the
+        operations complete.
+
+        The strategy for terminating instances varies depending on whether all
+        roles are being terminated.  If all roles are being terminated, the
+        deployment and hosted service are deleted.  If not all roles are being
+        terminated, the roles themselves are deleted.
+        """
+        converted = self.convert_instance_ids(instance_ids)
+        requests = set()
+        services_to_delete = set(converted.keys())
+        for service, roles in converted.items():
+            properties = self.service_client.get_hosted_service_properties(
+                service, embed_detail=True)
+            for deployment in properties.deployments:
+                role_names = set(
+                    d_role.role_name for d_role in deployment.role_list)
+                if role_names.difference(roles) == set():
+                    requests.add(self.service_client.delete_deployment(
+                        service, deployment.name))
+                else:
+                    services_to_delete.discard(service)
+                    for role in roles:
+                        requests.add(
+                            self.service_client.delete_role(
+                                service, deployment.name, role))
+        yield
+        self.block_on_requests(requests)
+        for service in services_to_delete:
+            self.service_client.delete_hosted_service(service)
+
+    def block_on_requests(self, requests):
+        """Wait until the requests complete."""
+        requests = set(requests)
+        while len(requests) > 0:
+            for request in list(requests):
+                op = self.service_client.get_operation_status(
+                    request.request_id)
+                if op.status == 'Succeeded':
+                    requests.remove(request)
+
+    def terminate_instances(self, instance_ids):
+        """Terminate the specified instances.
+
+        See terminate_instances_cxt for details.
+        """
+        with self.terminate_instances_cxt(instance_ids):
+            return
+
+
+@contextmanager
+def make_substrate_manager(config):
+    """A ContextManager that returns an Account for the config's substrate.
 
     Returns None if the substrate is not supported.
     """
+    if config['type'] == 'azure':
+        with AzureAccount.manager_from_config(config) as substrate:
+            yield substrate
+            return
     substrate_factory = {
         'ec2': AWSAccount.from_config,
         'openstack': OpenStackAccount.from_config,
         'joyent': JoyentAccount.from_config,
         }
-    return substrate_factory.get(config['type'], lambda x: None)(config)
+    yield substrate_factory.get(config['type'], lambda x: None)(config)
 
 
 def start_libvirt_domain(URI, domain):

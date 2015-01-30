@@ -26,7 +26,7 @@ from industrial_test import (
     EnsureAvailabilityAttempt,
     FULL,
     IndustrialTest,
-    make_substrate,
+    make_substrate_manager,
     maybe_write_json,
     MultiIndustrialTest,
     parse_args,
@@ -1278,17 +1278,17 @@ class TestBackupRestoreAttempt(TestCase):
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
         with patch('subprocess.Popen') as po_mock:
             with patch('sys.stdout'):
-                self.assertEqual(iterator.next(),
-                                 {'test_id': 'back-up-restore'})
+                    self.assertEqual(iterator.next(),
+                                     {'test_id': 'back-up-restore'})
         assert_juju_call(
             self, po_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',
                 os.path.abspath('juju-backup-24.tgz')))
         po_mock.return_value.wait.return_value = 0
-        self.assertEqual(iterator.next(),
-                         {'test_id': 'back-up-restore'})
-
-
+        with patch('os.unlink') as ul_mock:
+            self.assertEqual(iterator.next(),
+                             {'test_id': 'back-up-restore'})
+        ul_mock.assert_called_once_with(os.path.abspath('juju-backup-24.tgz'))
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},
@@ -1327,25 +1327,32 @@ class TestMaybeWriteJson(TestCase):
 
 class TestMakeSubstrate(TestCase):
 
-    def test_make_substrate_no_support(self):
+    def test_make_substrate_manager_no_support(self):
         client = EnvJujuClient(SimpleEnvironment('foo', {'type': 'foo'}),
                                '', '')
-        self.assertIs(make_substrate(client, []), None)
+        with make_substrate_manager(client, []) as substrate:
+            self.assertIs(substrate, None)
 
     def test_make_substrate_no_requirements(self):
         client = EnvJujuClient(get_aws_env(), '', '')
-        self.assertIs(type(make_substrate(client, [])), AWSAccount)
+        with make_substrate_manager(client, []) as substrate:
+            self.assertIs(type(substrate), AWSAccount)
 
-    def test_make_substrate_unsatisifed_requirements(self):
+    def test_make_substrate_manager_unsatisifed_requirements(self):
         client = EnvJujuClient(get_aws_env(), '', '')
-        self.assertIs(make_substrate(client, ['foo']), None)
-        self.assertIs(make_substrate(client, ['iter_security_groups', 'foo']),
-                      None)
+        with make_substrate_manager(client, ['foo']) as substrate:
+            self.assertIs(substrate, None)
+        with make_substrate_manager(
+                client, ['iter_security_groups', 'foo']) as substrate:
+            self.assertIs(substrate, None)
 
     def test_make_substrate_satisfied_requirements(self):
         client = EnvJujuClient(get_aws_env(), '', '')
-        self.assertIs(type(make_substrate(client, ['iter_security_groups'])),
-                      AWSAccount)
-        self.assertIs(type(make_substrate(client, [
-            'iter_security_groups', 'iter_instance_security_groups'])),
-            AWSAccount)
+        with make_substrate_manager(
+                client, ['iter_security_groups']) as substrate:
+            self.assertIs(type(substrate), AWSAccount)
+        with make_substrate_manager(
+                client, ['iter_security_groups',
+                         'iter_instance_security_groups']
+                ) as substrate:
+            self.assertIs(type(substrate), AWSAccount)
