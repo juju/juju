@@ -7,6 +7,7 @@ from boto.exception import EC2ResponseError
 from mock import (
     ANY,
     call,
+    create_autospec,
     MagicMock,
     Mock,
     patch,
@@ -19,10 +20,11 @@ from jujuconfig import (
 from jujupy import SimpleEnvironment
 from substrate import (
     AWSAccount,
+    AzureAccount,
     get_libvirt_domstate,
     JoyentAccount,
     OpenStackAccount,
-    make_substrate,
+    make_substrate_manager,
     start_libvirt_domain,
     StillProvisioning,
     stop_libvirt_domain,
@@ -496,40 +498,129 @@ class TestJoyentAccount(TestCase):
         client.delete_machine.assert_called_once_with('a')
 
 
-class TestMakeSubstrate(TestCase):
+def make_sms(instance_ids):
+    from azure import servicemanagement as sm
+    client = create_autospec(sm.ServiceManagementService('foo', 'bar'))
 
-    def test_make_substrate_aws(self):
-        aws_env = get_aws_env()
-        aws = make_substrate(aws_env.config)
-        self.assertIs(type(aws), AWSAccount)
-        self.assertEqual(aws.euca_environ, {
-            'EC2_ACCESS_KEY': 'skeleton-key',
-            'EC2_SECRET_KEY': 'secret-skeleton-key',
-            'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
+    services = AzureAccount.convert_instance_ids(instance_ids)
+
+    def get_hosted_service_properties(service, embed_detail):
+        props = sm.HostedService()
+        deployment = sm.Deployment()
+        deployment.name = service + '-v3'
+        for role_name in services[service]:
+            role = sm.Role()
+            role.role_name = role_name
+            deployment.role_list.roles.append(role)
+        props.deployments.deployments.append(deployment)
+        return props
+
+    client.get_hosted_service_properties.side_effect = (
+        get_hosted_service_properties)
+    client.get_operation_status.return_value = Mock(status='Succeeded')
+    client.delete_role.return_value = sm.AsynchronousOperationResult()
+    return client
+
+
+class TestAzureAccount(TestCase):
+
+    def test_manager_from_config(self):
+        config = {'management-subscription-id': 'fooasdfbar',
+                  'management-certificate': 'ab\ncd\n'}
+        with AzureAccount.manager_from_config(config) as substrate:
+            self.assertEqual(substrate.service_client.subscription_id,
+                             'fooasdfbar')
+            self.assertEqual(open(substrate.service_client.cert_file).read(),
+                             'ab\ncd\n')
+        self.assertFalse(os.path.exists(substrate.service_client.cert_file))
+
+    def test_convert_instance_ids(self):
+        converted = AzureAccount.convert_instance_ids([
+            'foo-bar-baz', 'foo-bar-qux', 'foo-noo-baz'])
+        self.assertEqual(converted, {
+            'foo-bar': {'baz', 'qux'},
+            'foo-noo': {'baz'},
             })
-        self.assertEqual(aws.region, 'ca-west')
 
-    def test_make_substrate_openstack(self):
+    def test_terminate_instances_one_role(self):
+        client = make_sms(['foo-bar'])
+        account = AzureAccount(client)
+        account.terminate_instances(['foo-bar'])
+        client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
+        client.delete_hosted_service.assert_called_once_with('foo')
+
+    def test_terminate_instances_not_all_roles(self):
+        client = make_sms(['foo-bar', 'foo-baz', 'foo-qux'])
+        account = AzureAccount(client)
+        account.terminate_instances(['foo-bar', 'foo-baz'])
+        client.get_hosted_service_properties.assert_called_once_with(
+            'foo', embed_detail=True)
+        self.assertItemsEqual(client.delete_role.mock_calls, [
+            call('foo', 'foo-v3', 'bar'),
+            call('foo', 'foo-v3', 'baz'),
+            ])
+        self.assertEqual(client.delete_deployment.call_count, 0)
+        self.assertEqual(client.delete_hosted_service.call_count, 0)
+
+    def test_terminate_instances_all_roles(self):
+        client = make_sms(['foo-bar', 'foo-baz', 'foo-qux'])
+        account = AzureAccount(client)
+        account.terminate_instances(['foo-bar', 'foo-baz', 'foo-qux'])
+        client.get_hosted_service_properties.assert_called_once_with(
+            'foo', embed_detail=True)
+        client.delete_deployment.assert_called_once_with('foo', 'foo-v3')
+        client.delete_hosted_service.assert_called_once_with('foo')
+
+
+class TestMakeSubstrateManager(TestCase):
+
+    def test_make_substrate_manager_aws(self):
+        aws_env = get_aws_env()
+        with make_substrate_manager(aws_env.config) as aws:
+            self.assertIs(type(aws), AWSAccount)
+            self.assertEqual(aws.euca_environ, {
+                'EC2_ACCESS_KEY': 'skeleton-key',
+                'EC2_SECRET_KEY': 'secret-skeleton-key',
+                'EC2_URL': 'https://ca-west.ec2.amazonaws.com',
+                })
+            self.assertEqual(aws.region, 'ca-west')
+
+    def test_make_substrate_manager_openstack(self):
         config = get_os_config()
-        account = make_substrate(config)
-        self.assertIs(type(account), OpenStackAccount)
-        self.assertEqual(account._username, 'foo')
-        self.assertEqual(account._password, 'bar')
-        self.assertEqual(account._tenant_name, 'baz')
-        self.assertEqual(account._auth_url, 'qux')
-        self.assertEqual(account._region_name, 'quxx')
+        with make_substrate_manager(config) as account:
+            self.assertIs(type(account), OpenStackAccount)
+            self.assertEqual(account._username, 'foo')
+            self.assertEqual(account._password, 'bar')
+            self.assertEqual(account._tenant_name, 'baz')
+            self.assertEqual(account._auth_url, 'qux')
+            self.assertEqual(account._region_name, 'quxx')
 
-    def test_make_substrate_joyent(self):
+    def test_make_substrate_manager_joyent(self):
         config = get_joyent_config()
-        account = make_substrate(config)
-        self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
-        self.assertEqual(account.client.account, 'user@manta.org')
-        self.assertEqual(account.client.key_id, 'key-id@manta.org')
+        with make_substrate_manager(config) as account:
+            self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
+            self.assertEqual(account.client.account, 'user@manta.org')
+            self.assertEqual(account.client.key_id, 'key-id@manta.org')
 
-    def test_make_substrate_other(self):
+    def test_make_substrate_manager_azure(self):
+        config = {
+            'type': 'azure',
+            'management-subscription-id': 'fooasdfbar',
+            'management-certificate': 'ab\ncd\n'
+            }
+        with make_substrate_manager(config) as substrate:
+            self.assertIs(type(substrate), AzureAccount)
+            self.assertEqual(substrate.service_client.subscription_id,
+                             'fooasdfbar')
+            self.assertEqual(open(substrate.service_client.cert_file).read(),
+                             'ab\ncd\n')
+        self.assertFalse(os.path.exists(substrate.service_client.cert_file))
+
+    def test_make_substrate_manager_other(self):
         config = get_os_config()
         config['type'] = 'other'
-        self.assertIs(make_substrate(config), None)
+        with make_substrate_manager(config) as account:
+            self.assertIs(account, None)
 
 
 class TestLibvirt(TestCase):

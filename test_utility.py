@@ -4,11 +4,15 @@ from datetime import (
     )
 from contextlib import contextmanager
 import os
-from unittest import TestCase
-from time import time
-
-from mock import patch
+import socket
 from StringIO import StringIO
+from time import time
+from unittest import TestCase
+
+from mock import (
+    call,
+    patch,
+    )
 
 from utility import (
     find_candidates,
@@ -16,6 +20,7 @@ from utility import (
     get_candidates_path,
     temp_dir,
     until_timeout,
+    wait_for_port,
     )
 
 
@@ -122,3 +127,81 @@ class TestFindCandidates(TestCase):
             os.mkdir(master_path)
             open(os.path.join(master_path, 'buildvars.json'), 'w')
             self.assertEqual(list(find_candidates(root)), [])
+
+
+class TestWaitForPort(TestCase):
+
+    def test_wait_for_port_0000_closed(self):
+        with patch(
+                'socket.getaddrinfo', autospec=True,
+                return_value=[('foo', 'bar', 'baz', 'qux', ('0.0.0.0', 27))]
+                ) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                wait_for_port('asdf', 26, closed=True)
+        gai_mock.assert_called_once_with('asdf', 26, socket.AF_INET,
+                                         socket.SOCK_STREAM)
+        self.assertEqual(socket_mock.call_count, 0)
+
+    def test_wait_for_port_0000_open(self):
+        stub_called = False
+        loc = locals()
+
+        def gai_stub(host, port, family, socktype):
+            if loc['stub_called']:
+                raise ValueError()
+            loc['stub_called'] = True
+            return [('foo', 'bar', 'baz', 'qux', ('0.0.0.0', 27))]
+
+        with patch('socket.getaddrinfo', autospec=True, side_effect=gai_stub,
+                   ) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                with self.assertRaises(ValueError):
+                    wait_for_port('asdf', 26, closed=False)
+        self.assertEqual(gai_mock.mock_calls, [
+            call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+            call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+            ])
+        self.assertEqual(socket_mock.call_count, 0)
+
+    def test_wait_for_port(self):
+        with patch(
+                'socket.getaddrinfo', autospec=True, return_value=[
+                    ('foo', 'bar', 'baz', 'qux', ('192.168.8.3', 27))
+                    ]) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                wait_for_port('asdf', 26, closed=False)
+        gai_mock.assert_called_once_with(
+            'asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+        socket_mock.assert_called_once_with('foo', 'bar', 'baz')
+        connect_mock = socket_mock.return_value.connect
+        connect_mock.assert_called_once_with(('192.168.8.3', 27))
+
+    def test_wait_for_port_no_address_closed(self):
+        with patch('socket.getaddrinfo', autospec=True,
+                   side_effect=socket.error(-5, None)) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                wait_for_port('asdf', 26, closed=True)
+        gai_mock.assert_called_once_with('asdf', 26, socket.AF_INET,
+                                         socket.SOCK_STREAM)
+        self.assertEqual(socket_mock.call_count, 0)
+
+    def test_wait_for_port_no_address_open(self):
+        stub_called = False
+        loc = locals()
+
+        def gai_stub(host, port, family, socktype):
+            if loc['stub_called']:
+                raise ValueError()
+            loc['stub_called'] = True
+            raise socket.error(-5, None)
+
+        with patch('socket.getaddrinfo', autospec=True, side_effect=gai_stub,
+                   ) as gai_mock:
+            with patch('socket.socket', autospec=True) as socket_mock:
+                with self.assertRaises(ValueError):
+                    wait_for_port('asdf', 26, closed=False)
+        self.assertEqual(gai_mock.mock_calls, [
+            call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+            call('asdf', 26, socket.AF_INET, socket.SOCK_STREAM),
+            ])
+        self.assertEqual(socket_mock.call_count, 0)
