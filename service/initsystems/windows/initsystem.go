@@ -14,20 +14,6 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-var serviceInstallScript = `$data = Get-Content "C:\Juju\Jujud.pass"
-if($? -eq $false){Write-Error "Failed to read encrypted password"; exit 1}
-$serviceName = "%s"
-$secpasswd = $data | convertto-securestring
-if($? -eq $false){Write-Error "Failed decode password"; exit 1}
-$juju_user = whoami
-$jujuCreds = New-Object System.Management.Automation.PSCredential($juju_user, $secpasswd)
-if($? -eq $false){Write-Error "Failed to create secure credentials"; exit 1}
-New-Service -Credential $jujuCreds -Name "$serviceName" -DisplayName '%s' '%s'
-if($? -eq $false){Write-Error "Failed to install service $serviceName"; exit 1}
-cmd.exe /C call sc config $serviceName start=delayed-auto
-if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
-`
-
 type windows struct {
 	name string
 }
@@ -134,26 +120,27 @@ func (is *windows) Enable(name, filename string) error {
 	}
 	return nil
 	/*
-		err := Validate(s.Name, s.Conf)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if s.Installed() {
-			return errors.New(fmt.Sprintf("Service %s already installed", s.Name))
-		}
+		        // From the old Install method.
+				err := Validate(s.Name, s.Conf)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if s.Installed() {
+					return errors.New(fmt.Sprintf("Service %s already installed", s.Name))
+				}
 
-		logger.Infof("Installing Service %v", s.Name)
-		cmd := fmt.Sprintf(serviceInstallScript,
-			s.Name,
-			s.Conf.Desc,
-			s.Conf.Cmd)
-		outCmd, errCmd := initsystems.RunPsCommand(cmd)
+				logger.Infof("Installing Service %v", s.Name)
+				cmd := fmt.Sprintf(serviceInstallScript,
+					s.Name,
+					s.Conf.Desc,
+					s.Conf.Cmd)
+				outCmd, errCmd := initsystems.RunPsCommand(cmd)
 
-		if errCmd != nil {
-			logger.Infof("ERROR installing service %v --> %v", outCmd, errCmd)
-			return errCmd
-		}
-		return s.Start()
+				if errCmd != nil {
+					logger.Infof("ERROR installing service %v --> %v", outCmd, errCmd)
+					return errCmd
+				}
+				return s.Start()
 	*/
 }
 
@@ -250,3 +237,26 @@ func (is *windows) Deserialize(data []byte) (*initsystems.Conf, error) {
 	conf, err := Deserialize(data)
 	return conf, errors.Trace(err)
 }
+
+// for cloud-init:
+func installCommands(name string, conf initsystems.Conf) ([]string, error) {
+	cmd := fmt.Sprintf(serviceInstallScript,
+		name,
+		conf.Desc,
+		conf.Cmd)
+	return strings.Split(cmd, "\n"), nil
+}
+
+var serviceInstallScript = `$data = Get-Content "C:\Juju\Jujud.pass"
+if($? -eq $false){Write-Error "Failed to read encrypted password"; exit 1}
+$serviceName = "%s"
+$secpasswd = $data | convertto-securestring
+if($? -eq $false){Write-Error "Failed decode password"; exit 1}
+$juju_user = whoami
+$jujuCreds = New-Object System.Management.Automation.PSCredential($juju_user, $secpasswd)
+if($? -eq $false){Write-Error "Failed to create secure credentials"; exit 1}
+New-Service -Credential $jujuCreds -Name "$serviceName" -DisplayName '%s' '%s'
+if($? -eq $false){Write-Error "Failed to install service $serviceName"; exit 1}
+cmd.exe /C call sc config $serviceName start=delayed-auto
+if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
+`

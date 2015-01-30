@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package upstart
@@ -27,9 +27,17 @@ var (
 	upstartStartedRE  = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 )
 
+type fileOperations interface {
+	exists(name) (bool, error)
+	readDir(dirname) ([]os.FileInfo, error)
+	readFile(filename) ([]byte, error)
+	symlink(oldname, newname string) error
+}
+
 type upstart struct {
 	name    string
 	initDir string
+	fops    fileOperations
 }
 
 // NewInitSystem returns a new value that implements
