@@ -10,12 +10,6 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-// These are the directives that may be passed to Services.List.
-const (
-	DirectiveRunning  = "running"
-	DirectiveNoVerify = "noverify"
-)
-
 var (
 	jujuPrefixes = []string{
 		"juju-",
@@ -334,10 +328,13 @@ func (s Services) IsManaged(name string) bool {
 	return s.configs.lookup(name) != nil
 }
 
+// NewService wraps the name and conf in a Service for convenience.
 func (s *Services) NewService(name string, conf Conf) *Service {
 	return WrapService(name, conf, s)
 }
 
+// NewAgentService wraps the provided information in a Service for
+// convenience.
 func (s Services) NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*Service, error) {
 	svc, err := WrapAgentService(tag, paths, env, s)
 	return svc, errors.Trace(err)

@@ -32,6 +32,8 @@ type upstart struct {
 	initDir string
 }
 
+// NewInitSystem returns a new value that implements
+// initsystems.InitSystem for upstart.
 func NewInitSystem(name string) initsystems.InitSystem {
 	return &upstart{
 		name:    name,
@@ -44,10 +46,12 @@ func (is upstart) confPath(name string) string {
 	return path.Join(is.initDir, name+".conf")
 }
 
+// Name implements service/initsystems.InitSystem.
 func (is upstart) Name() string {
 	return is.name
 }
 
+// List implements service/initsystems.InitSystem.
 func (is *upstart) List(include ...string) ([]string, error) {
 	// TODO(ericsnow) We should be able to use initctl to do this.
 	var services []string
@@ -64,6 +68,7 @@ func (is *upstart) List(include ...string) ([]string, error) {
 	return services, nil
 }
 
+// Start implements service/initsystems.InitSystem.
 func (is *upstart) Start(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
@@ -96,6 +101,7 @@ func (is *upstart) start(name string) error {
 	return nil
 }
 
+// Stop implements service/initsystems.InitSystem.
 func (is *upstart) Stop(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
@@ -109,6 +115,7 @@ func (is *upstart) Stop(name string) error {
 	return errors.Trace(err)
 }
 
+// Enable implements service/initsystems.InitSystem.
 func (is *upstart) Enable(name, filename string) error {
 	// TODO(ericsnow) Deserialize and validate?
 
@@ -125,6 +132,7 @@ func (is *upstart) Enable(name, filename string) error {
 	return errors.Trace(err)
 }
 
+// Disable implements service/initsystems.InitSystem.
 func (is *upstart) Disable(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
@@ -141,6 +149,7 @@ func (is *upstart) Disable(name string) error {
 	return os.Remove(is.confPath(name))
 }
 
+// IsEnabled implements service/initsystems.InitSystem.
 func (is *upstart) IsEnabled(name string) (bool, error) {
 	// TODO(ericsnow) In the general case, relying on the conf file
 	// may not be the safest route. Perhaps we should use initctl?
@@ -154,6 +163,7 @@ func (is *upstart) IsEnabled(name string) (bool, error) {
 	return true, nil
 }
 
+// Info implements service/initsystems.InitSystem.
 func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return nil, errors.Trace(err)
@@ -181,6 +191,7 @@ func (is *upstart) isRunning(name string) bool {
 	return upstartStartedRE.Match(out)
 }
 
+// Conf implements service/initsystems.InitSystem.
 func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
 	data, err := ioutil.ReadFile(is.confPath(name))
 	if os.IsNotExist(err) {
@@ -194,16 +205,19 @@ func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
 	return conf, errors.Trace(err)
 }
 
+// Validate implements service/initsystems.InitSystem.
 func (is *upstart) Validate(name string, conf initsystems.Conf) error {
 	err := Validate(name, conf)
 	return errors.Trace(err)
 }
 
+// Serialize implements service/initsystems.InitSystem.
 func (upstart) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	data, err := Serialize(name, conf)
 	return data, errors.Trace(err)
 }
 
+// Deserialize implements service/initsystems.InitSystem.
 func (is *upstart) Deserialize(data []byte) (*initsystems.Conf, error) {
 	conf, err := Deserialize(data)
 	return conf, errors.Trace(err)

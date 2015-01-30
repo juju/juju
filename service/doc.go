@@ -2,13 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The service package provides abstractions and helpers for interacting
-// with the services in a host's init system. These can be categorized
-// as either high-level or low-level. Only the high-level components are
-// intended for external consumption.
-//
-// The high-level parts are juju-centric, while the low-level ones are
-// more generic. The key high-level pieces are the Service and Services
-// types and helpers related to them.
+// with the juju-managed services in a host's init system.
 package service
 
 // TODO(ericsnow) Move all the internal parts (including the init system

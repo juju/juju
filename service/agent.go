@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package service
@@ -48,6 +48,8 @@ type agentServices interface {
 	ListEnabled() ([]string, error)
 }
 
+// ListAgents builds a list of tags for all the machine and unit agents
+// running on the host.
 func ListAgents(services agentServices) ([]names.Tag, error) {
 	enabled, err := services.ListEnabled()
 	if err != nil {
@@ -72,6 +74,8 @@ func ListAgents(services agentServices) ([]names.Tag, error) {
 
 // TODO(ericsnow) Move AgentPaths to juju/paths, agent, or etc.?
 
+// AgentPaths exposes the various paths that are associated with an
+// agent (e.g. via the agent config).
 type AgentPaths interface {
 	DataDir() string
 	LogDir() string
@@ -82,6 +86,9 @@ type AgentPaths interface {
 // TODO(ericsnow) Refactor environs/cloudinit.MachineConfig relative
 // to AgentService?
 
+// AgentService is the specification for the jujud service for a unit or
+// machine agent. The kind is determined from the tag passed to
+// NewAgentService.
 type AgentService struct {
 	AgentPaths
 
@@ -92,6 +99,8 @@ type AgentService struct {
 	option     string
 }
 
+// NewAgentService builds the specification for a new agent jujud
+// service based on the provided information.
 func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentService, error) {
 	svc, err := newAgentService(tag, paths, env)
 	if err != nil {
@@ -130,10 +139,13 @@ func newAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*A
 // We could add a Validate method; or for the less efficient one-off
 // case, we could add an error return on the dynamic attr methods.
 
+// Name provides the agent's init system service name.
 func (as AgentService) Name() string {
 	return agentPrefix + as.tag.String()
 }
 
+// ToolsDir composes path to the agent's tools dir from the AgentService
+// and returns it.
 func (as AgentService) ToolsDir() string {
 	return tools.ToolsDir(as.DataDir(), as.tag.String())
 }
@@ -168,7 +180,7 @@ func (as AgentService) command() string {
 	return command
 }
 
-// Conf returns the init config for the agent described by AgentService.
+// Conf returns the service config for the agent described by AgentService.
 func (as AgentService) Conf() Conf {
 	cmd := as.command()
 

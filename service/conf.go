@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package service
@@ -9,14 +9,13 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-// Conf is responsible for defining services. Its fields
-// represent elements of a service configuration.
+// Conf is the specification for an init system service configuration.
 type Conf struct {
 	initsystems.Conf
 
 	// TODO(ericsnow) Can we eliminate ExtraScript?
 
-	// ExtraScript allows to insert script before command execution
+	// ExtraScript allows you to insert script before command execution.
 	ExtraScript string
 }
 
@@ -32,6 +31,8 @@ func (c Conf) Script() (string, error) {
 	return c.ExtraScript + "\n" + c.Cmd, nil
 }
 
+// normalize composes an initsystems.Conf from the service Conf. This
+// may involve adjusting some values and validating others.
 func (c Conf) normalize() (*initsystems.Conf, error) {
 	if c.ExtraScript != "" {
 		return nil, errors.NotSupportedf("ExtraScript")

@@ -11,6 +11,9 @@ type enabledChecker interface {
 	IsEnabled(name string) (bool, error)
 }
 
+// EnsureEnabled may be used by InitSystem implementations to ensure
+// that the named service has been enabled. This is important for
+// operations where the service must first be enabled.
 func EnsureEnabled(name string, is enabledChecker) error {
 	enabled, err := is.IsEnabled(name)
 	if err != nil {

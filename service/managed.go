@@ -16,6 +16,9 @@ const (
 	initDir = "init"
 )
 
+// serviceConfigs represents all the init system service configurations
+// that juju manages. It is an implementation detail of the Services
+// type.
 type serviceConfigs struct {
 	baseDir    string
 	initSystem string

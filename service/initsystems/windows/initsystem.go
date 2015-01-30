@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/service/initsystems"
 )
@@ -29,42 +28,33 @@ cmd.exe /C call sc config $serviceName start=delayed-auto
 if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
 `
 
-func runPsCommand(cmd string) (*exec.ExecResponse, error) {
-	com := exec.RunParams{
-		Commands: cmd,
-	}
-	out, err := exec.RunCommands(com)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if out.Code != 0 {
-		return nil, errors.Errorf("running %s: %s", cmd, string(out.Stderr))
-	}
-	return out, nil
-}
-
 type windows struct {
 	name string
 }
 
+// NewInitSystem returns a new value that implements
+// initsystems.InitSystem for Windows.
 func NewInitSystem(name string) initsystems.InitSystem {
 	return &windows{
 		name: name,
 	}
 }
 
+// Name implements service/initsystems.InitSystem.
 func (is *windows) Name() string {
 	return is.name
 }
 
+// List implements service/initsystems.InitSystem.
 func (is *windows) List(include ...string) ([]string, error) {
-	out, err := runPsCommand(`(Get-Service).Name`)
+	out, err := initsystems.RunPsCommand(`(Get-Service).Name`)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return strings.Fields(string(out.Stdout)), nil
 }
 
+// Start implements service/initsystems.InitSystem.
 func (is *windows) Start(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
@@ -81,10 +71,11 @@ func (is *windows) Start(name string) error {
 
 	// Send the start request.
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Start-Service  "%s"`, name)
-	_, err = runPsCommand(cmd)
+	_, err = initsystems.RunPsCommand(cmd)
 	return err
 }
 
+// Stop implements service/initsystems.InitSystem.
 func (is *windows) Stop(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
@@ -101,7 +92,7 @@ func (is *windows) Stop(name string) error {
 
 	// Send the stop request.
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Stop-Service  "%s"`, name)
-	_, err = runPsCommand(cmd)
+	_, err = initsystems.RunPsCommand(cmd)
 	return err
 }
 
@@ -114,6 +105,7 @@ func (is *windows) readConf(filename string) (*initsystems.Conf, error) {
 	return conf, errors.Trace(err)
 }
 
+// Enable implements service/initsystems.InitSystem.
 func (is *windows) Enable(name, filename string) error {
 	// TODO(ericsnow) Finish!
 	return nil
@@ -135,7 +127,7 @@ func (is *windows) Enable(name, filename string) error {
 	}
 
 	for _, command := range commands {
-		_, err := runPsCommand(command)
+		_, err := initsystems.RunPsCommand(command)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -155,7 +147,7 @@ func (is *windows) Enable(name, filename string) error {
 			s.Name,
 			s.Conf.Desc,
 			s.Conf.Cmd)
-		outCmd, errCmd := runPsCommand(cmd)
+		outCmd, errCmd := initsystems.RunPsCommand(cmd)
 
 		if errCmd != nil {
 			logger.Infof("ERROR installing service %v --> %v", outCmd, errCmd)
@@ -165,6 +157,7 @@ func (is *windows) Enable(name, filename string) error {
 	*/
 }
 
+// Disable implements service/initsystems.InitSystem.
 func (is *windows) Disable(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
@@ -177,10 +170,11 @@ func (is *windows) Disable(name string) error {
 		return err
 	}
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (gwmi win32_service -filter 'name="%s"').Delete()`, name)
-	_, err = runPsCommand(cmd)
+	_, err = initsystems.RunPsCommand(cmd)
 	return err
 }
 
+// IsEnabled implements service/initsystems.InitSystem.
 func (is *windows) IsEnabled(name string) (bool, error) {
 	_, err := is.status(name)
 	if isNotFound(err) {
@@ -197,6 +191,7 @@ func isNotFound(err error) bool {
 	return true
 }
 
+// Info implements service/initsystems.InitSystem.
 func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 	status, err := is.status(name)
 	if isNotFound(err) {
@@ -216,7 +211,7 @@ func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 
 func (is *windows) status(name string) (string, error) {
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").Status`, name)
-	out, err := runPsCommand(cmd)
+	out, err := initsystems.RunPsCommand(cmd)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -228,6 +223,7 @@ func (is *windows) status(name string) (string, error) {
 	return status, nil
 }
 
+// Conf implements service/initsystems.InitSystem.
 func (is *windows) Conf(name string) (*initsystems.Conf, error) {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return nil, errors.Trace(err)
@@ -237,16 +233,19 @@ func (is *windows) Conf(name string) (*initsystems.Conf, error) {
 	return nil, nil
 }
 
+// Validate implements service/initsystems.InitSystem.
 func (is *windows) Validate(name string, conf initsystems.Conf) error {
 	err := Validate(name, conf)
 	return errors.Trace(err)
 }
 
+// Serialize implements service/initsystems.InitSystem.
 func (is *windows) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	data, err := Serialize(name, conf)
 	return data, errors.Trace(err)
 }
 
+// Deserialize implements service/initsystems.InitSystem.
 func (is *windows) Deserialize(data []byte) (*initsystems.Conf, error) {
 	conf, err := Deserialize(data)
 	return conf, errors.Trace(err)

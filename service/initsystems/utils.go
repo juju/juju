@@ -13,6 +13,8 @@ import (
 	uexec "github.com/juju/utils/exec"
 )
 
+// RetryAttempts provides a uniform retry strategy that may be shared
+// across InitSystem implementations.
 var RetryAttempts = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 250 * time.Millisecond,
@@ -20,6 +22,9 @@ var RetryAttempts = utils.AttemptStrategy{
 
 // TODO(ericsnow) Combine RunCommand and RunPsCommand.
 
+// RunPsCommand runs the provided shell command on the local host. This
+// is useful for InitSystem implementations that cannot make another
+// mechanism (e.g. Go bindings).
 func RunPsCommand(cmd string) (*uexec.ExecResponse, error) {
 	com := uexec.RunParams{
 		Commands: cmd,
@@ -34,15 +39,20 @@ func RunPsCommand(cmd string) (*uexec.ExecResponse, error) {
 	return out, nil
 }
 
-func RunCommand(args ...string) error {
-	out, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+// RunCommand runs the provided shell command and args on the local
+// host. This is useful for InitSystem implementations that cannot make
+// another mechanism (e.g. Go bindings).
+func RunCommand(cmdAndArgs ...string) error {
+	cmd := cmdAndArgs[0]
+	args := cmdAndArgs[1:]
+	out, err := exec.Command(cmd, args...).CombinedOutput()
 	if err == nil {
 		return nil
 	}
 
 	out = bytes.TrimSpace(out)
 	if len(out) > 0 {
-		return errors.Annotatef(err, "exec %q: (%s)", args, out)
+		return errors.Annotatef(err, "exec %q: (%s)", cmdAndArgs, out)
 	}
-	return errors.Annotatef(err, "exec %q", args)
+	return errors.Annotatef(err, "exec %q", cmdAndArgs)
 }

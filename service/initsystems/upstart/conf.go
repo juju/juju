@@ -19,6 +19,9 @@ func Validate(name string, conf initsystems.Conf) error {
 	return errors.Trace(err)
 }
 
+// Serialize serializes the provided Conf for the named service. The
+// resulting data will be in the prefered format for consumption by
+// the init system.
 func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	if err := Validate(name, conf); err != nil {
 		return nil, errors.Trace(err)
@@ -32,6 +35,8 @@ func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Deserialize parses the provided data (in the init system's prefered
+// format) and populates a new Conf with the result.
 func Deserialize(data []byte) (*initsystems.Conf, error) {
 	var conf initsystems.Conf
 
