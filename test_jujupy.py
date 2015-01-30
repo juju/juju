@@ -230,6 +230,24 @@ class TestEnvJujuClient(TestCase):
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
                 True, juju_home='temp-home')
 
+    def test_bootstrap_async(self):
+        env = Environment('foo', '')
+        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+            client = EnvJujuClient(env, None, None)
+            with client.bootstrap_async(juju_home='foo') as proc:
+                mock.assert_called_once_with(
+                    client, 'bootstrap', ('--constraints', 'mem=2G'),
+                    juju_home='foo')
+
+    def test_bootstrap_async_upload_tools(self):
+        env = Environment('foo', '')
+        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+            client = EnvJujuClient(env, None, None)
+            with client.bootstrap_async(upload_tools=True) as proc:
+                mock.assert_called_with(
+                    client, 'bootstrap', ('--upload-tools', '--constraints',
+                                          'mem=2G'), juju_home=None)
+
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
