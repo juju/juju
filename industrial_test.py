@@ -361,7 +361,9 @@ class BootstrapAttempt(SteppedStageAttempt):
         yield results
         with temp_bootstrap_env(
                 get_juju_home(), client, set_home=False) as juju_home:
-            client.bootstrap(juju_home=juju_home)
+            logging.info('Performing async bootstrap')
+            with client.bootstrap_async(juju_home=juju_home):
+                yield results
         with wait_for_started(client):
             yield results
         results['result'] = True
@@ -631,7 +633,8 @@ class BackupRestoreAttempt(SteppedStageAttempt):
             yield results
             wait_for_state_server_to_shutdown(host, client, instance_id)
             yield results
-            client.juju('restore', (backup_file,))
+            with client.juju_async('restore', (backup_file,)):
+                yield results
         finally:
             os.unlink(backup_file)
         with wait_for_started(client):

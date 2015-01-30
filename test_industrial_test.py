@@ -791,15 +791,17 @@ class TestBootstrapAttempt(TestCase):
         bootstrap = BootstrapAttempt()
         boot_iter = iter_steps_validate_info(self, bootstrap, client)
         self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
-        with patch('subprocess.check_call') as mock_cc:
+        with patch('subprocess.Popen') as popen_mock:
             self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
-        assert_juju_call(self, mock_cc, client, (
+        assert_juju_call(self, popen_mock, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
             '--constraints', 'mem=2G'))
         statuses = (yaml.safe_dump(x) for x in [
             {'machines': {'0': {'agent-state': 'pending'}}, 'services': {}},
             {'machines': {'0': {'agent-state': 'started'}}, 'services': {}},
             ])
+        popen_mock.return_value.wait.return_value = 0
+        self.assertEqual(boot_iter.next(), {'test_id': 'bootstrap'})
         with patch('subprocess.check_output',
                    side_effect=lambda x, **y: statuses.next()) as mock_co:
             self.assertEqual(boot_iter.next(),
@@ -1274,16 +1276,19 @@ class TestBackupRestoreAttempt(TestCase):
             cc_mock.mock_calls[0],
             call(['euca-terminate-instances', 'asdf'], env=environ))
         self.assertEqual(iterator.next(), {'test_id': 'back-up-restore'})
-        with patch('subprocess.check_call') as cc_mock:
+        with patch('subprocess.Popen') as po_mock:
             with patch('sys.stdout'):
-                with patch('os.unlink') as ul_mock:
                     self.assertEqual(iterator.next(),
                                      {'test_id': 'back-up-restore'})
-        ul_mock.assert_called_once_with(os.path.abspath('juju-backup-24.tgz'))
         assert_juju_call(
-            self, cc_mock, client, (
+            self, po_mock, client, (
                 'juju', '--show-log', 'restore', '-e', 'baz',
                 os.path.abspath('juju-backup-24.tgz')))
+        po_mock.return_value.wait.return_value = 0
+        with patch('os.unlink') as ul_mock:
+            self.assertEqual(iterator.next(),
+                             {'test_id': 'back-up-restore'})
+        ul_mock.assert_called_once_with(os.path.abspath('juju-backup-24.tgz'))
         output = yaml.safe_dump({
             'machines': {
                 '0': {'agent-state': 'started'},

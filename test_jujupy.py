@@ -230,6 +230,24 @@ class TestEnvJujuClient(TestCase):
                 'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
                 True, juju_home='temp-home')
 
+    def test_bootstrap_async(self):
+        env = Environment('foo', '')
+        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+            client = EnvJujuClient(env, None, None)
+            with client.bootstrap_async(juju_home='foo'):
+                mock.assert_called_once_with(
+                    client, 'bootstrap', ('--constraints', 'mem=2G'),
+                    juju_home='foo')
+
+    def test_bootstrap_async_upload_tools(self):
+        env = Environment('foo', '')
+        with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
+            client = EnvJujuClient(env, None, None)
+            with client.bootstrap_async(upload_tools=True):
+                mock.assert_called_with(
+                    client, 'bootstrap', ('--upload-tools', '--constraints',
+                                          'mem=2G'), juju_home=None)
+
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
@@ -692,6 +710,30 @@ class TestEnvJujuClient(TestCase):
                     Exception, 'The backup file was not found in output'):
                 with patch('sys.stdout'):
                     client.backup()
+
+    def test_juju_async(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.Popen') as popen_class_mock:
+            with client.juju_async('foo', ('bar', 'baz')) as proc:
+                assert_juju_call(self, popen_class_mock, client, (
+                    'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
+                self.assertIs(proc, popen_class_mock.return_value)
+                self.assertEqual(proc.wait.call_count, 0)
+                proc.wait.return_value = 0
+        proc.wait.assert_called_once_with()
+
+    def test_juju_async_failure(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.Popen') as popen_class_mock:
+            with self.assertRaises(subprocess.CalledProcessError) as err_cxt:
+                with client.juju_async('foo', ('bar', 'baz')):
+                    proc_mock = popen_class_mock.return_value
+                    proc_mock.wait.return_value = 23
+        self.assertEqual(err_cxt.exception.returncode, 23)
+        self.assertEqual(err_cxt.exception.cmd, (
+            'juju', '--show-log', 'foo', '-e', 'qux', 'bar', 'baz'))
 
 
 class TestUniquifyLocal(TestCase):

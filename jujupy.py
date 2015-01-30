@@ -192,7 +192,7 @@ class EnvJujuClient:
             env['JUJU_HOME'] = juju_home
         return env
 
-    def bootstrap(self, upload_tools=False, juju_home=None):
+    def get_bootstrap_args(self, upload_tools):
         """Bootstrap, using sudo if necessary."""
         if self.env.hpcloud:
             constraints = 'mem=2G'
@@ -203,8 +203,20 @@ class EnvJujuClient:
         args = ('--constraints', constraints)
         if upload_tools:
             args = ('--upload-tools',) + args
+        return args
+
+    def bootstrap(self, upload_tools=False, juju_home=None):
+        args = self.get_bootstrap_args(upload_tools)
         self.juju('bootstrap', args, self.env.needs_sudo(),
                   juju_home=juju_home)
+
+    @contextmanager
+    def bootstrap_async(self, upload_tools=False, juju_home=None):
+        args = self.get_bootstrap_args(upload_tools)
+        with self.juju_async('bootstrap', args, juju_home=juju_home):
+            yield
+            logging.info('Waiting for bootstrap of {}.'.format(
+                self.env.environment))
 
     def destroy_environment(self, force=True, delete_jenv=False):
         if force:
@@ -271,6 +283,19 @@ class EnvJujuClient:
         if check:
             return subprocess.check_call(args, env=env)
         return subprocess.call(args, env=env)
+
+    @contextmanager
+    def juju_async(self, command, args, include_e=True, timeout=None,
+                   juju_home=None):
+        full_args = self._full_args(command, False, args, include_e=include_e,
+                                    timeout=timeout)
+        print_now(' '.join(args))
+        env = self._shell_environ(juju_home)
+        proc = subprocess.Popen(full_args, env=env)
+        yield proc
+        retcode = proc.wait()
+        if retcode != 0:
+            raise subprocess.CalledProcessError(retcode, full_args)
 
     def deploy(self, charm):
         args = (charm,)
