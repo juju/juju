@@ -910,12 +910,15 @@ func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
 	params := environs.StartInstanceParams{
 		Volumes: []storage.VolumeParams{{
 			Size:       512, // round up to 1GiB
+			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}, {
 			Size:       1024, // 1GiB exactly
+			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}, {
 			Size:       1025, // round up to 2GiB
+			Provider:   ec2.EBS_ProviderType,
 			Attachment: attachmentParams,
 		}},
 	}
