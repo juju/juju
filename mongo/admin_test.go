@@ -16,33 +16,37 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/service/upstart"
 	coretesting "github.com/juju/juju/testing"
 )
 
+type fakeServices struct {
+	starts int
+	stops  int
+}
+
+func (fs *fakeServices) Start(name string) error {
+	fs.starts++
+	return nil
+}
+
+func (fs *fakeServices) Stop(name string) error {
+	fs.stops++
+	return nil
+}
+
 type adminSuite struct {
 	coretesting.BaseSuite
-	serviceStarts int
-	serviceStops  int
+
+	services *fakeServices
 }
 
 var _ = gc.Suite(&adminSuite{})
 
 func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.serviceStarts = 0
-	s.serviceStops = 0
-	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Service) error {
-		return nil
-	})
-	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
-		s.serviceStarts++
-		return nil
-	})
-	s.PatchValue(mongo.UpstartServiceStop, func(svc *upstart.Service) error {
-		s.serviceStops++
-		return nil
-	})
+
+	s.services = &fakeServices{}
+	s.PatchValue(mongo.NewServices, mongo.NewServicesClosure(s.services))
 }
 
 func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
@@ -69,8 +73,8 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	// EnsureAdminUser should have stopped the mongo service,
 	// started a new mongod with --noauth, and then finally
 	// started the service back up.
-	c.Assert(s.serviceStarts, gc.Equals, 1)
-	c.Assert(s.serviceStops, gc.Equals, 1)
+	c.Assert(s.services.starts, gc.Equals, 1)
+	c.Assert(s.services.stops, gc.Equals, 1)
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	gitjujutesting.AssertEchoArgs(c, "mongod",
@@ -93,8 +97,8 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	c.Assert(added, jc.IsFalse)
 
 	// There should have been no additional start/stop.
-	c.Assert(s.serviceStarts, gc.Equals, 1)
-	c.Assert(s.serviceStops, gc.Equals, 1)
+	c.Assert(s.services.starts, gc.Equals, 1)
+	c.Assert(s.services.stops, gc.Equals, 1)
 }
 
 func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {

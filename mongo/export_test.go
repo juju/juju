@@ -3,6 +3,11 @@
 
 package mongo
 
+import (
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
+)
+
 var (
 	MakeJournalDirs = makeJournalDirs
 	MongoConfigPath = &mongoConfigPath
@@ -12,13 +17,9 @@ var (
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
 
-	UpstartConfInstall          = &upstartConfInstall
-	UpstartService              = upstartService
-	UpstartServiceExists        = &upstartServiceExists
-	UpstartServiceRunning       = &upstartServiceRunning
-	UpstartServiceStopAndRemove = &upstartServiceStopAndRemove
-	UpstartServiceStop          = &upstartServiceStop
-	UpstartServiceStart         = &upstartServiceStart
+	NewServices    = &newServices
+	NewService     = &newService
+	InstallService = &installService
 
 	HostWordSize   = &hostWordSize
 	RuntimeGOOS    = &runtimeGOOS
@@ -32,3 +33,13 @@ var (
 	PreallocFileSizes = preallocFileSizes
 	PreallocFiles     = preallocFiles
 )
+
+func NewServicesClosure(s services) func(string) (services, error) {
+	return func(string) (services, error) {
+		return s, nil
+	}
+}
+
+func NewTestService(name string, conf common.Conf, raw service.Service) Service {
+	return Service{name, conf, raw}
+}
