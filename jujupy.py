@@ -179,7 +179,7 @@ class EnvJujuClient:
         self.full_path = full_path
         self.debug = debug
 
-    def _shell_environ(self, juju_home=None, set_env=False):
+    def _shell_environ(self, juju_home=None):
         """Generate a suitable shell environment.
 
         Juju's directory must be in the PATH to support plugins.
@@ -190,8 +190,6 @@ class EnvJujuClient:
                                          env['PATH'])
         if juju_home is not None:
             env['JUJU_HOME'] = juju_home
-        if set_env:
-            env['JUJU_ENV'] = self.env.environment
         return env
 
     def get_bootstrap_args(self, upload_tools):
@@ -293,7 +291,7 @@ class EnvJujuClient:
                                     timeout=timeout)
         print(' '.join(args))
         sys.stdout.flush()
-        env = self._shell_environ(juju_home, set_env=True)
+        env = self._shell_environ(juju_home)
         proc = subprocess.Popen(full_args, env=env)
         yield proc
         retcode = proc.wait()
