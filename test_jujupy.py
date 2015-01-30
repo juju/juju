@@ -234,7 +234,7 @@ class TestEnvJujuClient(TestCase):
         env = Environment('foo', '')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
-            with client.bootstrap_async(juju_home='foo') as proc:
+            with client.bootstrap_async(juju_home='foo'):
                 mock.assert_called_once_with(
                     client, 'bootstrap', ('--constraints', 'mem=2G'),
                     juju_home='foo')
@@ -243,7 +243,7 @@ class TestEnvJujuClient(TestCase):
         env = Environment('foo', '')
         with patch.object(EnvJujuClient, 'juju_async', autospec=True) as mock:
             client = EnvJujuClient(env, None, None)
-            with client.bootstrap_async(upload_tools=True) as proc:
+            with client.bootstrap_async(upload_tools=True):
                 mock.assert_called_with(
                     client, 'bootstrap', ('--upload-tools', '--constraints',
                                           'mem=2G'), juju_home=None)
