@@ -88,13 +88,13 @@ func (s *configSuite) TestExplicitNetworkBridgeForLXCContainers(c *gc.C) {
 func (s *configSuite) TestExplicitNetworkBridgeForKVMContainers(c *gc.C) {
 	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"container":      "kvm",
-		"network-bridge": "foo",
+		"network-bridge": "lxcbr0",
 	})
 	testConfig, err := config.New(config.NoDefaults, minAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
 	c.Check(containerType, gc.Equals, string(instance.KVM))
-	c.Check(bridgeName, gc.Equals, "foo")
+	c.Check(bridgeName, gc.Equals, "lxcbr0")
 }
 
 func (s *configSuite) TestDefaultNetworkBridgeForLXCContainers(c *gc.C) {
