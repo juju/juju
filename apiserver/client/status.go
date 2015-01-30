@@ -598,7 +598,12 @@ func processAgent(entity stateAgent) (out api.AgentStatus, compatStatus params.S
 	}
 
 	var st state.Status
-	st, out.Info, out.Data, out.Err = entity.Status()
+	unit, ok := entity.(*state.Unit)
+	if ok {
+		st, out.Info, out.Data, out.Err = unit.AgentStatus()
+	} else {
+		st, out.Info, out.Data, out.Err = entity.Status()
+	}
 	out.Status = params.Status(st)
 	compatStatus = out.Status
 	compatInfo = out.Info

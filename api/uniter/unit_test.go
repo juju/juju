@@ -55,7 +55,7 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 }
 
 func (s *unitSuite) TestSetStatus(c *gc.C) {
-	status, info, data, err := s.wordpressUnit.Status()
+	status, info, data, err := s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusAllocating)
 	c.Assert(info, gc.Equals, "")
@@ -64,7 +64,7 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 	err = s.apiUnit.SetStatus(params.StatusActive, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, info, data, err = s.wordpressUnit.Status()
+	status, info, data, err = s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "blah")
