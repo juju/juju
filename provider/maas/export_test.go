@@ -17,7 +17,6 @@ import (
 
 var (
 	ShortAttempt = &shortAttempt
-	LongAttempt  = &longAttempt
 	APIVersion   = apiVersion
 )
 
