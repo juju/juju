@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
@@ -26,6 +27,20 @@ type Presencer interface {
 	AgentPresence() (bool, error)
 	SetAgentPresence() (*Pinger, error)
 	WaitAgentPresence(time.Duration) error
+}
+
+// docID generates a globally unique id value
+// where the environment uuid is prefixed to the
+// given int64 localID.
+func docIDInt64(envUUID string, localID int64) string {
+	return envUUID + ":" + strconv.FormatInt(localID, 10)
+}
+
+// docID generates a globally unique id value
+// where the environment uuid is prefixed to the
+// given string localID.
+func docIDStr(envUUID string, localID string) string {
+	return envUUID + ":" + localID
 }
 
 // The implementation works by assigning a unique sequence number to each
@@ -47,20 +62,21 @@ type Presencer interface {
 // and obtaining liveness data with a single query that returns two
 // documents (the last two time slots).
 //
-// A new pinger sequence is obtained every time a pinger starts by
-// atomically incrementing a counter in a globally used document in a
-// helper collection. That sequence number is then inserted into the
-// beings collection to establish the mapping between pinger sequence
+// A new pinger sequence is obtained every time a pinger starts by atomically
+// incrementing a counter in a document in a helper collection. There is only
+// one such document per environment. That sequence number is then inserted
+// into the beings collection to establish the mapping between pinger sequence
 // and key.
 
 // BUG(gn): The pings and beings collection currently grow without bound.
 
 // A Watcher can watch any number of pinger keys for liveness changes.
 type Watcher struct {
-	tomb   tomb.Tomb
-	base   *mgo.Collection
-	pings  *mgo.Collection
-	beings *mgo.Collection
+	envUUID string
+	tomb    tomb.Tomb
+	base    *mgo.Collection
+	pings   *mgo.Collection
+	beings  *mgo.Collection
 
 	// delta is an approximate clock skew between the local system
 	// clock and the database clock.
@@ -105,8 +121,9 @@ type Change struct {
 }
 
 // NewWatcher returns a new Watcher.
-func NewWatcher(base *mgo.Collection) *Watcher {
+func NewWatcher(base *mgo.Collection, envTag names.EnvironTag) *Watcher {
 	w := &Watcher{
+		envUUID:  envTag.Id(),
 		base:     base,
 		pings:    pingsC(base),
 		beings:   beingsC(base),
@@ -317,14 +334,17 @@ func (w *Watcher) handle(req interface{}) {
 }
 
 type beingInfo struct {
-	Seq int64  "_id,omitempty"
-	Key string "key,omitempty"
+	DocID   string `bson:"_id,omitempty"`
+	Seq     int64  `bson:"seq,omitempty"`
+	EnvUUID string `bson:"env-uuid,omitempty"`
+	Key     string `bson:"key,omitempty"`
 }
 
 type pingInfo struct {
-	Slot  int64            "_id"
-	Alive map[string]int64 ",omitempty"
-	Dead  map[string]int64 ",omitempty"
+	DocID string           `bson:"_id,omitempty"`
+	Slot  int64            `bson:"slot,omitempty"`
+	Alive map[string]int64 `bson:",omitempty"`
+	Dead  map[string]int64 `bson:",omitempty"`
 }
 
 func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
@@ -333,7 +353,7 @@ func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	defer session.Close()
 	beingsC := w.beings.With(session)
 
-	err := beingsC.Find(bson.D{{}}).All(&beings)
+	err := beingsC.Find(bson.D{{"env-uuid", w.envUUID}}).All(&beings)
 	if err != nil {
 		return nil, err
 	}
@@ -357,12 +377,15 @@ func (w *Watcher) sync() error {
 			return errors.Trace(err)
 		}
 	}
-	slot := timeSlot(time.Now(), w.delta)
+	s := timeSlot(time.Now(), w.delta)
+	slot := docIDInt64(w.envUUID, s)
+	previousSlot := docIDInt64(w.envUUID, s-period)
 	session := w.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := w.pings.With(session)
 	var ping []pingInfo
-	err := pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
+	q := bson.D{{"$or", []pingInfo{{DocID: slot}, {DocID: previousSlot}}}}
+	err := pings.Find(q).All(&ping)
 	if err != nil && err == mgo.ErrNotFound {
 		return errors.Trace(err)
 	}
@@ -419,7 +442,7 @@ func (w *Watcher) sync() error {
 				// otherwise do a single lookup in mongo
 				var ok bool
 				if being, ok = allBeings[seq]; !ok {
-					err := beingsC.Find(bson.D{{"_id", seq}}).One(&being)
+					err := beingsC.Find(bson.D{{"_id", docIDInt64(w.envUUID, seq)}}).One(&being)
 					if err == mgo.ErrNotFound {
 						logger.Tracef("found seq=%d unowned", seq)
 						continue
@@ -465,6 +488,7 @@ func (w *Watcher) sync() error {
 // Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
+	envUUID  string
 	mu       sync.Mutex
 	tomb     tomb.Tomb
 	base     *mgo.Collection
@@ -480,8 +504,13 @@ type Pinger struct {
 
 // NewPinger returns a new Pinger to report that key is alive.
 // It starts reporting after Start is called.
-func NewPinger(base *mgo.Collection, key string) *Pinger {
-	return &Pinger{base: base, pings: pingsC(base), beingKey: key}
+func NewPinger(base *mgo.Collection, envTag names.EnvironTag, key string) *Pinger {
+	return &Pinger{
+		base:     base,
+		pings:    pingsC(base),
+		beingKey: key,
+		envUUID:  envTag.Id(),
+	}
 }
 
 // Start starts periodically reporting that p's key is alive.
@@ -532,7 +561,7 @@ func (p *Pinger) Stop() error {
 
 }
 
-// Stop stops p's periodical ping and immediately report that it is dead.
+// Kill stops p's periodical ping and immediately report that it is dead.
 func (p *Pinger) Kill() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -553,11 +582,13 @@ func (p *Pinger) killStarted() error {
 	p.started = false
 
 	slot := p.lastSlot
-	udoc := bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
+	udoc := bson.D{
+		{"$set", bson.D{{"slot", slot}}},
+		{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
 	session := p.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := p.pings.With(session)
-	if _, err := pings.UpsertId(slot, udoc); err != nil {
+	if _, err := pings.UpsertId(docIDInt64(p.envUUID, slot), udoc); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(killErr)
@@ -571,14 +602,16 @@ func (p *Pinger) killStopped() error {
 		return err
 	}
 	slot := timeSlot(time.Now(), p.delta)
-	udoc := bson.D{{"$inc", bson.D{
-		{"dead." + p.fieldKey, p.fieldBit},
-		{"alive." + p.fieldKey, p.fieldBit},
-	}}}
+	udoc := bson.D{
+		{"$set", bson.D{{"slot", slot}}},
+		{"$inc", bson.D{
+			{"dead." + p.fieldKey, p.fieldBit},
+			{"alive." + p.fieldKey, p.fieldBit},
+		}}}
 	session := p.pings.Database.Session.Copy()
 	defer session.Close()
 	pings := p.pings.With(session)
-	_, err := pings.UpsertId(slot, udoc)
+	_, err := pings.UpsertId(docIDInt64(p.envUUID, slot), udoc)
 	return errors.Trace(err)
 }
 
@@ -610,7 +643,7 @@ func (p *Pinger) prepare() error {
 	base := p.base.With(session)
 	seqs := seqsC(base)
 	var seq struct{ Seq int64 }
-	if _, err := seqs.FindId("beings").Apply(change, &seq); err != nil {
+	if _, err := seqs.FindId(docIDStr(p.envUUID, "beings")).Apply(change, &seq); err != nil {
 		return errors.Trace(err)
 	}
 	p.beingSeq = seq.Seq
@@ -618,7 +651,15 @@ func (p *Pinger) prepare() error {
 	p.fieldBit = 1 << uint64(p.beingSeq%63)
 	p.lastSlot = 0
 	beings := beingsC(base)
-	return errors.Trace(beings.Insert(beingInfo{p.beingSeq, p.beingKey}))
+	err := errors.Trace(beings.Insert(
+		beingInfo{
+			DocID:   docIDInt64(p.envUUID, p.beingSeq),
+			Seq:     p.beingSeq,
+			EnvUUID: p.envUUID,
+			Key:     p.beingKey,
+		},
+	))
+	return err
 }
 
 // ping records updates the current time slot with the
@@ -653,10 +694,13 @@ func (p *Pinger) ping() (err error) {
 	}
 	p.lastSlot = slot
 	pings := p.pings.With(session)
-	if _, err = pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	_, err = pings.UpsertId(
+		docIDInt64(p.envUUID, slot),
+		bson.D{
+			{"$set", bson.D{{"slot", slot}}},
+			{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}},
+		})
+	return errors.Trace(err)
 }
 
 // clockDelta returns the approximate skew between
