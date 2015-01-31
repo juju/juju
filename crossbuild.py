@@ -75,6 +75,7 @@ def go_build(package, goroot, gopath, goarch, goos,
     env['GOPATH'] = gopath
     env['GOARCH'] = goarch
     env['GOOS'] = goos
+    env['CGO_ENABLED'] = '0'
     command = ['go', 'install', package]
     run_command(command, env=env, dry_run=dry_run, verbose=verbose)
 
@@ -199,7 +200,7 @@ def make_osx_tarball(binary_paths, version, dest_dir,
         with tarfile.open(name=osx_tarball_path, mode='w:gz') as tar:
             ti = tarfile.TarInfo('juju-bin')
             ti.type = tarfile.DIRTYPE
-            ti.mode = 0775
+            ti.mode = int('775', 8)  # Py2/3 compatible octal.
             tar.addfile(ti)
             for binary_path in binary_paths:
                 if verbose:
