@@ -56,7 +56,7 @@ if [[ -z $SLAVES ]]; then
 fi
 if [[ ! $SLAVES =~ ^.*10\.125\.0\.10.*$ ]]; then
     echo "The kvm-slave lost its machine and unit agents."
-    SLAVES="$SLAVES 10.125.0.10 15.125.114.8"
+    SLAVES="$SLAVES 10.125.0.10 15.125.114.8 osx-slave.vapour.ws"
 fi
 
 SKIPPED=""
