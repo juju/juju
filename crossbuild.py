@@ -68,14 +68,17 @@ def run_command(command, env=None, dry_run=False, verbose=False):
 
 
 def go_build(package, goroot, gopath, goarch, goos,
-             dry_run=False, verbose=False):
+             cgo=False, dry_run=False, verbose=False):
     """Build and install a go package."""
     env = dict(os.environ)
     env['GOROOT'] = goroot
     env['GOPATH'] = gopath
     env['GOARCH'] = goarch
     env['GOOS'] = goos
-    env['CGO_ENABLED'] = '0'
+    if cgo:
+        env['CGO_ENABLED'] = '1'
+    else:
+        env['CGO_ENABLED'] = '0'
     command = ['go', 'install', package]
     run_command(command, env=env, dry_run=dry_run, verbose=verbose)
 
@@ -177,7 +180,7 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
             cmd_package, goroot, gopath, 'amd64', 'darwin',
-            dry_run=False, verbose=verbose)
+            cgo=True, dry_run=False, verbose=verbose)
         bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
         binary_paths = [
             os.path.join(bin_path, 'juju'),

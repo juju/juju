@@ -82,6 +82,22 @@ class CrossBuildTestCase(TestCase):
         self.assertEqual('windows', env['GOOS'])
         self.assertEqual('0', env['CGO_ENABLED'])
 
+    def test_go_build_with_cgo(self):
+        with patch('crossbuild.run_command') as mock:
+            go_build(
+                'gh/juju/juju/...', './foo', './bar.1.2', 'amd64', 'darwin',
+                cgo=True, verbose=True, dry_run=True)
+        args, kwargs = mock.call_args
+        self.assertEqual((['go', 'install', 'gh/juju/juju/...'],), args)
+        self.assertTrue(kwargs['dry_run'])
+        self.assertTrue(kwargs['verbose'])
+        env = kwargs['env']
+        self.assertEqual('./foo', env['GOROOT'])
+        self.assertEqual('./bar.1.2', env['GOPATH'])
+        self.assertEqual('amd64', env['GOARCH'])
+        self.assertEqual('darwin', env['GOOS'])
+        self.assertEqual('1', env['CGO_ENABLED'])
+
     def test_run_command(self):
         with patch('subprocess.check_output') as mock:
             run_command(
@@ -234,7 +250,9 @@ class CrossBuildTestCase(TestCase):
             ('github.com/juju/juju/cmd/...',
              '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'darwin'),
             args)
-        self.assertEqual({'dry_run': False, 'verbose': False}, kwargs)
+        self.assertEqual(
+            {'cgo': True, 'dry_run': False, 'verbose': False},
+            kwargs)
         self.assertEqual(
             (['baz/bar_1.2.3/bin/darwin_amd64/juju',
               'baz/bar_1.2.3/bin/darwin_amd64/juju-metadata',
