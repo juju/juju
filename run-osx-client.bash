@@ -37,8 +37,7 @@ $SCRIPTS/jujuci.py setup-workspace $WORKSPACE
 ~/Bin/juju destroy-environment --force -y testing-osx-client || true
 TARFILE=$($SCRIPTS/jujuci.py get build-osx-client 'juju-*-osx.tar.gz' ./)
 echo "Downloaded $TARFILE"
-#tar -xf ./$TARFILE -C $WORKSPACE
-tar -xf $HOME/ci/$TARFILE -C $WORKSPACE
+tar -xf ./$TARFILE -C $WORKSPACE
 
 export PATH=$WORKSPACE/juju-bin:$PATH
 $SCRIPTS/deploy_stack.py testing-osx-client
