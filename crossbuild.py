@@ -181,7 +181,10 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
         go_build(
             cmd_package, goroot, gopath, 'amd64', 'darwin',
             cgo=False, dry_run=False, verbose=verbose)
-        bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
+        if sys.platform == 'darwin':
+            bin_path = os.path.join(gopath, 'bin')
+        else:
+            bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
         binary_paths = [
             os.path.join(bin_path, 'juju'),
             os.path.join(bin_path, 'juju-metadata'),
