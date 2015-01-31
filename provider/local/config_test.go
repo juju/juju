@@ -62,19 +62,6 @@ func (s *configSuite) TestDefaultNetworkBridge(c *gc.C) {
 	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "lxcbr0")
 }
 
-func (s *configSuite) TestDefaultNetworkBridgeForKVMContainersWithOldDefault(c *gc.C) {
-	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
-		"container":      "kvm",
-		"network-bridge": "lxcbr0",
-	})
-	testConfig, err := config.New(config.NoDefaults, minAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
-	c.Check(containerType, gc.Equals, string(instance.KVM))
-	//should have corrected default for kvm container
-	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
-}
-
 func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
 	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"container": "kvm",
@@ -84,6 +71,30 @@ func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
 	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
 	c.Check(containerType, gc.Equals, string(instance.KVM))
 	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
+}
+
+func (s *configSuite) TestExplicitNetworkBridgeForLXCContainers(c *gc.C) {
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"container":      "lxc",
+		"network-bridge": "foo",
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.LXC))
+	c.Check(bridgeName, gc.Equals, "foo")
+}
+
+func (s *configSuite) TestExplicitNetworkBridgeForKVMContainers(c *gc.C) {
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"container":      "kvm",
+		"network-bridge": "lxcbr0",
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.KVM))
+	c.Check(bridgeName, gc.Equals, "lxcbr0")
 }
 
 func (s *configSuite) TestDefaultNetworkBridgeForLXCContainers(c *gc.C) {
