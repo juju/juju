@@ -527,8 +527,9 @@ def main():
     try:
         env = Environment.from_config(args.env)
         prepare_environment(env, args.already_bootstrapped, args.machine)
-        if sys.platform == 'win32':
-            # The win client tests only verify the client to the state-server.
+        if sys.platform in ('win32', 'darwin'):
+            # The win and osx client tests only verify the client to
+            # the state-server.
             return
         deploy_dummy_stack(env, args.charm_prefix)
     except Exception as e:

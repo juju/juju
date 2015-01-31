@@ -19,32 +19,26 @@ test $# -eq 1 || usage
 USER_AT_HOST="$1"
 
 set -x
-$SCRIPTS/jujuci.py get build-revision 'buildvars.bash' ./
-source ./buildvars.bash
-rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-echo "Testing $BRANCH $rev"
-
-ssh $SSH_OPTIONS $USER_AT_HOST <<"EOT"
+ssh $SSH_OPTIONS $USER_AT_HOST "revision_build=$revision_build bash" <<"EOT"
 #!/bin/bash
 set -ux
 set +e
 RELEASE_SCRIPTS=$HOME/ci/juju-release-tools
 SCRIPTS=$HOME/ci/juju-ci-tools
+GOBASE=$HOME/ci/crossbuild
 WORKSPACE=$HOME/ci/workspace
 
 cd $WORKSPACE
 $SCRIPTS/jujuci.py setup-workspace $WORKSPACE
-~/Bin/juju destroy-environment --force -y testing-osx-client || true
-TARFILE=$($SCRIPTS/jujuci.py get build-osx-client 'juju-*-osx.tar.gz' ./)
+TARFILE=$($SCRIPTS/jujuci.py get build-revision 'juju-core_*.tar.gz' ./)
 echo "Downloaded $TARFILE"
-#tar -xf ./$TARFILE -C $WORKSPACE
-tar -xf $HOME/ci/$TARFILE -C $WORKSPACE
-
-export PATH=$WORKSPACE/juju-bin:$PATH
-$SCRIPTS/deploy_stack.py testing-osx-client
-EXIT_STATUS=$?
-exit $EXIT_STATUS
+$RELEASE_SCRIPTS/crossbuild.py -v osx-client -b $GOBASE ./$TARFILE
 EOT
 EXIT_STATUS=$?
+
+if [ $EXIT_STATUS -eq 0 ]; then
+    scp $SSH_OPTIONS \
+        $USER_AT_HOST:~/ci/workspace/juju-*-osx.tar.gz $WORKSPACE/artifacts/
+fi
 
 exit $EXIT_STATUS
