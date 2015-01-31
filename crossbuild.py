@@ -180,7 +180,7 @@ def build_osx_client(tarball_path, build_dir, dry_run=False, verbose=False):
         # This command always executes in a tmp dir, it does not make changes.
         go_build(
             cmd_package, goroot, gopath, 'amd64', 'darwin',
-            cgo=True, dry_run=False, verbose=verbose)
+            cgo=False, dry_run=False, verbose=verbose)
         bin_path = os.path.join(gopath, 'bin', 'darwin_amd64')
         binary_paths = [
             os.path.join(bin_path, 'juju'),

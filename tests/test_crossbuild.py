@@ -250,8 +250,9 @@ class CrossBuildTestCase(TestCase):
             ('github.com/juju/juju/cmd/...',
              '/foo/golang-1.2.1', 'baz/bar_1.2.3', 'amd64', 'darwin'),
             args)
+        # XXX sinzui 2015-01-31: cgo may need to be true.
         self.assertEqual(
-            {'cgo': True, 'dry_run': False, 'verbose': False},
+            {'cgo': False, 'dry_run': False, 'verbose': False},
             kwargs)
         self.assertEqual(
             (['baz/bar_1.2.3/bin/darwin_amd64/juju',
