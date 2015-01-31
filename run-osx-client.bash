@@ -42,7 +42,7 @@ tar -xf ./$TARFILE -C $WORKSPACE
 export PATH=$WORKSPACE/juju-bin:$PATH
 $SCRIPTS/deploy_stack.py testing-osx-client
 EXIT_STATUS=$?
-juju destroy-environment testing-osx-client || true
+juju destroy-environment -y testing-osx-client || true
 exit $EXIT_STATUS
 EOT
 EXIT_STATUS=$?
