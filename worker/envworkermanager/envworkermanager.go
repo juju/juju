@@ -79,13 +79,14 @@ func (m *envWorkerManager) loop() error {
 				}
 			}
 		case <-m.runner.Dying():
-			// The runner for the environment is dying: wait for it to
-			// finish dying and report its error (if any).
+			// The master runner is dying: wait for it to finish dying
+			// and report its error (if any).
 			return m.runner.Wait()
 		case <-m.tomb.Dying():
 			// The envWorkerManager has been asked to die: kill the
-			// runner and stop.
+			// master runner and stop.
 			m.runner.Kill()
+			m.runner.Wait()
 			return tomb.ErrDying
 		}
 	}
