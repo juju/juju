@@ -4,6 +4,8 @@
 package charm_test
 
 import (
+	"runtime"
+
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
@@ -22,6 +24,9 @@ type ConverterSuite struct {
 var _ = gc.Suite(&ConverterSuite{})
 
 func (s *ConverterSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping git tests on windows")
+	}
 	s.GitSuite.SetUpTest(c)
 	s.targetPath = c.MkDir()
 	s.dataPath = c.MkDir()

@@ -24,8 +24,9 @@ type ListenerSuite struct {
 var _ = gc.Suite(&ListenerSuite{})
 
 func (s *ListenerSuite) sockPath(c *gc.C) string {
+	p := c.MkDir()
 	if runtime.GOOS == "windows" {
-		return `\\.\pipe\testpipe`
+		return `\\.\pipe` + filepath.Join(p, `testpipe`)[2:]
 	}
 	return filepath.Join(c.MkDir(), "test.listener")
 }
@@ -43,6 +44,9 @@ func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
 }
 
 func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("bug 1403084: Current named pipes implementation does not support this")
+	}
 	s.NewRunListener(c)
 
 	listener, err := uniter.NewRunListener(&mockRunner{}, s.socketPath)

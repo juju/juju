@@ -103,7 +103,7 @@ func NewPaths(dataDir string, unitTag names.UnitTag) Paths {
 	}
 
 	return Paths{
-		ToolsDir: tools.ToolsDir(dataDir, unitTag.String()),
+		ToolsDir: filepath.FromSlash(tools.ToolsDir(dataDir, unitTag.String())),
 		Runtime: RuntimePaths{
 			JujuRunSocket:     socket("run", false),
 			JujucServerSocket: socket("agent", true),
