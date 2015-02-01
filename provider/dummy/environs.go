@@ -49,7 +49,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -63,6 +62,11 @@ var transientErrorInjection chan error
 
 const (
 	BootstrapInstanceId = instance.Id("localhost")
+)
+
+var (
+	ErrNotPrepared = errors.New("environment is not prepared")
+	ErrDestroyed   = errors.New("environment has been destroyed")
 )
 
 // SampleConfig() returns an environment configuration with all required
@@ -506,7 +510,7 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 func (e *environ) state() (*environState, error) {
 	stateId := e.ecfg().stateId()
 	if stateId == noStateId {
-		return nil, provider.ErrNotPrepared
+		return nil, ErrNotPrepared
 	}
 	p := &providerInstance
 	p.mu.Lock()
@@ -514,7 +518,7 @@ func (e *environ) state() (*environState, error) {
 	if state := p.state[stateId]; state != nil {
 		return state, nil
 	}
-	return nil, provider.ErrDestroyed
+	return nil, ErrDestroyed
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -525,7 +529,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if ecfg.stateId() == noStateId {
-		return nil, provider.ErrNotPrepared
+		return nil, ErrNotPrepared
 	}
 	env := &environ{
 		name:         ecfg.Name(),
@@ -796,7 +800,7 @@ func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
-		if err == provider.ErrDestroyed {
+		if err == ErrDestroyed {
 			return nil
 		}
 		return err
