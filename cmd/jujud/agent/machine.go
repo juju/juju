@@ -109,13 +109,16 @@ var (
 	getMetricAPI             = metricAPI
 )
 
+// Variable to override in tests, default is true
+var EnableJournaling = true
+
 func init() {
 	stateWorkerDialOpts = mongo.DefaultDialOpts()
 	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
 		safe := mgo.Safe{
 			// Wait for group commit if journaling is enabled,
 			// which is always true in production.
-			J: true,
+			J: EnableJournaling,
 		}
 		_, err := replicaset.CurrentConfig(session)
 		if err == nil {
