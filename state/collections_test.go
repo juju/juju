@@ -24,6 +24,7 @@ type collectionsTestCase struct {
 	test          func() (int, error)
 	expectedCount int
 	expectedPanic string
+	expectedError string
 }
 
 func (s *CollectionsSuite) TestGenericStateCollection(c *gc.C) {
@@ -413,7 +414,11 @@ func (s *CollectionsSuite) TestEnvStateCollection(c *gc.C) {
 
 		if t.expectedPanic == "" {
 			count, err := t.test()
-			c.Assert(err, jc.ErrorIsNil)
+			if t.expectedError != "" {
+				c.Assert(err, gc.ErrorMatches, t.expectedError)
+			} else {
+				c.Assert(err, jc.ErrorIsNil)
+			}
 			c.Check(count, gc.Equals, t.expectedCount)
 		} else {
 			c.Check(func() { t.test() }, gc.PanicMatches, t.expectedPanic)
