@@ -23,9 +23,9 @@ func (s stateShim) FindEntity(tag names.Tag) (state.Entity, error) {
 }
 
 func (s stateShim) GetAnnotations(entity state.GlobalEntity) (map[string]string, error) {
-	return state.Annotations(entity, s.state)
+	return s.state.Annotations(entity)
 }
 
 func (s stateShim) SetAnnotations(entity state.GlobalEntity, annotations map[string]string) error {
-	return state.SetAnnotations(entity, s.state, annotations)
+	return s.state.SetAnnotations(entity, annotations)
 }

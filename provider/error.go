@@ -3,7 +3,7 @@
 
 package provider
 
-import "errors"
+import "github.com/juju/errors"
 
 var (
 	// ErrNotPrepared should be returned by providers when

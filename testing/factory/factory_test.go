@@ -5,18 +5,17 @@ package factory_test
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -24,52 +23,16 @@ import (
 )
 
 type factorySuite struct {
-	testing.BaseSuite
-	jtesting.MgoSuite
-	State   *state.State
+	statetesting.StateSuite
 	Factory *factory.Factory
 }
 
 var _ = gc.Suite(&factorySuite{})
 
-func (s *factorySuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *factorySuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
 func (s *factorySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	policy := statetesting.MockPolicy{}
-
-	info := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{jtesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-	}
-	opts := mongo.DialOpts{
-		Timeout: testing.LongWait,
-	}
-	cfg := testing.EnvironConfig(c)
-	owner := names.NewLocalUserTag("factory-admin")
-	st, err := state.Initialize(owner, info, cfg, opts, &policy)
-	c.Assert(err, jc.ErrorIsNil)
-	s.State = st
+	s.Policy = new(statetesting.MockPolicy)
+	s.StateSuite.SetUpTest(c)
 	s.Factory = factory.NewFactory(s.State)
-}
-
-func (s *factorySuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		s.State.Close()
-	}
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {
@@ -224,7 +187,7 @@ func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
+	machine, password := s.Factory.MakeMachineReturningPassword(c, nil)
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
@@ -236,6 +199,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	c.Assert(saved.Tag(), gc.Equals, machine.Tag())
 	c.Assert(saved.Life(), gc.Equals, machine.Life())
 	c.Assert(saved.Jobs(), gc.DeepEquals, machine.Jobs())
+	c.Assert(saved.PasswordValid(password), jc.IsTrue)
 	savedInstanceId, err := saved.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
 	machineInstanceId, err := machine.InstanceId()
@@ -252,7 +216,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+	machine, pwd := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Series:     series,
 		Jobs:       jobs,
 		Password:   password,
@@ -260,6 +224,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 		InstanceId: id,
 	})
 	c.Assert(machine, gc.NotNil)
+	c.Assert(pwd, gc.Equals, password)
 
 	c.Assert(machine.Series(), gc.Equals, series)
 	c.Assert(machine.Jobs(), gc.DeepEquals, jobs)
@@ -500,7 +465,8 @@ func (s *factorySuite) TestMakeEnvironmentNil(c *gc.C) {
 
 	env, err := st.Environment()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(env.Name(), gc.Equals, "testenv-1")
+	re := regexp.MustCompile(`^testenv-\d+$`)
+	c.Assert(re.MatchString(env.Name()), jc.IsTrue)
 	c.Assert(env.UUID() == s.State.EnvironUUID(), jc.IsFalse)
 	origEnv, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)

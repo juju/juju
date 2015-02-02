@@ -65,20 +65,21 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
-	DocID        string `bson:"_id"`
-	Name         string `bson:"name"`
-	EnvUUID      string `bson:"env-uuid"`
-	Service      string
-	Series       string
-	CharmURL     *charm.URL
-	Principal    string
-	Subordinates []string
-	MachineId    string
-	Resolved     ResolvedMode
-	Tools        *tools.Tools `bson:",omitempty"`
-	Life         Life
-	TxnRevno     int64 `bson:"txn-revno"`
-	PasswordHash string
+	DocID            string `bson:"_id"`
+	Name             string `bson:"name"`
+	EnvUUID          string `bson:"env-uuid"`
+	Service          string
+	Series           string
+	CharmURL         *charm.URL
+	Principal        string
+	Subordinates     []string
+	StorageInstances []string `bson:"storageinstances,omitempty"`
+	MachineId        string
+	Resolved         ResolvedMode
+	Tools            *tools.Tools `bson:",omitempty"`
+	Life             Life
+	TxnRevno         int64 `bson:"txn-revno"`
+	PasswordHash     string
 
 	// No longer used - to be removed.
 	Ports          []network.Port
@@ -90,7 +91,6 @@ type unitDoc struct {
 type Unit struct {
 	st  *State
 	doc unitDoc
-	annotator
 	presence.Presencer
 }
 
@@ -98,11 +98,6 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
 		st:  st,
 		doc: *udoc,
-	}
-	unit.annotator = annotator{
-		globalKey: unit.globalKey(),
-		tag:       unit.Tag(),
-		st:        st,
 	}
 	return unit
 }
@@ -342,7 +337,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
-	} else if len(u.doc.Subordinates) != 0 {
+	} else if len(u.doc.Subordinates)+len(u.doc.StorageInstances) != 0 {
 		return setDyingOps, nil
 	}
 
@@ -361,7 +356,12 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		Id:     u.st.docID(sdocId),
 		Assert: unitNotInstalled,
 	}, minUnitsOp}
-	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
+	removeAsserts := append(isAliveDoc, bson.DocElem{
+		"$and", []bson.D{
+			unitHasNoSubordinates,
+			unitHasNoStorageInstances,
+		},
+	})
 	removeOps, err := u.removeOps(removeAsserts)
 	if err == errAlreadyRemoved {
 		return nil, errAlreadyDying
@@ -477,8 +477,8 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 	return svc.removeUnitOps(u, asserts)
 }
 
-// ErrUnitHasSubordinates is a standard error to indicate that an a Unit
-// cannot complete an operation to end it's life because it still has
+// ErrUnitHasSubordinates is a standard error to indicate that a Unit
+// cannot complete an operation to end its life because it still has
 // subordinate services
 var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
 
@@ -489,9 +489,22 @@ var unitHasNoSubordinates = bson.D{{
 	},
 }}
 
+// ErrUnitHasStorageInstances is a standard error to indicate that a Unit
+// cannot complete an operation to end its life because it still has
+// storage instances.
+var ErrUnitHasStorageInstances = stderrors.New("unit has storage instances")
+
+var unitHasNoStorageInstances = bson.D{{
+	"$or", []bson.D{
+		{{"storageinstances", bson.D{{"$size", 0}}}},
+		{{"storageinstances", bson.D{{"$exists", false}}}},
+	},
+}}
+
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. If the unit has subordinates, it will
-// return ErrUnitHasSubordinates.
+// return ErrUnitHasSubordinates; otherwise, if it has storage instances,
+// it will return ErrUnitHasStorageInstances.
 func (u *Unit) EnsureDead() (err error) {
 	if u.doc.Life == Dead {
 		return nil
@@ -501,10 +514,16 @@ func (u *Unit) EnsureDead() (err error) {
 			u.doc.Life = Dead
 		}
 	}()
+	assert := append(notDeadDoc, bson.DocElem{
+		"$and", []bson.D{
+			unitHasNoSubordinates,
+			unitHasNoStorageInstances,
+		},
+	})
 	ops := []txn.Op{{
 		C:      unitsC,
 		Id:     u.doc.DocID,
-		Assert: append(notDeadDoc, unitHasNoSubordinates...),
+		Assert: assert,
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
@@ -515,7 +534,15 @@ func (u *Unit) EnsureDead() (err error) {
 	} else if !notDead {
 		return nil
 	}
-	return ErrUnitHasSubordinates
+	if err := u.Refresh(); errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if len(u.doc.Subordinates) > 0 {
+		return ErrUnitHasSubordinates
+	}
+	return ErrUnitHasStorageInstances
 }
 
 // Remove removes the unit from state, and may remove its service as well, if
@@ -587,6 +614,14 @@ func (u *Unit) SubordinateNames() []string {
 	names := make([]string, len(u.doc.Subordinates))
 	copy(names, u.doc.Subordinates)
 	return names
+}
+
+// StorageInstanceIds returns the IDs of any storage instances owned by
+// the unit.
+func (u *Unit) StorageInstanceIds() []string {
+	ids := make([]string, len(u.doc.StorageInstances))
+	copy(ids, u.doc.StorageInstances)
+	return ids
 }
 
 // RelationsJoined returns the relations for which the unit has entered scope
@@ -1307,11 +1342,26 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
+	storageInstances, err := u.StorageInstances()
+	if err != nil {
+		return err
+	}
+	var blockDeviceParams []BlockDeviceParams
+	for _, storageInstance := range storageInstances {
+		// TODO(axw) consult storage provider to see if we need to request
+		// a block device for the storage instance.
+		storageInstanceParams, _ := storageInstance.Params()
+		blockDeviceParams = append(blockDeviceParams, BlockDeviceParams{
+			storageInstance: storageInstance.Id(),
+			Size:            storageInstanceParams.Size,
+		})
+	}
 	template := MachineTemplate{
 		Series:            u.doc.Series,
 		Constraints:       *cons,
 		Jobs:              []MachineJob{JobHostUnits},
 		RequestedNetworks: requestedNetworks,
+		BlockDevices:      blockDeviceParams,
 	}
 	return u.assignToNewMachine(template, "", containerType)
 }
@@ -1449,6 +1499,18 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		err = fmt.Errorf("unit is a subordinate")
 		assignContextf(&err, u, context)
 		return nil, err
+	}
+
+	// TODO(axw) once we support dynamic storage provisioning, we
+	// should check whether all of the storage constraints can be
+	// fulfilled dynamically (by querying a policy).
+	storageCons, err := u.StorageConstraints()
+	if err != nil {
+		assignContextf(&err, u, context)
+		return nil, err
+	}
+	if len(storageCons) > 0 {
+		return nil, noCleanMachines
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
@@ -1638,6 +1700,11 @@ func (u *Unit) PendingActions() ([]*Action, error) {
 	return u.st.matchingActionsPending(u)
 }
 
+// RunningActions returns a list of actions running on this unit.
+func (u *Unit) RunningActions() ([]*Action, error) {
+	return u.st.matchingActionsRunning(u)
+}
+
 // Resolve marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The retryHooks parameter informs
@@ -1721,4 +1788,16 @@ func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, er
 		return nil, errors.Annotatef(err, "couldn't retrieve service whilst adding metrics")
 	}
 	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics, service.MetricCredentials())
+}
+
+// StorageConstraints returns the unit's storage constraints.
+func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
+	// TODO(axw) eventually we should be able to override service
+	// storage constraints at the unit level.
+	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
+}
+
+// StorageInstances returns the storage instances owned by this unit.
+func (u *Unit) StorageInstances() ([]StorageInstance, error) {
+	return readStorageInstances(u.st, u.Tag())
 }

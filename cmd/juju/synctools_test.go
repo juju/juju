@@ -6,11 +6,13 @@ package main
 import (
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -139,7 +141,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		c.Assert(uploader.WriteMirrors, gc.Equals, envtools.DoNotWriteMirrors)
 		url, err := uploader.Storage.URL("")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(url, gc.Equals, "file://"+dir)
+		c.Assert(url, gc.Equals, utils.MakeFileURL(dir))
 		called = true
 		return nil
 	}
@@ -177,7 +179,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
 		url, err := uploader.Storage.URL("")
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(url, gc.Equals, "file://"+dir)
+		c.Assert(url, gc.Equals, utils.MakeFileURL(dir))
 		called = true
 		return nil
 	}
@@ -258,6 +260,19 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	a := syncToolsAPIAdapter{&fake}
 	err := a.UploadTools("released", "released", &coretools.Tools{Version: version.Current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
+}
+
+func (s *syncToolsSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
+	syncTools = func(sctx *sync.SyncContext) error {
+		return common.ErrOperationBlocked
+	}
+	// Block operation
+	s.PatchEnvironment("block-all-changes", "true")
+	_, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", c.MkDir(), "--stream", "released")
+	c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+	// msg is logged
+	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+	c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 }
 
 type fakeSyncToolsAPI struct {

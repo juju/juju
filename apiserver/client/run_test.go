@@ -87,22 +87,22 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.AdminUserTag(c)
-	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddService("not-assigned", owner.String(), charm, nil)
+	notAssigned, err := s.State.AddService("not-assigned", owner.String(), charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddService("no-units", owner.String(), charm, nil)
+	_, err = s.State.AddService("no-units", owner.String(), charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddService("wordpress", owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
+	wordpress, err := s.State.AddService("wordpress", owner.String(), s.AddTestingCharm(c, "wordpress"), nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wordpress0 := s.addUnit(c, wordpress)
-	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil)
+	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("logging", "wordpress")
@@ -288,7 +288,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.Factory.MakeUser(c, nil).Tag()
-	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -334,7 +334,7 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 
 	charm := s.AddTestingCharm(c, "dummy")
 	owner := s.Factory.MakeUser(c, nil).Tag()
-	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

@@ -49,6 +49,13 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	s.testSetGetEntitiesAnnotations(c, machine.Tag())
+
+	// on machine removal
+	err := machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAnnotationsRemoval(c, machine.Tag())
 }
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
@@ -62,24 +69,39 @@ func (s *annotationSuite) TestServiceAnnotations(c *gc.C) {
 		Charm: charm,
 	})
 	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
+
+	// on service removal
+	err := wordpress.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAnnotationsRemoval(c, wordpress.Tag())
+}
+
+func (s *annotationSuite) assertAnnotationsRemoval(c *gc.C, tag names.Tag) {
+	entity := tag.String()
+	entities := params.Entities{[]params.Entity{params.Entity{entity}}}
+	ann := s.annotationsApi.Get(entities)
+	c.Assert(ann.Results, gc.HasLen, 1)
+
+	aResult := ann.Results[0]
+	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
+	c.Assert(aResult.Annotations, gc.HasLen, 0)
 }
 
 func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
-	entity := params.Entity{"charm-invalid"}
-	entities := params.Entities{[]params.Entity{entity}}
+	entity := "charm-invalid"
+	entities := params.Entities{[]params.Entity{params.Entity{entity}}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
+		params.AnnotationsSet{Annotations: constructSetParameters([]string{entity}, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*permission denied.*")
 
 	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
-	c.Assert(aResult.Entity, gc.DeepEquals, entity)
+	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
 	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*permission denied.*")
-
 }
 
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
@@ -95,6 +117,13 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 		Machine: machine,
 	})
 	s.testSetGetEntitiesAnnotations(c, unit.Tag())
+
+	// on unit removal
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertAnnotationsRemoval(c, wordpress.Tag())
 }
 
 func (s *annotationSuite) makeRelation(c *gc.C) (*state.Service, *state.Relation) {
@@ -127,30 +156,30 @@ func (s *annotationSuite) makeRelation(c *gc.C) (*state.Service, *state.Relation
 func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	_, relation := s.makeRelation(c)
 
-	tag := relation.Tag()
-	entity := params.Entity{tag.String()}
+	tag := relation.Tag().String()
+	entity := params.Entity{tag}
 	entities := params.Entities{[]params.Entity{entity}}
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
-		params.AnnotationsSet{Annotations: constructSetParameters(entities, annotations)})
+		params.AnnotationsSet{Annotations: constructSetParameters([]string{tag}, annotations)})
 	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
 
 	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
-	c.Assert(aResult.Entity, gc.DeepEquals, entity)
+	c.Assert(aResult.EntityTag, gc.DeepEquals, tag)
 	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
 }
 
 func constructSetParameters(
-	entities params.Entities,
+	entities []string,
 	annotations map[string]string) []params.EntityAnnotations {
 	result := []params.EntityAnnotations{}
-	for _, entity := range entities.Entities {
+	for _, entity := range entities {
 		one := params.EntityAnnotations{
-			Entity:      entity,
+			EntityTag:   entity,
 			Annotations: annotations,
 		}
 		result = append(result, one)
@@ -162,14 +191,14 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	s1, relation := s.makeRelation(c)
 
 	rTag := relation.Tag()
-	rEntity := params.Entity{rTag.String()}
+	rEntity := rTag.String()
 	sTag := s1.Tag()
-	sEntity := params.Entity{sTag.String()}
+	sEntity := sTag.String()
 
-	entities := params.Entities{[]params.Entity{
+	entities := []string{
 		sEntity, //service: expect success in set/get
 		rEntity, //relation:expect failure in set/get - cannot annotate relations
-	}}
+	}
 	annotations := map[string]string{"mykey": "myvalue"}
 
 	setResult := s.annotationsApi.Set(
@@ -181,17 +210,19 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	c.Assert(oneError, gc.Matches, fmt.Sprintf(".*%q.*", rTag))
 	c.Assert(oneError, gc.Matches, ".*does not support annotations.*")
 
-	got := s.annotationsApi.Get(entities)
+	got := s.annotationsApi.Get(params.Entities{[]params.Entity{
+		params.Entity{rEntity},
+		params.Entity{sEntity}}})
 	c.Assert(got.Results, gc.HasLen, 2)
 
 	var rGet, sGet bool
 	for _, aResult := range got.Results {
-		if aResult.Entity.Tag == rTag.String() {
+		if aResult.EntityTag == rTag.String() {
 			rGet = true
 			c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
 		} else {
 			sGet = true
-			c.Assert(aResult.Entity, gc.DeepEquals, sEntity)
+			c.Assert(aResult.EntityTag, gc.DeepEquals, sEntity)
 			c.Assert(aResult.Annotations, gc.DeepEquals, annotations)
 		}
 	}
@@ -201,8 +232,8 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) testSetGetEntitiesAnnotations(c *gc.C, tag names.Tag) {
-	entity := params.Entity{tag.String()}
-	entities := params.Entities{[]params.Entity{entity}}
+	entity := tag.String()
+	entities := []string{entity}
 	for i, t := range clientAnnotationsTests {
 		c.Logf("test %d. %s. entity %s", i, t.about, tag.Id())
 		s.setupEntity(c, entities, t.initial)
@@ -210,14 +241,14 @@ func (s *annotationSuite) testSetGetEntitiesAnnotations(c *gc.C, tag names.Tag) 
 		if t.err != "" {
 			continue
 		}
-		aResult := s.assertGetEntityAnnotations(c, entities, entity, t.expected)
+		aResult := s.assertGetEntityAnnotations(c, params.Entities{[]params.Entity{params.Entity{entity}}}, entity, t.expected)
 		s.cleanupEntityAnnotations(c, entities, aResult)
 	}
 }
 
 func (s *annotationSuite) setupEntity(
 	c *gc.C,
-	entities params.Entities,
+	entities []string,
 	initialAnnotations map[string]string) {
 	if initialAnnotations != nil {
 		initialResult := s.annotationsApi.Set(
@@ -228,7 +259,7 @@ func (s *annotationSuite) setupEntity(
 }
 
 func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
-	entities params.Entities,
+	entities []string,
 	annotations map[string]string,
 	expectedError string) {
 	setResult := s.annotationsApi.Set(
@@ -242,19 +273,19 @@ func (s *annotationSuite) assertSetEntityAnnotations(c *gc.C,
 
 func (s *annotationSuite) assertGetEntityAnnotations(c *gc.C,
 	entities params.Entities,
-	entity params.Entity,
+	entity string,
 	expected map[string]string) params.AnnotationsGetResult {
 	got := s.annotationsApi.Get(entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
-	c.Assert(aResult.Entity, gc.DeepEquals, entity)
+	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
 	c.Assert(aResult.Annotations, gc.DeepEquals, expected)
 	return aResult
 }
 
 func (s *annotationSuite) cleanupEntityAnnotations(c *gc.C,
-	entities params.Entities,
+	entities []string,
 	aResult params.AnnotationsGetResult) {
 	cleanup := make(map[string]string)
 	for key := range aResult.Annotations {

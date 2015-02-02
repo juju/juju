@@ -5,11 +5,11 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -20,46 +20,10 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 )
 
 type upgradesSuite struct {
-	gitjujutesting.CleanupSuite
-	testing.BaseSuite
-	gitjujutesting.MgoSuite
-	state *State
-	owner names.UserTag
-}
-
-func (s *upgradesSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-	s.CleanupSuite.SetUpSuite(c)
-}
-
-func (s *upgradesSuite) TearDownSuite(c *gc.C) {
-	s.CleanupSuite.TearDownSuite(c)
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *upgradesSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	s.CleanupSuite.SetUpTest(c)
-	var err error
-	s.owner = names.NewLocalUserTag("upgrade-admin")
-	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *upgradesSuite) TearDownTest(c *gc.C) {
-	if s.state != nil {
-		s.state.Close()
-	}
-	s.CleanupSuite.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
+	internalStateSuite
 }
 
 var _ = gc.Suite(&upgradesSuite{})
@@ -1984,4 +1948,71 @@ func (s *upgradesSuite) TestFixSequenceFields(c *gc.C) {
 		EnvUUID: uuid,
 		Counter: 4,
 	}})
+}
+
+func (s *upgradesSuite) TestDropOldIndexesv123(c *gc.C) {
+
+	var expectedOldIndexes = map[string]int{
+		relationsC:         2,
+		unitsC:             3,
+		networksC:          1,
+		networkInterfacesC: 4,
+		blockDevicesC:      1,
+		subnetsC:           1,
+		ipaddressesC:       2,
+	}
+
+	// setup state
+	for collName, indexes := range oldIndexesv123 {
+		var i int
+		func() {
+			coll, closer := s.state.getRawCollection(collName)
+			defer closer()
+
+			// create the old indexes
+			for _, oldIndex := range indexes {
+				index := mgo.Index{Key: oldIndex}
+				err := coll.EnsureIndex(index)
+				c.Assert(err, jc.ErrorIsNil)
+				i++
+			}
+
+			// check that the old indexes are there
+			foundCount, oldCount := countOldIndexes(c, coll)
+			c.Assert(foundCount, gc.Equals, oldCount)
+		}()
+
+		// check that the expected number of old indexes was added to guard
+		// against accidental edits of oldIndexesv123.
+		c.Assert(i, gc.Equals, expectedOldIndexes[collName])
+	}
+
+	// run upgrade step
+	DropOldIndexesv123(s.state)
+
+	// check that all old indexes are now missing
+	for collName, _ := range oldIndexesv123 {
+		func() {
+			coll, closer := s.state.getRawCollection(collName)
+			defer closer()
+			foundCount, _ := countOldIndexes(c, coll)
+			c.Assert(foundCount, gc.Equals, 0)
+		}()
+	}
+}
+
+func countOldIndexes(c *gc.C, coll *mgo.Collection) (foundCount, oldCount int) {
+	old := oldIndexesv123[coll.Name]
+	oldCount = len(old)
+	indexes, err := coll.Indexes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, collIndex := range indexes {
+		for _, oldIndex := range old {
+			if reflect.DeepEqual(collIndex.Key, oldIndex) {
+				foundCount++
+			}
+		}
+	}
+	return
 }

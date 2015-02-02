@@ -10,7 +10,6 @@ network parameters.
 */
 
 import (
-	"testing"
 	"time"
 
 	"github.com/juju/names"
@@ -20,13 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
-
-var (
-	_ = gc.Suite(&leadershipSuite{})
+func init() {
 	// Ensure the LeadershipService conforms to the interface at compile-time.
-	_ LeadershipService = (*leadershipService)(nil)
-)
+	var _ LeadershipService = (*leadershipService)(nil)
+
+	gc.Suite(&leadershipSuite{})
+}
 
 type leadershipSuite struct{}
 
@@ -82,7 +80,7 @@ func (m *stubAuthorizer) AuthOwner(tag names.Tag) bool {
 }
 func (m *stubAuthorizer) AuthEnvironManager() bool { return true }
 func (m *stubAuthorizer) AuthClient() bool         { return true }
-func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubServiceNm) }
+func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubUnitNm) }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	var ldrMgr stubLeadershipManager
@@ -96,8 +94,8 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -119,8 +117,8 @@ func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -153,8 +151,8 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -174,8 +172,8 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})

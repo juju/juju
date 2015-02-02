@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -44,14 +45,16 @@ type toolsDownloadHandler struct {
 }
 
 func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.validateEnvironUUID(r); err != nil {
+	stateWrapper, err := h.validateEnvironUUID(r)
+	if err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
+	defer stateWrapper.cleanup()
 
 	switch r.Method {
 	case "GET":
-		tarball, err := h.processGet(r)
+		tarball, err := h.processGet(r, stateWrapper.state)
 		if err != nil {
 			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			h.sendError(w, http.StatusBadRequest, err.Error())
@@ -64,20 +67,24 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.authenticate(r); err != nil {
-		h.authError(w, h)
+	// Validate before authenticate because the authentication is dependent
+	// on the state connection that is determined during the validation.
+	stateWrapper, err := h.validateEnvironUUID(r)
+	if err != nil {
+		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
+	defer stateWrapper.cleanup()
 
-	if err := h.validateEnvironUUID(r); err != nil {
-		h.sendError(w, http.StatusNotFound, err.Error())
+	if err := stateWrapper.authenticate(r); err != nil {
+		h.authError(w, h)
 		return
 	}
 
 	switch r.Method {
 	case "POST":
 		// Add tools to storage.
-		agentTools, err := h.processPost(r)
+		agentTools, err := h.processPost(r, stateWrapper.state)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
@@ -110,12 +117,12 @@ func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message 
 }
 
 // processGet handles a tools GET request.
-func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
+func (h *toolsDownloadHandler) processGet(r *http.Request, st *state.State) ([]byte, error) {
 	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
 		return nil, errors.Annotate(err, "error parsing version")
 	}
-	storage, err := h.state.ToolsStorage()
+	storage, err := st.ToolsStorage()
 	if err != nil {
 		return nil, errors.Annotate(err, "error getting tools storage")
 	}
@@ -126,7 +133,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
 		// so look for them in simplestreams, fetch
 		// them and cache in toolstorage.
 		logger.Infof("%v tools not found locally, fetching", version)
-		reader, err = h.fetchAndCacheTools(version, storage)
+		reader, err = h.fetchAndCacheTools(version, storage, st)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching tools")
 		}
@@ -145,8 +152,8 @@ func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
 // fetchAndCacheTools fetches tools with the specified version by searching for a URL
 // in simplestreams and GETting it, caching the result in toolstorage before returning
 // to the caller.
-func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage) (io.ReadCloser, error) {
-	envcfg, err := h.state.EnvironConfig()
+func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage, st *state.State) (io.ReadCloser, error) {
+	envcfg, err := st.EnvironConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +215,7 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, 
 }
 
 // processPost handles a tools upload POST request after authentication.
-func (h *toolsUploadHandler) processPost(r *http.Request) (*tools.Tools, error) {
+func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*tools.Tools, error) {
 	query := r.URL.Query()
 
 	binaryVersionParam := query.Get("binaryVersion")
@@ -227,7 +234,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request) (*tools.Tools, error) 
 	}
 
 	// Get the server root, so we know how to form the URL in the Tools returned.
-	serverRoot, err := h.getServerRoot(r, query)
+	serverRoot, err := h.getServerRoot(r, query, st)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot to determine server root")
 	}
@@ -245,13 +252,13 @@ func (h *toolsUploadHandler) processPost(r *http.Request) (*tools.Tools, error) 
 			toolsVersions = append(toolsVersions, v)
 		}
 	}
-	return h.handleUpload(r.Body, toolsVersions, serverRoot)
+	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)
 }
 
-func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values) (string, error) {
+func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) (string, error) {
 	uuid := query.Get(":envuuid")
 	if uuid == "" {
-		env, err := h.state.Environment()
+		env, err := st.Environment()
 		if err != nil {
 			return "", err
 		}
@@ -261,8 +268,13 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values) (s
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.Binary, serverRoot string) (*tools.Tools, error) {
-	storage, err := h.state.ToolsStorage()
+func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.Binary, serverRoot string, st *state.State) (*tools.Tools, error) {
+	// Check if changes are allowed and the command may proceed.
+	blockChecker := common.NewBlockChecker(st)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	storage, err := st.ToolsStorage()
 	if err != nil {
 		return nil, err
 	}

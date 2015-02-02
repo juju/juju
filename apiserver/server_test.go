@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -302,6 +303,7 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
+	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	listener, err := net.Listen("tcp", ":0")
 	c.Assert(err, jc.ErrorIsNil)
 	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
@@ -333,4 +335,78 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// Server Error, 200 OK, etc.)
 	c.Assert(err, gc.ErrorMatches, `websocket.Dial wss://localhost:\d+/randompath: bad status`)
 	c.Assert(conn, gc.IsNil)
+}
+
+type fakeResource struct {
+	stopped bool
+}
+
+func (r *fakeResource) Stop() error {
+	r.stopped = true
+	return nil
+}
+
+func (s *serverSuite) TestRootTeardown(c *gc.C) {
+	s.checkRootTeardown(c, false)
+}
+
+func (s *serverSuite) TestRootTeardownClosingState(c *gc.C) {
+	s.checkRootTeardown(c, true)
+}
+
+func (s *serverSuite) checkRootTeardown(c *gc.C, closeState bool) {
+	root, resources := apiserver.TestingApiRootEx(s.State, closeState)
+	resource := new(fakeResource)
+	resources.Register(resource)
+
+	c.Assert(resource.stopped, jc.IsFalse)
+	root.Kill()
+	c.Assert(resource.stopped, jc.IsTrue)
+
+	assertStateIsOpen(c, s.State)
+	root.Cleanup()
+	if closeState {
+		assertStateIsClosed(c, s.State)
+	} else {
+		assertStateIsOpen(c, s.State)
+	}
+}
+
+func (s *serverSuite) TestApiHandlerTeardownInitialEnviron(c *gc.C) {
+	s.checkApiHandlerTeardown(c, s.State, s.State)
+}
+
+func (s *serverSuite) TestApiHandlerTeardownOtherEnviron(c *gc.C) {
+	// ForEnviron doens't validate the UUID so there's no need to
+	// actually create another env for this test.
+	otherState, err := s.State.ForEnviron(names.NewEnvironTag("uuid"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.checkApiHandlerTeardown(c, s.State, otherState)
+}
+
+func (s *serverSuite) checkApiHandlerTeardown(c *gc.C, srvSt, st *state.State) {
+	handler, resources := apiserver.TestingApiHandler(c, srvSt, st)
+	resource := new(fakeResource)
+	resources.Register(resource)
+
+	c.Assert(resource.stopped, jc.IsFalse)
+	handler.Kill()
+	c.Assert(resource.stopped, jc.IsTrue)
+
+	assertStateIsOpen(c, st)
+	handler.Cleanup()
+	if srvSt == st {
+		assertStateIsOpen(c, st)
+	} else {
+		assertStateIsClosed(c, st)
+	}
+}
+
+func assertStateIsOpen(c *gc.C, st *state.State) {
+	c.Assert(st.Ping(), jc.ErrorIsNil)
+}
+
+func assertStateIsClosed(c *gc.C, st *state.State) {
+	c.Assert(func() { st.Ping() }, gc.PanicMatches, "Session already closed")
 }

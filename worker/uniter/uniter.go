@@ -1,4 +1,4 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -154,7 +154,7 @@ func (u *Uniter) setupLocks() (err error) {
 	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by upstart.
+		// before unlocking, and have been restarted by the init system.
 		parts := strings.SplitN(message, ":", 2)
 		if len(parts) > 1 && parts[0] == u.unit.Name() {
 			if err := u.hookLock.BreakLock(); err != nil {
@@ -268,20 +268,20 @@ func (u *Uniter) operationState() operation.State {
 // deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
 func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
-	op, err := u.operationFactory.NewDeploy(curl, reason)
+	var op operation.Operation
+	var err error
+	switch reason {
+	case operation.Install:
+		op, err = u.operationFactory.NewInstall(curl)
+	case operation.Upgrade:
+		op, err = u.operationFactory.NewUpgrade(curl)
+	default:
+		err = errors.Errorf("unknown deploy reason %q", reason)
+	}
 	if err != nil {
 		return err
 	}
-	err = u.operationExecutor.Run(op)
-	if err != nil {
-		return err
-	}
-
-	// The new charm may have declared metrics where the old one had none
-	// (or vice versa), so reset the metrics collection policy according
-	// to current state.
-	// TODO(fwereade): maybe this should be in operation.deploy.Commit()?
-	return u.initializeMetricsCollector()
+	return u.operationExecutor.Run(op)
 }
 
 // initializeMetricsCollector enables the periodic collect-metrics hook
@@ -356,7 +356,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if hi.Kind == hooks.Action {
 		return u.runAction(hi.ActionId)
 	}
-	op, err := u.operationFactory.NewHook(hi)
+	op, err := u.operationFactory.NewRunHook(hi)
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 }
 
 func (u *Uniter) skipHook(hi hook.Info) (err error) {
-	op, err := u.operationFactory.NewHook(hi)
+	op, err := u.operationFactory.NewRunHook(hi)
 	if err != nil {
 		return err
 	}

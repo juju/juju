@@ -186,7 +186,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceNoSecureConnection(c *gc.C, m
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
-	networks []string, networkInfo []network.Info,
+	networks []string, networkInfo []network.InterfaceInfo,
 	secureServerConnection bool,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
@@ -223,7 +223,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.st.Addr(), t.Version)
+						url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+							s.st.Addr(), coretesting.EnvironmentTag.Id(), t.Version)
 						c.Check(t.URL, gc.Equals, url)
 						t.URL = ""
 					}
@@ -720,7 +721,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	// Add and provision a machine with networks specified.
 	requestedNetworks := []string{"net1", "net2"}
 	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
-	expectNetworkInfo := []network.Info{{
+	expectNetworkInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
 		ProviderId:    "net1",
@@ -768,8 +769,8 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	// Add and provision a machine with networks specified.
 	networks := []string{"bad-net1"}
 	// "bad-" prefix for networks causes dummy provider to report
-	// invalid network.Info.
-	expectNetworkInfo := []network.Info{
+	// invalid network.InterfaceInfo.
+	expectNetworkInfo := []network.InterfaceInfo{
 		{ProviderId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
 	}
 	m, err := s.addMachineWithRequestedNetworks(networks, constraints.Value{})
@@ -791,7 +792,7 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 			continue
 		}
 		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `aborted instance "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
+		c.Assert(info, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
 	s.checkStopInstances(c, inst)

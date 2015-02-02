@@ -7,9 +7,12 @@ import (
 	"strconv"
 
 	jc "github.com/juju/testing/checkers"
+	amzec2 "gopkg.in/amz.v2/ec2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 
@@ -74,4 +77,46 @@ func (*DisksSuite) TestBlockDeviceNamer(c *gc.C) {
 	expectN("/dev/sdo", "xvdo")
 	expectN("/dev/sdp", "xvdp")
 	expectErr("too many EBS volumes to attach")
+}
+
+func (*DisksSuite) TestGetBlockDeviceMappings(c *gc.C) {
+	mapping, blockDeviceInfo, err := ec2.GetBlockDeviceMappings(
+		"pv", &environs.StartInstanceParams{Volumes: []storage.VolumeParams{{
+			Name: "0", Size: 1234,
+		}, {
+			Name: "1", Size: 4321,
+		}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mapping, gc.DeepEquals, []amzec2.BlockDeviceMapping{{
+		VolumeSize: 8,
+		DeviceName: "/dev/sda1",
+	}, {
+		VirtualName: "ephemeral0",
+		DeviceName:  "/dev/sdb",
+	}, {
+		VirtualName: "ephemeral1",
+		DeviceName:  "/dev/sdc",
+	}, {
+		VirtualName: "ephemeral2",
+		DeviceName:  "/dev/sdd",
+	}, {
+		VirtualName: "ephemeral3",
+		DeviceName:  "/dev/sde",
+	}, {
+		VolumeSize: 2,
+		DeviceName: "/dev/sdf1",
+	}, {
+		VolumeSize: 5,
+		DeviceName: "/dev/sdf2",
+	}})
+	c.Assert(blockDeviceInfo, gc.DeepEquals, []storage.BlockDevice{{
+		Name:       "0",
+		DeviceName: "xvdf1",
+		Size:       2048,
+	}, {
+		Name:       "1",
+		DeviceName: "xvdf2",
+		Size:       5120,
+	}})
 }

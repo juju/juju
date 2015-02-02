@@ -198,7 +198,7 @@ func (s *AgentSuite) PrimeStateAgent(
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
 	stateInfo := s.MongoInfo(c)
-	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
+	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers, s.State.EnvironTag())
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }
@@ -234,7 +234,9 @@ func (s *AgentSuite) RunTestOpenAPIState(c *gc.C, ent state.AgentEntity, agentCm
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, tag names.Tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(
+	c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, tag names.Tag,
+	password string, vers version.Binary, envTag names.EnvironTag) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
@@ -247,6 +249,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
+			Environment:       envTag,
 		},
 		params.StateServingInfo{
 			Cert:         coretesting.ServerCert,

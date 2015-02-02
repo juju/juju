@@ -19,7 +19,7 @@ import (
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(string, constraints.Value, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
+type startInstanceFunc func(string, constraints.Value, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config

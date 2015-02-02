@@ -34,6 +34,8 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interfa
 		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
 		SupportedContainers:      m.SupportedContainers,
 		SupportedContainersKnown: m.SupportedContainersKnown,
+		HasVote:                  m.HasVote,
+		WantsVote:                wantsVote(m.Jobs, m.NoVote),
 	}
 
 	oldInfo := store.Get(info.EntityId())
@@ -71,10 +73,6 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id interfa
 }
 
 func (m *backingMachine) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) This isn't correct - the store should be using
-	// environment UUID prefixed ids but we can't fix it properly
-	// until davecheney smashes the allwatcher to apiserver/params
-	// dependency.
 	store.Remove(multiwatcher.EntityId{
 		Kind: "machine",
 		Id:   st.localID(id.(string)),
@@ -154,7 +152,6 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 }
 
 func (u *backingUnit) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "unit",
 		Id:   st.localID(id.(string)),
@@ -221,7 +218,6 @@ func (svc *backingService) updated(st *State, store *multiwatcherStore, id inter
 }
 
 func (svc *backingService) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "service",
 		Id:   st.localID(id.(string)),
@@ -261,7 +257,6 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id interf
 }
 
 func (r *backingRelation) removed(st *State, store *multiwatcherStore, id interface{}) {
-	// TODO(mjs) as per backingMachine.removed()
 	store.Remove(multiwatcher.EntityId{
 		Kind: "relation",
 		Id:   st.localID(id.(string)),
@@ -532,10 +527,15 @@ func newAllWatcherStateBacking(st *State) Backing {
 	return b
 }
 
+func (b *allWatcherStateBacking) filterEnv(docID interface{}) bool {
+	_, err := b.st.strictLocalID(docID.(string))
+	return err == nil
+}
+
 // Watch watches all the collections.
 func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
-		b.st.watcher.WatchCollection(c.Name, in)
+		b.st.watcher.WatchCollectionWithFilter(c.Name, in, b.filterEnv)
 	}
 }
 
@@ -551,12 +551,14 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 	db, closer := b.st.newDB()
 	defer closer()
 
+	envUUID := b.st.EnvironUUID()
+
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		if c.subsidiary {
 			continue
 		}
-		col := db.C(c.Name)
+		col := newStateCollection(db.C(c.Name), envUUID)
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
 		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
@@ -564,7 +566,11 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
 		infos := infoSlicePtr.Elem()
 		for i := 0; i < infos.Len(); i++ {
 			info := infos.Index(i).Addr().Interface().(backingEntityDoc)
-			info.updated(b.st, all, info.mongoId())
+			id := info.mongoId()
+			err := info.updated(b.st, all, id)
+			if err != nil {
+				return errors.Annotatef(err, "failed to initialise backing for %s:%v", c.Name, id)
+			}
 		}
 	}
 	return nil

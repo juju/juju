@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v1"
 
@@ -220,7 +221,7 @@ func (s *DoSuite) TestRun(c *gc.C) {
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{Tag: validActionTagString},
 		}},
-		expectedErr: "open .*missing.yml: no such file or directory",
+		expectedErr: "open .*missing.yml: " + utils.NoSuchFileErrRegexp,
 	}, {
 		should: "fail with invalid yaml in file",
 		withArgs: []string{validUnitId, "some-action",

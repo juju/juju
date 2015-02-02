@@ -22,28 +22,35 @@ var checkIfRoot = func() bool {
 }
 
 // Attribute keys
-var NetworkBridgeKey = "network-bridge"
+const (
+	BootstrapIpKey   = "bootstrap-ip"
+	ContainerKey     = "container"
+	NamespaceKey     = "namespace"
+	NetworkBridgeKey = "network-bridge"
+	RootDirKey       = "root-dir"
+	StoragePortKey   = "storage-port"
+)
 
 var (
 	configFields = schema.Fields{
-		"root-dir":       schema.String(),
-		"bootstrap-ip":   schema.String(),
+		RootDirKey:       schema.String(),
+		BootstrapIpKey:   schema.String(),
 		NetworkBridgeKey: schema.String(),
-		"container":      schema.String(),
-		"storage-port":   schema.ForceInt(),
-		"namespace":      schema.String(),
+		ContainerKey:     schema.String(),
+		StoragePortKey:   schema.ForceInt(),
+		NamespaceKey:     schema.String(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
 	// these, but did want the familiarity of using something in the 8000
 	// range.
 	configDefaults = schema.Defaults{
-		"root-dir":       "",
+		RootDirKey:       "",
 		NetworkBridgeKey: "",
-		"container":      string(instance.LXC),
-		"bootstrap-ip":   schema.Omit,
-		"storage-port":   8040,
-		"namespace":      "",
+		ContainerKey:     string(instance.LXC),
+		BootstrapIpKey:   schema.Omit,
+		StoragePortKey:   8040,
+		NamespaceKey:     "",
 	}
 )
 
@@ -63,22 +70,19 @@ func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *envi
 // have the same local provider name, we need to have a simple way to
 // namespace the file locations, but more importantly the containers.
 func (c *environConfig) namespace() string {
-	return c.attrs["namespace"].(string)
+	return c.attrs[NamespaceKey].(string)
 }
 
 func (c *environConfig) rootDir() string {
-	return c.attrs["root-dir"].(string)
+	return c.attrs[RootDirKey].(string)
 }
 
 func (c *environConfig) container() instance.ContainerType {
-	return instance.ContainerType(c.attrs["container"].(string))
+	return instance.ContainerType(c.attrs[ContainerKey].(string))
 }
 
-// setDefaultNetworkBridge sets default network bridge if none is provided.
-// Default network bridge varies based on container type.
-// Originally, default values were returned in getter. However,
-// this meant that older clients were getting incorrect defaults
-// (http://pad.lv/1394450)
+// setDefaultNetworkBridge sets default network bridge if none is
+// provided. Default network bridge varies based on container type.
 func (c *environConfig) setDefaultNetworkBridge() {
 	name := c.networkBridge()
 	switch c.container() {
@@ -87,10 +91,7 @@ func (c *environConfig) setDefaultNetworkBridge() {
 			name = lxc.DefaultLxcBridge
 		}
 	case instance.KVM:
-		if name == "" || name == lxc.DefaultLxcBridge {
-			// Older versions of juju used "lxcbr0" by default,
-			// without checking the container type. See also
-			// http://pad.lv/1307677.
+		if name == "" {
 			name = kvm.DefaultKvmBridge
 		}
 	}
@@ -119,7 +120,7 @@ func (c *environConfig) logDir() string {
 // As of 1.18 this is only set inside the environment, and not in the
 // .jenv file.
 func (c *environConfig) bootstrapIPAddress() string {
-	addr, _ := c.attrs["bootstrap-ip"].(string)
+	addr, _ := c.attrs[BootstrapIpKey].(string)
 	return addr
 }
 
@@ -128,7 +129,7 @@ func (c *environConfig) stateServerAddr() string {
 }
 
 func (c *environConfig) storagePort() int {
-	return c.attrs["storage-port"].(int)
+	return c.attrs[StoragePortKey].(int)
 }
 
 func (c *environConfig) storageAddr() string {

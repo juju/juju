@@ -63,8 +63,8 @@ func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 			}}
 
 			c.Assert(typedP.Params, gc.HasLen, 1)
-			c.Check(typedP.Params[0].ServiceTag.Id(), gc.Equals, StubServiceNm)
-			c.Check(typedP.Params[0].UnitTag.Id(), gc.Equals, StubUnitNm)
+			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
+			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
 
 			return nil
 		},
@@ -130,8 +130,8 @@ func (s *clientSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 			typedR.Results = []params.ErrorResult{{}}
 
 			c.Assert(typedP.Params, gc.HasLen, 1)
-			c.Check(typedP.Params[0].ServiceTag.Id(), gc.Equals, StubServiceNm)
-			c.Check(typedP.Params[0].UnitTag.Id(), gc.Equals, StubUnitNm)
+			c.Check(typedP.Params[0].ServiceTag, gc.Equals, names.NewServiceTag(StubServiceNm).String())
+			c.Check(typedP.Params[0].UnitTag, gc.Equals, names.NewUnitTag(StubUnitNm).String())
 
 			return nil
 		},

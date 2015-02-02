@@ -60,7 +60,7 @@ func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 }
 
 // Initialize sets up an initial empty state and returns it.
-// This needs to be performed only once for a given environment.
+// This needs to be performed only once for the initial state server environment.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := open(info, opts, policy)
@@ -110,7 +110,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
+	if err := st.runTransactionNoEnvAliveAssert(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
@@ -150,25 +150,25 @@ var indexes = []struct {
 	unique     bool
 	sparse     bool
 }{
-	// After the first public release, do not remove entries from here
-	// without adding them to a list of indexes to drop, to ensure
-	// old databases are modified to have the correct indexes.
-	{relationsC, []string{"endpoints.relationname"}, false, false},
-	{relationsC, []string{"endpoints.servicename"}, false, false},
-	{unitsC, []string{"service"}, false, false},
-	{unitsC, []string{"principal"}, false, false},
-	{unitsC, []string{"machineid"}, false, false},
+
+	// Create an upgrade step to remove old indexes when editing or removing
+	// items from this slice.
+	{relationsC, []string{"env-uuid", "endpoints.relationname"}, false, false},
+	{relationsC, []string{"env-uuid", "endpoints.servicename"}, false, false},
+	{unitsC, []string{"env-uuid", "service"}, false, false},
+	{unitsC, []string{"env-uuid", "principal"}, false, false},
+	{unitsC, []string{"env-uuid", "machineid"}, false, false},
 	// TODO(thumper): schema change to remove this index.
 	{usersC, []string{"name"}, false, false},
-	{networksC, []string{"providerid"}, true, false},
-	{networkInterfacesC, []string{"interfacename", "machineid"}, true, false},
-	{networkInterfacesC, []string{"macaddress", "networkname"}, true, false},
-	{networkInterfacesC, []string{"networkname"}, false, false},
-	{networkInterfacesC, []string{"machineid"}, false, false},
-	{blockDevicesC, []string{"machineid"}, false, false},
+	{networksC, []string{"env-uuid", "providerid"}, true, false},
+	{networkInterfacesC, []string{"env-uuid", "interfacename", "machineid"}, true, false},
+	{networkInterfacesC, []string{"env-uuid", "macaddress", "networkname"}, true, false},
+	{networkInterfacesC, []string{"env-uuid", "networkname"}, false, false},
+	{networkInterfacesC, []string{"env-uuid", "machineid"}, false, false},
+	{blockDevicesC, []string{"env-uuid", "machineid"}, false, false},
 	{subnetsC, []string{"providerid"}, true, true},
-	{ipaddressesC, []string{"state"}, false, false},
-	{ipaddressesC, []string{"subnetid"}, false, false},
+	{ipaddressesC, []string{"env-uuid", "state"}, false, false},
+	{ipaddressesC, []string{"env-uuid", "subnetid"}, false, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.

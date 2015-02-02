@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/names"
@@ -15,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -26,9 +28,10 @@ const (
 )
 
 type Factory struct {
-	st    *state.State
-	index int
+	st *state.State
 }
+
+var index uint32
 
 func NewFactory(st *state.State) *Factory {
 	return &Factory{st: st}
@@ -98,6 +101,7 @@ type EnvParams struct {
 	Name        string
 	Owner       names.Tag
 	ConfigAttrs testing.Attrs
+	Prepare     bool
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -109,16 +113,16 @@ func (*Factory) RandomSuffix(prefix string) string {
 	return result
 }
 
-func (factory *Factory) UniqueInteger() int {
-	factory.index++
-	return factory.index
+func uniqueInteger() int {
+	index = atomic.AddUint32(&index, 1)
+	return int(index)
 }
 
-func (factory *Factory) UniqueString(prefix string) string {
+func uniqueString(prefix string) string {
 	if prefix == "" {
 		prefix = "no-prefix"
 	}
-	return fmt.Sprintf("%s-%d", prefix, factory.UniqueInteger())
+	return fmt.Sprintf("%s-%d", prefix, uniqueInteger())
 }
 
 // MakeUser will create a user with values defined by the params.
@@ -130,10 +134,10 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params = &UserParams{}
 	}
 	if params.Name == "" {
-		params.Name = factory.UniqueString("username")
+		params.Name = uniqueString("username")
 	}
 	if params.DisplayName == "" {
-		params.DisplayName = factory.UniqueString("display name")
+		params.DisplayName = uniqueString("display name")
 	}
 	if params.Password == "" {
 		params.Password = "password"
@@ -194,7 +198,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 		params.Jobs = []state.MachineJob{state.JobHostUnits}
 	}
 	if params.InstanceId == "" {
-		params.InstanceId = instance.Id(factory.UniqueString("id"))
+		params.InstanceId = instance.Id(uniqueString("id"))
 	}
 	if params.Password == "" {
 		var err error
@@ -236,6 +240,15 @@ func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *Mach
 // set.
 // If params is not specified, defaults are used.
 func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+	machine, _ := factory.MakeMachineReturningPassword(c, params)
+	return machine
+}
+
+// MakeMachineReturningPassword will add a machine with values defined in
+// params. For some values in params, if they are missing, some meaningful
+// empty values will be set. If params is not specified, defaults are used.
+// The machine and its password are returned.
+func (factory *Factory) MakeMachineReturningPassword(c *gc.C, params *MachineParams) (*state.Machine, string) {
 	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,7 +256,7 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
-	return machine
+	return machine, params.Password
 }
 
 // MakeCharm creates a charm with the values specified in params.
@@ -265,7 +278,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 		params.Series = "quantal"
 	}
 	if params.Revision == "" {
-		params.Revision = fmt.Sprintf("%d", factory.UniqueInteger())
+		params.Revision = fmt.Sprintf("%d", uniqueInteger())
 	}
 	if params.URL == "" {
 		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
@@ -274,7 +287,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	ch := testcharms.Repo.CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
-	bundleSHA256 := factory.UniqueString("bundlesha")
+	bundleSHA256 := uniqueString("bundlesha")
 	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
 	c.Assert(err, jc.ErrorIsNil)
 	return charm
@@ -298,7 +311,7 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 		params.Creator = creator.Tag()
 	}
 	_ = params.Creator.(names.UserTag)
-	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil)
+	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -345,7 +358,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{"pings", strconv.Itoa(factory.UniqueInteger()), *params.Time}}
+		params.Metrics = []state.Metric{{"pings", strconv.Itoa(uniqueInteger()), *params.Time}}
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
@@ -401,24 +414,36 @@ func (factory *Factory) MakeEnvironment(c *gc.C, params *EnvParams) *state.State
 		params = new(EnvParams)
 	}
 	if params.Name == "" {
-		params.Name = factory.UniqueString("testenv")
+		params.Name = uniqueString("testenv")
 	}
 	if params.Owner == nil {
 		origEnv, err := factory.st.Environment()
 		c.Assert(err, jc.ErrorIsNil)
 		params.Owner = origEnv.Owner()
 	}
+	// It only makes sense to make an environment with the same provider
+	// as the initial environment, or things will break elsewhere.
+	currentCfg, err := factory.st.EnvironConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomEnvironConfig(c, testing.Attrs{
 		"name": params.Name,
 		"uuid": uuid.String(),
+		"type": currentCfg.Type(),
 	}.Merge(params.ConfigAttrs))
 	_, st, err := factory.st.NewEnvironment(cfg, params.Owner.(names.UserTag))
 	c.Assert(err, jc.ErrorIsNil)
-
-	// e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c),  t.ConfigStore)
-	// c.Assert(err, jc.ErrorIsNil)
+	if params.Prepare {
+		// Prepare the environment.
+		provider, err := environs.Provider(cfg.Type())
+		c.Assert(err, jc.ErrorIsNil)
+		cfg, err = provider.PrepareForCreateEnvironment(cfg)
+		c.Assert(err, jc.ErrorIsNil)
+		// Now save the config back.
+		err = st.UpdateEnvironConfig(cfg.AllAttrs(), nil, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	return st
 }

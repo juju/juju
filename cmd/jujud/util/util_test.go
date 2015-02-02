@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,6 +43,9 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 	for i, err0 := range errorImportanceTests {
 		for j, err1 := range errorImportanceTests {
 			c.Assert(MoreImportant(err0, err1), gc.Equals, i > j)
+
+			// Should also work if errors are wrapped.
+			c.Assert(MoreImportant(errors.Trace(err0), errors.Trace(err1)), gc.Equals, i > j)
 		}
 	}
 }
@@ -49,31 +53,36 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 var isFatalTests = []struct {
 	err     error
 	isFatal bool
-}{{
-	err:     worker.ErrTerminateAgent,
-	isFatal: true,
-}, {
-	err:     &upgrader.UpgradeReadyError{},
-	isFatal: true,
-}, {
-	err: &params.Error{
-		Message: "blah",
-		Code:    params.CodeNotProvisioned,
+}{
+	{
+		err:     worker.ErrTerminateAgent,
+		isFatal: true,
+	}, {
+		err:     errors.Trace(worker.ErrTerminateAgent),
+		isFatal: true,
+	}, {
+		err:     &upgrader.UpgradeReadyError{},
+		isFatal: true,
+	}, {
+		err: &params.Error{
+			Message: "blah",
+			Code:    params.CodeNotProvisioned,
+		},
+		isFatal: false,
+	}, {
+		err:     &FatalError{"some fatal error"},
+		isFatal: true,
+	}, {
+		err:     stderrors.New("foo"),
+		isFatal: false,
+	}, {
+		err: &params.Error{
+			Message: "blah",
+			Code:    params.CodeNotFound,
+		},
+		isFatal: false,
 	},
-	isFatal: false,
-}, {
-	err:     &FatalError{"some fatal error"},
-	isFatal: true,
-}, {
-	err:     stderrors.New("foo"),
-	isFatal: false,
-}, {
-	err: &params.Error{
-		Message: "blah",
-		Code:    params.CodeNotFound,
-	},
-	isFatal: false,
-}}
+}
 
 func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 	var (
@@ -95,6 +104,30 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 			}
 		}
 	}
+}
+
+func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
+	var (
+		errPinger testPinger = func() error {
+			return stderrors.New("ping error")
+		}
+		okPinger testPinger = func() error {
+			return nil
+		}
+	)
+
+	someErr := stderrors.New("foo")
+
+	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger)(someErr),
+		jc.IsFalse)
+	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger, okPinger)(someErr),
+		jc.IsFalse)
+	c.Assert(ConnectionIsFatal(logger, okPinger, errPinger)(someErr),
+		jc.IsTrue)
+	c.Assert(ConnectionIsFatal(logger, okPinger, okPinger, errPinger)(someErr),
+		jc.IsTrue)
+	c.Assert(ConnectionIsFatal(logger, errPinger, okPinger, okPinger)(someErr),
+		jc.IsTrue)
 }
 
 func (*toolSuite) TestIsFatal(c *gc.C) {

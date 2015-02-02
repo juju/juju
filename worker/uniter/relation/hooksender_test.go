@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
-	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -25,7 +24,7 @@ var _ = gc.Suite(&HookSenderSuite{})
 func assertNext(c *gc.C, out chan hook.Info, expect hook.Info) {
 	select {
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for %v", expect)
+		c.Fatalf("timed out waiting for %#v", expect)
 	case actual, ok := <-out:
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(actual, gc.Equals, expect)
@@ -36,16 +35,8 @@ func assertEmpty(c *gc.C, out chan hook.Info) {
 	select {
 	case <-time.After(coretesting.ShortWait):
 	case actual, ok := <-out:
-		c.Fatalf("got unexpected %v %v", actual, ok)
+		c.Fatalf("got unexpected %#v %#v", actual, ok)
 	}
-}
-
-func hookList(kinds ...hooks.Kind) []hook.Info {
-	result := make([]hook.Info, len(kinds))
-	for i, kind := range kinds {
-		result[i].Kind = kind
-	}
-	return result
 }
 
 func (s *HookSenderSuite) TestSendsHooks(c *gc.C) {
@@ -78,21 +69,19 @@ func (s *HookSenderSuite) TestStopsHooks(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
-	source := &updateSource{
-		changes: make(chan multiwatcher.RelationUnitsChange),
-		updates: make(chan multiwatcher.RelationUnitsChange),
-	}
+	source := newFullUnbufferedSource()
+	defer statetesting.AssertStop(c, source)
+
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
 	defer statetesting.AssertStop(c, sender)
-	defer source.tomb.Done()
 
 	// Check we're being sent hooks but not updates.
 	assertActive := func() {
 		assertNext(c, out, hook.Info{Kind: hooks.Install})
 		select {
 		case update, ok := <-source.updates:
-			c.Fatalf("got unexpected update: %v %v", update, ok)
+			c.Fatalf("got unexpected update: %#v %#v", update, ok)
 		case <-time.After(coretesting.ShortWait):
 		}
 	}
@@ -113,11 +102,12 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 	case source.changes <- notSent:
 		c.Fatalf("sent extra change while updating queue")
 	case hi, ok := <-out:
-		c.Fatalf("got unexpected hook while updating queue: %v %v", hi, ok)
+		c.Fatalf("got unexpected hook while updating queue: %#v %#v", hi, ok)
 	case got, ok := <-source.updates:
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(got, gc.DeepEquals, sent)
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out")
 	}
 
 	// Check we're still being sent hooks and not updates.
@@ -125,14 +115,12 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueue(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
-	source := &updateSource{
-		changes: make(chan multiwatcher.RelationUnitsChange),
-		updates: make(chan multiwatcher.RelationUnitsChange),
-	}
+	source := newFullBufferedSource()
+	defer statetesting.AssertStop(c, source)
+
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
 	defer statetesting.AssertStop(c, sender)
-	defer source.tomb.Done()
 
 	// Spam all channels continuously for a bit.
 	timeout := time.After(coretesting.LongWait)
@@ -156,33 +144,38 @@ func (s *HookSenderSuite) TestHandlesUpdatesFullQueueSpam(c *gc.C) {
 		}
 	}
 
-	// Check sane end state.
+	// Once we've finished sending, exhaust the updates...
+	for i := updateCount; i < changeCount && updateCount < changeCount; i++ {
+		select {
+		case update, ok := <-source.updates:
+			c.Assert(ok, jc.IsTrue)
+			c.Assert(update, gc.DeepEquals, multiwatcher.RelationUnitsChange{})
+			updateCount++
+		case <-timeout:
+			c.Fatalf("expected %d updates, got %d", changeCount, updateCount)
+		}
+	}
+
+	// ...and check sane end state to validate the foregoing.
 	c.Check(hookCount, gc.Not(gc.Equals), 0)
 	c.Check(changeCount, gc.Not(gc.Equals), 0)
-	c.Check(updateCount, gc.Not(gc.Equals), 0)
-	unhandledChanges := changeCount - updateCount
-	c.Check(unhandledChanges >= 0, jc.IsTrue)
-	c.Check(unhandledChanges <= 1, jc.IsTrue)
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
-	source := &updateSource{
-		empty:   true,
-		changes: make(chan multiwatcher.RelationUnitsChange),
-		updates: make(chan multiwatcher.RelationUnitsChange),
-	}
+	source := newEmptySource()
+	defer statetesting.AssertStop(c, source)
+
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
 	defer statetesting.AssertStop(c, sender)
-	defer source.tomb.Done()
 
 	// Check no hooks are sent and no updates delivered.
 	assertIdle := func() {
 		select {
 		case hi, ok := <-out:
-			c.Fatalf("got unexpected hook: %v %v", hi, ok)
+			c.Fatalf("got unexpected hook: %#v %#v", hi, ok)
 		case update, ok := <-source.updates:
-			c.Fatalf("got unexpected update: %v %v", update, ok)
+			c.Fatalf("got unexpected update: %#v %#v", update, ok)
 		case <-time.After(coretesting.ShortWait):
 		}
 	}
@@ -190,10 +183,11 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 
 	// Send an event on the Changes() chan.
 	sent := multiwatcher.RelationUnitsChange{Departed: []string{"sent"}}
+	timeout := time.After(coretesting.LongWait)
 	select {
 	case source.changes <- sent:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send change")
+	case <-timeout:
+		c.Fatalf("timed out")
 	}
 
 	// Now that a change has been delivered, nothing should be sent on the out
@@ -203,11 +197,12 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 	case source.changes <- notSent:
 		c.Fatalf("sent extra update while updating queue")
 	case hi, ok := <-out:
-		c.Fatalf("got unexpected hook while updating queue: %v %v", hi, ok)
+		c.Fatalf("got unexpected hook while updating queue: %#v %#v", hi, ok)
 	case got, ok := <-source.updates:
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(got, gc.DeepEquals, sent)
-	case <-time.After(coretesting.ShortWait):
+	case <-timeout:
+		c.Fatalf("timed out")
 	}
 
 	// Now the change has been delivered, nothing should be happening.
@@ -215,15 +210,12 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueue(c *gc.C) {
 }
 
 func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
-	source := &updateSource{
-		empty:   true,
-		changes: make(chan multiwatcher.RelationUnitsChange),
-		updates: make(chan multiwatcher.RelationUnitsChange),
-	}
+	source := newEmptySource()
+	defer statetesting.AssertStop(c, source)
+
 	out := make(chan hook.Info)
 	sender := relation.NewHookSender(out, source)
 	defer statetesting.AssertStop(c, sender)
-	defer source.tomb.Done()
 
 	// Spam all channels continuously for a bit.
 	timeout := time.After(coretesting.LongWait)
@@ -232,7 +224,7 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
 	for i := 0; i < 100; i++ {
 		select {
 		case hi, ok := <-out:
-			c.Fatalf("got unexpected hook: %v %v", hi, ok)
+			c.Fatalf("got unexpected hook: %#v %#v", hi, ok)
 		case source.changes <- multiwatcher.RelationUnitsChange{}:
 			changeCount++
 		case update, ok := <-source.updates:
@@ -247,47 +239,4 @@ func (s *HookSenderSuite) TestHandlesUpdatesEmptyQueueSpam(c *gc.C) {
 	// Check sane end state.
 	c.Check(changeCount, gc.Equals, 50)
 	c.Check(updateCount, gc.Equals, 50)
-}
-
-type updateSource struct {
-	tomb    tomb.Tomb
-	empty   bool
-	changes chan multiwatcher.RelationUnitsChange
-	updates chan multiwatcher.RelationUnitsChange
-}
-
-func (source *updateSource) Stop() error {
-	source.tomb.Kill(nil)
-	return source.tomb.Wait()
-}
-
-func (source *updateSource) Changes() <-chan multiwatcher.RelationUnitsChange {
-	return source.changes
-}
-
-func (source *updateSource) Update(change multiwatcher.RelationUnitsChange) error {
-	select {
-	case <-time.After(coretesting.LongWait):
-		// We don't really care whether the update is collected, but we want to
-		// give it every reasonable chance to be.
-	case source.updates <- change:
-	}
-	return nil
-}
-
-func (source *updateSource) Empty() bool {
-	return source.empty
-}
-
-func (source *updateSource) Next() hook.Info {
-	if source.empty {
-		panic(nil)
-	}
-	return hook.Info{Kind: hooks.Install}
-}
-
-func (source *updateSource) Pop() {
-	if source.empty {
-		panic(nil)
-	}
 }

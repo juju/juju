@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/api"
@@ -102,6 +103,11 @@ func APIInfo(env Environ) (*api.Info, error) {
 	}
 	apiPort := config.APIPort()
 	apiAddrs := network.HostPortsToStrings(network.AddressesWithPort(addrs, apiPort))
-	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert}
+	uuid, uuidSet := config.UUID()
+	if !uuidSet {
+		return nil, errors.New("config has no UUID")
+	}
+	envTag := names.NewEnvironTag(uuid)
+	apiInfo := &api.Info{Addrs: apiAddrs, CACert: cert, EnvironTag: envTag}
 	return apiInfo, nil
 }

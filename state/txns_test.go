@@ -25,11 +25,14 @@ var _ = gc.Suite(&MultiEnvRunnerSuite{})
 
 // A fixed attempt counter value used to verify this is passed through
 // in Run()
-const testTxnAttempt = 42
+const (
+	testTxnAttempt = 42
+	envUUID        = "uuid"
+)
 
 func (s *MultiEnvRunnerSuite) SetUpTest(c *gc.C) {
 	s.testRunner = &recordingRunner{}
-	s.multiEnvRunner = NewMultiEnvRunnerForTesting("uuid", s.testRunner)
+	s.multiEnvRunner = NewMultiEnvRunnerForTesting(envUUID, s.testRunner)
 }
 
 // An alternative machine document to test that fields are matched by
@@ -40,9 +43,10 @@ type altMachineDoc struct {
 }
 
 type multiEnvRunnerTestCase struct {
-	label    string
-	input    txn.Op
-	expected txn.Op
+	label         string
+	input         txn.Op
+	expected      txn.Op
+	needsAliveEnv bool
 }
 
 // Test cases are returned by a function because transaction
@@ -62,6 +66,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 				Id:     "whatever",
 				Insert: bson.M{"_id": "whatever"},
 			},
+			false,
 		}, {
 			"env UUID added to doc",
 			txn.Op{
@@ -79,6 +84,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 					EnvUUID: "uuid",
 				},
 			},
+			true,
 		}, {
 			"_id added to doc if missing",
 			txn.Op{
@@ -94,6 +100,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 					EnvUUID: "uuid",
 				},
 			},
+			true,
 		}, {
 			"fields matched by struct tag, not field name",
 			txn.Op{
@@ -112,6 +119,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 					Environment: "uuid",
 				},
 			},
+			true,
 		}, {
 			"doc passed as struct value", // ok as long as no change to struct required
 			txn.Op{
@@ -131,6 +139,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 					EnvUUID: "uuid",
 				},
 			},
+			true,
 		}, {
 			"document passed as bson.D",
 			txn.Op{
@@ -146,6 +155,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 					{"env-uuid", "uuid"},
 				},
 			},
+			true,
 		}, {
 			"document passed as bson.M",
 			txn.Op{
@@ -161,6 +171,7 @@ func getTestCases() []multiEnvRunnerTestCase {
 					"env-uuid": "uuid",
 				},
 			},
+			true,
 		},
 	}
 }
@@ -174,26 +185,40 @@ func (s *MultiEnvRunnerSuite) TestRunTransaction(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		expected := []txn.Op{t.expected}
-		// Check ops seen by underlying runner.
-		c.Check(s.testRunner.seenOps, gc.DeepEquals, expected)
+
 		// Input should have been modified in-place.
 		c.Check(inOps, gc.DeepEquals, expected)
+
+		if t.needsAliveEnv {
+			expected = append(expected, assertEnvAliveOp(envUUID))
+		}
+
+		// Check ops seen by underlying runner.
+		c.Check(s.testRunner.seenOps, gc.DeepEquals, expected)
 	}
 }
 
 func (s *MultiEnvRunnerSuite) TestMultipleOps(c *gc.C) {
 	var inOps []txn.Op
 	var expectedOps []txn.Op
+	var needsAliveEnv bool
 	for _, t := range getTestCases() {
 		inOps = append(inOps, t.input)
 		expectedOps = append(expectedOps, t.expected)
+		if !needsAliveEnv && t.needsAliveEnv {
+			needsAliveEnv = true
+		}
 	}
 
 	err := s.multiEnvRunner.RunTransaction(inOps)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 	c.Assert(inOps, gc.DeepEquals, expectedOps)
+
+	if needsAliveEnv {
+		expectedOps = append(expectedOps, assertEnvAliveOp(envUUID))
+	}
+	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 }
 
 func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
@@ -212,11 +237,23 @@ func (s *MultiEnvRunnerSuite) TestWithObjectIds(c *gc.C) {
 		Id: id,
 		Insert: &networkInterfaceDoc{
 			Id:      id,
-			EnvUUID: "uuid",
+			EnvUUID: envUUID,
 		},
 	}}
-	c.Assert(s.testRunner.seenOps, gc.DeepEquals, expectedOps)
 	c.Assert(inOps, gc.DeepEquals, expectedOps)
+
+	updatedOps := []txn.Op{{
+		C:  networkInterfacesC,
+		Id: id,
+		Insert: &networkInterfaceDoc{
+			Id:      id,
+			EnvUUID: envUUID,
+		},
+	},
+		assertEnvAliveOp(envUUID),
+	}
+
+	c.Assert(s.testRunner.seenOps, gc.DeepEquals, updatedOps)
 }
 
 func (s *MultiEnvRunnerSuite) TestPanicWhenStructIsPassedByValueAndNeedsChange(c *gc.C) {
@@ -301,8 +338,13 @@ func (s *MultiEnvRunnerSuite) TestRun(c *gc.C) {
 		})
 		c.Assert(err, jc.ErrorIsNil)
 
-		c.Check(s.testRunner.seenOps, gc.DeepEquals, []txn.Op{t.expected})
+		expected := []txn.Op{t.expected}
+		if t.needsAliveEnv {
+			expected = append(expected, assertEnvAliveOp(envUUID))
+		}
+
 		c.Check(seenAttempt, gc.Equals, testTxnAttempt)
+		c.Check(s.testRunner.seenOps, gc.DeepEquals, expected)
 	}
 }
 

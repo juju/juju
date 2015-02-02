@@ -122,6 +122,7 @@ All hooks can directly use the following tools:
   * relation-set (write the local unit's relation settings)
   * relation-ids (list all relations using a given charm relation)
   * relation-list (list all units of a related service)
+  * storage-get (get storage instance values)
 
 Within the context of a single hook execution, the above tools present a
 sandboxed view of the system with the following properties:

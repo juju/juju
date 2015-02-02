@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"launchpad.net/goamz/aws"
-	"launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/s3"
+	"gopkg.in/amz.v2/aws"
+	"gopkg.in/amz.v2/ec2"
+	"gopkg.in/amz.v2/s3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -204,15 +204,8 @@ func (e *environ) SupportedArchitectures() ([]string, error) {
 	return e.supportedArchitectures, err
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (e *environ) SupportNetworks() bool {
-	// TODO(dimitern) Once we have support for VPCs and advanced
-	// networking, return true here.
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+// SupportsAddressAllocation is specified on environs.Networking.
+func (e *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	_, hasDefaultVpc, err := e.defaultVpc()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -486,7 +479,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	var instResp *ec2.RunInstancesResp
 
-	blockDeviceMappings, disks, err := getBlockDeviceMappings(
+	blockDeviceMappings, volumes, err := getBlockDeviceMappings(
 		*spec.InstanceType.VirtType, &args,
 	)
 	if err != nil {
@@ -546,7 +539,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	return &environs.StartInstanceResult{
 		Instance: inst,
 		Hardware: &hc,
-		Disks:    disks,
+		Volumes:  volumes,
 	}, nil
 }
 
@@ -777,10 +770,20 @@ func (e *environ) ReleaseAddress(instId instance.Id, _ network.Id, addr network.
 	return nil
 }
 
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new subnet was created).
-func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
+// not implemented on this provider yet.
+func (*environ) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
+	return nil, errors.NotImplementedf("NetworkInterfaces")
+}
+
+// Subnets returns basic information about the specified subnets known
+// by the provider for the specified instance. subnetIds must not be empty.
+func (e *environ) Subnets(_ instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
+	// At some point in the future an empty netIds may mean "fetch all subnets"
+	// but until that functionality is needed it's an error.
+	if len(subnetIds) == 0 {
+		return nil, errors.Errorf("subnetIds must not be empty")
+	}
 	ec2Inst := e.ec2()
 	// TODO: (mfoord 2014-12-15) can we filter by instance ID here?
 	resp, err := ec2Inst.Subnets(nil, nil)
@@ -788,8 +791,19 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 		return nil, errors.Annotatef(err, "failed to retrieve subnet info")
 	}
 
+	netIdSet := make(map[string]bool)
+	for _, netId := range subnetIds {
+		netIdSet[string(netId)] = false
+	}
+
 	var results []network.SubnetInfo
 	for _, subnet := range resp.Subnets {
+		_, ok := netIdSet[subnet.Id]
+		if !ok {
+			continue
+		}
+		netIdSet[subnet.Id] = true
+
 		cidr := subnet.CIDRBlock
 		ip, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -821,6 +835,16 @@ func (e *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 			AllocatableIPHigh: allocatableHigh,
 		}
 		results = append(results, info)
+	}
+
+	notFound := []string{}
+	for netId, found := range netIdSet {
+		if !found {
+			notFound = append(notFound, netId)
+		}
+	}
+	if len(notFound) != 0 {
+		return nil, errors.Errorf("failed to find the following subnets: %v", notFound)
 	}
 
 	return results, nil
@@ -1089,7 +1113,7 @@ var zeroGroup ec2.SecurityGroup
 // the named group only.
 func (e *environ) ensureGroup(name string, perms []ec2.IPPerm) (g ec2.SecurityGroup, err error) {
 	ec2inst := e.ec2()
-	resp, err := ec2inst.CreateSecurityGroup(name, "juju group")
+	resp, err := ec2inst.CreateSecurityGroup("", name, "juju group")
 	if err != nil && ec2ErrCode(err) != "InvalidGroup.Duplicate" {
 		return zeroGroup, err
 	}

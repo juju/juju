@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/storage"
 )
 
 func init() {
@@ -371,6 +372,10 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	volumes, err := machineVolumeParams(m)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// TODO(dimitern) For now, since network names and
 	// provider ids are the same, we return what we got
 	// from state. In the future, when networks can be
@@ -391,6 +396,7 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 		Placement:   m.Placement(),
 		Networks:    networks,
 		Jobs:        jobs,
+		Volumes:     volumes,
 	}, nil
 }
 
@@ -507,6 +513,56 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	return result, nil
 }
 
+// machineVolumeParams retrieves VolumeParams for the volumes that should be
+// provisioned with and attached to the machine. The client should ignore
+// parameters that it does not know how to handle.
+func machineVolumeParams(m *state.Machine) ([]storage.VolumeParams, error) {
+	blockDevices, err := m.BlockDevices()
+	if err != nil {
+		return nil, err
+	}
+	if len(blockDevices) == 0 {
+		return nil, nil
+	}
+	allParams := make([]storage.VolumeParams, len(blockDevices))
+	for i, dev := range blockDevices {
+		params, ok := dev.Params()
+		if !ok {
+			return nil, errors.Errorf("cannot get parameters for volume %q", dev.Name())
+		}
+		allParams[i] = storage.VolumeParams{
+			dev.Name(),
+			params.Size,
+			// TODO(axw) when pools are implemented,
+			// set Options here.
+			nil,
+			"", // no instance ID yet
+		}
+	}
+	return allParams, nil
+}
+
+// blockDevicesToState converts a slice of storage.BlockDevice to a mapping
+// of block device names to state.BlockDeviceInfo.
+func blockDevicesToState(in []storage.BlockDevice) (map[string]state.BlockDeviceInfo, error) {
+	m := make(map[string]state.BlockDeviceInfo)
+	for _, dev := range in {
+		if dev.Name == "" {
+			return nil, errors.New("Name is empty")
+		}
+		m[dev.Name] = state.BlockDeviceInfo{
+			dev.DeviceName,
+			dev.Label,
+			dev.UUID,
+			dev.Serial,
+			dev.Size,
+			dev.FilesystemType,
+			dev.InUse,
+		}
+	}
+	return m, nil
+}
+
 func networkParamsToStateParams(networks []params.Network, ifaces []params.NetworkInterface) (
 	[]state.NetworkInfo, []state.NetworkInterfaceInfo, error,
 ) {
@@ -617,27 +673,36 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 	if err != nil {
 		return result, err
 	}
-	for i, arg := range args.Machines {
+	setInstanceInfo := func(arg params.InstanceInfo) error {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+			return common.ErrPerm
 		}
 		machine, err := p.getMachine(canAccess, tag)
-		if err == nil {
-			var networks []state.NetworkInfo
-			var interfaces []state.NetworkInterfaceInfo
-			networks, interfaces, err = networkParamsToStateParams(arg.Networks, arg.Interfaces)
-			if err == nil {
-				err = machine.SetInstanceInfo(
-					arg.InstanceId, arg.Nonce, arg.Characteristics,
-					networks, interfaces)
-			}
-			if err != nil {
-				// Give the user more context about the error.
-				err = fmt.Errorf("aborted instance %q: %v", arg.InstanceId, err)
-			}
+		if err != nil {
+			return err
 		}
+		networks, interfaces, err := networkParamsToStateParams(arg.Networks, arg.Interfaces)
+		if err != nil {
+			return err
+		}
+		blockDevices, err := blockDevicesToState(arg.Volumes)
+		if err != nil {
+			return err
+		}
+		if err = machine.SetInstanceInfo(
+			arg.InstanceId, arg.Nonce, arg.Characteristics,
+			networks, interfaces, blockDevices); err != nil {
+			return errors.Annotatef(
+				err,
+				"cannot record provisioning info for %q",
+				arg.InstanceId,
+			)
+		}
+		return nil
+	}
+	for i, arg := range args.Machines {
+		err := setInstanceInfo(arg)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

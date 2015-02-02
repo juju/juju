@@ -534,16 +534,6 @@ func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, err
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (env *azureEnviron) SupportNetworks() bool {
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *azureEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 // selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (*instances.InstanceType, string, error) {
@@ -1099,27 +1089,6 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		}
 	}
 	return instances, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// Azure provider yet.
-func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*azureEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the Azure provider yet.
-func (*azureEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

@@ -135,7 +135,7 @@ func prepareFromNameProductionFunc(name string, ctx BootstrapContext, store conf
 func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return New(cfg)
 }
@@ -144,7 +144,7 @@ func NewFromAttrs(attrs map[string]interface{}) (Environ, error) {
 func New(config *config.Config) (Environ, error) {
 	p, err := Provider(config.Type())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	xxx.Print("here")
 	return p.Open(config)
@@ -155,7 +155,7 @@ func New(config *config.Config) (Environ, error) {
 func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 
 	if p, err := Provider(cfg.Type()); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	} else if info, err := store.ReadInfo(cfg.Name()); errors.IsNotFound(errors.Cause(err)) {
 		info = store.CreateInfo(cfg.Name())
 		if env, err := prepare(ctx, cfg, info, p); err == nil {
@@ -164,7 +164,7 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 			if err := info.Destroy(); err != nil {
 				logger.Warningf("cannot destroy newly created environment info: %v", err)
 			}
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
@@ -233,7 +233,7 @@ func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironI
 		return nil, errors.Annotate(err, "cannot ensure uuid")
 	}
 
-	return p.Prepare(ctx, cfg)
+	return p.PrepareForBootstrap(ctx, cfg)
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.

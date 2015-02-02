@@ -486,6 +486,7 @@ func constructStartInstanceParams(
 		MachineConfig:     machineConfig,
 		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
+		Volumes:           provisioningInfo.Volumes,
 	}
 }
 
@@ -536,7 +537,7 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 	return nil
 }
 
-func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.Info) (
+func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.InterfaceInfo) (
 	networks []params.Network, ifaces []params.NetworkInterface) {
 	if len(networkInfo) == 0 {
 		return nil, nil
@@ -591,12 +592,18 @@ func (task *provisionerTask) startMachine(
 	hardware := result.Hardware
 	nonce := startInstanceParams.MachineConfig.MachineNonce
 	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
+	volumes := result.Volumes
 
-	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces)
+	// TODO(dimitern) In a newer Provisioner API version, change
+	// SetInstanceInfo or add a new method that takes and saves in
+	// state all the information available on a network.InterfaceInfo
+	// for each interface, so we can later manage interfaces
+	// dynamically at run-time.
+	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces, volumes)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
 	} else if err == nil {
-		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), hardware, networks, ifaces)
+		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v, volumes %v", machine, inst.Id(), hardware, networks, ifaces, volumes)
 		return nil
 	}
 	// We need to stop the instance right away here, set error status and go on.

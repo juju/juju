@@ -40,6 +40,10 @@ type BlockDevice struct {
 	// Size is the size of the block device, in MiB.
 	Size uint64 `yaml:"size"`
 
+	// FilesystemType is the type of the filesystem present on the block
+	// device, if any.
+	FilesystemType string `yaml:"fstype,omitempty"`
+
 	// InUse indicates that the block device is in use (e.g. mounted).
 	InUse bool `yaml:"inuse"`
 }

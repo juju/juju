@@ -148,7 +148,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u admin -p {{.AgentConfig.Credentials.OldPassword | shquote}} localhost:{{.AgentConfig.StatePort}}/admin --eval "$1"
 	}
 
-	# wait for mongo to come up after starting the juju-db upstart service.
+	# wait for mongo to come up after starting the juju-db init service.
 	for i in $(seq 1 100)
 	do
 		mongoAdminEval ' ' && break
