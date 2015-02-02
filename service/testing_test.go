@@ -125,8 +125,9 @@ func (fi *fakeInit) Conf(name string) (*initsystems.Conf, error) {
 	return fi.SConf, fi.Err()
 }
 
-func (fi *fakeInit) Serialize(conf *initsystems.Conf) ([]byte, error) {
+func (fi *fakeInit) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	fi.AddCall("Serialize", testing.FakeCallArgs{
+		"name": name,
 		"conf": conf,
 	})
 	return fi.Data, fi.Err()
