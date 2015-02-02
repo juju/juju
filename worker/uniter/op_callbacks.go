@@ -1,4 +1,4 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -46,10 +46,31 @@ func (opc *operationCallbacks) AcquireExecutionLock(message string) (func(), err
 
 // PrepareHook is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
-	if hi.Kind.IsRelation() {
-		return opc.u.relations.PrepareHook(hi)
+	name := string(hi.Kind)
+	status := params.StatusActive
+
+	switch {
+	case hi.Kind.IsRelation():
+		var err error
+		name, err = opc.u.relations.PrepareHook(hi)
+		if err != nil {
+			return "", err
+		}
+	case hi.Kind == hooks.Stop:
+		status = params.StatusStopping
+	case hi.Kind == hooks.ConfigChanged:
+		opc.u.f.DiscardConfigEvent()
+		fallthrough
+	default:
+		if !opc.u.operationState().Started {
+			status = params.StatusInstalling
+		}
 	}
-	return string(hi.Kind), nil
+	err := opc.u.unit.SetStatus(status, "", nil)
+	if err != nil {
+		return "", err
+	}
+	return name, nil
 }
 
 // CommitHook is part of the operation.Callbacks interface.
@@ -113,4 +134,14 @@ func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.Bu
 // SetCurrentCharm is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return opc.u.f.SetCharm(charmURL)
+}
+
+// ClearResolvedFlag is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) ClearResolvedFlag() error {
+	return opc.u.f.ClearResolved()
+}
+
+// InitializeMetricsCollector is part of the operation.Callbacks interface.
+func (opc *operationCallbacks) InitializeMetricsCollector() error {
+	return opc.u.initializeMetricsCollector()
 }

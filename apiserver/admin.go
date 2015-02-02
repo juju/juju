@@ -105,7 +105,7 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 	}
 
 	// authedApi is the API method finder we'll use after getting logged in.
-	var authedApi rpc.MethodFinder = newApiRoot(a.root.state, a.root.resources, a.root)
+	var authedApi rpc.MethodFinder = newApiRoot(a.root.state, a.root.closeState, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {

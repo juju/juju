@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -1947,4 +1948,71 @@ func (s *upgradesSuite) TestFixSequenceFields(c *gc.C) {
 		EnvUUID: uuid,
 		Counter: 4,
 	}})
+}
+
+func (s *upgradesSuite) TestDropOldIndexesv123(c *gc.C) {
+
+	var expectedOldIndexes = map[string]int{
+		relationsC:         2,
+		unitsC:             3,
+		networksC:          1,
+		networkInterfacesC: 4,
+		blockDevicesC:      1,
+		subnetsC:           1,
+		ipaddressesC:       2,
+	}
+
+	// setup state
+	for collName, indexes := range oldIndexesv123 {
+		var i int
+		func() {
+			coll, closer := s.state.getRawCollection(collName)
+			defer closer()
+
+			// create the old indexes
+			for _, oldIndex := range indexes {
+				index := mgo.Index{Key: oldIndex}
+				err := coll.EnsureIndex(index)
+				c.Assert(err, jc.ErrorIsNil)
+				i++
+			}
+
+			// check that the old indexes are there
+			foundCount, oldCount := countOldIndexes(c, coll)
+			c.Assert(foundCount, gc.Equals, oldCount)
+		}()
+
+		// check that the expected number of old indexes was added to guard
+		// against accidental edits of oldIndexesv123.
+		c.Assert(i, gc.Equals, expectedOldIndexes[collName])
+	}
+
+	// run upgrade step
+	DropOldIndexesv123(s.state)
+
+	// check that all old indexes are now missing
+	for collName, _ := range oldIndexesv123 {
+		func() {
+			coll, closer := s.state.getRawCollection(collName)
+			defer closer()
+			foundCount, _ := countOldIndexes(c, coll)
+			c.Assert(foundCount, gc.Equals, 0)
+		}()
+	}
+}
+
+func countOldIndexes(c *gc.C, coll *mgo.Collection) (foundCount, oldCount int) {
+	old := oldIndexesv123[coll.Name]
+	oldCount = len(old)
+	indexes, err := coll.Indexes()
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, collIndex := range indexes {
+		for _, oldIndex := range old {
+			if reflect.DeepEqual(collIndex.Key, oldIndex) {
+				foundCount++
+			}
+		}
+	}
+	return
 }

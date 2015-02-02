@@ -1171,6 +1171,7 @@ func (st *State) AddService(
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createStorageConstraintsOp(svc.globalKey(), storage),
 		createSettingsOp(st, svc.settingsKey(), nil),
+		addLeadershipSettingsOp(svc.Tag().Id()),
 		{
 			C:      settingsrefsC,
 			Id:     st.docID(svc.settingsKey()),

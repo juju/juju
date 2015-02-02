@@ -29,14 +29,14 @@ type Presencer interface {
 	WaitAgentPresence(time.Duration) error
 }
 
-// docID generates a globally unique id value
+// docIDInt64 generates a globally unique id value
 // where the environment uuid is prefixed to the
 // given int64 localID.
 func docIDInt64(envUUID string, localID int64) string {
 	return envUUID + ":" + strconv.FormatInt(localID, 10)
 }
 
-// docID generates a globally unique id value
+// docIDStr generates a globally unique id value
 // where the environment uuid is prefixed to the
 // given string localID.
 func docIDStr(envUUID string, localID string) string {
@@ -48,10 +48,13 @@ func docIDStr(envUUID string, localID string) string {
 // periodically updating the current time slot document with its
 // sequence number so that watchers can tell it is alive.
 //
-// The internal implementation of the time slot document is as follows:
+// There is only one time slot document per time slot, per environment. The
+// internal implementation of the time slot document is as follows:
 //
 // {
-//   "_id":   <time slot>,
+//   "_id":   <environ UUID>:<time slot>,
+//   "slot": <slot>,
+//   "env-uuid": <environ UUID>,
 //   "alive": { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 //   "dead":  { hex(<pinger seq> / 63) : (1 << (<pinger seq> % 63) | <others>) },
 // }
@@ -561,7 +564,7 @@ func (p *Pinger) Stop() error {
 
 }
 
-// Kill stops p's periodical ping and immediately report that it is dead.
+// Kill stops p's periodical ping and immediately reports that it is dead.
 func (p *Pinger) Kill() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -643,7 +646,8 @@ func (p *Pinger) prepare() error {
 	base := p.base.With(session)
 	seqs := seqsC(base)
 	var seq struct{ Seq int64 }
-	if _, err := seqs.FindId(docIDStr(p.envUUID, "beings")).Apply(change, &seq); err != nil {
+	seqID := docIDStr(p.envUUID, "beings")
+	if _, err := seqs.FindId(seqID).Apply(change, &seq); err != nil {
 		return errors.Trace(err)
 	}
 	p.beingSeq = seq.Seq
@@ -651,7 +655,7 @@ func (p *Pinger) prepare() error {
 	p.fieldBit = 1 << uint64(p.beingSeq%63)
 	p.lastSlot = 0
 	beings := beingsC(base)
-	err := errors.Trace(beings.Insert(
+	return errors.Trace(beings.Insert(
 		beingInfo{
 			DocID:   docIDInt64(p.envUUID, p.beingSeq),
 			Seq:     p.beingSeq,
@@ -659,7 +663,6 @@ func (p *Pinger) prepare() error {
 			Key:     p.beingKey,
 		},
 	))
-	return err
 }
 
 // ping records updates the current time slot with the

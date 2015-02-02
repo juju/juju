@@ -31,6 +31,16 @@ func (environProvider) BoilerplateConfig() string {
 	return boilerplateConfig[1:]
 }
 
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p environProvider) RestrictedConfigAttributes() []string {
+	return []string{"region"}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
@@ -42,7 +52,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	attrs := cfg.UnknownAttrs()
 	if _, ok := attrs["control-bucket"]; !ok {
 		uuid, err := utils.NewUUID()

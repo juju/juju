@@ -5,12 +5,14 @@ package envworkermanager
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
+	"launchpad.net/tomb"
+
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
-	"github.com/juju/loggo"
-	"github.com/juju/names"
-	"launchpad.net/tomb"
 )
 
 var logger = loggo.GetLogger("juju.worker.envworkermanager")
@@ -44,6 +46,7 @@ type InitialState interface {
 	GetEnvironment(names.EnvironTag) (*state.Environment, error)
 	EnvironUUID() string
 	Machine(string) (*state.Machine, error)
+	MongoSession() *mgo.Session
 }
 
 type envWorkerManager struct {
@@ -76,13 +79,14 @@ func (m *envWorkerManager) loop() error {
 				}
 			}
 		case <-m.runner.Dying():
-			// The runner for the environment is dying: wait for it to
-			// finish dying and report its error (if any).
+			// The master runner is dying: wait for it to finish dying
+			// and report its error (if any).
 			return m.runner.Wait()
 		case <-m.tomb.Dying():
 			// The envWorkerManager has been asked to die: kill the
-			// runner and stop.
+			// master runner and stop.
 			m.runner.Kill()
+			m.runner.Wait()
 			return tomb.ErrDying
 		}
 	}
@@ -108,20 +112,25 @@ func (m *envWorkerManager) envIsAlive(envTag names.EnvironTag) error {
 		if err != nil {
 			return nil, errors.Annotatef(err, "failed to open state for environment %s", envTag.Id())
 		}
-
-		envRunner, err := m.startEnvWorkers(m.st, st)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		// Make sure the State is closed when the runner for the
-		// environment is done.
-		go func() {
-			envRunner.Wait()
+		closeState := func() {
 			err := st.Close()
 			if err != nil {
 				logger.Errorf("error closing state for env %s: %v", envTag.Id(), err)
 			}
+		}
+
+		envRunner, err := m.startEnvWorkers(m.st, st)
+		if err != nil {
+			closeState()
+			return nil, errors.Trace(err)
+		}
+
+		// Close State when the runner for the environment is done.
+		go func() {
+			envRunner.Wait()
+			closeState()
 		}()
+
 		return envRunner, nil
 	})
 }
