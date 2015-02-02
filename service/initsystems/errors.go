@@ -9,26 +9,16 @@ import (
 	"github.com/juju/errors"
 )
 
-// IsUnsupported returns true if the error is either ErrUnsupportedField
-// or ErrUnsupportedItem.
-func IsUnsupported(err error) bool {
-	if _, ok := errors.Cause(err).(*ErrUnsupportedField); ok {
-		return true
-	}
-	_, ok := errors.Cause(err).(*ErrUnsupportedItem)
-	return ok
-}
-
 // NewUnsupportedField creates a new error for an unsupported conf
 // field. No reason is set. The underlying ErrUnsupportedField is
-// wrapped in errors.NotFound.
+// wrapped in errors.NotSupported.
 func NewUnsupportedField(field string) error {
 	return newUnsupportedError(field, "", "")
 }
 
 // NewUnsupportedItem creates a new error for an unsupported key in a
 // conf field (that has a map value). No reason is set. The underlying
-// ErrUnsupportedItem is wrapped in errors.NotFound.
+// ErrUnsupportedItem is wrapped in errors.NotSupported.
 func NewUnsupportedItem(field, key string) error {
 	return newUnsupportedError(field, key, "")
 }
@@ -51,8 +41,8 @@ func newUnsupportedError(field, key, reason string) error {
 		}
 	}
 
-	// Wrap the error in errors.NotFound.
-	err = errors.NewNotFound(err, "")
+	// Wrap the error in errors.NotSupported.
+	err = errors.NewNotSupported(err, "")
 	err.(*errors.Err).SetLocation(2)
 	return err
 }
