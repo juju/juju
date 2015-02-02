@@ -20,20 +20,20 @@ func IsUnsupported(err error) bool {
 }
 
 // NewUnsupportedField creates a new error for an unsupported conf
-// field. No reason or value are set. The underlying ErrUnsupportedField
-// is wrapped in errors.NotFound.
+// field. No reason is set. The underlying ErrUnsupportedField is
+// wrapped in errors.NotFound.
 func NewUnsupportedField(field string) error {
-	return newUnsupportedError(field, "", "", "")
+	return newUnsupportedError(field, "", "")
 }
 
 // NewUnsupportedItem creates a new error for an unsupported key in a
-// conf field (that has a map value). No reason or value are set. The
-// underlying ErrUnsupportedItem is wrapped in errors.NotFound.
+// conf field (that has a map value). No reason is set. The underlying
+// ErrUnsupportedItem is wrapped in errors.NotFound.
 func NewUnsupportedItem(field, key string) error {
-	return newUnsupportedError(field, key, "", "")
+	return newUnsupportedError(field, key, "")
 }
 
-func newUnsupportedError(field, key, value, reason string) error {
+func newUnsupportedError(field, key, reason string) error {
 	if field == "" {
 		return nil
 	}
@@ -44,10 +44,6 @@ func newUnsupportedError(field, key, value, reason string) error {
 	}
 	err = &fieldErr
 
-	if value != "" {
-		fieldErr.Value = true
-	}
-
 	if key != "" {
 		err = &ErrUnsupportedItem{
 			ErrUnsupportedField: fieldErr,
@@ -56,11 +52,7 @@ func newUnsupportedError(field, key, value, reason string) error {
 	}
 
 	// Wrap the error in errors.NotFound.
-	if value == "" {
-		err = errors.NewNotFound(err, "")
-	} else {
-		err = errors.NewNotValid(err, "")
-	}
+	err = errors.NewNotFound(err, "")
 	err.(*errors.Err).SetLocation(2)
 	return err
 }
@@ -70,16 +62,12 @@ func newUnsupportedError(field, key, value, reason string) error {
 // then errors.NotValid should be used instead.
 type ErrUnsupportedField struct {
 	Field  string
-	Value  bool
 	Reason string
 }
 
 // Error implements error.
 func (euf ErrUnsupportedField) Error() string {
 	label := fmt.Sprintf("field %q", euf.Field)
-	if euf.Value {
-		label += " value"
-	}
 
 	if euf.Reason == "" {
 		return label
@@ -98,9 +86,6 @@ type ErrUnsupportedItem struct {
 // Error implements error.
 func (eui ErrUnsupportedItem) Error() string {
 	label := fmt.Sprintf("field %q, item %q", eui.Field, eui.Key)
-	if eui.Value {
-		label += " value"
-	}
 
 	if eui.Reason == "" {
 		return label

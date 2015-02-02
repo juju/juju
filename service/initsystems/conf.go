@@ -74,10 +74,6 @@ func (c *Conf) Repair(err error) error {
 	}
 	switch rawErr := errors.Cause(err).(type) {
 	case ErrUnsupportedField:
-		if rawErr.Value {
-			return errors.NewNotValid(err, "")
-		}
-
 		switch rawErr.Field {
 		case "Desc", "Cmd":
 			// Oops. This is supposed to be supported.
@@ -88,10 +84,6 @@ func (c *Conf) Repair(err error) error {
 			return errors.Trace(err)
 		}
 	case ErrUnsupportedItem:
-		if rawErr.Value {
-			return errors.NewNotValid(err, "")
-		}
-
 		var items map[string]string
 		switch rawErr.Field {
 		case "Env":
