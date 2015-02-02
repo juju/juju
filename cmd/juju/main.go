@@ -138,7 +138,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&ResolvedCommand{}))
 	r.Register(wrapEnvCommand(&DebugLogCommand{}))
 	r.Register(wrapEnvCommand(&DebugHooksCommand{}))
-	r.Register(wrapEnvCommand(&RetryProvisioningCommand{}))
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
@@ -190,6 +189,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("ensure-availability", "environment", "ensure-availability", twoDotOhDeprecation("environment ensure-availability"))
+	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
 
 	// Manage and control actions.
 	if featureflag.Enabled(feature.Actions) {
