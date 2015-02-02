@@ -21,13 +21,13 @@ type errorsSuite struct {
 func (s *errorsSuite) TestNewUnsupportedField(c *gc.C) {
 	err := initsystems.NewUnsupportedField("spam")
 
-	c.Check(err, gc.ErrorMatches, `field "spam" .*`)
+	c.Check(err, gc.ErrorMatches, `field "spam" not supported`)
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *errorsSuite) TestNewUnsupportedItem(c *gc.C) {
 	err := initsystems.NewUnsupportedItem("spam", "eggs")
 
-	c.Check(err, gc.ErrorMatches, `field "spam", item "eggs" .*`)
+	c.Check(err, gc.ErrorMatches, `field "spam", item "eggs" not supported`)
 	c.Check(err, jc.Satisfies, errors.IsNotSupported)
 }

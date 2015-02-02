@@ -4,8 +4,6 @@
 package initsystems
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 )
 
@@ -28,22 +26,40 @@ func newUnsupportedError(field, key, reason string) error {
 		return nil
 	}
 
+	// Compose the message.
+	message := "field %q"
+	parts := []interface{}{field}
+	if key != "" {
+		message += ", item %q"
+		parts = append(parts, key)
+	}
+	message += " not supported"
+	if reason != "" {
+		message += ": %s"
+		parts = append(parts, reason)
+	}
+
+	// Build the base error.
+	baseErr := errors.NewErr(message, parts...)
+	baseErr.SetLocation(2)
+
+	// Build the field error.
 	var err error
 	fieldErr := ErrUnsupportedField{
+		Err:   baseErr,
+		cause: errors.NotSupportedf(message, parts...),
 		Field: field,
 	}
 	err = &fieldErr
 
 	if key != "" {
+		// Build the item error.
 		err = &ErrUnsupportedItem{
 			ErrUnsupportedField: fieldErr,
 			Key:                 key,
 		}
 	}
 
-	// Wrap the error in errors.NotSupported.
-	err = errors.NewNotSupported(err, "")
-	err.(*errors.Err).SetLocation(2)
 	return err
 }
 
@@ -51,18 +67,15 @@ func newUnsupportedError(field, key, reason string) error {
 // is not supported by an init system. If the value is not supported
 // then errors.NotValid should be used instead.
 type ErrUnsupportedField struct {
+	errors.Err
+
+	cause  error
 	Field  string
 	Reason string
 }
 
-// Error implements error.
-func (euf ErrUnsupportedField) Error() string {
-	label := fmt.Sprintf("field %q", euf.Field)
-
-	if euf.Reason == "" {
-		return label
-	}
-	return fmt.Sprintf("%s: %s", label, euf.Reason)
+func (euf ErrUnsupportedField) Cause() error {
+	return euf.cause
 }
 
 // ErrUnsupportedField is an error used to describe a conf field that
@@ -71,14 +84,4 @@ func (euf ErrUnsupportedField) Error() string {
 type ErrUnsupportedItem struct {
 	ErrUnsupportedField
 	Key string
-}
-
-// Error implements error.
-func (eui ErrUnsupportedItem) Error() string {
-	label := fmt.Sprintf("field %q, item %q", eui.Field, eui.Key)
-
-	if eui.Reason == "" {
-		return label
-	}
-	return fmt.Sprintf("%s: %s", label, eui.Reason)
 }
