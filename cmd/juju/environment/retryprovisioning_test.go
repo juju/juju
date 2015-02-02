@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2014, 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package environment_test
@@ -123,9 +123,8 @@ func (s *retryProvisioningSuite) TestRetryProvisioning(c *gc.C) {
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
-		} else {
-			c.Check(err, jc.ErrorIsNil)
 		}
+		c.Check(err, jc.ErrorIsNil)
 		output := testing.Stderr(context)
 		stripped := strings.Replace(output, "\n", "", -1)
 		c.Check(stripped, gc.Equals, t.stdErr)
@@ -147,12 +146,10 @@ func (s *retryProvisioningSuite) TestBlockRetryProvisioning(c *gc.C) {
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue
-		} else {
-			c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
-			// msg is logged
-			stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
-			c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 		}
-
+		c.Assert(err, gc.ErrorMatches, cmd.ErrSilent.Error())
+		// msg is logged
+		stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
+		c.Check(stripped, gc.Matches, ".*To unblock changes.*")
 	}
 }
