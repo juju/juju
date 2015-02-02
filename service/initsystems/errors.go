@@ -9,14 +9,26 @@ import (
 	"github.com/juju/errors"
 )
 
+// IsUnsupported returns true if the error is either ErrUnsupportedField
+// or ErrUnsupportedItem.
+func IsUnsupported(err error) bool {
+	if _, ok := errors.Cause(err).(*ErrUnsupportedField); ok {
+		return true
+	}
+	_, ok := errors.Cause(err).(*ErrUnsupportedItem)
+	return ok
+}
+
 // NewUnsupportedField creates a new error for an unsupported conf
-// field. No reason or value are set.
+// field. No reason or value are set. The underlying ErrUnsupportedField
+// is wrapped in errors.NotFound.
 func NewUnsupportedField(field string) error {
 	return newUnsupportedError(field, "", "", "")
 }
 
 // NewUnsupportedItem creates a new error for an unsupported key in a
-// conf field (that has a map value). No reason or value are set.
+// conf field (that has a map value). No reason or value are set. The
+// underlying ErrUnsupportedItem is wrapped in errors.NotFound.
 func NewUnsupportedItem(field, key string) error {
 	return newUnsupportedError(field, key, "", "")
 }
@@ -44,7 +56,11 @@ func newUnsupportedError(field, key, value, reason string) error {
 	}
 
 	// Wrap the error in errors.NotFound.
-	err = errors.NewNotFound(err, "")
+	if value == "" {
+		err = errors.NewNotFound(err, "")
+	} else {
+		err = errors.NewNotValid(err, "")
+	}
 	err.(*errors.Err).SetLocation(2)
 	return err
 }
@@ -60,7 +76,7 @@ type ErrUnsupportedField struct {
 
 // Error implements error.
 func (euf ErrUnsupportedField) Error() string {
-	label := euf.Field
+	label := fmt.Sprintf("field %q", euf.Field)
 	if euf.Value {
 		label += " value"
 	}
@@ -81,7 +97,7 @@ type ErrUnsupportedItem struct {
 
 // Error implements error.
 func (eui ErrUnsupportedItem) Error() string {
-	label := fmt.Sprintf("%s-%s", eui.Field, eui.Key)
+	label := fmt.Sprintf("field %q, item %q", eui.Field, eui.Key)
 	if eui.Value {
 		label += " value"
 	}
