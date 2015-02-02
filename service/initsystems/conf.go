@@ -1,11 +1,9 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package initsystems
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 )
 
@@ -19,81 +17,6 @@ var (
 		"Out",
 	}
 )
-
-func NewUnsupportedError(field, key, value, reason string) error {
-	return newUnsupportedError(field, key, value, reason)
-}
-
-func NewUnsupportedField(field string) error {
-	return newUnsupportedError(field, "", "", "")
-}
-
-func NewUnsupportedItem(field, key string) error {
-	return newUnsupportedError(field, key, "", "")
-}
-
-func newUnsupportedError(field, key, value, reason string) error {
-	if field == "" {
-		return nil
-	}
-
-	var err error
-	fieldErr := ErrUnsupportedField{
-		Field: field,
-	}
-	err = &fieldErr
-
-	if value != "" {
-		fieldErr.Value = true
-	}
-
-	if key != "" {
-		err = &ErrUnsupportedItem{
-			ErrUnsupportedField: fieldErr,
-			Key:                 key,
-		}
-	}
-
-	// Wrap the error in errors.NotFound.
-	err = errors.NewNotFound(err, "")
-	err.(*errors.Err).SetLocation(2)
-	return err
-}
-
-type ErrUnsupportedField struct {
-	Field  string
-	Value  bool
-	Reason string
-}
-
-func (euf ErrUnsupportedField) Error() string {
-	label := euf.Field
-	if euf.Value {
-		label += " value"
-	}
-
-	if euf.Reason == "" {
-		return label
-	}
-	return fmt.Sprintf("%s: %s", label, euf.Reason)
-}
-
-type ErrUnsupportedItem struct {
-	ErrUnsupportedField
-	Key string
-}
-
-func (eui ErrUnsupportedItem) Error() string {
-	label := fmt.Sprintf("%s-%s", eui.Field, eui.Key)
-	if eui.Value {
-		label += " value"
-	}
-
-	if eui.Reason == "" {
-		return label
-	}
-	return fmt.Sprintf("%s: %s", label, eui.Reason)
-}
 
 // Conf contains all the information an init system may need in order
 // to describe a service. It is used both when enabling a service and
