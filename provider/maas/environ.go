@@ -224,8 +224,8 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, nil
 }
 
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (env *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *maasEnviron) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
 	caps, err := env.getCapabilities()
 	if err != nil {
 		return false, errors.Annotatef(err, "getCapabilities failed")
@@ -468,16 +468,6 @@ func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string
 		zones[i] = inst.(*maasInstance).zone()
 	}
 	return zones, nil
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (env *maasEnviron) SupportNetworks() bool {
-	caps, err := env.getCapabilities()
-	if err != nil {
-		logger.Debugf("getCapabilities failed: %v", err)
-		return false
-	}
-	return caps.Contains(capNetworksManagement)
 }
 
 type maasPlacement struct {
@@ -1224,13 +1214,13 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (environ *maasEnviron) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
-	subnets, err := environ.Subnets(instId, []network.Id{netId})
+func (environ *maasEnviron) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
+	subnets, err := environ.Subnets(instId, []network.Id{subnetId})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(subnets) != 1 {
-		return errors.Errorf("could not find network matching %v", netId)
+		return errors.Errorf("could not find network matching %v", subnetId)
 	}
 	foundSub := subnets[0]
 
@@ -1276,10 +1266,89 @@ func (environ *maasEnviron) ReleaseAddress(_ instance.Id, _ network.Id, addr net
 	return nil
 }
 
-// NetworkInterfaces implements Environ.NetworkInterfaces, but it's
-// not implemented on this provider yet.
-func (*maasEnviron) NetworkInterfaces(_ instance.Id) ([]network.InterfaceInfo, error) {
-	return nil, errors.NotImplementedf("NetworkInterfaces")
+// NetworkInterfaces implements Environ.NetworkInterfaces.
+func (environ *maasEnviron) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	instances, err := environ.acquiredInstances([]instance.Id{instId})
+	if err != nil {
+		return nil, errors.Annotatef(err, "could not find instance %v", instId)
+	}
+	if len(instances) == 0 {
+		return nil, errors.NotFoundf("instance %v", instId)
+	}
+	inst := instances[0]
+	interfaces, _, err := environ.getInstanceNetworkInterfaces(inst)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	networks, err := environ.getInstanceNetworks(inst)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getInstanceNetworks failed")
+	}
+
+	macToNetworkMap := make(map[string]networkDetails)
+	for _, network := range networks {
+		macs, err := environ.listConnectedMacs(network)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, mac := range macs {
+			macToNetworkMap[mac] = network
+		}
+	}
+
+	result := []network.InterfaceInfo{}
+	for serial, iface := range interfaces {
+		deviceIndex := iface.DeviceIndex
+		interfaceName := iface.InterfaceName
+		disabled := iface.Disabled
+
+		ifaceInfo := network.InterfaceInfo{
+			DeviceIndex:   deviceIndex,
+			InterfaceName: interfaceName,
+			Disabled:      disabled,
+			MACAddress:    serial,
+		}
+		details, ok := macToNetworkMap[serial]
+		if ok {
+			ifaceInfo.VLANTag = details.VLANTag
+			ifaceInfo.ProviderSubnetId = network.Id(details.Name)
+			mask := net.IPMask(net.ParseIP(details.Mask))
+			cidr := net.IPNet{net.ParseIP(details.IP), mask}
+			ifaceInfo.CIDR = cidr.String()
+		}
+		result = append(result, ifaceInfo)
+	}
+	return result, nil
+}
+
+// listConnectedMacs calls the MAAS list_connected_macs API to fetch all the
+// the MAC addresses attached to a specific network.
+func (environ *maasEnviron) listConnectedMacs(network networkDetails) ([]string, error) {
+	client := environ.getMAASClient().GetSubObject("networks").GetSubObject(network.Name)
+	json, err := client.CallGet("list_connected_macs", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	macs, err := json.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	for _, macObj := range macs {
+		macMap, err := macObj.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		mac, err := macMap["mac_address"].GetString()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, mac)
+	}
+	return result, nil
 }
 
 // Subnets returns basic information about the specified subnets for a specific

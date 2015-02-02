@@ -479,12 +479,12 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := envtesting.BootstrapContext(c)
-	env0, err := providerInstance.Prepare(ctx, cfg)
+	env0, err := providerInstance.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
 	c.Assert(bucket0, gc.Matches, "[a-f0-9]{32}")
 
-	env1, err := providerInstance.Prepare(ctx, cfg)
+	env1, err := providerInstance.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	bucket1 := env1.(*environ).ecfg().controlBucket()
 	c.Assert(bucket1, gc.Matches, "[a-f0-9]{32}")
@@ -501,7 +501,7 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := providerInstance.Prepare(envtesting.BootstrapContext(c), cfg)
+	env, err := providerInstance.PrepareForBootstrap(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
