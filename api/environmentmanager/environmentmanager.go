@@ -31,6 +31,23 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// ConfigSkeleton returns config values to be used as a starting point for the
+// API caller to construct a valid environment specific config.  The provider
+// and region params are there for future use, and current behaviour expects
+// both of these to be empty.
+func (c *Client) ConfigSkeleton(provider, region string) (params.EnvironConfig, error) {
+	var result params.EnvironConfigResult
+	args := params.EnvironmentSkeletonConfigArgs{
+		Provider: provider,
+		Region:   region,
+	}
+	err := c.facade.FacadeCall("ConfigSkeleton", args, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result.Config, nil
+}
+
 // CreateEnvironment creates a new environment using the account and
 // environment config specified in the args.
 func (c *Client) CreateEnvironment(owner string, account, config map[string]interface{}) (params.Environment, error) {

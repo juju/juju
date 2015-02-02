@@ -38,10 +38,12 @@ func RequiredError(name string) error {
 
 // IsFatal determines if an error is fatal to the process.
 func IsFatal(err error) bool {
+	err = errors.Cause(err)
 	switch err {
 	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
 		return true
 	}
+
 	if isUpgraded(err) {
 		return true
 	}
@@ -65,6 +67,7 @@ func (e *FatalError) Error() string {
 }
 
 func importance(err error) int {
+	err = errors.Cause(err)
 	switch {
 	case err == nil:
 		return 0
@@ -87,9 +90,10 @@ func MoreImportant(err0, err1 error) bool {
 	return importance(err0) > importance(err1)
 }
 
-// agentDone processes the error returned by
+// AgentDone processes the error returned by
 // an exiting agent.
 func AgentDone(logger loggo.Logger, err error) error {
+	err = errors.Cause(err)
 	switch err {
 	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
 		err = nil

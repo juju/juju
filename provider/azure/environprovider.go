@@ -39,8 +39,18 @@ func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, err
 	return environ, nil
 }
 
-// Prepare is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (prov azureEnvironProvider) RestrictedConfigAttributes() []string {
+	return []string{"location"}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p azureEnvironProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+// PrepareForBootstrap is specified in the EnvironProvider interface.
+func (prov azureEnvironProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// Set availability-sets-enabled to true
 	// by default, unless the user set a value.
 	if _, ok := cfg.AllAttrs()["availability-sets-enabled"]; !ok {

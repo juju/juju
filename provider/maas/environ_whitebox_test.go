@@ -988,14 +988,15 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	c.Check(networkInfo, gc.HasLen, 0)
 }
 
-func (suite *environSuite) TestSupportNetworks(c *gc.C) {
+func (suite *environSuite) TestSupportsNetworking(c *gc.C) {
 	env := suite.makeEnviron()
-	c.Assert(env.SupportNetworks(), jc.IsTrue)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 }
 
-func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
+func (suite *environSuite) TestSupportsAddressAllocation(c *gc.C) {
 	env := suite.makeEnviron()
-	supported, err := env.SupportAddressAllocation("")
+	supported, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(supported, jc.IsTrue)
 }
@@ -1078,6 +1079,21 @@ func (suite *environSuite) createSubnets(c *gc.C) instance.Instance {
 	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText3)
 	suite.testMAASObject.TestServer.NewNodegroupInterface("uuid-1", jsonText4)
 	return test_instance
+}
+
+func (suite *environSuite) TestNetworkInterfaces(c *gc.C) {
+	test_instance := suite.createSubnets(c)
+
+	netInfo, err := suite.makeEnviron().NetworkInterfaces(test_instance.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedInfo := []network.InterfaceInfo{
+		{DeviceIndex: 0, MACAddress: "aa:bb:cc:dd:ee:ff", CIDR: "192.168.1.1/24", ProviderSubnetId: "WLAN", InterfaceName: "wlan0", Disabled: true},
+		{DeviceIndex: 1, MACAddress: "aa:bb:cc:dd:ee:f1", CIDR: "192.168.2.1/24", ProviderSubnetId: "LAN", VLANTag: 42, InterfaceName: "eth0"},
+		{DeviceIndex: 2, MACAddress: "aa:bb:cc:dd:ee:f2", CIDR: "192.168.3.1/24", ProviderSubnetId: "Virt", InterfaceName: "vnet1"},
+	}
+	network.SortInterfaceInfo(netInfo)
+	c.Assert(netInfo, jc.DeepEquals, expectedInfo)
 }
 
 func (suite *environSuite) TestSubnets(c *gc.C) {

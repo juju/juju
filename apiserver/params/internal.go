@@ -143,6 +143,12 @@ type EnvironmentResult struct {
 	UUID  string
 }
 
+// EnvironmentSkeletonConfigArgs wraps the args for environmentmanager.SkeletonConfig.
+type EnvironmentSkeletonConfigArgs struct {
+	Provider string
+	Region   string
+}
+
 // EnvironmentCreateArgs holds the arguments that are necessary to create
 // and environment.
 type EnvironmentCreateArgs struct {
@@ -212,19 +218,19 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
-// RelationSettings holds relation settings names and values.
-type RelationSettings map[string]string
+// Settings holds relation settings names and values.
+type Settings map[string]string
 
-// RelationSettingsResult holds a relation settings map or an error.
-type RelationSettingsResult struct {
+// SettingsResult holds a relation settings map or an error.
+type SettingsResult struct {
 	Error    *Error
-	Settings RelationSettings
+	Settings Settings
 }
 
-// RelationSettingsResults holds the result of an API calls that
+// SettingsResults holds the result of an API calls that
 // returns settings for multiple relations.
-type RelationSettingsResults struct {
-	Results []RelationSettingsResult
+type SettingsResults struct {
+	Results []SettingsResult
 }
 
 // ConfigSettings holds unit, service or cham configuration settings
@@ -285,7 +291,7 @@ type RelationUnitPairs struct {
 type RelationUnitSettings struct {
 	Relation string
 	Unit     string
-	Settings RelationSettings
+	Settings Settings
 }
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
@@ -846,4 +852,15 @@ type StorageInstanceResult struct {
 // of multiple storage instances.
 type StorageInstanceResults struct {
 	Results []StorageInstanceResult `json:"results,omitempty"`
+}
+
+// UnitStorageInstances holds the storage instances for a given unit.
+type UnitStorageInstances struct {
+	Instances []storage.StorageInstance `json:"instances,omitempty"`
+	Error     *Error                    `json:"error,omitempty"`
+}
+
+// UnitStorageInstancesResults holds the result of a StorageInstances call for a unit.
+type UnitStorageInstancesResults struct {
+	UnitsStorageInstances []UnitStorageInstances `json:"unitstorageinstances,omitempty"`
 }

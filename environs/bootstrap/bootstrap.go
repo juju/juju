@@ -91,8 +91,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
+	_, supportsNetworking := environs.SupportsNetworking(environ)
+
 	ctx.Infof("Bootstrapping environment %q", cfg.Name())
-	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
+	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 	availableTools, err := findAvailableTools(environ, args.Constraints.Arch, args.UploadTools)

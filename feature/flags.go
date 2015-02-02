@@ -10,3 +10,6 @@ const Actions string = "action"
 // MESS stands for Multi-Environment State Server and controls access
 // to the apiserver endpoints, api client and CLI commands.
 const MESS = "mess"
+
+// Storage is the name of the feature to enable storage commands.
+const Storage string = "storage"
