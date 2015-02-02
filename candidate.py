@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import datetime
 import json
 import os
 import shutil
@@ -18,7 +19,10 @@ from jujuci import (
     JENKINS_URL,
     PUBLISH_REVISION
 )
-from utility import temp_dir
+from utility import (
+    s3_cmd,
+    temp_dir,
+)
 
 
 def get_build_parameters(build_data):
@@ -165,15 +169,27 @@ def run_command(command, dry_run=False, verbose=False):
 def publish_candidates(path, streams_path,
                        juju_release_tools=None, dry_run=False, verbose=False):
     """Assemble and publish weekly streams from the candidates."""
+    timestamp = datetime.datetime.utcnow().strftime('%Y_%m_%dT%H_%M_%S')
     with temp_dir() as debs_path:
         for dir_name in get_artifact_dirs(path):
             artifacts_path = os.path.join(path, dir_name)
+            branch_name = dir_name.split('-')[0]
             for deb_name in os.listdir(artifacts_path):
                 deb_path = os.path.join(artifacts_path, deb_name)
                 if verbose:
                     print('Copying %s' % deb_path)
                 new_path = os.path.join(debs_path, deb_name)
                 shutil.copyfile(deb_path, new_path)
+                if deb_name == 'buildvars.json':
+                    # buildvars.json is also in the artifacts_path; copied by
+                    # download_candidate_files(). Set it aside so it can be
+                    # sync'd to S3 as a record of what was published.
+                    buildvar_dir = '{}/weekly/{}/{}'.format(
+                        path, timestamp, branch_name)
+                    if not os.path.isdir(buildvar_dir):
+                        os.makedirs(buildvar_dir)
+                    buildvar_path = '{}/{}'.format(buildvar_dir, deb_name)
+                    shutil.copyfile(deb_path, buildvar_path)
         assemble_script, publish_script = get_scripts(juju_release_tools)
         # XXX sinzui 2014-12-01: IGNORE uses the local juju, but when
         # testing juju's that change generate-tools, we may need to use
@@ -185,6 +201,13 @@ def publish_candidates(path, streams_path,
     juju_dist_path = os.path.join(streams_path, 'juju-dist')
     command = [publish_script,  'weekly', juju_dist_path, 'cpc']
     run_command(command, dry_run=dry_run, verbose=verbose)
+    # Sync buildvars.json files out to s3.
+    url = 's3://juju-qa-data/juju-releases/weekly/'
+    s3_path = '{}/weekly/{}'.format(path, timestamp)
+    if verbose:
+        print('Calling s3cmd to sync %s out to %s' % (s3_path, url))
+    if not dry_run:
+        s3_cmd(['sync', s3_path, url])
     extract_candidates(path, dry_run=dry_run, verbose=verbose)
 
 
