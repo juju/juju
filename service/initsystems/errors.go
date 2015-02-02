@@ -47,7 +47,6 @@ func newUnsupportedError(field, key, reason string) error {
 	var err error
 	fieldErr := ErrUnsupportedField{
 		Err:   baseErr,
-		cause: errors.NotSupportedf(message, parts...),
 		Field: field,
 	}
 	err = &fieldErr
@@ -69,13 +68,8 @@ func newUnsupportedError(field, key, reason string) error {
 type ErrUnsupportedField struct {
 	errors.Err
 
-	cause  error
 	Field  string
 	Reason string
-}
-
-func (euf ErrUnsupportedField) Cause() error {
-	return euf.cause
 }
 
 // ErrUnsupportedField is an error used to describe a conf field that

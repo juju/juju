@@ -22,12 +22,14 @@ func (s *errorsSuite) TestNewUnsupportedField(c *gc.C) {
 	err := initsystems.NewUnsupportedField("spam")
 
 	c.Check(err, gc.ErrorMatches, `field "spam" not supported`)
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, gc.FitsTypeOf, &initsystems.ErrUnsupportedField{})
+	c.Check(err, gc.Not(jc.Satisfies), errors.IsNotSupported) // unfortunately
 }
 
 func (s *errorsSuite) TestNewUnsupportedItem(c *gc.C) {
 	err := initsystems.NewUnsupportedItem("spam", "eggs")
 
 	c.Check(err, gc.ErrorMatches, `field "spam", item "eggs" not supported`)
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, gc.FitsTypeOf, &initsystems.ErrUnsupportedItem{})
+	c.Check(err, gc.Not(jc.Satisfies), errors.IsNotSupported)
 }
