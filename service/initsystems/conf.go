@@ -7,6 +7,22 @@ import (
 	"github.com/juju/errors"
 )
 
+const (
+	errUnknownField  = "reported unknown field %q as unsupported"
+	errRequiredField = "reported required field %q as unsupported"
+	errNonMapField   = "reported field %q as a map"
+)
+
+var (
+	// ErrBadInitSystemFailure is used to indicate that an InitSystem
+	// implementation is returning errors that it shouldn't be.
+	ErrBadInitSystemFailure = errors.New("init system returned an invalid error")
+
+	// ErrUnfixableField is returned from Conf.Repair when a field could
+	// not be fixed.
+	ErrUnfixableField = errors.New("could not fix conf field")
+)
+
 var (
 	// ConfOptionalFields is the names of the Conf fields that are
 	// optional. They may be empty and they may not even be supported
@@ -66,37 +82,53 @@ type Conf struct {
 	Out string
 }
 
+// Repair correct the problem reported by the error, if possible. If the
+// error is unrecognized then it is returned as-is with no change to the
+// conf. If it is recognized but the reported field is required then a
+// new error is returned that reports the situation. Likewise if a
+// non-map field is used in ErrUnsupportedItem or an unrecognized field
+// is in the error. Otherwise if the field cannot be fixed then a new
+// error is returned which indicates that.
 func (c *Conf) Repair(err error) error {
-	if !errors.IsNotSupported(err) {
-		// We don't wrap this in errors.Trace since we need to record
-		// that the error passed through here.
-		return err
-	}
+	var unfixableField string
 	switch rawErr := errors.Cause(err).(type) {
-	case ErrUnsupportedField:
+	case *ErrUnsupportedField:
 		switch rawErr.Field {
 		case "Desc", "Cmd":
-			// Oops. This is supposed to be supported.
-			return errors.Annotatef(err, `required field %q`, rawErr.Field)
+			// Oops. The field is *supposed* to be supported.
+			return errors.Wrapf(err, ErrBadInitSystemFailure, errRequiredField, rawErr.Field)
 		case "Out":
 			c.Out = ""
+		case "Env":
+			c.Env = nil
+		case "Limit":
+			c.Limit = nil
 		default:
-			return errors.Trace(err)
+			return errors.Wrapf(err, ErrBadInitSystemFailure, errUnknownField, rawErr.Field)
 		}
-	case ErrUnsupportedItem:
+	case *ErrUnsupportedItem:
 		var items map[string]string
 		switch rawErr.Field {
 		case "Env":
 			items = c.Env
 		case "Limit":
 			items = c.Limit
+		case "Desc", "Cmd", "Out":
+			// Oops. These fields should not have been used here.
+			return errors.Wrapf(err, ErrBadInitSystemFailure, errNonMapField, rawErr.Field)
 		default:
-			return errors.Trace(err)
+			return errors.Wrapf(err, ErrBadInitSystemFailure, errUnknownField, rawErr.Field)
 		}
+		// Remove the item.
 		delete(items, rawErr.Key)
 	default:
-		// Again, we don't use errors.Trace here.
+		// We don't wrap this in errors.Trace since we need to record
+		// that the error passed through here.
 		return err
+	}
+
+	if unfixableField != "" {
+		return errors.Wrapf(err, ErrUnfixableField, unfixableField)
 	}
 	return nil
 }
