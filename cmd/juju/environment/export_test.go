@@ -31,3 +31,10 @@ func NewEnsureAvailabilityCommand(haClient EnsureAvailabilityClient) *EnsureAvai
 		haClient: haClient,
 	}
 }
+
+// NewRetryProvisioningCommand returns a RetryProvisioningCommand with the api provided as specified.
+func NewRetryProvisioningCommand(api RetryProvisioningAPI) *RetryProvisioningCommand {
+	return &RetryProvisioningCommand{
+		api: api,
+	}
+}
