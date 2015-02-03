@@ -5,7 +5,6 @@ package mongo
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
@@ -24,14 +24,6 @@ const (
 	maxProcs = 20000
 
 	serviceName = "juju-db"
-)
-
-// TODO(ericsnow) Move JujuMongodPath over to files.go?
-
-// These are vars for the sake of patching during tests.
-var (
-	// JujuMongodPath holds the default path to the juju-specific mongod.
-	JujuMongodPath = "/usr/lib/juju/bin/mongod"
 )
 
 // These constants relate to MongoDB Numa support.
@@ -57,16 +49,12 @@ fi
 // machine. If the juju-bundled version of mongo exists, it will return that
 // path, otherwise it will return the command to run mongod from the path.
 func Path() (string, error) {
-	if _, err := os.Stat(JujuMongodPath); err == nil {
-		return JujuMongodPath, nil
-	}
+	jujuMongod := mongodPath()
+	return paths.Find(jujuMongod)
+}
 
-	path, err := exec.LookPath("mongod")
-	if err != nil {
-		logger.Infof("could not find %v or mongod in $PATH", JujuMongodPath)
-		return "", err
-	}
-	return path, nil
+var mongodPath = func() string {
+	return paths.NewMongo().Path()
 }
 
 // ServiceName returns the name of the init service config for mongo using

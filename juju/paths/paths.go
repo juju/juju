@@ -1,10 +1,6 @@
 package paths
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/version"
@@ -39,7 +35,7 @@ var winVals = map[osVarType]string{
 func osVal(series string, valname osVarType) (string, error) {
 	os, err := version.GetOSFromSeries(series)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	switch os {
 	case version.Windows:
@@ -47,7 +43,7 @@ func osVal(series string, valname osVarType) (string, error) {
 	default:
 		return nixVals[valname], nil
 	}
-	return "", fmt.Errorf("Unknown OS: %q", os)
+	return "", errors.Errorf("Unknown OS: %q", os)
 }
 
 // TempDir returns the path on disk to the corect tmp directory
@@ -80,28 +76,4 @@ func MustSucceed(s string, e error) string {
 		panic(e)
 	}
 	return s
-}
-
-var osStat = os.Stat
-var execLookPath = exec.LookPath
-
-// mongorestorePath will look for mongorestore binary on the system
-// and return it if mongorestore actually exists.
-// it will look first for the juju provided one and if not found make a
-// try at a system one.
-func MongorestorePath() (string, error) {
-	// TODO (perrito666) this seems to be a package decission we should not
-	// rely on it and we should be aware of /usr/lib/juju if its something
-	// of ours.
-	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"
-
-	if _, err := osStat(mongoRestoreFullPath); err == nil {
-		return mongoRestoreFullPath, nil
-	}
-
-	path, err := execLookPath("mongorestore")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return path, nil
 }

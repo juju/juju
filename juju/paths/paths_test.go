@@ -27,7 +27,9 @@ func (s *pathsSuite) TestMongorestorePathDefaultMongoExists(c *gc.C) {
 		return nil, nil
 	}
 	s.PatchValue(paths.OsStat, osStat)
-	mongoPath, err := paths.MongorestorePath()
+
+	jujuRestore := paths.NewMongo().RestorePath()
+	mongoPath, err := paths.Find(jujuRestore)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/usr/lib/juju/bin/mongorestore")
 	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})
@@ -48,7 +50,8 @@ func (s *pathsSuite) TestMongorestorePathNoDefaultMongo(c *gc.C) {
 	}
 	s.PatchValue(paths.ExecLookPath, execLookPath)
 
-	mongoPath, err := paths.MongorestorePath()
+	jujuRestore := paths.NewMongo().RestorePath()
+	mongoPath, err := paths.Find(jujuRestore)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoPath, gc.Equals, "/a/fake/mongo/path")
 	c.Assert(calledWithPaths, gc.DeepEquals, []string{"/usr/lib/juju/bin/mongorestore"})

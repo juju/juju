@@ -6,7 +6,6 @@ package backups
 import (
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -88,8 +87,6 @@ func getBackupTargetDatabases(session DBSession) (set.Strings, error) {
 	return targets, nil
 }
 
-const dumpName = "mongodump"
-
 // DBDumper is any type that dumps something to a dump dir.
 type DBDumper interface {
 	// Dump something to dumpDir.
@@ -97,22 +94,16 @@ type DBDumper interface {
 }
 
 var getMongodumpPath = func() (string, error) {
+	// We make sure that we use the mongodump that goes along with the
+	// mongod we are using.
 	mongod, err := mongo.Path()
 	if err != nil {
 		return "", errors.Annotate(err, "failed to get mongod path")
 	}
-	mongoDumpPath := filepath.Join(filepath.Dir(mongod), dumpName)
 
-	if _, err := os.Stat(mongoDumpPath); err == nil {
-		// It already exists so no need to continue.
-		return mongoDumpPath, nil
-	}
-
-	path, err := exec.LookPath(dumpName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return path, nil
+	mongoDumpPath := paths.MatchMongo(mongod).DumpPath()
+	_, err = os.Stat(mongoDumpPath)
+	return mongoDumpPath, errors.Trace(err)
 }
 
 type mongoDumper struct {
@@ -233,8 +224,11 @@ func mongoRestoreArgsForVersion(ver version.Number, dumpPath string) ([]string, 
 	}
 }
 
-var restorePath = paths.MongorestorePath
 var restoreArgsForVersion = mongoRestoreArgsForVersion
+var restorePath = func() (string, error) {
+	jujuRestore := paths.NewMongo().RestorePath()
+	return paths.Find(jujuRestore)
+}
 
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo with the dump in newMongoDumpPath returns an error if its not possible.

@@ -160,7 +160,9 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodPath = filepath.Join(c.MkDir(), "mongod")
 	err := ioutil.WriteFile(s.mongodPath, []byte("#!/bin/bash\n\nprintf %s 'db version v2.4.9'\n"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
+	s.PatchValue(mongo.MongodPath, func() string {
+		return s.mongodPath
+	})
 
 	// Patch "df" such that it always reports there's 1MB free.
 	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) {
@@ -222,7 +224,7 @@ func (s *MongoSuite) newServiceSpec(c *gc.C) mongo.ServiceSpec {
 	dataDir := c.MkDir()
 
 	return mongo.ServiceSpec{
-		Executable:  mongo.JujuMongodPath,
+		Executable:  (*mongo.MongodPath)(),
 		DBDir:       dataDir,
 		DataDir:     dataDir,
 		Port:        1234,
@@ -238,7 +240,9 @@ func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
+	s.PatchValue(mongo.MongodPath, func() string {
+		return "/not/going/to/exist/mongod"
+	})
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
 	obtained, err := mongo.Path()

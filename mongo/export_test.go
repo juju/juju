@@ -20,6 +20,7 @@ var (
 	NewServices    = &newServices
 	NewService     = &newService
 	InstallService = &installService
+	MongodPath     = &mongodPath
 
 	HostWordSize   = &hostWordSize
 	RuntimeGOOS    = &runtimeGOOS
