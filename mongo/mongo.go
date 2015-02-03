@@ -155,9 +155,7 @@ func resetAndInstall(svc *Service, args EnsureServerParams, oplogSizeMB int) err
 	dbDir := args.DBDir()
 
 	// Try stopping the service, just in case.
-	// TODO(ericsnow) Won't this break now? Is this just here to catch
-	// an orphaned juju-mongod service?
-	if err := svc.Stop(); err != nil {
+	if err := svc.Stop(); err != nil && !errors.IsNotFound(err) {
 		return errors.Errorf("failed to stop mongo: %v", err)
 	}
 
@@ -169,12 +167,14 @@ func resetAndInstall(svc *Service, args EnsureServerParams, oplogSizeMB int) err
 	// Disable the default mongodb installed by the mongodb-server package.
 	// Only do this if the file doesn't exist already, so users can run
 	// their own mongodb server if they wish to.
-	if _, err := os.Stat(mongoConfigPath); os.IsNotExist(err) {
+	_, err := os.Stat(mongoConfigPath)
+	if os.IsNotExist(err) {
 		if err := writeConf("ENABLE_MONGODB=no"); err != nil {
 			return errors.Trace(err)
 		}
+	} else if err != nil {
+		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Fail for any other error from os.Stat?
 
 	// Set up other dirs and files.
 	if err := makeJournalDirs(dbDir); err != nil {
@@ -185,7 +185,7 @@ func resetAndInstall(svc *Service, args EnsureServerParams, oplogSizeMB int) err
 	}
 
 	// Enable and start the service.
-	err := installService(svc)
+	err = installService(svc)
 	return errors.Trace(err)
 }
 
