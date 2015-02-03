@@ -297,18 +297,20 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, err
 	}
 	instanceIds, err := env.StateServerInstances()
-	if err != nil {
+	if err != nil && err != environs.ErrNoInstances {
 		return nil, errors.Annotate(err, "cannot determine state server instances")
 	}
-	if len(instanceIds) == 0 {
+	if len(instanceIds) == 0 && err != environs.ErrNoInstances {
 		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
-	inst, err := env.Instances(instanceIds)
-	if err == nil {
-		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
-	}
-	if err != environs.ErrNoInstances {
-		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
+	if len(instanceIds) > 0 {
+		inst, err := env.Instances(instanceIds)
+		if err == nil || err == environs.ErrPartialInstances {
+			return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+		}
+		if err != environs.ErrNoInstances {
+			return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
+		}
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
 	if env, ok := env.(environs.EnvironStorage); ok {
