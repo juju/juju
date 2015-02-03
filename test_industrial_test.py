@@ -127,6 +127,12 @@ class TestParseArgs(TestCase):
                            'http://example.org', QUICK])
         self.assertEqual(args.new_agent_url, 'http://example.org')
 
+    def test_parse_args_debug(self):
+        args = parse_args(['rai', 'new-juju', QUICK])
+        self.assertEqual(args.debug, False)
+        args = parse_args(['rai', 'new-juju', '--debug', QUICK])
+        self.assertEqual(args.debug, True)
+
 
 class FakeStepAttempt:
 
@@ -178,8 +184,9 @@ def temp_env(name, config=None):
 class TestMultiIndustrialTest(TestCase):
 
     def test_from_args(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=QUICK, new_agent_url=None)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
+            new_agent_url=None, debug=False)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'foo')
@@ -189,7 +196,7 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(
             mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
         args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
-                         suite=FULL, new_agent_url=None)
+                         suite=FULL, new_agent_url=None, debug=False)
         with temp_env('bar'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.env, 'bar')
@@ -202,14 +209,25 @@ class TestMultiIndustrialTest(TestCase):
                 EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
 
     def test_from_args_maas(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=DENSITY, new_agent_url=None)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
+            new_agent_url=None, debug=False)
         with temp_env('foo', {'type': 'maas'}):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
             mit.stages, [
                 BootstrapAttempt, DeployManyFactory(2, 2),
                 DestroyEnvironmentAttempt])
+
+    def test_from_args_debug(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         suite=DENSITY, new_agent_url=None, debug=False)
+        with temp_env('foo', {'type': 'maas'}):
+            mit = MultiIndustrialTest.from_args(args)
+            self.assertEqual(mit.debug, False)
+            args.debug = True
+            mit = MultiIndustrialTest.from_args(args)
+            self.assertEqual(mit.debug, True)
 
     def test_get_stages(self):
         self.assertEqual(
@@ -244,8 +262,9 @@ class TestMultiIndustrialTest(TestCase):
                 DestroyEnvironmentAttempt])
 
     def test_density_suite(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=DENSITY, new_agent_url=None)
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=DENSITY,
+            new_agent_url=None, debug=False)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -254,7 +273,7 @@ class TestMultiIndustrialTest(TestCase):
 
     def test_backup_suite(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=BACKUP, new_agent_url=None)
+                         suite=BACKUP, new_agent_url=None, debug=False)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(
@@ -262,8 +281,9 @@ class TestMultiIndustrialTest(TestCase):
                          DestroyEnvironmentAttempt])
 
     def test_from_args_new_agent_url(self):
-        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
-                         suite=QUICK, new_agent_url='http://example.net')
+        args = Namespace(
+            env='foo', new_juju_path='new-path', attempts=7, suite=QUICK,
+            new_agent_url='http://example.net', debug=False)
         with temp_env('foo'):
             mit = MultiIndustrialTest.from_args(args)
         self.assertEqual(mit.new_agent_url, 'http://example.net')
@@ -293,7 +313,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_make_industrial_test(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             DestroyEnvironmentAttempt, BootstrapAttempt], 5)
-        side_effect = lambda x, y=None: (x, y)
+        side_effect = lambda x, y=None, debug=False: (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -309,7 +329,7 @@ class TestMultiIndustrialTest(TestCase):
     def test_make_industrial_test_new_agent_url(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [],
                                   new_agent_url='http://example.com')
-        side_effect = lambda x, y=None: (x, y)
+        side_effect = lambda x, y=None, debug=False: (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -320,6 +340,21 @@ class TestMultiIndustrialTest(TestCase):
                     'tools-metadata-url': 'http://example.com'}),
                 'bar-path')
             )
+
+    def test_make_industrial_test_debug(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [],
+                                  new_agent_url='http://example.com')
+        side_effect = lambda x, y=None, debug=False: debug
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                industrial = mit.make_industrial_test()
+                self.assertEqual(industrial.new_client, False)
+                self.assertEqual(industrial.old_client, False)
+                mit.debug = True
+                industrial = mit.make_industrial_test()
+                self.assertEqual(industrial.new_client, True)
+                self.assertEqual(industrial.old_client, True)
 
     def test_update_results(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -366,7 +401,7 @@ class TestMultiIndustrialTest(TestCase):
             FakeAttemptClass('foo', True, True),
             FakeAttemptClass('bar', True, False),
             ], 5, 10)
-        side_effect = lambda x, y=None: StubJujuClient()
+        side_effect = lambda x, y=None, debug=False: StubJujuClient()
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -383,7 +418,7 @@ class TestMultiIndustrialTest(TestCase):
             FakeAttemptClass('foo', True, False),
             FakeAttemptClass('bar', True, False),
             ], 5, 6)
-        side_effect = lambda x, y=None: StubJujuClient()
+        side_effect = lambda x, y=None, debug=False: StubJujuClient()
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -400,7 +435,7 @@ class TestMultiIndustrialTest(TestCase):
             FakeAttemptClass('foo', True, False),
             FakeAttemptClass('bar', True, False),
             ], 5, 4)
-        side_effect = lambda x, y=None: StubJujuClient()
+        side_effect = lambda x, y=None, debug=False: StubJujuClient()
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -440,7 +475,7 @@ class TestIndustrialTest(TestCase):
         self.assertIs(attempt_list, industrial.stage_attempts)
 
     def test_from_args(self):
-        side_effect = lambda x, y=None: (x, y)
+        side_effect = lambda x, y=None, debug=False: (x, y)
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
@@ -453,6 +488,19 @@ class TestIndustrialTest(TestCase):
                          (SimpleEnvironment('foo-new', {}), 'new-juju-path'))
         self.assertNotEqual(industrial.old_client[0].environment,
                             industrial.new_client[0].environment)
+
+    def test_from_args_debug(self):
+        side_effect = lambda x, y=None, debug=False: debug
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config'):
+                industrial = IndustrialTest.from_args(
+                    'foo', 'new-juju-path', [], debug=False)
+                self.assertEqual(industrial.old_client, False)
+                self.assertEqual(industrial.new_client, False)
+                industrial = IndustrialTest.from_args(
+                    'foo', 'new-juju-path', [], debug=True)
+                self.assertEqual(industrial.old_client, True)
+                self.assertEqual(industrial.new_client, True)
 
     def test_run_stages(self):
         old_client = FakeEnvJujuClient('old')
