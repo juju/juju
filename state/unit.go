@@ -1700,6 +1700,11 @@ func (u *Unit) PendingActions() ([]*Action, error) {
 	return u.st.matchingActionsPending(u)
 }
 
+// RunningActions returns a list of actions running on this unit.
+func (u *Unit) RunningActions() ([]*Action, error) {
+	return u.st.matchingActionsRunning(u)
+}
+
 // Resolve marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The retryHooks parameter informs

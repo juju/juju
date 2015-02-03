@@ -18,8 +18,10 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -44,10 +46,20 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
 }
 
+var storageCommands = map[string]func(Context) cmd.Command{
+	"storage-get" + cmdSuffix: NewStorageGetCommand,
+}
+
 // CommandNames returns the names of all jujuc commands.
 func CommandNames() (names []string) {
 	for name := range newCommands {
 		names = append(names, name)
+	}
+	// TODO: stop checking feature flag once storage has graduated.
+	if featureflag.Enabled(storage.FeatureFlag) {
+		for name := range storageCommands {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	return
@@ -57,6 +69,9 @@ func CommandNames() (names []string) {
 // against the supplied Context.
 func NewCommand(ctx Context, name string) (cmd.Command, error) {
 	f := newCommands[name]
+	if f == nil && featureflag.Enabled(storage.FeatureFlag) {
+		f = storageCommands[name]
+	}
 	if f == nil {
 		return nil, fmt.Errorf("unknown command: %s", name)
 	}

@@ -179,7 +179,12 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, addresses)
+
+	expectedAddresses := []network.Address{
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+	}
+	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, expectedAddresses)
 	err = s.machine0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)

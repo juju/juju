@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 var (
@@ -52,11 +55,30 @@ func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
 
-// TestingApiHandler gives you an ApiHandler that is *barely* connected to anything.
-// Just enough to let you probe some of the interfaces of ApiHandler, but not
-// enough to actually do any RPC calls
+// TestingApiRoot gives you an ApiRoot as a rpc.Methodfinder that is
+// *barely* connected to anything.  Just enough to let you probe some
+// of the interfaces, but not enough to actually do any RPC calls.
 func TestingApiRoot(st *state.State) rpc.MethodFinder {
-	return newApiRoot(st, common.NewResources(), nil)
+	return newApiRoot(st, false, common.NewResources(), nil)
+}
+
+// TestApiRootEx creates an apiRoot for testing. It's not connected to
+// anything but allows access to some functionality.
+func TestingApiRootEx(st *state.State, closeState bool) (*apiRoot, *common.Resources) {
+	resources := common.NewResources()
+	return newApiRoot(st, closeState, resources, nil), resources
+}
+
+// TestingApiHandler gives you an ApiHandler that isn't connected to
+// anything real. It's enough to let test some basic functionality though.
+func TestingApiHandler(c *gc.C, srvSt, st *state.State) (*apiHandler, *common.Resources) {
+	srv := &Server{
+		state: srvSt,
+		tag:   names.NewMachineTag("0"),
+	}
+	h, err := newApiHandler(srv, st, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return h, h.getResources()
 }
 
 // TestingUpgradingApiHandler returns a limited srvRoot

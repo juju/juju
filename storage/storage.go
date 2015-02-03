@@ -28,8 +28,11 @@ func (k StorageKind) String() string {
 // unit.
 type StorageInstance struct {
 	// Id is a unique name assigned by Juju to the storage instance.
-	Id string `yaml:"id"`
+	Id string `yaml:"id" json:"id"`
 
 	// Kind is the kind of the datastore (block device, filesystem).
-	Kind StorageKind `yaml:"kind"`
+	Kind StorageKind `yaml:"kind" json:"kind"`
+
+	// Location is the location relevant to the datastore (block device, filesystem).
+	Location string `yaml:"location" json:"location"`
 }

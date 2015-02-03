@@ -28,6 +28,13 @@ type Manager struct {
 	leaseMgr LeadershipLeaseManager
 }
 
+// Leader returns whether or not the given unit id is currently the
+// leader for the given service ID.
+func (m *Manager) Leader(sid, uid string) bool {
+	tok := m.leaseMgr.RetrieveLease(leadershipNamespace(sid))
+	return tok.Id == uid
+}
+
 // ClaimLeadership implements the LeadershipManager interface.
 func (m *Manager) ClaimLeadership(sid, uid string) (time.Duration, error) {
 

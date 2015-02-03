@@ -17,8 +17,10 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/cachedimages"
+	"github.com/juju/juju/cmd/juju/charms"
 	"github.com/juju/juju/cmd/juju/environment"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
@@ -136,7 +138,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&ResolvedCommand{}))
 	r.Register(wrapEnvCommand(&DebugLogCommand{}))
 	r.Register(wrapEnvCommand(&DebugHooksCommand{}))
-	r.Register(wrapEnvCommand(&RetryProvisioningCommand{}))
 
 	// Configuration commands.
 	r.Register(&InitCommand{})
@@ -156,6 +157,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(&HelpToolCommand{})
+
+	// Charm management commands.
+	r.Register(charms.NewSuperCommand())
 
 	// Manage backups.
 	r.Register(backups.NewCommand())
@@ -184,18 +188,22 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.RegisterSuperAlias("set-env", "environment", "set", twoDotOhDeprecation("environment set"))
 	r.RegisterSuperAlias("unset-environment", "environment", "unset", twoDotOhDeprecation("environment unset"))
 	r.RegisterSuperAlias("unset-env", "environment", "unset", twoDotOhDeprecation("environment unset"))
+	r.RegisterSuperAlias("ensure-availability", "environment", "ensure-availability", twoDotOhDeprecation("environment ensure-availability"))
+	r.RegisterSuperAlias("retry-provisioning", "environment", "retry-provisioning", twoDotOhDeprecation("environment retry-provisioning"))
 
 	// Manage and control actions.
 	if featureflag.Enabled(feature.Actions) {
 		r.Register(action.NewSuperCommand())
 	}
 
-	// Manage state server availability.
-	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
-
 	// Operation protection commands
 	r.Register(wrapEnvCommand(&block.BlockCommand{}))
 	r.Register(wrapEnvCommand(&block.UnblockCommand{}))
+
+	// Manage storage
+	if featureflag.Enabled(feature.Storage) {
+		r.Register(storage.NewSuperCommand())
+	}
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle

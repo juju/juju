@@ -105,7 +105,7 @@ func AcquireTemplateLock(name, message string) (*container.Lock, error) {
 func EnsureCloneTemplate(
 	backingFilesystem string,
 	series string,
-	network *container.NetworkConfig,
+	networkConfig *container.NetworkConfig,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
 	aptMirror string,
@@ -176,7 +176,7 @@ func EnsureCloneTemplate(
 	err = createContainer(
 		lxcContainer,
 		containerDirectory,
-		network,
+		networkConfig,
 		extraCreateArgs,
 		templateParams,
 		caCert,

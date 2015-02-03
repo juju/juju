@@ -17,7 +17,9 @@ type steps123Suite struct {
 var _ = gc.Suite(&steps123Suite{})
 
 func (s *steps123Suite) TestStateStepsFor123(c *gc.C) {
-	expected := []string{}
+	expected := []string{
+		"drop old mongo indexes",
+	}
 	assertStateSteps(c, version.MustParse("1.23.0"), expected)
 }
 

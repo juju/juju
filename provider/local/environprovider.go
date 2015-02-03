@@ -117,8 +117,18 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 
 var detectAptProxies = apt.DetectProxies
 
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p environProvider) RestrictedConfigAttributes() []string {
+	return []string{ContainerKey, NetworkBridgeKey, RootDirKey}
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
 // Prepare implements environs.EnvironProvider.Prepare.
-func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// The user must not set bootstrap-ip; this is determined by the provider,
 	// and its presence used to determine whether the environment has yet been
 	// bootstrapped.

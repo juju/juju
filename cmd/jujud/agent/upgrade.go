@@ -233,7 +233,6 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 	if err := c.finaliseUpgrade(upgradeInfo); err != nil {
 		return err
 	}
-
 	return nil
 }
 

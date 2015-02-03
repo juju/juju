@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 )
 
 // Policy is an interface provided to State that may
@@ -71,20 +70,11 @@ type EnvironCapability interface {
 	// be hosted by this environment.
 	SupportedArchitectures() ([]string, error)
 
-	// SupportNetworks returns whether the environment has support to
-	// specify networks for services and machines.
-	SupportNetworks() bool
-
 	// SupportsUnitAssignment returns an error which, if non-nil, indicates
 	// that the environment does not support unit placement. If the environment
 	// does not support unit placement, then machines may not be created
 	// without units, and units cannot be placed explcitly.
 	SupportsUnitPlacement() error
-
-	// SupportAddressAllocation takes a network.Id and returns a bool
-	// and an error. The bool indicates whether that network supports
-	// static ip address allocation.
-	SupportAddressAllocation(netId network.Id) (bool, error)
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
