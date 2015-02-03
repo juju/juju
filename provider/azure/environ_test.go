@@ -255,10 +255,13 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesReques
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *gc.C) {
-	services := []gwacl.HostedServiceDescriptor{}
-	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
-	instances, err := env.Instances([]instance.Id{"deploy-id"})
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"service")
+	service.Deployments = nil
+	patchInstancesResponses(c, prefix, service)
+
+	instances, err := env.Instances([]instance.Id{instance.Id(prefix + "service-unknown")})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
@@ -501,7 +504,7 @@ func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) 
 	patchInstancesResponses(c, prefix, service)
 
 	_, err := env.StateServerInstances()
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNoInstances)
 }
 
 func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
