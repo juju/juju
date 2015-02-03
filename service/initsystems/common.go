@@ -24,3 +24,21 @@ func EnsureEnabled(name string, is enabledChecker) error {
 	}
 	return nil
 }
+
+// FilterNames filters out any name in names that isn't in include.
+func FilterNames(names, include []string) []string {
+	if len(include) == 0 {
+		return names
+	}
+
+	var filtered []string
+	for _, name := range names {
+		for _, included := range include {
+			if name == included {
+				filtered = append(filtered, name)
+				break
+			}
+		}
+	}
+	return filtered
+}

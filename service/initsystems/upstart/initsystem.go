@@ -70,19 +70,7 @@ func (is *upstart) List(include ...string) ([]string, error) {
 		}
 	}
 
-	if len(include) > 0 {
-		var filtered []string
-		for _, name := range services {
-			for _, included := range include {
-				if name == included {
-					filtered = append(filtered, name)
-					break
-				}
-			}
-		}
-		services = filtered
-	}
-	return services, nil
+	return initsystems.FilterNames(services, include), nil
 }
 
 // Start implements initsystems.InitSystem.
