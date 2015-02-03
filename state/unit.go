@@ -1540,21 +1540,18 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, noCleanMachines
 	}
 
-	context += "1 "
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
 	cons, err := u.Constraints()
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	context += "2 "
 	query, closer, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
 	defer closer()
-	context += "3 "
 
 	// Find all of the candidate machines, and associated
 	// instances for those that are provisioned. Instances
@@ -1565,7 +1562,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	context += "4 "
 	var unprovisioned []*Machine
 	var instances []instance.Id
 	instanceMachines := make(map[instance.Id]*Machine)
@@ -1590,13 +1586,11 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// Shuffle machines to reduce likelihood of collisions.
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
-	context += "5 "
 	if instances, err = distributeUnit(u, instances); err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
 	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
-	context += "6 "
 	for i, instance := range instances {
 		m, ok := instanceMachines[instance]
 		if !ok {
@@ -1739,7 +1733,7 @@ func (u *Unit) PendingActions() ([]*Action, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
-	status, _, _, err := u.Status()
+	status, _, _, err := u.AgentStatus()
 	if err != nil {
 		return err
 	}
