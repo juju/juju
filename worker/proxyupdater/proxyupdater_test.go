@@ -164,6 +164,16 @@ func (s *ProxyUpdaterSuite) TestWriteSystemFiles(c *gc.C) {
 	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
 }
 
+func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
+	proxySettings, _ := s.updateConfig(c)
+
+	updater := proxyupdater.New(s.environmentAPI, true)
+	defer worker.Stop(updater)
+	s.waitForPostSetup(c)
+
+	s.waitProxySettings(c, proxySettings)
+}
+
 func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
 	proxySettings, _ := s.updateConfig(c)
 
