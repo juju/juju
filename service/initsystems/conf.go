@@ -4,6 +4,8 @@
 package initsystems
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 )
 
@@ -47,12 +49,12 @@ var (
 // the Conf.Repair method, which performs an in-place fix if possible.
 type Conf struct {
 	// Desc is a description of the service.
-	Desc string
+	Desc string `json:"description"`
 
 	// Cmd is the command (with arguments) that will be run. It may be
 	// just the path to another scipt that holds a more complex command
 	// or a series of them.
-	Cmd string
+	Cmd string `json:"startexec"`
 
 	// Env holds the environment variables that will be set when the
 	// command runs. Env is optional and may not be supported by all
@@ -63,7 +65,7 @@ type Conf struct {
 	// with errors.NotSupported error holding the string "Env name:"
 	// followed by the name of the variable. Likewise for values:
 	// "Env value:" followed by the variable name.
-	Env map[string]string
+	Env map[string]string `json:"env,omitempty"`
 
 	// Limit holds the ulimit values that will be set when the command
 	// runs. Limit is optional and may not be supported by all
@@ -74,12 +76,12 @@ type Conf struct {
 	// with errors.NotSupported error holding the string "Env name:"
 	// followed by the name of the variable. Likewise for values:
 	// "Env value:" followed by the variable name.
-	Limit map[string]string
+	Limit map[string]string `json:"limit,omitempty"`
 
 	// Out is the path to the file where the command's output should
 	// be written. Out is optional and may not be supported by all
 	// InitSystem implementations.
-	Out string
+	Out string `json:"out,omitempty"`
 }
 
 // Repair correct the problem reported by the error, if possible. If the
@@ -179,4 +181,17 @@ func compareStrMaps(map1, map2 map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// SerializeJSON converts the conf into a JSON string.
+func SerializeJSON(conf Conf) ([]byte, error) {
+	data, err := json.MarshalIndent(&conf, "", " ")
+	return data, errors.Trace(err)
+}
+
+// DeserializeJSON converts the data into the equivalent Conf, if possible.
+func DeserializeJSON(data []byte) (Conf, error) {
+	var conf Conf
+	err := json.Unmarshal(data, &conf)
+	return conf, errors.Trace(err)
 }

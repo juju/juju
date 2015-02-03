@@ -6,7 +6,6 @@ package windows
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	"github.com/juju/errors"
@@ -14,8 +13,12 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
+// TODO(ericsnow) Remove juju-specific pieces.
+
 type windows struct {
 	name string
+	fops fileOperations
+	cmd  cmdRunner
 }
 
 // NewInitSystem returns a new value that implements
@@ -23,6 +26,8 @@ type windows struct {
 func NewInitSystem(name string) initsystems.InitSystem {
 	return &windows{
 		name: name,
+		fops: newFileOperations(),
+		cmd:  newCmdRunner(),
 	}
 }
 
@@ -33,11 +38,12 @@ func (is *windows) Name() string {
 
 // List implements service/initsystems.InitSystem.
 func (is *windows) List(include ...string) ([]string, error) {
-	out, err := initsystems.RunPsCommand(`(Get-Service).Name`)
+	out, err := is.cmd.RunCommandStr(`(Get-Service).Name`)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return strings.Fields(string(out.Stdout)), nil
+	services := strings.Fields(string(out))
+	return initsystems.FilterNames(services, include), nil
 }
 
 // Start implements service/initsystems.InitSystem.
@@ -57,7 +63,7 @@ func (is *windows) Start(name string) error {
 
 	// Send the start request.
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Start-Service  "%s"`, name)
-	_, err = initsystems.RunPsCommand(cmd)
+	_, err = is.cmd.RunCommandStr(cmd)
 	return err
 }
 
@@ -78,70 +84,37 @@ func (is *windows) Stop(name string) error {
 
 	// Send the stop request.
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Stop-Service  "%s"`, name)
-	_, err = initsystems.RunPsCommand(cmd)
+	_, err = is.cmd.RunCommandStr(cmd)
 	return err
-}
-
-func (is *windows) readConf(filename string) (*initsystems.Conf, error) {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	conf, err := is.Deserialize(data)
-	return conf, errors.Trace(err)
 }
 
 // Enable implements service/initsystems.InitSystem.
 func (is *windows) Enable(name, filename string) error {
-	// TODO(ericsnow) Finish!
-	return nil
+	enabled, err := is.IsEnabled(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if enabled {
+		return errors.AlreadyExistsf("service %q", name)
+	}
 
-	conf, err := is.readConf(filename)
+	data, err := is.fops.ReadFile(filename)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	conf, err := is.Deserialize(data)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := Validate(name, *conf); err != nil {
-		return errors.Trace(err)
-	}
-
-	// (from environs/cloudinit/cloudinit_win.go)
-	commands := []string{
-		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'`, name, conf.Desc, conf.Cmd),
-		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, name),
-		fmt.Sprintf(`Start-Service %s`, name),
-	}
-
+	commands := installCommands(name, *conf)
 	for _, command := range commands {
-		_, err := initsystems.RunPsCommand(command)
+		_, err := is.cmd.RunCommandStr(command)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
-	/*
-		        // From the old Install method.
-				err := Validate(s.Name, s.Conf)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if s.Installed() {
-					return errors.New(fmt.Sprintf("Service %s already installed", s.Name))
-				}
-
-				logger.Infof("Installing Service %v", s.Name)
-				cmd := fmt.Sprintf(serviceInstallScript,
-					s.Name,
-					s.Conf.Desc,
-					s.Conf.Cmd)
-				outCmd, errCmd := initsystems.RunPsCommand(cmd)
-
-				if errCmd != nil {
-					logger.Infof("ERROR installing service %v --> %v", outCmd, errCmd)
-					return errCmd
-				}
-				return s.Start()
-	*/
 }
 
 // Disable implements service/initsystems.InitSystem.
@@ -150,14 +123,8 @@ func (is *windows) Disable(name string) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Finish!
-	return nil
-	_, err := is.status(name)
-	if err != nil {
-		return err
-	}
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (gwmi win32_service -filter 'name="%s"').Delete()`, name)
-	_, err = initsystems.RunPsCommand(cmd)
+	_, err := is.cmd.RunCommandStr(cmd)
 	return err
 }
 
@@ -174,6 +141,10 @@ func (is *windows) IsEnabled(name string) (bool, error) {
 }
 
 func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	// TODO(ericsnow) Check for a specific error (or error message).
 	return true
 }
@@ -188,9 +159,11 @@ func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// TODO(ericsnow) Pull the description from somewhere?
+
 	info := &initsystems.ServiceInfo{
 		Name: name,
-		// Desc
+		// Description
 		Status: status,
 	}
 	return info, nil
@@ -198,14 +171,19 @@ func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 
 func (is *windows) status(name string) (string, error) {
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").Status`, name)
-	out, err := initsystems.RunPsCommand(cmd)
+	out, err := is.cmd.RunCommandStr(cmd)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	status := initsystems.StatusRunning
-	if strings.TrimSpace(string(out.Stdout)) == "Stopped" {
+	var status string
+	switch strings.TrimSpace(string(out)) {
+	case "Stopped":
 		status = initsystems.StatusStopped
+	default:
+		// TODO(ericsnow) Fail here and handle "Running" in a case.
+		status = initsystems.StatusRunning
+
 	}
 	return status, nil
 }
@@ -239,12 +217,21 @@ func (is *windows) Deserialize(data []byte) (*initsystems.Conf, error) {
 }
 
 // for cloud-init:
-func installCommands(name string, conf initsystems.Conf) ([]string, error) {
+func installCommands(name string, conf initsystems.Conf) []string {
+	// (from environs/cloudinit/cloudinit_win.go)
+	return []string{
+		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'`, name, conf.Desc, conf.Cmd),
+		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, name),
+		fmt.Sprintf(`Start-Service %s`, name),
+	}
+
+	// TODO(ericsnow) Use the full install script (from
+	// service/windows/service.go)?
 	cmd := fmt.Sprintf(serviceInstallScript,
 		name,
 		conf.Desc,
 		conf.Cmd)
-	return strings.Split(cmd, "\n"), nil
+	return strings.Split(cmd, "\n")
 }
 
 var serviceInstallScript = `$data = Get-Content "C:\Juju\Jujud.pass"

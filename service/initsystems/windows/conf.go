@@ -31,13 +31,21 @@ func Validate(name string, conf initsystems.Conf) error {
 // resulting data will be in the prefered format for consumption by
 // the init system.
 func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
+	if err := Validate(name, conf); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	data, err := initsystems.SerializeJSON(conf)
+	return data, errors.Trace(err)
 }
 
 // Deserialize parses the provided data (in the init system's prefered
 // format) and populates a new Conf with the result.
 func Deserialize(data []byte) (*initsystems.Conf, error) {
-	// TODO(ericsnow) Finish!
-	return nil, nil
+	conf, err := initsystems.DeserializeJSON(data)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = Validate("<>", conf)
+	return &conf, errors.Trace(err)
 }
