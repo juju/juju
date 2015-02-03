@@ -72,6 +72,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			st.Close()
 		}
 	}()
+	st.environTag = names.NewEnvironTag(uuid)
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
@@ -87,7 +88,6 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	if !ok {
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
-	st.environTag = names.NewEnvironTag(uuid)
 	st.startPresenceWatcher()
 
 	ops, err := st.envSetupOps(cfg, "", owner)

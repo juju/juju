@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -252,10 +251,6 @@ func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) 
 
 func NewActionStatusWatcher(st *State, receivers []ActionReceiver, statuses ...ActionStatus) StringsWatcher {
 	return newActionStatusWatcher(st, receivers, statuses...)
-}
-
-func NewState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
-	return newState(session, mongoInfo, policy)
 }
 
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {

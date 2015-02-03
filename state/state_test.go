@@ -2745,21 +2745,6 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func (s *StateSuite) TestEnvironmentFailsWhenEnvironTagNotSet(c *gc.C) {
-	info := statetesting.NewMongoInfo()
-	session, err := mongo.DialWithInfo(info.Info, statetesting.NewDialOpts())
-	defer session.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	st, err := state.NewState(session, info, state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Don't set environment tag
-	env, err := st.Environment()
-	c.Assert(env, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "environment not found")
-}
-
 func tryOpenState(info *mongo.MongoInfo) error {
 	st, err := state.Open(info, statetesting.NewDialOpts(), state.Policy(nil))
 	if err == nil {
