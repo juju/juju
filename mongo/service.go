@@ -265,19 +265,13 @@ var RemoveService = func(namespace string) error {
 	return errors.Trace(err)
 }
 
-// upstartServices wraps the methods of service/upstart.Service that
-// are needed in mongo/admin.go. This facilitates mocking it out in
-// tests.
-type upstartServices struct{}
-
-// Start wraps service/upstart/Service.Start.
-func (upstartServices) Start(name string) error {
-	svc := upstart.NewService(name, common.Conf{})
-	return svc.Start()
+// adminService has the service.Service methods needed by mongo/admin.go.
+type adminService interface {
+	Start() error
+	Stop() error
 }
 
-// Start wraps service/upstart/Service.Stop.
-func (upstartServices) Stop(name string) error {
-	svc := upstart.NewService(name, common.Conf{})
-	return svc.Stop()
+var newAdminService = func(namespace, dataDir string) (adminService, error) {
+	svcName := ServiceName(namespace)
+	return upstart.NewService(svcName, common.Conf{}), nil
 }

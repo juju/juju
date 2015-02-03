@@ -37,15 +37,6 @@ type EnsureAdminUserParams struct {
 	Password string
 }
 
-type services interface {
-	Start(name string) error
-	Stop(name string) error
-}
-
-var newServices = func(dataDir string) (services, error) {
-	return &upstartServices{}, nil
-}
-
 // EnsureAdminUser ensures that the specified user and password
 // are added to the admin database.
 //
@@ -85,12 +76,12 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 
 	// Login failed, so we need to add the user.
 	// Stop mongo, so we can start it in --noauth mode.
-	services, err := newServices(p.DataDir)
+	service, err := newAdminService(p.Namespace, p.DataDir)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	svcName := ServiceName(p.Namespace)
-	if err := services.Stop(svcName); err != nil {
+	if err := service.Stop(); err != nil {
+		svcName := ServiceName(p.Namespace)
 		return false, errors.Annotatef(err, "failed to stop %v", svcName)
 	}
 
@@ -126,7 +117,8 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 			return false, fmt.Errorf("mongod did not cleanly terminate: %v", err)
 		}
 	}
-	if err := services.Start(svcName); err != nil {
+	if err := service.Start(); err != nil {
+		svcName := ServiceName(p.Namespace)
 		return false, errors.Annotatef(err, "failed to restart %v", svcName)
 	}
 	return true, nil

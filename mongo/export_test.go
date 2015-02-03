@@ -17,10 +17,10 @@ var (
 	SharedSecretPath = sharedSecretPath
 	SSLKeyPath       = sslKeyPath
 
-	NewServices    = &newServices
-	NewService     = &newService
-	InstallService = &installService
-	MongodPath     = &mongodPath
+	NewAdminService = &newAdminService
+	NewService      = &newService
+	InstallService  = &installService
+	MongodPath      = &mongodPath
 
 	HostWordSize   = &hostWordSize
 	RuntimeGOOS    = &runtimeGOOS
@@ -35,8 +35,8 @@ var (
 	PreallocFiles     = preallocFiles
 )
 
-func NewServicesClosure(s services) func(string) (services, error) {
-	return func(string) (services, error) {
+func NewServiceClosure(s adminService) func(string, string) (adminService, error) {
+	return func(string, string) (adminService, error) {
 		return s, nil
 	}
 }

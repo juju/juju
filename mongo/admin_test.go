@@ -19,17 +19,17 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type fakeServices struct {
+type fakeAdminService struct {
 	starts int
 	stops  int
 }
 
-func (fs *fakeServices) Start(name string) error {
+func (fs *fakeAdminService) Start() error {
 	fs.starts++
 	return nil
 }
 
-func (fs *fakeServices) Stop(name string) error {
+func (fs *fakeAdminService) Stop() error {
 	fs.stops++
 	return nil
 }
@@ -37,7 +37,7 @@ func (fs *fakeServices) Stop(name string) error {
 type adminSuite struct {
 	coretesting.BaseSuite
 
-	services *fakeServices
+	service *fakeAdminService
 }
 
 var _ = gc.Suite(&adminSuite{})
@@ -45,8 +45,8 @@ var _ = gc.Suite(&adminSuite{})
 func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.services = &fakeServices{}
-	s.PatchValue(mongo.NewServices, mongo.NewServicesClosure(s.services))
+	s.service = &fakeAdminService{}
+	s.PatchValue(mongo.NewAdminService, mongo.NewServiceClosure(s.service))
 }
 
 func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
@@ -75,8 +75,8 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	// EnsureAdminUser should have stopped the mongo service,
 	// started a new mongod with --noauth, and then finally
 	// started the service back up.
-	c.Assert(s.services.starts, gc.Equals, 1)
-	c.Assert(s.services.stops, gc.Equals, 1)
+	c.Assert(s.service.starts, gc.Equals, 1)
+	c.Assert(s.service.stops, gc.Equals, 1)
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
 	c.Assert(err, jc.ErrorIsNil)
 	gitjujutesting.AssertEchoArgs(c, "mongod",
@@ -99,8 +99,8 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	c.Assert(added, jc.IsFalse)
 
 	// There should have been no additional start/stop.
-	c.Assert(s.services.starts, gc.Equals, 1)
-	c.Assert(s.services.stops, gc.Equals, 1)
+	c.Assert(s.service.starts, gc.Equals, 1)
+	c.Assert(s.service.stops, gc.Equals, 1)
 }
 
 func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
