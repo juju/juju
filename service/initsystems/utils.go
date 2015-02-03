@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	"github.com/juju/utils"
 	uexec "github.com/juju/utils/exec"
 )
@@ -39,20 +40,43 @@ func RunPsCommand(cmd string) (*uexec.ExecResponse, error) {
 	return out, nil
 }
 
-// RunCommand runs the provided shell command and args on the local
-// host. This is useful for InitSystem implementations that cannot make
-// another mechanism (e.g. Go bindings).
-func RunCommand(cmdAndArgs ...string) error {
-	cmd := cmdAndArgs[0]
-	args := cmdAndArgs[1:]
+// TODO(ericsnow) Move Commands, etc. to the utils repo (utils/exec?).
+
+type Shell interface {
+	// RunCommand runs the provided shell command and args and returns
+	// the shell output.
+	RunCommand(cmd string, args ...string) ([]byte, error)
+}
+
+// LocalShell is a Shell implementation that operates on the local host.
+type LocalShell struct{}
+
+// RunCommand implements Shell.
+func (s LocalShell) RunCommand(cmd string, args ...string) ([]byte, error) {
 	out, err := exec.Command(cmd, args...).CombinedOutput()
 	if err == nil {
-		return nil
+		return out, nil
 	}
 
+	cmdAndArgs := append([]string{cmd}, args...)
 	out = bytes.TrimSpace(out)
 	if len(out) > 0 {
-		return errors.Annotatef(err, "exec %q: (%s)", cmdAndArgs, out)
+		return nil, errors.Annotatef(err, "exec %q: (%s)", cmdAndArgs, out)
 	}
-	return errors.Annotatef(err, "exec %q", cmdAndArgs)
+	return nil, errors.Annotatef(err, "exec %q", cmdAndArgs)
+}
+
+type FakeShell struct {
+	testing.Fake
+	// Out is the return value for RunCommand.
+	Out []byte
+}
+
+// RunCommand implements Shell.
+func (fs *FakeShell) RunCommand(cmd string, args ...string) ([]byte, error) {
+	fs.AddCall("RunCommand", testing.FakeCallArgs{
+		"cmd":  cmd,
+		"args": args,
+	})
+	return fs.Out, fs.Err()
 }

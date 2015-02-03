@@ -61,7 +61,7 @@ func Deserialize(data []byte) (*initsystems.Conf, error) {
 			}
 			start := len("env ")
 			parts := strings.SplitN(line[start:], "=", 2)
-			conf.Env[parts[0]] = parts[1]
+			conf.Env[parts[0]] = strings.Trim(parts[1], `"`)
 			continue
 		}
 		if strings.HasPrefix(line, "limit ") {
@@ -69,7 +69,7 @@ func Deserialize(data []byte) (*initsystems.Conf, error) {
 				conf.Limit = make(map[string]string)
 			}
 			start := len("limit ")
-			parts := strings.SplitN(line[start:], "=", 2)
+			parts := strings.SplitN(line[start:], " ", 2)
 			conf.Limit[parts[0]] = parts[1]
 			continue
 		}
@@ -86,6 +86,10 @@ func Deserialize(data []byte) (*initsystems.Conf, error) {
 
 	return &conf, nil
 }
+
+// TODO(ericsnow) Do not hard-code the author in the template (use Conf.Meta).
+// TODO(ericsnow) Eliminate the blank lines due to templating (e.g. env).
+// TODO(ericsnow) Move the Out touch/chown/chmod part to Conf.PreStart.
 
 // BUG: %q quoting does not necessarily match libnih quoting rules
 // (as used by upstart); this may become an issue in the future.
