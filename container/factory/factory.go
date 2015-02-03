@@ -6,7 +6,7 @@
 package factory
 
 import (
-	"fmt"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
@@ -24,5 +24,5 @@ func NewContainerManager(forType instance.ContainerType, conf container.ManagerC
 	case instance.KVM:
 		return kvm.NewContainerManager(conf)
 	}
-	return nil, fmt.Errorf("unknown container type: %q", forType)
+	return nil, errors.Errorf("unknown container type: %q", forType)
 }
