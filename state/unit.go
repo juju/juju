@@ -1733,7 +1733,7 @@ func (u *Unit) PendingActions() ([]*Action, error) {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) Resolve(retryHooks bool) error {
-	status, _, _, err := u.AgentStatus()
+	status, _, _, err := u.Status()
 	if err != nil {
 		return err
 	}
