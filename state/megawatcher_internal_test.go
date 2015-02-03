@@ -33,6 +33,7 @@ var (
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
+	_ backingEntityDoc = (*backingAction)(nil)
 )
 
 var dottedConfig = `
@@ -983,6 +984,24 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Id: st.docID("s#foo"),
 				}}
 		},
+		// Action changes
+		func(c *gc.C, st *State) testCase {
+			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
+			u, err := wordpress.AddUnit()
+			c.Assert(err, jc.ErrorIsNil)
+			action, err := st.EnqueueAction(u.Tag(), "vaccuumdb", map[string]interface{}{})
+			c.Assert(err, jc.ErrorIsNil)
+			enqueued := makeActionInfo(action, st)
+			action, err = action.Begin()
+			c.Assert(err, jc.ErrorIsNil)
+			started := makeActionInfo(action, st)
+			return testCase{
+				about:          "action change picks up last change",
+				add:            []multiwatcher.EntityInfo{&enqueued, &started},
+				change:         watcher.Change{C: actionsC, Id: st.docID(action.Id())},
+				expectContents: []multiwatcher.EntityInfo{&started},
+			}
+		},
 	} {
 		test := testFunc(c, s.state)
 
@@ -1350,4 +1369,20 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 		}
 	}
 	return m
+}
+
+func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
+	results, message := a.Results()
+	return multiwatcher.ActionInfo{
+		Id:         st.docID(a.Id()),
+		Receiver:   a.Receiver(),
+		Name:       a.Name(),
+		Parameters: a.Parameters(),
+		Status:     string(a.Status()),
+		Message:    message,
+		Results:    results,
+		Enqueued:   a.Enqueued(),
+		Started:    a.Started(),
+		Completed:  a.Completed(),
+	}
 }
