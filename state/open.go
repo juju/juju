@@ -76,7 +76,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	// state has already been initalized. If this is the case
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
-		return st, nil
+		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -111,8 +111,7 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	)
 
 	if err := st.runTransactionNoEnvAliveAssert(ops); err == txn.ErrAborted {
-		// The config was created in the meantime.
-		return st, nil
+		return nil, errors.New("already initialized")
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

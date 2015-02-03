@@ -107,25 +107,12 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
-	initial := cfg.AllAttrs()
 	owner := names.NewLocalUserTag("initialize-admin")
 	st := statetesting.Initialize(c, owner, cfg, nil)
 	st.Close()
 
-	// A second initialize returns an open *State, but ignores its params.
-	// TODO(fwereade) I think this is crazy, but it's what we were testing
-	// for originally...
-	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
-	c.Assert(err, jc.ErrorIsNil)
-	st, err = state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), state.Policy(nil))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(st, gc.NotNil)
-	st.Close()
-
-	s.openState(c)
-	cfg, err = s.State.EnvironConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
+	_, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.ErrorMatches, "already initialized")
 }
 
 func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
