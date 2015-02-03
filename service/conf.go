@@ -24,11 +24,14 @@ func (c Conf) Script() (string, error) {
 	if len(c.Cmd) == 0 {
 		return "", errors.New("missing Cmd")
 	}
-	if len(c.ExtraScript) == 0 {
-		return c.Cmd, nil
+
+	script := c.Cmd
+	if len(c.ExtraScript) > 0 {
+		// TODO(ericsnow) Fix this on Windows.
+		script = c.ExtraScript + "\n" + script
 	}
-	// TODO(ericsnow) Fix this on Windows.
-	return c.ExtraScript + "\n" + c.Cmd, nil
+
+	return script, nil
 }
 
 // normalize composes an initsystems.Conf from the service Conf. This
