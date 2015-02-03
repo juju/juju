@@ -187,6 +187,9 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariables(c *gc.C) {
 		c.Assert(os.Getenv(strings.ToUpper(proxy)), gc.Equals, value)
 	}
 	assertEnv("http_proxy", proxySettings.Http)
+	assertEnv("https_proxy", proxySettings.Https)
+	assertEnv("ftp_proxy", proxySettings.Ftp)
+	assertEnv("no_proxy", proxySettings.NoProxy)
 }
 
 func (s *ProxyUpdaterSuite) TestDontWriteSystemFiles(c *gc.C) {
