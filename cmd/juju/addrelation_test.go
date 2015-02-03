@@ -4,9 +4,10 @@
 package main
 
 import (
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"

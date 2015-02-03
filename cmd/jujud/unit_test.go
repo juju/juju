@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"fmt"
+
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
