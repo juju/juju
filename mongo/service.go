@@ -221,5 +221,5 @@ type adminService interface {
 
 var newAdminService = func(namespace, dataDir string) (adminService, error) {
 	svcName := ServiceName(namespace)
-	return service.NewService(svcName, dataDir, common.Conf{})
+	return service.NewService(svcName, dataDir, service.Conf{})
 }
