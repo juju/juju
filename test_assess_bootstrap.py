@@ -2,6 +2,7 @@ from assess_bootstrap import parse_args
 
 from unittest import TestCase
 
+
 class TestParseArgs(TestCase):
 
     def test_parse_args(self):
@@ -13,4 +14,3 @@ class TestParseArgs(TestCase):
     def test_parse_args_debug(self):
         args = parse_args(['foo', 'bar', '--debug'])
         self.assertEqual(args.debug, True)
-
