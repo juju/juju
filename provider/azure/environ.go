@@ -415,7 +415,7 @@ func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
 		stateServerInstanceIds = append(stateServerInstanceIds, instanceIds...)
 	}
 	if len(stateServerInstanceIds) == 0 {
-		return nil, environs.ErrNotBootstrapped
+		return nil, environs.ErrNoInstances
 	}
 	return stateServerInstanceIds, nil
 }
@@ -1082,7 +1082,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		hostedServices[s.ServiceName] = hostedService
 	}
 
-	err = nil
+	var validInstances int
 	instances := make([]instance.Instance, len(ids))
 	for i, id := range instancesIds {
 		if id.serviceName == "" {
@@ -1093,14 +1093,20 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		instance, err := snap.getInstance(hostedService, id.roleName)
 		if err == nil {
 			instances[i] = instance
+			validInstances++
 		} else {
 			logger.Debugf("failed to get instance for role %q in service %q: %v", id.roleName, hostedService.ServiceName, err)
 		}
 	}
-	for _, instance := range instances {
-		if instance == nil {
-			err = environs.ErrPartialInstances
-		}
+
+	switch validInstances {
+	case len(instances):
+		err = nil
+	case 0:
+		instances = nil
+		err = environs.ErrNoInstances
+	default:
+		err = environs.ErrPartialInstances
 	}
 	return instances, err
 }
