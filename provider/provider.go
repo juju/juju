@@ -8,9 +8,9 @@
 package provider
 
 const (
-	Joyent    = "joyent"
-	Local     = "local"
-	MAAS      = "maas"
+	Joyent = "joyent"
+	Local  = "local"
+	MAAS   = "maas"
 )
 
 // IsManual returns true iff the specified provider
