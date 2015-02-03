@@ -100,9 +100,13 @@ func EnsureServer(args EnsureServerParams) error {
 	// Extrapolate data from the args.
 	// TODO(ericsnow) If we passed args.DataDir here instead of dbDir
 	// then we could move creating the DB dir into resetAndInstall.
-	oplogSizeMB, err := getOplogSizeMB(args.OplogSize, dbDir)
-	if err != nil {
-		return errors.Trace(err)
+	oplogSizeMB := args.OplogSize
+	if oplogSizeMB == 0 {
+		defaultSize, err := defaultOplogSize(dbDir)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		oplogSizeMB = defaultSize
 	}
 
 	// TODO(ericsnow) Why do we apt-get install mongo here (before
@@ -142,15 +146,6 @@ func EnsureServer(args EnsureServerParams) error {
 	// Service not installed, so reset the configs and install it.
 	err = resetAndInstall(svc, args, oplogSizeMB)
 	return errors.Trace(err)
-}
-
-func getOplogSizeMB(hint int, dbDir string) (int, error) {
-	if hint > 0 {
-		return hint, nil
-	}
-
-	oplogSizeMB, err := defaultOplogSize(dbDir)
-	return oplogSizeMB, errors.Trace(err)
 }
 
 func resetAndInstall(svc *Service, args EnsureServerParams, oplogSizeMB int) error {
