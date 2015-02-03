@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
@@ -99,12 +100,21 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 					"bar": "baz",
 				},
 			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 		}},
-		expectedOutput: "message: oh dear\n" +
+		expectedOutput: "" +
+			"message: oh dear\n" +
 			"results:\n" +
 			"  foo:\n" +
 			"    bar: baz\n" +
-			"status: complete\n",
+			"status: complete\n" +
+			"timing:\n" +
+			"  completed: 2015-02-14 08:15:30 \\+0000 UTC\n" +
+			"  enqueued: 2015-02-14 08:13:00 \\+0000 UTC\n" +
+			"  started: 2015-02-14 08:15:00 \\+0000 UTC\n" +
+			"",
 	}}
 
 	for i, t := range tests {
