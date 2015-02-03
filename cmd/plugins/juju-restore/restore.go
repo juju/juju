@@ -297,7 +297,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, err
 	}
 	instanceIds, err := env.StateServerInstances()
-	switch err {
+	switch errors.Cause(err) {
 	case nil, environs.ErrNoInstances:
 		// Some providers will return a nil error even
 		// if there are no live state server instances.
@@ -309,7 +309,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	}
 	if len(instanceIds) > 0 {
 		instances, err := env.Instances(instanceIds)
-		switch err {
+		switch errors.Cause(err) {
 		case nil, environs.ErrPartialInstances:
 			return nil, fmt.Errorf("old bootstrap instances %q still seems to exist; will not replace", instances)
 		case environs.ErrNoInstances:

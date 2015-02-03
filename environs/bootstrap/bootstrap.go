@@ -281,7 +281,7 @@ func EnsureNotBootstrapped(env environs.Environ) error {
 	_, err := env.StateServerInstances()
 	// If there is no error determining state server instaces,
 	// then we are bootstrapped.
-	switch err {
+	switch errors.Cause(err) {
 	case nil:
 		return environs.ErrAlreadyBootstrapped
 	case environs.ErrNoInstances:
