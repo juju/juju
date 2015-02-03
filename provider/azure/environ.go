@@ -414,7 +414,7 @@ func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
 		stateServerInstanceIds = append(stateServerInstanceIds, instanceIds...)
 	}
 	if len(stateServerInstanceIds) == 0 {
-		return nil, environs.ErrNotBootstrapped
+		return nil, environs.ErrNoInstances
 	}
 	return stateServerInstanceIds, nil
 }
