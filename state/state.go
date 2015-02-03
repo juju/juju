@@ -141,7 +141,9 @@ type StateServingInfo struct {
 }
 
 // RemoveAllEnvironDocs removes all documents from multi-environment
-// collections.
+// collections. The environment should be put into a dying state before call
+// this method. Otherwise, there is a race condition in which collections
+// could be added to during or after the running of this method.
 func (st *State) RemoveAllEnvironDocs() error {
 	for collName := range multiEnvCollections {
 		coll, closer := st.getCollection(collName)
@@ -195,6 +197,7 @@ func (st *State) NoEnvDocs() error {
 	colls := multiEnvCollections
 	colls.Remove(cleanupsC)
 	found := map[string]int{}
+	var foundOrdered []string
 	for collName := range colls {
 		coll, closer := st.getCollection(collName)
 		defer closer()
@@ -204,12 +207,15 @@ func (st *State) NoEnvDocs() error {
 		}
 		if n != 0 {
 			found[collName] = n
+			foundOrdered = append(foundOrdered, collName)
 		}
 	}
 
 	if len(found) != 0 {
 		errMessage := fmt.Sprintf("found documents for environment with uuid %s:", st.EnvironUUID())
-		for name, number := range found {
+		sort.Strings(foundOrdered)
+		for _, name := range foundOrdered {
+			number := found[name]
 			errMessage += fmt.Sprintf(" %d %s doc,", number, name)
 		}
 		// Remove trailing comma.

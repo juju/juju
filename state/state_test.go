@@ -2586,7 +2586,8 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 	// insert one doc for each multiEnvCollection
 	var ops []mgotxn.Op
 	for collName := range state.MultiEnvCollections {
-		// constraints and settings are already added to state
+		// skip adding constraints and settings as they were added when the
+		// environment was created
 		if collName == "constraints" || collName == "settings" {
 			continue
 		}
@@ -2609,7 +2610,6 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 
 	err = st.RemoveAllEnvironDocs()
 	c.Assert(err, jc.ErrorIsNil)
-	logOutput := c.GetTestLog()
 
 	// ensure all docs for all multiEnvCollections are removed
 	for collName := range state.MultiEnvCollections {
@@ -2618,10 +2618,7 @@ func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
 		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(n, gc.Equals, 0)
-		c.Assert(logOutput, jc.Contains, fmt.Sprintf("removed 1 %s documents", collName))
 	}
-
-	c.Assert(logOutput, jc.Contains, "removed environment document")
 }
 
 type attrs map[string]interface{}

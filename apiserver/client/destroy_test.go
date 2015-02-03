@@ -86,14 +86,6 @@ func TestingDialOpts() mongo.DialOpts {
 	}
 }
 
-func (s *destroyTwoEnvironmentsSuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		s.State.Close()
-	}
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
-}
-
 // setUpManual adds "manually provisioned" machines to state:
 // one manager machine, and one non-manager.
 func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
@@ -112,14 +104,13 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 // one manager machine, one non-manager, and a container in the
 // non-manager.
 func setUpInstances(c *gc.C, st *state.State, env environs.Environ) (m0, m1, m2 *state.Machine) {
-	m0, err := st.AddMachine("precise", state.JobManageEnviron)
-	c.Assert(err, jc.ErrorIsNil)
+	f := factory.NewFactory(st)
+	m0 := f.MakeMachine(c, nil)
 	inst, _ := testing.AssertStartInstance(c, env, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1, err = st.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	m1 := f.MakeMachine(c, nil)
 	inst, _ = testing.AssertStartInstance(c, env, m1.Id())
 	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +151,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
-	manager, nonManager, _ := setUpInstances(c, s.State, s.Environ)
+	manager, nonManager, _ := setUpInstances(c, s.OtherState, s.Environ)
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()
 
