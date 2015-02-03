@@ -21,6 +21,7 @@ var (
 	logger = loggo.GetLogger("juju.mongo")
 )
 
+// SSLInfo holds all the SSL-related mongod server params.
 type SSLInfo struct {
 	// Cert is the certificate.
 	Cert string
@@ -35,6 +36,7 @@ type SSLInfo struct {
 	SharedSecret string
 }
 
+// CertKey returns the combined SSL cert and key to use for mongo.
 func (si SSLInfo) CertKey() string {
 	return si.Cert + "\n" + si.PrivateKey
 }
@@ -72,6 +74,7 @@ type EnsureServerParams struct {
 	SetNumaControlPolicy bool
 }
 
+// DBDir returns the directory where mongod data should be stored.
 func (esp EnsureServerParams) DBDir() string {
 	return filepath.Join(esp.DataDir, "db")
 }
