@@ -141,10 +141,13 @@ def parse_new_state_server_from_error(error):
     return None
 
 
-def main():
+def parse_args(argv=None):
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
         '--charm-prefix', help='A prefix for charm urls.', default='')
+    parser.add_argument(
+        '--debug', action='store_true', default=False,
+        help='Use --debug juju logging.')
     strategy = parser.add_argument_group('test strategy')
     strategy.add_argument(
         '--ha', action='store_const', dest='strategy', const='ha',
@@ -158,14 +161,18 @@ def main():
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
     parser.add_argument('logs', help='Directory to store logs in.')
-    args = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main():
+    args = parse_args()
     log_dir = args.logs
     try:
         setup_juju_path(args.juju_path)
         env = SimpleEnvironment.from_config(args.env_name)
         juju_home = get_juju_home()
         ensure_deleted(get_jenv_path(juju_home, env.environment))
-        client = EnvJujuClient.by_version(env)
+        client = EnvJujuClient.by_version(env, debug=args.debug)
         with temp_bootstrap_env(juju_home, client):
             client.bootstrap()
         bootstrap_host = get_machine_dns_name(client, 0)
