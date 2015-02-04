@@ -98,11 +98,7 @@ func (is *windows) Enable(name, filename string) error {
 		return errors.AlreadyExistsf("service %q", name)
 	}
 
-	data, err := is.fops.ReadFile(filename)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	conf, err := is.Deserialize(data)
+	conf, err := initsystems.ReadConf(name, filename, is, is.fops)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -42,3 +42,22 @@ func FilterNames(names, include []string) []string {
 	}
 	return filtered
 }
+
+type deserializer interface {
+	Deserialize(data []byte) (*Conf, error)
+}
+
+type fileOperations interface {
+	ReadFile(filename string) ([]byte, error)
+}
+
+// ReadConf wraps the operations of reading the file and deserializing
+// it (and validating the resulting conf).
+func ReadConf(name, filename string, is deserializer, fops fileOperations) (*Conf, error) {
+	data, err := fops.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	conf, err := is.Deserialize(data)
+	return conf, errors.Trace(err)
+}
