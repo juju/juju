@@ -20,9 +20,16 @@ type FakeReturns struct {
 // Fake is used to simulate an init system without actually doing
 // anything more than recording the calls.
 type Fake struct {
-	testing.Fake
+	*testing.Fake
 
 	Returns FakeReturns
+}
+
+// NewFake creates a new Fake and returns it.
+func NewFake() *Fake {
+	return &Fake{
+		Fake: &testing.Fake{},
+	}
 }
 
 // Name implements InitSystem.

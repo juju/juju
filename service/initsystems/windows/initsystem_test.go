@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	//"github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
@@ -27,11 +27,13 @@ type initSystemSuite struct {
 	coretesting.BaseSuite
 
 	initDir string
-	files   *fs.FakeOps
-	cmd     *initsystems.FakeShell
-	init    initsystems.InitSystem
 	conf    initsystems.Conf
 	confStr string
+
+	fake  *testing.Fake
+	files *fs.FakeOps
+	cmd   *initsystems.FakeShell
+	init  initsystems.InitSystem
 }
 
 var _ = gc.Suite(&initSystemSuite{})
@@ -39,14 +41,16 @@ var _ = gc.Suite(&initSystemSuite{})
 func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.files = fs.NewFakeOps()
-	s.cmd = &initsystems.FakeShell{}
-	s.init = windows.NewWindows(s.files, s.cmd)
 	s.conf = initsystems.Conf{
 		Desc: "juju agent for jujud-machine-0",
 		Cmd:  "jujud.exe machine-0",
 	}
 	s.confStr = s.newConfStr("jujud-machine-0")
+
+	s.fake = &testing.Fake{}
+	s.files = &fs.FakeOps{Fake: s.fake}
+	s.cmd = &initsystems.FakeShell{Fake: s.fake}
+	s.init = windows.NewWindows(s.files, s.cmd)
 
 	s.PatchValue(&initsystems.RetryAttempts, utils.AttemptStrategy{})
 }

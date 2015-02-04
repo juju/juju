@@ -26,20 +26,18 @@ func (s *confDirSuite) checkWritten(c *gc.C, filename, content string, perm os.F
 			"filename": filename,
 		},
 	}, {
-		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": filename,
-			"perm": perm,
-		},
-	}})
-
-	s.FakeFile.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Write",
 		Args: testing.FakeCallArgs{
 			"data": []byte(content),
 		},
 	}, {
 		FuncName: "Close",
+	}, {
+		FuncName: "Chmod",
+		Args: testing.FakeCallArgs{
+			"name": filename,
+			"perm": perm,
+		},
 	}})
 }
 

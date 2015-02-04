@@ -70,9 +70,16 @@ func (s LocalShell) RunCommandStr(cmd string) ([]byte, error) {
 
 // FakeShell is a Shell implementation for use in testing.
 type FakeShell struct {
-	testing.Fake
+	*testing.Fake
 	// Out is the return value for RunCommand and RunCommandStr.
 	Out []byte
+}
+
+// NewFakeShell creates a new FakeShell and returns it.
+func NewFakeShell() *FakeShell {
+	return &FakeShell{
+		Fake: &testing.Fake{},
+	}
 }
 
 // RunCommand implements Shell.

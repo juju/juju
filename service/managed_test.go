@@ -144,7 +144,7 @@ func (s *managedSuite) TestAddSuccess(c *gc.C) {
 	err := s.configs.add("jujud-machine-0", *s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+	s.Fake.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Exists",
 		Args: testing.FakeCallArgs{
 			"name": "/var/lib/juju/init/jujud-machine-0",
@@ -156,28 +156,6 @@ func (s *managedSuite) TestAddSuccess(c *gc.C) {
 			"perm":    os.FileMode(0755),
 		},
 	}, {
-		FuncName: "CreateFile",
-		Args: testing.FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			"perm": os.FileMode(0644),
-		},
-	}})
-
-	s.FakeFile.CheckCalls(c, []testing.FakeCall{{
-		FuncName: "Write",
-		Args: testing.FakeCallArgs{
-			"data": []byte("<upstart conf>"),
-		},
-	}, {
-		FuncName: "Close",
-	}})
-
-	s.FakeInit.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Serialize",
 		Args: testing.FakeCallArgs{
 			"name": "jujud-machine-0",
@@ -185,6 +163,24 @@ func (s *managedSuite) TestAddSuccess(c *gc.C) {
 				Desc: "a service",
 				Cmd:  "spam",
 			},
+		},
+	}, {
+		FuncName: "CreateFile",
+		Args: testing.FakeCallArgs{
+			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+		},
+	}, {
+		FuncName: "Write",
+		Args: testing.FakeCallArgs{
+			"data": []byte("<upstart conf>"),
+		},
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "Chmod",
+		Args: testing.FakeCallArgs{
+			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+			"perm": os.FileMode(0644),
 		},
 	}})
 }
@@ -221,25 +217,6 @@ func (s *managedSuite) TestAddMultiline(c *gc.C) {
 			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
 		},
 	}, {
-		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
-			"perm": os.FileMode(0755),
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: testing.FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			"perm": os.FileMode(0644),
-		},
-	}})
-
-	s.FakeFile.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Write",
 		Args: testing.FakeCallArgs{
 			"data": []byte("spam\neggs"),
@@ -247,15 +224,12 @@ func (s *managedSuite) TestAddMultiline(c *gc.C) {
 	}, {
 		FuncName: "Close",
 	}, {
-		FuncName: "Write",
+		FuncName: "Chmod",
 		Args: testing.FakeCallArgs{
-			"data": []byte("<upstart conf>"),
+			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
+			"perm": os.FileMode(0755),
 		},
 	}, {
-		FuncName: "Close",
-	}})
-
-	s.FakeInit.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Serialize",
 		Args: testing.FakeCallArgs{
 			"name": "jujud-machine-0",
@@ -263,6 +237,24 @@ func (s *managedSuite) TestAddMultiline(c *gc.C) {
 				Desc: "a service",
 				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 			},
+		},
+	}, {
+		FuncName: "CreateFile",
+		Args: testing.FakeCallArgs{
+			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+		},
+	}, {
+		FuncName: "Write",
+		Args: testing.FakeCallArgs{
+			"data": []byte("<upstart conf>"),
+		},
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "Chmod",
+		Args: testing.FakeCallArgs{
+			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+			"perm": os.FileMode(0644),
 		},
 	}})
 }
@@ -291,25 +283,6 @@ func (s *managedSuite) TestAddExtra(c *gc.C) {
 			"filename": "/var/lib/juju/init/jujud-machine-0/script.sh",
 		},
 	}, {
-		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
-			"perm": os.FileMode(0755),
-		},
-	}, {
-		FuncName: "CreateFile",
-		Args: testing.FakeCallArgs{
-			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-		},
-	}, {
-		FuncName: "Chmod",
-		Args: testing.FakeCallArgs{
-			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
-			"perm": os.FileMode(0644),
-		},
-	}})
-
-	s.FakeFile.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Write",
 		Args: testing.FakeCallArgs{
 			"data": []byte("eggs\nspam"),
@@ -317,15 +290,12 @@ func (s *managedSuite) TestAddExtra(c *gc.C) {
 	}, {
 		FuncName: "Close",
 	}, {
-		FuncName: "Write",
+		FuncName: "Chmod",
 		Args: testing.FakeCallArgs{
-			"data": []byte("<upstart conf>"),
+			"name": "/var/lib/juju/init/jujud-machine-0/script.sh",
+			"perm": os.FileMode(0755),
 		},
 	}, {
-		FuncName: "Close",
-	}})
-
-	s.FakeInit.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Serialize",
 		Args: testing.FakeCallArgs{
 			"name": "jujud-machine-0",
@@ -333,6 +303,24 @@ func (s *managedSuite) TestAddExtra(c *gc.C) {
 				Desc: "a service",
 				Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 			},
+		},
+	}, {
+		FuncName: "CreateFile",
+		Args: testing.FakeCallArgs{
+			"filename": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+		},
+	}, {
+		FuncName: "Write",
+		Args: testing.FakeCallArgs{
+			"data": []byte("<upstart conf>"),
+		},
+	}, {
+		FuncName: "Close",
+	}, {
+		FuncName: "Chmod",
+		Args: testing.FakeCallArgs{
+			"name": "/var/lib/juju/init/jujud-machine-0/upstart.conf",
+			"perm": os.FileMode(0644),
 		},
 	}})
 }
@@ -346,9 +334,7 @@ func (s *managedSuite) TestRemove(c *gc.C) {
 	// TODO(ericsnow) Finish!
 	c.Check(s.configs.names, gc.HasLen, 0)
 
-	s.FakeFile.CheckCalls(c, nil)
-	s.FakeInit.CheckCalls(c, nil)
-	s.FakeFiles.CheckCalls(c, []testing.FakeCall{{
+	s.Fake.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "RemoveAll",
 		Args: testing.FakeCallArgs{
 			"name": "/var/lib/juju/init/jujud-machine-0",

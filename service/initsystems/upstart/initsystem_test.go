@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	//"github.com/juju/testing"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fs"
@@ -45,11 +45,13 @@ type initSystemSuite struct {
 	coretesting.BaseSuite
 
 	initDir string
-	files   *fs.FakeOps
-	cmd     *initsystems.FakeShell
-	init    initsystems.InitSystem
 	conf    initsystems.Conf
 	confStr string
+
+	fake  *testing.Fake
+	files *fs.FakeOps
+	cmd   *initsystems.FakeShell
+	init  initsystems.InitSystem
 }
 
 var _ = gc.Suite(&initSystemSuite{})
@@ -58,14 +60,16 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.initDir = c.MkDir()
-	s.files = fs.NewFakeOps()
-	s.cmd = &initsystems.FakeShell{}
-	s.init = upstart.NewUpstart(s.initDir, s.files, s.cmd)
 	s.conf = initsystems.Conf{
 		Desc: `juju agent for jujud-machine-0`,
 		Cmd:  "/var/lib/juju/init/jujud-machine-0/script.sh",
 	}
 	s.confStr = s.newConfStr("jujud-machine-0", "", nil, nil)
+
+	s.fake = &testing.Fake{}
+	s.files = &fs.FakeOps{Fake: s.fake}
+	s.cmd = &initsystems.FakeShell{Fake: s.fake}
+	s.init = upstart.NewUpstart(s.initDir, s.files, s.cmd)
 
 	s.PatchValue(&upstart.ConfDir, s.initDir)
 	s.PatchValue(&initsystems.RetryAttempts, utils.AttemptStrategy{})

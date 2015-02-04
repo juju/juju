@@ -18,6 +18,7 @@ type BaseSuite struct {
 	Conf    *Conf
 	Confdir *confDir
 
+	Fake      *testing.Fake
 	FakeInit  *initsystems.Fake
 	FakeFile  *fs.FakeFile
 	FakeFiles *fs.FakeOps
@@ -33,9 +34,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}}
 
 	// Patch a few things.
-	s.FakeInit = &initsystems.Fake{}
-	s.FakeFile = fs.NewFakeFile()
-	s.FakeFiles = fs.NewFakeOps()
+	s.Fake = &testing.Fake{}
+	s.FakeInit = &initsystems.Fake{Fake: s.Fake}
+	s.FakeFile = &fs.FakeFile{Fake: s.Fake}
+	s.FakeFiles = &fs.FakeOps{Fake: s.Fake}
 	s.FakeFiles.Returns.File = s.FakeFile
 
 	s.PatchValue(&newFileOps, func() fs.Operations {

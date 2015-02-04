@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/initsystems"
-	svctesting "github.com/juju/juju/service/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -33,7 +32,8 @@ type MongoSuite struct {
 	mongodConfigPath string
 	mongodPath       string
 	installCount     int
-	services         *svctesting.FakeServices
+	fake             *testing.Fake
+	services         *service.FakeServices
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -94,7 +94,9 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.services = svctesting.NewFakeServices(service.InitSystemUpstart)
+	s.fake = &testing.Fake{}
+	s.services = service.NewFakeServices(service.InitSystemUpstart)
+	s.services.Fake = s.fake
 	s.PatchValue(mongo.NewService, func(name, dataDir string, conf service.Conf) (*service.Service, error) {
 		return service.NewService(name, conf, s.services), nil
 	})
@@ -227,7 +229,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.services.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning")
+	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -242,7 +244,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.services.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
 
 	running, err := s.services.IsRunning(name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -258,13 +260,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	s.setService(c, namespace, initsystems.StatusEnabled)
 	failure := errors.New("won't start")
 	// Add, IsEnabled, Check, IsRunning, **Start**
-	s.services.Errors = []error{nil, nil, nil, nil, failure}
+	s.fake.Errors = []error{nil, nil, nil, nil, failure}
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 
 	c.Check(err, gc.ErrorMatches, `.*won't start`)
 	c.Check(s.installCount, gc.Equals, 0)
-	s.services.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
@@ -356,7 +358,7 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	s.setService(c, namespace, initsystems.StatusRunning)
 	failure := errors.New("shouldn't be called")
 	// Add, IsEnabled, Check, IsRunning, **Start**
-	s.services.Errors = []error{nil, nil, nil, nil, failure}
+	s.fake.Errors = []error{nil, nil, nil, nil, failure}
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
