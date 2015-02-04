@@ -227,7 +227,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.services.CheckCalls(c, "Add", "IsEnabled", "Check", "IsRunning")
+	s.services.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -242,7 +242,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.services.CheckCalls(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.services.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
 
 	running, err := s.services.IsRunning(name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -264,7 +264,7 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `.*won't start`)
 	c.Check(s.installCount, gc.Equals, 0)
-	s.services.CheckCalls(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.services.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
