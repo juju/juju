@@ -39,6 +39,8 @@ func newInitSystem(name string) initsystems.InitSystem {
 	return nil
 }
 
+// TODO(ericsnow) Support discovering init system on remote host.
+
 // discoverInitSystem determines which init system is running and
 // returns its name.
 func discoverInitSystem() (string, error) {

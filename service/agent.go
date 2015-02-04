@@ -24,7 +24,6 @@ const (
 )
 
 const (
-	// TODO(ericsnow) Move this to the
 	jujudName = "jujud"
 )
 
@@ -55,15 +54,13 @@ func ListAgents(services agentServices) ([]names.Tag, error) {
 		}
 		tag, err := names.ParseTag(name[start:])
 		if err != nil {
-			// TODO(ericsnow) Fail here?
+			// The name was not a tag (e.g. juju-mongod).
 			continue
 		}
 		tags = append(tags, tag)
 	}
 	return tags, nil
 }
-
-// TODO(ericsnow) Move AgentPaths to juju/paths, agent, or etc.?
 
 // AgentPaths exposes the various paths that are associated with an
 // agent (e.g. via the agent config).
@@ -72,47 +69,25 @@ type AgentPaths interface {
 	LogDir() string
 }
 
-// TODO(ericsnow) Support explicitly setting the calculated values
-// (e.g. executable) in AgentService?
-// TODO(ericsnow) Refactor environs/cloudinit.MachineConfig relative
-// to AgentService?
-
 // AgentServiceSpec is the specification for the jujud service for a
 // unit or machine agent. The kind is determined from the tag passed
 // to NewAgentService.
 type AgentServiceSpec struct {
 	AgentPaths
 
-	tag names.Tag
-	env map[string]string
-
+	Env        map[string]string
+	tag        names.Tag
 	initSystem string
 	option     string
 }
 
 // NewAgentServiceSpec builds the specification for a new agent jujud
 // service based on the provided information.
-func NewAgentServiceSpec(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentServiceSpec, error) {
-	svc, err := newAgentServiceSpec(tag, paths, env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO(ericsnow) This will not work for remote systems.
-	init, err := discoverInitSystem()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	svc.initSystem = init
-
-	return svc, nil
-}
-
-func newAgentServiceSpec(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentServiceSpec, error) {
+func NewAgentServiceSpec(tag names.Tag, paths AgentPaths, initSystem string) (*AgentServiceSpec, error) {
 	svc := &AgentServiceSpec{
 		AgentPaths: paths,
 		tag:        tag,
-		env:        env,
+		initSystem: initSystem,
 	}
 
 	option, ok := agentOptions[svc.tag.Kind()]
@@ -124,11 +99,21 @@ func newAgentServiceSpec(tag names.Tag, paths AgentPaths, env map[string]string)
 	return svc, nil
 }
 
-// TODO(ericsnow) Support discovering init system on remote host.
+// DiscoverAgentServiceSpec builds the specification for a new agent
+// jujud service based on the provided information.
+func DiscoverAgentServiceSpec(tag names.Tag, paths AgentPaths) (*AgentServiceSpec, error) {
+	init, err := discoverInitSystem()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-// TODO(ericsnow) Is guarding against unset fields really necessary.
-// We could add a Validate method; or for the less efficient one-off
-// case, we could add an error return on the dynamic attr methods.
+	svc, err := NewAgentServiceSpec(tag, paths, init)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return svc, nil
+}
 
 // Name provides the agent's init system service name.
 func (as AgentServiceSpec) Name() string {
@@ -192,7 +177,7 @@ func (as AgentServiceSpec) Conf() Conf {
 
 	// Populate non-Windows settings.
 	conf.Out = as.logfile()
-	conf.Env = as.env
+	conf.Env = as.Env
 	if as.tag.Kind() == "machine" {
 		conf.Limit = map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
@@ -200,4 +185,17 @@ func (as AgentServiceSpec) Conf() Conf {
 	}
 
 	return conf
+}
+
+// NewAgentService builds a new Service for the juju agent
+// identified by the provided information and returns it.
+func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string, services services) (*Service, error) {
+	spec, err := NewAgentServiceSpec(tag, paths, services.InitSystem())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spec.Env = env
+
+	svc := NewService(spec.Name(), spec.Conf(), services)
+	return svc, nil
 }

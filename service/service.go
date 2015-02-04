@@ -5,7 +5,6 @@ package service
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 )
 
 type services interface {
@@ -48,19 +47,6 @@ func DiscoverService(name, dataDir string, conf Conf, args ...string) (*Service,
 		return nil, errors.Trace(err)
 	}
 	svc := NewService(name, conf, services)
-	return svc, nil
-}
-
-// NewAgentService builds a new Service for the juju agent identified
-// by the provided information and returns it.
-func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string, services services) (*Service, error) {
-	spec, err := newAgentServiceSpec(tag, paths, env)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	spec.initSystem = services.InitSystem()
-
-	svc := NewService(spec.Name(), spec.Conf(), services)
 	return svc, nil
 }
 
