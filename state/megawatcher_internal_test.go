@@ -420,7 +420,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "failure", nil)
+			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -485,7 +485,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 			err = m.SetAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "failure", nil)
+			err = u.SetAgentStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -732,7 +732,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusActive, "", nil)
+			err = u.SetAgentStatus(StatusActive, "", nil)
 			c.Assert(err, jc.ErrorIsNil)
 
 			return testCase{
@@ -756,7 +756,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.SetStatus(StatusError, "hook error", map[string]interface{}{
+			err = u.SetAgentStatus(StatusError, "hook error", map[string]interface{}{
 				"1st-key": "one",
 				"2nd-key": 2,
 				"3rd-key": true,

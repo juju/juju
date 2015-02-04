@@ -115,7 +115,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id interface{
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status.
-		sdoc, err := getStatus(st, unitGlobalKey(u.Name))
+		sdoc, err := getStatus(st, unitAgentGlobalKey(u.Name))
 		if err != nil {
 			return err
 		}
