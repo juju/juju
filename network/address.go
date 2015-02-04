@@ -29,6 +29,13 @@ var (
 // bootstrap, agent startup, before any CLI command).
 var globalPreferIPv6 bool = false
 
+// ResetGobalPreferIPv6 resets the global variable back to the default,
+// and is called only from the isolation test suite to make sure we have
+// a clean environment.
+func ResetGobalPreferIPv6() {
+	globalPreferIPv6 = false
+}
+
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
 	if err != nil {
