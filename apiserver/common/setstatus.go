@@ -74,7 +74,6 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if err != nil {
 		return err
 	}
-
 	statusGetter, ok := entity0.(state.StatusGetter)
 	if !ok {
 		return NotSupportedError(tag, "getting status")

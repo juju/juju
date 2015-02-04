@@ -75,6 +75,19 @@ const (
 )
 
 const (
+	// Status values specific to units
+
+	// The unit is
+	StatusRemoving Status = "removing"
+
+	// The unit is
+	StatusGone Status = "gone"
+
+	// The unit is
+	StatusUnknown Status = "unknown"
+)
+
+const (
 	// Status values specific to services and units, reflecting the
 	// state of the software itself.
 
@@ -300,12 +313,14 @@ func newUnitStatusDoc(status Status, info string, data map[string]interface{}) (
 func unitStatusValid(status Status) bool {
 	switch status {
 	case
-		StatusAllocating,
-		StatusInstalling,
-		StatusActive,
-		StatusStopping,
-		StatusFailed,
-		StatusError:
+		StatusBusy,
+		StatusWaiting,
+		StatusBlocked,
+		StatusRunning,
+		StatusError,
+		StatusRemoving,
+		StatusGone,
+		StatusUnknown:
 		return true
 	default:
 		return false
@@ -319,11 +334,7 @@ func (doc *unitStatusDoc) validateSet() error {
 		return errors.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	switch doc.Status {
-	// For safety; no code will use these deprecated values.
-	case StatusPending, StatusDown, StatusStarted, StatusStopped:
-		return errors.Errorf("status %q is deprecated and invalid", doc.Status)
-	case StatusAllocating, StatusFailed:
-		return errors.Errorf("cannot set status %q", doc.Status)
+	//TODO(perrito666) add business rules regarding status transitions
 	case StatusError:
 		if doc.StatusInfo == "" {
 			return errors.Errorf("cannot set status %q without info", doc.Status)

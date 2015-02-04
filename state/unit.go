@@ -755,9 +755,25 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// Return an agent by its unit name
+// Agent Returns an agent by its unit's name.
 func (u *Unit) Agent() Entity {
 	return newUnitAgent(u.st, u.Tag(), u.Name())
+}
+
+// SetAgentStatus calls SetStatus for this unit's agent, this call
+// is equivalent to the former call to SetStatus when Agent and Unit
+// where not separate entities.
+func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.SetStatus(status, info, data)
+}
+
+// AgentStatus calls Status for this unit's agent, this call
+// is equivalent to the former call to Status when Agent and Unit
+// where not separate entities.
+func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
+	agent := newUnitAgent(u.st, u.Tag(), u.Name())
+	return agent.Status()
 }
 
 // Status returns the status of the unit.
@@ -773,16 +789,6 @@ func (u *Unit) Status() (status Status, info string, data map[string]interface{}
 	info = doc.StatusInfo
 	data = doc.StatusData
 	return
-}
-
-func (u *Unit) SetAgentStatus(status Status, info string, data map[string]interface{}) error {
-	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.SetStatus(status, info, data)
-}
-
-func (u *Unit) AgentStatus() (status Status, info string, data map[string]interface{}, err error) {
-	agent := newUnitAgent(u.st, u.Tag(), u.Name())
-	return agent.Status()
 }
 
 // SetStatus sets the status of the unit agent. The optional values

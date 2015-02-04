@@ -60,7 +60,11 @@ func (u *Unit) SetStatus(status params.Status, info string, data map[string]inte
 			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetAgentStatus", args, &result)
+	setStatusFacadeCall := "SetAgentStatus"
+	if u.st.facade.BestAPIVersion() < 2 {
+		setStatusFacadeCall = "SetStatus"
+	}
+	err := u.st.facade.FacadeCall(setStatusFacadeCall, args, &result)
 	if err != nil {
 		return err
 	}
