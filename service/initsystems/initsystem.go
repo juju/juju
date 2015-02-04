@@ -1,9 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(ericsnow) At some point we should consider moving the inisystems
-// package and portions of the service package into another repo
-// (e.g. utils).
+// TODO(ericsnow) At some point we should consider moving the
+// initsystems package and portions of the service package into another
+// repo (e.g. utils).
 
 package initsystems
 
