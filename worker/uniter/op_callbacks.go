@@ -136,12 +136,12 @@ func (opc *operationCallbacks) SetCurrentCharm(charmURL *corecharm.URL) error {
 	return opc.u.f.SetCharm(charmURL)
 }
 
-// ClearResolvedFlag is part of the operation.Callbacks interface,
+// ClearResolvedFlag is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) ClearResolvedFlag() error {
 	return opc.u.f.ClearResolved()
 }
 
-// InitializeMetricsCollector is part of the operation.Callbacks interface,
+// InitializeMetricsCollector is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) InitializeMetricsCollector() error {
 	return opc.u.initializeMetricsCollector()
 }

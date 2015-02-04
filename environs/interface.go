@@ -160,7 +160,9 @@ type Environ interface {
 
 	// StateServerInstances returns the IDs of instances corresponding
 	// to Juju state servers. If there are no state server instances,
-	// ErrNotBootstrapped is returned.
+	// ErrNoInstances is returned. If it can be determined that the
+	// environment has not been bootstrapped, then ErrNotBootstrapped
+	// should be returned instead.
 	StateServerInstances() ([]instance.Id, error)
 
 	// Destroy shuts down all known machines and destroys the
