@@ -84,7 +84,8 @@ func Deserialize(data []byte) (*initsystems.Conf, error) {
 		}
 	}
 
-	return &conf, nil
+	err := Validate("<>", conf)
+	return &conf, errors.Trace(err)
 }
 
 // TODO(ericsnow) Do not hard-code the author in the template (use Conf.Meta).
