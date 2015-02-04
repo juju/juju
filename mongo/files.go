@@ -17,11 +17,19 @@ const (
 	// located within the Juju data directory. It is used for replica
 	// sets.
 	SharedSecretFile = "shared-secret"
+
+	dataDirName = "db"
 )
 
 var (
-	mongoConfigPath = "/etc/default/mongodb"
+	configPath = "/etc/default/mongodb"
 )
+
+// DBDir returns the directory where mongod data should be stored
+// relative to the provided directory.
+func DBDir(rootDir string) string {
+	return filepath.Join(rootDir, dataDirName)
+}
 
 func makeDBDir(dbDir string) error {
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
@@ -76,7 +84,7 @@ func writeSSL(dataDir string, ssl SSLInfo) error {
 
 func writeConf(content string) error {
 	err := utils.AtomicWriteFile(
-		mongoConfigPath,
+		configPath,
 		[]byte(content),
 		0644,
 	)

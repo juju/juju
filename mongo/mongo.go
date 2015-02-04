@@ -95,7 +95,7 @@ func EnsureServer(args EnsureServerParams) error {
 	)
 
 	// Make sure the DB dir exists *before* we do anything else.
-	dbDir := args.DBDir()
+	dbDir := DBDir(args.DataDir)
 	if err := makeDBDir(dbDir); err != nil {
 		return errors.Annotate(err, "cannot create mongo database directory")
 	}
@@ -152,7 +152,7 @@ func EnsureServer(args EnsureServerParams) error {
 }
 
 func resetAndInstall(svc *Service, args EnsureServerParams, oplogSizeMB int) error {
-	dbDir := args.DBDir()
+	dbDir := DBDir(args.DataDir)
 
 	// Try stopping the service, just in case.
 	if err := svc.Stop(); err != nil && !errors.IsNotFound(err) {
@@ -167,7 +167,7 @@ func resetAndInstall(svc *Service, args EnsureServerParams, oplogSizeMB int) err
 	// Disable the default mongodb installed by the mongodb-server package.
 	// Only do this if the file doesn't exist already, so users can run
 	// their own mongodb server if they wish to.
-	_, err := os.Stat(mongoConfigPath)
+	_, err := os.Stat(configPath)
 	if os.IsNotExist(err) {
 		if err := writeConf("ENABLE_MONGODB=no"); err != nil {
 			return errors.Trace(err)

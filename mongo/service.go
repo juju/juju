@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -230,7 +229,7 @@ func (svc Service) startIfInstalled() (bool, error) {
 // run mongod without security.
 func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 	sslKeyFile := path.Join(dataDir, "server.pem")
-	dbDir := filepath.Join(dataDir, "db")
+	dbDir := DBDir(dataDir)
 	mongoPath, err := Path()
 	if err != nil {
 		return nil, err

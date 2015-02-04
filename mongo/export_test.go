@@ -10,7 +10,7 @@ import (
 
 var (
 	MakeJournalDirs = makeJournalDirs
-	MongoConfigPath = &mongoConfigPath
+	MongoConfigPath = &configPath
 	NoauthCommand   = noauthCommand
 	ProcessSignal   = &processSignal
 

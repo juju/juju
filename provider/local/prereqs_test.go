@@ -14,14 +14,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 
 type prereqsSuite struct {
 	testing.BaseSuite
-	tmpdir         string
-	testMongodPath string
+	tmpdir string
 }
 
 var _ = gc.Suite(&prereqsSuite{})
@@ -31,10 +29,10 @@ echo $JUJUTEST_LSB_RELEASE_ID
 `
 
 func init() {
-	// Set the paths to mongod and lxc-ls to
+	// Set the path to lxc-ls to
 	// something we know exists. This allows
 	// all of the non-prereqs tests to pass
-	// even when mongodb and lxc-ls can't be
+	// even when lxc-ls can't be
 	// found.
 	lxclsPath = "/bin/true"
 
@@ -47,11 +45,8 @@ func init() {
 func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.tmpdir = c.MkDir()
-	s.testMongodPath = filepath.Join(s.tmpdir, "mongod")
 
 	s.PatchEnvironment("PATH", s.tmpdir)
-
-	s.PatchValue(&mongo.JujuMongodPath, "/somewhere/that/wont/exist")
 
 	os.Setenv("JUJUTEST_LSB_RELEASE_ID", "Ubuntu")
 	err := ioutil.WriteFile(filepath.Join(s.tmpdir, "lsb_release"), []byte(lsbrelease), 0777)
@@ -72,11 +67,6 @@ func (*prereqsSuite) TestSupportedOS(c *gc.C) {
 	err := VerifyPrerequisites(instance.LXC)
 	c.Assert(err, gc.ErrorMatches, "Unsupported operating system: windows(.|\n)*")
 }
-
-const fakeMongoFmt = `#!/bin/sh
-echo db version v%d.%d.%d
-echo Thu Feb 13 15:53:58.210 git version: b9925db5eac369d77a3a5f5d98a145eaaacd9673
-`
 
 func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
 	s.PatchValue(&lxclsPath, filepath.Join(s.tmpdir, "non-existent"))
