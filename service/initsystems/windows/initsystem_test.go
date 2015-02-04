@@ -68,7 +68,7 @@ func (s *initSystemSuite) setStatus(name, status string) {
 	case initsystems.StatusEnabled:
 		s.cmd.Out = []byte("Stopped\n")
 	case "":
-		s.cmd.SetErrors(errors.New("service " + name + " not found"))
+		s.cmd.SetErrors(errors.New("...NoServiceFoundForGivenName..."))
 	}
 }
 

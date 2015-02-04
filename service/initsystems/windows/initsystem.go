@@ -13,7 +13,12 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-// TODO(ericsnow) Remove juju-specific pieces.
+const (
+	psErrNotFound = "NoServiceFoundForGivenName"
+)
+
+// TODO(ericsnow) Move juju-specific pieces to the service package and
+// accommodate them here via initsystems.InitSystem and initsystems.Conf.
 
 type windows struct {
 	name string
@@ -22,7 +27,7 @@ type windows struct {
 }
 
 // NewInitSystem returns a new value that implements
-// initsystems.InitSystem for Windows.
+// initsystems.InitSystem for Windows (using PowerShell commandlets).
 func NewInitSystem(name string) initsystems.InitSystem {
 	return &windows{
 		name: name,
@@ -140,9 +145,7 @@ func isNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	// TODO(ericsnow) Check for a specific error (or error message).
-	return true
+	return strings.Contains(err.Error(), psErrNotFound)
 }
 
 // Info implements service/initsystems.InitSystem.
@@ -166,6 +169,7 @@ func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 }
 
 func (is *windows) status(name string) (string, error) {
+	// See https://technet.microsoft.com/en-us/library/hh849804.aspx.
 	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").Status`, name)
 	out, err := is.cmd.RunCommandStr(cmd)
 	if err != nil {
