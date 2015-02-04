@@ -171,7 +171,7 @@ func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemStartAlreadyRunning(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.files.Returns.Exists = true
-	s.cmd.Out = []byte("service " + name + " start/running, process 12345\n")
+	s.cmd.SetOutString("service " + name + " start/running, process 12345\n")
 
 	err := s.init.Start(name)
 
@@ -187,7 +187,7 @@ func (s *initSystemSuite) TestInitSystemStartNotEnabled(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.files.Returns.Exists = true
-	s.cmd.Out = []byte("service " + name + " start/running, process 12345\n")
+	s.cmd.SetOutString("service " + name + " start/running, process 12345\n")
 
 	err := s.init.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -322,7 +322,7 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 	data := s.newConfStr(name, "", nil, nil)
 	s.files.Returns.Data = []byte(data)
 	s.files.Returns.Exists = true
-	s.cmd.Out = []byte("service " + name + " start/running, process 12345\n")
+	s.cmd.SetOutString("service " + name + " start/running, process 12345\n")
 
 	info, err := s.init.Info(name)
 	c.Assert(err, jc.ErrorIsNil)

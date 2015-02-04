@@ -150,6 +150,7 @@ func isNotFound(err error) bool {
 
 // Info implements service/initsystems.InitSystem.
 func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
+	// Get the status.
 	status, err := is.status(name)
 	if isNotFound(err) {
 		return nil, errors.NotFoundf("service %q", name)
@@ -158,12 +159,19 @@ func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Pull the description from somewhere?
+	// Get the description.
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").DisplayName`, name)
+	out, err := is.cmd.RunCommandStr(cmd)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	description := strings.TrimSpace(string(out))
 
+	// Return the info.
 	info := &initsystems.ServiceInfo{
-		Name: name,
-		// Description
-		Status: status,
+		Name:        name,
+		Description: description,
+		Status:      status,
 	}
 	return info, nil
 }

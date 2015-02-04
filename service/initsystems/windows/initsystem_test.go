@@ -64,12 +64,18 @@ func (s *initSystemSuite) newConfStr(name string) string {
 func (s *initSystemSuite) setStatus(name, status string) {
 	switch status {
 	case initsystems.StatusRunning:
-		s.cmd.Out = []byte("Running\n")
+		s.cmd.AddToOut("Running\n")
 	case initsystems.StatusEnabled:
-		s.cmd.Out = []byte("Stopped\n")
+		s.cmd.AddToOut("Stopped\n")
 	case "":
-		s.cmd.SetErrors(errors.New("...NoServiceFoundForGivenName..."))
+		err := errors.New("...NoServiceFoundForGivenName...")
+		s.cmd.Errors = append(s.cmd.Errors, err)
 	}
+}
+
+func (s *initSystemSuite) setDescription(name string) {
+	tag := name[len("jujud-"):]
+	s.cmd.AddToOut("juju agent for " + tag)
 }
 
 func (s *initSystemSuite) TestInitSystemName(c *gc.C) {
@@ -79,7 +85,7 @@ func (s *initSystemSuite) TestInitSystemName(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemList(c *gc.C) {
-	s.cmd.Out = []byte("" +
+	s.cmd.SetOutString("" +
 		"jujud-machine-0 " +
 		"something-else " +
 		"jujud-unit-wordpress-0")
@@ -95,7 +101,7 @@ func (s *initSystemSuite) TestInitSystemList(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemListLimited(c *gc.C) {
-	s.cmd.Out = []byte("" +
+	s.cmd.SetOutString("" +
 		"jujud-machine-0 " +
 		"something-else " +
 		"jujud-unit-wordpress-0")
@@ -115,7 +121,8 @@ func (s *initSystemSuite) TestInitSystemListLimitedEmpty(c *gc.C) {
 
 func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	s.setStatus(name, initsystems.StatusEnabled)
+	s.setStatus(name, initsystems.StatusEnabled) // for IsEnabled
+	s.setStatus(name, initsystems.StatusEnabled) // for status
 
 	err := s.init.Start(name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -142,7 +149,8 @@ func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 
 func (s *initSystemSuite) TestInitSystemStartAlreadyRunning(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	s.setStatus(name, initsystems.StatusRunning)
+	s.setStatus(name, initsystems.StatusRunning) // for IsEnabled
+	s.setStatus(name, initsystems.StatusRunning) // for status
 
 	err := s.init.Start(name)
 
@@ -160,7 +168,8 @@ func (s *initSystemSuite) TestInitSystemStartNotEnabled(c *gc.C) {
 
 func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	s.setStatus(name, initsystems.StatusRunning)
+	s.setStatus(name, initsystems.StatusRunning) // for IsEnabled
+	s.setStatus(name, initsystems.StatusRunning) // for status
 
 	err := s.init.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,7 +196,8 @@ func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 
 func (s *initSystemSuite) TestInitSystemStopNotRunning(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
-	s.setStatus(name, initsystems.StatusEnabled)
+	s.setStatus(name, initsystems.StatusEnabled) // for IsEnabled
+	s.setStatus(name, initsystems.StatusEnabled) // for status
 
 	err := s.init.Stop(name)
 
@@ -311,20 +321,28 @@ func (s *initSystemSuite) TestInitSystemIsEnabledFalse(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.setStatus(name, initsystems.StatusRunning)
+	s.setDescription(name)
 
 	info, err := s.init.Info(name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(info, jc.DeepEquals, &initsystems.ServiceInfo{
-		Name:   name,
-		Status: initsystems.StatusRunning,
+		Name:        name,
+		Description: "juju agent for unit-wordpress-0",
+		Status:      initsystems.StatusRunning,
 	})
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	descrCmd := cmdPrefix + `(Get-Service "` + name + `").DisplayName`
 	s.fake.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "RunCommandStr",
 		Args: testing.FakeCallArgs{
 			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": descrCmd,
 		},
 	}})
 }
@@ -332,13 +350,15 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.setStatus(name, initsystems.StatusEnabled)
+	s.setDescription(name)
 
 	info, err := s.init.Info(name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(info, jc.DeepEquals, &initsystems.ServiceInfo{
-		Name:   name,
-		Status: initsystems.StatusStopped,
+		Name:        name,
+		Description: "juju agent for unit-wordpress-0",
+		Status:      initsystems.StatusStopped,
 	})
 }
 
