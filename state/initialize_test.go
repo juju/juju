@@ -108,10 +108,15 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	owner := names.NewLocalUserTag("initialize-admin")
-	st := statetesting.Initialize(c, owner, cfg, nil)
+
+	mgoInfo := statetesting.NewMongoInfo()
+	dialOpts := statetesting.NewDialOpts()
+
+	st, err := state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
+	c.Assert(err, jc.ErrorIsNil)
 	st.Close()
 
-	_, err := state.Initialize(owner, statetesting.NewMongoInfo(), cfg, statetesting.NewDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, mgoInfo, cfg, dialOpts, state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "already initialized")
 }
 

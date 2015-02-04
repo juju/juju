@@ -111,7 +111,13 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		}
 	}()
 
-	ops, err := newState.envSetupOps(cfg, ssEnv.UUID(), owner)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, nil, errors.Errorf("environment uuid was not supplied")
+	}
+	newState.environTag = names.NewEnvironTag(uuid)
+
+	ops, err := newState.envSetupOps(cfg, uuid, ssEnv.UUID(), owner)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
