@@ -142,15 +142,7 @@ func (is *upstart) Disable(name string) error {
 		return errors.Trace(err)
 	}
 
-	enabled, err := is.IsEnabled(name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if enabled {
-		return nil
-	}
-
-	return os.Remove(is.confPath(name))
+	return is.fops.RemoveAll(is.confPath(name))
 }
 
 // TODO(ericsnow) Allow verifying against a file.

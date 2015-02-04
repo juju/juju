@@ -192,7 +192,24 @@ func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 	err := s.init.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Exists",
+		Args: testing.FakeCallArgs{
+			"name": s.initDir + "/" + name + ".conf",
+		},
+	}, {
+		FuncName: "RunCommand",
+		Args: testing.FakeCallArgs{
+			"cmd":  "status",
+			"args": []string{"--system", name},
+		},
+	}, {
+		FuncName: "RunCommand",
+		Args: testing.FakeCallArgs{
+			"cmd":  "stop",
+			"args": []string{"--system", name},
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemStopNotRunning(c *gc.C) {
@@ -210,11 +227,24 @@ func (s *initSystemSuite) TestInitSystemStopNotEnabled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
-	filename := "/var/lib/juju/init/jujud-machine-0"
-	err := s.init.Enable("jujud-unit-wordpress-0", filename)
+	name := "jujud-unit-wordpress-0"
+	filename := "/var/lib/juju/init/" + name + ".conf"
+	err := s.init.Enable(name, filename)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	initFile := s.initDir + "/" + name + ".conf"
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Exists",
+		Args: testing.FakeCallArgs{
+			"name": initFile,
+		},
+	}, {
+		FuncName: "Symlink",
+		Args: testing.FakeCallArgs{
+			"oldName": filename,
+			"newName": initFile,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemEnableAlreadyEnabled(c *gc.C) {
@@ -229,10 +259,22 @@ func (s *initSystemSuite) TestInitSystemEnableAlreadyEnabled(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemDisable(c *gc.C) {
 	s.files.Returns.Exists = true
 
+	name := "jujud-unit-wordpress-0"
 	err := s.init.Disable("jujud-unit-wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	initFile := s.initDir + "/" + name + ".conf"
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Exists",
+		Args: testing.FakeCallArgs{
+			"name": s.initDir + "/" + name + ".conf",
+		},
+	}, {
+		FuncName: "RemoveAll",
+		Args: testing.FakeCallArgs{
+			"name": initFile,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemDisableNotEnabled(c *gc.C) {
@@ -244,11 +286,19 @@ func (s *initSystemSuite) TestInitSystemDisableNotEnabled(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemIsEnabledTrue(c *gc.C) {
 	s.files.Returns.Exists = true
 
+	name := "jujud-unit-wordpress-0"
 	enabled, err := s.init.IsEnabled("jujud-unit-wordpress-0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(enabled, jc.IsTrue)
-	// TODO(ericsnow) Check underlying calls.
+
+	initFile := s.initDir + "/" + name + ".conf"
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Exists",
+		Args: testing.FakeCallArgs{
+			"name": initFile,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemIsEnabledFalse(c *gc.C) {
@@ -273,7 +323,25 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 		Description: "juju agent for " + name,
 		Status:      initsystems.StatusRunning,
 	})
-	// TODO(ericsnow) Check underlying calls.
+
+	initFile := s.initDir + "/" + name + ".conf"
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Exists",
+		Args: testing.FakeCallArgs{
+			"name": s.initDir + "/" + name + ".conf",
+		},
+	}, {
+		FuncName: "ReadFile",
+		Args: testing.FakeCallArgs{
+			"filename": initFile,
+		},
+	}, {
+		FuncName: "RunCommand",
+		Args: testing.FakeCallArgs{
+			"cmd":  "status",
+			"args": []string{"--system", name},
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
@@ -290,7 +358,6 @@ func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
 		Description: "juju agent for " + name,
 		Status:      initsystems.StatusStopped,
 	})
-	// TODO(ericsnow) Check underlying calls.
 }
 
 func (s *initSystemSuite) TestInitSystemInfoNotEnabled(c *gc.C) {
@@ -311,7 +378,14 @@ func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
 		Desc: `juju agent for jujud-unit-wordpress-0`,
 		Cmd:  "/var/lib/juju/init/" + name + "/script.sh",
 	})
-	// TODO(ericsnow) Check underlying calls.
+
+	initFile := s.initDir + "/" + name + ".conf"
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "ReadFile",
+		Args: testing.FakeCallArgs{
+			"filename": initFile,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemConfNotEnabled(c *gc.C) {
@@ -326,7 +400,7 @@ func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
 	err := s.init.Validate("jujud-unit-wordpress-0", s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	s.fake.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
@@ -342,6 +416,8 @@ func (s *initSystemSuite) TestInitSystemSerializeBasic(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, s.confStr)
+
+	s.fake.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemSerializeFull(c *gc.C) {
@@ -382,6 +458,8 @@ func (s *initSystemSuite) TestInitSystemDeserializeBasic(c *gc.C) {
 		Desc: `juju agent for jujud-unit-wordpress-0`,
 		Cmd:  "/var/lib/juju/init/" + name + "/script.sh",
 	})
+
+	s.fake.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemDeserializeFull(c *gc.C) {
