@@ -460,7 +460,7 @@ func (s *initSystemSuite) TestInitSystemSerializeFull(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemDeserializeBasic(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	data := s.newConfStr(name, "", nil, nil)
-	conf, err := s.init.Deserialize([]byte(data))
+	conf, err := s.init.Deserialize([]byte(data), name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
@@ -480,7 +480,7 @@ func (s *initSystemSuite) TestInitSystemDeserializeFull(c *gc.C) {
 		"w": "z",
 	}
 	data := s.newConfStr(name, "/var/log/juju/"+name+".log", env, limit)
-	conf, err := s.init.Deserialize([]byte(data))
+	conf, err := s.init.Deserialize([]byte(data), name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(conf, jc.DeepEquals, &initsystems.Conf{

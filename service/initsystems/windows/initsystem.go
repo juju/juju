@@ -219,8 +219,8 @@ func (is *windows) Serialize(name string, conf initsystems.Conf) ([]byte, error)
 }
 
 // Deserialize implements service/initsystems.InitSystem.
-func (is *windows) Deserialize(data []byte) (*initsystems.Conf, error) {
-	conf, err := Deserialize(data)
+func (is *windows) Deserialize(data []byte, name string) (*initsystems.Conf, error) {
+	conf, err := Deserialize(data, name)
 	return conf, errors.Trace(err)
 }
 

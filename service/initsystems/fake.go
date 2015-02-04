@@ -123,9 +123,10 @@ func (fi *Fake) Serialize(name string, conf Conf) ([]byte, error) {
 }
 
 // Deserialize implements InitSystem.
-func (fi *Fake) Deserialize(data []byte) (*Conf, error) {
+func (fi *Fake) Deserialize(data []byte, name string) (*Conf, error) {
 	fi.AddCall("Deserialize", testing.FakeCallArgs{
 		"data": data,
+		"name": name,
 	})
 	return fi.Returns.Conf, fi.Err()
 }

@@ -473,7 +473,7 @@ func (s *initSystemSuite) TestInitSystemSerializeUnsupported(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemDeserialize(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	data := s.newConfStr(name)
-	conf, err := s.init.Deserialize([]byte(data))
+	conf, err := s.init.Deserialize([]byte(data), name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
@@ -485,12 +485,13 @@ func (s *initSystemSuite) TestInitSystemDeserialize(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemDeserializeUnsupported(c *gc.C) {
+	name := "jujud-machine-0"
 	data := `{
  "description": "juju agent for machine-0",
  "startexec": "jujud.exe machine-0",
  "out": "/var/log/juju/machine-0.log"
 }`
-	_, err := s.init.Deserialize([]byte(data))
+	_, err := s.init.Deserialize([]byte(data), name)
 
 	expected := initsystems.NewUnsupportedField("Out")
 	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)

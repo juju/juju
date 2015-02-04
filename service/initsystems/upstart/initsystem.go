@@ -208,7 +208,7 @@ func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
 		return nil, errors.Trace(err)
 	}
 
-	conf, err := is.Deserialize(data)
+	conf, err := is.Deserialize(data, name)
 	return conf, errors.Trace(err)
 }
 
@@ -225,7 +225,7 @@ func (upstart) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 }
 
 // Deserialize implements initsystems.InitSystem.
-func (is *upstart) Deserialize(data []byte) (*initsystems.Conf, error) {
-	conf, err := Deserialize(data)
+func (is *upstart) Deserialize(data []byte, name string) (*initsystems.Conf, error) {
+	conf, err := Deserialize(data, name)
 	return conf, errors.Trace(err)
 }

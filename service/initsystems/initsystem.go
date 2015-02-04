@@ -66,13 +66,12 @@ type InitSystem interface {
 	// before it is serialized.
 	Serialize(name string, conf Conf) ([]byte, error)
 
-	// TODO(ericsnow) Pass name in or return it in Deserialize?
-
 	// Deserialize converts the provided data into a Conf according to
 	// the init system's conf file format. If the data does not
 	// correspond to that file format then an error is returned.
-	// Validate is called on the conf before it is returned.
-	Deserialize(data []byte) (*Conf, error)
+	// Validate is called on the conf before it is returned. If a name
+	// is provided then it must be valid for the provided data.
+	Deserialize(data []byte, name string) (*Conf, error)
 
 	// TODO(ericsnow) Add a Close method? Adding it later will be more
 	// painful...

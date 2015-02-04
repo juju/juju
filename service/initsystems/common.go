@@ -44,7 +44,7 @@ func FilterNames(names, include []string) []string {
 }
 
 type deserializer interface {
-	Deserialize(data []byte) (*Conf, error)
+	Deserialize(data []byte, name string) (*Conf, error)
 }
 
 type fileOperations interface {
@@ -58,6 +58,6 @@ func ReadConf(name, filename string, is deserializer, fops fileOperations) (*Con
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conf, err := is.Deserialize(data)
+	conf, err := is.Deserialize(data, name)
 	return conf, errors.Trace(err)
 }

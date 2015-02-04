@@ -41,11 +41,15 @@ func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 
 // Deserialize parses the provided data (in the init system's prefered
 // format) and populates a new Conf with the result.
-func Deserialize(data []byte) (*initsystems.Conf, error) {
+func Deserialize(data []byte, name string) (*initsystems.Conf, error) {
 	conf, err := initsystems.DeserializeJSON(data)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = Validate("<>", conf)
+
+	if name == "" {
+		name = "<>"
+	}
+	err = Validate(name, conf)
 	return &conf, errors.Trace(err)
 }
