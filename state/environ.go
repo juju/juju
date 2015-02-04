@@ -5,7 +5,6 @@ package state
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -101,7 +100,11 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		return nil, nil, errors.Annotate(err, "could not load state server environment")
 	}
 
-	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, nil, errors.Errorf("environment uuid was not supplied")
+	}
+	newState, err := st.ForEnviron(names.NewEnvironTag(uuid))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "could not create state for new environment")
 	}
@@ -110,12 +113,6 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 			newState.Close()
 		}
 	}()
-
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, nil, errors.Errorf("environment uuid was not supplied")
-	}
-	newState.environTag = names.NewEnvironTag(uuid)
 
 	ops, err := newState.envSetupOps(cfg, uuid, ssEnv.UUID(), owner)
 	if err != nil {

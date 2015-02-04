@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -39,6 +38,7 @@ func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 		return nil, errors.Annotate(err, "could not access state server info")
 	}
 	st.environTag = ssInfo.EnvironmentTag
+	st.startPresenceWatcher()
 	return st, nil
 }
 
@@ -88,6 +88,9 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 	}
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
+	logger.Infof("starting presence watcher")
+	st.startPresenceWatcher()
+
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
 	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
@@ -127,6 +130,12 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
+	if serverUUID == "" {
+		serverUUID = envUUID
 	}
 	envUserOp, _ := createEnvUserOpAndDoc(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
@@ -214,7 +223,6 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}
 
 	db := session.DB("juju")
-	pdb := session.DB("presence")
 	st := &State{
 		mongoInfo: mongoInfo,
 		policy:    policy,
@@ -243,14 +251,6 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
-	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
-	defer func() {
-		if resultErr != nil {
-			if err := st.pwatcher.Stop(); err != nil {
-				logger.Errorf("failed to stop presence watcher: %v", err)
-			}
-		}
-	}()
 
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
@@ -275,7 +275,10 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
-	err2 := st.pwatcher.Stop()
+	var err2 error
+	if st.pwatcher != nil {
+		err2 = st.pwatcher.Stop()
+	}
 	st.mu.Lock()
 	var err3 error
 	if st.allManager != nil {
