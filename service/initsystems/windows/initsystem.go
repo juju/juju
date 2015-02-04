@@ -107,7 +107,7 @@ func (is *windows) Enable(name, filename string) error {
 		return errors.Trace(err)
 	}
 
-	commands := installCommands(name, *conf)
+	commands := enableCommands(name, *conf)
 	for _, command := range commands {
 		_, err := is.cmd.RunCommandStr(command)
 		if err != nil {
@@ -218,11 +218,19 @@ func (is *windows) Deserialize(data []byte) (*initsystems.Conf, error) {
 
 // for cloud-init:
 func installCommands(name string, conf initsystems.Conf) []string {
+	cmds := enableCommands(name, conf)
+	cmds = append(cmds,
+		// (from environs/cloudinit/cloudinit_win.go)
+		fmt.Sprintf(`Start-Service %s`, name),
+	)
+	return cmds
+}
+
+func enableCommands(name string, conf initsystems.Conf) []string {
 	// (from environs/cloudinit/cloudinit_win.go)
 	return []string{
 		fmt.Sprintf(`New-Service -Credential $jujuCreds -Name '%s' -DisplayName '%s' '%s'`, name, conf.Desc, conf.Cmd),
 		fmt.Sprintf(`cmd.exe /C sc config %s start=delayed-auto`, name),
-		fmt.Sprintf(`Start-Service %s`, name),
 	}
 
 	// TODO(ericsnow) Use the full install script (from

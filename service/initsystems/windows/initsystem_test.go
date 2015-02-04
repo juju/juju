@@ -229,7 +229,6 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	for _, cmd := range []string{
 		fmt.Sprintf("New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'juju agent for %s' 'jujud.exe %s'", name, tag, tag),
 		"cmd.exe /C sc config " + name + " start=delayed-auto",
-		"Start-Service " + name,
 	} {
 		expected = append(expected, testing.FakeCall{
 			FuncName: "RunCommandStr",
