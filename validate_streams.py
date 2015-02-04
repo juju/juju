@@ -197,6 +197,9 @@ def parse_args(args=None):
         '-r', '--removed', default=None, help='The release version removed')
     parser.add_argument(
         '-a', '--added', default=None, help="The release version added")
+    parser.add_argument(
+        '-i', '--ignore', default=None,
+        help="Ignore a version that might be added")
     parser.add_argument('purpose', help="<{}>".format(' | '.join(PURPOSES)))
     parser.add_argument('old_json', help="The old simple streams data file")
     parser.add_argument('new_json', help="The new simple streams data file")

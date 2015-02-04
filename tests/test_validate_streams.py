@@ -81,9 +81,14 @@ class ValidateStreams(TestCase):
         self.assertEqual('old/json', args.old_json)
         self.assertEqual('new/json', args.new_json)
         self.assertEqual('1.20.9', args.added)
+        self.assertIsNone(None, args.removed)
+        self.assertIsNone(None, args.ignore)
         # A bad release version can be removed.
         args = parse_args(['--removed', 'bad'] + required)
         self.assertEqual('bad', args.removed)
+        # A version can be ignored.
+        args = parse_args(['--ignore', '1.18'] + required)
+        self.assertEqual('1.18', args.ignore)
 
     def test_find_agents(self):
         products = make_products_data(['1.20.7', '1.20.8'])
