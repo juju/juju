@@ -13,7 +13,7 @@ import (
 type Conf struct {
 	initsystems.Conf
 
-	// TODO(ericsnow) Can we eliminate ExtraScript?
+	// TODO(ericsnow) Eliminate ExtraScript.
 
 	// ExtraScript allows you to insert script before command execution.
 	ExtraScript string
@@ -27,7 +27,7 @@ func (c Conf) Script() (string, error) {
 
 	script := c.Cmd
 	if len(c.ExtraScript) > 0 {
-		// TODO(ericsnow) Fix this on Windows.
+		// We trust that this will work on Windows.
 		script = c.ExtraScript + "\n" + script
 	}
 

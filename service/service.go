@@ -1,6 +1,8 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// The service package provides abstractions and helpers for interacting
+// with the juju-managed services in a host's init system.
 package service
 
 import (

@@ -29,11 +29,12 @@ type serviceConfigs struct {
 	fops  fs.Operations
 }
 
+// newConfigs builds a new serviceConfigs using the provided data.
+// The caller must ensure that baseDir exists.
 func newConfigs(baseDir, initSystem string, prefixes ...string) *serviceConfigs {
 	if len(prefixes) == 0 {
 		prefixes = jujuPrefixes
 	}
-	// TODO(ericsnow) Fail if the provided baseDir does not exist?
 	return &serviceConfigs{
 		baseDir:    filepath.Join(baseDir, initDir),
 		initSystem: initSystem,

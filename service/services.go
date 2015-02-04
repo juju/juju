@@ -219,7 +219,6 @@ func (s Services) Disable(name string) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Require that the service be stopped already?
 	err := s.disable(name)
 	return errors.Trace(err)
 }
@@ -228,7 +227,6 @@ func (s Services) disable(name string) error {
 	err := s.init.Disable(name)
 	if errors.IsNotFound(err) {
 		// It already wasn't enabled.
-		// TODO(ericsnow) Is this correct?
 		return nil
 	}
 	return errors.Trace(err)
