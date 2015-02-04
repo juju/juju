@@ -5,7 +5,6 @@ package joyent_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/testing"
@@ -203,10 +202,6 @@ var newConfigTests = []struct {
 	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
-	info:   "private-key-path is inserted if missing",
-	remove: []string{"private-key-path"},
-	expect: coretesting.Attrs{"private-key-path": "~/.ssh/id_rsa"},
-}, {
 	info:   "can get private-key-path from env variable",
 	insert: coretesting.Attrs{"private-key-path": ""},
 	expect: coretesting.Attrs{"private-key-path": "some-file"},
@@ -389,21 +384,4 @@ func (s *ConfigSuite) TestPrepareForBootstrap(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
-}
-
-func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
-	ctx := envtesting.BootstrapContext(c)
-	// By default "private-key-path isn't set until after validateConfig has been called.
-	attrs := validAttrs().Delete("private-key-path", "private-key")
-	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(keyFilePath, []byte(testPrivateKey), 400)
-	c.Assert(err, jc.ErrorIsNil)
-	defer os.Remove(keyFilePath)
-	testConfig := newConfig(c, attrs)
-	preparedConfig, err := jp.Provider.PrepareForBootstrap(ctx, testConfig)
-	c.Assert(err, jc.ErrorIsNil)
-	attrs = preparedConfig.Config().AllAttrs()
-	c.Check(attrs["private-key-path"], gc.Equals, jp.DefaultPrivateKey)
-	c.Check(attrs["private-key"], gc.Equals, testPrivateKey)
 }
