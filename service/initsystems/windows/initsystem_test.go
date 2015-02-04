@@ -22,6 +22,7 @@ const confStr = `{
  "description": "juju agent for %s",
  "startexec": "jujud.exe %s"
 }`
+const cmdPrefix = `$ErrorActionPreference="Stop"; `
 
 type initSystemSuite struct {
 	coretesting.BaseSuite
@@ -42,7 +43,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.conf = initsystems.Conf{
-		Desc: "juju agent for jujud-machine-0",
+		Desc: "juju agent for machine-0",
 		Cmd:  "jujud.exe machine-0",
 	}
 	s.confStr = s.newConfStr("jujud-machine-0")
@@ -57,7 +58,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 
 func (s *initSystemSuite) newConfStr(name string) string {
 	tag := name[len("jujud-"):]
-	return fmt.Sprintf(confStr, name, tag)
+	return fmt.Sprintf(confStr, tag, tag)
 }
 
 func (s *initSystemSuite) setStatus(name, status string) {
@@ -119,7 +120,24 @@ func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 	err := s.init.Start(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	cmd := cmdPrefix + `Start-Service  "` + name + `"`
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": cmd,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemStartAlreadyRunning(c *gc.C) {
@@ -147,7 +165,24 @@ func (s *initSystemSuite) TestInitSystemStop(c *gc.C) {
 	err := s.init.Stop(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	cmd := cmdPrefix + `Stop-Service  "` + name + `"`
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": cmd,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemStopNotRunning(c *gc.C) {
@@ -169,6 +204,7 @@ func (s *initSystemSuite) TestInitSystemStopNotEnabled(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
+	tag := "unit-wordpress-0"
 	name := "jujud-unit-wordpress-0"
 	s.setStatus(name, "")
 	s.files.Returns.Data = []byte(s.newConfStr(name))
@@ -178,6 +214,31 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// TODO(ericsnow) Check underlying calls.
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	expected := []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "ReadFile",
+		Args: testing.FakeCallArgs{
+			"filename": filename,
+		},
+	}}
+	for _, cmd := range []string{
+		fmt.Sprintf("New-Service -Credential $jujuCreds -Name '%s' -DisplayName 'juju agent for %s' 'jujud.exe %s'", name, tag, tag),
+		"cmd.exe /C sc config " + name + " start=delayed-auto",
+		"Start-Service " + name,
+	} {
+		expected = append(expected, testing.FakeCall{
+			FuncName: "RunCommandStr",
+			Args: testing.FakeCallArgs{
+				"cmd": cmd,
+			},
+		})
+	}
+	s.fake.CheckCalls(c, expected)
 }
 
 func (s *initSystemSuite) TestInitSystemEnableAlreadyEnabled(c *gc.C) {
@@ -344,13 +405,14 @@ func (s *initSystemSuite) TestInitSystemSerialize(c *gc.C) {
 }
 
 func (s *initSystemSuite) TestInitSystemSerializeUnsupported(c *gc.C) {
+	tag := "unit-wordpress-0"
 	name := "jujud-unit-wordpress-0"
 	conf := initsystems.Conf{
-		Desc: "juju agent for " + name,
-		Cmd:  "jujud.exe unit-wordpress-0",
-		Out:  "/var/log/juju/unit-wordpress-0",
+		Desc: "juju agent for " + tag,
+		Cmd:  "jujud.exe " + tag,
+		Out:  "/var/log/juju/" + tag,
 	}
-	_, err := s.init.Serialize("jujud-machine-0", conf)
+	_, err := s.init.Serialize(name, conf)
 
 	expected := initsystems.NewUnsupportedField("Out")
 	c.Check(errors.Cause(err), gc.FitsTypeOf, expected)
@@ -363,7 +425,7 @@ func (s *initSystemSuite) TestInitSystemDeserialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
-		Desc: "juju agent for jujud-unit-wordpress-0",
+		Desc: "juju agent for unit-wordpress-0",
 		Cmd:  "jujud.exe unit-wordpress-0",
 	})
 }
