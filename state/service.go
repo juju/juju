@@ -603,8 +603,12 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal:        principalName,
 		StorageInstances: storageInstanceIds,
 	}
-	sdoc := statusDoc{
+	agentSdoc := statusDoc{
 		Status:  StatusAllocating,
+		EnvUUID: s.st.EnvironUUID(),
+	}
+	sdoc := statusDoc{
+		Status:  StatusBusy,
 		EnvUUID: s.st.EnvironUUID(),
 	}
 	ops := []txn.Op{
@@ -615,7 +619,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Insert: udoc,
 		},
 		createStatusOp(s.st, globalKey, sdoc),
-		createStatusOp(s.st, agentGlobalKey, sdoc),
+		createStatusOp(s.st, agentGlobalKey, agentSdoc),
 		createMeterStatusOp(s.st, globalKey, &meterStatusDoc{Code: MeterNotSet}),
 		{
 			C:      servicesC,
