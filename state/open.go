@@ -72,25 +72,28 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			st.Close()
 		}
 	}()
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
+	}
 	st.environTag = names.NewEnvironTag(uuid)
+
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
-		return st, nil
+		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
-
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
-	}
+	logger.Infof("starting presence watcher")
 	st.startPresenceWatcher()
 
-	ops, err := st.envSetupOps(cfg, "", owner)
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
+	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,34 +121,27 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransactionNoEnvAliveAssert(ops); err == txn.ErrAborted {
-		// The config was created in the meantime.
-		return st, nil
-	} else if err != nil {
+	if err := st.runTransactionNoEnvAliveAssert(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
-	}
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
 	}
 
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
 	if serverUUID == "" {
-		serverUUID = uuid
+		serverUUID = envUUID
 	}
-	envUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
+	envUserOp, _ := createEnvUserOpAndDoc(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, owner, cfg.Name(), uuid, serverUUID),
+		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
 		envUserOp,
 	}
 	return ops, nil

@@ -114,7 +114,7 @@ func (st *State) NewEnvironment(cfg *config.Config, owner names.UserTag) (_ *Env
 		}
 	}()
 
-	ops, err := newState.envSetupOps(cfg, ssEnv.UUID(), owner)
+	ops, err := newState.envSetupOps(cfg, uuid, ssEnv.UUID(), owner)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to create new environment")
 	}
