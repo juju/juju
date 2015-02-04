@@ -79,8 +79,10 @@ func (is *upstart) Start(name string) error {
 		return errors.Trace(err)
 	}
 
-	if is.isRunning(name) {
+	if err := is.ensureRunning(name); err == nil {
 		return errors.AlreadyExistsf("service %q", name)
+	} else if !errors.IsNotFound(err) {
+		return errors.Trace(err)
 	}
 
 	// On slower disks, upstart may take a short time to realise
@@ -98,7 +100,7 @@ func (is *upstart) start(name string) error {
 	_, err := is.cmd.RunCommand("start", "--system", name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
-		if is.isRunning(name) {
+		if err := is.ensureRunning(name); err == nil {
 			return nil
 		}
 		return errors.Trace(err)
@@ -112,8 +114,8 @@ func (is *upstart) Stop(name string) error {
 		return errors.Trace(err)
 	}
 
-	if !is.isRunning(name) {
-		return errors.NotFoundf("service %q", name)
+	if err := is.ensureRunning(name); err != nil {
+		return errors.Trace(err)
 	}
 
 	_, err := is.cmd.RunCommand("stop", "--system", name)
@@ -171,8 +173,10 @@ func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
 	}
 
 	status := initsystems.StatusStopped
-	if is.isRunning(name) {
+	if err := is.ensureRunning(name); err == nil {
 		status = initsystems.StatusRunning
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	}
 
 	info := &initsystems.ServiceInfo{
@@ -183,13 +187,15 @@ func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
 	return info, nil
 }
 
-func (is *upstart) isRunning(name string) bool {
+func (is *upstart) ensureRunning(name string) error {
 	out, err := is.cmd.RunCommand("status", "--system", name)
 	if err != nil {
-		// TODO(ericsnow) Are we really okay ignoring the error?
-		return false
+		return errors.Trace(err)
 	}
-	return upstartStartedRE.Match(out)
+	if !upstartStartedRE.Match(out) {
+		return errors.NotFoundf("service %q", name)
+	}
+	return nil
 }
 
 // Conf implements initsystems.InitSystem.
