@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-// TODO(ericsnow) Move this whole file over to the agent package?
+// TODO(ericsnow) Incorporate all or part of this file into the agent package?
 
 const (
 	maxAgentFiles = 20000
@@ -23,21 +23,12 @@ const (
 	agentPrefix   = "jujud-"
 )
 
-// TODO(ericsnow) Move executables and the exe* consts to the proper
-// spot (agent?). This is currently sort of addressed in the juju/names
-// package, but that doesn't accommodate remote init systems.
-
 const (
-	exeWindows = "jujud.exe"
-	exeDefault = "jujud"
+	// TODO(ericsnow) Move this to the
+	jujudName = "jujud"
 )
 
 var (
-	agentExecutables = map[string]string{
-		InitSystemWindows: exeWindows,
-		InitSystemUpstart: exeDefault,
-	}
-
 	agentOptions = map[string]string{
 		"machine": "machine-id",
 		"unit":    "unit-name",
@@ -151,8 +142,10 @@ func (as AgentServiceSpec) ToolsDir() string {
 }
 
 func (as AgentServiceSpec) executable() string {
-	// TODO(ericsnow) Just use juju/names.Jujud for local?
-	name := agentExecutables[as.initSystem]
+	name := jujudName
+	if as.initSystem == InitSystemWindows {
+		name += ".exe"
+	}
 	executable := filepath.Join(as.ToolsDir(), name)
 	return fromSlash(executable, as.initSystem)
 }
