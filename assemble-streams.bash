@@ -137,6 +137,8 @@ init_tools_maybe() {
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
         echo "Seeding devel with $INIT_VERSION released agents"
+        cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
+            $DEST_DIST/tools/releases
         cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "weekly" ]]; then
@@ -480,13 +482,14 @@ generate_streams() {
     # the default.
     if [[ $PURPOSE == "released" ]]; then
         # Juju 1.15* can see released streams.
-        cp $DEST_DIST/tools/releases/juju-*.tgz $JUJU_DIST/tools/$PURPOSE/
+        cp --no-clobber \
+            $DEST_DIST/tools/releases/juju-*.tgz $JUJU_DIST/tools/$PURPOSE/
     else
         # Only new juju 1.21* can see devel and proposed.
         local agents=$(
             find $DEST_DIST/tools/releases/ -name 'juju-1.2*' |
             sed -r '/1.20/d')
-        cp $agents $JUJU_DIST/tools/$PURPOSE/
+        cp --no-clobber $agents $JUJU_DIST/tools/$PURPOSE/
     fi
 
     # Backup the current json to old json if it exists for later validation.
