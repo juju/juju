@@ -228,6 +228,9 @@ func (s *initSystemSuite) TestInitSystemStopNotEnabled(c *gc.C) {
 
 func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
+	data := s.newConfStr(name, "", nil, nil)
+	s.files.Returns.Data = []byte(data)
+
 	filename := "/var/lib/juju/init/" + name + ".conf"
 	err := s.init.Enable(name, filename)
 	c.Assert(err, jc.ErrorIsNil)
@@ -237,6 +240,11 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 		FuncName: "Exists",
 		Args: testing.FakeCallArgs{
 			"name": initFile,
+		},
+	}, {
+		FuncName: "ReadFile",
+		Args: testing.FakeCallArgs{
+			"filename": filename,
 		},
 	}, {
 		FuncName: "Symlink",
@@ -250,8 +258,9 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemEnableAlreadyEnabled(c *gc.C) {
 	s.files.Returns.Exists = true
 
-	filename := "/var/lib/juju/init/jujud-machine-0"
-	err := s.init.Enable("jujud-unit-wordpress-0", filename)
+	name := "jujud-unit-wordpress-0"
+	filename := "/var/lib/juju/init/" + name
+	err := s.init.Enable(name, filename)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }

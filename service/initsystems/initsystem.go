@@ -33,12 +33,15 @@ type InitSystem interface {
 	// Enable adds a new service to the init system with the given name.
 	// The conf file at the provided filename is used for the new
 	// service. If a service with that name is already enabled then
-	// errors.AlreadyExists is returned.
+	// errors.AlreadyExists is returned. The file will be deserialized
+	// and validated before the service is enabled.
 	Enable(name, filename string) error
 
 	// Disable removes the named service from the init system. If it is
 	// not already enabled then errors.NotFound is returned.
 	Disable(name string) error
+
+	// TODO(ericsnow) Allow verifying against a file.
 
 	// IsEnabled determines whether or not the named service is enabled.
 	IsEnabled(name string) (bool, error)
@@ -59,7 +62,8 @@ type InitSystem interface {
 	Validate(name string, conf Conf) error
 
 	// Serialize converts the provided Conf into the file format
-	// recognized by the init system.
+	// recognized by the init system. Validate is called on the conf
+	// before it is serialized.
 	Serialize(name string, conf Conf) ([]byte, error)
 
 	// TODO(ericsnow) Pass name in or return it in Deserialize?
@@ -67,5 +71,9 @@ type InitSystem interface {
 	// Deserialize converts the provided data into a Conf according to
 	// the init system's conf file format. If the data does not
 	// correspond to that file format then an error is returned.
+	// Validate is called on the conf before it is returned.
 	Deserialize(data []byte) (*Conf, error)
+
+	// TODO(ericsnow) Add a Close method? Adding it later will be more
+	// painful...
 }

@@ -122,14 +122,17 @@ func (is *upstart) Stop(name string) error {
 
 // Enable implements initsystems.InitSystem.
 func (is *upstart) Enable(name, filename string) error {
-	// TODO(ericsnow) Deserialize and validate?
-
 	enabled, err := is.IsEnabled(name)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if enabled {
 		return errors.AlreadyExistsf("service %q", name)
+	}
+
+	// Deserialize and validate the file.
+	if _, err := initsystems.ReadConf(name, filename, is, is.fops); err != nil {
+		return errors.Trace(err)
 	}
 
 	err = is.fops.Symlink(filename, is.confPath(name))
@@ -144,8 +147,6 @@ func (is *upstart) Disable(name string) error {
 
 	return is.fops.RemoveAll(is.confPath(name))
 }
-
-// TODO(ericsnow) Allow verifying against a file.
 
 // IsEnabled implements initsystems.InitSystem.
 func (is *upstart) IsEnabled(name string) (bool, error) {
