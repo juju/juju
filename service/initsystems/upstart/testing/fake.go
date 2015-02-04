@@ -14,8 +14,6 @@ import (
 	"github.com/juju/juju/service/initsystems/upstart"
 )
 
-// TODO(ericsnow) Use the fake in the testing repo as soon as it lands.
-
 type FakeInitSystem struct {
 	Services map[string]initsystems.Conf
 	Enabled  set.Strings

@@ -1,8 +1,9 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(ericsnow) Move the initsystems package to a separate repo?
-// To an extent this applies to the service package as well.
+// TODO(ericsnow) At some point we should consider moving the inisystems
+// package and portions of the service package into another repo
+// (e.g. utils).
 
 package initsystems
 
