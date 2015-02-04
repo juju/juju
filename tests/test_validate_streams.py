@@ -200,6 +200,13 @@ class ValidateStreams(TestCase):
             ["These unknown agents were found: ['1.20.9-trusty-amd64']"],
             errors)
 
+    def test_check_expected_unchanged_with_ignored(self):
+        old_agents = make_agents_data('trusty', 'amd64', ['1.21-b1'])
+        new_agents = make_agents_data('trusty', 'amd64', ['1.21-b1', '1.20.1'])
+        errors = check_expected_unchanged(
+            old_agents, new_agents, added=None, removed=None, ignored='1.20.')
+        self.assertEqual([], errors)
+
     def test_check_expected_unchanged_calls_reconcile_aliases(self):
         old_agents = make_agents_data('trusty', 'amd64', ['1.20.7'])
         new_agents = make_agents_data('trusty', 'amd64', ['1.18.1', '1.20.7'])
