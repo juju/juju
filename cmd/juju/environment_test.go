@@ -4,6 +4,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -85,4 +87,16 @@ func (s *EnvironmentSuite) TestEnsureAvailability(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals,
 		"adding machines: 1, 2, 3\n"+
 			"demoting machines 0\n\n")
+}
+
+func (s *EnvironmentSuite) TestRetryProvisioning(c *gc.C) {
+	s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	ctx, err := s.RunEnvironmentCommand(c, "retry-provisioning", "0")
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := testing.Stderr(ctx)
+	stripped := strings.Replace(output, "\n", "", -1)
+	c.Check(stripped, gc.Equals, `cannot retry provisioning "machine-0": "machine-0" is not in an error state`)
 }

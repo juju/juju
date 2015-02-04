@@ -5,11 +5,10 @@ package client_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "gopkg.in/check.v1"
@@ -171,11 +170,10 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 }
 
 func (s *runSuite) mockSSH(c *gc.C, cmd string) {
-	testbin := c.MkDir()
-	fakessh := filepath.Join(testbin, "ssh")
-	s.PatchEnvPathPrepend(testbin)
-	err := ioutil.WriteFile(fakessh, []byte(cmd), 0755)
-	c.Assert(err, jc.ErrorIsNil)
+	gitjujutesting.PatchExecutable(c, s, "ssh", cmd)
+	gitjujutesting.PatchExecutable(c, s, "scp", cmd)
+	client, _ := ssh.NewOpenSSHClient()
+	s.PatchValue(&ssh.DefaultClient, client)
 }
 
 func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
@@ -213,7 +211,7 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	c.Assert(runResults.Results, gc.HasLen, 1)
 	result := runResults.Results[0]
 	c.Assert(result.Error, gc.Equals, "")
-	c.Assert(string(result.Stderr), jc.Contains, "-i /some/dir/system-identity")
+	c.Assert(string(result.Stderr), jc.Contains, "system-identity")
 }
 
 func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
@@ -254,11 +252,12 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	results, err := client.RunOnAllMachines("hostname", testing.LongWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
+
 	var expectedResults []params.RunResult
 	for i := 0; i < 3; i++ {
 		expectedResults = append(expectedResults,
 			params.RunResult{
-				ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+				ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[0])},
 
 				MachineId: fmt.Sprint(i),
 			})
@@ -308,18 +307,19 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 3)
+
 	expectedResults := []params.RunResult{
 		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[0])},
 			MachineId:    "0",
 		},
 		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
+			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[1])},
 			MachineId:    "1",
 			UnitId:       "magic/0",
 		},
 		params.RunResult{
-			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
+			ExecResponse: exec.ExecResponse{Stdout: []byte(expectedCommand[2])},
 			MachineId:    "2",
 			UnitId:       "magic/1",
 		},
@@ -357,19 +357,3 @@ func (s *runSuite) TestBlockRunMachineAndService(c *gc.C) {
 		})
 	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
 }
-
-var echoInputShowArgs = `#!/bin/bash
-# Write the args to stderr
-echo "$*" >&2
-# And echo stdin to stdout
-while read line
-do echo $line
-done <&0
-`
-
-var echoInput = `#!/bin/bash
-# And echo stdin to stdout
-while read line
-do echo $line
-done <&0
-`

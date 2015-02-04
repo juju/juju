@@ -35,7 +35,10 @@ func (s *apiCharmsSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *apiCharmsSuite) TestCharmsListFacadeCall(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-1",
+	})
 
 	found, err := s.charmsClient.List([]string{"wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -44,7 +47,10 @@ func (s *apiCharmsSuite) TestCharmsListFacadeCall(c *gc.C) {
 }
 
 func (s *apiCharmsSuite) TestCharmInfoFacadeCall(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-1",
+	})
 
 	found, err := s.charmsClient.CharmInfo("cs:quantal/wordpress-1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -68,8 +74,14 @@ func runList(c *gc.C, args []string) *cmd.Context {
 }
 
 func (s *cmdCharmsSuite) TestCharmListAllCmdStack(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-1",
+	})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "riak",
+		URL:  "cs:quantal/riak-3",
+	})
 
 	context := runList(c, []string{})
 	obtained := testing.Stdout(context)
@@ -78,7 +90,10 @@ func (s *cmdCharmsSuite) TestCharmListAllCmdStack(c *gc.C) {
 }
 
 func (s *cmdCharmsSuite) TestCharmListNamesCmdStack(c *gc.C) {
-	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.Factory.MakeCharm(c, &factory.CharmParams{
+		Name: "wordpress",
+		URL:  "cs:quantal/wordpress-1",
+	})
 	s.Factory.MakeCharm(c, &factory.CharmParams{Name: "riak"})
 
 	context := runList(c, []string{"wordpress"})

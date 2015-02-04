@@ -594,6 +594,15 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	}
 
 	runner := newConnRunner(st)
+	// TODO(fwereade): this is *still* a hideous layering violation, but at least
+	// it's confined to jujud rather than extending into the worker itself.
+	// Start this worker first to try and get proxy settings in place
+	// before we do anything else.
+	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
+	})
+
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
@@ -613,13 +622,6 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
-	})
-
-	// TODO(fwereade): this is *still* a hideous layering violation, but at least
-	// it's confined to jujud rather than extending into the worker itself.
-	writeSystemFiles := shouldWriteProxyFiles(agentConfig)
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), writeSystemFiles), nil
 	})
 
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {

@@ -1438,7 +1438,12 @@ func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
 	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
 
 	// Now create a new environment and see the workers start for it.
-	factory.NewFactory(s.State).MakeEnvironment(c, nil).Close()
+	factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	}).Close()
 	r1 := s.singularRecord.nextRunner(c)
 	workers = r1.waitForWorker(c, "firewaller")
 	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
