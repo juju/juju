@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -124,6 +125,11 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 
 func (s *StateSuite) TestEnvironUUID(c *gc.C) {
 	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
+}
+
+func (s *StateSuite) TestNoEnvDocs(c *gc.C) {
+	c.Assert(s.State.NoEnvDocs(), gc.ErrorMatches,
+		fmt.Sprintf("found documents for environment with uuid %s: 1 constraints doc, 1 settings doc", s.State.EnvironUUID()))
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -2571,6 +2577,48 @@ func (s *StateSuite) TestAdditionalValidation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot remove logging-config")
 	err = s.State.UpdateEnvironConfig(updateAttrs, nil, configValidator3)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) TestRemoveAllEnvironDocs(c *gc.C) {
+	st := s.factory.MakeEnvironment(c, nil)
+	defer st.Close()
+
+	// insert one doc for each multiEnvCollection
+	var ops []mgotxn.Op
+	for collName := range state.MultiEnvCollections {
+		// skip adding constraints and settings as they were added when the
+		// environment was created
+		if collName == "constraints" || collName == "settings" {
+			continue
+		}
+		ops = append(ops, mgotxn.Op{
+			C:      collName,
+			Id:     state.DocID(st, "arbitraryid"),
+			Insert: bson.M{"env-uuid": st.EnvironUUID()}})
+	}
+	err := state.RunTransaction(st, ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// test that we can find each doc in state
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 1)
+	}
+
+	err = st.RemoveAllEnvironDocs()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// ensure all docs for all multiEnvCollections are removed
+	for collName := range state.MultiEnvCollections {
+		coll, closer := state.GetRawCollection(st, collName)
+		defer closer()
+		n, err := coll.Find(bson.D{{"env-uuid", st.EnvironUUID()}}).Count()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(n, gc.Equals, 0)
+	}
 }
 
 type attrs map[string]interface{}

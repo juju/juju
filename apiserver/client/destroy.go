@@ -33,10 +33,10 @@ func (c *Client) DestroyEnvironment() error {
 	// to stop the user from prematurely hobbling the environment.
 	machines, err := c.api.state.AllMachines()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot destroy environment")
 	}
 	if err := checkManualMachines(machines); err != nil {
-		return err
+		return errors.Annotate(err, "cannot destroy environment")
 	}
 
 	// Set the environment to Dying, to lock out new machines and services.
@@ -45,10 +45,10 @@ func (c *Client) DestroyEnvironment() error {
 	// first check and the Environment.Destroy().
 	env, err := c.api.state.Environment()
 	if err != nil {
-		return err
+		errors.Annotate(err, "cannot destroy environment")
 	}
 	if err = env.Destroy(); err != nil {
-		return err
+		errors.Annotate(err, "cannot destroy environment")
 	}
 	machines, err = c.api.state.AllMachines()
 	if err != nil {
@@ -61,14 +61,34 @@ func (c *Client) DestroyEnvironment() error {
 	// in non-hosted environments to the CLI, as otherwise the API
 	// server may get cut off.
 	if err := destroyInstances(c.api.state, machines); err != nil {
-		return err
+		return errors.Annotate(err, "cannot destroy environment")
 	}
 
 	// Make sure once again that there are no manually provisioned
 	// non-manager machines. This caters for the race between the
 	// first check and the Environment.Destroy().
 	if err := checkManualMachines(machines); err != nil {
-		return err
+		return errors.Annotate(err, "cannot destroy environment")
+	}
+
+	// If this is not the state server environment, remove all documents from
+	// state associated with the environment.
+	st := c.api.state
+	ssinfo, err := st.StateServerInfo()
+	if err != nil {
+		return errors.Annotate(err, "could not get state server info")
+	}
+	ssuuid := ssinfo.EnvironmentTag.Id()
+	if st.EnvironUUID() != ssuuid {
+		env, err := st.Environment()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = env.Destroy()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		st.RemoveAllEnvironDocs()
 	}
 
 	// Return to the caller. If it's the CLI, it will finish up
