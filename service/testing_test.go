@@ -18,7 +18,7 @@ type BaseSuite struct {
 	Conf    *Conf
 	Confdir *confDir
 
-	FakeInit  *fakeInit
+	FakeInit  *initsystems.Fake
 	FakeFile  *fs.FakeFile
 	FakeFiles *fs.FakeOps
 }
@@ -33,7 +33,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	}}
 
 	// Patch a few things.
-	s.FakeInit = &fakeInit{}
+	s.FakeInit = &initsystems.Fake{}
 	s.FakeFile = fs.NewFakeFile()
 	s.FakeFiles = fs.NewFakeOps()
 	s.FakeFiles.Returns.File = s.FakeFile
@@ -53,89 +53,4 @@ func newFakeFile(name string, data []byte) *fs.File {
 
 func newFakeDir(name string) *fs.File {
 	return fs.NewDir(name, 0755)
-}
-
-// TODO(ericsnow) Move fakeInit to service/testing.
-
-type fakeInit struct {
-	testing.Fake
-
-	Names   []string
-	Enabled bool
-	SInfo   *initsystems.ServiceInfo
-	SConf   *initsystems.Conf
-	Data    []byte
-}
-
-func (fi *fakeInit) List(include ...string) ([]string, error) {
-	fi.AddCall("List", testing.FakeCallArgs{
-		"include": include,
-	})
-	return fi.Names, fi.Err()
-}
-
-func (fi *fakeInit) Start(name string) error {
-	fi.AddCall("Start", testing.FakeCallArgs{
-		"name": name,
-	})
-	return fi.Err()
-}
-
-func (fi *fakeInit) Stop(name string) error {
-	fi.AddCall("Stop", testing.FakeCallArgs{
-		"name": name,
-	})
-	return fi.Err()
-}
-
-func (fi *fakeInit) Enable(name, filename string) error {
-	fi.AddCall("Enable", testing.FakeCallArgs{
-		"name":     name,
-		"filename": filename,
-	})
-	return fi.Err()
-}
-
-func (fi *fakeInit) Disable(name string) error {
-	fi.AddCall("Disable", testing.FakeCallArgs{
-		"name": name,
-	})
-	return fi.Err()
-}
-
-func (fi *fakeInit) IsEnabled(name string, filenames ...string) (bool, error) {
-	fi.AddCall("IsEnabled", testing.FakeCallArgs{
-		"name":      name,
-		"filenames": filenames,
-	})
-	return fi.Enabled, fi.Err()
-}
-
-func (fi *fakeInit) Info(name string) (*initsystems.ServiceInfo, error) {
-	fi.AddCall("Info", testing.FakeCallArgs{
-		"name": name,
-	})
-	return fi.SInfo, fi.Err()
-}
-
-func (fi *fakeInit) Conf(name string) (*initsystems.Conf, error) {
-	fi.AddCall("Conf", testing.FakeCallArgs{
-		"name": name,
-	})
-	return fi.SConf, fi.Err()
-}
-
-func (fi *fakeInit) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
-	fi.AddCall("Serialize", testing.FakeCallArgs{
-		"name": name,
-		"conf": conf,
-	})
-	return fi.Data, fi.Err()
-}
-
-func (fi *fakeInit) Deserialize(data []byte) (*initsystems.Conf, error) {
-	fi.AddCall("Deserialize", testing.FakeCallArgs{
-		"data": data,
-	})
-	return fi.SConf, fi.Err()
 }

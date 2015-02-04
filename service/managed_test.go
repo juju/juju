@@ -139,7 +139,7 @@ func (s *managedSuite) TestLookupNotFound(c *gc.C) {
 }
 
 func (s *managedSuite) TestAddSuccess(c *gc.C) {
-	s.FakeInit.Data = []byte("<upstart conf>")
+	s.FakeInit.Returns.Data = []byte("<upstart conf>")
 
 	err := s.configs.add("jujud-machine-0", *s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,7 +199,7 @@ func (s *managedSuite) TestAddExists(c *gc.C) {
 
 func (s *managedSuite) TestAddMultiline(c *gc.C) {
 	s.Conf.Cmd = "spam\neggs"
-	s.FakeInit.Data = []byte("<upstart conf>")
+	s.FakeInit.Returns.Data = []byte("<upstart conf>")
 
 	err := s.configs.add("jujud-machine-0", *s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -269,7 +269,7 @@ func (s *managedSuite) TestAddMultiline(c *gc.C) {
 
 func (s *managedSuite) TestAddExtra(c *gc.C) {
 	s.Conf.ExtraScript = "eggs"
-	s.FakeInit.Data = []byte("<upstart conf>")
+	s.FakeInit.Returns.Data = []byte("<upstart conf>")
 
 	err := s.configs.add("jujud-machine-0", *s.Conf, s.FakeInit)
 	c.Assert(err, jc.ErrorIsNil)
