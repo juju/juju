@@ -41,10 +41,12 @@ type InitSystem interface {
 	// not already enabled then errors.NotFound is returned.
 	Disable(name string) error
 
-	// TODO(ericsnow) Allow verifying against a file.
-
 	// IsEnabled determines whether or not the named service is enabled.
 	IsEnabled(name string) (bool, error)
+
+	// Check determines whether or not the named service is enabled
+	// and matches the conf at the filename.
+	Check(name, filename string) (bool, error)
 
 	// Info gathers information about the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.

@@ -16,6 +16,7 @@ type fileOperations interface {
 	ListDir(dirname string) ([]os.FileInfo, error)
 	ReadFile(filename string) ([]byte, error)
 	Symlink(oldname, newname string) error
+	Readlink(name string) (string, error)
 	RemoveAll(name string) error
 }
 

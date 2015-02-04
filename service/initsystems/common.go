@@ -4,6 +4,8 @@
 package initsystems
 
 import (
+	"os"
+
 	"github.com/juju/errors"
 )
 
@@ -60,4 +62,31 @@ func ReadConf(name, filename string, is deserializer, fops fileOperations) (*Con
 	}
 	conf, err := is.Deserialize(data, name)
 	return conf, errors.Trace(err)
+}
+
+type confChecker interface {
+	deserializer
+	Conf(name string) (*Conf, error)
+}
+
+// CheckConf reads and deserializes the conf from the file and compares
+// it to the one that is enabled in the init system (if any). If the
+// file does not exist or the init system cannot retrieve the conf then
+// false is returned (with no error).
+func CheckConf(name, filename string, is confChecker, fops fileOperations) (bool, error) {
+	expected, err := ReadConf(name, filename, is, fops)
+	if os.IsNotExist(errors.Cause(err)) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	conf, err := is.Conf(name)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return conf.Equals(*expected), nil
 }

@@ -9,12 +9,13 @@ import (
 
 // FakeReturns holds the values returned by the various Fake methods.
 type FakeReturns struct {
-	Name    string
-	Names   []string
-	Enabled bool
-	Info    *ServiceInfo
-	Conf    *Conf
-	Data    []byte
+	Name        string
+	Names       []string
+	Enabled     bool
+	CheckPassed bool
+	Info        *ServiceInfo
+	Conf        *Conf
+	Data        []byte
 }
 
 // Fake is used to simulate an init system without actually doing
@@ -86,6 +87,15 @@ func (fi *Fake) IsEnabled(name string) (bool, error) {
 		"name": name,
 	})
 	return fi.Returns.Enabled, fi.Err()
+}
+
+// Check implements InitSystem.
+func (fi *Fake) Check(name, filename string) (bool, error) {
+	fi.AddCall("Check", testing.FakeCallArgs{
+		"name":     name,
+		"filename": filename,
+	})
+	return fi.Returns.CheckPassed, fi.Err()
 }
 
 // Info implements InitSystem.

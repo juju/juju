@@ -120,7 +120,7 @@ func (s Services) ListEnabled() ([]string, error) {
 		}
 
 		// Make sure it is the juju-managed service.
-		same, err := s.compareConf(name, confDir)
+		same, err := s.init.Check(name, confDir.confname())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -201,7 +201,7 @@ func (s Services) Enable(name string) error {
 	if errors.IsAlreadyExists(err) {
 		// It is already enabled. Make sure the enabled one is
 		// managed by juju.
-		same, err := s.compareConf(name, confDir)
+		same, err := s.init.Check(name, confDir.confname())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -273,7 +273,7 @@ func (s Services) Remove(name string) error {
 	}
 	if enabled {
 		// We must do this before removing the conf directory.
-		same, err := s.compareConf(name, confDir)
+		same, err := s.init.Check(name, confDir.confname())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -356,7 +356,7 @@ func (s Services) ensureManaged(name string) error {
 	}
 
 	// Make sure that the juju-managed conf matches the enabled one.
-	same, err := s.compareConf(name, confDir)
+	same, err := s.init.Check(name, confDir.confname())
 	if errors.IsNotSupported(err) {
 		// We'll just have to trust.
 		return nil
@@ -367,23 +367,4 @@ func (s Services) ensureManaged(name string) error {
 	}
 
 	return nil
-}
-
-func (s Services) compareConf(name string, confDir *confDir) (bool, error) {
-	conf, err := s.init.Conf(name)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	data, err := confDir.conf()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	expected, err := s.init.Deserialize(data)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	//return (*conf == *expected), nil
-	return conf.Equals(*expected), nil
 }

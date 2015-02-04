@@ -148,6 +148,12 @@ func isNotFound(err error) bool {
 	return strings.Contains(err.Error(), psErrNotFound)
 }
 
+// Check implements initsystems.InitSystem.
+func (is *windows) Check(name, filename string) (bool, error) {
+	matched, err := initsystems.CheckConf(name, filename, is, is.fops)
+	return matched, errors.Trace(err)
+}
+
 // Info implements service/initsystems.InitSystem.
 func (is *windows) Info(name string) (*initsystems.ServiceInfo, error) {
 	// Get the status.

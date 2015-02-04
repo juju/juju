@@ -161,6 +161,15 @@ func (is *upstart) IsEnabled(name string) (bool, error) {
 	return exists, nil
 }
 
+// Check implements initsystems.InitSystem.
+func (is *upstart) Check(name, filename string) (bool, error) {
+	actual, err := is.fops.Readlink(is.confPath(name))
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return actual == filename, nil
+}
+
 // Info implements initsystems.InitSystem.
 func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
