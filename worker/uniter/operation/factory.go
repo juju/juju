@@ -157,3 +157,11 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 		runnerFactory: f.runnerFactory,
 	}, nil
 }
+
+// NewUpdateRelations is part of the Factory interface.
+func (f *factory) NewUpdateRelations(ids []int) (Operation, error) {
+	return &updateRelations{
+		ids:       ids,
+		callbacks: f.callbacks,
+	}, nil
+}
