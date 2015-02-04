@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -39,6 +38,7 @@ func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 		return nil, errors.Annotate(err, "could not access state server info")
 	}
 	st.environTag = ssInfo.EnvironmentTag
+	st.startPresenceWatcher()
 	return st, nil
 }
 
@@ -72,17 +72,28 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 			st.Close()
 		}
 	}()
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
+	}
+	st.environTag = names.NewEnvironTag(uuid)
+
 	// A valid environment is used as a signal that the
 	// state has already been initalized. If this is the case
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
-		return st, nil
+		return nil, errors.New("already initialized")
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
-	ops, err := st.envSetupOps(cfg, "", owner)
+	logger.Infof("starting presence watcher")
+	st.startPresenceWatcher()
+
+	// When creating the state server environment, the new environment
+	// UUID is also used as the state server UUID.
+	ops, err := st.envSetupOps(cfg, uuid, uuid, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -110,35 +121,27 @@ func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, 
 		},
 	)
 
-	if err := st.runTransactionNoEnvAliveAssert(ops); err == txn.ErrAborted {
-		// The config was created in the meantime.
-		return st, nil
-	} else if err != nil {
+	if err := st.runTransactionNoEnvAliveAssert(ops); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
 
-func (st *State) envSetupOps(cfg *config.Config, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
+func (st *State) envSetupOps(cfg *config.Config, envUUID, serverUUID string, owner names.UserTag) ([]txn.Op, error) {
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	uuid, ok := cfg.UUID()
-	if !ok {
-		return nil, errors.Errorf("environment uuid was not supplied")
-	}
-	st.environTag = names.NewEnvironTag(uuid)
 
 	// When creating the state server environment, the new environment
 	// UUID is also used as the state server UUID.
 	if serverUUID == "" {
-		serverUUID = uuid
+		serverUUID = envUUID
 	}
-	envUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
+	envUserOp, _ := createEnvUserOpAndDoc(envUUID, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, owner, cfg.Name(), uuid, serverUUID),
+		createEnvironmentOp(st, owner, cfg.Name(), envUUID, serverUUID),
 		envUserOp,
 	}
 	return ops, nil
@@ -220,7 +223,6 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	}
 
 	db := session.DB("juju")
-	pdb := session.DB("presence")
 	st := &State{
 		mongoInfo: mongoInfo,
 		policy:    policy,
@@ -249,14 +251,6 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			}
 		}
 	}()
-	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
-	defer func() {
-		if resultErr != nil {
-			if err := st.pwatcher.Stop(); err != nil {
-				logger.Errorf("failed to stop presence watcher: %v", err)
-			}
-		}
-	}()
 
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique, Sparse: item.sparse}
@@ -281,7 +275,10 @@ func (st *State) CACert() string {
 func (st *State) Close() (err error) {
 	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
-	err2 := st.pwatcher.Stop()
+	var err2 error
+	if st.pwatcher != nil {
+		err2 = st.pwatcher.Stop()
+	}
 	st.mu.Lock()
 	var err3 error
 	if st.allManager != nil {

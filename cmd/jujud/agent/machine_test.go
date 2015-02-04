@@ -459,10 +459,11 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 
 	// See state server runners start
 	r0 := s.singularRecord.nextRunner(c)
-	c.Assert(r0.started(), jc.DeepEquals, []string{"resumer"})
+	r0.waitForWorker(c, "resumer")
 
 	r1 := s.singularRecord.nextRunner(c)
-	c.Assert(r1.started(), jc.DeepEquals, perEnvSingularWorkers)
+	lastWorker := perEnvSingularWorkers[len(perEnvSingularWorkers)-1]
+	r1.waitForWorker(c, lastWorker)
 
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
@@ -1682,20 +1683,6 @@ func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
 			}
 		case <-timeout:
 			c.Fatal("timed out waiting for " + target)
-		}
-	}
-}
-
-// started returns all started runners that haven't been reported so
-// far.
-func (r *fakeSingularRunner) started() []string {
-	seen := make([]string, 0)
-	for {
-		select {
-		case name := <-r.startC:
-			seen = append(seen, name)
-		case <-time.After(coretesting.ShortWait):
-			return seen
 		}
 	}
 }
