@@ -60,8 +60,6 @@ func (cd confDir) filename() string {
 }
 
 func (cd confDir) validate() error {
-	// TODO(ericsnow) Loop through contents of dir?
-
 	// The conf file must exist.
 	confname := cd.confname()
 	exists, err := cd.fops.Exists(filepath.Join(cd.dirname, confname))
@@ -78,13 +76,11 @@ func (cd confDir) validate() error {
 func (cd confDir) create() error {
 	exists, err := cd.fops.Exists(cd.dirname)
 	if exists {
-		// TODO(ericsnow) Allow if using a different init system?
 		return errors.AlreadyExistsf("service conf dir %q", cd.dirname)
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(ericsnow) Are these the right permissions?
 	if err := cd.fops.MkdirAll(cd.dirname, 0755); err != nil {
 		return errors.Trace(err)
 	}
@@ -106,9 +102,6 @@ func (cd confDir) script() ([]byte, error) {
 }
 
 func (cd confDir) writefile(name string, data []byte) (string, error) {
-	// TODO(ericsnow) Fail if the file already exists?
-	// TODO(ericsnow) Create with desired permissions?
-
 	filename := filepath.Join(cd.dirname, name)
 
 	file, err := cd.fops.CreateFile(filename)
@@ -130,7 +123,6 @@ func (cd confDir) writeConf(data []byte) error {
 		return errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Are these the right permissions?
 	if err := cd.fops.Chmod(filename, 0644); err != nil {
 		return errors.Trace(err)
 	}
@@ -144,7 +136,6 @@ func (cd confDir) writeScript(script string) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	// TODO(ericsnow) Are these the right permissions?
 	if err := cd.fops.Chmod(filename, 0755); err != nil {
 		return "", errors.Trace(err)
 	}

@@ -33,9 +33,6 @@ func (s *confDirSuite) checkWritten(c *gc.C, filename, content string, perm os.F
 		},
 	}})
 
-	// TODO(ericsnow) Is it important to check that the Write and Close
-	// happened before the Chmod call?
-
 	s.FakeFile.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "Write",
 		Args: testing.FakeCallArgs{
