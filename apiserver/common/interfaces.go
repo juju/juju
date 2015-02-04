@@ -4,8 +4,6 @@
 package common
 
 import (
-	"github.com/juju/juju/apiserver/params"
-
 	"github.com/juju/names"
 )
 
@@ -14,12 +12,6 @@ type AuthFunc func(tag names.Tag) bool
 
 // GetAuthFunc returns an AuthFunc.
 type GetAuthFunc func() (AuthFunc, error)
-
-// SetterFunc sets status on a given tag
-type SetterFunc func(tag names.Tag, status params.Status, info string, data map[string]interface{}) error
-
-// GetSetterFunc returns a status setter function
-type GetSetterFunc func() SetterFunc
 
 // Authorizer represents a value that can be asked for authorization
 // information on its associated authenticated entity. It is

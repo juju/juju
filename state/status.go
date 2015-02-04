@@ -144,20 +144,17 @@ func (status Status) Matches(candidate Status) bool {
 	return status == candidate
 }
 
-// UnitStatusSetter identifies an entity that has unit status and therefore
-// needs to behave differently when setting status.
-type UnitStatusSetter interface {
-	SetUnitStatus(status Status, info string, data map[string]interface{}) error
-}
-
+// AgentUnit represents a type that can return its agent.
 type AgentUnit interface {
 	Agent() Entity
 }
 
+// StatusSetter represents a type whose status can be set.
 type StatusSetter interface {
 	SetStatus(status Status, info string, data map[string]interface{}) error
 }
 
+// StatusGetter represents a type whose status can be read.
 type StatusGetter interface {
 	Status() (status Status, info string, data map[string]interface{}, err error)
 }
