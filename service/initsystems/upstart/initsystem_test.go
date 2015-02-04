@@ -144,10 +144,28 @@ func (s *initSystemSuite) TestInitSystemListLimitedEmpty(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemStart(c *gc.C) {
 	s.files.Returns.Exists = true
 
-	err := s.init.Start("jujud-unit-wordpress-0")
+	name := "jujud-unit-wordpress-0"
+	err := s.init.Start(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "Exists",
+		Args: testing.FakeCallArgs{
+			"name": s.initDir + "/" + name + ".conf",
+		},
+	}, {
+		FuncName: "RunCommand",
+		Args: testing.FakeCallArgs{
+			"cmd":  "status",
+			"args": []string{"--system", name},
+		},
+	}, {
+		FuncName: "RunCommand",
+		Args: testing.FakeCallArgs{
+			"cmd":  "start",
+			"args": []string{"--system", name},
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemStartAlreadyRunning(c *gc.C) {
