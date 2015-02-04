@@ -213,7 +213,6 @@ func (s *initSystemSuite) TestInitSystemEnable(c *gc.C) {
 	err := s.init.Enable(name, filename)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
 	expected := []testing.FakeCall{{
 		FuncName: "RunCommandStr",
@@ -257,7 +256,19 @@ func (s *initSystemSuite) TestInitSystemDisable(c *gc.C) {
 	err := s.init.Disable(name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	cmd := cmdPrefix + `(gwmi win32_service -filter 'name="` + name + `"').Delete()`
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": cmd,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemDisableNotEnabled(c *gc.C) {
@@ -277,7 +288,14 @@ func (s *initSystemSuite) TestInitSystemIsEnabledTrue(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(enabled, jc.IsTrue)
-	// TODO(ericsnow) Check underlying calls.
+
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemIsEnabledFalse(c *gc.C) {
@@ -301,7 +319,14 @@ func (s *initSystemSuite) TestInitSystemInfoRunning(c *gc.C) {
 		Name:   name,
 		Status: initsystems.StatusRunning,
 	})
-	// TODO(ericsnow) Check underlying calls.
+
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
@@ -315,7 +340,6 @@ func (s *initSystemSuite) TestInitSystemInfoNotRunning(c *gc.C) {
 		Name:   name,
 		Status: initsystems.StatusStopped,
 	})
-	// TODO(ericsnow) Check underlying calls.
 }
 
 func (s *initSystemSuite) TestInitSystemInfoNotEnabled(c *gc.C) {
@@ -338,7 +362,14 @@ func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
 		Desc: `juju agent for jujud-unit-wordpress-0`,
 		Cmd:  "jujud.exe unit-wordpress-0",
 	})
-	// TODO(ericsnow) Check underlying calls.
+
+	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	s.fake.CheckCalls(c, []testing.FakeCall{{
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": statusCmd,
+		},
+	}})
 }
 
 func (s *initSystemSuite) TestInitSystemConfNotEnabled(c *gc.C) {
@@ -354,7 +385,7 @@ func (s *initSystemSuite) TestInitSystemValidate(c *gc.C) {
 	err := s.init.Validate("jujud-machine-0", s.conf)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Check underlying calls.
+	s.fake.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemValidateInvalid(c *gc.C) {
@@ -401,6 +432,8 @@ func (s *initSystemSuite) TestInitSystemSerialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(string(data), gc.Equals, s.confStr)
+
+	s.fake.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemSerializeUnsupported(c *gc.C) {
@@ -427,6 +460,8 @@ func (s *initSystemSuite) TestInitSystemDeserialize(c *gc.C) {
 		Desc: "juju agent for unit-wordpress-0",
 		Cmd:  "jujud.exe unit-wordpress-0",
 	})
+
+	s.fake.CheckCalls(c, nil)
 }
 
 func (s *initSystemSuite) TestInitSystemDeserializeUnsupported(c *gc.C) {
