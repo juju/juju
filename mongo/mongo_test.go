@@ -96,7 +96,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 
 	s.services = svctesting.NewFakeServices(service.InitSystemUpstart)
 	s.PatchValue(mongo.NewService, func(name, dataDir string, conf service.Conf) (*service.Service, error) {
-		return service.WrapService(name, conf, s.services), nil
+		return service.NewService(name, conf, s.services), nil
 	})
 	s.installCount = 0 // Reset for each pass.
 	installService := *mongo.InstallService
@@ -130,7 +130,7 @@ func (s *MongoSuite) enabled() []*service.Service {
 	var enabled []*service.Service
 	for _, name := range s.services.Status.Enabled.Values() {
 		conf := s.services.Confs[name]
-		svc := service.WrapService(name, conf, s.services)
+		svc := service.NewService(name, conf, s.services)
 		enabled = append(enabled, svc)
 	}
 	return enabled

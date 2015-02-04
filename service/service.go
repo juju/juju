@@ -30,20 +30,8 @@ type Service struct {
 	services services
 }
 
-// NewService builds a Services value using the provided dataDir and
-// init system name and wraps it in a Service for the given name and
-// conf.
-func NewService(name, dataDir string, conf Conf, args ...string) (*Service, error) {
-	services, err := DiscoverServices(dataDir, args...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	svc := WrapService(name, conf, services)
-	return svc, nil
-}
-
-// WrapService is a bare-bones "constructor" for a new Service.
-func WrapService(name string, conf Conf, services services) *Service {
+// NewService is a bare-bones "constructor" for a new Service.
+func NewService(name string, conf Conf, services services) *Service {
 	return &Service{
 		name:     name,
 		conf:     conf,
@@ -51,16 +39,28 @@ func WrapService(name string, conf Conf, services services) *Service {
 	}
 }
 
-// WrapAgentService builds a new Service for the juju agent identified
+// DiscoverService builds a Services value using the provided dataDir and
+// init system name and wraps it in a Service for the given name and
+// conf.
+func DiscoverService(name, dataDir string, conf Conf, args ...string) (*Service, error) {
+	services, err := DiscoverServices(dataDir, args...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	svc := NewService(name, conf, services)
+	return svc, nil
+}
+
+// NewAgentService builds a new Service for the juju agent identified
 // by the provided information and returns it.
-func WrapAgentService(tag names.Tag, paths AgentPaths, env map[string]string, services services) (*Service, error) {
-	spec, err := newAgentService(tag, paths, env)
+func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string, services services) (*Service, error) {
+	spec, err := newAgentServiceSpec(tag, paths, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	spec.initSystem = services.InitSystem()
 
-	svc := WrapService(spec.Name(), spec.Conf(), services)
+	svc := NewService(spec.Name(), spec.Conf(), services)
 	return svc, nil
 }
 

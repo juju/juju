@@ -86,10 +86,10 @@ type AgentPaths interface {
 // TODO(ericsnow) Refactor environs/cloudinit.MachineConfig relative
 // to AgentService?
 
-// AgentService is the specification for the jujud service for a unit or
-// machine agent. The kind is determined from the tag passed to
-// NewAgentService.
-type AgentService struct {
+// AgentServiceSpec is the specification for the jujud service for a
+// unit or machine agent. The kind is determined from the tag passed
+// to NewAgentService.
+type AgentServiceSpec struct {
 	AgentPaths
 
 	tag names.Tag
@@ -99,10 +99,10 @@ type AgentService struct {
 	option     string
 }
 
-// NewAgentService builds the specification for a new agent jujud
+// NewAgentServiceSpec builds the specification for a new agent jujud
 // service based on the provided information.
-func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentService, error) {
-	svc, err := newAgentService(tag, paths, env)
+func NewAgentServiceSpec(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentServiceSpec, error) {
+	svc, err := newAgentServiceSpec(tag, paths, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -117,8 +117,8 @@ func NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*A
 	return svc, nil
 }
 
-func newAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentService, error) {
-	svc := &AgentService{
+func newAgentServiceSpec(tag names.Tag, paths AgentPaths, env map[string]string) (*AgentServiceSpec, error) {
+	svc := &AgentServiceSpec{
 		AgentPaths: paths,
 		tag:        tag,
 		env:        env,
@@ -140,29 +140,29 @@ func newAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*A
 // case, we could add an error return on the dynamic attr methods.
 
 // Name provides the agent's init system service name.
-func (as AgentService) Name() string {
+func (as AgentServiceSpec) Name() string {
 	return agentPrefix + as.tag.String()
 }
 
 // ToolsDir composes path to the agent's tools dir from the AgentService
 // and returns it.
-func (as AgentService) ToolsDir() string {
+func (as AgentServiceSpec) ToolsDir() string {
 	return tools.ToolsDir(as.DataDir(), as.tag.String())
 }
 
-func (as AgentService) executable() string {
+func (as AgentServiceSpec) executable() string {
 	// TODO(ericsnow) Just use juju/names.Jujud for local?
 	name := agentExecutables[as.initSystem]
 	executable := filepath.Join(as.ToolsDir(), name)
 	return fromSlash(executable, as.initSystem)
 }
 
-func (as AgentService) logfile() string {
+func (as AgentServiceSpec) logfile() string {
 	name := as.tag.String() + logSuffix
 	return filepath.Join(as.LogDir(), name)
 }
 
-func (as AgentService) command() string {
+func (as AgentServiceSpec) command() string {
 	// E.g. "jujud" machine --data-dir "..." --machine-id "0"
 	command := fmt.Sprintf(`"%s" %s --data-dir "%s" --%s "%s"`,
 		as.executable(),
@@ -181,7 +181,7 @@ func (as AgentService) command() string {
 }
 
 // Conf returns the service config for the agent described by AgentService.
-func (as AgentService) Conf() Conf {
+func (as AgentServiceSpec) Conf() Conf {
 	cmd := as.command()
 
 	normalConf := initsystems.Conf{

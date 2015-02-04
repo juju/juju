@@ -330,13 +330,13 @@ func (s Services) IsManaged(name string) bool {
 
 // NewService wraps the name and conf in a Service for convenience.
 func (s *Services) NewService(name string, conf Conf) *Service {
-	return WrapService(name, conf, s)
+	return NewService(name, conf, s)
 }
 
 // NewAgentService wraps the provided information in a Service for
 // convenience.
 func (s Services) NewAgentService(tag names.Tag, paths AgentPaths, env map[string]string) (*Service, error) {
-	svc, err := WrapAgentService(tag, paths, env, s)
+	svc, err := NewAgentService(tag, paths, env, s)
 	return svc, errors.Trace(err)
 }
 

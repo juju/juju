@@ -175,6 +175,6 @@ func (fs *FakeServices) Install(name string, conf service.Conf) error {
 func (fs *FakeServices) NewAgentService(tag names.Tag, paths service.AgentPaths, env map[string]string) (*service.Service, error) {
 	fs.addCall("NewAgentService")
 
-	svc, err := service.WrapAgentService(tag, paths, env, fs)
+	svc, err := service.NewAgentService(tag, paths, env, fs)
 	return svc, errors.Trace(err)
 }

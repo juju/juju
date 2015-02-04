@@ -133,7 +133,7 @@ func (ss ServiceSpec) Conf() service.Conf {
 }
 
 var newService = func(name, dataDir string, conf service.Conf) (*service.Service, error) {
-	return service.NewService(name, dataDir, conf)
+	return service.DiscoverService(name, dataDir, conf)
 }
 
 // NewService builds a new service based on the spec and returns it.
@@ -221,5 +221,5 @@ type adminService interface {
 
 var newAdminService = func(namespace, dataDir string) (adminService, error) {
 	svcName := ServiceName(namespace)
-	return service.NewService(svcName, dataDir, service.Conf{})
+	return service.DiscoverService(svcName, dataDir, service.Conf{})
 }
