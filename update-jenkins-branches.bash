@@ -5,12 +5,18 @@
 set -eux
 
 MASTER="juju-ci.vapour.ws"
+SLAVES="precises-slave.vapour.ws trusty-slave.vapour.ws \
+    utopic-slave-a.vapour.ws utopic-slave-b.vapour.ws vivid-slave.vapour.ws \
+    ppc64el-slave.vapour.ws i386-slave.vapour.ws kvm-slave.vapour.ws \
+    canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
+    charm-bundle-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
 
 
 update_jenkins() {
-    host=$1
+    # Get the ip address which will most likely match historic ssh rules.
+    host=$(host -t A $1 | cut -d ' ' -f4)
     echo "updating $host"
     if [[ "$CLOUD_CITY" == "true" ]]; then
         bzr branch lp:~juju-qa/+junk/cloud-city \
@@ -30,7 +36,9 @@ cd ~/repository
 bzr pull
 cd ~/juju-ci-tools
 bzr pull
-make install-deps
+if [[ \$(uname) == "Linux" ]]; then
+    make install-deps
+fi
 if [[ -d ~/ci-director ]]; then
     cd ~/ci-director
     bzr pull
@@ -48,16 +56,6 @@ while [[ "${1-}" != "" ]]; do
     esac
     shift
 done
-
-SLAVES=$(juju status '*-slave*' | grep public-address | sed -r 's,^.*: ,,')
-if [[ -z $SLAVES ]]; then
-    echo "Set JUJU_HOME to juju-qa's environments and switch to juju-ci."
-    exit 1
-fi
-if [[ ! $SLAVES =~ ^.*10\.125\.0\.10.*$ ]]; then
-    echo "The kvm-slave lost its machine and unit agents."
-    SLAVES="$SLAVES 10.125.0.10 15.125.114.8 osx-slave.vapour.ws"
-fi
 
 SKIPPED=""
 for host in $MASTER $SLAVES; do
