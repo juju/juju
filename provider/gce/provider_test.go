@@ -40,8 +40,8 @@ func (s *providerSuite) TestOpen(c *gc.C) {
 	c.Assert(envConfig.Name(), gc.Equals, "testenv")
 }
 
-func (s *providerSuite) TestPrepare(c *gc.C) {
-	env, err := s.provider.Prepare(envtesting.BootstrapContext(c), s.Config)
+func (s *providerSuite) TestPrepareForBootstrap(c *gc.C) {
+	env, err := s.provider.PrepareForBootstrap(envtesting.BootstrapContext(c), s.Config)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(env, gc.NotNil)
 }

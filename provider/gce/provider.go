@@ -39,8 +39,8 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, errors.Trace(err)
 }
 
-// Prepare implements environs.EnvironProvider.
-func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// PrepareForBootstrap implements environs.EnvironProvider.
+func (p environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	// The config generate here will be store in a config file and in
 	// the state DB. So this is the only place we have to update the
 	// config with GCE-specific data, e.g. defaults and OS env values.
@@ -60,6 +60,23 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		}
 	}
 	return env, nil
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (environProvider) RestrictedConfigAttributes() []string {
+	return []string{
+		cfgPrivateKey,
+		cfgClientID,
+		cfgClientEmail,
+		cfgRegion,
+		cfgProjectID,
+		cfgImageEndpoint,
+	}
 }
 
 // Validate implements environs.EnvironProvider.
