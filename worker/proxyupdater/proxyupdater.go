@@ -145,10 +145,10 @@ func (w *proxyWorker) writeEnvironment() error {
 }
 
 func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
+	w.proxy.SetEnvironmentValues()
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
-		w.proxy.SetEnvironmentValues()
 		if w.writeSystemFiles {
 			if err := w.writeEnvironment(); err != nil {
 				// It isn't really fatal, but we should record it.
