@@ -188,10 +188,10 @@ func (is *windows) status(name string) (string, error) {
 	switch strings.TrimSpace(string(out)) {
 	case "Stopped":
 		status = initsystems.StatusStopped
-	default:
-		// TODO(ericsnow) Fail here and handle "Running" in a case.
+	case "Running":
 		status = initsystems.StatusRunning
-
+	default:
+		return "", errors.Errorf("unrecognized service status %q", status)
 	}
 	return status, nil
 }
