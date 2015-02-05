@@ -177,14 +177,14 @@ Acquire::ftp::Proxy "none";
 Acquire::magic::Proxy "none";
 `,
 		expectedAptProxy: proxy.Settings{
-			Http:  "10.0.3.1:3142",
+			Http:  "http://10.0.3.1:3142",
 			Https: "false",
 			Ftp:   "none",
 		},
 	}, {
 		message: "apt-proxies not used if apt-http-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-http-proxy": "value-set",
+			"apt-http-proxy": "http://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
@@ -193,12 +193,12 @@ Acquire::ftp::Proxy "none";
 Acquire::magic::Proxy "none";
 `,
 		expectedAptProxy: proxy.Settings{
-			Http: "value-set",
+			Http: "http://value-set",
 		},
 	}, {
 		message: "apt-proxies not used if apt-https-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-https-proxy": "value-set",
+			"apt-https-proxy": "https://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
@@ -207,12 +207,12 @@ Acquire::ftp::Proxy "none";
 Acquire::magic::Proxy "none";
 `,
 		expectedAptProxy: proxy.Settings{
-			Https: "value-set",
+			Https: "https://value-set",
 		},
 	}, {
 		message: "apt-proxies not used if apt-ftp-proxy set",
 		extraConfig: map[string]interface{}{
-			"apt-ftp-proxy": "value-set",
+			"apt-ftp-proxy": "ftp://value-set",
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
@@ -221,7 +221,7 @@ Acquire::ftp::Proxy "none";
 Acquire::magic::Proxy "none";
 `,
 		expectedAptProxy: proxy.Settings{
-			Ftp: "value-set",
+			Ftp: "ftp://value-set",
 		},
 	}} {
 		c.Logf("\n%v: %s", i, test.message)
