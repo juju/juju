@@ -13,10 +13,11 @@ class JoyentTestCase(TestCase):
     def test_parse_args(self):
         args = parse_args(
             ['-d', '-v', '-u', 'sdc_url', '-a', 'account', '-k', 'key_id',
-             'list-machines'])
+             '-p', 'key/path', 'list-machines'])
         self.assertEqual('sdc_url', args.sdc_url)
         self.assertEqual('account', args.account)
         self.assertEqual('key_id', args.key_id)
+        self.assertEqual('key/path', args.key_path)
         self.assertTrue(args.dry_run)
         self.assertTrue(args.verbose)
 

@@ -376,6 +376,10 @@ def parse_args(args=None):
         "-k", "--key-id", dest="key_id",
         help="SSH key fingerprint.  Environment: MANTA_KEY_ID=FINGERPRINT",
         default=os.environ.get("MANTA_KEY_ID"))
+    parser.add_argument(
+        "-p", "--key-path", dest="key_path",
+        help="Path to the SSH key",
+        default='%s/id_rsa' % os.environ.get("JUJU_HOME"))
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     subparsers.add_parser('list-machines', help='List running machines')
     parser_delete_old_machine = subparsers.add_parser(
