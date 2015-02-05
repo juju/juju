@@ -12,7 +12,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -32,9 +31,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/initsystems"
-	"github.com/juju/juju/service/initsystems/upstart"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -112,7 +110,6 @@ type localJujuTestSuite struct {
 	oldUpstartLocation string
 	testPath           string
 	fakesudo           string
-	services           *service.Services
 }
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
@@ -137,15 +134,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.MachineConfig, *coreCloudinit.Config) error {
 		return nil
-	})
-
-	// Patch out the init system.
-	fops := &fs.Ops{}
-	baseIS := &upstart.Upstart{}
-	initSystem := initsystems.NewTracking(baseIS, fops)
-	s.services = service.NewServices(c.MkDir(), initSystem)
-	s.PatchValue(local.NewServices, func(string) (*service.Services, error) {
-		return s.services, nil
 	})
 }
 
@@ -278,33 +266,31 @@ func (s *localJujuTestSuite) TestDestroyCallSudo(c *gc.C) {
 	c.Assert(string(data), gc.Equals, strings.Join(expected, " ")+"\n")
 }
 
-func (s *localJujuTestSuite) makeFakeInitScripts(c *gc.C, env environs.Environ) (mongoService *service.Service, machineAgent *service.Service) {
+func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Environ,
+) (mongoService *upstart.Service, machineAgent *upstart.Service) {
+	upstartDir := c.MkDir()
+	s.PatchValue(&upstart.InitDir, upstartDir)
 	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
 
-	// First start mongo.
 	namespace := env.Config().AllAttrs()["namespace"].(string)
-	mongoConf := service.Conf{Conf: initsystems.Conf{
+	mongoConf := common.Conf{
 		Desc: "fake mongo",
 		Cmd:  "echo FAKE",
-	}}
-	mongoService = s.services.NewService(mongo.ServiceName(namespace), mongoConf)
+	}
+	mongoService = upstart.NewService(mongo.ServiceName(namespace), mongoConf)
 	err := mongoService.Install()
 	c.Assert(err, jc.ErrorIsNil)
-	running, err := mongoService.IsRunning()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(running, jc.IsTrue)
+	c.Assert(mongoService.Installed(), jc.IsTrue)
 
-	// Then start jujud.
-	agentConf := service.Conf{Conf: initsystems.Conf{
+	agentConf := common.Conf{
 		Desc: "fake agent",
 		Cmd:  "echo FAKE",
-	}}
-	machineAgent = s.services.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
+	}
+	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
+
 	err = machineAgent.Install()
 	c.Assert(err, jc.ErrorIsNil)
-	running, err = machineAgent.IsRunning()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(running, jc.IsTrue)
+	c.Assert(machineAgent.Installed(), jc.IsTrue)
 
 	return mongoService, machineAgent
 }
@@ -312,19 +298,14 @@ func (s *localJujuTestSuite) makeFakeInitScripts(c *gc.C, env environs.Environ) 
 func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
 	env := s.testBootstrap(c, minimalConfig(c))
 	s.makeAgentsDir(c, env)
-	mongo, machineAgent := s.makeFakeInitScripts(c, env)
+	mongo, machineAgent := s.makeFakeUpstartScripts(c, env)
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 
 	err := env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	enabled, err := mongo.IsEnabled()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enabled, jc.IsFalse)
-
-	enabled, err = machineAgent.IsEnabled()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(enabled, jc.IsFalse)
+	c.Assert(mongo.Installed(), jc.IsFalse)
+	c.Assert(machineAgent.Installed(), jc.IsFalse)
 }
 
 func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {

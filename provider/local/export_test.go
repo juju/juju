@@ -19,7 +19,6 @@ var (
 	ExecuteCloudConfig = &executeCloudConfig
 	Provider           = providerInstance
 	UserCurrent        = &userCurrent
-	NewServices        = &newServices
 )
 
 // CheckConfigNamespace checks the result of the namespace call on the

@@ -14,7 +14,8 @@ import (
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 )
 
 const (
@@ -109,7 +110,7 @@ func (ss ServiceSpec) command() string {
 }
 
 // Conf builds a new service.Conf from the spec and returns it.
-func (ss ServiceSpec) Conf() service.Conf {
+func (ss ServiceSpec) Conf() common.Conf {
 	mongoCmd := ss.command()
 
 	extraScript := ""
@@ -118,58 +119,94 @@ func (ss ServiceSpec) Conf() service.Conf {
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
 
-	conf := service.Conf{
-		Conf: initsystems.Conf{
-			Desc: "juju state database",
-			Cmd:  mongoCmd,
-			Limit: map[string]string{
-				"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
-				"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
-			},
+	conf := common.Conf{
+		Desc: "juju state database",
+		Cmd:  mongoCmd,
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
+			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
 		ExtraScript: extraScript,
 	}
 	return conf
 }
 
-var newService = func(name, dataDir string, conf service.Conf) (*service.Service, error) {
-	return service.DiscoverService(name, dataDir, conf)
+var newService = func(name, dataDir string, conf common.Conf) (service.Service, error) {
+	svc := upstart.NewService(name, conf)
+	return svc, nil
 }
 
 // NewService builds a new service based on the spec and returns it.
 func (ss ServiceSpec) NewService(namespace string) (*Service, error) {
 	name := ServiceName(namespace)
-	svc, err := newService(name, ss.DataDir, ss.Conf())
+	conf := ss.Conf()
+	raw, err := newService(name, ss.DataDir, conf)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &Service{*svc}, nil
+	svc := &Service{
+		name: name,
+		conf: conf,
+		raw:  raw,
+	}
+	return svc, nil
 }
 
 // Service represents the a juju-managed mongodb service.
 type Service struct {
-	service.Service
+	name string
+	conf common.Conf
+	raw  service.Service
+}
+
+func (s Service) Name() string {
+	return s.name
+}
+
+func (s Service) Conf() common.Conf {
+	return s.conf
+}
+
+// Start starts the service.
+func (s Service) Start() error {
+	err := s.raw.Start()
+	return errors.Trace(err)
+}
+
+// Stop stops the service.
+func (s Service) Stop() error {
+	err := s.raw.Stop()
+	return errors.Trace(err)
+}
+
+// IsRunning returns true if the service is running.
+func (s Service) IsRunning() (bool, error) {
+	return s.raw.Running(), nil
+}
+
+// Enable adds the service to the init system.
+func (s Service) Enable() error {
+	err := s.raw.Install()
+	return errors.Trace(err)
+}
+
+// IsEnabled returns true if the service is enabled.
+func (s Service) IsEnabled() (bool, error) {
+	return s.raw.Exists(), nil
+}
+
+// Remove stops and disables the service.
+func (s Service) Remove() error {
+	err := s.raw.StopAndRemove()
+	return errors.Trace(err)
 }
 
 func (svc Service) startIfInstalled() (bool, error) {
-	err := svc.Manage()
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return false, errors.Trace(err)
-	}
-
 	enabled, err := svc.IsEnabled()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	if !enabled {
-		return false, nil
-	}
-
-	matched, err := svc.Check()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if !matched {
 		return false, nil
 	}
 
@@ -213,6 +250,20 @@ func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
+// RemoveService removes the mongoDB init service from this machine.
+var RemoveService = func(namespace string) error {
+	var spec ServiceSpec
+	if err := spec.ApplyDefaults(); err != nil {
+		return errors.Trace(err)
+	}
+	svc, err := spec.NewService(namespace)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = svc.Remove()
+	return errors.Trace(err)
+}
+
 // adminService has the service.Service methods needed by mongo/admin.go.
 type adminService interface {
 	Start() error
@@ -221,5 +272,5 @@ type adminService interface {
 
 var newAdminService = func(namespace, dataDir string) (adminService, error) {
 	svcName := ServiceName(namespace)
-	return service.DiscoverService(svcName, dataDir, service.Conf{})
+	return upstart.NewService(svcName, common.Conf{}), nil
 }

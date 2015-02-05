@@ -17,23 +17,111 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
+
+const (
+	statusRunning = "running"
+	statusEnabled = "enabled"
+)
+
+type serviceTracker struct {
+	calls   []string
+	enabled set.Strings
+	running set.Strings
+	confs   map[string]common.Conf
+	errors  []error
+}
+
+func (st *serviceTracker) checkCalls(c *gc.C, expected ...string) {
+	c.Check(st.calls, jc.DeepEquals, expected)
+}
+
+func (st *serviceTracker) isRunning(name string) (bool, error) {
+	return st.running.Contains(name), nil
+}
+
+func (st *serviceTracker) err() error {
+	if len(st.errors) == 0 {
+		return nil
+	}
+	err := st.errors[0]
+	st.errors = st.errors[1:]
+	return err
+}
+
+type fakeService struct {
+	name     string
+	conf     common.Conf
+	services *serviceTracker
+}
+
+func (s *fakeService) Start() error {
+	s.services.calls = append(s.services.calls, "Start")
+	s.services.running.Add(s.name)
+	return s.services.err()
+}
+
+func (s *fakeService) Stop() error {
+	s.services.calls = append(s.services.calls, "Stop")
+	s.services.running.Remove(s.name)
+	return s.services.err()
+}
+
+func (s *fakeService) Running() bool {
+	s.services.calls = append(s.services.calls, "IsRunning")
+	s.services.err()
+	return s.services.running.Contains(s.name)
+}
+
+func (s *fakeService) Install() error {
+	s.services.calls = append(s.services.calls, "Enable")
+	s.services.enabled.Add(s.name)
+	s.services.confs[s.name] = s.conf
+	return s.services.err()
+}
+
+func (s *fakeService) Exists() bool {
+	s.services.calls = append(s.services.calls, "IsEnabled", "Check")
+	s.services.err()
+	s.services.err()
+	return s.services.enabled.Contains(s.name)
+}
+
+func (s *fakeService) StopAndRemove() error {
+	s.services.calls = append(s.services.calls, "Stop", "Remove")
+	s.services.running.Remove(s.name)
+	s.services.enabled.Remove(s.name)
+	delete(s.services.confs, s.name)
+	s.services.err()
+	return s.services.err()
+}
+
+func (s *fakeService) Installed() bool {
+	return s.Exists()
+}
+
+func (s *fakeService) Remove() error {
+	return s.StopAndRemove()
+}
+
+func (s *fakeService) UpdateConfig(conf common.Conf) {
+}
 
 type MongoSuite struct {
 	coretesting.BaseSuite
 	mongodConfigPath string
 	mongodPath       string
 	installCount     int
-	fake             *testing.Fake
-	services         *service.FakeServices
+	services         *serviceTracker
 }
 
 var _ = gc.Suite(&MongoSuite{})
@@ -94,11 +182,13 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.fake = &testing.Fake{}
-	s.services = service.NewFakeServices(service.InitSystemUpstart)
-	s.services.Fake = s.fake
-	s.PatchValue(mongo.NewService, func(name, dataDir string, conf service.Conf) (*service.Service, error) {
-		return service.NewService(name, conf, s.services), nil
+	s.services = &serviceTracker{
+		enabled: set.NewStrings(),
+		running: set.NewStrings(),
+		confs:   make(map[string]common.Conf),
+	}
+	s.PatchValue(mongo.NewService, func(name, dataDir string, conf common.Conf) (service.Service, error) {
+		return &fakeService{name, conf, s.services}, nil
 	})
 	s.installCount = 0 // Reset for each pass.
 	installService := *mongo.InstallService
@@ -111,28 +201,20 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 func (s *MongoSuite) setService(c *gc.C, namespace, status string) {
 	name := mongo.ServiceName(namespace)
 
-	err := s.services.Manage(name, service.Conf{})
-	c.Assert(err, jc.ErrorIsNil)
-
 	switch status {
-	case initsystems.StatusRunning:
-		err := s.services.Enable(name)
-		c.Assert(err, jc.ErrorIsNil)
-		err = s.services.Start(name)
-		c.Assert(err, jc.ErrorIsNil)
-	case initsystems.StatusEnabled:
-		err := s.services.Enable(name)
-		c.Assert(err, jc.ErrorIsNil)
+	case statusRunning:
+		s.services.enabled.Add(name)
+		s.services.running.Add(name)
+	case statusEnabled:
+		s.services.enabled.Add(name)
 	}
-
-	s.services.ResetCalls()
 }
 
-func (s *MongoSuite) enabled() []*service.Service {
-	var enabled []*service.Service
-	for _, name := range s.services.Status.Enabled.Values() {
-		conf := s.services.Confs[name]
-		svc := service.NewService(name, conf, s.services)
+func (s *MongoSuite) enabled() []mongo.Service {
+	var enabled []mongo.Service
+	for _, name := range s.services.enabled.Values() {
+		conf := s.services.confs[name]
+		svc := mongo.NewTestService(name, conf, nil)
 		enabled = append(enabled, svc)
 	}
 	return enabled
@@ -223,13 +305,13 @@ func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
 	namespace := "namespace"
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
-	s.setService(c, namespace, initsystems.StatusRunning)
+	s.setService(c, namespace, statusRunning)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Check(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning")
+	s.services.checkCalls(c, "IsEnabled", "Check", "IsRunning")
 }
 
 func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
@@ -238,15 +320,15 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
 	name := mongo.ServiceName(namespace)
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
-	s.setService(c, namespace, initsystems.StatusEnabled)
+	s.setService(c, namespace, statusEnabled)
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.installCount, gc.Equals, 0)
-	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.services.checkCalls(c, "IsEnabled", "Check", "IsRunning", "Start")
 
-	running, err := s.services.IsRunning(name)
+	running, err := s.services.isRunning(name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(running, jc.IsTrue)
 }
@@ -257,16 +339,16 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	s.setService(c, namespace, initsystems.StatusEnabled)
+	s.setService(c, namespace, statusEnabled)
 	failure := errors.New("won't start")
-	// Add, IsEnabled, Check, IsRunning, **Start**
-	s.fake.Errors = []error{nil, nil, nil, nil, failure}
+	// IsEnabled, Check, IsRunning, **Start**
+	s.services.errors = []error{nil, nil, nil, failure}
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 
 	c.Check(err, gc.ErrorMatches, `.*won't start`)
 	c.Check(s.installCount, gc.Equals, 0)
-	s.fake.CheckCallNames(c, "Add", "IsEnabled", "Check", "IsRunning", "Start")
+	s.services.checkCalls(c, "IsEnabled", "Check", "IsRunning", "Start")
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
@@ -355,10 +437,10 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 	dataDir := c.MkDir()
 	namespace := "namespace"
 
-	s.setService(c, namespace, initsystems.StatusRunning)
+	s.setService(c, namespace, statusRunning)
 	failure := errors.New("shouldn't be called")
-	// Add, IsEnabled, Check, IsRunning, **Start**
-	s.fake.Errors = []error{nil, nil, nil, nil, failure}
+	// IsEnabled, Check, IsRunning, **Start**
+	s.services.errors = []error{nil, nil, nil, failure}
 
 	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, jc.ErrorIsNil)

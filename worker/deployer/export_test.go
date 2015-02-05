@@ -4,8 +4,6 @@
 package deployer
 
 import (
-	gc "gopkg.in/check.v1"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -19,10 +17,10 @@ func (*fakeAPI) ConnectionInfo() (params.DeployerConnectionValues, error) {
 	}, nil
 }
 
-func NewTestSimpleContext(c *gc.C, agentConfig agent.Config, services services) *SimpleContext {
+func NewTestSimpleContext(agentConfig agent.Config, initDir, logDir string) *SimpleContext {
 	return &SimpleContext{
 		api:         &fakeAPI{},
 		agentConfig: agentConfig,
-		services:    services,
+		initDir:     initDir,
 	}
 }
