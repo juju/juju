@@ -840,7 +840,7 @@ func (c *Config) getWithFallback(key, fallback string) string {
 }
 
 // addSchemeIfMissing adds a scheme to a URL if it is missing
-func addSchemeIfMissing(default_scheme string, url string) string {
+func addSchemeIfMissing(defaultScheme string, url string) string {
 	ignoreValues := []string{"", "false", "none"}
 	for _, v := range ignoreValues {
 		if v == url {
@@ -848,7 +848,7 @@ func addSchemeIfMissing(default_scheme string, url string) string {
 		}
 	}
 	if !strings.Contains(url, "://") {
-		url = default_scheme + "://" + url
+		url = defaultScheme + "://" + url
 	}
 	return url
 }

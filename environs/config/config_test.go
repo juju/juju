@@ -1677,7 +1677,7 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 		Ftp:     "ftp proxy",
 		NoProxy: "no proxy",
 	}
-	aptProxySettings := proxy.Settings{
+	expectedProxySettings := proxy.Settings{
 		Http:    "http://http proxy",
 		Https:   "https://https proxy",
 		Ftp:     "ftp://ftp proxy",
