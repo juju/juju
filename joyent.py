@@ -390,7 +390,7 @@ def parse_args(args=None):
     parser_list_tags = subparsers.add_parser(
         'list-tags', help='List tags of running machines')
     parser_list_tags.add_argument('machine_id', help='The machine id.')
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 def main(argv):
