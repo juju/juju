@@ -13,6 +13,7 @@ from validate_streams import (
     check_agents_content,
     compare_agents,
     find_agents,
+    main,
     parse_args,
     reconcile_aliases,
 )
@@ -292,3 +293,18 @@ class ValidateStreams(TestCase):
         expected = (
             "Devel versions in release stream: ['1.21-alpha1-trusty-amd64']")
         self.assertEqual([expected], errors)
+
+    def test_main_without_errrors(self):
+        def fake_fa(name):
+            return name
+        with patch('validate_streams.find_agents',
+                   autospec=True, side_effect=fake_fa) as fa_mock:
+            with patch('validate_streams.compare_agents',
+                       autospec=True, return_value=None) as ca_mock:
+                returncode = main(
+                    ['script', '--added', '1.2.3', 'released', 'old', 'new'])
+        self.assertEqual(0, returncode)
+        fa_mock.assert_any_call('old')
+        fa_mock.assert_any_call('new')
+        ca_mock.assert_called_with(
+            'old', 'new', 'released', '1.2.3', None, None)
