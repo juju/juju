@@ -133,6 +133,10 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	}
 
 	runner := worker.NewRunner(cmdutil.ConnectionIsFatal(logger, st), cmdutil.MoreImportant)
+	// start proxyupdater first to ensure proxy settings are correct
+	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
+		return proxyupdater.New(st.Environment(), false), nil
+	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(
 			st.Upgrader(),
@@ -154,9 +158,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 			return nil, errors.Trace(err)
 		}
 		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
-	})
-	runner.StartWorker("proxyupdater", func() (worker.Worker, error) {
-		return proxyupdater.New(st.Environment(), false), nil
 	})
 
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
