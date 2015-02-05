@@ -13,30 +13,37 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-var uniterRelationsCustomizeScript = "relation-ids.exe db > relations.out"
-
+// Command suffix for the hooks
 var cmdSuffix = ".cmd"
 
-var goodHook = `
+var (
+	// Variables for changed hooks. These are used in uniter_test
+	appendConfigChanged            = "config-get.exe --format yaml --output config.out"
+	uniterRelationsCustomizeScript = "relation-ids.exe db > relations.out"
+)
+
+var (
+	// Different hook file contents. These are used in util_test
+	goodHook = `
 juju-log.exe %%JUJU_ENV_UUID%% %s %%JUJU_REMOTE_UNIT%%
 `[1:]
 
-var badHook = `
+	badHook = `
 #!/bin/bash --norc
 juju-log.exe %%JUJU_ENV_UUID%% fail-%s %%JUJU_REMOTE_UNIT%%
 exit 1
 `[1:]
 
-var rebootHook = `
+	rebootHook = `
 juju-reboot.exe
 `[1:]
 
-var badRebootHook = `
+	badRebootHook = `
 juju-reboot.exe
 exit 1
 `[1:]
 
-var rebootNowHook = `
+	rebootNowHook = `
 if EXIST i_have_risen (
 	exit 0
 ) else (
@@ -44,32 +51,32 @@ if EXIST i_have_risen (
 )
 `[1:]
 
-var actions = map[string]string{
-	"action-log": `
+	// Map of action files contents. These are used in util_test
+	actions = map[string]string{
+		"action-log": `
 juju-log.exe %%JUJU_ENV_UUID%% action-log
 `[1:],
-	"snapshot": `
+		"snapshot": `
 action-set.exe outfile.name="snapshot-01.tar" outfile.size="10.3GB"
 action-set.exe outfile.size.magnitude="10.3" outfile.size.units="GB"
 action-set.exe completion.status="yes" completion.time="5m"
 action-set.exe completion="yes"
 `[1:],
-	"action-log-fail": `
+		"action-log-fail": `
 action-fail.exe "I'm afraid I can't let you do that, Dave."
 action-set.exe foo="still works"
 `[1:],
-	"action-log-fail-error": `
+		"action-log-fail-error": `
 action-fail.exe too many arguments
 action-set.exe foo="still works"
 action-fail.exe "A real message"
 `[1:],
-	"action-reboot": `
+		"action-reboot": `
 juju-reboot.exe || action-set.exe reboot-delayed="good"
 juju-reboot.exe --now || action-set.exe reboot-now="good"
 `[1:],
-}
-
-var appendConfigChanged = "config-get.exe --format yaml --output config.out"
+	}
+)
 
 func echoUnitNameToFileHelper(testDir, name string) string {
 	path := filepath.Join(testDir, name)

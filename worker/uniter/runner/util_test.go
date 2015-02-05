@@ -54,14 +54,11 @@ type RealPaths struct {
 }
 
 func osDependentSockPath(c *gc.C) string {
-	p := c.MkDir()
-	var sock string
+	sockPath := filepath.Join(c.MkDir(), "test.sock")
 	if runtime.GOOS == "windows" {
-		sock = fmt.Sprintf(`\\.\pipe%s`, filepath.ToSlash(p[2:]))
-	} else {
-		sock = filepath.Join(p, "test.sock")
+		return `\\.\pipe` + sockPath[2:]
 	}
-	return sock
+	return sockPath
 }
 
 func NewRealPaths(c *gc.C) RealPaths {

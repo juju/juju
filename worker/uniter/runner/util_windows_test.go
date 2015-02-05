@@ -6,5 +6,10 @@
 
 package runner_test
 
-var hookName = "something-happened.ps1"
-var echoPidScript = "Set-Content pid $pid"
+var (
+	// Platform specific hook name used in runner_test.go
+	hookName = "something-happened.ps1"
+
+	// Platform specific script used in runner_test.go
+	echoPidScript = "Set-Content pid $pid"
+)

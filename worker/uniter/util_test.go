@@ -145,7 +145,7 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	if good {
 		hook = goodHook
 	}
-	content := fmt.Sprintf(hook, filepath.Base(path)+cmdSuffix)
+	content := fmt.Sprintf(hook, filepath.Base(path))
 	ctx.writeExplicitHook(c, path, content)
 }
 

@@ -6,7 +6,6 @@ package charm_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	"runtime"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/symlink"
@@ -27,9 +26,7 @@ type GitDeployerSuite struct {
 var _ = gc.Suite(&GitDeployerSuite{})
 
 func (s *GitDeployerSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping git tests on windows")
-	}
+	testing.SkipIfGitNotAvailable(c)
 	s.GitSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")

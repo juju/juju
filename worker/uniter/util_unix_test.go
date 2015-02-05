@@ -13,33 +13,40 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-var uniterRelationsCustomizeScript = "relation-ids db > relations.out && chmod 644 relations.out"
-
+// Command suffix for the hooks
 var cmdSuffix = ""
 
-var goodHook = `
+var (
+	// Variables for changed hooks. These are used in uniter_test
+	appendConfigChanged            = "config-get --format yaml --output config.out"
+	uniterRelationsCustomizeScript = "relation-ids db > relations.out && chmod 644 relations.out"
+)
+
+var (
+	// Different hook file contents. These are used in util_test
+	goodHook = `
 #!/bin/bash --norc
 juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:]
 
-var badHook = `
+	badHook = `
 #!/bin/bash --norc
 juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
-var rebootHook = `
+	rebootHook = `
 #!/bin/bash --norc
 juju-reboot
 `[1:]
 
-var badRebootHook = `
+	badRebootHook = `
 #!/bin/bash --norc
 juju-reboot
 exit 1
 `[1:]
 
-var rebootNowHook = `
+	rebootNowHook = `
 #!/bin/bash --norc
 
 if [ -f "i_have_risen" ]
@@ -50,37 +57,37 @@ touch i_have_risen
 juju-reboot --now
 `[1:]
 
-var actions = map[string]string{
-	"action-log": `
+	// Map of action files contents. These are used in util_test
+	actions = map[string]string{
+		"action-log": `
 #!/bin/bash --norc
 juju-log $JUJU_ENV_UUID action-log
 `[1:],
-	"snapshot": `
+		"snapshot": `
 #!/bin/bash --norc
 action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
 action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
 action-set completion.status="yes" completion.time="5m"
 action-set completion="yes"
 `[1:],
-	"action-log-fail": `
+		"action-log-fail": `
 #!/bin/bash --norc
 action-fail "I'm afraid I can't let you do that, Dave."
 action-set foo="still works"
 `[1:],
-	"action-log-fail-error": `
+		"action-log-fail-error": `
 #!/bin/bash --norc
 action-fail too many arguments
 action-set foo="still works"
 action-fail "A real message"
 `[1:],
-	"action-reboot": `
+		"action-reboot": `
 #!/bin/bash --norc
 juju-reboot || action-set reboot-delayed="good"
 juju-reboot --now || action-set reboot-now="good"
 `[1:],
-}
-
-var appendConfigChanged = "config-get --format yaml --output config.out"
+	}
+)
 
 func echoUnitNameToFileHelper(testDir, name string) string {
 	path := filepath.Join(testDir, name)

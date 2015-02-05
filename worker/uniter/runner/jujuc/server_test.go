@@ -83,12 +83,12 @@ type ServerSuite struct {
 var _ = gc.Suite(&ServerSuite{})
 
 func (s *ServerSuite) osDependentSockPath(c *gc.C) string {
-	p := c.MkDir()
+	pipeRoot := c.MkDir()
 	var sock string
 	if runtime.GOOS == "windows" {
-		sock = fmt.Sprintf(`\\.\pipe%s`, filepath.ToSlash(p[2:]))
+		sock = fmt.Sprintf(`\\.\pipe%s`, filepath.ToSlash(pipeRoot[2:]))
 	} else {
-		sock = filepath.Join(p, "test.sock")
+		sock = filepath.Join(pipeRoot, "test.sock")
 	}
 	return sock
 }

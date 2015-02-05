@@ -38,6 +38,11 @@ type UniterSuite struct {
 
 var _ = gc.Suite(&UniterSuite{})
 
+// This guarantees that we get proper platform
+// specific error directly from their source
+// This works on both windows and unix
+var errNotDir = syscall.ENOTDIR.Error()
+
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.GitSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
@@ -115,7 +120,7 @@ func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 			createCharm{},
 			createServiceAndUnit{},
 			startUniter{},
-			waitUniterDead{`failed to initialize uniter for "unit-u-0": .*` + syscall.ENOTDIR.Error()},
+			waitUniterDead{`failed to initialize uniter for "unit-u-0": .*` + errNotDir},
 		), ut(
 			"unknown unit",
 			// We still need to create a unit, because that's when we also
@@ -142,7 +147,7 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 			serveCharm{},
 			writeFile{"charm", 0644},
 			createUniter{},
-			waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*` + syscall.ENOTDIR.Error()},
+			waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: executing operation "install cs:quantal/wordpress-0": open .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
 			createCharm{},
@@ -681,9 +686,8 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping git tests")
-	}
+	coretesting.SkipIfGitNotAvailable(c)
+
 	deployerConversionTests := []uniterTest{
 		ut(
 			"install normally, check not using git",
@@ -852,9 +856,8 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 }
 
 func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("Skipping git tests on windows")
-	}
+	coretesting.SkipIfGitNotAvailable(c)
+
 	// These tests are copies of the old git-deployer-related tests, to test that
 	// the uniter with the manifest-deployer work patched out still works how it
 	// used to; thus demonstrating that the *other* tests that verify manifest

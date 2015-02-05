@@ -34,6 +34,9 @@ func (s *RunCommandSuite) getHookContext(c *gc.C) *runner.HookContext {
 }
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
+	// TODO(bogdanteleaga): powershell throws another exit status code when
+	// outputting to stderr using Write-Error. Either find another way to
+	// output to stderr or change the checks
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Have to figure out a good way to output to stderr from powershell")
 	}
