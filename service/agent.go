@@ -102,9 +102,9 @@ func NewAgentServiceSpec(tag names.Tag, paths AgentPaths, initSystem string) (*A
 // DiscoverAgentServiceSpec builds the specification for a new agent
 // jujud service based on the provided information.
 func DiscoverAgentServiceSpec(tag names.Tag, paths AgentPaths) (*AgentServiceSpec, error) {
-	init, err := discoverInitSystem()
-	if err != nil {
-		return nil, errors.Trace(err)
+	init := DiscoverInitSystem()
+	if init == "" {
+		return nil, errors.New("could not determine init system")
 	}
 
 	svc, err := NewAgentServiceSpec(tag, paths, init)

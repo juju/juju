@@ -5,6 +5,7 @@ package service
 
 import (
 	"io/ioutil"
+	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
@@ -19,15 +20,14 @@ import (
 const (
 	InitSystemWindows = "windows"
 	InitSystemUpstart = "upstart"
-	//InitSystemSystemd = "systemd"
 )
 
 var (
-	// linuxInitNames maps the executable from PID 1 onto the name of
-	// an init system.
-	linuxInitNames = map[string]string{
+	// initSystemExecutables maps the executable from PID 1 onto the
+	// name of an init system.
+	initSystemExecutables = map[string]string{
+		"<windows>":  InitSystemWindows,
 		"/sbin/init": InitSystemUpstart,
-		//"/sbin/systemd": InitSystemSystemd,
 	}
 )
 
@@ -46,30 +46,67 @@ func newInitSystem(name string) (initsystems.InitSystem, error) {
 
 // TODO(ericsnow) Support discovering init system on remote host.
 
-// discoverInitSystem determines which init system is running and
-// returns its name.
-func discoverInitSystem() (string, error) {
-	if version.Current.OS == version.Windows {
-		return InitSystemWindows, nil
+// DiscoverInitSystem determines the name of the init system to use
+// and returns it. The name is derived from the executable of PID 1.
+// If that does work then the information in version.Current is used
+// to decide which init system. If the init system cannot be
+// discovered at all then the empty string is returned.
+func DiscoverInitSystem() string {
+	// First try to "read" the name.
+	name, err := readLocalInitSystem()
+	if err == nil {
+		return name
 	}
 
+	// Fall back to checking what juju knows about the OS.
+	return osInitSystem(version.Current)
+}
+
+func readLocalInitSystem() (string, error) {
 	executable, err := findInitExecutable()
 	if err != nil {
 		return "", errors.Annotate(err, "while finding init exe")
 	}
 
-	name, ok := linuxInitNames[executable]
+	name, ok := initSystemExecutables[executable]
 	if !ok {
-		return "", errors.New("unrecognized init system")
+		return "", errors.NotFoundf("unrecognized init system")
 	}
 
 	return name, nil
 }
 
 var findInitExecutable = func() (string, error) {
-	data, err := ioutil.ReadFile("/proc/1/cmdline")
-	if err != nil {
-		return "", errors.Trace(err)
+	if runtime.GOOS == "windows" {
+		return "<windows>", nil
 	}
-	return strings.Fields(string(data))[0], nil
+
+	// This should work on all linux-like OSes.
+	data, err := ioutil.ReadFile("/proc/1/cmdline")
+	if err == nil {
+		return strings.Fields(string(data))[0], nil
+	}
+
+	return "", errors.Trace(err)
+}
+
+func osInitSystem(vers version.Binary) string {
+	switch vers.OS {
+	case version.Windows:
+		return InitSystemWindows
+	case version.Ubuntu:
+		switch vers.Series {
+		case "precise", "quantal", "raring", "saucy", "trusty", "utopic":
+			return InitSystemUpstart
+		default:
+			// vivid and later...
+			return ""
+			//return InitSystemSystemd
+		}
+	case version.CentOS:
+		return ""
+		//return InitSystemSystemd
+	default:
+		return ""
+	}
 }

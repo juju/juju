@@ -74,11 +74,10 @@ func extractInitSystem(args []string) (initsystems.InitSystem, error) {
 
 	// Fall back to discovery.
 	if name == "" {
-		discovered, err := discoverInitSystem()
-		if err != nil {
-			return nil, errors.Trace(err)
+		name = DiscoverInitSystem()
+		if name == "" {
+			return nil, errors.New("could not determine init system")
 		}
-		name = discovered
 	}
 
 	// Return the corresponding init system.
