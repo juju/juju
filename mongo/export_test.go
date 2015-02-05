@@ -5,7 +5,7 @@ package mongo
 
 import (
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/legacy"
 )
 
 var (
@@ -41,6 +41,6 @@ func NewServiceClosure(s adminService) func(string, string) (adminService, error
 	}
 }
 
-func NewTestService(name string, conf common.Conf, raw service.Service) Service {
+func NewTestService(name string, conf service.Conf, raw legacy.Service) Service {
 	return Service{name, conf, raw}
 }

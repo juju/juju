@@ -17,7 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service"
 )
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
@@ -33,10 +33,10 @@ var InstallStartRetryAttempts = utils.AttemptStrategy{
 // Service provides visibility into and control over an upstart service.
 type Service struct {
 	Name string
-	Conf common.Conf
+	Conf service.Conf
 }
 
-func NewService(name string, conf common.Conf) *Service {
+func NewService(name string, conf service.Conf) *Service {
 	if conf.InitDir == "" {
 		conf.InitDir = InitDir
 	}
@@ -48,7 +48,7 @@ func (s *Service) confPath() string {
 	return path.Join(s.Conf.InitDir, s.Name+".conf")
 }
 
-func (s *Service) UpdateConfig(conf common.Conf) {
+func (s *Service) UpdateConfig(conf service.Conf) {
 	s.Conf = conf
 }
 

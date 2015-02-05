@@ -31,7 +31,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/initsystems"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
@@ -273,19 +274,19 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
 
 	namespace := env.Config().AllAttrs()["namespace"].(string)
-	mongoConf := common.Conf{
+	mongoConf := service.Conf{Conf: initsystems.Conf{
 		Desc: "fake mongo",
 		Cmd:  "echo FAKE",
-	}
+	}}
 	mongoService = upstart.NewService(mongo.ServiceName(namespace), mongoConf)
 	err := mongoService.Install()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mongoService.Installed(), jc.IsTrue)
 
-	agentConf := common.Conf{
+	agentConf := service.Conf{Conf: initsystems.Conf{
 		Desc: "fake agent",
 		Cmd:  "echo FAKE",
-	}
+	}}
 	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
 
 	err = machineAgent.Install()

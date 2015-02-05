@@ -17,6 +17,12 @@ type Conf struct {
 
 	// ExtraScript allows you to insert script before command execution.
 	ExtraScript string
+
+	// TODO(ericsnow) Eliminate InitDir.
+
+	// InitDir is the path to the init system's service conf files.
+	// This is not supported under Windows.
+	InitDir string
 }
 
 // Script composes ExtraScript and Cmd into a single script.

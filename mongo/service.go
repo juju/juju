@@ -14,7 +14,8 @@ import (
 
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/legacy"
 	"github.com/juju/juju/service/upstart"
 )
 
@@ -110,7 +111,7 @@ func (ss ServiceSpec) command() string {
 }
 
 // Conf builds a new service.Conf from the spec and returns it.
-func (ss ServiceSpec) Conf() common.Conf {
+func (ss ServiceSpec) Conf() service.Conf {
 	mongoCmd := ss.command()
 
 	extraScript := ""
@@ -119,19 +120,21 @@ func (ss ServiceSpec) Conf() common.Conf {
 		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
 	}
 
-	conf := common.Conf{
-		Desc: "juju state database",
-		Cmd:  mongoCmd,
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+	conf := service.Conf{
+		Conf: initsystems.Conf{
+			Desc: "juju state database",
+			Cmd:  mongoCmd,
+			Limit: map[string]string{
+				"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
+				"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
+			},
 		},
 		ExtraScript: extraScript,
 	}
 	return conf
 }
 
-var newService = func(name, dataDir string, conf common.Conf) (service.Service, error) {
+var newService = func(name, dataDir string, conf service.Conf) (legacy.Service, error) {
 	svc := upstart.NewService(name, conf)
 	return svc, nil
 }
@@ -155,15 +158,15 @@ func (ss ServiceSpec) NewService(namespace string) (*Service, error) {
 // Service represents the a juju-managed mongodb service.
 type Service struct {
 	name string
-	conf common.Conf
-	raw  service.Service
+	conf service.Conf
+	raw  legacy.Service
 }
 
 func (s Service) Name() string {
 	return s.name
 }
 
-func (s Service) Conf() common.Conf {
+func (s Service) Conf() service.Conf {
 	return s.conf
 }
 
@@ -272,5 +275,5 @@ type adminService interface {
 
 var newAdminService = func(namespace, dataDir string) (adminService, error) {
 	svcName := ServiceName(namespace)
-	return upstart.NewService(svcName, common.Conf{}), nil
+	return upstart.NewService(svcName, service.Conf{}), nil
 }

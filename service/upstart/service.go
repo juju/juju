@@ -9,7 +9,8 @@ import (
 
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/initsystems"
 )
 
 const (
@@ -22,7 +23,7 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId 
 	logFile := path.Join(logDir, tag+".log")
 	// The machine agent always starts with debug turned on.  The logger worker
 	// will update this to the system logging environment as soon as it starts.
-	conf := common.Conf{
+	conf := service.Conf{Conf: initsystems.Conf{
 		Desc: fmt.Sprintf("juju %s agent", tag),
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
@@ -34,7 +35,7 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId 
 			" --debug",
 		Out: logFile,
 		Env: env,
-	}
+	}}
 	svc := NewService(name, conf)
 	return svc
 }

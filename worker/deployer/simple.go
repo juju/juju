@@ -19,7 +19,8 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/legacy"
 	"github.com/juju/juju/version"
 )
 
@@ -150,11 +151,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		osenv.JujuContainerTypeEnvKey: containerType,
 	}
 	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
-	sconf := common.Conf{
-		Desc:    "juju unit agent for " + unitName,
-		Cmd:     cmd,
-		Out:     logPath,
-		Env:     envVars,
+	sconf := service.Conf{
+		Conf: initsystems.Conf{
+			Desc: "juju unit agent for " + unitName,
+			Cmd:  cmd,
+			Out:  logPath,
+			Env:  envVars,
+		},
 		InitDir: ctx.initDir,
 	}
 	svc.UpdateConfig(sconf)
@@ -165,13 +168,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findUpstartJob(unitName string) service.Service {
+func (ctx *SimpleContext) findUpstartJob(unitName string) legacy.Service {
 	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
 	if err != nil {
 		return nil
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
-		svc := service.NewService(job, common.Conf{InitDir: ctx.initDir})
+		svc := legacy.NewService(job, service.Conf{InitDir: ctx.initDir})
 		return svc
 	}
 	return nil
@@ -205,7 +208,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
 
 func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) {
-	fis, err := service.ListServices(ctx.initDir)
+	fis, err := legacy.ListServices(ctx.initDir)
 	if err != nil {
 		return nil, err
 	}
@@ -239,10 +242,10 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 
 // service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) service(unitName string) service.Service {
+func (ctx *SimpleContext) service(unitName string) legacy.Service {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	svc := service.NewService(svcName, common.Conf{InitDir: ctx.initDir})
+	svc := legacy.NewService(svcName, service.Conf{InitDir: ctx.initDir})
 	return svc
 }
 

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/legacy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -37,7 +37,7 @@ type serviceTracker struct {
 	calls   []string
 	enabled set.Strings
 	running set.Strings
-	confs   map[string]common.Conf
+	confs   map[string]service.Conf
 	errors  []error
 }
 
@@ -60,7 +60,7 @@ func (st *serviceTracker) err() error {
 
 type fakeService struct {
 	name     string
-	conf     common.Conf
+	conf     service.Conf
 	services *serviceTracker
 }
 
@@ -113,7 +113,7 @@ func (s *fakeService) Remove() error {
 	return s.StopAndRemove()
 }
 
-func (s *fakeService) UpdateConfig(conf common.Conf) {
+func (s *fakeService) UpdateConfig(conf service.Conf) {
 }
 
 type MongoSuite struct {
@@ -185,9 +185,9 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.services = &serviceTracker{
 		enabled: set.NewStrings(),
 		running: set.NewStrings(),
-		confs:   make(map[string]common.Conf),
+		confs:   make(map[string]service.Conf),
 	}
-	s.PatchValue(mongo.NewService, func(name, dataDir string, conf common.Conf) (service.Service, error) {
+	s.PatchValue(mongo.NewService, func(name, dataDir string, conf service.Conf) (legacy.Service, error) {
 		return &fakeService{name, conf, s.services}, nil
 	})
 	s.installCount = 0 // Reset for each pass.

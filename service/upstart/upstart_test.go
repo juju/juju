@@ -15,7 +15,8 @@ import (
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/initsystems"
 	"github.com/juju/juju/service/upstart"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -39,10 +40,10 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&upstart.InitDir, s.initDir)
 	s.service = upstart.NewService(
 		"some-service",
-		common.Conf{
+		service.Conf{Conf: initsystems.Conf{
 			Desc: "some service",
 			Cmd:  "some command",
-		},
+		}},
 	)
 }
 
@@ -74,7 +75,7 @@ func (s *UpstartSuite) RunningStatus(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestInitDir(c *gc.C) {
-	svc := upstart.NewService("blah", common.Conf{})
+	svc := upstart.NewService("blah", service.Conf{})
 	c.Assert(svc.Conf.InitDir, gc.Equals, s.initDir)
 }
 
@@ -174,7 +175,7 @@ func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
-	conf := common.Conf{}
+	conf := service.Conf{}
 	check := func(msg string) {
 		c.Assert(s.service.Install(), gc.ErrorMatches, msg)
 		_, err := s.service.InstallCommands()
@@ -199,15 +200,17 @@ respawn
 normal exit 0
 `
 
-func (s *UpstartSuite) dummyConf(c *gc.C) common.Conf {
-	return common.Conf{
-		Desc:    "this is an upstart service",
-		Cmd:     "do something",
+func (s *UpstartSuite) dummyConf(c *gc.C) service.Conf {
+	return service.Conf{
+		Conf: initsystems.Conf{
+			Desc: "this is an upstart service",
+			Cmd:  "do something",
+		},
 		InitDir: s.initDir,
 	}
 }
 
-func (s *UpstartSuite) assertInstall(c *gc.C, conf common.Conf, expectEnd string) {
+func (s *UpstartSuite) assertInstall(c *gc.C, conf service.Conf, expectEnd string) {
 	expectContent := expectStart + expectEnd
 	expectPath := filepath.Join(conf.InitDir, "some-service.conf")
 

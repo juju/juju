@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service"
 )
 
 var logger = loggo.GetLogger("juju.worker.deployer.service")
@@ -34,7 +34,7 @@ if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
 // Service represents a service running on the current system
 type Service struct {
 	Name string
-	Conf common.Conf
+	Conf service.Conf
 }
 
 func runPsCommand(cmd string) (*exec.ExecResponse, error) {
@@ -51,7 +51,7 @@ func runPsCommand(cmd string) (*exec.ExecResponse, error) {
 	return out, nil
 }
 
-func (s *Service) UpdateConfig(conf common.Conf) {
+func (s *Service) UpdateConfig(conf service.Conf) {
 	s.Conf = conf
 }
 
@@ -176,7 +176,7 @@ func (s *Service) Install() error {
 }
 
 // NewService returns a new Service type
-func NewService(name string, conf common.Conf) *Service {
+func NewService(name string, conf service.Conf) *Service {
 	return &Service{
 		Name: name,
 		Conf: conf,
