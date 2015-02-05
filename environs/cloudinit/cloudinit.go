@@ -219,8 +219,7 @@ func AddAptCommands(
 	if (proxySettings != proxy.Settings{}) {
 		filename := apt.ConfFile
 		c.AddBootCmd(fmt.Sprintf(
-			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
-			filename,
+			`printf '%%s\n' %s > %s`,
 			shquote(apt.ProxyContent(proxySettings)),
 			filename))
 	}
