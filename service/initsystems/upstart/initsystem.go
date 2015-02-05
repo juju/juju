@@ -20,11 +20,12 @@ var (
 )
 
 var (
-	upstartServicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
-	upstartStartedRE  = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
+	servicesRe = regexp.MustCompile("^([a-zA-Z0-9-_:]+)\\.conf$")
+	startedRE  = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
 )
 
-type upstart struct {
+// Upstart is an InitSystem implementation for upstart.
+type Upstart struct {
 	name    string
 	initDir string
 	fops    fileOperations
@@ -34,7 +35,7 @@ type upstart struct {
 // NewInitSystem returns a new value that implements
 // initsystems.InitSystem for upstart.
 func NewInitSystem(name string) initsystems.InitSystem {
-	return &upstart{
+	return &Upstart{
 		name:    name,
 		initDir: ConfDir,
 		fops:    newFileOperations(),
@@ -43,17 +44,20 @@ func NewInitSystem(name string) initsystems.InitSystem {
 }
 
 // confPath returns the path to the service's configuration file.
-func (is upstart) confPath(name string) string {
+func (is Upstart) confPath(name string) string {
 	return path.Join(is.initDir, name+".conf")
 }
 
 // Name implements initsystems.InitSystem.
-func (is upstart) Name() string {
+func (is Upstart) Name() string {
+	if is.name == "" {
+		return "upstart"
+	}
 	return is.name
 }
 
 // List implements initsystems.InitSystem.
-func (is *upstart) List(include ...string) ([]string, error) {
+func (is *Upstart) List(include ...string) ([]string, error) {
 	// TODO(ericsnow) We should be able to use initctl to do this.
 	var services []string
 	fis, err := is.fops.ListDir(is.initDir)
@@ -64,7 +68,7 @@ func (is *upstart) List(include ...string) ([]string, error) {
 		if fi.IsDir() {
 			continue
 		}
-		groups := upstartServicesRe.FindStringSubmatch(fi.Name())
+		groups := servicesRe.FindStringSubmatch(fi.Name())
 		if len(groups) > 0 {
 			services = append(services, groups[1])
 		}
@@ -74,7 +78,7 @@ func (is *upstart) List(include ...string) ([]string, error) {
 }
 
 // Start implements initsystems.InitSystem.
-func (is *upstart) Start(name string) error {
+func (is *Upstart) Start(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
 	}
@@ -96,7 +100,7 @@ func (is *upstart) Start(name string) error {
 	return errors.Trace(err)
 }
 
-func (is *upstart) start(name string) error {
+func (is *Upstart) start(name string) error {
 	_, err := is.cmd.RunCommand("start", "--system", name)
 	if err != nil {
 		// Double check to see if we were started before our command ran.
@@ -109,7 +113,7 @@ func (is *upstart) start(name string) error {
 }
 
 // Stop implements initsystems.InitSystem.
-func (is *upstart) Stop(name string) error {
+func (is *Upstart) Stop(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
 	}
@@ -123,7 +127,7 @@ func (is *upstart) Stop(name string) error {
 }
 
 // Enable implements initsystems.InitSystem.
-func (is *upstart) Enable(name, filename string) error {
+func (is *Upstart) Enable(name, filename string) error {
 	enabled, err := is.IsEnabled(name)
 	if err != nil {
 		return errors.Trace(err)
@@ -142,7 +146,7 @@ func (is *upstart) Enable(name, filename string) error {
 }
 
 // Disable implements initsystems.InitSystem.
-func (is *upstart) Disable(name string) error {
+func (is *Upstart) Disable(name string) error {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return errors.Trace(err)
 	}
@@ -151,7 +155,7 @@ func (is *upstart) Disable(name string) error {
 }
 
 // IsEnabled implements initsystems.InitSystem.
-func (is *upstart) IsEnabled(name string) (bool, error) {
+func (is *Upstart) IsEnabled(name string) (bool, error) {
 	// TODO(ericsnow) In the general case, relying on the conf file
 	// may not be the safest route. Perhaps we should use initctl?
 	exists, err := is.fops.Exists(is.confPath(name))
@@ -162,7 +166,7 @@ func (is *upstart) IsEnabled(name string) (bool, error) {
 }
 
 // Check implements initsystems.InitSystem.
-func (is *upstart) Check(name, filename string) (bool, error) {
+func (is *Upstart) Check(name, filename string) (bool, error) {
 	actual, err := is.fops.Readlink(is.confPath(name))
 	if err != nil {
 		return false, errors.Trace(err)
@@ -171,7 +175,7 @@ func (is *upstart) Check(name, filename string) (bool, error) {
 }
 
 // Info implements initsystems.InitSystem.
-func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
+func (is *Upstart) Info(name string) (*initsystems.ServiceInfo, error) {
 	if err := initsystems.EnsureEnabled(name, is); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -196,19 +200,19 @@ func (is *upstart) Info(name string) (*initsystems.ServiceInfo, error) {
 	return info, nil
 }
 
-func (is *upstart) ensureRunning(name string) error {
+func (is *Upstart) ensureRunning(name string) error {
 	out, err := is.cmd.RunCommand("status", "--system", name)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !upstartStartedRE.Match(out) {
+	if !startedRE.Match(out) {
 		return errors.NotFoundf("service %q", name)
 	}
 	return nil
 }
 
 // Conf implements initsystems.InitSystem.
-func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
+func (is *Upstart) Conf(name string) (*initsystems.Conf, error) {
 	data, err := is.fops.ReadFile(is.confPath(name))
 	if os.IsNotExist(err) {
 		return nil, errors.NotFoundf("service %q", name)
@@ -222,19 +226,19 @@ func (is *upstart) Conf(name string) (*initsystems.Conf, error) {
 }
 
 // Validate implements initsystems.InitSystem.
-func (is *upstart) Validate(name string, conf initsystems.Conf) error {
+func (is *Upstart) Validate(name string, conf initsystems.Conf) error {
 	err := Validate(name, conf)
 	return errors.Trace(err)
 }
 
 // Serialize implements initsystems.InitSystem.
-func (upstart) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
+func (Upstart) Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 	data, err := Serialize(name, conf)
 	return data, errors.Trace(err)
 }
 
 // Deserialize implements initsystems.InitSystem.
-func (is *upstart) Deserialize(data []byte, name string) (*initsystems.Conf, error) {
+func (is *Upstart) Deserialize(data []byte, name string) (*initsystems.Conf, error) {
 	conf, err := Deserialize(data, name)
 	return conf, errors.Trace(err)
 }

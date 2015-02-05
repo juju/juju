@@ -12,6 +12,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -33,7 +34,7 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/initsystems"
-	svctesting "github.com/juju/juju/service/initsystems/upstart/testing"
+	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -111,7 +112,6 @@ type localJujuTestSuite struct {
 	oldUpstartLocation string
 	testPath           string
 	fakesudo           string
-	initSystem         *svctesting.FakeInitSystem
 	services           *service.Services
 }
 
@@ -140,8 +140,10 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	})
 
 	// Patch out the init system.
-	s.initSystem = svctesting.NewFakeInitSystem()
-	s.services = service.NewServices(c.MkDir(), s.initSystem)
+	fops := &fs.Ops{}
+	baseIS := &upstart.Upstart{}
+	initSystem := initsystems.NewTracking(baseIS, fops)
+	s.services = service.NewServices(c.MkDir(), initSystem)
 	s.PatchValue(local.NewServices, func(string) (*service.Services, error) {
 		return s.services, nil
 	})
@@ -315,8 +317,6 @@ func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
 
 	err := env.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Logf("%+v", s.initSystem)
 
 	enabled, err := mongo.IsEnabled()
 	c.Assert(err, jc.ErrorIsNil)

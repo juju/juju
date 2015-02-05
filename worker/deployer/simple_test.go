@@ -14,12 +14,14 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/service"
-	svctesting "github.com/juju/juju/service/initsystems/upstart/testing"
+	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -143,6 +145,7 @@ type SimpleToolsFixture struct {
 	origPath string
 	binDir   string
 
+	init     *initsystems.Tracking
 	services *service.Services
 }
 
@@ -172,8 +175,10 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
-	initSystem := svctesting.NewFakeInitSystem()
-	fix.services = service.NewServices(dataDir, initSystem)
+	fops := &fs.Ops{}
+	baseIS := &upstart.Upstart{}
+	fix.init = initsystems.NewTracking(baseIS, fops)
+	fix.services = service.NewServices(dataDir, fix.init)
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {

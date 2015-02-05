@@ -4,3 +4,4 @@
 package initsystems
 
 var _ InitSystem = (*Fake)(nil)
+var _ InitSystem = (*Tracking)(nil)
