@@ -229,7 +229,7 @@ def main(argv):
         new_agents = find_agents(args.new_json)
         errors = compare_agents(
             old_agents, new_agents, args.purpose, args.added,
-            args.removed)
+            args.removed, args.ignored)
         if errors:
             print('\n'.join(errors))
             return 1
