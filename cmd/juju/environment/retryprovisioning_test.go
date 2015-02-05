@@ -81,9 +81,9 @@ func (s *retryProvisioningSuite) SetUpTest(c *gc.C) {
 	// machine 1 (not broken).
 	s.fake = &fakeRetryProvisioningClient{
 		m: map[string]fakeMachine{
-			"0": fakeMachine{info: "broken",
+			"0": {info: "broken",
 				data: make(map[string]interface{})},
-			"1": fakeMachine{info: "",
+			"1": {info: "",
 				data: make(map[string]interface{})},
 		},
 	}

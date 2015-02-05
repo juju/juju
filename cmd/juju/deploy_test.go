@@ -220,7 +220,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 	cons, err := service.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
-		"data": state.StorageConstraints{
+		"data": {
 			Count: 1,
 			Size:  1024,
 		},

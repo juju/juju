@@ -125,7 +125,7 @@ func (s *BaseBackupsSuite) diffStrings(c *gc.C, value, expected string) {
 		smaller = vlines
 	}
 
-	for i, _ := range smaller {
+	for i := range smaller {
 		vline := vlines[i]
 		eline := elines[i]
 		if vline != eline {

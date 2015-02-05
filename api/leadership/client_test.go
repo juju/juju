@@ -58,7 +58,7 @@ func (s *clientSuite) TestClaimLeadershipTranslation(c *gc.C) {
 
 			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ClaimLeadershipResults{params.ClaimLeadershipResults{
+			typedR.Results = []params.ClaimLeadershipResults{{
 				ClaimDurationInSec: claimTime.Seconds(),
 			}}
 
@@ -88,7 +88,7 @@ func (s *clientSuite) TestClaimLeadershipErrorTranslation(c *gc.C) {
 			numStubCalls++
 			typedR, ok := response.(*params.ClaimLeadershipBulkResults)
 			c.Assert(ok, gc.Equals, true)
-			typedR.Results = []params.ClaimLeadershipResults{params.ClaimLeadershipResults{
+			typedR.Results = []params.ClaimLeadershipResults{{
 				Error: &params.Error{Message: errMsg},
 			}}
 			return nil

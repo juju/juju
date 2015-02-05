@@ -303,8 +303,8 @@ func (s *leaseSuite) TestManagerDepersistsAllTokensOnStart(c *gc.C) {
 
 	numCalls := 0
 	testToks := []Token{
-		Token{testNamespace, testId, time.Now().Add(testDuration)},
-		Token{testNamespace + "2", "a" + testId, time.Now().Add(testDuration)},
+		{testNamespace, testId, time.Now().Add(testDuration)},
+		{testNamespace + "2", "a" + testId, time.Now().Add(testDuration)},
 	}
 	persistor.PersistedTokensFn = func() ([]Token, error) {
 

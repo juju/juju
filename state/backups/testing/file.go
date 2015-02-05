@@ -138,21 +138,21 @@ func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, erro
 // NewArchiveBasic returns a new archive file with a few files provided.
 func NewArchiveBasic(meta *backups.Metadata) (*bytes.Buffer, error) {
 	files := []File{
-		File{
+		{
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
 			Content: "<some binary data goes here>",
 		},
-		File{
+		{
 			Name:    "var/lib/juju/system-identity",
 			Content: "<an ssh key goes here>",
 		},
 	}
 	dump := []File{
-		File{
+		{
 			Name:    "juju/machines.bson",
 			Content: "<BSON data goes here>",
 		},
-		File{
+		{
 			Name:    "oplog.bson",
 			Content: "<BSON data goes here>",
 		},
