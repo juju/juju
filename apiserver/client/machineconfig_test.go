@@ -57,7 +57,9 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	toolsURL := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", apiAddrs[0], machineConfig.Tools.Version)
 	c.Assert(machineConfig.Tools.URL, gc.Equals, toolsURL)
-	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "true")
+	// TODO (wallyworld): reenable this when cloud-image-utils is installed on precise
+	// See: https://bugs.launchpad.net/juju-core/+bug/1417594
+	c.Assert(machineConfig.AgentEnvironment[agent.AllowsSecureConnection], gc.Equals, "false")
 }
 
 func (s *machineConfigSuite) TestSecureConnectionDisallowed(c *gc.C) {

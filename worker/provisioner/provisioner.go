@@ -134,9 +134,11 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerT
 	}
 
 	secureServerConnection := false
-	if info, ok := p.agentConfig.StateServingInfo(); ok {
-		secureServerConnection = info.CAPrivateKey != ""
-	}
+	// TODO (wallyworld): reenable this when cloud-image-utils is installed on precise
+	// See: https://bugs.launchpad.net/juju-core/+bug/1417594
+	// if info, ok := p.agentConfig.StateServingInfo(); ok {
+	// secureServerConnection = info.CAPrivateKey != ""
+	// }
 	task := NewProvisionerTask(
 		machineTag,
 		harvestMode,
