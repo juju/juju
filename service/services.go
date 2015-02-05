@@ -316,8 +316,18 @@ func (s Services) Install(name string, conf Conf) error {
 // Check verifies the managed conf for the named service to ensure
 // it matches the provided Conf.
 func (s Services) Check(name string, conf Conf) (bool, error) {
-	// TODO(ericsnow) Finish this.
-	return false, nil
+	actual, err := s.init.Conf(name)
+	if errors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	expected, err := conf.normalize()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return actual.Equals(*expected), nil
 }
 
 // IsManaged determines whether or not the named service is

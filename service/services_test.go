@@ -20,5 +20,7 @@ func (s *servicesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
+// TODO(ericsnow) Write the tests.
+
 func (s *servicesSuite) Test(c *gc.C) {
 }

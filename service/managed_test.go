@@ -31,7 +31,6 @@ func (s *managedSuite) SetUpTest(c *gc.C) {
 func (s *managedSuite) TestNewConfigs(c *gc.C) {
 	configs := newConfigs(s.DataDir, InitSystemUpstart)
 
-	// TODO(ericsnow) Fix the fragile test order of prefixes.
 	c.Check(configs, jc.DeepEquals, &serviceConfigs{
 		baseDir:    "/var/lib/juju/init",
 		initSystem: InitSystemUpstart,
@@ -331,7 +330,6 @@ func (s *managedSuite) TestRemove(c *gc.C) {
 	err := s.configs.remove("jujud-machine-0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO(ericsnow) Finish!
 	c.Check(s.configs.names, gc.HasLen, 0)
 
 	s.Fake.CheckCalls(c, []testing.FakeCall{{
