@@ -15,7 +15,7 @@ github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-
 github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
 github.com/juju/gojsonschema	git	b3824dadac133b3158aacdef4954069bb2b9b2a3	2015-02-04T19:46:39Z
 github.com/juju/loggo	git	dc8e19f7c70a62a59c69c40f85b8df09ff20742c	2014-11-17T04:05:26Z
-github.com/juju/names	git	f2761fa05db34fb5b4ceb44721a067ffd22d5956	2015-01-20T11:23:30Z
+github.com/juju/names	git	016a15ed41d730ea92e308f5c697294a39187c76	2015-01-20T11:23:30Z
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	2014-04-10T13:47:08Z
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	2014-07-23T04:23:18Z
 github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	2014-08-06T00:00:34Z
