@@ -6,31 +6,29 @@ package deployer
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
-	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
-	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/initsystems"
-	"github.com/juju/juju/service/legacy"
 	"github.com/juju/juju/version"
 )
-
-// InitDir is the default upstart init directory.
-// This is a var so it can be overridden by tests.
-var InitDir = "/etc/init"
 
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
+}
+
+type services interface {
+	ListEnabled() ([]string, error)
+	IsEnabled(name string) (bool, error)
+	Install(name string, conf service.Conf) error
+	NewAgentService(tag names.Tag, paths service.AgentPaths, env map[string]string) (*service.Service, error)
 }
 
 // SimpleContext is a Context that manages unit deployments on the local system.
@@ -44,9 +42,8 @@ type SimpleContext struct {
 	// running the deployer.
 	agentConfig agent.Config
 
-	// initDir specifies the directory used by init on the local system.
-	// For upstart, it is typically set to "/etc/init".
-	initDir string
+	// services is the wrapper around the host's init system.
+	services services
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -72,12 +69,18 @@ func recursiveChmod(path string, mode os.FileMode) error {
 // NewSimpleContext returns a new SimpleContext, acting on behalf of
 // the specified deployer, that deploys unit agents.
 // Paths to which agents and tools are installed are relative to dataDir.
-func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
-	return &SimpleContext{
+func NewSimpleContext(agentConfig agent.Config, api APICalls) (*SimpleContext, error) {
+	services, err := service.DiscoverServices(agentConfig.DataDir())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ctx := &SimpleContext{
 		api:         api,
 		agentConfig: agentConfig,
-		initDir:     InitDir,
+		services:    services,
 	}
+	return ctx, nil
 }
 
 func (ctx *SimpleContext) AgentConfig() agent.Config {
@@ -85,30 +88,77 @@ func (ctx *SimpleContext) AgentConfig() agent.Config {
 }
 
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
-	// Check sanity.
-	svc := ctx.service(unitName)
-	if svc.Installed() {
+	tag := names.NewUnitTag(unitName)
+
+	svc, err := ctx.service(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Fail if the unit is already deployed.
+	deployed, err := ctx.isDeployed(svc.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if deployed {
 		return fmt.Errorf("unit %q is already deployed", unitName)
 	}
 
 	// Link the current tools for use by the new agent.
-	tag := names.NewUnitTag(unitName)
+	toolsDir, err := ctx.linkTools(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer removeOnErr(&err, toolsDir)
+
+	// Update the agent config and write it out.
+	agentConf, err := ctx.newAgentConf(tag, initialPassword)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := agentConf.Write(); err != nil {
+		return err
+	}
+	defer removeOnErr(&err, agentConf.Dir())
+
+	// Install the service into the init system.
+	svcConf := svc.Conf()
+	err = ctx.services.Install(svc.Name(), svcConf)
+	return errors.Trace(err)
+}
+
+func (ctx SimpleContext) isDeployed(svcName string) (bool, error) {
+	enabled, err := ctx.services.IsEnabled(svcName)
+	return enabled, errors.Trace(err)
+}
+
+func (ctx SimpleContext) linkTools(tag names.Tag) (string, error) {
+	dataDir := ctx.agentConfig.DataDir()
+	toolsDir := tools.ToolsDir(dataDir, tag.String())
+
+	// TODO(dfc)
+	_, err := tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
+	// TODO(dfc)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return toolsDir, nil
+}
+
+func (ctx SimpleContext) newAgentConf(tag names.Tag, initialPassword string) (agent.ConfigSetterWriter, error) {
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
-	// TODO(dfc)
-	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
-	// TODO(dfc)
-	toolsDir := tools.ToolsDir(dataDir, tag.String())
-	defer removeOnErr(&err, toolsDir)
 
 	result, err := ctx.api.ConnectionInfo()
 	if err != nil {
-		return err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("state addresses: %q", result.StateAddresses)
 	logger.Debugf("API addresses: %q", result.APIAddresses)
+
 	containerType := ctx.agentConfig.Value(agent.ContainerType)
 	namespace := ctx.agentConfig.Value(agent.Namespace)
+
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           dataDir,
@@ -127,131 +177,84 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 				agent.Namespace:     namespace,
 			},
 		})
-	if err != nil {
-		return err
-	}
-	if err := conf.Write(); err != nil {
-		return err
-	}
-	defer removeOnErr(&err, conf.Dir())
-
-	// Install an init service that runs the unit agent.
-	logPath := path.Join(logDir, tag.String()+".log")
-	cmd := strings.Join([]string{
-		filepath.FromSlash(path.Join(toolsDir, jujunames.Jujud)), "unit",
-		"--data-dir", dataDir,
-		"--unit-name", unitName,
-		"--debug", // TODO: propagate debug state sensibly
-	}, " ")
-	// TODO(thumper): 2013-09-02 bug 1219630
-	// As much as I'd like to remove JujuContainerType now, it is still
-	// needed as MAAS still needs it at this stage, and we can't fix
-	// everything at once.
-	envVars := map[string]string{
-		osenv.JujuContainerTypeEnvKey: containerType,
-	}
-	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
-	sconf := service.Conf{
-		Conf: initsystems.Conf{
-			Desc: "juju unit agent for " + unitName,
-			Cmd:  cmd,
-			Out:  logPath,
-			Env:  envVars,
-		},
-		InitDir: ctx.initDir,
-	}
-	svc.UpdateConfig(sconf)
-	return svc.Install()
-}
-
-// findUpstartJob tries to find an upstart job matching the
-// given unit name in one of these formats:
-//   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
-//   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findUpstartJob(unitName string) legacy.Service {
-	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
-	if err != nil {
-		return nil
-	}
-	if job, ok := unitsAndJobs[unitName]; ok {
-		svc := legacy.NewService(job, service.Conf{InitDir: ctx.initDir})
-		return svc
-	}
-	return nil
+	return conf, errors.Trace(err)
 }
 
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
-	svc := ctx.findUpstartJob(unitName)
-	if svc == nil || !svc.Installed() {
-		return fmt.Errorf("unit %q is not deployed", unitName)
-	}
-	if err := svc.StopAndRemove(); err != nil {
-		return err
-	}
 	tag := names.NewUnitTag(unitName)
+
+	svc, err := ctx.service(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Fail if not deployed.
+	enabled, err := svc.IsEnabled()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !enabled {
+		return errors.Errorf("unit %q is not deployed", unitName)
+	}
+
+	// Uninstall the service.
+	if err := svc.Remove(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Clean up files.
 	dataDir := ctx.agentConfig.DataDir()
 	agentDir := agent.Dir(dataDir, tag)
 	// Recursivley change mode to 777 on windows to avoid
 	// Operation not permitted errors when deleting the agentDir
-	err := recursiveChmod(agentDir, os.FileMode(0777))
-	if err != nil {
-		return err
+	if err := recursiveChmod(agentDir, os.FileMode(0777)); err != nil {
+		return errors.Trace(err)
 	}
 	if err := os.RemoveAll(agentDir); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// TODO(dfc) should take a Tag
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
-	return os.Remove(toolsDir)
-}
-
-var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
-
-func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) {
-	fis, err := legacy.ListServices(ctx.initDir)
-	if err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-	installed := make(map[string]string)
-	for _, fi := range fis {
-		if groups := deployedRe.FindStringSubmatch(fi); len(groups) > 0 {
-			unitName := groups[2] + "/" + groups[3]
-			if !names.IsValidUnit(unitName) {
-				continue
-			}
-			installed[unitName] = groups[1]
-		}
-	}
-	return installed, nil
+	err = os.Remove(toolsDir)
+	return errors.Trace(err)
 }
 
 func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
-	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
+	tags, err := service.ListAgents(ctx.services)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	var installed []string
-	for unitName := range unitsAndJobs {
-		installed = append(installed, unitName)
+
+	var names []string
+	for _, tag := range tags {
+		if tag.Kind() != "unit" {
+			continue
+		}
+		names = append(names, tag.Id())
 	}
-	return installed, nil
+	return names, nil
 }
 
 // service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) service(unitName string) legacy.Service {
-	tag := names.NewUnitTag(unitName).String()
-	svcName := "jujud-" + tag
-	svc := legacy.NewService(svcName, service.Conf{InitDir: ctx.initDir})
-	return svc
+func (ctx *SimpleContext) service(tag names.Tag) (*service.Service, error) {
+	// TODO(thumper): 2013-09-02 bug 1219630
+	// As much as I'd like to remove JujuContainerType now, it is still
+	// needed as MAAS still needs it at this stage, and we can't fix
+	// everything at once.
+	containerType := ctx.agentConfig.Value(agent.ContainerType)
+	envVars := map[string]string{
+		osenv.JujuContainerTypeEnvKey: containerType,
+	}
+	osenv.MergeEnvironment(envVars, osenv.FeatureFlags())
+
+	svc, err := ctx.services.NewAgentService(tag, ctx.agentConfig, envVars)
+	return svc, errors.Trace(err)
 }
 
 func removeOnErr(err *error, path string) {
 	if *err != nil {
-		if err := os.Remove(path); err != nil {
+		if err := os.RemoveAll(path); err != nil {
 			logger.Warningf("installer: cannot remove %q: %v", path, err)
 		}
 	}

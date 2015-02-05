@@ -50,7 +50,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statestorage "github.com/juju/juju/state/storage"
@@ -704,7 +703,10 @@ func (a *MachineAgent) postUpgradeAPIWorker(
 		case multiwatcher.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
-				context := newDeployContext(apiDeployer, agentConfig)
+				context, err := newDeployContext(apiDeployer, agentConfig)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case multiwatcher.JobManageEnviron:
@@ -1368,33 +1370,45 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
-	var errors []error
+	var errs []error
+
+	services, err := service.DiscoverServices(agentConfig.DataDir())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove the machine agent's jujud service.
 	agentServiceName := agentConfig.Value(agent.AgentServiceName)
 	if agentServiceName == "" {
 		// For backwards compatibility, handle lack of AgentServiceName.
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
-			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
+		if err := services.Remove(agentServiceName); err != nil {
+			errs = append(errs, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}
+
 	// Remove the juju-run symlink.
 	if err := os.Remove(JujuRun); err != nil && !os.IsNotExist(err) {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
 
+	// Remove the mongo service.
 	namespace := agentConfig.Value(agent.Namespace)
-	if err := mongo.RemoveService(namespace); err != nil {
-		errors = append(errors, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
+	mongoService := mongo.ServiceName(namespace)
+	if err := services.Remove(mongoService); err != nil {
+		errs = append(errs, fmt.Errorf("cannot stop/remove mongo service with namespace %q: %v", namespace, err))
 	}
+
 	if err := os.RemoveAll(agentConfig.DataDir()); err != nil {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
-	if len(errors) == 0 {
+
+	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("uninstall failed: %v", errors)
+	return fmt.Errorf("uninstall failed: %v", errs)
 }
 
 func newConnRunner(conns ...cmdutil.Pinger) worker.Runner {
@@ -1438,6 +1452,6 @@ func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
+var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) (deployer.Context, error) {
 	return deployer.NewSimpleContext(agentConfig, st)
 }

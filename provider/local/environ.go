@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -515,10 +514,21 @@ func (env *localEnviron) Destroy() error {
 			}
 		}
 	}
+
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
-	mongo.RemoveService(env.config.namespace())
-	upstart.NewService(env.machineAgentServiceName(), service.Conf{}).StopAndRemove()
+	services, err := newServices(env.config.rootDir())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	mongoService := mongo.ServiceName(env.config.namespace())
+	if err := services.Remove(mongoService); err != nil {
+		return errors.Trace(err)
+	}
+	agentService := env.machineAgentServiceName()
+	if err := services.Remove(agentService); err != nil {
+		return errors.Trace(err)
+	}
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
@@ -533,6 +543,10 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	return nil
+}
+
+var newServices = func(dataDir string) (*service.Services, error) {
+	return service.DiscoverServices(dataDir)
 }
 
 // OpenPorts is specified in the Environ interface.

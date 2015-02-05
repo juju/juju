@@ -14,16 +14,23 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/initsystems"
+	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/deployer"
 )
+
+// TODO(ericsnow) These tests could be a lot leaner. Right now they
+// are testing the full stack (e.g. file system operations).
 
 type SimpleContextSuite struct {
 	SimpleToolsFixture
@@ -62,6 +69,8 @@ func (s *SimpleContextSuite) TestDeployRecall(c *gc.C) {
 	s.assertUpstartCount(c, 0)
 	s.checkUnitRemoved(c, "foo/123")
 }
+
+// TODO(ericsnow) Drop TestOldDeployedUnitsCanBeRecalled?
 
 func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 	// After r1347 deployer tag is no longer part of the upstart conf filenames,
@@ -133,16 +142,17 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 type SimpleToolsFixture struct {
 	dataDir  string
 	logDir   string
-	initDir  string
 	origPath string
 	binDir   string
+
+	init     *initsystems.Tracking
+	services *service.Services
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.dataDir = dataDir
-	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
 	toolsDir := tools.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
@@ -164,6 +174,11 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "started-status", `echo "blah start/running, process 666"`)
 	fix.makeBin(c, "start", "cp $(which started-status) $(which status)")
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
+
+	fops := &fs.Ops{}
+	baseIS := &upstart.Upstart{}
+	fix.init = initsystems.NewTracking(baseIS, fops)
+	fix.services = service.NewServices(dataDir, fix.init)
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
@@ -177,24 +192,24 @@ func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 }
 
 func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
-	fis, err := ioutil.ReadDir(fix.initDir)
+	names, err := fix.services.ListEnabled()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fis, gc.HasLen, count)
+	c.Assert(names, gc.HasLen, count)
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
 	config := agentConfig(names.NewMachineTag("99"), fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
+	return deployer.NewTestSimpleContext(c, config, fix.services)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Tag) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
+	return deployer.NewTestSimpleContext(c, config, fix.services)
 }
 
 func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDir string) {
-	confName := fmt.Sprintf("jujud-%s.conf", tag)
-	confPath = filepath.Join(fix.initDir, confName)
+	svcName := fmt.Sprintf("jujud-%s", tag)
+	confPath = filepath.Join(fix.dataDir, "init", svcName, "upstart.conf")
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag.String())
 	return
@@ -220,8 +235,8 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	jujudPath := filepath.Join(toolsDir, "jujud")
 
 	for _, pat := range []string{
-		"^exec " + jujudPath + " unit ",
-		" --unit-name " + name + " ",
+		"^exec \"" + jujudPath + "\" unit ",
+		" --unit-name \"" + name + "\" ",
 		" >> " + logPath + " 2>&1$",
 	} {
 		match, err := regexp.MatchString(pat, execs[0])
@@ -255,9 +270,14 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 }
 
 func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) {
-	confPath := filepath.Join(fix.initDir, upstartConf)
-	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash --norc\necho $0"), 0644)
+	tag, err := names.ParseUnitTag(unitTag)
 	c.Assert(err, jc.ErrorIsNil)
+	confPath, _, _ := fix.paths(tag)
+	err = os.MkdirAll(filepath.Dir(confPath), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(confPath, []byte("#!/bin/bash --norc\necho $0"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
 	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
 	err = os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, jc.ErrorIsNil)

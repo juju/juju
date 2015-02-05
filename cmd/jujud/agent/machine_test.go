@@ -83,7 +83,7 @@ func TestPackage(t *testing.T) {
 	// Change the default init dir in worker/deployer,
 	// so the deployer doesn't try to remove upstart
 	// jobs from tests.
-	restore := gitjujutesting.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
+	restore := gitjujutesting.PatchValue(&upstart.ConfDir, mkdtemp("juju-worker-deployer"))
 	defer restore()
 
 	// TODO(waigani) 2014-03-19 bug 1294458
@@ -130,7 +130,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
+	s.AgentSuite.PatchValue(&upstart.ConfDir, c.MkDir())
 
 	s.singularRecord = newSingularRunnerRecord()
 	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
@@ -417,11 +417,11 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 		deployed: make(set.Strings),
 	}
 	orig := newDeployContext
-	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
+	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) (deployer.Context, error) {
 		ctx.st = st
 		ctx.agentConfig = agentConfig
 		close(ctx.inited)
-		return ctx
+		return ctx, nil
 	}
 	return ctx, func() { newDeployContext = orig }
 }
