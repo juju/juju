@@ -27,6 +27,7 @@ var logger = loggo.GetLogger("juju.testing")
 // github.com/juju/testing, and this suite will be removed.
 // Do not use JujuOSEnvSuite when writing new tests.
 type JujuOSEnvSuite struct {
+	oldJujuHome    string
 	oldHomeEnv     string
 	oldEnvironment map[string]string
 }
@@ -53,6 +54,7 @@ func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	// Update the feature flag set to be empty (given we have just set the
 	// environment value to the empty string)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.oldJujuHome = osenv.SetJujuHome("")
 }
 
 func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
@@ -60,6 +62,7 @@ func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 		os.Setenv(name, value)
 	}
 	utils.SetHome(s.oldHomeEnv)
+	osenv.SetJujuHome(s.oldJujuHome)
 }
 
 func (s *JujuOSEnvSuite) SetFeatureFlags(flag ...string) {
