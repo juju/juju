@@ -58,8 +58,10 @@ class ClientTestCase(TestCase):
                           side_effect=fake_list_machines) as lm_mock:
             with patch.object(client, 'stop_machine') as sm_mock:
                 with patch.object(client, 'delete_machine') as dm_mock:
-                    client.delete_old_machines(1, 'foo@bar')
+                    with patch.object(client, 'request_deletion') as rd_mock:
+                        client.delete_old_machines(1, 'foo@bar')
         lm_mock.assert_call_any(None)
         lm_mock.assert_call_any('id')
         sm_mock.assert_called_once_with('id')
         dm_mock.assert_called_once_with('id')
+        rd_mock.assert_called_once_with([], 'foo@bar')
