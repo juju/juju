@@ -98,5 +98,5 @@ func (s *EnvironmentSuite) TestRetryProvisioning(c *gc.C) {
 
 	output := testing.Stderr(ctx)
 	stripped := strings.Replace(output, "\n", "", -1)
-	c.Check(stripped, gc.Equals, `cannot retry provisioning "machine-0": "machine-0" is not in an error state`)
+	c.Check(stripped, gc.Equals, `machine 0 is not in an error state`)
 }

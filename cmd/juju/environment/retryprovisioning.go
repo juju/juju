@@ -69,9 +69,9 @@ func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
-	for i, result := range results {
+	for _, result := range results {
 		if result.Error != nil {
-			fmt.Fprintf(context.Stderr, "cannot retry provisioning %q: %v\n", c.Machines[i], result.Error)
+			fmt.Fprintf(context.Stderr, "%v\n", result.Error)
 		}
 	}
 	return nil

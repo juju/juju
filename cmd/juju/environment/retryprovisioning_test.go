@@ -25,6 +25,8 @@ type retryProvisioningSuite struct {
 	fake *fakeRetryProvisioningClient
 }
 
+var _ = gc.Suite(&retryProvisioningSuite{})
+
 // fakeRetryProvisioningClient contains some minimal information
 // about machines in the environment to mock out the behavior
 // of the real RetryProvisioning command.
@@ -62,8 +64,8 @@ func (f *fakeRetryProvisioningClient) RetryProvisioning(machines ...names.Machin
 				m.data["transient"] = true
 			} else {
 				results[i].Error = common.ServerError(
-					fmt.Errorf("%q is not in an error state",
-						machine.String()))
+					fmt.Errorf("%s is not in an error state",
+						names.ReadableString(machine)))
 			}
 		} else {
 			results[i].Error = common.ServerError(
@@ -89,8 +91,6 @@ func (s *retryProvisioningSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-var _ = gc.Suite(&retryProvisioningSuite{})
-
 var resolvedMachineTests = []struct {
 	args   []string
 	err    string
@@ -103,15 +103,19 @@ var resolvedMachineTests = []struct {
 		err:  `invalid machine "jeremy-fisher"`,
 	}, {
 		args:   []string{"42"},
-		stdErr: `cannot retry provisioning "machine-42": machine 42 not found`,
+		stdErr: `machine 42 not found`,
 	}, {
 		args:   []string{"1"},
-		stdErr: `cannot retry provisioning "machine-1": "machine-1" is not in an error state`,
+		stdErr: `machine 1 is not in an error state`,
 	}, {
 		args: []string{"0"},
 	}, {
 		args:   []string{"0", "1"},
-		stdErr: `cannot retry provisioning "machine-1": "machine-1" is not in an error state`,
+		stdErr: `machine 1 is not in an error state`,
+	}, {
+		args: []string{"1", "42"},
+		stdErr: `machine 1 is not in an error state` +
+			`machine 42 not found`,
 	},
 }
 
