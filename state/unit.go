@@ -1639,7 +1639,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	if !ok {
 		return nil, errors.Errorf("action %q not defined on unit %q", name, u.Name())
 	}
-	_, err = spec.ValidateParams(payload)
+	err = spec.ValidateParams(payload)
 	if err != nil {
 		return nil, err
 	}
