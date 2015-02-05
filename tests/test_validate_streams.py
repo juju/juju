@@ -308,3 +308,11 @@ class ValidateStreams(TestCase):
         fa_mock.assert_any_call('new')
         ca_mock.assert_called_with(
             'old', 'new', 'released', '1.2.3', None, None)
+
+    def test_main_with_errrors(self):
+        with patch('validate_streams.find_agents', autospec=True):
+            with patch('validate_streams.compare_agents',
+                       autospec=True, return_value=['error']):
+                returncode = main(
+                    ['script', '--added', '1.2.3', 'released', 'old', 'new'])
+        self.assertEqual(1, returncode)
