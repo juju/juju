@@ -994,7 +994,7 @@ func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 // It returns the started pinger.
 func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	presenceCollection := u.st.getPresence()
-	p := presence.NewPinger(presenceCollection, u.globalKey())
+	p := presence.NewPinger(presenceCollection, u.st.EnvironTag(), u.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -1698,6 +1698,11 @@ func (u *Unit) CompletedActions() ([]*Action, error) {
 // PendingActions returns a list of actions pending for this unit.
 func (u *Unit) PendingActions() ([]*Action, error) {
 	return u.st.matchingActionsPending(u)
+}
+
+// RunningActions returns a list of actions running on this unit.
+func (u *Unit) RunningActions() ([]*Action, error) {
+	return u.st.matchingActionsRunning(u)
 }
 
 // Resolve marks the unit as having had any previous state transition

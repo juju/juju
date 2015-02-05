@@ -58,6 +58,7 @@ func AssertCanStopWhenSending(c *gc.C, stopper Stopper) {
 }
 
 type NotifyWatcher interface {
+	Stop() error
 	Changes() <-chan struct{}
 }
 
@@ -137,6 +138,15 @@ func (c StringsWatcherC) AssertNoChange() {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
 	case <-time.After(testing.ShortWait):
+	}
+}
+
+func (c StringsWatcherC) AssertChanges() {
+	c.State.StartSync()
+	select {
+	case <-c.Watcher.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
 	}
 }
 

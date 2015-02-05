@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/juju/testing"
@@ -36,13 +37,15 @@ func (s *ExecuteSSHCommandSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("issue 1403084: Tests use OpenSSH only")
+	}
 	s.IsolationSuite.SetUpTest(c)
 	err := os.Setenv("PATH", s.originalPath)
 	c.Assert(err, jc.ErrorIsNil)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
 	s.PatchEnvPathPrepend(s.testbin)
-
 }
 
 func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {

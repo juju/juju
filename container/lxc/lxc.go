@@ -18,13 +18,13 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
@@ -72,7 +72,7 @@ func containerDirFilesystem() (string, error) {
 	lines := strings.Split(string(out), "\n")
 	if len(lines) < 2 {
 		logger.Errorf("unexpected output: %q", out)
-		return "", fmt.Errorf("could not determine filesystem type")
+		return "", errors.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
 }
@@ -129,7 +129,7 @@ var _ container.Manager = (*containerManager)(nil)
 func NewContainerManager(conf container.ManagerConfig, imageURLGetter container.ImageURLGetter) (container.Manager, error) {
 	name := conf.PopValue(container.ConfigName)
 	if name == "" {
-		return nil, fmt.Errorf("name is required")
+		return nil, errors.Errorf("name is required")
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
@@ -190,15 +190,15 @@ func preferFastLXC(release string) bool {
 func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig,
+	networkConfig *container.NetworkConfig,
 ) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 	// Check our preconditions
 	if manager == nil {
 		panic("manager is nil")
 	} else if series == "" {
 		panic("series not set")
-	} else if network == nil {
-		panic("network is nil")
+	} else if networkConfig == nil {
+		panic("networkConfig is nil")
 	}
 
 	// Log how long the start took
@@ -219,7 +219,7 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.Annotate(err, "failed to create a directory for the container")
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := container.WriteUserData(machineConfig, directory)
+	userDataFilename, err := container.WriteUserData(machineConfig, networkConfig, directory)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
@@ -229,7 +229,7 @@ func (manager *containerManager) CreateContainer(
 		templateContainer, err := EnsureCloneTemplate(
 			manager.backingFilesystem,
 			series,
-			network,
+			networkConfig,
 			machineConfig.AuthorizedKeys,
 			machineConfig.AptProxySettings,
 			machineConfig.AptMirror,
@@ -297,7 +297,7 @@ func (manager *containerManager) CreateContainer(
 		err = createContainer(
 			lxcContainer,
 			directory,
-			network,
+			networkConfig,
 			nil,
 			templateParams,
 			caCert,
@@ -315,8 +315,8 @@ func (manager *containerManager) CreateContainer(
 	}
 	// Update the network settings inside the run-time config of the
 	// container (e.g. /var/lib/lxc/<name>/config) before starting it.
-	networkConfig := generateNetworkConfig(network)
-	if err := updateContainerConfig(name, networkConfig); err != nil {
+	netConfig := generateNetworkConfig(networkConfig)
+	if err := updateContainerConfig(name, netConfig); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to update network config")
 	}
 	configPath := containerConfigFilename(name)
@@ -371,14 +371,14 @@ func (manager *containerManager) CreateContainer(
 func createContainer(
 	lxcContainer golxc.Container,
 	directory string,
-	network *container.NetworkConfig,
+	networkConfig *container.NetworkConfig,
 	extraCreateArgs, templateParams []string,
 	caCert []byte,
 ) error {
 	// Generate initial lxc.conf with networking settings.
-	networkConfig := generateNetworkConfig(network)
+	netConfig := generateNetworkConfig(networkConfig)
 	configPath := filepath.Join(directory, "lxc.conf")
-	if err := ioutil.WriteFile(configPath, []byte(networkConfig), 0644); err != nil {
+	if err := ioutil.WriteFile(configPath, []byte(netConfig), 0644); err != nil {
 		return errors.Annotatef(err, "failed to write container config %q", configPath)
 	}
 	logger.Tracef("wrote initial config %q for container %q", configPath, lxcContainer.Name())
@@ -714,6 +714,10 @@ func autostartContainer(name string) error {
 func mountHostLogDir(name, logDir string) error {
 	// Make sure that the mount dir has been created.
 	internalDir := internalLogDir(name)
+	// Ensure that the logDir actually exists.
+	if err := os.MkdirAll(logDir, 0777); err != nil {
+		return errors.Trace(err)
+	}
 	logger.Tracef("make the mount dir for the shared logs: %s", internalDir)
 	if err := os.MkdirAll(internalDir, 0755); err != nil {
 		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)

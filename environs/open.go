@@ -231,7 +231,7 @@ func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironI
 		return nil, errors.Annotate(err, "cannot ensure uuid")
 	}
 
-	return p.Prepare(ctx, cfg)
+	return p.PrepareForBootstrap(ctx, cfg)
 }
 
 // ensureAdminSecret returns a config with a non-empty admin-secret.

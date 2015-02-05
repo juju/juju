@@ -29,7 +29,6 @@ var (
 )
 
 const (
-	authKeysDir  = "~%s/.ssh"
 	authKeysFile = "authorized_keys"
 )
 
@@ -37,6 +36,18 @@ type AuthorisedKey struct {
 	Type    string
 	Key     []byte
 	Comment string
+}
+
+func authKeysDir(username string) (string, error) {
+	homeDir, err := utils.UserHomeDir(username)
+	if err != nil {
+		return "", err
+	}
+	homeDir, err = utils.NormalizePath(homeDir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(homeDir, ".ssh"), nil
 }
 
 // ParseAuthorisedKey parses a non-comment line from an
@@ -72,11 +83,11 @@ func SplitAuthorisedKeys(keyData string) []string {
 }
 
 func readAuthorisedKeys(username string) ([]string, error) {
-	keyDir := fmt.Sprintf(authKeysDir, username)
-	sshKeyFile, err := utils.NormalizePath(filepath.Join(keyDir, authKeysFile))
+	keyDir, err := authKeysDir(username)
 	if err != nil {
 		return nil, err
 	}
+	sshKeyFile := filepath.Join(keyDir, authKeysFile)
 	logger.Debugf("reading authorised keys file %s", sshKeyFile)
 	keyData, err := ioutil.ReadFile(sshKeyFile)
 	if os.IsNotExist(err) {
@@ -96,8 +107,7 @@ func readAuthorisedKeys(username string) ([]string, error) {
 }
 
 func writeAuthorisedKeys(username string, keys []string) error {
-	keyDir := fmt.Sprintf(authKeysDir, username)
-	keyDir, err := utils.NormalizePath(keyDir)
+	keyDir, err := authKeysDir(username)
 	if err != nil {
 		return err
 	}

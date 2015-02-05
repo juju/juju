@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/ssh"
 )
 
 var _ = gc.Suite(&SSHSuite{})
@@ -35,19 +37,13 @@ type SSHCommonSuite struct {
 	bin string
 }
 
-// fakecommand outputs its arguments to stdout for verification
-var fakecommand = `#!/bin/bash
-
-echo "$@" | tee $0.args
-`
-
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&getJujuExecutable, func() (string, error) { return "juju", nil })
 
 	s.bin = c.MkDir()
 	s.PatchEnvPathPrepend(s.bin)
-	for _, name := range []string{"ssh", "scp"} {
+	for _, name := range patchedCommands {
 		f, err := os.OpenFile(filepath.Join(s.bin, name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0777)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = f.Write([]byte(fakecommand))
@@ -55,6 +51,8 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 		err = f.Close()
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	client, _ := ssh.NewOpenSSHClient()
+	s.PatchValue(&ssh.DefaultClient, client)
 }
 
 const (
@@ -74,32 +72,32 @@ var sshTests = []struct {
 	{
 		"connect to machine 0",
 		[]string{"ssh", "0"},
-		sshArgs + "ubuntu@dummyenv-0.internal\n",
+		sshArgs + "ubuntu@dummyenv-0.internal",
 	},
 	{
 		"connect to machine 0 and pass extra arguments",
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "ubuntu@dummyenv-0.internal uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.internal uname -a",
 	},
 	{
 		"connect to unit mysql/0",
 		[]string{"ssh", "mysql/0"},
-		sshArgs + "ubuntu@dummyenv-0.internal\n",
+		sshArgs + "ubuntu@dummyenv-0.internal",
 	},
 	{
 		"connect to unit mongodb/1 as the mongo user",
 		[]string{"ssh", "mongo@mongodb/1"},
-		sshArgs + "mongo@dummyenv-2.internal\n",
+		sshArgs + "mongo@dummyenv-2.internal",
 	},
 	{
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
-		sshArgs + "ubuntu@dummyenv-2.internal ls /\n",
+		sshArgs + "ubuntu@dummyenv-2.internal ls /",
 	},
 	{
 		"connect to unit mysql/0 without proxy",
 		[]string{"ssh", "--proxy=false", "mysql/0"},
-		sshArgsNoProxy + "ubuntu@dummyenv-0.dns\n",
+		sshArgsNoProxy + "ubuntu@dummyenv-0.dns",
 	},
 }
 
@@ -119,7 +117,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	s.addUnit(srv, m[2], c)
 
 	for i, t := range sshTests {
-		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
+		c.Logf("test %d: %s -> %s", i, t.about, t.args)
 		ctx := coretesting.Context(c)
 		jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
 		jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
@@ -127,7 +125,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		code := cmd.Main(jujucmd, ctx, t.args)
 		c.Check(code, gc.Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, t.result)
+		c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, t.result)
 	}
 }
 
@@ -142,7 +140,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
-	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns\n")
+	c.Check(strings.TrimRight(ctx.Stdout.(*bytes.Buffer).String(), "\r\n"), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns")
 }
 
 func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {

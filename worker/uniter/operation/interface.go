@@ -94,6 +94,10 @@ type Factory interface {
 	// indicated relation context, and pass the results back over the supplied
 	// func.
 	NewCommands(args CommandArgs, sendResponse CommandResponseFunc) (Operation, error)
+
+	// NewUpdateRelations creates an operation to ensure the supplied relation
+	// ids are known and tracked.
+	NewUpdateRelations(ids []int) (Operation, error)
 }
 
 // CommandArgs stores the arguments for a Command operation.
@@ -127,6 +131,9 @@ type Callbacks interface {
 	// RunHook operations.
 	PrepareHook(info hook.Info) (name string, err error)
 	CommitHook(info hook.Info) error
+
+	// UpdateRelations exists so that we can encapsulate it in an operation.
+	UpdateRelations(ids []int) error
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.

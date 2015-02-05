@@ -143,6 +143,12 @@ type EnvironmentResult struct {
 	UUID  string
 }
 
+// EnvironmentSkeletonConfigArgs wraps the args for environmentmanager.SkeletonConfig.
+type EnvironmentSkeletonConfigArgs struct {
+	Provider string
+	Region   string
+}
+
 // EnvironmentCreateArgs holds the arguments that are necessary to create
 // and environment.
 type EnvironmentCreateArgs struct {

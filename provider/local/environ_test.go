@@ -169,7 +169,7 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 
 func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs.Environ {
 	ctx := envtesting.BootstrapContext(c)
-	environ, err := local.Provider.Prepare(ctx, cfg)
+	environ, err := local.Provider.PrepareForBootstrap(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	availableTools := coretools.List{&coretools.Tools{
 		Version: version.Current,
@@ -353,7 +353,7 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 
 func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
 	ctx := envtesting.BootstrapContext(c)
-	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
+	env, err := local.Provider.PrepareForBootstrap(ctx, minimalConfig(c))
 	c.Assert(err, jc.ErrorIsNil)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, jc.ErrorIsNil)

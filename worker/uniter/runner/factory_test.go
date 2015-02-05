@@ -5,6 +5,7 @@ package runner_test
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -517,14 +518,7 @@ func (s *FactorySuite) TestNewHookRunnerMetricsEnabled(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
-	rnr, err := s.factory.NewActionRunner("irrelevant")
-	c.Assert(rnr, gc.IsNil)
-	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
-	c.Assert(err, gc.Not(jc.Satisfies), runner.IsBadActionError)
-}
-
-func (s *FactorySuite) TestNewActionRunner(c *gc.C) {
+func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	action, err := s.State.EnqueueAction(s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": "/some/file.bz2",
@@ -544,6 +538,19 @@ func (s *FactorySuite) TestNewActionRunner(c *gc.C) {
 		},
 		ResultsMap: map[string]interface{}{},
 	})
+	vars := ctx.HookVars(s.paths)
+	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
+	combined := strings.Join(vars, "|")
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_NAME=snapshot(\|.*|$)`)
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+action.Id()+`(\|.*|$)`)
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_TAG=`+action.Tag().String()+`(\|.*|$)`)
+}
+
+func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
+	rnr, err := s.factory.NewActionRunner("irrelevant")
+	c.Assert(rnr, gc.IsNil)
+	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
+	c.Assert(err, gc.Not(jc.Satisfies), runner.IsBadActionError)
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
