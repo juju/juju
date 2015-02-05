@@ -264,10 +264,11 @@ class ValidateStreams(TestCase):
             with patch("validate_streams.check_expected_unchanged",
                        return_value=(['bar'])) as ceu_mock:
                 errors = compare_agents(
-                    old_agents, new_agents, 'proposed', '1.20.9', removed=None)
+                    old_agents, new_agents, 'proposed', '1.20.9',
+                    removed=None, ignored=None)
                 cec_mock.assert_called_with(new_agents, '1.20.9', None)
                 ceu_mock.assert_called_with(
-                    old_agents, new_agents, '1.20.9', None)
+                    old_agents, new_agents, '1.20.9', None, None)
         self.assertEqual(['foo', 'bar'], errors)
 
     def test_compare_agents_added_devel_version(self):
