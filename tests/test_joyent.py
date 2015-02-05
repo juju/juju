@@ -36,6 +36,7 @@ class ClientTestCase(TestCase):
         self.assertEqual('account', client.account)
         self.assertEqual('key_id', client.key_id)
         self.assertEqual('./key', client.key_path)
+        self.assertEqual(3, client.pause)
         self.assertTrue(client.dry_run)
         self.assertTrue(client.verbose)
 
@@ -52,12 +53,12 @@ class ClientTestCase(TestCase):
             else:
                 return [machine]
 
-        client = Client('sdc_url', 'account', 'key_id', './key')
+        client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
         with patch.object(client, '_list_machines',
                           side_effect=fake_list_machines) as lm_mock:
             with patch.object(client, 'stop_machine') as sm_mock:
                 with patch.object(client, 'delete_machine') as dm_mock:
-                    client.delete_old_machines(1, 'foo@bar', pause=0)
+                    client.delete_old_machines(1, 'foo@bar')
         lm_mock.assert_call_any(None)
         lm_mock.assert_call_any('id')
         sm_mock.assert_called_once_with('id')

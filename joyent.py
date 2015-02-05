@@ -134,7 +134,7 @@ class Client:
     """
 
     def __init__(self, sdc_url, account, key_id, key_path,
-                 user_agent=USER_AGENT, dry_run=False, verbose=False):
+                 user_agent=USER_AGENT, pause=3, dry_run=False, verbose=False):
         if sdc_url.endswith('/'):
             sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
@@ -142,6 +142,7 @@ class Client:
         self.key_id = key_id
         self.key_path = key_path
         self.user_agent = user_agent
+        self.pause = pause
         self.dry_run = dry_run
         self.verbose = verbose
 
@@ -317,7 +318,7 @@ class Client:
             with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
                 json.dump(list(current_stuck_ids), stuck_file)
 
-    def delete_old_machines(self, old_age, contact_mail_address, pause=3):
+    def delete_old_machines(self, old_age, contact_mail_address):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
         for proc in procs.splitlines():
             command = proc.split()
@@ -334,23 +335,25 @@ class Client:
         for machine in machines:
             created = datetime.strptime(machine['created'], ISO_8601_FORMAT)
             age = now - created
-            print(age)
             if age > timedelta(hours=old_age):
                 machine_id = machine['id']
                 if machine['state'] == 'provisioning':
                     current_stuck.append(machine)
                     continue
-                print("Machine {} is {} old".format(machine_id, age))
+                if self.verbose:
+                    print("Machine {} is {} old".format(machine_id, age))
                 if not self.dry_run:
                     self.stop_machine(machine_id)
                     while True:
-                        print(".", end="")
-                        sys.stdout.flush()
-                        sleep(pause)
+                        if self.verbose:
+                            print(".", end="")
+                            sys.stdout.flush()
+                        sleep(self.pause)
                         stopping_machine = self._list_machines(machine_id)
                         if stopping_machine['state'] == 'stopped':
                             break
-                    print("stopped")
+                    if self.verbose:
+                        print("stopped")
                     self.delete_machine(machine_id)
         if not self.dry_run:
             self.request_deletion(current_stuck, contact_mail_address)
