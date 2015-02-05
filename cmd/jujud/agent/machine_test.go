@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/initsystems/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -83,6 +83,7 @@ func TestPackage(t *testing.T) {
 	// Change the default init dir in worker/deployer,
 	// so the deployer doesn't try to remove upstart
 	// jobs from tests.
+	// TODO(ericsnow) This won't help if another init system is in use...
 	restore := gitjujutesting.PatchValue(&upstart.ConfDir, mkdtemp("juju-worker-deployer"))
 	defer restore()
 
@@ -130,6 +131,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
+	// TODO(ericsnow) This won't help if another init system is in use...
 	s.AgentSuite.PatchValue(&upstart.ConfDir, c.MkDir())
 
 	s.singularRecord = newSingularRunnerRecord()

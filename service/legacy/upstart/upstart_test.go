@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/initsystems"
 	iupstart "github.com/juju/juju/service/initsystems/upstart"
-	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/service/legacy/upstart"
 	"github.com/juju/juju/testing"
 )
 
