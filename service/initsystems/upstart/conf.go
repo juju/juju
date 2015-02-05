@@ -27,7 +27,8 @@ func Serialize(name string, conf initsystems.Conf) ([]byte, error) {
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) We can do better than this!
+	// TODO(ericsnow) While the template approach is sufficient for use
+	// in juju, it is insufficient for more general upstart usage.
 	var buf bytes.Buffer
 	if err := confT.Execute(&buf, conf); err != nil {
 		return nil, errors.Trace(err)
