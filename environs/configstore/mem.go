@@ -93,6 +93,7 @@ func (info *memInfo) Write() error {
 		return ErrEnvironInfoAlreadyExists
 	}
 
+	info.created = false
 	info.initialized = true
 	m.envs[info.name] = info.clone()
 	return nil

@@ -342,5 +342,6 @@ func (info *environInfo) writeJENVFile() error {
 	_, err = file.Write(data)
 	file.Close()
 	info.path = path
+	info.created = false
 	return errors.Annotate(err, "cannot write file")
 }
