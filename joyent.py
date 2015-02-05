@@ -317,7 +317,7 @@ class Client:
             with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
                 json.dump(list(current_stuck_ids), stuck_file)
 
-    def delete_old_machines(self, old_age, contact_mail_address):
+    def delete_old_machines(self, old_age, contact_mail_address, pause=3):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
         for proc in procs.splitlines():
             command = proc.split()
@@ -346,7 +346,7 @@ class Client:
                     while True:
                         print(".", end="")
                         sys.stdout.flush()
-                        sleep(3)
+                        sleep(pause)
                         stopping_machine = self._list_machines(machine_id)
                         if stopping_machine['state'] == 'stopped':
                             break

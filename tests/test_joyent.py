@@ -1,9 +1,13 @@
+from datetime import (
+    datetime,
+    timedelta,
+)
 from mock import patch
-import os
 from unittest import TestCase
 
 from joyent import (
     Client,
+    ISO_8601_FORMAT,
     parse_args,
 )
 
@@ -34,3 +38,27 @@ class ClientTestCase(TestCase):
         self.assertEqual('./key', client.key_path)
         self.assertTrue(client.dry_run)
         self.assertTrue(client.verbose)
+
+    def test_delete_old_machines(self):
+        then = datetime.utcnow() - timedelta(hours=2)
+        machine = {
+            'id': 'id',
+            'state': 'stopped',
+            'created': then.strftime(ISO_8601_FORMAT)}
+
+        def fake_list_machines(id=None):
+            if id:
+                return machine
+            else:
+                return [machine]
+
+        client = Client('sdc_url', 'account', 'key_id', './key')
+        with patch.object(client, '_list_machines',
+                          side_effect=fake_list_machines) as lm_mock:
+            with patch.object(client, 'stop_machine') as sm_mock:
+                with patch.object(client, 'delete_machine') as dm_mock:
+                    client.delete_old_machines(1, 'foo@bar', pause=0)
+        lm_mock.assert_call_any(None)
+        lm_mock.assert_call_any('id')
+        sm_mock.assert_called_once_with('id')
+        dm_mock.assert_called_once_with('id')
