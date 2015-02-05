@@ -204,12 +204,27 @@ func (is *windows) status(name string) (string, error) {
 
 // Conf implements service/initsystems.InitSystem.
 func (is *windows) Conf(name string) (*initsystems.Conf, error) {
-	if err := initsystems.EnsureEnabled(name, is); err != nil {
+	// Get the description. Info also ensures the service is enabled.
+	info, err := is.Info(name)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	description := info.Description
 
-	// TODO(ericsnow) Finish!
-	return nil, nil
+	// Get the command.
+	query := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-WmiObject win32_service | ?{$_.Name -like '%s'}).PathName`, name)
+	out, err := is.cmd.RunCommandStr(query)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cmd := strings.TrimSpace(string(out))
+
+	// Return the conf.
+	conf := &initsystems.Conf{
+		Desc: description,
+		Cmd:  cmd,
+	}
+	return conf, nil
 }
 
 // Validate implements service/initsystems.InitSystem.

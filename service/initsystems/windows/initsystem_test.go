@@ -78,6 +78,11 @@ func (s *initSystemSuite) setDescription(name string) {
 	s.cmd.AddToOut("juju agent for " + tag)
 }
 
+func (s *initSystemSuite) setCmd(name string) {
+	tag := name[len("jujud-"):]
+	s.cmd.AddToOut("jujud.exe " + tag)
+}
+
 func (s *initSystemSuite) TestInitSystemName(c *gc.C) {
 	name := s.init.Name()
 
@@ -374,20 +379,34 @@ func (s *initSystemSuite) TestInitSystemInfoNotEnabled(c *gc.C) {
 func (s *initSystemSuite) TestInitSystemConf(c *gc.C) {
 	name := "jujud-unit-wordpress-0"
 	s.setStatus(name, initsystems.StatusEnabled)
+	s.setDescription(name)
+	s.setCmd(name)
 
 	conf, err := s.init.Conf(name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(conf, jc.DeepEquals, &initsystems.Conf{
-		Desc: `juju agent for jujud-unit-wordpress-0`,
+		Desc: `juju agent for unit-wordpress-0`,
 		Cmd:  "jujud.exe unit-wordpress-0",
 	})
 
 	statusCmd := cmdPrefix + `(Get-Service "` + name + `").Status`
+	descrCmd := cmdPrefix + `(Get-Service "` + name + `").DisplayName`
+	cmd := cmdPrefix + `(Get-WmiObject win32_service | ?{$_.Name -like '` + name + `'}).PathName`
 	s.fake.CheckCalls(c, []testing.FakeCall{{
 		FuncName: "RunCommandStr",
 		Args: testing.FakeCallArgs{
 			"cmd": statusCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": descrCmd,
+		},
+	}, {
+		FuncName: "RunCommandStr",
+		Args: testing.FakeCallArgs{
+			"cmd": cmd,
 		},
 	}})
 }
