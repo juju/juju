@@ -28,8 +28,8 @@ func (s *marshalSuite) SetUpTest(c *gc.C) {
 
 func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 	metadata := map[string][]*tools.ToolsMetadata{
-		"released": []*tools.ToolsMetadata{
-			&tools.ToolsMetadata{
+		"released": {
+			{
 				Release:  "saucy",
 				Version:  "1.2.3.4",
 				Arch:     "arm",
@@ -201,7 +201,7 @@ var expectedProposedProducts = `{
 }`
 
 var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
-	&tools.ToolsMetadata{
+	{
 		Release:  "saucy",
 		Version:  "1.2.3.4",
 		Arch:     "arm",
@@ -209,7 +209,7 @@ var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 		Path:     "/somewhere/over/the/rainbow.tar.gz",
 		FileType: "tar.gz",
 	},
-	&tools.ToolsMetadata{
+	{
 		Release:  "precise",
 		Version:  "1.2.3.4",
 		Arch:     "arm",
@@ -217,7 +217,7 @@ var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 		Path:     "toenlightenment.tar.gz",
 		FileType: "tar.gz",
 	},
-	&tools.ToolsMetadata{
+	{
 		Release:  "precise",
 		Version:  "4.3.2.1",
 		Arch:     "amd64",
@@ -228,7 +228,7 @@ var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 }
 
 var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
-	&tools.ToolsMetadata{
+	{
 		Release:  "utopic",
 		Version:  "1.2-alpha1",
 		Arch:     "ppc64el",
@@ -236,7 +236,7 @@ var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 		Path:     "/funkytown.tar.gz",
 		FileType: "tar.gz",
 	},
-	&tools.ToolsMetadata{
+	{
 		Release:  "trusty",
 		Version:  "1.2-beta1",
 		Arch:     "arm64",

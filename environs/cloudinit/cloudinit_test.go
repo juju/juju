@@ -483,7 +483,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 			InstanceId:              "i-bootstrap",
 			MachineAgentServiceName: "jujud-machine-0",
 			EnableOSRefreshUpdate:   true,
-			CustomImageMetadata: []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
+			CustomImageMetadata: []*imagemetadata.ImageMetadata{{
 				Id:         "image-id",
 				Storage:    "ebs",
 				VirtType:   "pv",

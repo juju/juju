@@ -734,7 +734,7 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	// setting a default-vpc will create a network interface
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -860,7 +860,7 @@ func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
 
 func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
@@ -870,7 +870,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 
 func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")
@@ -880,7 +880,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	// this value won't change normally, the change here is to
 	// ensure that subsequent calls use the cached value
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
 	result, err = env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
@@ -889,7 +889,7 @@ func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 
 func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
 	env := t.prepareEnviron(c)
 	result, err := env.SupportsAddressAllocation("")

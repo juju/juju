@@ -41,7 +41,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 	s.storageSvc = s.AddTestingServiceWithStorage(
 		c, "storage-block", s.AddTestingCharm(c, "storage-block"),
 		map[string]state.StorageConstraints{
-			"data": state.StorageConstraints{
+			"data": {
 				Count: 1,
 				Size:  1024,
 			},

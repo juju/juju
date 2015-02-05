@@ -802,7 +802,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			url:   "local:quantal/dummy-1",
 			expectedActions: &charm.Actions{
 				ActionSpecs: map[string]charm.ActionSpec{
-					"snapshot": charm.ActionSpec{
+					"snapshot": {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
@@ -825,7 +825,7 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			// Use wordpress for tests so that we can compare Provides and Requires.
 			charm: "wordpress",
 			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
-				"fakeaction": charm.ActionSpec{
+				"fakeaction": {
 					Description: "No description",
 					Params: map[string]interface{}{
 						"type":        "object",
@@ -1439,7 +1439,7 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 	s.makeMockCharmStore()
 	curl, bundle := addCharm(c, "storage-block")
 	storageConstraints := map[string]storage.Constraints{
-		"data": storage.Constraints{
+		"data": {
 			Count: 1,
 			Size:  1024,
 		},
@@ -1457,7 +1457,7 @@ func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstrai
 
 	if expectConstraints {
 		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
-			"data": state.StorageConstraints{
+			"data": {
 				Count: 1,
 				Size:  1024,
 			},

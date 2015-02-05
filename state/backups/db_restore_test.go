@@ -79,6 +79,6 @@ func (s *mongoRestoreSuite) TestPlaceNewMongo(c *gc.C) {
 	expectedCommands := []string{"initctl", "/fake/mongo/restore/path", "initctl"}
 	c.Assert(ranCommands, gc.DeepEquals, expectedCommands)
 	c.Assert(len(ranArgs), gc.Equals, 3)
-	expectedArgs := [][]string{[]string{"stop", "juju-db"}, []string{"a", "set", "of", "args"}, []string{"start", "juju-db"}}
+	expectedArgs := [][]string{{"stop", "juju-db"}, {"a", "set", "of", "args"}, {"start", "juju-db"}}
 	c.Assert(ranArgs, gc.DeepEquals, expectedArgs)
 }
