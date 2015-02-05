@@ -94,6 +94,8 @@ func (s *networkerSuite) TestConfigPaths(c *gc.C) {
 }
 
 func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
+	c.Skip("enable once the networker is enabled again")
+
 	nw := s.newNetworker(c, false)
 	defer worker.Stop(nw)
 	c.Assert(nw.IntrusiveMode(), jc.IsFalse)
@@ -107,6 +109,8 @@ func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
 }
 
 func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *gc.C) {
+	c.Skip("enable once the networker is enabled again")
+
 	nw := s.newNetworker(c, true)
 	defer worker.Stop(nw)
 	c.Assert(nw.IntrusiveMode(), jc.IsTrue)
@@ -127,6 +131,8 @@ func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *
 }
 
 func (s *networkerSuite) TestPrimaryOrLoopbackInterfacesAreSkipped(c *gc.C) {
+	c.Skip("enable once the networker is enabled again")
+
 	// Reset what's considered up, so we can test eth0 and lo are not
 	// touched.
 	s.upInterfaces = set.NewStrings()
@@ -159,6 +165,8 @@ func (s *networkerSuite) TestPrimaryOrLoopbackInterfacesAreSkipped(c *gc.C) {
 }
 
 func (s *networkerSuite) TestDisabledInterfacesAreBroughtDown(c *gc.C) {
+	c.Skip("enable once the networker is enabled again")
+
 	// Simulate eth1 is up and then disable it, so we can test it's
 	// brought down. Also test the VLAN interface eth1.42 is also
 	// brought down, as it's physical interface eth1 is disabled.
@@ -218,6 +226,8 @@ func (s *networkerSuite) TestIsRunningInLXC(c *gc.C) {
 }
 
 func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
+	c.Skip("enable once the networker is enabled again")
+
 	// Create a new container.
 	template := state.MachineTemplate{
 		Series: coretesting.FakeDefaultSeries,
