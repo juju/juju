@@ -989,7 +989,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			action, err := st.EnqueueAction(u.Tag(), "vaccuumdb", map[string]interface{}{})
+			action, err := st.EnqueueAction(u.Tag(), "vaccuum", map[string]interface{}{})
 			c.Assert(err, jc.ErrorIsNil)
 			enqueued := makeActionInfo(action, st)
 			action, err = action.Begin()
@@ -1374,7 +1374,7 @@ func deltaMap(deltas []multiwatcher.Delta) map[interface{}]multiwatcher.EntityIn
 func makeActionInfo(a *Action, st *State) multiwatcher.ActionInfo {
 	results, message := a.Results()
 	return multiwatcher.ActionInfo{
-		Id:         st.docID(a.Id()),
+		Id:         a.Id(),
 		Receiver:   a.Receiver(),
 		Name:       a.Name(),
 		Parameters: a.Parameters(),

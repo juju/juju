@@ -252,7 +252,7 @@ func (a *backingAction) removed(st *State, store *multiwatcherStore, id interfac
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id interface{}) error {
 	info := &multiwatcher.ActionInfo{
-		Id:         a.DocId,
+		Id:         st.localID(a.DocId),
 		Receiver:   a.Receiver,
 		Name:       a.Name,
 		Parameters: a.Parameters,
