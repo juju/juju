@@ -133,13 +133,14 @@ class Client:
     See https://github.com/joyent/python-manta
     """
 
-    def __init__(self, sdc_url, account, key_id,
+    def __init__(self, sdc_url, account, key_id, key_path,
                  user_agent=USER_AGENT, dry_run=False, verbose=False):
         if sdc_url.endswith('/'):
             sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
         self.account = account
         self.key_id = key_id
+        self.key_path = key_path
         self.user_agent = user_agent
         self.dry_run = dry_run
         self.verbose = verbose
@@ -151,8 +152,7 @@ class Client:
         where "date" must be lowercase.
         """
         timestamp = datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S GMT")
-        key_path = os.path.join(os.environ['JUJU_HOME'], 'id_rsa')
-        script = SSL_SIGN.format(timestamp, key_path)
+        script = SSL_SIGN.format(timestamp, self.key_path)
         signature = subprocess.check_output(['bash', '-c', script])
         key = "/{}/keys/{}".format(self.account, self.key_id)
         auth = (
@@ -379,7 +379,7 @@ def parse_args(args=None):
     parser.add_argument(
         "-p", "--key-path", dest="key_path",
         help="Path to the SSH key",
-        default='%s/id_rsa' % os.environ.get("JUJU_HOME"))
+        default=os.path.join(os.environ['JUJU_HOME'], 'id_rsa'))
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     subparsers.add_parser('list-machines', help='List running machines')
     parser_delete_old_machine = subparsers.add_parser(

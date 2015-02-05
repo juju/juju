@@ -26,9 +26,11 @@ class ClientTestCase(TestCase):
 
     def test_init(self):
         client = Client(
-            'sdc_url', 'account', 'key_id', dry_run=True, verbose=True)
+            'sdc_url', 'account', 'key_id', './key',
+            dry_run=True, verbose=True)
         self.assertEqual('sdc_url', client.sdc_url)
         self.assertEqual('account', client.account)
         self.assertEqual('key_id', client.key_id)
+        self.assertEqual('./key', client.key_path)
         self.assertTrue(client.dry_run)
         self.assertTrue(client.verbose)
