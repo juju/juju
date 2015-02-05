@@ -42,6 +42,13 @@ func JujuHome() string {
 	return jujuHome
 }
 
+// IsJujuHomeSet is a way to check if SetJuuHome has been called.
+func IsJujuHomeSet() bool {
+	jujuHomeMu.Lock()
+	defer jujuHomeMu.Unlock()
+	return jujuHome != ""
+}
+
 // JujuHomePath returns the path to a file in the
 // current juju home.
 func JujuHomePath(names ...string) string {

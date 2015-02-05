@@ -1045,6 +1045,21 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	}
 }
 
+func (s *ConfigSuite) TestNoDefinedPrivateCert(c *gc.C) {
+	// Server-side there is no juju home.
+	osenv.SetJujuHome("")
+	attrs := testing.Attrs{
+		"type":            "my-type",
+		"name":            "my-name",
+		"authorized-keys": testing.FakeAuthKeys,
+		"ca-cert":         testing.CACert,
+		"ca-private-key":  "",
+	}
+
+	_, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
 
 	cfg, err := config.New(config.UseDefaults, testing.Attrs{
