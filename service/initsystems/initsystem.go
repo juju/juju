@@ -74,7 +74,4 @@ type InitSystem interface {
 	// Validate is called on the conf before it is returned. If a name
 	// is provided then it must be valid for the provided data.
 	Deserialize(data []byte, name string) (*Conf, error)
-
-	// TODO(ericsnow) Add a Close method? Adding it later will be more
-	// painful...
 }
