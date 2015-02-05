@@ -8,7 +8,7 @@ import (
 )
 
 func NewUpstart(initDir string, fops fileOperations, cmd cmdRunner) initsystems.InitSystem {
-	return &upstart{
+	return &Upstart{
 		name:    "upstart",
 		initDir: initDir,
 		fops:    fops,

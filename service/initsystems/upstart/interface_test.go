@@ -7,4 +7,4 @@ import (
 	"github.com/juju/juju/service/initsystems"
 )
 
-var _ initsystems.InitSystem = (*upstart)(nil)
+var _ initsystems.InitSystem = (*Upstart)(nil)
