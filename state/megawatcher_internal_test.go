@@ -989,7 +989,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 			u, err := wordpress.AddUnit()
 			c.Assert(err, jc.ErrorIsNil)
-			action, err := st.EnqueueAction(u.Tag(), "vaccuum", map[string]interface{}{})
+			action, err := st.EnqueueAction(u.Tag(), "vacuumdb", map[string]interface{}{})
 			c.Assert(err, jc.ErrorIsNil)
 			enqueued := makeActionInfo(action, st)
 			action, err = action.Begin()
