@@ -94,15 +94,9 @@ func (s *constraintsSuite) TestConstraints(c *gc.C) {
 		if t.disk != nil {
 			cv.RootDisk = &t.disk.v
 		}
-		v, err := newConstraints(t.bootstrap, cv, img)
-		if t.err == nil {
-			if !c.Check(*v, gc.Equals, t.expected) {
-				c.Logf("test (%d): %+v", i, t)
-			}
-		} else {
-			if !c.Check(err, gc.ErrorMatches, t.err.v) {
-				c.Logf("test (%d): %+v", i, t)
-			}
+		v := newConstraints(t.bootstrap, cv, img)
+		if !c.Check(*v, gc.Equals, t.expected) {
+			c.Logf("test (%d): %+v", i, t)
 		}
 	}
 }
@@ -117,7 +111,6 @@ func (s *constraintsSuite) TestConstraintsArch(c *gc.C) {
 		mem:           2 * gosigma.Gigabyte,
 	}
 
-	sc, err := newConstraints(true, cv, img)
-	c.Check(err, gc.IsNil)
+	sc := newConstraints(true, cv, img)
 	c.Check(*sc, gc.Equals, expected)
 }

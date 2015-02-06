@@ -7,7 +7,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -29,10 +28,6 @@ func (env *environ) SupportedArchitectures() ([]string, error) {
 	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
 	logger.Debugf("Supported architectures: %v", env.supportedArchitectures)
 	return env.supportedArchitectures, err
-}
-
-func (env *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
 }
 
 var unsupportedConstraints = []string{

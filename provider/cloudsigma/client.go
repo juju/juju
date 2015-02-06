@@ -100,6 +100,7 @@ func (c *environClient) instances() ([]gosigma.Server, error) {
 func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyServer)
 	if err != nil {
+		errors.Trace(err)
 		return nil, err
 	}
 
@@ -117,6 +118,7 @@ func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
 
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyStateServer)
 	if err != nil {
+		errors.Trace(err)
 		return []instance.Id{}, err
 	}
 
@@ -143,6 +145,7 @@ func (c *environClient) stopInstance(id instance.Id) error {
 
 	s, err := c.conn.Server(uuid)
 	if err != nil {
+		errors.Trace(err)
 		return err
 	}
 
@@ -180,10 +183,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	logger.Debugf("Juju Constraints:" + args.Constraints.String())
 	logger.Debugf("MachineConfig: %#v", args.MachineConfig)
 
-	constraints, err := newConstraints(args.MachineConfig.Bootstrap, args.Constraints, img)
-	if err != nil {
-		return nil, nil, "", err
-	}
+	constraints := newConstraints(args.MachineConfig.Bootstrap, args.Constraints, img)
 	logger.Debugf("CloudSigma Constraints: %v", constraints)
 
 	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
@@ -230,6 +230,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		arch = ar.I386
 	default:
 		err = errors.Errorf("unknown arch: %v", arch)
+		return nil, nil, "", err
 	}
 
 	return srv, drv, arch, nil
@@ -262,6 +263,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	cc.SetMeta(jujuMetaEnvironment, c.uuid)
 	data, err := utils.Gunzip(userData)
 	if err != nil {
+		errors.Trace(err)
 		return cc, err
 	}
 	cc.SetMeta(jujuMetaCoudInit, base64.StdEncoding.EncodeToString(data))

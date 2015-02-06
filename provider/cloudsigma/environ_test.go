@@ -70,7 +70,6 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Check(validator, gc.NotNil)
 	c.Check(err, gc.IsNil)
 
-	c.Check(env.SupportNetworks(), gc.Equals, false)
 	c.Check(env.SupportsUnitPlacement(), gc.IsNil)
 
 	c.Check(env.OpenPorts(nil), gc.IsNil)

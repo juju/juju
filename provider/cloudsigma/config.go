@@ -59,6 +59,7 @@ func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	if _, ok := attrs["uuid"]; !ok {
 		uuid, err := utils.NewUUID()
 		if err != nil {
+			errors.Trace(err)
 			return nil, err
 		}
 		attrs["uuid"] = uuid.String()
@@ -74,6 +75,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 		oldCfg = old.Config
 	}
 	if err := config.Validate(cfg, oldCfg); err != nil {
+		errors.Trace(err)
 		return nil, err
 	}
 
@@ -90,6 +92,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	// will probably not have those variables set.
 	newAttrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaultFields)
 	if err != nil {
+		errors.Trace(err)
 		return nil, err
 	}
 	for field := range configFields {
@@ -114,6 +117,7 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	// to ensure the object we return is internally consistent.
 	newCfg, err := cfg.Apply(newAttrs)
 	if err != nil {
+		errors.Trace(err)
 		return nil, err
 	}
 	ecfg := &environConfig{

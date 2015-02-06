@@ -233,7 +233,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	img := &imagemetadata.ImageMetadata{
 		Id: validImageId,
 	}
-	cs, err := newConstraints(params.MachineConfig.Bootstrap, params.Constraints, img)
+	cs := newConstraints(params.MachineConfig.Bootstrap, params.Constraints, img)
 	c.Assert(cs, gc.NotNil)
 	c.Check(err, gc.IsNil)
 

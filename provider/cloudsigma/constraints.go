@@ -27,7 +27,7 @@ const (
 )
 
 // newConstraints creates new CloudSigma constraints from juju common constraints
-func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.ImageMetadata) (*sigmaConstraints, error) {
+func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.ImageMetadata) *sigmaConstraints {
 	var sc sigmaConstraints
 
 	sc.driveTemplate = img.Id
@@ -62,7 +62,7 @@ func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.Ima
 		sc.mem = 2 * gosigma.Gigabyte
 	}
 
-	return &sc, nil
+	return &sc
 }
 
 func (c *sigmaConstraints) String() string {

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -152,13 +151,6 @@ func (s *environInstanceSuite) TestInstancesFail(c *gc.C) {
 	instances, err = environ.Instances([]instance.Id{instance.Id("123"), instance.Id("321")})
 	c.Assert(instances, gc.IsNil)
 	c.Assert(err, gc.NotNil)
-}
-
-func (s *environInstanceSuite) TestAllocateAddress(c *gc.C) {
-	environ := s.createEnviron(c, nil)
-
-	err := environ.AllocateAddress(instance.Id(""), network.Id(""), network.Address{})
-	c.Check(err, gc.ErrorMatches, "AllocateAddress not supported")
 }
 
 func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {

@@ -83,11 +83,27 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
+// RestrictedConfigAttributes are provider specific attributes stored in
+// the config that really cannot or should not be changed across
+// environments running inside a single juju server.
+func (environProvider) RestrictedConfigAttributes() []string {
+	return []string{"region"}
+}
+
+// PrepareForCreateEnvironment prepares an environment for creation. Any
+// additional configuration attributes are added to the config passed in
+// and returned.  This allows providers to add additional required config
+// for new environments that may be created in an existing juju server.
+func (environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	// Not even sure if this will ever make sense.
+	return nil, errors.NotImplementedf("PrepareForCreateEnvironment")
+}
+
 // Prepare prepares an environment for use. Any additional
 // configuration attributes in the returned environment should
 // be saved to be used later. If the environment is already
 // prepared, this call is equivalent to Open.
-func (environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+func (environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("preparing environment %q", cfg.Name())
 	return providerInstance.Open(cfg)
 }
