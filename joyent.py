@@ -414,7 +414,7 @@ def main(argv):
         print('SDC_URL must be sourced into the environment.')
         sys.exit(1)
     client = Client(
-        args.sdc_url, args.account, args.key_id,
+        args.sdc_url, args.account, args.key_id, args.key_path,
         dry_run=args.dry_run, verbose=args.verbose)
     if args.command == 'list-machines':
         client.list_machines()
