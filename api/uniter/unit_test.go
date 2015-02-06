@@ -54,14 +54,14 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	c.Assert(s.apiUnit.Tag(), gc.Equals, s.wordpressUnit.Tag().(names.UnitTag))
 }
 
-func (s *unitSuite) TestSetStatus(c *gc.C) {
+func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	status, info, data, err := s.wordpressUnit.AgentStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusAllocating)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.apiUnit.SetStatus(params.StatusActive, "blah", nil)
+	err = s.apiUnit.SetAgentStatus(params.StatusActive, "blah", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.wordpressUnit.AgentStatus()
@@ -69,6 +69,38 @@ func (s *unitSuite) TestSetStatus(c *gc.C) {
 	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "blah")
 	c.Assert(data, gc.HasLen, 0)
+}
+
+// TODO - make necessary test setup changes to this test works
+func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
+	status, info, data, err := s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusBusy)
+	c.Assert(info, gc.Equals, "")
+	c.Assert(data, gc.HasLen, 0)
+
+	err = s.apiUnit.SetUnitStatus(params.StatusActive, "blah", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, info, data, err = s.wordpressUnit.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, state.StatusActive)
+	c.Assert(info, gc.Equals, "blah")
+	c.Assert(data, gc.HasLen, 0)
+}
+
+// TODO - implement
+func (s *unitSuite) TestSetUnitStatusOldServer(c *gc.C) {
+	// set up old server
+	// call SetUnitStatus()
+	// expect not implemented
+}
+
+// TODO - implement
+func (s *unitSuite) TestSetAgentStatusOldServer(c *gc.C) {
+	// set up old server
+	// call SetAgentStatus()
+	// check result
 }
 
 func (s *unitSuite) TestEnsureDead(c *gc.C) {

@@ -392,6 +392,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"foo":         "bar",
 			}
 			wu.SetAgentStatus(state.StatusError, "blam", sd)
+			// TODO - maight also need to set unit status to set up the scenario, not sure
 		}
 
 		// Create the subordinate unit as a side-effect of entering

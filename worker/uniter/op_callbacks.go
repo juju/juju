@@ -66,7 +66,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 			status = params.StatusInstalling
 		}
 	}
-	err := opc.u.unit.SetStatus(status, "", nil)
+	err := opc.u.unit.SetAgentStatus(status, "", nil)
 	if err != nil {
 		return "", err
 	}
