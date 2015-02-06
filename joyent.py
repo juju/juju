@@ -22,6 +22,8 @@ from textwrap import dedent
 from time import sleep
 import urllib2
 
+from util import until_timeout
+
 
 VERSION = '0.1.0'
 USER_AGENT = "juju-cloud-tool/{} ({}) Python/{}".format(
@@ -320,7 +322,7 @@ class Client:
 
     def _delete_running_machine(self, machine_id):
         self.stop_machine(machine_id)
-        while True:
+        for ignored in until_timeout(120):
             if self.verbose:
                 print(".", end="")
                 sys.stdout.flush()
