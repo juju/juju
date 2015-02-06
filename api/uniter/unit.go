@@ -52,8 +52,26 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// SetStatus sets the status of the unit agent.
-func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+// SetUnitStatus sets the status of the unit.
+func (u *Unit) SetUnitStatus(status params.Status, info string, data map[string]interface{}) error {
+	if u.st.facade.BestAPIVersion() < 2 {
+		return errors.NotImplementedf("set unit status")
+	}
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
+		},
+	}
+	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// SetUnitStatus sets the status of the unit agent.
+func (u *Unit) SetAgentStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
