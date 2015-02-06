@@ -3,17 +3,15 @@
 
 package storage
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/juju/state"
+	"github.com/juju/names"
+)
 
 type storageAccess interface {
-	StorageInstance(id string) (state.StorageInstance, error)
+	StorageInstance(names.StorageTag) (state.StorageInstance, error)
 }
 
 type stateShim struct {
-	state *state.State
-}
-
-// StorageInstance calls state to get information about storage instance
-func (s stateShim) StorageInstance(id string) (state.StorageInstance, error) {
-	return s.state.StorageInstance(id)
+	*state.State
 }

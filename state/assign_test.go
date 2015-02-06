@@ -1005,7 +1005,7 @@ func (s *AssignSuite) TestAssignUnitWithStorageCleanAvailable(c *gc.C) {
 
 	unit, err := s.storageSvc.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
-	storageAttachments, err := unit.StorageAttachments()
+	storageAttachments, err := s.State.StorageAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storageAttachments, gc.HasLen, 1)
 

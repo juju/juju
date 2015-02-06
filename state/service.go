@@ -589,7 +589,6 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	logger.Debugf("created storage instances for %q: %v", name, storageInstanceIds)
 
 	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)

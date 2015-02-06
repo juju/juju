@@ -1360,7 +1360,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 // newMachineVolumeParams returns parameters for creating volumes and volume
 // attachments for a new machine that the unit will be assigned to.
 func (u *Unit) newMachineVolumeParams() ([]MachineVolumeParams, map[names.DiskTag]VolumeAttachmentParams, error) {
-	storageAttachments, err := u.StorageAttachments()
+	storageAttachments, err := u.st.StorageAttachments(u.UnitTag())
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting storage attachments")
 	}
@@ -1852,8 +1852,4 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	// TODO(axw) eventually we should be able to override service
 	// storage constraints at the unit level.
 	return readStorageConstraints(u.st, serviceGlobalKey(u.doc.Service))
-}
-
-func (u *Unit) StorageAttachments() ([]StorageAttachment, error) {
-	return readStorageAttachments(u.st, names.NewUnitTag(u.Name()))
 }

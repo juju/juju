@@ -59,13 +59,13 @@ func (c *ShowCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // StorageInfo defines the serialization behaviour of the storage information.
 type StorageInfo struct {
-	StorageTag    string   `yaml:"storage-tag" json:"storage-tag"`
-	StorageName   string   `yaml:"storage-name" json:"storage-name"`
-	OwnerTag      string   `yaml:"owner-tag" json:"owner-tag"`
-	Location      string   `yaml:"location,omitempty" json:"location,omitempty"`
-	AvailableSize uint64   `yaml:"available-size" json:"available-size"`
-	TotalSize     uint64   `yaml:"total-size" json:"total-size"`
-	Tags          []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	StorageTag string `yaml:"storage-tag" json:"storage-tag"`
+	OwnerTag   string `yaml:"owner-tag" json:"owner-tag"`
+	// TODO(axw) re-enable when we return the right things from the API server.
+	//Location      string   `yaml:"location,omitempty" json:"location,omitempty"`
+	//AvailableSize uint64   `yaml:"available-size" json:"available-size"`
+	//TotalSize     uint64   `yaml:"total-size" json:"total-size"`
+	//Tags          []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 }
 
 // Run implements Command.Run.
@@ -110,13 +110,13 @@ func (c *ShowCommand) apiStoragesToInstanceSlice(all []params.StorageInstance) [
 	var output []StorageInfo
 	for _, one := range all {
 		outInfo := StorageInfo{
-			StorageTag:    one.StorageTag,
-			StorageName:   one.StorageName,
-			Location:      one.Location,
-			OwnerTag:      one.OwnerTag,
-			AvailableSize: one.AvailableSize,
-			TotalSize:     one.TotalSize,
-			Tags:          one.Tags,
+			StorageTag: one.StorageTag,
+			OwnerTag:   one.OwnerTag,
+			//StorageName: names.StorageName(one.StorageTag),
+			//Location:   one.Location,
+			//AvailableSize: one.AvailableSize,
+			//TotalSize:     one.TotalSize,
+			//Tags:          one.Tags,
 		}
 		output = append(output, outInfo)
 	}

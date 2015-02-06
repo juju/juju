@@ -44,17 +44,56 @@ type BlockDevicesResults struct {
 	Results []BlockDevicesResult `json:"results,omitempty"`
 }
 
+// StorageInstance describes a storage instance.
+type StorageInstance struct {
+	StorageTag string
+	OwnerTag   string
+	Kind       StorageKind
+}
+
+// StorageKind is the kind of a storage instance.
+type StorageKind int
+
+const (
+	StorageKindUnknown StorageKind = iota
+	StorageKindBlock
+	StorageKindFilesystem
+)
+
 // StorageInstanceResult holds the result of an API call to retrieve details
 // of a storage instance.
 type StorageInstanceResult struct {
-	Result storage.StorageInstance `json:"result"`
-	Error  *Error                  `json:"error,omitempty"`
+	Result StorageInstance `json:"result"`
+	Error  *Error          `json:"error,omitempty"`
 }
 
-// StorageInstanceResult holds the result of an API call to retrieve details
+// StorageInstanceResults holds the result of an API call to retrieve details
 // of multiple storage instances.
 type StorageInstanceResults struct {
 	Results []StorageInstanceResult `json:"results,omitempty"`
+}
+
+// StorageAttachment describes a unit's attached storage instance.
+type StorageAttachment struct {
+	StorageTag string
+	OwnerTag   string
+	UnitTag    string
+
+	Kind     StorageKind
+	Location string
+}
+
+// StorageAttachmentsResult holds the result of an API call to retrieve details
+// of a unit's attached storage instances.
+type StorageAttachmentsResult struct {
+	Result []StorageAttachment `json:"result"`
+	Error  *Error              `json:"error,omitempty"`
+}
+
+// StorageAttachmentsResults holds the result of an API call to retrieve details
+// of multiple units' attached storage instances.
+type StorageAttachmentsResults struct {
+	Results []StorageAttachmentsResult `json:"results,omitempty"`
 }
 
 // Volume describes a storage volume in the environment.
@@ -129,4 +168,16 @@ type VolumeAttachmentsResult struct {
 // a set of machines.
 type VolumeAttachmentsResults struct {
 	Results []VolumeAttachmentsResult `json:"results,omitempty"`
+}
+
+// StorageShowResult holds information about a storage instance
+// or error related to its retrieval.
+type StorageShowResult struct {
+	Result StorageInstance `json:"result"`
+	Error  *Error          `json:"error,omitempty"`
+}
+
+// StorageShowResults holds a collection of storage instances.
+type StorageShowResults struct {
+	Results []StorageShowResult `json:"results,omitempty"`
 }

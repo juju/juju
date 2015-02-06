@@ -54,6 +54,11 @@ type StorageAttachment interface {
 
 	// Unit returns the tag of the corresponding unit.
 	Unit() names.UnitTag
+
+	// Info returns the storage attachments's StorageAttachmentInfo, or
+	// a NotProvisioned error if the storage attachment has not yet been
+	// made.
+	Info() (StorageAttachmentInfo, error)
 }
 
 // StorageKind defines the type of a store: whether it is a block device
@@ -135,6 +140,15 @@ func (s *storageAttachment) StorageInstance() names.StorageTag {
 
 func (s *storageAttachment) Unit() names.UnitTag {
 	return names.NewUnitTag(s.doc.Unit)
+}
+
+func (s *storageAttachment) Info() (StorageAttachmentInfo, error) {
+	if s.doc.Info == nil {
+		return StorageAttachmentInfo{}, errors.NotProvisionedf(
+			"storage %q on unit %q", s.doc.StorageInstance, s.doc.Unit,
+		)
+	}
+	return *s.doc.Info, nil
 }
 
 // storageAttachmentDoc describes a unit's attachment to a charm storage
@@ -294,6 +308,36 @@ func createStorageAttachmentOps(unit names.UnitTag, storageInstanceIds []string)
 	return ops
 }
 
+// StorageAttachments returns the StorageAttachments for the specified unit.
+func (st *State) StorageAttachments(unit names.UnitTag) ([]StorageAttachment, error) {
+	coll, closer := st.getCollection(storageAttachmentsC)
+	defer closer()
+
+	var docs []storageAttachmentDoc
+	if err := coll.Find(bson.D{{"unitid", unit.Id()}}).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get storage attachments for %s", unit.Id())
+	}
+	storageAttachments := make([]StorageAttachment, len(docs))
+	for i, doc := range docs {
+		storageAttachments[i] = &storageAttachment{doc}
+	}
+	return storageAttachments, nil
+}
+
+// SetStorageAttachmentInfo sets the storage attachment information for the
+// storage attachment relating to the specified storage instance and unit.
+func (st *State) SetStorageAttachmentInfo(
+	storage names.StorageTag, unit names.UnitTag, info StorageAttachmentInfo,
+) error {
+	ops := []txn.Op{{
+		C:      storageAttachmentsC,
+		Id:     storageAttachmentId(unit.Id(), storage.Id()),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"info", &info}}}},
+	}}
+	return st.runTransaction(ops)
+}
+
 // removeStorageInstancesOps returns the transaction operations to remove all
 // storage instances owned by the specified entity.
 func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
@@ -314,21 +358,6 @@ func removeStorageInstancesOps(st *State, owner names.Tag) ([]txn.Op, error) {
 		}
 	}
 	return ops, nil
-}
-
-func readStorageAttachments(st *State, unit names.UnitTag) ([]StorageAttachment, error) {
-	coll, closer := st.getCollection(storageAttachmentsC)
-	defer closer()
-
-	var docs []storageAttachmentDoc
-	if err := coll.Find(bson.D{{"unitid", unit.Id()}}).All(&docs); err != nil {
-		return nil, errors.Annotatef(err, "cannot get storage attachments for %s", unit.Id())
-	}
-	storageAttachments := make([]StorageAttachment, len(docs))
-	for i, doc := range docs {
-		storageAttachments[i] = &storageAttachment{doc}
-	}
-	return storageAttachments, nil
 }
 
 // storageConstraintsDoc contains storage constraints for an entity.

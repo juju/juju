@@ -84,7 +84,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		u, err := service.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		storageAttachments, err := u.StorageAttachments()
+		storageAttachments, err := s.State.StorageAttachments(u.UnitTag())
 		c.Assert(err, jc.ErrorIsNil)
 		count := make(map[string]int)
 		for _, att := range storageAttachments {
