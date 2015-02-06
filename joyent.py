@@ -22,7 +22,7 @@ from textwrap import dedent
 from time import sleep
 import urllib2
 
-from util import until_timeout
+from utils import until_timeout
 
 
 VERSION = '0.1.0'
