@@ -172,14 +172,14 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		message: "apt-proxies detected",
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
 			Http:  "http://10.0.3.1:3142",
-			Https: "false",
-			Ftp:   "none",
+			Https: "",
+			Ftp:   "",
 		},
 	}, {
 		message: "apt-proxies not used if apt-http-proxy set",
@@ -188,9 +188,9 @@ Acquire::magic::Proxy "none";
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
 			Http: "http://value-set",
@@ -202,9 +202,9 @@ Acquire::magic::Proxy "none";
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
 			Https: "https://value-set",
@@ -216,9 +216,9 @@ Acquire::magic::Proxy "none";
 		},
 		aptOutput: `CommandLine::AsString "apt-config dump";
 Acquire::http::Proxy  "10.0.3.1:3142";
-Acquire::https::Proxy "false";
-Acquire::ftp::Proxy "none";
-Acquire::magic::Proxy "none";
+Acquire::https::Proxy "";
+Acquire::ftp::Proxy "";
+Acquire::magic::Proxy "";
 `,
 		expectedAptProxy: proxy.Settings{
 			Ftp: "ftp://value-set",
