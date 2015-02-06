@@ -70,6 +70,7 @@ class ClientTestCase(TestCase):
                         client.delete_old_machines(1, 'foo@bar')
         lm_mock.assert_call_any(None)
         lm_mock.assert_call_any('id')
+        lmt_mock.assert_called_once_with('id')
         drm_mock.assert_called_once_with('id')
         self.assertEqual(0, rd_mock.call_count)
 
@@ -78,7 +79,7 @@ class ClientTestCase(TestCase):
         client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
         with patch.object(client, '_list_machines',
                           side_effect=fake_list_machines(machine)):
-            with patch.object(client, 'list_machine_tags') as lmt_mock:
+            with patch.object(client, 'list_machine_tags'):
                 with patch.object(client,
                                   '_delete_running_machine') as drm_mock:
                     with patch.object(client, 'request_deletion') as rd_mock:
@@ -97,5 +98,6 @@ class ClientTestCase(TestCase):
                                   '_delete_running_machine') as drm_mock:
                     with patch.object(client, 'request_deletion') as rd_mock:
                         client.delete_old_machines(1, 'foo@bar')
+        lmt_mock.assert_called_once_with('id')
         self.assertEqual(0, drm_mock.call_count)
         self.assertEqual(0, rd_mock.call_count)
