@@ -912,7 +912,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	c.Assert(err, gc.ErrorMatches, `cannot add network interface "" to machine "1": MAC address must be not empty`)
 	assertNotProvisioned()
 
-	invalidBlockDevices := map[string]state.BlockDeviceInfo{"1065": state.BlockDeviceInfo{}}
+	invalidBlockDevices := map[string]state.BlockDeviceInfo{"1065": {}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
 	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
 	assertNotProvisioned()
@@ -920,7 +920,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoFailureDoesNotProvision(c *gc.C
 	// Create a disk associated with a different machine, and ensure that trying
 	// to SetInstanceInfo with that disk fails.
 	blockDeviceName := s.createBlockDeviceParams(c, s.machine0.Id(), state.BlockDeviceParams{Size: 1000})
-	invalidBlockDevices = map[string]state.BlockDeviceInfo{blockDeviceName: state.BlockDeviceInfo{}}
+	invalidBlockDevices = map[string]state.BlockDeviceInfo{blockDeviceName: {}}
 	err = s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, nil, nil, invalidBlockDevices)
 	c.Assert(err, gc.ErrorMatches, "cannot set provisioned block device info: already provisioned")
 	assertNotProvisioned()
@@ -946,7 +946,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 		{MACAddress: "aa:bb:cc:dd:ee:ff", NetworkName: "net1", InterfaceName: "eth0", IsVirtual: false},
 	}
 	blockDeviceInfo := map[string]state.BlockDeviceInfo{
-		"0": state.BlockDeviceInfo{Size: 1234},
+		"0": {Size: 1234},
 	}
 	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces, blockDeviceInfo)
 	c.Assert(err, jc.ErrorIsNil)

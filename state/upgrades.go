@@ -906,8 +906,8 @@ func FixSequenceFields(st *State) error {
 	defer closer()
 
 	sel := bson.D{{"$or", []bson.D{
-		bson.D{{"env-uuid", ""}},
-		bson.D{{"name", ""}},
+		{{"env-uuid", ""}},
+		{{"name", ""}},
 	}}}
 	iter := sequence.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 	defer iter.Close()

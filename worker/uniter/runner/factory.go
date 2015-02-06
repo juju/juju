@@ -210,7 +210,7 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 		return nil, &badActionError{name, "not defined"}
 	}
 	params := action.Params()
-	if _, err := spec.ValidateParams(params); err != nil {
+	if err := spec.ValidateParams(params); err != nil {
 		return nil, &badActionError{name, err.Error()}
 	}
 

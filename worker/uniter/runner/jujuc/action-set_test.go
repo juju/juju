@@ -75,26 +75,26 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		summary: "empty values are not an error",
 		command: []string{"result="},
 		expected: [][]string{
-			[]string{"result", ""},
+			{"result", ""},
 		},
 	}, {
 		summary: "a response of one key to one value",
 		command: []string{"outfile=foo.bz2"},
 		expected: [][]string{
-			[]string{"outfile", "foo.bz2"},
+			{"outfile", "foo.bz2"},
 		},
 	}, {
 		summary: "two keys, two values",
 		command: []string{"outfile=foo.bz2", "size=10G"},
 		expected: [][]string{
-			[]string{"outfile", "foo.bz2"},
-			[]string{"size", "10G"},
+			{"outfile", "foo.bz2"},
+			{"size", "10G"},
 		},
 	}, {
 		summary: "multiple = are ok",
 		command: []string{"outfile=foo=bz2"},
 		expected: [][]string{
-			[]string{"outfile", "foo=bz2"},
+			{"outfile", "foo=bz2"},
 		},
 	}, {
 		summary: "several interleaved values",
@@ -102,23 +102,23 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 			"outfile.kind.util=bzip2",
 			"outfile.kind.ratio=high"},
 		expected: [][]string{
-			[]string{"outfile", "name", "foo.bz2"},
-			[]string{"outfile", "kind", "util", "bzip2"},
-			[]string{"outfile", "kind", "ratio", "high"},
+			{"outfile", "name", "foo.bz2"},
+			{"outfile", "kind", "util", "bzip2"},
+			{"outfile", "kind", "ratio", "high"},
 		},
 	}, {
 		summary: "conflicting simple values",
 		command: []string{"util=bzip2", "util=5"},
 		expected: [][]string{
-			[]string{"util", "bzip2"},
-			[]string{"util", "5"},
+			{"util", "bzip2"},
+			{"util", "5"},
 		},
 	}, {
 		summary: "conflicted map spec: {map1:{key:val}} vs {map1:val2}",
 		command: []string{"map1.key=val", "map1=val"},
 		expected: [][]string{
-			[]string{"map1", "key", "val"},
-			[]string{"map1", "val"},
+			{"map1", "key", "val"},
+			{"map1", "val"},
 		},
 	}}
 
