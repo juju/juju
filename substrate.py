@@ -405,18 +405,17 @@ def make_substrate_manager(config):
 
     Returns None if the substrate is not supported.
     """
-    if config['type'] in ('azure', 'joyent'):
-        if config['type'] == 'azure':
-            maker = AzureAccount.manager_from_config
-        else:
-            maker = JoyentAccount.manager_from_config
-        with maker(config) as substrate:
-            yield substrate
-            return
     substrate_factory = {
         'ec2': AWSAccount.from_config,
         'openstack': OpenStackAccount.from_config,
+        'joyent': JoyentAccount.manager_from_config,
+        'azure': AzureAccount.manager_from_config,
         }
+    if config['type'] in ('azure', 'joyent'):
+        factory = substrate_factory[config['type']]
+        with factory(config) as substrate:
+            yield substrate
+            return
     yield substrate_factory.get(config['type'], lambda x: None)(config)
 
 
