@@ -136,14 +136,14 @@ init_tools_maybe() {
         cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
-        echo "Seeding devel with $INIT_VERSION released agents"
+        echo "Seeding devel with $INIT_VERSION proposed agents"
         cp $DESTINATION/juju-dist/tools/devel/juju-*.tgz \
             $DEST_DIST/tools/releases
         cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "weekly" ]]; then
-        echo "Seeding weekly with $INIT_VERSION released agents"
-        cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
+        echo "Seeding weekly with $INIT_VERSION proposed agents"
+        cp $DESTINATION/juju-dist/tools/proposed/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
         if [[ $IS_DEVEL_VERSION == "true" ]]; then
@@ -549,24 +549,26 @@ generate_streams() {
 
     # Ensure the new json metadata matches the expected removed and added.
     if [[ $can_validate == "true" ]]; then
+        if [[ $PURPOSE == "devel"]]; then
+            IGNORED="--ignored $INIT_VERSION"
+        fi
         old_product_files=$(ls $DESTINATION/com*.json)
         for old_product in $old_product_files; do
             local product_name=$(basename $old_product)
             local new_product="$JUJU_DIST/tools/streams/v1/$product_name"
             local old_purpose=$(echo "$product_name" |
                 sed -r "s,.*:([^:]*):.*,\1,")
-            if [[ $old_purpose =~ ^(released|proposed)$ ]]; then
+            if [[ $old_purpose =~ ^(released|proposed|devel)$ ]]; then
                 if [[ $old_purpose == $PURPOSE ]]; then
                     # Ensure the added and removed are correct.
                     $SCRIPT_DIR/validate_streams.py \
-                        $REMOVED $ADDED $PURPOSE $old_product $new_product
+                        $REMOVED $ADDED $IGNORED $PURPOSE \
+                        $old_product $new_product
                 else
                     # No changes are permitted.
                     $SCRIPT_DIR/validate_streams.py \
                         $old_purpose $old_product $new_product
                 fi
-            else
-                echo "! Manually inspect $new_product for expected changes."
             fi
         done
     fi
@@ -728,6 +730,7 @@ declare -a added_tools
 added_tools=()
 ADDED=""
 REMOVED=""
+IGNORED=""
 
 
 # Main.
