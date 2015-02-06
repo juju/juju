@@ -17,12 +17,7 @@ export JUJU_ENV="juju-ci3"
 update_jenkins() {
     # Get the ip address which will most likely match historic ssh rules.
     hostname=$1
-    if [[ $hostname == "juju-ci.vapour.ws" ]]; then
-        # Use the real address, not the apache frontend.
-        host="54.86.142.177"
-    else
-        host=$(host -t A $hostname | cut -d ' ' -f4)
-    fi
+    host=$(host -t A $hostname | cut -d ' ' -f4)
     echo "updating $hostname at $host"
     if [[ "$CLOUD_CITY" == "true" ]]; then
         bzr branch lp:~juju-qa/+junk/cloud-city \
