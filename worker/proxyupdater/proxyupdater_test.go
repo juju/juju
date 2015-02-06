@@ -127,9 +127,9 @@ func (s *ProxyUpdaterSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Setting
 	// proxy settings which is what we would get if we don't explicitly set
 	// apt values.
 	aptProxySettings := proxy.Settings{
-		Http:  "apt http proxy",
-		Https: "apt https proxy",
-		Ftp:   "apt ftp proxy",
+		Http:  "http://apt.http.proxy",
+		Https: "https://apt.https.proxy",
+		Ftp:   "ftp://apt.ftp.proxy",
 	}
 	for k, v := range config.AptProxyConfigMap(aptProxySettings) {
 		attrs[k] = v
