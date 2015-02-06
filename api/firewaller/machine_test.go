@@ -59,7 +59,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = apiNewMachine.InstanceId()
-	c.Assert(err, gc.ErrorMatches, "machine 3 is not provisioned")
+	c.Assert(err, gc.ErrorMatches, "machine 3 not provisioned")
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 
 	instanceId, err := s.apiMachine.InstanceId()

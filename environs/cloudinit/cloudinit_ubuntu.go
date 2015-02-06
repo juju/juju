@@ -311,7 +311,7 @@ func toolsDownloadCommand(curlCommand string, urls []string) string {
 func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
-	// the upstart script.
+	// the init script.
 	toolsDir := agenttool.ToolsDir(w.mcfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	w.conf.AddScripts(fmt.Sprintf("ln -s %v %s", w.mcfg.Tools.Version, shquote(toolsDir)))

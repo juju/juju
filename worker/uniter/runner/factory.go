@@ -158,6 +158,12 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 		}
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}
+	if hookInfo.Kind.IsStorage() {
+		ctx.storageId = hookInfo.StorageId
+		if err := f.updateStorage(ctx); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	// Metrics are only sent from the collect-metrics hook.
 	if hookInfo.Kind == hooks.CollectMetrics {
 		ctx.canAddMetrics = true
@@ -185,20 +191,26 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 	}
 	tag := names.NewActionTag(actionId)
 	action, err := f.state.Action(tag)
-	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, ErrActionNotAvailable
-	} else if params.IsCodeActionNotAvailable(errors.Cause(err)) {
+	} else if params.IsCodeActionNotAvailable(err) {
 		return nil, ErrActionNotAvailable
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	err = f.state.ActionBegin(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	name := action.Name()
 	spec, ok := ch.Actions().ActionSpecs[name]
 	if !ok {
 		return nil, &badActionError{name, "not defined"}
 	}
 	params := action.Params()
-	if _, err := spec.ValidateParams(params); err != nil {
+	if err := spec.ValidateParams(params); err != nil {
 		return nil, &badActionError{name, err.Error()}
 	}
 
@@ -233,6 +245,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		canAddMetrics:      false,
 		definedMetrics:     nil,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
+		storageInstances:   nil,
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
@@ -306,15 +319,6 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 	}
 	ctx.proxySettings = environConfig.ProxySettings()
 
-	availabilityzone, err := f.unit.AvailabilityZone()
-	if errors.IsNotSupported(err) {
-		// The provider does not support availability zones.
-		availabilityzone = ""
-	} else if err != nil {
-		return err
-	}
-	ctx.availabilityzone = availabilityzone
-
 	// Calling these last, because there's a potential race: they're not guaranteed
 	// to be set in time to be needed for a hook. If they're not, we just leave them
 	// unset as we always have; this isn't great but it's about behaviour preservation.
@@ -327,6 +331,11 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 	return nil
+}
+
+func (f *factory) updateStorage(ctx *HookContext) (err error) {
+	ctx.storageInstances, err = f.state.StorageInstances(f.unit.Tag())
+	return err
 }
 
 func inferRemoteUnit(rctxs map[int]*ContextRelation, info CommandInfo) (int, string, error) {

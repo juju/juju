@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -63,8 +64,8 @@ type MachineStatus struct {
 
 	// The following fields mirror fields in AgentStatus (introduced
 	// in 1.19.x). The old fields below are being kept for
-	// compatibility with old clients. They can be removed once API
-	// versioning lands or for 1.21, whichever comes first.
+	// compatibility with old clients.
+	// They can be removed once API versioning lands.
 	AgentState     params.Status
 	AgentStateInfo string
 	AgentVersion   string
@@ -347,7 +348,16 @@ func (c *Client) ServiceUnexpose(service string) error {
 // allows the specification of requested networks that must be present
 // on the machines where the service is deployed. Another way to specify
 // networks to include/exclude is using constraints.
-func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, networks []string) error {
+func (c *Client) ServiceDeployWithNetworks(
+	charmURL string,
+	serviceName string,
+	numUnits int,
+	configYAML string,
+	cons constraints.Value,
+	toMachineSpec string,
+	networks []string,
+	storage map[string]storage.Constraints,
+) error {
 	params := params.ServiceDeploy{
 		ServiceName:   serviceName,
 		CharmUrl:      charmURL,
@@ -356,6 +366,7 @@ func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, 
 		Constraints:   cons,
 		ToMachineSpec: toMachineSpec,
 		Networks:      networks,
+		Storage:       storage,
 	}
 	return c.facade.FacadeCall("ServiceDeployWithNetworks", params, nil)
 }
@@ -560,6 +571,8 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 }
 
 // GetAnnotations returns annotations that have been set on the given entity.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 	args := params.GetAnnotations{tag}
 	ann := new(params.GetAnnotationsResults)
@@ -570,6 +583,8 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 // SetAnnotations sets the annotation pairs on the given entity.
 // Currently annotations are supported on machines, services,
 // units and the environment itself.
+// This API is now deprecated - "Annotations" client should be used instead.
+// TODO(anastasiamac) remove for Juju 2.x
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
 	return c.facade.FacadeCall("SetAnnotations", args, nil)
@@ -585,7 +600,7 @@ func (c *Client) Close() error {
 
 // EnvironmentGet returns all environment settings.
 func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
-	result := params.EnvironmentGetResults{}
+	result := params.EnvironmentConfigResults{}
 	err := c.facade.FacadeCall("EnvironmentGet", nil, &result)
 	return result.Config, err
 }
@@ -798,7 +813,12 @@ func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries 
 		return nil, errors.Annotate(err, "cannot read tools upload response")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
+		message := fmt.Sprintf("%s", bytes.TrimSpace(body))
+		if resp.StatusCode == http.StatusBadRequest && strings.Contains(message, "The operation has been blocked.") {
+			// Operation Blocked errors must contain correct Error Code
+			return nil, &params.Error{Code: params.CodeOperationBlocked, Message: message}
+		}
+		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, message)
 	}
 
 	var jsonResponse params.ToolsResult

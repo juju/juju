@@ -4,6 +4,8 @@
 package params
 
 import (
+	"time"
+
 	// TODO(jcw4) per fwereade 2014-11-21 remove this dependency
 	"gopkg.in/juju/charm.v4"
 )
@@ -21,9 +23,13 @@ const (
 	// an error.
 	ActionFailed string = "failed"
 
-	// ActionPending is the status of an Action that has been queued up
-	// but not executed yet.
+	// ActionPending is the status of an Action that has been queued up but
+	// not executed yet.
 	ActionPending string = "pending"
+
+	// ActionRunning is the status of an Action that has been started but
+	// not completed yet.
+	ActionRunning string = "running"
 )
 
 // Actions is a slice of Action for bulk requests.
@@ -44,13 +50,16 @@ type ActionResults struct {
 	Results []ActionResult `json:"results,omitempty"`
 }
 
-// ActionResult describes an ActionResult that will be or has been queued up.
+// ActionResult describes an Action that will be or has been completed.
 type ActionResult struct {
-	Action  *Action                `json:"action,omitempty"`
-	Status  string                 `json:"status,omitempty"`
-	Message string                 `json:"message,omitempty"`
-	Output  map[string]interface{} `json:"output,omitempty"`
-	Error   *Error                 `json:"error,omitempty"`
+	Action    *Action                `json:"action,omitempty"`
+	Enqueued  time.Time              `json:"enqueued,omitempty"`
+	Started   time.Time              `json:"started,omitempty"`
+	Completed time.Time              `json:"completed,omitempty"`
+	Status    string                 `json:"status,omitempty"`
+	Message   string                 `json:"message,omitempty"`
+	Output    map[string]interface{} `json:"output,omitempty"`
+	Error     *Error                 `json:"error,omitempty"`
 }
 
 // ActionsByReceivers wrap a slice of Actions for API calls.

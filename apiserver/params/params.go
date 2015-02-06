@@ -123,6 +123,12 @@ type AddMachineParams struct {
 	Constraints constraints.Value
 	Jobs        []multiwatcher.MachineJob
 
+	// Disks describes constraints for disks that must be attached to
+	// the machine when it is provisioned.
+	//
+	// NOTE: this is ignored unless the "storage" feature flag is enabled.
+	Disks []storage.Constraints
+
 	// If Placement is non-nil, it contains a placement directive
 	// that will be used to decide how to instantiate the machine.
 	Placement *instance.Placement
@@ -191,6 +197,7 @@ type ServiceDeploy struct {
 	Constraints   constraints.Value
 	ToMachineSpec string
 	Networks      []string
+	Storage       map[string]storage.Constraints
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -389,11 +396,6 @@ type SetConstraints struct {
 	Constraints constraints.Value
 }
 
-// CharmInfo stores parameters for a CharmInfo call.
-type CharmInfo struct {
-	CharmURL string
-}
-
 // ResolveCharms stores charm references for a ResolveCharms call.
 type ResolveCharms struct {
 	References []charm.Reference
@@ -510,9 +512,9 @@ type ProvisioningScriptResult struct {
 	Script string
 }
 
-// EnvironmentGetResults contains the result of EnvironmentGet client
-// API call.
-type EnvironmentGetResults struct {
+// EnvironmentConfigResults contains the result of client API calls
+// to get environment config values.
+type EnvironmentConfigResults struct {
 	Config map[string]interface{}
 }
 
@@ -752,6 +754,32 @@ type FindToolsResult struct {
 	Error *Error
 }
 
+// ImageFilterParams holds the parameters used to specify images to delete.
+type ImageFilterParams struct {
+	Images []ImageSpec `json:"images"`
+}
+
+// ImageSpec defines the parameters to select images list or delete.
+type ImageSpec struct {
+	Kind   string `json:"kind"`
+	Arch   string `json:"arch"`
+	Series string `json:"series"`
+}
+
+// ListImageResult holds the results of querying images.
+type ListImageResult struct {
+	Result []ImageMetadata `json:"result"`
+}
+
+// ImageMetadata represents an image in storage.
+type ImageMetadata struct {
+	Kind    string    `json:"kind"`
+	Arch    string    `json:"arch"`
+	Series  string    `json:"series"`
+	URL     string    `json:"url"`
+	Created time.Time `json:"created"`
+}
+
 // RebootActionResults holds a list of RebootActionResult and any error.
 type RebootActionResults struct {
 	Results []RebootActionResult `json:"results,omitempty"`
@@ -768,48 +796,96 @@ type RebootActionResult struct {
 type Life multiwatcher.Life
 
 const (
-	Alive = Life(multiwatcher.Alive)
-	Dying = Life(multiwatcher.Dying)
-	Dead  = Life(multiwatcher.Dead)
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
 )
 
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
 type Status multiwatcher.Status
 
+// TranslateLegacyStatus returns the status value clients expect to see for Juju 1.x.
+func TranslateLegacyStatus(in Status) Status {
+	switch in {
+	case StatusFailed:
+		return StatusDown
+	case StatusActive:
+		return StatusStarted
+	default:
+		return in
+	}
+}
+
 const (
-	// The entity is not yet participating in the environment.
-	StatusPending = Status(multiwatcher.StatusPending)
-
-	// The unit has performed initial setup and is adapting itself to
-	// the environment. Not applicable to machines.
-	StatusInstalled = Status(multiwatcher.StatusInstalled)
-
-	// The entity is actively participating in the environment.
-	StatusStarted = Status(multiwatcher.StatusStarted)
-
-	// The entity's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped = Status(multiwatcher.StatusStopped)
+	// Status values common to machine and unit agents.
 
 	// The entity requires human intervention in order to operate
 	// correctly.
-	StatusError = Status(multiwatcher.StatusError)
+	StatusError Status = "error"
 
-	// The entity ought to be signalling activity, but it cannot be
-	// detected.
-	StatusDown = Status(multiwatcher.StatusDown)
+	// The entity is actively participating in the environment.
+	// For unit agents, this is a state we preserve for backwards
+	// compatibility with scripts during the life of Juju 1.x.
+	// In Juju 2.x, the agent-state will remain “active” and scripts
+	// will watch the unit-state instead for signals of service readiness.
+	StatusStarted Status = "started"
 )
 
-// DatastoreResult holds the result of an API call to retrieve details
-// of a datastore.
-type DatastoreResult struct {
-	Result storage.Datastore `json:"result"`
-	Error  *Error            `json:"error,omitempty"`
-}
+const (
+	// Status values specific to machine agents.
 
-// DatastoreResult holds the result of an API call to retrieve details
-// of multiple datastores.
-type DatastoreResults struct {
-	Results []DatastoreResult `json:"results,omitempty"`
-}
+	// The machine is not yet participating in the environment.
+	StatusPending Status = "pending"
+
+	// The machine's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
+
+	// The machine ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown Status = "down"
+)
+
+const (
+	// Status values specific to unit agents.
+
+	// The machine on which a unit is to be hosted is still being
+	// spun up in the cloud.
+	StatusAllocating Status = "allocating"
+
+	// The unit agent is downloading the charm and running the install hook.
+	StatusInstalling Status = "installing"
+
+	// The agent is actively participating in the environment.
+	StatusActive Status = "active"
+
+	// The unit is being destroyed; the agent will soon mark the unit as “dead”.
+	// In Juju 2.x this will describe the state of the agent rather than a unit.
+	StatusStopping Status = "stopping"
+
+	// The unit agent has failed in some way,eg the agent ought to be signalling
+	// activity, but it cannot be detected. It might also be that the unit agent
+	// detected an unrecoverable condition and managed to tell the Juju server about it.
+	StatusFailed Status = "failed"
+)
+
+const (
+	// Status values specific to services and units, reflecting the
+	// state of the software itself.
+
+	// The unit is installed and has no problems but is busy getting itself
+	// ready to provide services.
+	StatusBusy Status = "busy"
+
+	// The unit is unable to offer services because it needs another
+	// service to be up.
+	StatusWaiting Status = "waiting"
+
+	// The unit needs manual intervention to get back to the Running state.
+	StatusBlocked Status = "blocked"
+
+	// The unit believes it is correctly offering all the services it has
+	// been asked to offer.
+	StatusRunning Status = "running"
+)

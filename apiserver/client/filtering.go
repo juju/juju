@@ -321,12 +321,12 @@ func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error
 	for _, p := range patterns {
 		// If the pattern isn't a valid status, ignore it.
 		ps := state.Status(p)
-		if !ps.Valid() {
+		if !ps.ValidAgentStatus() {
 			continue
 		}
 
 		oneValidStatus = true
-		if ps == status {
+		if status.Matches(ps) {
 			return true, true, nil
 		}
 	}

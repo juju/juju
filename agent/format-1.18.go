@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	goyaml "gopkg.in/yaml.v1"
 
@@ -38,6 +39,7 @@ type format_1_18Serialization struct {
 	StateAddresses []string `yaml:",omitempty"`
 	StatePassword  string   `yaml:",omitempty"`
 
+	Environment  string   `yaml:",omitempty"`
 	APIAddresses []string `yaml:",omitempty"`
 	APIPassword  string   `yaml:",omitempty"`
 
@@ -80,6 +82,13 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
+	var envTag names.EnvironTag
+	if format.Environment != "" {
+		envTag, err = names.ParseEnvironTag(format.Environment)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	config := &configInternal{
 		tag:               tag,
 		dataDir:           format.DataDir,
@@ -87,6 +96,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
 		nonce:             format.Nonce,
+		environment:       envTag,
 		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
@@ -144,6 +154,10 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 }
 
 func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
+	var envTag string
+	if config.environment.Id() != "" {
+		envTag = config.environment.String()
+	}
 	format := &format_1_18Serialization{
 		Tag:               config.tag.String(),
 		DataDir:           config.dataDir,
@@ -151,6 +165,7 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		Jobs:              config.jobs,
 		UpgradedToVersion: &config.upgradedToVersion,
 		Nonce:             config.nonce,
+		Environment:       envTag,
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
 		Values:            config.values,

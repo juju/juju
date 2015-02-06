@@ -94,7 +94,9 @@ func (s *AgentSuite) PrimeAgent(c *gc.C, tag names.Tag, password string, vers ve
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
+			Environment:       apiInfo.EnvironTag,
 		})
+	c.Assert(err, jc.ErrorIsNil)
 	conf.SetPassword(password)
 	c.Assert(conf.Write(), gc.IsNil)
 	s.primeAPIHostPorts(c)

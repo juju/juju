@@ -59,11 +59,11 @@ var (
 	// This is NUMACTL package name for apt-get
 	numaCtlPkg = "numactl"
 	// This is the name of the variable to use in ExtraScript
-	// fragment to substitu into upstart template.
+	// fragment to substitute into init script template.
 	multinodeVarName = "MULTI_NODE"
 	// This value will be used to wrap desired mongo cmd in numactl if wanted/needed
 	numaCtlWrap = "$%v"
-	// Extra shell script fragment for upstart template.
+	// Extra shell script fragment for init script template.
 	// This determines if we are dealing with multi-node environment
 	detectMultiNodeScript = `%v=""
 if [ $(find /sys/devices/system/node/ -maxdepth 1 -mindepth 1 -type d -name node\* | wc -l ) -gt 1 ]
@@ -152,7 +152,7 @@ func Path() (string, error) {
 	return path, nil
 }
 
-// RemoveService removes the mongoDB upstart service from this machine.
+// RemoveService removes the mongoDB init service from this machine.
 func RemoveService(namespace string) error {
 	svc := upstart.NewService(ServiceName(namespace), common.Conf{})
 	return upstartServiceStopAndRemove(svc)
@@ -199,10 +199,10 @@ type EnsureServerParams struct {
 	SetNumaControlPolicy bool
 }
 
-// EnsureServer ensures that the correct mongo upstart script is installed
-// and running.
+// EnsureServer ensures that the MongoDB server is installed,
+// configured, and ready to run.
 //
-// This method will remove old versions of the mongo upstart script as necessary
+// This method will remove old versions of the mongo init service as necessary
 // before installing the new version.
 //
 // The namespace is a unique identifier to prevent multiple instances of mongo
@@ -285,7 +285,7 @@ func EnsureServer(args EnsureServerParams) error {
 	return upstartConfInstall(svc)
 }
 
-// ServiceName returns the name of the upstart service config for mongo using
+// ServiceName returns the name of the init service config for mongo using
 // the given namespace.
 func ServiceName(namespace string) string {
 	if namespace != "" {

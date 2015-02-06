@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package state_test
@@ -529,24 +529,24 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	err := s.unit.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.unit.SetStatus(state.StatusPending, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-	err = s.unit.SetStatus(state.StatusDown, "", nil)
-	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
+	err = s.unit.SetStatus(state.StatusAllocating, "", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set status "allocating"`)
+	err = s.unit.SetStatus(state.StatusFailed, "", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot set status "failed"`)
 	err = s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusPending)
+	c.Assert(status, gc.Equals, state.StatusAllocating)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(state.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
@@ -566,21 +566,21 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusActive, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -605,7 +605,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -632,7 +632,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetStatus(state.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -658,12 +658,12 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetStatus(state.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, state.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusActive)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -778,7 +778,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetStatus(state.StatusStarted, "", nil)
+		err := s.unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -884,13 +884,11 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 		status state.Status
 		info   string
 	}{{
-		state.StatusInstalled, "",
-	}, {
-		state.StatusStarted, "",
+		state.StatusActive, "",
 	}, {
 		state.StatusError, "blah",
 	}, {
-		state.StatusStopped, "",
+		state.StatusStopping, "",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -1661,51 +1659,71 @@ func (s *UnitSuite) TestWatchUnit(c *gc.C) {
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
-func (s *UnitSuite) TestAnnotatorForUnit(c *gc.C) {
-	testAnnotator(c, func() (state.Annotator, error) {
-		return s.State.Unit("wordpress/0")
-	})
-}
-
-func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
-	annotations := map[string]string{"mykey": "myvalue"}
-	err := s.unit.SetAnnotations(annotations)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-	ann, err := s.unit.Annotations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ann, gc.DeepEquals, make(map[string]string))
-}
-
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }
 
-func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
-	// Add simple service and two units
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+func (s *UnitSuite) TestActionSpecs(c *gc.C) {
+	basicActions := `
+snapshot:
+  params:
+    outfile:
+      type: string
+`[1:]
 
-	unit1, err := mysql.AddUnit()
+	wordpress := s.AddTestingService(c, "wordpress-actions", s.AddActionsCharm(c, "wordpress", basicActions, 1))
+	unit1, err := wordpress.AddUnit()
+	c.Assert(err, jc.ErrorIsNil)
+	specs, err := unit1.ActionSpecs()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(specs, jc.DeepEquals, state.ActionSpecsByName{
+		"snapshot": charm.ActionSpec{
+			Description: "No description",
+			Params: map[string]interface{}{
+				"type":        "object",
+				"title":       "snapshot",
+				"description": "No description",
+				"properties": map[string]interface{}{
+					"outfile": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+		},
+	})
+}
+
+func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
+	// An actions.yaml which permits actions by the following names
+	basicActions := `
+action-a-a:
+action-a-b:
+action-a-c:
+action-b-a:
+action-b-b:
+`[1:]
+
+	// Add simple service and two units
+	dummy := s.AddTestingService(c, "dummy", s.AddActionsCharm(c, "dummy", basicActions, 1))
+
+	unit1, err := dummy.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
-	unit2, err := mysql.AddUnit()
+	unit2, err := dummy.AddUnit()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
-	_, err = unit1.AddAction("action1.1", nil)
+	_, err = unit1.AddAction("action-a-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction("action1.2", nil)
+	_, err = unit1.AddAction("action-a-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction("action1.3", nil)
+	_, err = unit1.AddAction("action-a-c", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = unit2.AddAction("action2.1", nil)
+	_, err = unit2.AddAction("action-b-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit2.AddAction("action2.2", nil)
+	_, err = unit2.AddAction("action-b-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only
@@ -1714,7 +1732,7 @@ func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions1), gc.Equals, 3)
 	for _, action := range actions1 {
-		c.Assert(action.Name(), gc.Matches, "^action1\\..")
+		c.Assert(action.Name(), gc.Matches, "^action-a-.")
 	}
 
 	// Verify that calling Actions on unit2 returns only
@@ -1723,6 +1741,6 @@ func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions2), gc.Equals, 2)
 	for _, action := range actions2 {
-		c.Assert(action.Name(), gc.Matches, "^action2\\..")
+		c.Assert(action.Name(), gc.Matches, "^action-b-.")
 	}
 }

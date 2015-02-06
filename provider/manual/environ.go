@@ -96,16 +96,6 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
 }
 
-// SupportNetworks is specified on the EnvironCapability interface.
-func (e *manualEnviron) SupportNetworks() bool {
-	return false
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *manualEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
-}
-
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
@@ -252,27 +242,6 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 		err = environs.ErrNoInstances
 	}
 	return instances, err
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not supported on the
-// manual provider.
-func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*manualEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotSupportedf("ReleaseAddress")
-}
-
-// Subnets returns basic information about all subnets known
-// by the provider for the environment. They may be unknown to juju
-// yet (i.e. when called initially or when a new network was created).
-// This is not implemented by the manual provider yet.
-func (*manualEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotSupportedf("Subnets")
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {

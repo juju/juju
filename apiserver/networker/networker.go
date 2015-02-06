@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -31,7 +30,7 @@ type NetworkerAPI struct {
 	getAuthFunc common.GetAuthFunc
 }
 
-// NewNetworkerAPI creates a new client-side Networker API facade.
+// NewNetworkerAPI creates a new server-side Networker API facade.
 func NewNetworkerAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -77,7 +76,7 @@ func NewNetworkerAPI(
 	}, nil
 }
 
-func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
+func (n *NetworkerAPI) oneMachineInfo(id string) ([]params.NetworkInfo, error) {
 	machine, err := n.st.Machine(id)
 	if err != nil {
 		return nil, err
@@ -86,13 +85,13 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	info := make([]network.Info, len(ifaces))
+	info := make([]params.NetworkInfo, len(ifaces))
 	for i, iface := range ifaces {
 		nw, err := n.st.Network(iface.NetworkName())
 		if err != nil {
 			return nil, err
 		}
-		info[i] = network.Info{
+		info[i] = params.NetworkInfo{
 			MACAddress:    iface.MACAddress(),
 			CIDR:          nw.CIDR(),
 			NetworkName:   iface.NetworkName(),
@@ -100,6 +99,8 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
 			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
 			Disabled:      iface.IsDisabled(),
+			// TODO(dimitern) Add the rest of the fields, once we
+			// store them in state.
 		}
 	}
 	return info, nil

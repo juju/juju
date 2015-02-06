@@ -88,20 +88,6 @@ var (
 	_ Authenticator = (*User)(nil)
 )
 
-// Annotator represents entities capable of handling annotations.
-type Annotator interface {
-	Annotation(key string) (string, error)
-	Annotations() (map[string]string, error)
-	SetAnnotations(pairs map[string]string) error
-}
-
-var (
-	_ Annotator = (*Machine)(nil)
-	_ Annotator = (*Unit)(nil)
-	_ Annotator = (*Service)(nil)
-	_ Annotator = (*Environment)(nil)
-)
-
 // NotifyWatcherFactory represents an entity that
 // can be watched.
 type NotifyWatcherFactory interface {
@@ -211,10 +197,28 @@ type ActionReceiver interface {
 	// PendingActions returns the list of Actions queued for this
 	// ActionReceiver.
 	PendingActions() ([]*Action, error)
+
+	// RunningActions returns the list of Actions currently running for
+	// this ActionReceiver.
+	RunningActions() ([]*Action, error)
 }
 
 var (
 	_ ActionReceiver = (*Unit)(nil)
 	// TODO(jcw4) - use when Actions can be queued for Services.
 	//_ ActionReceiver = (*Service)(nil)
+)
+
+// GlobalEntity specifies entity.
+type GlobalEntity interface {
+	globalKey() string
+	Tag() names.Tag
+}
+
+var (
+	_ GlobalEntity = (*Machine)(nil)
+	_ GlobalEntity = (*Unit)(nil)
+	_ GlobalEntity = (*Service)(nil)
+	_ GlobalEntity = (*Charm)(nil)
+	_ GlobalEntity = (*Environment)(nil)
 )

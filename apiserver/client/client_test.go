@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/featureflag"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
@@ -31,12 +32,14 @@ import (
 	"github.com/juju/juju/environs/manual"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/state/storage"
+	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -111,6 +114,22 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+}
+
+func (s *serverSuite) TestBlockEnsureAvailabilityDeprecated(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.blockAllChanges(c)
+
+	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
+	results, err := s.client.EnsureAvailability(arg)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+	c.Assert(results.Results, gc.HasLen, 0)
+
+	machines, err := s.State.AllMachines() //there
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
 }
 
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
@@ -783,11 +802,12 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 			url:   "local:quantal/dummy-1",
 			expectedActions: &charm.Actions{
 				ActionSpecs: map[string]charm.ActionSpec{
-					"snapshot": charm.ActionSpec{
+					"snapshot": {
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
 							"type":        "object",
-							"description": "this boilerplate is insane, we have to fix it",
+							"title":       "snapshot",
+							"description": "Take a snapshot of the database.",
 							"properties": map[string]interface{}{
 								"outfile": map[string]interface{}{
 									"default":     "foo.bz2",
@@ -803,9 +823,19 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 		{
 			about: "retrieves charm info",
 			// Use wordpress for tests so that we can compare Provides and Requires.
-			charm:           "wordpress",
-			expectedActions: &charm.Actions{ActionSpecs: nil},
-			url:             "local:quantal/wordpress-3",
+			charm: "wordpress",
+			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec{
+				"fakeaction": {
+					Description: "No description",
+					Params: map[string]interface{}{
+						"type":        "object",
+						"title":       "fakeaction",
+						"description": "No description",
+						"properties":  map[string]interface{}{},
+					},
+				},
+			}},
+			url: "local:quantal/wordpress-3",
 		},
 		{
 			about:           "invalid URL",
@@ -903,7 +933,6 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	environment, err := s.State.Environment()
 	c.Assert(err, jc.ErrorIsNil)
 	type taggedAnnotator interface {
-		state.Annotator
 		state.Entity
 	}
 	entities := []taggedAnnotator{service, unit, machine, environment}
@@ -912,7 +941,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 			id := entity.Tag().String() // this is WRONG, it should be Tag().Id() but the code is wrong.
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
-			err := entity.SetAnnotations(t.initial)
+			err := s.APIState.Client().SetAnnotations(id, t.initial)
 			c.Assert(err, jc.ErrorIsNil)
 			// Add annotations using the API call.
 			err = s.APIState.Client().SetAnnotations(id, t.input)
@@ -920,23 +949,38 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 				c.Assert(err, gc.ErrorMatches, t.err)
 				continue
 			}
-			// Check annotations are correctly set.
-			dbann, err := entity.Annotations()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(dbann, gc.DeepEquals, t.expected)
 			// Retrieve annotations using the API call.
 			ann, err := s.APIState.Client().GetAnnotations(id)
 			c.Assert(err, jc.ErrorIsNil)
 			// Check annotations are correctly returned.
-			c.Assert(ann, gc.DeepEquals, dbann)
+			c.Assert(ann, gc.DeepEquals, t.input)
 			// Clean up annotations on the current entity.
 			cleanup := make(map[string]string)
-			for key := range dbann {
+			for key := range ann {
 				cleanup[key] = ""
 			}
-			err = entity.SetAnnotations(cleanup)
+			err = s.APIState.Client().SetAnnotations(id, cleanup)
 			c.Assert(err, jc.ErrorIsNil)
 		}
+	}
+}
+
+func (s *clientSuite) TestCharmAnnotationsUnsupported(c *gc.C) {
+	// Set up charm.
+	charm := s.AddTestingCharm(c, "dummy")
+	id := charm.Tag().Id()
+	for i, t := range clientAnnotationsTests {
+		c.Logf("test %d. %s. entity %s", i, t.about, id)
+		// Add annotations using the API call.
+		err := s.APIState.Client().SetAnnotations(id, t.input)
+		// Should not be able to annotate charm with this client
+		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
+
+		// Retrieve annotations using the API call.
+		ann, err := s.APIState.Client().GetAnnotations(id)
+		// Should not be able to get annotations from charm using this client
+		c.Assert(err.Error(), gc.Matches, ".*is not a valid tag.*")
+		c.Assert(ann, gc.IsNil)
 	}
 }
 
@@ -1233,7 +1277,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}
@@ -1361,12 +1405,14 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"net1", "net2"},
+		nil,
 	)
 	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
@@ -1377,6 +1423,48 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	serviceCons, err := service.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serviceCons, gc.DeepEquals, cons)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithStorage(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testClientServiceDeployWithStorage(c, true)
+}
+
+func (s *clientSuite) TestClientServiceDeployWithStorageWithoutFeature(c *gc.C) {
+	s.testClientServiceDeployWithStorage(c, false)
+}
+
+func (s *clientSuite) testClientServiceDeployWithStorage(c *gc.C, expectConstraints bool) {
+	s.makeMockCharmStore()
+	curl, bundle := addCharm(c, "storage-block")
+	storageConstraints := map[string]storage.Constraints{
+		"data": {
+			Count: 1,
+			Size:  1024,
+		},
+	}
+
+	var cons constraints.Value
+	err := s.APIState.Client().ServiceDeployWithNetworks(
+		curl.String(), "service", 1, "", cons, "", nil,
+		storageConstraints,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
+	storageConstraintsOut, err := service.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if expectConstraints {
+		c.Assert(storageConstraintsOut, gc.DeepEquals, map[string]state.StorageConstraints{
+			"data": {
+				Count: 1,
+				Size:  1024,
+			},
+		})
+	} else {
+		c.Assert(storageConstraintsOut, gc.HasLen, 0)
+	}
 }
 
 func (s *clientSuite) setupServiceDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
@@ -1390,6 +1478,7 @@ func (s *clientSuite) assertServiceDeployWithNetworksBlocked(c *gc.C, blocked bo
 	err := s.APIState.Client().ServiceDeployWithNetworks(
 		curl.String(), "service", 3, "", cons, "",
 		[]string{"network-net1", "network-net2"},
+		nil,
 	)
 	if blocked {
 		c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
@@ -2213,12 +2302,14 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
-			Status:                  multiwatcher.StatusPending,
-			Life:                    multiwatcher.Alive,
+			Status:                  multiwatcher.Status("pending"),
+			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []multiwatcher.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
+			HasVote:                 false,
+			WantsVote:               true,
 		},
 	}}) {
 		c.Logf("got:")
@@ -2608,7 +2699,8 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
-	url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), result.List[0].Version)
+	url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+		s.APIState.Addr(), coretesting.EnvironmentTag.Id(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 
@@ -2785,6 +2877,61 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	m, err := s.BackingState.Machine(machines[3].Machine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Placement(), gc.DeepEquals, apiParams[3].Placement.Directive)
+}
+
+func (s *clientSuite) TestClientAddMachinesWithDisks(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
+	apiParams := make([]params.AddMachineParams, 3)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		}
+	}
+	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 2, Pool: "three"}}
+	apiParams[2].Disks = []storage.Constraints{{Size: 0, Count: 0}}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 3)
+	c.Assert(machines[0].Machine, gc.Equals, "0")
+	c.Assert(machines[1].Error, gc.ErrorMatches, "storage pools not implemented")
+	c.Assert(machines[2].Error, gc.ErrorMatches, "invalid size 0")
+
+	m, err := s.BackingState.Machine(machines[0].Machine)
+	c.Assert(err, jc.ErrorIsNil)
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	expectParams := []state.BlockDeviceParams{{Size: 1}, {Size: 1}, {Size: 2}}
+	c.Assert(blockDevices, gc.HasLen, len(expectParams))
+	for i, dev := range blockDevices {
+		params, ok := dev.Params()
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(params, gc.DeepEquals, expectParams[i])
+	}
+}
+
+func (s *clientSuite) TestClientAddMachinesWithDisksNoFeatureFlag(c *gc.C) {
+	// If the storage feature flag is not set, then Disks should be ignored.
+	apiParams := make([]params.AddMachineParams, 2)
+	for i := range apiParams {
+		apiParams[i] = params.AddMachineParams{
+			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		}
+	}
+	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}
+	apiParams[1].Disks = []storage.Constraints{{Size: 1, Count: 0, Pool: "three"}}
+	machines, err := s.APIState.Client().AddMachines(apiParams)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(machines), gc.Equals, 2)
+	c.Assert(machines[0].Machine, gc.Equals, "0")
+	c.Assert(machines[1].Machine, gc.Equals, "1")
+	m, err := s.BackingState.Machine(machines[0].Machine)
+	c.Assert(err, jc.ErrorIsNil)
+	blockDevices, err := m.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 0)
 }
 
 func (s *clientSuite) TestClientAddMachines1dot18(c *gc.C) {
@@ -3058,8 +3205,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.makeMockCharmStore()
 
 	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
-		storage := storage.NewStorage(uuid, session)
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
+		storage := statestorage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
@@ -3092,7 +3239,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -3175,7 +3322,7 @@ func (b *blobs) check() {
 }
 
 type recordingStorage struct {
-	storage.Storage
+	statestorage.Storage
 	putBarrier *sync.WaitGroup
 	blobs      *blobs
 }
@@ -3207,8 +3354,8 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	var putBarrier sync.WaitGroup
 	var blobs blobs
-	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
-		storage := storage.NewStorage(uuid, session)
+	s.PatchValue(client.NewStateStorage, func(uuid string, session *mgo.Session) statestorage.Storage {
+		storage := statestorage.NewStorage(uuid, session)
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
@@ -3253,7 +3400,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage := storage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
+	storage := statestorage.NewStorage(s.State.EnvironUUID(), s.State.MongoSession())
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
@@ -3282,7 +3429,7 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *clientSuite) assertUploaded(c *gc.C, storage storage.Storage, storagePath, expectedSHA256 string) {
+func (s *clientSuite) assertUploaded(c *gc.C, storage statestorage.Storage, storagePath, expectedSHA256 string) {
 	reader, _, err := storage.Get(storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -3542,7 +3689,7 @@ func (s *clientSuite) setupDestroyPrincipalUnits(c *gc.C) []*state.Unit {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.SetStatus(state.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusActive, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 		units[i] = unit
 	}

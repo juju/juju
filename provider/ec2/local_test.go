@@ -13,12 +13,12 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/amz.v2/aws"
+	amzec2 "gopkg.in/amz.v2/ec2"
+	"gopkg.in/amz.v2/ec2/ec2test"
+	"gopkg.in/amz.v2/s3/s3test"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	"launchpad.net/goamz/aws"
-	amzec2 "launchpad.net/goamz/ec2"
-	"launchpad.net/goamz/ec2/ec2test"
-	"launchpad.net/goamz/s3/s3test"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -199,6 +200,13 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.BaseSuite.TearDownTest(c)
 }
 
+func (t *localServerSuite) prepareEnviron(c *gc.C) environs.NetworkingEnviron {
+	env := t.Prepare(c)
+	netenv, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
+	return netenv
+}
+
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
@@ -326,8 +334,11 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	return inst, err
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -422,7 +433,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -446,7 +457,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(errors.Cause(err), gc.Equals, dgErr)
 }
 
@@ -694,13 +705,14 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386"})
 }
 
-func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
+func (t *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := t.Prepare(c)
-	c.Assert(env.SupportNetworks(), jc.IsFalse)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
-	env := t.Prepare(c)
+	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -719,12 +731,12 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "unexpected AWS response: network interface not found")
 }
 
-func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Environ, instance.Id) {
+func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.NetworkingEnviron, instance.Id) {
 	// setting a default-vpc will create a network interface
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
-	env := t.Prepare(c)
+	env := t.prepareEnviron(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -795,9 +807,30 @@ func (t *localServerSuite) TestReleaseAddress(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
+func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	interfaces, err := env.NetworkInterfaces(instId)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedInterfaces := []network.InterfaceInfo{{
+		DeviceIndex:      0,
+		MACAddress:       "20:01:60:cb:27:37",
+		CIDR:             "10.10.0.0/20",
+		ProviderId:       "eni-0",
+		ProviderSubnetId: "subnet-0",
+		VLANTag:          0,
+		InterfaceName:    "eth0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       "",
+		Address:          network.NewAddress("10.10.0.5", network.ScopeCloudLocal),
+	}}
+	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
+}
+
 func (t *localServerSuite) TestSubnets(c *gc.C) {
 	env, _ := t.setUpInstanceWithDefaultVpc(c)
-	subnets, err := env.Subnets("")
+
+	subnets, err := env.Subnets("", []network.Id{"subnet-0"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	defaultSubnets := []network.SubnetInfo{{
@@ -811,43 +844,79 @@ func (t *localServerSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnets, jc.DeepEquals, defaultSubnets)
 }
 
-func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
+func (t *localServerSuite) TestSubnetsNoNetIds(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	_, err := env.Subnets("", []network.Id{})
+	c.Assert(err, gc.ErrorMatches, "subnetIds must not be empty")
+}
+
+func (t *localServerSuite) TestSubnetsMissingSubnet(c *gc.C) {
+	env, _ := t.setUpInstanceWithDefaultVpc(c)
+
+	_, err := env.Subnets("", []network.Id{"subnet-0", "Missing"})
+	c.Assert(err, gc.ErrorMatches, "failed to find the following subnets: \\[Missing\\]")
+}
+
+func (t *localServerSuite) TestSupportsAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
-	env := t.Prepare(c)
-	result, err := env.SupportAddressAllocation("")
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
 }
 
-func (t *localServerSuite) TestSupportAddressAllocationCaches(c *gc.C) {
+func (t *localServerSuite) TestSupportsAddressAllocationCaches(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
-	env := t.Prepare(c)
-	result, err := env.SupportAddressAllocation("")
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
 
 	// this value won't change normally, the change here is to
 	// ensure that subsequent calls use the cached value
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
+		"default-vpc": {"vpc-xxxxxxx"},
 	})
-	result, err = env.SupportAddressAllocation("")
+	result, err = env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
 }
 
-func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
+func (t *localServerSuite) TestSupportsAddressAllocationFalse(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"none"},
+		"default-vpc": {"none"},
 	})
-	env := t.Prepare(c)
-	result, err := env.SupportAddressAllocation("")
+	env := t.prepareEnviron(c)
+	result, err := env.SupportsAddressAllocation("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsFalse)
+}
+
+func (t *localServerSuite) TestStartInstanceVolumes(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	params := environs.StartInstanceParams{
+		Volumes: []storage.VolumeParams{{
+			Size: 512, // round up to 1GiB
+		}, {
+			Size: 1024, // 1GiB exactly
+		}, {
+			Size: 1025, // round up to 2GiB
+		}},
+	}
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Volumes, gc.HasLen, 3)
+	c.Assert(result.Volumes[0].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Volumes[1].Size, gc.Equals, uint64(1024))
+	c.Assert(result.Volumes[2].Size, gc.Equals, uint64(2048))
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

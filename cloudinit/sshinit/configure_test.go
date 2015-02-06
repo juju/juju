@@ -61,7 +61,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageEnviron, multiwatcher.JobHostUnits}
 	} else {
-		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, nil, nil, nil)
+		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, true, nil, nil, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		mcfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
 	}
@@ -174,11 +174,19 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 }
 
 func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
-	aptgetRegexp := "(.|\n)* $(which eatmydata || true) " + regexp.QuoteMeta(sshinit.Aptget)
+	aptgetRegexp := "(.|\n)*\\$\\(which eatmydata || true\\) " + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
 	cfg := cloudinit.New()
 	cfg.SetAptUpdate(true)
 	cfg.SetAptGetWrapper("eatmydata")
-	assertScriptMatches(c, cfg, aptgetRegexp, false)
+	assertScriptMatches(c, cfg, aptgetRegexp, true)
+}
+
+func (s *configureSuite) TestAptGetRetry(c *gc.C) {
+	aptgetRegexp := "(.|\n)*apt_get_loop.*" + regexp.QuoteMeta(sshinit.Aptget) + "(.|\n)*"
+	cfg := cloudinit.New()
+	cfg.SetAptUpdate(true)
+	cfg.SetAptGetWrapper("eatmydata")
+	assertScriptMatches(c, cfg, aptgetRegexp, true)
 }
 
 func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {

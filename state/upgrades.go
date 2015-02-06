@@ -896,3 +896,98 @@ func FixMinUnitsEnvUUID(st *State) error {
 	}
 	return st.runRawTransaction(ops)
 }
+
+// FixSequenceFields sets the env-uuid and name fields on documents in
+// the sequence collection where these fields are blank. This is
+// needed because code changes were missed with the env UUID migration
+// was done for this collection (in 1.21).
+func FixSequenceFields(st *State) error {
+	sequence, closer := st.getRawCollection(sequenceC)
+	defer closer()
+
+	sel := bson.D{{"$or", []bson.D{
+		{{"env-uuid", ""}},
+		{{"name", ""}},
+	}}}
+	iter := sequence.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
+	defer iter.Close()
+
+	uuid := st.EnvironUUID()
+	ops := []txn.Op{}
+	var doc bson.M
+	for iter.Next(&doc) {
+		docID, ok := doc["_id"].(string)
+		if !ok {
+			return errors.Errorf("unexpected sequence id: %v", doc["_id"])
+		}
+		name, err := st.strictLocalID(docID)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, txn.Op{
+			C:  sequenceC,
+			Id: docID,
+			Update: bson.D{{"$set", bson.D{
+				{"env-uuid", uuid},
+				{"name", name},
+			}}},
+			Assert: txn.DocExists,
+		})
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+	return st.runRawTransaction(ops)
+}
+
+// DropOldIndexesv123 drops old mongo indexes.
+func DropOldIndexesv123(st *State) error {
+	for collName, indexes := range oldIndexesv123 {
+		c, closer := st.getRawCollection(collName)
+		defer closer()
+		for _, index := range indexes {
+			if err := c.DropIndex(index...); err != nil {
+				format := "error while dropping index: %s"
+				// Failing to drop an index that does not exist does not
+				// warrant raising an error.
+				if err.Error() == "index not found" {
+					upgradesLogger.Infof(format, err.Error())
+				} else {
+					upgradesLogger.Errorf(format, err.Error())
+				}
+			}
+		}
+	}
+	return nil
+}
+
+var oldIndexesv123 = map[string][][]string{
+	relationsC: {
+		{"endpoints.relationname"},
+		{"endpoints.servicename"},
+	},
+	unitsC: {
+		{"service"},
+		{"principal"},
+		{"machineid"},
+	},
+	networksC: {
+		{"providerid"},
+	},
+	networkInterfacesC: {
+		{"interfacename", "machineid"},
+		{"macaddress", "networkname"},
+		{"networkname"},
+		{"machineid"},
+	},
+	blockDevicesC: {
+		{"machineid"},
+	},
+	subnetsC: {
+		{"providerid"},
+	},
+	ipaddressesC: {
+		{"state"},
+		{"subnetid"},
+	},
+}

@@ -63,7 +63,7 @@ $ git config --global user.email "a.hacker@example.com"
 
 For information on setting up and using git, check out the following:
 
-* https://www.atlassian.com/git/tutorial/
+* https://www.atlassian.com/git/tutorials/
 * http://git-scm.com/book/en/Getting-Started-Git-Basics
 * [Github bootcamp](https://help.github.com/categories/54/articles)
 

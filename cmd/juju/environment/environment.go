@@ -28,5 +28,8 @@ func NewSuperCommand() cmd.Command {
 	environmentCmd.Register(envcmd.Wrap(&GetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&SetCommand{}))
 	environmentCmd.Register(envcmd.Wrap(&UnsetCommand{}))
+	environmentCmd.Register(&JenvCommand{})
+	environmentCmd.Register(envcmd.Wrap(&EnsureAvailabilityCommand{}))
+	environmentCmd.Register(envcmd.Wrap(&RetryProvisioningCommand{}))
 	return environmentCmd
 }

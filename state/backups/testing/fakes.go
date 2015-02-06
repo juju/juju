@@ -6,6 +6,10 @@ package testing
 import (
 	"io"
 
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/filestorage"
 	gc "gopkg.in/check.v1"
@@ -35,6 +39,10 @@ type FakeBackups struct {
 	DBInfoArg *backups.DBInfo
 	// MetaArg holds the backup metadata that was passed in.
 	MetaArg *backups.Metadata
+	// PrivateAddr Holds the address for the internal network of the machine.
+	PrivateAddr string
+	// InstanceId Is the id of the machine to be restored.
+	InstanceId instance.Id
 	// ArchiveArg holds the backup archive that was passed in.
 	ArchiveArg io.Reader
 }
@@ -86,7 +94,15 @@ func (b *FakeBackups) List() ([]*backups.Metadata, error) {
 func (b *FakeBackups) Remove(id string) error {
 	b.Calls = append(b.Calls, "Remove")
 	b.IDArg = id
-	return b.Error
+	return errors.Trace(b.Error)
+}
+
+// Restore restores a machine to a backed up status.
+func (b *FakeBackups) Restore(bkpId string, args params.RestoreArgs) error {
+	b.Calls = append(b.Calls, "Restore")
+	b.PrivateAddr = args.PrivateAddress
+	b.InstanceId = args.NewInstId
+	return errors.Trace(b.Error)
 }
 
 // TODO(ericsnow) FakeStorage should probably move over to the utils repo.

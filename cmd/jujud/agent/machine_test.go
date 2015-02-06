@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
@@ -43,6 +43,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/osenv"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -52,6 +53,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
@@ -129,7 +131,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.AgentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
-	s.singularRecord = &singularRunnerRecord{startedWorkers: make(set.Strings)}
+	s.singularRecord = newSingularRunnerRecord()
 	s.AgentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 	s.AgentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
@@ -236,6 +238,14 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 type MachineSuite struct {
 	commonMachineSuite
 	metricAPI *mockMetricAPI
+}
+
+var perEnvSingularWorkers = []string{
+	"cleaner",
+	"minunitsworker",
+	"environ-provisioner",
+	"charm-revision-updater",
+	"firewaller",
 }
 
 const initialMachinePassword = "machine-password-1234567890"
@@ -363,7 +373,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetStatus(state.StatusStarted, "", nil)
+	err = u0.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u0.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,6 +457,14 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		done <- a.Run(nil)
 	}()
 
+	// See state server runners start
+	r0 := s.singularRecord.nextRunner(c)
+	r0.waitForWorker(c, "resumer")
+
+	r1 := s.singularRecord.nextRunner(c)
+	lastWorker := perEnvSingularWorkers[len(perEnvSingularWorkers)-1]
+	r1.waitForWorker(c, lastWorker)
+
 	// Check that the provisioner and firewaller are alive by doing
 	// a rudimentary check that it responds to state changes.
 
@@ -488,36 +506,37 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
-
-	c.Assert(s.singularRecord.started(), jc.DeepEquals, []string{
-		"charm-revision-updater",
-		"cleaner",
-		"environ-provisioner",
-		"firewaller",
-		"minunitsworker",
-		"resumer",
-	})
 }
 
+const startWorkerWait = 250 * time.Millisecond
+
 func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
-	started := make(chan struct{}, 1)
+	s.PatchValue(&getFirewallMode, func(*api.State) (string, error) {
+		return config.FwNone, nil
+	})
+	started := make(chan struct{})
 	s.AgentSuite.PatchValue(&newFirewaller, func(st *apifirewaller.State) (worker.Worker, error) {
-		select {
-		case started <- struct{}{}:
-		default:
-		}
+		close(started)
 		return newDummyWorker(), nil
 	})
+
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
 	go func() {
 		c.Check(a.Run(nil), jc.ErrorIsNil)
 	}()
+
+	// Wait for the worker that starts before the firewaller to start.
+	_ = s.singularRecord.nextRunner(c)
+	r := s.singularRecord.nextRunner(c)
+	r.waitForWorker(c, "charm-revision-updater")
+
+	// Now make sure the firewaller doesn't start.
 	select {
 	case <-started:
 		c.Fatalf("firewaller worker unexpectedly started")
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(startWorkerWait):
 	}
 }
 
@@ -647,7 +666,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 				c.Logf("unit provisioned with instance %s", instId)
 				return m, instId
 			} else {
-				c.Check(err, jc.Satisfies, state.IsNotProvisionedError)
+				c.Check(err, jc.Satisfies, errors.IsNotProvisioned)
 			}
 		}
 	}
@@ -1100,6 +1119,15 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
+	// The disk manager should only run with the feature flag set.
+	s.testMachineAgentRunsDiskManagerWorker(c, false, coretesting.ShortWait)
+
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+	s.testMachineAgentRunsDiskManagerWorker(c, true, coretesting.LongWait)
+}
+
+func (s *MachineSuite) testMachineAgentRunsDiskManagerWorker(c *gc.C, shouldRun bool, timeout time.Duration) {
 	// Start the machine agent.
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	a := s.newAgent(c, m)
@@ -1116,12 +1144,20 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	// Wait for worker to be started.
 	select {
 	case <-started:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timeout while waiting for diskmanager worker to start")
+		if !shouldRun {
+			c.Fatalf("disk manager should not run without feature flag")
+		}
+	case <-time.After(timeout):
+		if shouldRun {
+			c.Fatalf("timeout while waiting for diskmanager worker to start")
+		}
 	}
 }
 
 func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuFeatureFlagEnvKey, "storage")
+	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
+
 	expected := []storage.BlockDevice{{DeviceName: "whatever"}}
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
 		return expected, nil
@@ -1140,7 +1176,9 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		if len(devices) > 0 {
 			c.Assert(devices, gc.HasLen, 1)
-			c.Assert(devices[0].Info().DeviceName, gc.Equals, expected[0].DeviceName)
+			info, err := devices[0].Info()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(info.DeviceName, gc.Equals, expected[0].DeviceName)
 			return
 		}
 	}
@@ -1384,6 +1422,34 @@ func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
 	c.Assert(a.IsRestoreRunning(), jc.IsFalse)
 }
 
+func (s *MachineSuite) TestNewEnvironmentStartsNewWorkers(c *gc.C) {
+	s.PatchValue(&watcher.Period, 100*time.Millisecond)
+
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	_ = s.singularRecord.nextRunner(c) // Don't care about this one for this test.
+
+	// Wait for the workers for the initial env to start. The
+	// firewaller is the last worker started for a new environment.
+	r0 := s.singularRecord.nextRunner(c)
+	workers := r0.waitForWorker(c, "firewaller")
+	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
+
+	// Now create a new environment and see the workers start for it.
+	factory.NewFactory(s.State).MakeEnvironment(c, &factory.EnvParams{
+		ConfigAttrs: map[string]interface{}{
+			"state-server": false,
+		},
+		Prepare: true,
+	}).Close()
+	r1 := s.singularRecord.nextRunner(c)
+	workers = r1.waitForWorker(c, "firewaller")
+	c.Assert(workers, jc.DeepEquals, perEnvSingularWorkers)
+}
+
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.
 type MachineWithCharmsSuite struct {
@@ -1559,8 +1625,13 @@ func (m *mockAgentConfig) Value(key string) string {
 }
 
 type singularRunnerRecord struct {
-	mu             sync.Mutex
-	startedWorkers set.Strings
+	runnerC chan *fakeSingularRunner
+}
+
+func newSingularRunnerRecord() *singularRunnerRecord {
+	return &singularRunnerRecord{
+		runnerC: make(chan *fakeSingularRunner, 5),
+	}
 }
 
 func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn singular.Conn) (worker.Runner, error) {
@@ -1568,27 +1639,52 @@ func (r *singularRunnerRecord) newSingularRunner(runner worker.Runner, conn sing
 	if err != nil {
 		return nil, err
 	}
-	return &fakeSingularRunner{
+	fakeRunner := &fakeSingularRunner{
 		Runner: sr,
-		record: r,
-	}, nil
+		startC: make(chan string, 64),
+	}
+	r.runnerC <- fakeRunner
+	return fakeRunner, nil
 }
 
-// started returns the names of all singular-started workers.
-func (r *singularRunnerRecord) started() []string {
-	return r.startedWorkers.SortedValues()
+// nextRunner blocks until a new singular runner is created.
+func (r *singularRunnerRecord) nextRunner(c *gc.C) *fakeSingularRunner {
+	for {
+		select {
+		case r := <-r.runnerC:
+			return r
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for singular runner to be created")
+		}
+	}
 }
 
 type fakeSingularRunner struct {
 	worker.Runner
-	record *singularRunnerRecord
+	startC chan string
 }
 
 func (r *fakeSingularRunner) StartWorker(name string, start func() (worker.Worker, error)) error {
-	r.record.mu.Lock()
-	defer r.record.mu.Unlock()
-	r.record.startedWorkers.Add(name)
+	r.startC <- name
 	return r.Runner.StartWorker(name, start)
+}
+
+// waitForWorker waits for a given worker to be started, returning all
+// workers started while waiting.
+func (r *fakeSingularRunner) waitForWorker(c *gc.C, target string) []string {
+	var seen []string
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case workerName := <-r.startC:
+			seen = append(seen, workerName)
+			if workerName == target {
+				return seen
+			}
+		case <-timeout:
+			c.Fatal("timed out waiting for " + target)
+		}
+	}
 }
 
 func newDummyWorker() worker.Worker {

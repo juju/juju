@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -111,6 +112,22 @@ func (c *Context) PrivateAddress() (string, bool) {
 
 func (c *Context) AvailabilityZone() (string, bool) {
 	return "us-east-1a", true
+}
+
+func (c *Context) StorageInstance(storageId string) (*storage.StorageInstance, bool) {
+	return &storage.StorageInstance{
+		"1234",
+		storage.StorageKindBlock,
+		"/dev/sda",
+	}, true
+}
+
+func (c *Context) HookStorageInstance() (*storage.StorageInstance, bool) {
+	return &storage.StorageInstance{
+		"1234",
+		storage.StorageKindBlock,
+		"/dev/sda",
+	}, true
 }
 
 func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -225,7 +242,7 @@ func (r *ContextRelation) UnitNames() []string {
 	return s
 }
 
-func (r *ContextRelation) ReadSettings(name string) (params.RelationSettings, error) {
+func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 	s, found := r.units[name]
 	if !found {
 		return nil, fmt.Errorf("unknown unit %s", name)
@@ -233,7 +250,7 @@ func (r *ContextRelation) ReadSettings(name string) (params.RelationSettings, er
 	return s.Map(), nil
 }
 
-type Settings params.RelationSettings
+type Settings params.Settings
 
 func (s Settings) Get(k string) (interface{}, bool) {
 	v, f := s[k]
@@ -248,8 +265,8 @@ func (s Settings) Delete(k string) {
 	delete(s, k)
 }
 
-func (s Settings) Map() params.RelationSettings {
-	r := params.RelationSettings{}
+func (s Settings) Map() params.Settings {
+	r := params.Settings{}
 	for k, v := range s {
 		r[k] = v
 	}

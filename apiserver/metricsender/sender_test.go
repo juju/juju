@@ -80,7 +80,7 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 
 	now := time.Now()
 	metrics := make([]*state.MetricBatch, metricCount)
-	for i, _ := range metrics {
+	for i := range metrics {
 		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
 	var sender metricsender.DefaultSender
@@ -162,7 +162,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 
 		now := time.Now()
 		batches := make([]*state.MetricBatch, 3)
-		for i, _ := range batches {
+		for i := range batches {
 			batches[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 		}
 		var sender metricsender.DefaultSender

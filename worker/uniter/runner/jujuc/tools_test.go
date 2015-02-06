@@ -10,6 +10,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
 
@@ -78,5 +79,5 @@ func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
 
 func (s *ToolsSuite) TestEnsureSymlinksBadDir(c *gc.C) {
 	err := jujuc.EnsureSymlinks(filepath.Join(c.MkDir(), "noexist"))
-	c.Assert(err, gc.ErrorMatches, "cannot initialize hook commands in .*: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, "cannot initialize hook commands in .*: "+utils.NoSuchFileErrRegexp)
 }

@@ -78,9 +78,14 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			Nonce:             "nonce",
 			APIAddresses:      []string{"10.0.0.1:1234"},
 			CACert:            coretesting.CACert,
+			Environment:       coretesting.EnvironmentTag,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
+	managerConfig := container.ManagerConfig{
+		container.ConfigName: "juju",
+		"log-dir":            c.MkDir(),
+		"use-clone":          "false",
+	}
 	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -89,7 +94,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	cons := constraints.Value{}
 	possibleTools := coretools.List{&coretools.Tools{
@@ -240,7 +245,11 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
+	managerConfig := container.ManagerConfig{
+		container.ConfigName: "juju",
+		"log-dir":            c.MkDir(),
+		"use-clone":          "false",
+	}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig, &containertesting.MockURLGetter{})
 	c.Assert(err, jc.ErrorIsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)

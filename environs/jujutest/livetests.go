@@ -461,7 +461,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := jujutesting.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, jc.ErrorIsNil)
-	svc, err := st.AddService("dummy", owner.String(), sch, nil)
+	svc, err := st.AddService("dummy", owner.String(), sch, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := juju.AddUnits(st, svc, 1, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -669,7 +669,7 @@ func (t *LiveTests) assertStartInstance(c *gc.C, m *state.Machine) {
 		c.Assert(err, jc.ErrorIsNil)
 		instId, err := m.InstanceId()
 		if err != nil {
-			c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 			continue
 		}
 		_, err = t.Env.Instances([]instance.Id{instId})
@@ -708,7 +708,7 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 		c.Assert(err, jc.ErrorIsNil)
 		gotId, err = m.InstanceId()
 		if err != nil {
-			c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+			c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 			if inst == nil {
 				return
 			}
@@ -726,7 +726,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)

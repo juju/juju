@@ -1,4 +1,4 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	corecharm "gopkg.in/juju/charm.v4"
-	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/filter"
-	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -38,27 +36,6 @@ var logger = loggo.GetLogger("juju.worker.uniter")
 type UniterExecutionObserver interface {
 	HookCompleted(hookName string)
 	HookFailed(hookName string)
-}
-
-// deployerProxy exists because we're not yet comfortable that we can safely
-// drop support for charm.gitDeployer. If we can, then the uniter doesn't
-// need a deployer reference at all: and we can drop fixDeployer, and even
-// the Notify* methods on the Deployer interface, and simply hand the
-// deployer we create over to the operationFactory at creation and forget
-// about it.
-//
-// We will never be *completely* certain that gitDeployer can be dropped,
-// because it's not done as an upgrade step (because we can't replace the
-// deployer while conflicted, and upgrades are not gated on no-conflicts);
-// and so long as there's a reasonable possibility that someone *might* have
-// been running a pre-1.19.1 environment, and have either upgraded directly
-// in a conflict state *or* have upgraded stepwise without fixing a conflict
-// state, we should keep this complexity.
-//
-// In practice, that possibility is growing ever more remote, but we're not
-// ready to pull the trigger yet.
-type deployerProxy struct {
-	charm.Deployer
 }
 
 // Uniter implements the capabilities of the unit agent. It is not intended to
@@ -154,7 +131,7 @@ func (u *Uniter) setupLocks() (err error) {
 	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
-		// before unlocking, and have been restarted by upstart.
+		// before unlocking, and have been restarted by the init system.
 		parts := strings.SplitN(message, ":", 2)
 		if len(parts) > 1 && parts[0] == u.unit.Name() {
 			if err := u.hookLock.BreakLock(); err != nil {
@@ -265,25 +242,6 @@ func (u *Uniter) operationState() operation.State {
 	return u.operationExecutor.State()
 }
 
-// deploy deploys the supplied charm URL, and sets follow-up hook operation state
-// as indicated by reason.
-func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
-	op, err := u.operationFactory.NewDeploy(curl, reason)
-	if err != nil {
-		return err
-	}
-	err = u.operationExecutor.Run(op)
-	if err != nil {
-		return err
-	}
-
-	// The new charm may have declared metrics where the old one had none
-	// (or vice versa), so reset the metrics collection policy according
-	// to current state.
-	// TODO(fwereade): maybe this should be in operation.deploy.Commit()?
-	return u.initializeMetricsCollector()
-}
-
 // initializeMetricsCollector enables the periodic collect-metrics hook
 // for charms that declare metrics.
 func (u *Uniter) initializeMetricsCollector() error {
@@ -298,9 +256,13 @@ func (u *Uniter) initializeMetricsCollector() error {
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
 	// TODO(fwereade): this is *still* all sorts of messed-up and not especially
-	// goroutine-safe, but that's not what I'm fixing at the moment. We'll deal
-	// with that when we get a sane ops queue and are no longer depending on the
-	// uniter mode funcs for all the rest of our scheduling.
+	// goroutine-safe, but that's not what I'm fixing at the moment. We could
+	// address this by:
+	//  1) implementing an operation to encapsulate the relations.Update call
+	//  2) (quick+dirty) mutex runOperation until we can
+	//  3) (correct) feed RunCommands requests into the mode funcs (or any queue
+	//     that replaces them) such that they're handled and prioritised like
+	//     every other operation.
 	logger.Tracef("run commands: %s", args.Commands)
 
 	type responseInfo struct {
@@ -318,11 +280,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		RemoteUnitName:  args.RemoteUnitName,
 		ForceRemoteUnit: args.ForceRemoteUnit,
 	}
-	op, err := u.operationFactory.NewCommands(commandArgs, sendResponse)
-	if err != nil {
-		return nil, err
-	}
-	err = u.operationExecutor.Run(op)
+	err = u.runOperation(newCommandsOp(commandArgs, sendResponse))
 	if err == nil {
 		select {
 		case response := <-responseChan:
@@ -341,42 +299,26 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	return results, err
 }
 
-// runAction executes the supplied hook.Info as an Action.
-func (u *Uniter) runAction(actionId string) (err error) {
-	op, err := u.operationFactory.NewAction(actionId)
+// runOperation uses the uniter's operation factory to run the supplied creation
+// func, and then runs the resulting operation.
+//
+// This has a number of advantages over having mode funcs use the factory and
+// executor directly:
+//   * it cuts down on duplicated code in the mode funcs, making the logic easier
+//     to parse
+//   * it narrows the (conceptual) interface exposed to the mode funcs -- one day
+//     we might even be able to use a (real) interface and maybe even approach a
+//     point where we can run direct unit tests(!) on the modes themselves.
+//   * it opens a path to fixing RunCommands -- all operation creation and
+//     execution is done in a single place, and it's much easier to force those
+//     onto a single thread.
+//       * this can't be done quite yet, though, because relation changes are
+//         not yet encapsulated in operations, and that needs to happen before
+//         RunCommands will *actually* be goroutine-safe.
+func (u *Uniter) runOperation(creator creator) error {
+	op, err := creator(u.operationFactory)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "cannot create operation")
 	}
 	return u.operationExecutor.Run(op)
-}
-
-// runHook executes the supplied hook.Info in an appropriate hook context. If
-// the hook itself fails to execute, it returns errHookFailed.
-func (u *Uniter) runHook(hi hook.Info) (err error) {
-	if hi.Kind == hooks.Action {
-		return u.runAction(hi.ActionId)
-	}
-	op, err := u.operationFactory.NewHook(hi)
-	if err != nil {
-		return err
-	}
-	return u.operationExecutor.Run(op)
-}
-
-func (u *Uniter) skipHook(hi hook.Info) (err error) {
-	op, err := u.operationFactory.NewHook(hi)
-	if err != nil {
-		return err
-	}
-	return u.operationExecutor.Skip(op)
-}
-
-// fixDeployer replaces the uniter's git-based charm deployer with a manifest-
-// based one, if necessary. It should not be called unless the existing charm
-// deployment is known to be in a stable state.
-func (u *Uniter) fixDeployer() error {
-	if err := charm.FixDeployer(&u.deployer.Deployer); err != nil {
-		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
-	}
-	return nil
 }

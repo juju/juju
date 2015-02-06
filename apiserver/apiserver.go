@@ -5,15 +5,17 @@ package apiserver
 
 import (
 	"crypto/tls"
-	"fmt"
+	"crypto/x509"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
 	"github.com/bmizerany/pat"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -66,7 +68,7 @@ type ServerConfig struct {
 }
 
 // changeCertListener wraps a TLS net.Listener.
-// It allows the acceptance of new connections to be
+// It allows connection handshakes to be
 // blocked while the TLS certificate is updated.
 type changeCertListener struct {
 	net.Listener
@@ -80,6 +82,22 @@ type changeCertListener struct {
 
 	// The config to update with any new certificate.
 	config *tls.Config
+}
+
+// changeCertConn wraps a TLS net.Conn.
+// It allows connection handshakes to be
+// blocked while the TLS certificate is updated.
+type changeCertConn struct {
+	net.Conn
+	m *sync.Mutex
+}
+
+// Handshake runs the client or server handshake
+// protocol if it has not yet been run.
+func (c *changeCertConn) Handshake() error {
+	c.m.Lock()
+	defer c.m.Unlock()
+	return c.Conn.(*tls.Conn).Handshake()
 }
 
 func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.StateServingInfo, config *tls.Config) *changeCertListener {
@@ -97,9 +115,13 @@ func newChangeCertListener(tlsListener net.Listener, certChanged <-chan params.S
 
 // Accept waits for and returns the next connection to the listener.
 func (cl *changeCertListener) Accept() (c net.Conn, err error) {
-	cl.m.Lock()
-	defer cl.m.Unlock()
-	return cl.Listener.Accept()
+	if c, err = cl.Listener.Accept(); err != nil {
+		return c, err
+	}
+	// Create a wrapped connection so we can
+	// control the handshakes.
+	conn := changeCertConn{c, &cl.m}
+	return conn, err
 }
 
 // Close closes the listener.
@@ -133,6 +155,14 @@ func (cl *changeCertListener) updateCertificate(cert, key []byte) {
 		logger.Errorf("cannot create new TLS certificate: %v", err)
 	} else {
 		logger.Infof("updating api server certificate")
+		x509Cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+		if err == nil {
+			var addr []string
+			for _, ip := range x509Cert.IPAddresses {
+				addr = append(addr, ip.String())
+			}
+			logger.Infof("new certificate addresses: %v", strings.Join(addr, ", "))
+		}
 		cl.config.Certificates = []tls.Certificate{tlsCert}
 	}
 }
@@ -287,12 +317,12 @@ func (srv *Server) run(lis net.Listener) {
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/environment/:envuuid/log",
 		&debugLogHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
 	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			dataDir:     srv.dataDir},
 	)
 	// TODO: We can switch from handleAll to mux.Post/Get/etc for entries
@@ -301,40 +331,44 @@ func (srv *Server) run(lis net.Listener) {
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/environment/:envuuid/backups",
-		&backupHandler{httpHandler{state: srv.state}},
+		&backupHandler{httpHandler{
+			ssState:            srv.state,
+			strictValidation:   true,
+			stateServerEnvOnly: true,
+		}},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	handleAll(mux, "/environment/:envuuid/images/:kind/:series/:arch/:filename",
-		&imagesDownloadHandler{httpHandler{state: srv.state}},
+		&imagesDownloadHandler{httpHandler{ssState: srv.state}},
 	)
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			logDir:      srv.logDir},
 	)
 	handleAll(mux, "/charms",
 		&charmsHandler{
-			httpHandler: httpHandler{state: srv.state},
+			httpHandler: httpHandler{ssState: srv.state},
 			dataDir:     srv.dataDir},
 	)
 	handleAll(mux, "/tools",
 		&toolsUploadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/tools/:version",
 		&toolsDownloadHandler{toolsHandler{
-			httpHandler{state: srv.state},
+			httpHandler{ssState: srv.state},
 		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
@@ -372,50 +406,6 @@ func (srv *Server) Addr() string {
 	return srv.addr
 }
 
-func (srv *Server) validateEnvironUUID(envUUID string) error {
-	if envUUID == "" {
-		// We allow the environUUID to be empty for 2 cases
-		// 1) Compatibility with older clients
-		// 2) On first connect. The environment UUID is currently
-		//    generated by 'jujud bootstrap-state', and we haven't
-		//    threaded that information all the way back to the 'juju
-		//    bootstrap' process to be able to cache the value until
-		//    after we've connected one time.
-		return nil
-	}
-	if srv.getEnvironUUID() == "" {
-		env, err := srv.state.Environment()
-		if err != nil {
-			return err
-		}
-		srv.setEnvironUUID(env.UUID())
-	}
-	return srv.checkEnvironUUID(envUUID)
-}
-
-// checkEnvironUUID checks if the expected envionUUID matches the
-// current environUUID set on this Server. It returns nil for a match
-// and an error on mismatch.
-func (srv *Server) checkEnvironUUID(expected string) error {
-	actual := srv.getEnvironUUID()
-	if actual != expected {
-		return common.UnknownEnvironmentError(expected)
-	}
-	return nil
-}
-
-func (srv *Server) getEnvironUUID() string {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	return srv.environUUID
-}
-
-func (srv *Server) setEnvironUUID(uuid string) {
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	srv.environUUID = uuid
-}
-
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
@@ -429,10 +419,10 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	}
 	conn := rpc.NewConn(codec, notifier)
 
-	var err error
 	var h *apiHandler
-	if err = srv.validateEnvironUUID(envUUID); err == nil {
-		h, err = newApiHandler(srv, conn, reqNotifier)
+	st, _, err := validateEnvironUUID(validateArgs{st: srv.state, envUUID: envUUID})
+	if err == nil {
+		h, err = newApiHandler(srv, st, conn, reqNotifier)
 	}
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
@@ -462,7 +452,7 @@ func (srv *Server) mongoPinger() error {
 		}
 		if err := session.Ping(); err != nil {
 			logger.Infof("got error pinging mongo: %v", err)
-			return fmt.Errorf("error pinging mongo: %v", err)
+			return errors.Annotate(err, "error pinging mongo")
 		}
 		timer.Reset(mongoPingInterval)
 	}

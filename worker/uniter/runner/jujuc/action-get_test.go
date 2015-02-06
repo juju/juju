@@ -52,18 +52,18 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 
 func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 	var actionGetTestMaps = []map[string]interface{}{
-		map[string]interface{}{
+		{
 			"outfile": "foo.bz2",
 		},
 
-		map[string]interface{}{
+		{
 			"outfile": map[string]interface{}{
 				"filename": "foo.bz2",
 				"format":   "bzip",
 			},
 		},
 
-		map[string]interface{}{
+		{
 			"outfile": map[string]interface{}{
 				"type": map[string]interface{}{
 					"1": "raw",
@@ -74,7 +74,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		},
 
 		// A map with a non-string key is not usable.
-		map[string]interface{}{
+		{
 			"outfile": map[interface{}]interface{}{
 				5: map[string]interface{}{
 					"1": "raw",
@@ -86,7 +86,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 
 		// A map with an inner map[interface{}]interface{} is OK if
 		// the keys are strings.
-		map[string]interface{}{
+		{
 			"outfile": map[interface{}]interface{}{
 				"type": map[string]interface{}{
 					"1": "raw",

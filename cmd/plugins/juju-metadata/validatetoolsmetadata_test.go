@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/amz.v2/aws"
 	gc "gopkg.in/check.v1"
-	"launchpad.net/goamz/aws"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"

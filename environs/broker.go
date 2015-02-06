@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
 
@@ -37,6 +38,15 @@ type StartInstanceParams struct {
 	// this information to distribute instances for
 	// high availability.
 	DistributionGroup func() ([]instance.Id, error)
+
+	// Volumes is a set of parameters for volumes that must be created.
+	// If any of the volumes cannot be created, StartInstance must
+	// return an error.
+	Volumes []storage.VolumeParams
+
+	// NetworkInfo is an optional list of network interface details,
+	// necessary to configure on the instance.
+	NetworkInfo []network.InterfaceInfo
 }
 
 // StartInstanceResult holds the result of an
@@ -49,8 +59,15 @@ type StartInstanceResult struct {
 	// of the newly created instance.
 	Hardware *instance.HardwareCharacteristics
 
-	// NetworkInfo contains information about configured networks.
-	NetworkInfo []network.Info
+	// NetworkInfo contains information about how to configure network
+	// interfaces on the instance. Depending on the provider, this
+	// might be the same StartInstanceParams.NetworkInfo or may be
+	// modified as needed.
+	NetworkInfo []network.InterfaceInfo
+
+	// Volumes contains a list of volumes created, each one having the
+	// same Name as one of the VolumeParams in StartInstanceParams.Volumes.
+	Volumes []storage.BlockDevice
 }
 
 // TODO(wallyworld) - we want this in the environs/instance package but import loops

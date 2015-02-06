@@ -6,6 +6,8 @@ package params
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/rpc"
 )
 
@@ -57,6 +59,7 @@ const (
 // the given error, or the empty string if there
 // is none.
 func ErrCode(err error) string {
+	err = errors.Cause(err)
 	if err, _ := err.(rpc.ErrorCoder); err != nil {
 		return err.ErrorCode()
 	}

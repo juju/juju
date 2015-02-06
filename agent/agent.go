@@ -51,15 +51,16 @@ var DefaultDataDir = dataDir
 const SystemIdentity = "system-identity"
 
 const (
-	LxcBridge         = "LXC_BRIDGE"
-	ProviderType      = "PROVIDER_TYPE"
-	ContainerType     = "CONTAINER_TYPE"
-	Namespace         = "NAMESPACE"
-	StorageDir        = "STORAGE_DIR"
-	StorageAddr       = "STORAGE_ADDR"
-	AgentServiceName  = "AGENT_SERVICE_NAME"
-	MongoOplogSize    = "MONGO_OPLOG_SIZE"
-	NumaCtlPreference = "NUMA_CTL_PREFERENCE"
+	LxcBridge              = "LXC_BRIDGE"
+	ProviderType           = "PROVIDER_TYPE"
+	ContainerType          = "CONTAINER_TYPE"
+	Namespace              = "NAMESPACE"
+	StorageDir             = "STORAGE_DIR"
+	StorageAddr            = "STORAGE_ADDR"
+	AgentServiceName       = "AGENT_SERVICE_NAME"
+	MongoOplogSize         = "MONGO_OPLOG_SIZE"
+	NumaCtlPreference      = "NUMA_CTL_PREFERENCE"
+	AllowsSecureConnection = "SECURE_STATESERVER_CONNECTION"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -138,6 +139,10 @@ type Config interface {
 	// PreferIPv6 returns whether to prefer using IPv6 addresses (if
 	// available) when connecting to the state or API server.
 	PreferIPv6() bool
+
+	// Environment returns the tag for the environment that the agent belongs
+	// to.
+	Environment() names.EnvironTag
 }
 
 type ConfigSetterOnly interface {
@@ -211,6 +216,7 @@ type MigrateParams struct {
 	Jobs         []multiwatcher.MachineJob
 	DeleteValues []string
 	Values       map[string]string
+	Environment  names.EnvironTag
 }
 
 // Ensure that the configInternal struct implements the Config interface.
@@ -236,6 +242,7 @@ type configInternal struct {
 	logDir            string
 	tag               names.Tag
 	nonce             string
+	environment       names.EnvironTag
 	jobs              []multiwatcher.MachineJob
 	upgradedToVersion version.Number
 	caCert            string
@@ -255,6 +262,7 @@ type AgentConfigParams struct {
 	Tag               names.Tag
 	Password          string
 	Nonce             string
+	Environment       names.EnvironTag
 	StateAddresses    []string
 	APIAddresses      []string
 	CACert            string
@@ -287,6 +295,11 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.Password == "" {
 		return nil, errors.Trace(requiredError("password"))
 	}
+	if uuid := configParams.Environment.Id(); uuid == "" {
+		return nil, errors.Trace(requiredError("environment"))
+	} else if !names.IsValidEnvironment(uuid) {
+		return nil, errors.Errorf("%q is not a valid environment uuid", uuid)
+	}
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))
 	}
@@ -299,6 +312,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		upgradedToVersion: configParams.UpgradedToVersion,
 		tag:               configParams.Tag,
 		nonce:             configParams.Nonce,
+		environment:       configParams.Environment,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
@@ -453,6 +467,9 @@ func (config *configInternal) Migrate(newParams MigrateParams) error {
 		}
 		config.values[key] = value
 	}
+	if newParams.Environment.Id() != "" {
+		config.environment = newParams.Environment
+	}
 	if err := config.check(); err != nil {
 		return fmt.Errorf("migrated agent config is invalid: %v", err)
 	}
@@ -581,6 +598,10 @@ func (c *configInternal) Tag() names.Tag {
 	return c.tag
 }
 
+func (c *configInternal) Environment() names.EnvironTag {
+	return c.environment
+}
+
 func (c *configInternal) Dir() string {
 	return Dir(c.dataDir, c.tag)
 }
@@ -662,11 +683,12 @@ func (c *configInternal) APIInfo() *api.Info {
 		}
 	}
 	return &api.Info{
-		Addrs:    addrs,
-		Password: c.apiDetails.password,
-		CACert:   c.caCert,
-		Tag:      c.tag,
-		Nonce:    c.nonce,
+		Addrs:      addrs,
+		Password:   c.apiDetails.password,
+		CACert:     c.caCert,
+		Tag:        c.tag,
+		Nonce:      c.nonce,
+		EnvironTag: c.environment,
 	}
 }
 

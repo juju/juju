@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/utils/set"
@@ -69,6 +68,7 @@ var multiEnvCollections = set.NewStrings(
 	constraintsC,
 	containerRefsC,
 	instanceDataC,
+	ipaddressesC,
 	machinesC,
 	meterStatusC,
 	minUnitsC,
@@ -84,6 +84,8 @@ var multiEnvCollections = set.NewStrings(
 	settingsC,
 	settingsrefsC,
 	statusesC,
+	storageConstraintsC,
+	storageInstancesC,
 	subnetsC,
 	unitsC,
 )
@@ -157,12 +159,14 @@ func (c *envStateCollection) Find(query interface{}) *mgo.Query {
 	return c.Collection.Find(c.mungeQuery(query))
 }
 
-// FindId looks up a single document by _id. The id must be a string
-// or bson.ObjectId. The environment UUID will be automatically
-// prefixed on to the id if it's a string and the prefix isn't there
-// already.
+// FindId looks up a single document by _id. If the id is a string the
+// relevant environment UUID prefix will be added on to it. Otherwise, the
+// query will be handled as per Find().
 func (c *envStateCollection) FindId(id interface{}) *mgo.Query {
-	return c.Collection.FindId(c.mungeId(id))
+	if sid, ok := id.(string); ok {
+		return c.Collection.FindId(addEnvUUID(c.envUUID, sid))
+	}
+	return c.Find(bson.D{{"_id", id}})
 }
 
 // Remove deletes a single document using the query provided. The
@@ -171,10 +175,14 @@ func (c *envStateCollection) Remove(query interface{}) error {
 	return c.Collection.Remove(c.mungeQuery(query))
 }
 
-// RemoveId deletes a single document by id. The id will be handled as
-// per FindId().
+// RemoveId deletes a single document by id. If the id is a string the
+// relevant environment UUID prefix will be added on to it. Otherwise, the
+// query will be handled as per Find().
 func (c *envStateCollection) RemoveId(id interface{}) error {
-	return c.Collection.RemoveId(c.mungeId(id))
+	if sid, ok := id.(string); ok {
+		return c.Collection.RemoveId(addEnvUUID(c.envUUID, sid))
+	}
+	return c.Remove(bson.D{{"_id", id}})
 }
 
 // RemoveAll deletes all docuemnts that match a query. The query will
@@ -205,17 +213,6 @@ func (c *envStateCollection) mungeQuery(inq interface{}) bson.D {
 		panic("query must either be bson.D or nil")
 	}
 	return outq
-}
-
-func (c *envStateCollection) mungeId(id interface{}) interface{} {
-	switch idv := id.(type) {
-	case string:
-		return addEnvUUID(c.envUUID, idv)
-	case bson.ObjectId:
-		return idv
-	default:
-		panic(fmt.Sprintf("multi-environment collections only use string or ObjectId ids. got: %+v", id))
-	}
 }
 
 func addEnvUUID(envUUID, id string) string {

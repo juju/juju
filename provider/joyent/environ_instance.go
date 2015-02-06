@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
@@ -254,27 +253,6 @@ func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 	}
 
 	return instances, nil
-}
-
-// AllocateAddress requests an address to be allocated for the
-// given instance on the given network. This is not implemented on the
-// Joyent provider yet.
-func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("AllocateAddress")
-}
-
-// ReleaseAddress releases a specific address previously allocated with
-// AllocateAddress.
-func (*joyentEnviron) ReleaseAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("ReleaseAddress")
-}
-
-// Subnets returns basic information about all subnets known by
-// the provider for the environment. They may be unknown to juju yet
-// (i.e. when called initially or when a new network was created).
-// This is not implemented on the Joyent provider yet.
-func (*joyentEnviron) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
-	return nil, errors.NotImplementedf("Subnets")
 }
 
 func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {

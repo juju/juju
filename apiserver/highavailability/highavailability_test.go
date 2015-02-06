@@ -6,6 +6,7 @@ package highavailability_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -162,7 +163,7 @@ func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		constraints.Value{},
+		{},
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}
@@ -171,6 +172,23 @@ func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(cons, gc.DeepEquals, expectedCons[i])
 	}
+}
+
+func (s *clientSuite) TestBlockEnsureAvailability(c *gc.C) {
+	// Block all changes.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
+	c.Assert(errors.Cause(err), gc.DeepEquals, common.ErrOperationBlocked)
+
+	c.Assert(ensureAvailabilityResult.Maintained, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Added, gc.HasLen, 0)
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
 }
 
 func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
@@ -185,7 +203,7 @@ func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		constraints.Value{},
+		{},
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}

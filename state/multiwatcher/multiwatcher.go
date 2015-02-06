@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"gopkg.in/juju/charm.v4"
 
@@ -19,55 +20,9 @@ import (
 // or "dead").
 type Life string
 
-const (
-	Alive Life = "alive"
-	Dying Life = "dying"
-	Dead  Life = "dead"
-)
-
 // Status represents the status of an entity.
-// It could be a unit, machine or its agent.
+// It could be a service, unit, machine or its agent.
 type Status string
-
-const (
-	// The entity is not yet participating in the environment.
-	StatusPending Status = "pending"
-
-	// The unit has performed initial setup and is adapting itself to
-	// the environment. Not applicable to machines.
-	StatusInstalled Status = "installed"
-
-	// The entity is actively participating in the environment.
-	StatusStarted Status = "started"
-
-	// The entity's agent will perform no further action, other than
-	// to set the unit to Dead at a suitable moment.
-	StatusStopped Status = "stopped"
-
-	// The entity requires human intervention in order to operate
-	// correctly.
-	StatusError Status = "error"
-
-	// The entity ought to be signalling activity, but it cannot be
-	// detected.
-	StatusDown Status = "down"
-)
-
-// Valid returns true if status has a known value.
-func (status Status) Valid() bool {
-	switch status {
-	case
-		StatusPending,
-		StatusInstalled,
-		StatusStarted,
-		StatusStopped,
-		StatusError,
-		StatusDown:
-	default:
-		return false
-	}
-	return true
-}
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
@@ -176,6 +131,8 @@ type MachineInfo struct {
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
 	Jobs                     []MachineJob
 	Addresses                []network.Address
+	HasVote                  bool
+	WantsVote                bool
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -223,6 +180,26 @@ func (i *UnitInfo) EntityId() EntityId {
 	return EntityId{
 		Kind: "unit",
 		Id:   i.Name,
+	}
+}
+
+type ActionInfo struct {
+	Id         string                 `bson:"_id"`
+	Receiver   string                 `bson:"receiver"`
+	Name       string                 `bson:"name"`
+	Parameters map[string]interface{} `bson:"parameters"`
+	Status     string                 `bson:"status"`
+	Message    string                 `bson:"message"`
+	Results    map[string]interface{} `bson:"results"`
+	Enqueued   time.Time              `bson:"enqueued"`
+	Started    time.Time              `bson:"started"`
+	Completed  time.Time              `bson:"completed"`
+}
+
+func (i *ActionInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "action",
+		Id:   i.Id,
 	}
 }
 

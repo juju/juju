@@ -62,9 +62,9 @@ type Networker struct {
 	// full file path as key.
 	configFiles map[string]*configFile
 
-	// networkInfo holds the network info for all interfaces
+	// interfaceInfo holds the info for all network interfaces
 	// discovered via the API, using the interface name as key.
-	networkInfo map[string]network.Info
+	interfaceInfo map[string]network.InterfaceInfo
 
 	// interfaces holds all known network interfaces on the machine,
 	// using their name as key.
@@ -98,7 +98,7 @@ func NewNetworker(
 		intrusiveMode: intrusiveMode,
 		configBaseDir: configBaseDir,
 		configFiles:   make(map[string]*configFile),
-		networkInfo:   make(map[string]network.Info),
+		interfaceInfo: make(map[string]network.InterfaceInfo),
 		interfaces:    make(map[string]net.Interface),
 	}
 	go func() {
@@ -158,6 +158,12 @@ func (nw *Networker) IsPrimaryInterfaceOrLoopback(interfaceName string) bool {
 
 // loop is the worker's main loop.
 func (nw *Networker) loop() error {
+	// TODO(dimitern) Networker is disabled until we have time to fix
+	// it so it's not overwriting /etc/network/interfaces
+	// indiscriminately for containers and possibly other cases.
+	logger.Infof("networker is disabled - not starting on machine %q", nw.tag)
+	return nil
+
 	logger.Debugf("starting on machine %q", nw.tag)
 	if !nw.IntrusiveMode() {
 		logger.Warningf("running in non-intrusive mode - no commands or changes to network config will be done")
@@ -278,20 +284,20 @@ func (nw *Networker) updateInterfaces() error {
 
 	// Fetch network info from the API and generate managed config as
 	// needed.
-	if err := nw.fetchNetworkInfo(); err != nil {
+	if err := nw.fetchInterfaceInfo(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// fetchNetworkInfo makes an API call to get all known *network.Info
-// entries for each interface on the machine. If there are any VLAN
-// interfaces to setup, it also generates commands to load the kernal
-// 8021q VLAN module, if not already loaded and when not running
-// inside an LXC container.
-func (nw *Networker) fetchNetworkInfo() error {
-	networkInfo, err := nw.st.MachineNetworkInfo(nw.tag)
+// fetchInterfaceInfo makes an API call to get all known
+// *network.InterfaceInfo entries for each interface on the machine.
+// If there are any VLAN interfaces to setup, it also generates
+// commands to load the kernal 8021q VLAN module, if not already
+// loaded and when not running inside an LXC container.
+func (nw *Networker) fetchInterfaceInfo() error {
+	interfaceInfo, err := nw.st.MachineNetworkInfo(nw.tag)
 	if err != nil {
 		logger.Errorf("failed to retrieve network info: %v", err)
 		return err
@@ -299,8 +305,8 @@ func (nw *Networker) fetchNetworkInfo() error {
 	logger.Debugf("fetched known network info from state")
 
 	haveVLANs := false
-	nw.networkInfo = make(map[string]network.Info)
-	for _, info := range networkInfo {
+	nw.interfaceInfo = make(map[string]network.InterfaceInfo)
+	for _, info := range interfaceInfo {
 		actualName := info.ActualInterfaceName()
 		logger.Debugf(
 			"have network info for %q: MAC=%q, disabled: %v, vlan-tag: %d",
@@ -312,7 +318,7 @@ func (nw *Networker) fetchNetworkInfo() error {
 		if info.IsVLAN() {
 			haveVLANs = true
 		}
-		nw.networkInfo[actualName] = info
+		nw.interfaceInfo[actualName] = info
 		fullPath := nw.ConfigFile(actualName)
 		cfgFile, ok := nw.configFiles[fullPath]
 		if !ok {
@@ -325,7 +331,7 @@ func (nw *Networker) fetchNetworkInfo() error {
 			}
 			cfgFile = nw.configFiles[fullPath]
 		}
-		cfgFile.networkInfo = info
+		cfgFile.interfaceInfo = info
 
 		// Make sure we generate managed config, in case it changed.
 		cfgFile.UpdateData(cfgFile.RenderManaged())
@@ -441,7 +447,7 @@ func (nw *Networker) prepareVLANModule() {
 func (nw *Networker) prepareUpCommands() {
 	bringUp := []string{}
 	logger.Debugf("preparing to bring interfaces up")
-	for name, info := range nw.networkInfo {
+	for name, info := range nw.interfaceInfo {
 		if nw.IsPrimaryInterfaceOrLoopback(name) {
 			logger.Debugf("skipping primary or loopback interface %q", name)
 			continue
@@ -480,7 +486,7 @@ func (nw *Networker) prepareDownCommands() {
 			logger.Debugf("skipping primary or loopback interface %q", name)
 			continue
 		}
-		info := cfgFile.NetworkInfo()
+		info := cfgFile.InterfaceInfo()
 		if info.Disabled {
 			if InterfaceIsUp(name) {
 				bringDown = append(bringDown, name)

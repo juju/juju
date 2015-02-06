@@ -829,16 +829,10 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
 }
 
-func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
+func (s *localServerSuite) TestSupportsNetworking(c *gc.C) {
 	env := s.Open(c)
-	c.Assert(env.SupportNetworks(), jc.IsFalse)
-}
-
-func (s *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
-	env := s.Open(c)
-	result, err := env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
+	_, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
@@ -1356,8 +1350,11 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, jc.ErrorIsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
-	return inst, err
+	result, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.Instance, nil
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -1444,7 +1441,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 			return expectedInstances, nil
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
 }
@@ -1468,7 +1465,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 			return nil, dgErr
 		},
 	}
-	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	_, err = testing.StartInstanceWithParams(env, "1", params, nil)
 	c.Assert(jujuerrors.Cause(err), gc.Equals, dgErr)
 }
 

@@ -126,15 +126,34 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the response.
-	info := s.APIInfo(c)
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	_, uploadedData := s.getToolsFromStorage(c, vers)
+	_, uploadedData := s.getToolsFromStorage(c, s.State, vers)
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
+}
+func (s *toolsSuite) TestBlockUpload(c *gc.C) {
+	// Make some fake tools.
+	_, vers, toolPath := s.setupToolsForUpload(c)
+	// Block all changes.
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"block-all-changes": true}, nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Now try uploading them.
+	resp, err := s.uploadRequest(
+		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "The operation has been blocked.")
+
+	// Check the contents.
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer storage.Close()
+	_, _, err = storage.Tools(vers)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
@@ -146,23 +165,32 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check the response.
-	info := s.APIInfo(c)
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
 func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload tools to https://host:port/ENVUUID/tools
-	environ, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/environment/%s/tools", environ.UUID())
+	url.Path = fmt.Sprintf("/environment/%s/tools", s.State.EnvironUUID())
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check the response.
-	info := s.APIInfo(c)
-	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), s.State.EnvironUUID(), vers)
+	s.assertUploadResponse(c, resp, expectedTools[0])
+}
+
+func (s *toolsSuite) TestUploadAllowsOtherEnvUUIDPath(c *gc.C) {
+	envState := s.setupOtherEnvironment(c)
+	// Check that we can upload tools to https://host:port/ENVUUID/tools
+	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	url := s.toolsURL(c, "binaryVersion="+vers.String())
+	url.Path = fmt.Sprintf("/environment/%s/tools", envState.EnvironUUID())
+	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
+	c.Assert(err, jc.ErrorIsNil)
+	// Check the response.
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), envState.EnvironUUID(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -214,18 +242,26 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 }
 
 func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
-	environ, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
+	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
 		Version: version.Current,
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 	})
-	s.testDownload(c, tools, environ.UUID())
+	s.testDownload(c, tools, s.State.EnvironUUID())
+}
+
+func (s *toolsSuite) TestDownloadOtherEnvUUIDPath(c *gc.C) {
+	envState := s.setupOtherEnvironment(c)
+	tools := s.storeFakeTools(c, envState, "abc", toolstorage.Metadata{
+		Version: version.Current,
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	s.testDownload(c, tools, envState.EnvironUUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
-	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
+	tools := s.storeFakeTools(c, s.State, "abc", toolstorage.Metadata{
 		Version: version.Current,
 		Size:    3,
 		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
@@ -243,7 +279,7 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
 	data := s.testDownload(c, tools, "")
 
-	metadata, cachedData := s.getToolsFromStorage(c, tools.Version)
+	metadata, cachedData := s.getToolsFromStorage(c, s.State, tools.Version)
 	c.Assert(metadata.Size, gc.Equals, tools.Size)
 	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
 	c.Assert(string(cachedData), gc.Equals, string(data))
@@ -278,8 +314,8 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	s.assertToolsNotStored(c, tools.Version)
 }
 
-func (s *toolsSuite) storeFakeTools(c *gc.C, content string, metadata toolstorage.Metadata) *coretools.Tools {
-	storage, err := s.State.ToolsStorage()
+func (s *toolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata toolstorage.Metadata) *coretools.Tools {
+	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	err = storage.AddTools(strings.NewReader(content), metadata)
@@ -291,8 +327,8 @@ func (s *toolsSuite) storeFakeTools(c *gc.C, content string, metadata toolstorag
 	}
 }
 
-func (s *toolsSuite) getToolsFromStorage(c *gc.C, vers version.Binary) (toolstorage.Metadata, []byte) {
-	storage, err := s.State.ToolsStorage()
+func (s *toolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers version.Binary) (toolstorage.Metadata, []byte) {
+	storage, err := st.ToolsStorage()
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	metadata, r, err := storage.Tools(vers)
@@ -333,7 +369,7 @@ func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 
 func (s *toolsSuite) toolsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
-	uri.Path += "/tools"
+	uri.Path = fmt.Sprintf("/environment/%s/tools", s.envUUID)
 	uri.RawQuery = query
 	return uri
 }

@@ -41,10 +41,11 @@ func FakeStateInfo(machineId string) *mongo.MongoInfo {
 // of the machine to be started.
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.NewMachineTag(machineId),
-		Password: "unimportant",
-		CACert:   testing.CACert,
+		Addrs:      []string{"0.1.2.3:1234"},
+		Tag:        names.NewMachineTag(machineId),
+		Password:   "unimportant",
+		CACert:     testing.CACert,
+		EnvironTag: testing.EnvironmentTag,
 	}
 }
 
@@ -83,7 +84,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, machineId string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	return StartInstanceWithConstraints(env, machineId, constraints.Value{})
 }
@@ -107,7 +108,7 @@ func AssertStartInstanceWithConstraints(
 func StartInstanceWithConstraints(
 	env environs.Environ, machineId string, cons constraints.Value,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil)
 }
@@ -134,11 +135,14 @@ func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
 	networks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	instance.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
 ) {
 	params := environs.StartInstanceParams{Constraints: cons}
-	return StartInstanceWithParams(
-		env, machineId, params, networks)
+	result, err := StartInstanceWithParams(env, machineId, params, networks)
+	if err != nil {
+		return nil, nil, nil, errors.Trace(err)
+	}
+	return result.Instance, result.Hardware, result.NetworkInfo, nil
 }
 
 // StartInstanceWithParams is a test helper function that starts an instance
@@ -150,12 +154,12 @@ func StartInstanceWithParams(
 	params environs.StartInstanceParams,
 	networks []string,
 ) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	*environs.StartInstanceResult, error,
 ) {
 	series := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
-		return nil, nil, nil, errors.New("missing agent version in environment config")
+		return nil, errors.New("missing agent version in environment config")
 	}
 	filter := coretools.Filter{
 		Number: agentVersion,
@@ -166,7 +170,7 @@ func StartInstanceWithParams(
 	}
 	possibleTools, err := tools.FindTools(env, -1, -1, filter)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	machineNonce := "fake_nonce"
 	stateInfo := FakeStateInfo(machineId)
@@ -176,19 +180,15 @@ func StartInstanceWithParams(
 		machineNonce,
 		imagemetadata.ReleasedStream,
 		series,
+		true,
 		networks,
 		stateInfo,
 		apiInfo,
 	)
 	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig
-	// TODO(axw) refactor these test helpers to return StartInstanceResult
-	result, err := env.StartInstance(params)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-	return result.Instance, result.Hardware, result.NetworkInfo, nil
+	return env.StartInstance(params)
 }

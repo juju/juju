@@ -63,8 +63,8 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
+	testing.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 
 	DefaultToolsStorageDir string
@@ -87,18 +87,18 @@ type JujuConnSuite struct {
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.FakeJujuHomeSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
@@ -108,8 +108,8 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -136,11 +136,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
-
-	env, err := s.State.Environment()
-	c.Assert(err, jc.ErrorIsNil)
-	apiInfo.EnvironTag = env.EnvironTag()
-
+	apiInfo.EnvironTag = s.State.EnvironTag()
 	return apiInfo
 }
 
@@ -549,10 +545,17 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 	return s.AddTestingServiceWithNetworks(c, name, ch, nil)
 }
 
+func (s *JujuConnSuite) AddTestingServiceWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Service {
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(name, owner, ch, nil, storage)
+	c.Assert(err, jc.ErrorIsNil)
+	return service
+}
+
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
 	owner := s.AdminUserTag(c).String()
-	service, err := s.State.AddService(name, owner, ch, networks)
+	service, err := s.State.AddService(name, owner, ch, networks, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return service
 }
@@ -570,6 +573,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
+			Environment:       s.State.EnvironTag(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	return config

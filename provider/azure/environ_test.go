@@ -188,17 +188,6 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 	c.Assert(a, gc.DeepEquals, []string{"amd64"})
 }
 
-func (s *environSuite) TestSupportNetworks(c *gc.C) {
-	env := s.setupEnvWithDummyMetadata(c)
-	c.Assert(env.SupportNetworks(), jc.IsFalse)
-}
-func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
-	env := s.setupEnvWithDummyMetadata(c)
-	result, err := env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Config().Name()), jc.IsTrue)
@@ -255,10 +244,13 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesReques
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *gc.C) {
-	services := []gwacl.HostedServiceDescriptor{}
-	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
-	instances, err := env.Instances([]instance.Id{"deploy-id"})
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"service")
+	service.Deployments = nil
+	patchInstancesResponses(c, prefix, service)
+
+	instances, err := env.Instances([]instance.Id{instance.Id(prefix + "service-unknown")})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.IsNil)
 }
@@ -501,7 +493,7 @@ func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) 
 	patchInstancesResponses(c, prefix, service)
 
 	_, err := env.StateServerInstances()
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNoInstances)
 }
 
 func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
@@ -1386,6 +1378,8 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	envAttrs := makeAzureConfigMap(c)
 	envAttrs["location"] = "North Europe"
 	env := makeEnvironWithConfig(c, envAttrs)
+	_, supported := environs.SupportsNetworking(env)
+	c.Assert(supported, jc.IsFalse)
 	s.setDummyStorage(c, env)
 	images := []*imagemetadata.ImageMetadata{
 		{
@@ -1489,12 +1483,13 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Tag:      machineTag,
 	}
 	apiInfo := &api.Info{
-		Addrs:    []string{"localhost:124"},
-		CACert:   coretesting.CACert,
-		Password: "admin",
-		Tag:      machineTag,
+		Addrs:      []string{"localhost:124"},
+		CACert:     coretesting.CACert,
+		Password:   "admin",
+		Tag:        machineTag,
+		EnvironTag: coretesting.EnvironmentTag,
 	}
-	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", true, nil, stateInfo, apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(

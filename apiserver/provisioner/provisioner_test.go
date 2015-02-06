@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -731,6 +732,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 		Constraints:       cons,
 		Placement:         "valid",
 		RequestedNetworks: []string{"net1", "net2"},
+		BlockDevices:      []state.BlockDeviceParams{{Size: 1000}, {Size: 2000}},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
@@ -757,6 +759,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
 				Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Volumes:     []storage.VolumeParams{{Name: "0", Size: 1000}, {Name: "1", Size: 2000}},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -919,8 +922,14 @@ func (s *withoutStateServerSuite) TestSetProvisioned(c *gc.C) {
 func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	// Provision machine 0 first.
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
-	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil)
+	err := s.machines[0].SetInstanceInfo("i-am", "fake_nonce", &hwChars, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:       "quantal",
+		Jobs:         []state.MachineJob{state.JobHostUnits},
+		BlockDevices: []state.BlockDeviceParams{{Size: 1000}},
+	})
 
 	networks := []params.Network{{
 		Tag:        "network-net1",
@@ -993,6 +1002,11 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		Characteristics: nil,
 		Networks:        networks,
 		Interfaces:      ifaces,
+	}, {
+		Tag:        volumesMachine.Tag().String(),
+		InstanceId: "i-am-also",
+		Nonce:      "fake",
+		Volumes:    []storage.BlockDevice{{Name: "0", Size: 1234}},
 	},
 		{Tag: "machine-42"},
 		{Tag: "unit-foo-0"},
@@ -1003,8 +1017,9 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{&params.Error{
-				Message: `aborted instance "i-was": cannot set instance data for machine "0": already set`,
+				Message: `cannot record provisioning info for "i-was": cannot set instance data for machine "0": already set`,
 			}},
+			{nil},
 			{nil},
 			{nil},
 			{apiservertesting.NotFoundError("machine 42")},
@@ -1049,7 +1064,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
 	c.Assert(ifacesMachine2[0].NetworkTag().String(), gc.Equals, ifaces[5].NetworkTag)
 	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
-	for i, _ := range networks {
+	for i := range networks {
 		if i == 3 {
 			// Last one was ignored, so don't check.
 			break
@@ -1065,6 +1080,21 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		c.Check(network.VLANTag(), gc.Equals, networks[i].VLANTag)
 		c.Check(network.CIDR(), gc.Equals, networks[i].CIDR)
 	}
+
+	// Verify the machine with requested volumes was provisioned, and the
+	// volume information recorded in state.
+	blockDevices, err := volumesMachine.BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 1)
+	blockDeviceInfo, err := blockDevices[0].Info()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDeviceInfo, gc.Equals, state.BlockDeviceInfo{Size: 1234})
+
+	// Verify the machine without requested volumes still has no volumes
+	// recorded in state.
+	blockDevices, err = s.machines[1].BlockDevices()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blockDevices, gc.HasLen, 0)
 }
 
 func (s *withoutStateServerSuite) TestInstanceId(c *gc.C) {
@@ -1330,7 +1360,8 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.Not(gc.HasLen), 0)
 	for _, tools := range result.List {
-		url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), tools.Version)
+		url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+			s.APIState.Addr(), coretesting.EnvironmentTag.Id(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }

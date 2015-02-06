@@ -13,6 +13,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
@@ -200,7 +201,7 @@ func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = testing.RunCommand(c, &RunCommand{}, "foo/1", "bar")
-	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket: no such file or directory`)
+	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket: `+utils.NoSuchFileErrRegexp)
 }
 
 func (s *RunTestSuite) TestRunning(c *gc.C) {

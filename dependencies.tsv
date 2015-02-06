@@ -1,37 +1,38 @@
-bitbucket.org/kardianos/osext	hg	5d3ddcf53a508cc2f7404eaebf546ef2cb5cdb6e	12
+bitbucket.org/kardianos/osext	hg	44140c5fc69ecf1102c5ef451d73cd98ef59b178	14
 bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	58
 code.google.com/p/go.crypto	hg	aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef	212
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
 code.google.com/p/winsvc	hg	d6f79143ccd1138cc9d86c9fc75b1d6f8b1b95fb	10
-github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	
-github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	
-github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
-github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
-github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/blobstore	git	c8e097e6dc9619475be92918c20de5f2d05ffa0b	
-github.com/juju/cmd	git	f75cb03fd9ba687f573755b1075a2405f833952d	
-github.com/juju/errors	git	fde0386c51c8b9642c392a3a22df4d5058e40fea	
-github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8	
-github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
-github.com/juju/gojsonschema	git	33fa79718fa9b24e2a04122f91a75496c0f77098	
-github.com/juju/loggo	git	dc8e19f7c70a62a59c69c40f85b8df09ff20742c	
-github.com/juju/names	git	8fb0293f0f03b0ae990114d441e5ff4bda449f7d	2014-12-08T10:50:22+08:00
-github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	
-github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
-github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	
-github.com/juju/testing	git	839334678c08487fb1c6ab032893fc8c85d74756	
-github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	
-github.com/juju/utils	git	c1f38bc81aa18a8fff86ffbd8d5587b218118d3d	
-gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	
-gopkg.in/juju/charm.v4	git	f7e5613ff75457d2700d1c3269546cc903ea0471	
-gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
-gopkg.in/natefinch/lumberjack.v2	git	d28785c2f27cd682d872df46ccd8232843629f54	
-gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	
-gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	
+github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	2014-04-29T04:34:05Z
+github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	2014-05-24T00:08:47Z
+github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	2014-05-24T00:09:46Z
+github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	2014-05-24T00:08:15Z
+github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	2014-05-24T00:07:34Z
+github.com/juju/blobstore	git	c8e097e6dc9619475be92918c20de5f2d05ffa0b	2014-09-25T11:47:50Z
+github.com/juju/cmd	git	f75cb03fd9ba687f573755b1075a2405f833952d	2014-12-03T02:17:39Z
+github.com/juju/errors	git	c3aaee403f140e8ab35eca129eb0a514bed780eb	2015-01-08T02:04:25Z
+github.com/juju/gojsonpointer	git	afe8b77aa08f272b49e01b82de78510c11f61500	2015-02-04T19:46:29Z
+github.com/juju/gojsonreference	git	f0d24ac5ee330baa21721cdff56d45e4ee42628e	2015-02-04T19:46:33Z
+github.com/juju/gojsonschema	git	b3824dadac133b3158aacdef4954069bb2b9b2a3	2015-02-04T19:46:39Z
+github.com/juju/loggo	git	dc8e19f7c70a62a59c69c40f85b8df09ff20742c	2014-11-17T04:05:26Z
+github.com/juju/names	git	016a15ed41d730ea92e308f5c697294a39187c76	2015-01-20T11:23:30Z
+github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	2014-04-10T13:47:08Z
+github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	2014-07-23T04:23:18Z
+github.com/juju/syslog	git	6be94e8b718766e9ff7a37342157fe4795da7cfa	2015-02-05T10:00:34Z
+github.com/juju/testing	git	45c4d8d0b7d4d642cd6cd9cf4b4f4ef8116775c1	2015-02-05T10:00:34Z
+github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	2014-09-25T11:49:22Z
+github.com/juju/utils	git	3efdaa3f15cc47ee83f6c03f640dc14f5915e289	2015-02-05T10:00:34Z
+golang.org/x/crypto	git	1fbbd62cfec66bd39d91e97749579579d4d3037e	2014-12-09T23:26:36Z
+gopkg.in/amz.v2	git	852014c69ce6838f8709317b7e435d537d3c51de	2015-01-20T08:32:32Z
+gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	2014-08-27T13:58:41Z
+gopkg.in/juju/charm.v4	git	9a8fafb6c82e105313e94158985adc65ce89cce9	2015-02-04T19:47:14Z
+gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	2014-07-30T20:00:37Z
+gopkg.in/natefinch/lumberjack.v2	git	d28785c2f27cd682d872df46ccd8232843629f54	2014-07-25T20:51:33Z
+gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	2014-08-11T16:19:00Z
+gopkg.in/yaml.v1	git	9f9df34309c04878acc86042b16630b0f696e1de	2014-09-24T16:16:07Z
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
-launchpad.net/goamz	bzr	martin.packman@canonical.com-20140813150539-umttn7s536u85eiz	49
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20141121040613-ztm1q0iy9rune3zt	13
-launchpad.net/gomaasapi	bzr	raphael.badin@canonical.com-20141030154602-5noqak0jfeao9opr	58
+launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20150113032002-n7hj4l5a9j9dzaa0	61
 launchpad.net/goose	bzr	tarmac-20140908075634-5iinsru19k3d8w55	128
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141203072923-27pcp2hckqyezbfe	242
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

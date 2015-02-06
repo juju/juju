@@ -69,6 +69,20 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(s.uniter, gc.NotNil)
 }
 
+// EvilSync starts a state sync (ensuring that any changes will be delivered to
+// the internal watchers "soon") -- and then waits "a while" so that we can be
+// reasonably certain that the events have made it through the api server and
+// then delivered from the api-level watcher to the filter itself.
+//
+// It's important to be clear that this *is* evil, and we should be testing
+// with a mocked-out watcher we can control directly; the only reason this
+// method exists is because we already perpetrated this crime -- but not
+// consistently -- and we're concentrating the evil in one place.
+func (s *FilterSuite) EvilSync() {
+	s.BackingState.StartSync()
+	time.Sleep(250 * time.Millisecond)
+}
+
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	f, err := filter.NewFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,7 +100,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	asserter.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetStatus(state.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +154,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	}
 	dyingAsserter.AssertNoReceive()
 
-	err = s.unit.SetStatus(state.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusActive, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -344,8 +358,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
-	s.BackingState.StartSync()
-	time.Sleep(250 * time.Millisecond)
+	s.EvilSync()
 	f.DiscardConfigEvent()
 	assertNoChange()
 
@@ -375,11 +388,8 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, f)
 
-	// Note: we don't set addresses here because that would
-	// race with the filter starting its address watcher.
-	// We will always receive a config-changed event when
-	// addresses change *after* the filter starts watching
-	// addresses.
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not get any config-change events until
 	// setting the charm URL.
@@ -437,8 +447,7 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 	// Config and address events should be coalesced. Start
 	// the synchronisation and sleep a bit to give the filter
 	// a chance to pick them both up.
-	s.BackingState.StartSync()
-	time.Sleep(250 * time.Millisecond)
+	s.EvilSync()
 	assertChange()
 	select {
 	case <-f.ConfigEvents():
@@ -463,7 +472,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should not receive any config-change events.
-	s.BackingState.StartSync()
+	s.EvilSync()
 	f.DiscardConfigEvent()
 	select {
 	case <-f.ConfigEvents():
@@ -507,7 +516,8 @@ func getAssertActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func(ids []
 
 func getAddAction(s *FilterSuite, c *gc.C) func(name string) string {
 	return func(name string) string {
-		newAction, err := s.unit.AddAction(name, nil)
+		newAction, err := s.State.EnqueueAction(s.unit.Tag(), name, nil)
+		// newAction, err := s.unit.AddAction(name, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		newId := newAction.Id()
 		return newId
@@ -528,13 +538,13 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	assertNoChange()
 
 	// Add a new action; event occurs
-	testId := addAction("snapshot")
+	testId := addAction("fakeaction")
 	assertChange([]string{testId})
 
 	// Make sure bundled events arrive properly.
 	testIds := make([]string, 5)
 	for i := 0; i < 5; i++ {
-		testIds[i] = addAction("name" + string(i))
+		testIds[i] = addAction("fakeaction")
 	}
 
 	assertChange(testIds)

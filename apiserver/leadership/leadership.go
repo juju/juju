@@ -36,7 +36,7 @@ func init() {
 
 	common.RegisterStandardFacade(
 		FacadeName,
-		0,
+		1,
 		NewLeadershipServiceFn(leaderMgr),
 	)
 }
@@ -85,7 +85,7 @@ type leadershipService struct {
 }
 
 // ClaimLeadership implements the LeadershipService interface.
-func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (results params.ClaimLeadershipBulkResults, _ error) {
+func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParams) (params.ClaimLeadershipBulkResults, error) {
 
 	var dur time.Duration
 	claim := callWithIds(func(sid, uid string) (err error) {
@@ -93,50 +93,103 @@ func (m *leadershipService) ClaimLeadership(args params.ClaimLeadershipBulkParam
 		return err
 	})
 
-	for _, p := range args.Params {
+	results := make([]params.ClaimLeadershipResults, len(args.Params))
+	for pIdx, p := range args.Params {
 
-		result := params.ClaimLeadershipResults{}
-
-		if !m.authorizer.AuthOwner(p.ServiceTag) || !m.authorizer.AuthOwner(p.UnitTag) {
-			result.Error = common.ServerError(common.ErrPerm)
-		} else if result.Error = claim(p.ServiceTag, p.UnitTag); result.Error == nil {
-			result.ClaimDurationInSec = dur.Seconds()
-			result.ServiceTag = p.ServiceTag
-		}
-
-		results.Results = append(results.Results, result)
-	}
-	return results, nil
-}
-
-// ReleaseLeadership implements the LeadershipService interface.
-func (m *leadershipService) ReleaseLeadership(args params.ReleaseLeadershipBulkParams) (results params.ReleaseLeadershipBulkResults, _ error) {
-	release := callWithIds(m.LeadershipManager.ReleaseLeadership)
-	for _, p := range args.Params {
-		if !m.authorizer.AuthOwner(p.ServiceTag) || !m.authorizer.AuthOwner(p.UnitTag) {
-			results.Errors = append(results.Errors, common.ServerError(common.ErrPerm))
+		result := &results[pIdx]
+		svcTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		if err != nil {
+			result.Error = err
 			continue
 		}
 
-		if err := release(p.ServiceTag, p.UnitTag); err != nil {
-			results.Errors = append(results.Errors, err)
+		// In the future, situations may arise wherein units will make
+		// leadership claims for other units. For now, units can only
+		// claim leadership for themselves.
+		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		} else if err := claim(svcTag, unitTag).Error; err != nil {
+			result.Error = err
+			continue
 		}
+
+		result.ClaimDurationInSec = dur.Seconds()
+		result.ServiceTag = p.ServiceTag
 	}
 
-	return results, nil
+	return params.ClaimLeadershipBulkResults{results}, nil
+}
+
+// ReleaseLeadership implements the LeadershipService interface.
+func (m *leadershipService) ReleaseLeadership(args params.ReleaseLeadershipBulkParams) (params.ReleaseLeadershipBulkResults, error) {
+
+	release := callWithIds(m.LeadershipManager.ReleaseLeadership)
+	results := make([]params.ErrorResult, len(args.Params))
+
+	for paramIdx, p := range args.Params {
+
+		result := &results[paramIdx]
+		svcTag, unitTag, err := parseServiceAndUnitTags(p.ServiceTag, p.UnitTag)
+		if err != nil {
+			result.Error = err
+			continue
+		}
+
+		// In the future, situations may arise wherein units will make
+		// leadership claims for other units. For now, units can only
+		// claim leadership for themselves.
+		if !m.authorizer.AuthUnitAgent() || !m.authorizer.AuthOwner(unitTag) {
+			result.Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		result.Error = release(svcTag, unitTag).Error
+	}
+
+	return params.ReleaseLeadershipBulkResults{results}, nil
 }
 
 // BlockUntilLeadershipReleased implements the LeadershipService interface.
-func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.ServiceTag) error {
-	if !m.authorizer.AuthOwner(serviceTag) {
-		return common.ErrPerm
+func (m *leadershipService) BlockUntilLeadershipReleased(serviceTag names.ServiceTag) (params.ErrorResult, error) {
+	if !m.authorizer.AuthUnitAgent() {
+		return params.ErrorResult{Error: common.ServerError(common.ErrPerm)}, nil
 	}
 
-	return m.LeadershipManager.BlockUntilLeadershipReleased(serviceTag.Id())
+	if err := m.LeadershipManager.BlockUntilLeadershipReleased(serviceTag.Id()); err != nil {
+		return params.ErrorResult{Error: common.ServerError(err)}, nil
+	}
+	return params.ErrorResult{}, nil
 }
 
-func callWithIds(fn func(string, string) error) func(st, ut names.Tag) *params.Error {
-	return func(st, ut names.Tag) *params.Error {
-		return common.ServerError(fn(st.Id(), ut.Id()))
+// callWithIds transforms a common Leadership Election function
+// signature into one that is conducive to use in the API Server.
+func callWithIds(fn func(string, string) error) func(st, ut names.Tag) params.ErrorResult {
+	return func(st, ut names.Tag) (result params.ErrorResult) {
+		if err := fn(st.Id(), ut.Id()); err != nil {
+			result.Error = common.ServerError(err)
+		}
+		return result
 	}
+}
+
+// parseServiceAndUnitTags takes in string representations of service
+// and unit tags and parses them into structs.
+//
+// NOTE: we return permissions errors when parsing fails to obfuscate
+// the parse-failure. This is for security purposes.
+func parseServiceAndUnitTags(
+	serviceTagString, unitTagString string,
+) (serviceTag names.ServiceTag, unitTag names.UnitTag, _ *params.Error) {
+	serviceTag, err := names.ParseServiceTag(serviceTagString)
+	if err != nil {
+		return serviceTag, unitTag, common.ServerError(common.ErrPerm)
+	}
+
+	unitTag, err = names.ParseUnitTag(unitTagString)
+	if err != nil {
+		return serviceTag, unitTag, common.ServerError(common.ErrPerm)
+	}
+
+	return serviceTag, unitTag, nil
 }

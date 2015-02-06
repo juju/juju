@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -140,7 +141,11 @@ func (s *HookContextSuite) addUnit(c *gc.C, svc *state.Service) *state.Unit {
 	if s.machine == nil {
 		s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.machine.SetProvisioned("i-exist", "fake_nonce", nil)
+		zone := "a-zone"
+		hwc := instance.HardwareCharacteristics{
+			AvailabilityZone: &zone,
+		}
+		err = s.machine.SetProvisioned("i-exist", "fake_nonce", &hwc)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err = unit.AssignToMachine(s.machine)

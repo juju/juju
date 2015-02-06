@@ -52,7 +52,7 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// SetStatus sets the status of the unit.
+// SetStatus sets the status of the unit agent.
 func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
@@ -142,7 +142,11 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	return names.UnitService(u.Name())
+	service, err := names.UnitService(u.Name())
+	if err != nil {
+		panic(err)
+	}
+	return service
 }
 
 // ServiceTag returns the service tag.

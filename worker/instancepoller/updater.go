@@ -180,7 +180,7 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 	for {
 		if pollInstance {
 			instInfo, err := pollInstanceInfo(context, m)
-			if err != nil && !state.IsNotProvisionedError(err) {
+			if err != nil && !errors.IsNotProvisioned(err) {
 				// If the provider doesn't implement Addresses/Status now,
 				// it never will until we're upgraded, so don't bother
 				// asking any more. We could use less resources
@@ -232,7 +232,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
 	// We can't ask the machine for its addresses if it isn't provisioned yet.
-	if state.IsNotProvisionedError(err) {
+	if errors.IsNotProvisioned(err) {
 		return instInfo, err
 	}
 	if err != nil {
@@ -269,16 +269,25 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	return instInfo, err
 }
 
+// addressesEqual compares the addresses of the machine and the instance information.
 func addressesEqual(a0, a1 []network.Address) bool {
 	if len(a0) != len(a1) {
 		logger.Tracef("address lists have different lengths %d != %d for %v != %v",
 			len(a0), len(a1), a0, a1)
 		return false
 	}
-	for i := range a0 {
-		if a0[i] != a1[i] {
+
+	ca0 := make([]network.Address, len(a0))
+	copy(ca0, a0)
+	network.SortAddresses(ca0, true)
+	ca1 := make([]network.Address, len(a1))
+	copy(ca1, a1)
+	network.SortAddresses(ca1, true)
+
+	for i := range ca0 {
+		if ca0[i] != ca1[i] {
 			logger.Tracef("address entry at offset %d has a different value for %v != %v",
-				i, a0, a1)
+				i, ca0, ca1)
 			return false
 		}
 	}

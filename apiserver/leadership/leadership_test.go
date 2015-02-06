@@ -10,7 +10,6 @@ network parameters.
 */
 
 import (
-	"testing"
 	"time"
 
 	"github.com/juju/names"
@@ -20,13 +19,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
-
-var (
-	_ = gc.Suite(&leadershipSuite{})
+func init() {
 	// Ensure the LeadershipService conforms to the interface at compile-time.
-	_ LeadershipService = (*leadershipService)(nil)
-)
+	var _ LeadershipService = (*leadershipService)(nil)
+
+	gc.Suite(&leadershipSuite{})
+}
 
 type leadershipSuite struct{}
 
@@ -63,11 +61,17 @@ func (m *stubLeadershipManager) BlockUntilLeadershipReleased(serviceId string) e
 }
 
 type stubAuthorizer struct {
-	AuthOwnerFn func(names.Tag) bool
+	AuthOwnerFn     func(names.Tag) bool
+	AuthUnitAgentFn func() bool
 }
 
 func (m *stubAuthorizer) AuthMachineAgent() bool { return true }
-func (m *stubAuthorizer) AuthUnitAgent() bool    { return true }
+func (m *stubAuthorizer) AuthUnitAgent() bool {
+	if m.AuthUnitAgentFn != nil {
+		return m.AuthUnitAgentFn()
+	}
+	return true
+}
 func (m *stubAuthorizer) AuthOwner(tag names.Tag) bool {
 	if m.AuthOwnerFn != nil {
 		return m.AuthOwnerFn(tag)
@@ -76,7 +80,7 @@ func (m *stubAuthorizer) AuthOwner(tag names.Tag) bool {
 }
 func (m *stubAuthorizer) AuthEnvironManager() bool { return true }
 func (m *stubAuthorizer) AuthClient() bool         { return true }
-func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubServiceNm) }
+func (m *stubAuthorizer) GetAuthTag() names.Tag    { return names.NewServiceTag(StubUnitNm) }
 
 func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	var ldrMgr stubLeadershipManager
@@ -89,9 +93,9 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+			{
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -112,9 +116,9 @@ func (s *leadershipSuite) TestReleaseLeadershipTranslation(c *gc.C) {
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+			{
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -132,22 +136,23 @@ func (s *leadershipSuite) TestBlockUntilLeadershipReleasedTranslation(c *gc.C) {
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: &ldrMgr, authorizer: &stubAuthorizer{}}
-	err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
+	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
 	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
 }
 
 func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		AuthOwnerFn: func(names.Tag) bool { return false },
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+			{
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -160,15 +165,15 @@ func (s *leadershipSuite) TestClaimLeadershipFailOnAuthorizerErrors(c *gc.C) {
 
 func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		AuthOwnerFn: func(names.Tag) bool { return false },
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
 	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
-			params.ClaimLeadershipParams{
-				ServiceTag: names.NewServiceTag(StubServiceNm),
-				UnitTag:    names.NewUnitTag(StubUnitNm),
+			{
+				ServiceTag: names.NewServiceTag(StubServiceNm).String(),
+				UnitTag:    names.NewUnitTag(StubUnitNm).String(),
 			},
 		},
 	})
@@ -181,11 +186,14 @@ func (s *leadershipSuite) TestReleaseLeadershipFailOnAuthorizerErrors(c *gc.C) {
 
 func (s *leadershipSuite) TestBlockUntilLeadershipReleasedErrors(c *gc.C) {
 	authorizer := &stubAuthorizer{
-		AuthOwnerFn: func(names.Tag) bool { return false },
+		AuthUnitAgentFn: func() bool { return false },
 	}
 
 	ldrSvc := &leadershipService{LeadershipManager: nil, authorizer: authorizer}
-	err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
+	result, err := ldrSvc.BlockUntilLeadershipReleased(names.NewServiceTag(StubServiceNm))
 
-	c.Check(err, gc.ErrorMatches, common.ErrPerm.Error())
+	// Overall function call should succeed, but operations should
+	// fail with a permissions issue.
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Error, gc.ErrorMatches, common.ErrPerm.Error())
 }

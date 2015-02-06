@@ -52,11 +52,12 @@ func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeStatusSetter{status: state.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			u("x/1"): &fakeStatusSetter{status: state.StatusStarted, info: "foo"},
-			u("x/2"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
-			u("x/3"): &fakeStatusSetter{fetchError: "x3 error"},
-			u("x/4"): &fakeStatusSetter{status: state.StatusStopped, info: ""},
+			u("x/0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
+			u("x/1"): &fakeStatusSetter{status: state.StatusInstalling, info: "blah"},
+			u("x/2"): &fakeStatusSetter{status: state.StatusActive, info: "foo"},
+			u("x/3"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
+			u("x/4"): &fakeStatusSetter{fetchError: "x3 error"},
+			u("x/5"): &fakeStatusSetter{status: state.StatusStopping, info: "blah"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -64,19 +65,23 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 		x1 := u("x/1")
 		x2 := u("x/2")
 		x3 := u("x/3")
+		x4 := u("x/4")
+		x5 := u("x/5")
 		return func(tag names.Tag) bool {
-			return tag == x0 || tag == x1 || tag == x2 || tag == x3
+			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
 		}, nil
 	}
 	s := common.NewStatusSetter(st, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{"unit-x-0", params.StatusStarted, "bar", nil},
-			{"unit-x-1", params.StatusStopped, "", nil},
-			{"unit-x-2", params.StatusPending, "not really", nil},
-			{"unit-x-3", params.StatusStopped, "", nil},
-			{"unit-x-4", params.StatusError, "blarg", nil},
-			{"unit-x-5", params.StatusStarted, "42", nil},
+			{"unit-x-0", params.StatusInstalling, "bar", nil},
+			{"unit-x-1", params.StatusActive, "bar", nil},
+			{"unit-x-2", params.StatusStopping, "", nil},
+			{"unit-x-3", params.StatusAllocating, "not really", nil},
+			{"unit-x-4", params.StatusStopping, "", nil},
+			{"unit-x-5", params.StatusError, "blarg", nil},
+			{"unit-x-6", params.StatusActive, "42", nil},
+			{"unit-x-7", params.StatusActive, "bar", nil},
 		},
 	}
 	result, err := s.SetStatus(args)
@@ -86,7 +91,9 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{&params.Error{Message: "x0 fails"}},
 			{nil},
 			{nil},
+			{nil},
 			{&params.Error{Message: "x3 error"}},
+			{nil},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -94,10 +101,14 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	get := func(tag names.Tag) *fakeStatusSetter {
 		return st.entities[tag].(*fakeStatusSetter)
 	}
-	c.Assert(get(u("x/1")).status, gc.Equals, state.StatusStopped)
-	c.Assert(get(u("x/1")).info, gc.Equals, "")
-	c.Assert(get(u("x/2")).status, gc.Equals, state.StatusPending)
-	c.Assert(get(u("x/2")).info, gc.Equals, "not really")
+	c.Assert(get(u("x/1")).status, gc.Equals, state.StatusActive)
+	c.Assert(get(u("x/1")).info, gc.Equals, "bar")
+	c.Assert(get(u("x/2")).status, gc.Equals, state.StatusStopping)
+	c.Assert(get(u("x/2")).info, gc.Equals, "")
+	c.Assert(get(u("x/3")).status, gc.Equals, state.StatusAllocating)
+	c.Assert(get(u("x/3")).info, gc.Equals, "not really")
+	c.Assert(get(u("x/5")).status, gc.Equals, state.StatusError)
+	c.Assert(get(u("x/5")).info, gc.Equals, "blarg")
 }
 
 func (*statusSetterSuite) TestSetStatusError(c *gc.C) {
@@ -125,12 +136,12 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			m("0"): &fakeStatusSetter{status: state.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
+			m("0"): &fakeStatusSetter{status: state.StatusAllocating, info: "blah", err: fmt.Errorf("x0 fails")},
 			m("1"): &fakeStatusSetter{status: state.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
 			m("2"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
 			m("3"): &fakeStatusSetter{fetchError: "x3 error"},
-			m("4"): &fakeStatusSetter{status: state.StatusStarted},
-			m("5"): &fakeStatusSetter{status: state.StatusStopped, info: ""},
+			m("4"): &fakeStatusSetter{status: state.StatusActive},
+			m("5"): &fakeStatusSetter{status: state.StatusStopping, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -163,7 +174,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{nil},
 			{nil},
 			{&params.Error{Message: "x3 error"}},
-			{&params.Error{Message: `"machine-4" is not in an error state`}},
+			{&params.Error{Message: "machine 4 is not in an error state"}},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},

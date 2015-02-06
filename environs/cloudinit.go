@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"path"
+	"strconv"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -46,6 +47,7 @@ func NewMachineConfig(
 	machineNonce,
 	imageStream,
 	series string,
+	secureServerConnections bool,
 	networks []string,
 	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
@@ -75,6 +77,9 @@ func NewMachineConfig(
 		MongoInfo:    mongoInfo,
 		APIInfo:      apiInfo,
 		ImageStream:  imageStream,
+		AgentEnvironment: map[string]string{
+			agent.AllowsSecureConnection: strconv.FormatBool(secureServerConnections),
+		},
 	}
 	return mcfg, nil
 }
@@ -85,7 +90,7 @@ func NewMachineConfig(
 func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.MachineConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, nil, nil, nil)
+	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, true, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +162,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
 	); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	if isStateMachineConfig(mcfg) {
@@ -174,18 +179,26 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		return nil
 	}
 	if mcfg.APIInfo != nil || mcfg.MongoInfo != nil {
-		return fmt.Errorf("machine configuration already has api/state info")
+		return errors.New("machine configuration already has api/state info")
 	}
 	caCert, hasCACert := cfg.CACert()
 	if !hasCACert {
-		return fmt.Errorf("environment configuration has no ca-cert")
+		return errors.New("environment configuration has no ca-cert")
 	}
 	password := cfg.AdminSecret()
 	if password == "" {
-		return fmt.Errorf("environment configuration has no admin-secret")
+		return errors.New("environment configuration has no admin-secret")
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
-	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
+	envUUID, uuidSet := cfg.UUID()
+	if !uuidSet {
+		return errors.New("config missing environment uuid")
+	}
+	mcfg.APIInfo = &api.Info{
+		Password:   passwordHash,
+		CACert:     caCert,
+		EnvironTag: names.NewEnvironTag(envUUID),
+	}
 	mcfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
@@ -198,7 +211,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	}
 	caPrivateKey, hasCAPrivateKey := cfg.CAPrivateKey()
 	if !hasCAPrivateKey {
-		return fmt.Errorf("environment configuration has no ca-private-key")
+		return errors.New("environment configuration has no ca-private-key")
 	}
 	srvInfo := params.StateServingInfo{
 		StatePort:    cfg.StatePort(),
@@ -209,7 +222,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	}
 	mcfg.StateServingInfo = &srvInfo
 	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	return nil

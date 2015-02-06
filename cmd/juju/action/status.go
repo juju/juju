@@ -1,4 +1,4 @@
-// Copyright 2012-2014 Canonical Ltd.
+// Copyright 2014-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package action
@@ -6,15 +6,16 @@ package action
 import (
 	"github.com/juju/cmd"
 	errors "github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/apiserver/params"
 )
 
 // StatusCommand shows the status of an Action by ID.
 type StatusCommand struct {
 	ActionCommandBase
-	requestedId string
 	out         cmd.Output
+	requestedId string
 }
 
 const statusDoc = `
@@ -56,26 +57,10 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	tags, err := api.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{c.requestedId}})
+	actionTag, err := getActionTagFromPrefix(api, c.requestedId)
 	if err != nil {
 		return err
 	}
-
-	results, ok := tags.Matches[c.requestedId]
-	if !ok || len(results) < 1 {
-		return errors.Errorf("actions for identifier %q not found", c.requestedId)
-	}
-
-	actiontags, rejects := getActionTags(results)
-	if len(rejects) > 0 {
-		return errors.Errorf("identifier %q got unrecognized entity tags %v", c.requestedId, rejects)
-	}
-
-	if len(actiontags) > 1 {
-		return errors.Errorf("identifier %q matched multiple actions %v", c.requestedId, actiontags)
-	}
-
-	actionTag := actiontags[0]
 
 	actions, err := api.Actions(params.Entities{
 		Entities: []params.Entity{{actionTag.String()}},

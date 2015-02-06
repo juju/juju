@@ -5,6 +5,7 @@ package provisioner_test
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -175,13 +176,18 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, true, nil, true)
+}
+
+func (s *CommonProvisionerSuite) checkStartInstanceNoSecureConnection(c *gc.C, m *state.Machine) instance.Instance {
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, false, nil, true)
 }
 
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
-	networks []string, networkInfo []network.Info,
+	networks []string, networkInfo []network.InterfaceInfo,
+	secureServerConnection bool,
 	checkPossibleTools coretools.List,
 	waitInstanceId bool,
 ) (
@@ -207,6 +213,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
+				c.Assert(o.AgentEnvironment["SECURE_STATESERVER_CONNECTION"], gc.Equals, strconv.FormatBool(secureServerConnection))
 
 				var jobs []multiwatcher.MachineJob
 				for _, job := range m.Jobs() {
@@ -216,7 +223,8 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.st.Addr(), t.Version)
+						url := fmt.Sprintf("https://%s/environment/%s/tools/%s",
+							s.st.Addr(), coretesting.EnvironmentTag.Id(), t.Version)
 						c.Check(t.URL, gc.Equals, url)
 						t.URL = ""
 					}
@@ -372,7 +380,7 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, gc.Equals, expect)
 			return true
-		} else if !state.IsNotProvisionedError(err) {
+		} else if !errors.IsNotProvisioned(err) {
 			// We don't expect any errors.
 			panic(err)
 		}
@@ -424,7 +432,7 @@ func (s *ProvisionerSuite) TestSimple(c *gc.C) {
 	// Check that an instance is provisioned when the machine is created...
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	instance := s.checkStartInstance(c, m)
+	instance := s.checkStartInstanceNoSecureConnection(c, m)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(m.EnsureDead(), gc.IsNil)
@@ -443,7 +451,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, false, nil, true)
 }
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
@@ -485,7 +493,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	defer stop(c, provisioner)
 	s.checkStartInstanceCustom(
 		c, machine, "pork", constraints.Value{},
-		nil, nil, expectedList, true,
+		nil, nil, false, expectedList, true,
 	)
 }
 
@@ -616,7 +624,7 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
@@ -638,7 +646,7 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappe
 
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {
@@ -685,7 +693,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
 	// create a machine to host the container.
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	inst := s.checkStartInstance(c, m)
+	inst := s.checkStartInstanceNoSecureConnection(c, m)
 
 	// make a container on the machine we just created
 	template := state.MachineTemplate{
@@ -713,7 +721,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	// Add and provision a machine with networks specified.
 	requestedNetworks := []string{"net1", "net2"}
 	cons := constraints.MustParse(s.defaultConstraints.String(), "networks=^net3,^net4")
-	expectNetworkInfo := []network.Info{{
+	expectNetworkInfo := []network.InterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
 		ProviderId:    "net1",
@@ -732,7 +740,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", cons,
-		requestedNetworks, expectNetworkInfo,
+		requestedNetworks, expectNetworkInfo, false,
 		nil, true,
 	)
 
@@ -761,15 +769,15 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	// Add and provision a machine with networks specified.
 	networks := []string{"bad-net1"}
 	// "bad-" prefix for networks causes dummy provider to report
-	// invalid network.Info.
-	expectNetworkInfo := []network.Info{
+	// invalid network.InterfaceInfo.
+	expectNetworkInfo := []network.InterfaceInfo{
 		{ProviderId: "bad-net1", NetworkName: "bad-net1", CIDR: "invalid"},
 	}
 	m, err := s.addMachineWithRequestedNetworks(networks, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo,
+		networks, expectNetworkInfo, false,
 		nil, false,
 	)
 
@@ -784,7 +792,7 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 			continue
 		}
 		c.Assert(status, gc.Equals, state.StatusError)
-		c.Assert(info, gc.Matches, `aborted instance "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
+		c.Assert(info, gc.Matches, `cannot record provisioning info for "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
 	s.checkStopInstances(c, inst)
@@ -838,7 +846,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
 	err = s.fixEnvironment(c)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
@@ -852,7 +860,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 
 	s.invalidateEnvironment(c)
 
@@ -861,7 +869,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should create it using the old environment
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *gc.C) {
@@ -871,7 +879,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	// create a machine
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 
 	// restart the PA
 	stop(c, p)
@@ -896,7 +904,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	// provision a machine
 	m0, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m0)
+	s.checkStartInstanceNoSecureConnection(c, m0)
 
 	// stop the provisioner and make the machine dying
 	stop(c, p)
@@ -931,7 +939,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	// place a new machine into the state
 	m, err := s.addMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 
 	s.invalidateEnvironment(c)
 	s.BackingState.StartSync()
@@ -941,7 +949,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should create it using the old environment
-	s.checkStartInstance(c, m)
+	s.checkStartInstanceNoSecureConnection(c, m)
 
 	err = s.fixEnvironment(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -967,7 +975,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, jc.ErrorIsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, false, nil, true)
 }
 
 type mockMachineGetter struct{}
@@ -1062,6 +1070,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		broker,
 		auth,
 		imagemetadata.ReleasedStream,
+		true,
 	)
 }
 
@@ -1203,7 +1212,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
-	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
 }
 
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {

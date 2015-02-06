@@ -49,7 +49,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -65,13 +64,18 @@ const (
 	BootstrapInstanceId = instance.Id("localhost")
 )
 
+var (
+	ErrNotPrepared = errors.New("environment is not prepared")
+	ErrDestroyed   = errors.New("environment has been destroyed")
+)
+
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
 func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"uuid":                      "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
+		"uuid":                      testing.EnvironmentTag.Id(),
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
@@ -157,35 +161,43 @@ type OpDestroy struct {
 type OpAllocateAddress struct {
 	Env        string
 	InstanceId instance.Id
-	NetworkId  network.Id
+	SubnetId   network.Id
 	Address    network.Address
 }
 
 type OpReleaseAddress struct {
 	Env        string
 	InstanceId instance.Id
-	NetworkId  network.Id
+	SubnetId   network.Id
 	Address    network.Address
 }
 
+type OpNetworkInterfaces struct {
+	Env        string
+	InstanceId instance.Id
+	Info       []network.InterfaceInfo
+}
+
+// TODO(dimitern) Rename this to OpSubnets and add InstanceId field.
 type OpListNetworks struct {
 	Env  string
 	Info []network.SubnetInfo
 }
 
 type OpStartInstance struct {
-	Env           string
-	MachineId     string
-	MachineNonce  string
-	PossibleTools coretools.List
-	Instance      instance.Instance
-	Constraints   constraints.Value
-	Networks      []string
-	NetworkInfo   []network.Info
-	Info          *mongo.MongoInfo
-	Jobs          []multiwatcher.MachineJob
-	APIInfo       *api.Info
-	Secret        string
+	Env              string
+	MachineId        string
+	MachineNonce     string
+	PossibleTools    coretools.List
+	Instance         instance.Instance
+	Constraints      constraints.Value
+	Networks         []string
+	NetworkInfo      []network.InterfaceInfo
+	Info             *mongo.MongoInfo
+	Jobs             []multiwatcher.MachineJob
+	APIInfo          *api.Info
+	Secret           string
+	AgentEnvironment map[string]string
 }
 
 type OpStopInstances struct {
@@ -498,7 +510,7 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 func (e *environ) state() (*environState, error) {
 	stateId := e.ecfg().stateId()
 	if stateId == noStateId {
-		return nil, provider.ErrNotPrepared
+		return nil, ErrNotPrepared
 	}
 	p := &providerInstance
 	p.mu.Lock()
@@ -506,7 +518,7 @@ func (e *environ) state() (*environState, error) {
 	if state := p.state[stateId]; state != nil {
 		return state, nil
 	}
-	return nil, provider.ErrDestroyed
+	return nil, ErrDestroyed
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -517,7 +529,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if ecfg.stateId() == noStateId {
-		return nil, provider.ErrNotPrepared
+		return nil, ErrNotPrepared
 	}
 	env := &environ{
 		name:         ecfg.Name(),
@@ -529,7 +541,17 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
-func (p *environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
+// RestrictedConfigAttributes is specified in the EnvironProvider interface.
+func (p *environProvider) RestrictedConfigAttributes() []string {
+	return nil
+}
+
+// PrepareForCreateEnvironment is specified in the EnvironProvider interface.
+func (p *environProvider) PrepareForCreateEnvironment(cfg *config.Config) (*config.Config, error) {
+	return p.prepare(cfg)
+}
+
+func (p *environProvider) PrepareForBootstrap(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
 	cfg, err := p.prepare(cfg)
 	if err != nil {
 		return nil, err
@@ -613,16 +635,6 @@ func (e *environ) checkBroken(method string) error {
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
-}
-
-// SupportNetworks is specified on the EnvironCapability interface.
-func (*environ) SupportNetworks() bool {
-	return true
-}
-
-// SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
 }
 
 // PrecheckInstance is specified in the state.Prechecker interface.
@@ -788,7 +800,7 @@ func (e *environ) Destroy() (res error) {
 	defer delay()
 	estate, err := e.state()
 	if err != nil {
-		if err == provider.ErrDestroyed {
+		if err == ErrDestroyed {
 			return nil
 		}
 		return err
@@ -904,17 +916,17 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 	}
 	// Simulate networks added when requested.
 	networks := append(args.Constraints.IncludeNetworks(), args.MachineConfig.Networks...)
-	networkInfo := make([]network.Info, len(networks))
+	networkInfo := make([]network.InterfaceInfo, len(networks))
 	for i, netName := range networks {
 		if strings.HasPrefix(netName, "bad-") {
 			// Simulate we didn't get correct information for the network.
-			networkInfo[i] = network.Info{
+			networkInfo[i] = network.InterfaceInfo{
 				ProviderId:  network.Id(netName),
 				NetworkName: netName,
 				CIDR:        "invalid",
 			}
 		} else {
-			networkInfo[i] = network.Info{
+			networkInfo[i] = network.InterfaceInfo{
 				ProviderId:    network.Id(netName),
 				NetworkName:   netName,
 				CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
@@ -923,22 +935,25 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
 			}
 		}
+		// TODO(dimitern) Add the rest of the network.InterfaceInfo
+		// fields when we can use them.
 	}
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:           e.name,
-		MachineId:     machineId,
-		MachineNonce:  args.MachineConfig.MachineNonce,
-		PossibleTools: args.Tools,
-		Constraints:   args.Constraints,
-		Networks:      args.MachineConfig.Networks,
-		NetworkInfo:   networkInfo,
-		Instance:      i,
-		Jobs:          args.MachineConfig.Jobs,
-		Info:          args.MachineConfig.MongoInfo,
-		APIInfo:       args.MachineConfig.APIInfo,
-		Secret:        e.ecfg().secret(),
+		Env:              e.name,
+		MachineId:        machineId,
+		MachineNonce:     args.MachineConfig.MachineNonce,
+		PossibleTools:    args.Tools,
+		Constraints:      args.Constraints,
+		Networks:         args.MachineConfig.Networks,
+		NetworkInfo:      networkInfo,
+		Instance:         i,
+		Jobs:             args.MachineConfig.Jobs,
+		Info:             args.MachineConfig.MongoInfo,
+		APIInfo:          args.MachineConfig.APIInfo,
+		AgentEnvironment: args.MachineConfig.AgentEnvironment,
+		Secret:           e.ecfg().secret(),
 	}
 	return &environs.StartInstanceResult{
 		Instance:    i,
@@ -999,9 +1014,14 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	return
 }
 
+// SupportsAddressAllocation is specified on environs.Networking.
+func (env *environ) SupportsAddressAllocation(subnetId network.Id) (bool, error) {
+	return true, nil
+}
+
 // AllocateAddress requests an address to be allocated for the
-// given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+// given instance on the given subnet.
+func (env *environ) AllocateAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
 		return err
 	}
@@ -1016,7 +1036,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
-		NetworkId:  netId,
+		SubnetId:   subnetId,
 		Address:    addr,
 	}
 	return nil
@@ -1024,7 +1044,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 
 // ReleaseAddress releases a specific address previously allocated with
 // AllocateAddress.
-func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr network.Address) error {
+func (env *environ) ReleaseAddress(instId instance.Id, subnetId network.Id, addr network.Address) error {
 	if err := env.checkBroken("ReleaseAddress"); err != nil {
 		return err
 	}
@@ -1035,18 +1055,66 @@ func (env *environ) ReleaseAddress(instId instance.Id, netId network.Id, addr ne
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	estate.maxAddr++
+	estate.maxAddr--
 	estate.ops <- OpReleaseAddress{
 		Env:        env.name,
 		InstanceId: instId,
-		NetworkId:  netId,
+		SubnetId:   subnetId,
 		Address:    addr,
 	}
 	return nil
 }
 
+// NetworkInterfaces implements Environ.NetworkInterfaces().
+func (env *environ) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+	if err := env.checkBroken("NetworkInterfaces"); err != nil {
+		return nil, err
+	}
+
+	estate, err := env.state()
+	if err != nil {
+		return nil, err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+
+	// Simulate 2 NICs - primary enabled, secondary disabled with VLAN
+	// tag 1; both configured using DHCP and having fake DNS servers
+	// and gateway.
+	info := make([]network.InterfaceInfo, 2)
+	for i, netName := range []string{"private", "public"} {
+		info[i] = network.InterfaceInfo{
+			ProviderId:    network.Id("dummy-" + netName),
+			NetworkName:   "juju-" + netName,
+			CIDR:          fmt.Sprintf("0.%d.2.0/24", i+1),
+			InterfaceName: fmt.Sprintf("eth%d", i),
+			VLANTag:       i,
+			MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+			Disabled:      i%2 != 0,
+			NoAutoStart:   i%2 != 0,
+			ConfigType:    network.ConfigDHCP,
+			Address: network.NewAddress(
+				fmt.Sprintf("0.%d.2.%d", i+1, estate.maxAddr+1),
+				network.ScopeUnknown,
+			),
+			DNSServers: network.NewAddresses("ns1.dummy", "ns2.dummy"),
+			GatewayAddress: network.NewAddress(
+				fmt.Sprintf("0.%d.2.1", i+1),
+				network.ScopeUnknown,
+			),
+		}
+	}
+
+	estate.ops <- OpNetworkInterfaces{
+		Env:        env.name,
+		InstanceId: instId,
+		Info:       info,
+	}
+	return info, nil
+}
+
 // Subnets implements environs.Environ.Subnets.
-func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
+func (env *environ) Subnets(_ instance.Id, _ []network.Id) ([]network.SubnetInfo, error) {
 	if err := env.checkBroken("Subnets"); err != nil {
 		return nil, err
 	}
@@ -1058,6 +1126,7 @@ func (env *environ) Subnets(_ instance.Id) ([]network.SubnetInfo, error) {
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 
+	// TODO(dimitern) Populate AllocatableIPLow/High below.
 	netInfo := []network.SubnetInfo{
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},

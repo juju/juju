@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -127,6 +128,12 @@ type HookContext struct {
 	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
+
+	// storageInstances contains the storageInstances associated with a unit,
+	storageInstances []storage.StorageInstance
+
+	// storageId is the id of the storage instance associated with the running hook.
+	storageId string
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
@@ -186,6 +193,19 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 
 func (ctx *HookContext) AvailabilityZone() (string, bool) {
 	return ctx.availabilityzone, ctx.availabilityzone != ""
+}
+
+func (ctx *HookContext) HookStorageInstance() (*storage.StorageInstance, bool) {
+	return ctx.StorageInstance(ctx.storageId)
+}
+
+func (ctx *HookContext) StorageInstance(storageId string) (*storage.StorageInstance, bool) {
+	for _, storageInstance := range ctx.storageInstances {
+		if storageInstance.Id == ctx.storageId {
+			return &storageInstance, true
+		}
+	}
+	return nil, false
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
@@ -328,8 +348,6 @@ func (c *HookContext) ActionData() (*ActionData, error) {
 // such that it can know what environment it's operating in, and can call back
 // into context.
 func (context *HookContext) HookVars(paths Paths) []string {
-	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
-	// JUJU_ACTION_UUID, ...
 	vars := context.proxySettings.AsEnvironmentValues()
 	vars = append(vars,
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
@@ -343,12 +361,20 @@ func (context *HookContext) HookVars(paths Paths) []string {
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,
 		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
+		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
 	)
 	if r, found := context.HookRelation(); found {
 		vars = append(vars,
 			"JUJU_RELATION="+r.Name(),
 			"JUJU_RELATION_ID="+r.FakeId(),
 			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
+		)
+	}
+	if context.actionData != nil {
+		vars = append(vars,
+			"JUJU_ACTION_NAME="+context.actionData.ActionName,
+			"JUJU_ACTION_UUID="+context.actionData.ActionTag.Id(),
+			"JUJU_ACTION_TAG="+context.actionData.ActionTag.String(),
 		)
 	}
 	return append(vars, osDependentEnvVars(paths)...)

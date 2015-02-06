@@ -1,11 +1,7 @@
-actions:
-    snapshot:
-        description: Take a snapshot of the database.
-        params:
-            type: object
-            description: this boilerplate is insane, we have to fix it
-            properties:
-                outfile:
-                    description: The file to write out to.
-                    type: string
-                    default: foo.bz2
+snapshot:
+  description: Take a snapshot of the database.
+  params:
+    outfile:
+      description: The file to write out to.
+      type: string
+      default: foo.bz2

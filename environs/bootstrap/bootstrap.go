@@ -91,8 +91,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 
+	_, supportsNetworking := environs.SupportsNetworking(environ)
+
 	ctx.Infof("Bootstrapping environment %q", cfg.Name())
-	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
+	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), supportsNetworking)
 	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
 	logger.Debugf("network management by juju enabled: %v", !disableNetworkManagement)
 	availableTools, err := findAvailableTools(environ, args.Constraints.Arch, args.UploadTools)
@@ -281,10 +283,17 @@ func EnsureNotBootstrapped(env environs.Environ) error {
 	_, err := env.StateServerInstances()
 	// If there is no error determining state server instaces,
 	// then we are bootstrapped.
-	if err == nil {
+	switch errors.Cause(err) {
+	case nil:
 		return environs.ErrAlreadyBootstrapped
-	}
-	if err == environs.ErrNotBootstrapped {
+	case environs.ErrNoInstances:
+		// TODO(axw) 2015-02-03 #1417526
+		// We should not be relying on this result,
+		// as it is possible for there to be no
+		// state servers despite the environment
+		// being bootstrapped.
+		fallthrough
+	case environs.ErrNotBootstrapped:
 		return nil
 	}
 	return err

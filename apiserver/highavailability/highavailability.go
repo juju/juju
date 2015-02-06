@@ -79,6 +79,11 @@ func stateServersChanges(change state.StateServersChanges) params.StateServersCh
 // EnsureAvailabilitySingle applies a single StateServersSpec specification to the current environment.
 // Exported so it can be called by the legacy client API in the client package.
 func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (params.StateServersChanges, error) {
+	// Check if changes are allowed and the command may proceed.
+	blockChecker := common.NewBlockChecker(st)
+	if err := blockChecker.ChangeAllowed(); err != nil {
+		return params.StateServersChanges{}, errors.Trace(err)
+	}
 	// Validate the environment tag if present.
 	if spec.EnvironTag != "" {
 		tag, err := names.ParseEnvironTag(spec.EnvironTag)

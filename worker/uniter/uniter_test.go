@@ -156,7 +156,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"config-changed", "start"},
 		), ut(
@@ -178,7 +178,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *gc.C) {
 
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"install", "config-changed", "start"},
 		),
@@ -194,7 +194,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"config-changed"},
 			verifyRunning{},
@@ -217,7 +217,7 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			fixHook{"start"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"start", "config-changed"},
 			verifyRunning{},
@@ -272,7 +272,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"start", "config-changed"},
 			// If we'd accidentally retried that hook, somehow, we would get
@@ -298,7 +298,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"config-changed", "start"},
 			verifyRunning{},
@@ -312,7 +312,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"install", "config-changed", "start"},
 			assertYaml{"charm/config.out", map[string]interface{}{
@@ -356,7 +356,7 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *gc.C) {
 			waitHooks{},
 			verifyHookSyncLockLocked,
 			releaseHookSyncLock,
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 		),
 	})
@@ -420,7 +420,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -432,7 +432,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			createCharm{revision: 1},
 			upgradeCharm{revision: 1, forced: true},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -457,7 +457,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"config-changed"},
@@ -494,7 +494,7 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 			fixHook{"upgrade-charm"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -544,7 +544,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"install", "config-changed", "start"},
 
@@ -557,7 +557,7 @@ func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 1},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -628,7 +628,7 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"config-changed", "upgrade-charm", "config-changed"},
@@ -661,7 +661,7 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 
 			resolveError{state.ResolvedNoHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			waitHooks{"config-changed"},
@@ -696,7 +696,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 1},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			verifyCharm{
@@ -715,7 +715,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			verifyCharm{revision: 1},
@@ -729,7 +729,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 2},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  2,
 			},
 			verifyCharm{
@@ -755,7 +755,7 @@ func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
 			upgradeCharm{revision: 2, forced: true},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  2,
 			},
 
@@ -786,7 +786,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			verifyCharm{revision: 1},
@@ -801,7 +801,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 			upgradeCharm{revision: 2, forced: true},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  2,
 			},
 			verifyCharm{revision: 2},
@@ -856,7 +856,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			verifyGitCharm{revision: 1},
@@ -872,7 +872,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"install", "config-changed", "start"},
 			verifyGitCharm{dirty: true},
@@ -898,7 +898,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			resolveError{state.ResolvedNoHooks},
 			waitHooks{"upgrade-charm", "config-changed"},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  1,
 			},
 			verifyGitCharm{revision: 1},
@@ -916,7 +916,7 @@ func (s *UniterSuite) TestUniterUpgradeGitConflicts(c *gc.C) {
 			serveCharm{},
 			upgradeCharm{revision: 2, forced: true},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 				charm:  2,
 			},
 			waitHooks{"upgrade-charm", "config-changed"},
@@ -1124,7 +1124,7 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 			serveCharm{},
 			createUniter{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"install", "config-changed", "start"},
 			addRelation{waitJoin: true},
@@ -1234,7 +1234,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			},
 			serveCharm{},
 			createUniter{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			metricsTick{},
@@ -1252,7 +1252,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			fixHook{"config-changed"},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"config-changed", "start", "collect-metrics"},
 			verifyRunning{},
@@ -1271,7 +1271,7 @@ func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 			startUniter{},
 			resolveError{state.ResolvedRetryHooks},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"config-changed", "start", "collect-metrics"},
 			verifyRunning{},
@@ -1300,7 +1300,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log", nil},
@@ -1309,7 +1309,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				results: map[string]interface{}{},
 				status:  params.ActionCompleted,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"action-fail causes the action to fail with a message",
 			createCharm{
@@ -1323,7 +1323,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log-fail", nil},
@@ -1335,7 +1335,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				message: "I'm afraid I can't let you do that, Dave.",
 				status:  params.ActionFailed,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"action-fail with the wrong arguments fails but is not an error",
 			createCharm{
@@ -1349,7 +1349,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log-fail-error", nil},
@@ -1361,7 +1361,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				message: "A real message",
 				status:  params.ActionFailed,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"actions with correct params passed are not an error",
 			createCharm{
@@ -1375,7 +1375,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{
@@ -1396,7 +1396,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				},
 				status: params.ActionCompleted,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"actions with incorrect params passed are not an error but fail",
 			createCharm{
@@ -1410,7 +1410,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{
@@ -1421,9 +1421,9 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				name:    "snapshot",
 				results: map[string]interface{}{},
 				status:  params.ActionFailed,
-				message: `cannot run "snapshot" action: JSON validation failed: (root).outfile : must be of type string, given 2`,
+				message: `cannot run "snapshot" action: validation failed: (root).outfile : must be of type string, given 2`,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"actions not defined in actions.yaml fail without causing a uniter error",
 			createCharm{
@@ -1436,7 +1436,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
@@ -1446,7 +1446,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:  params.ActionFailed,
 				message: `cannot run "snapshot" action: not defined`,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"pending actions get consumed",
 			createCharm{
@@ -1463,7 +1463,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			addAction{"action-log", nil},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			waitActionResults{[]actionResult{{
@@ -1479,7 +1479,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				results: map[string]interface{}{},
 				status:  params.ActionCompleted,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"actions not implemented fail but are not errors",
 			createCharm{
@@ -1492,7 +1492,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			createServiceAndUnit{},
 			startUniter{},
 			waitAddresses{},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitHooks{"install", "config-changed", "start"},
 			verifyCharm{},
 			addAction{"action-log", nil},
@@ -1502,7 +1502,7 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 				status:  params.ActionFailed,
 				message: `action not implemented on unit "u/0"`,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		), ut(
 			"actions are not attempted from ModeHookError and do not clear the error",
 			startupErrorWithCustomCharm{
@@ -1523,13 +1523,13 @@ func (s *UniterSuite) TestActionEvents(c *gc.C) {
 			verifyNoActionResults{},
 			verifyWaiting{},
 			resolveError{state.ResolvedNoHooks},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 			waitActionResults{[]actionResult{{
 				name:    "action-log",
 				results: map[string]interface{}{},
 				status:  params.ActionCompleted,
 			}}},
-			waitUnit{status: params.StatusStarted},
+			waitUnit{status: params.StatusActive},
 		),
 	})
 }
@@ -1632,7 +1632,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			startUniter{},
 			waitAddresses{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitActionResults{[]actionResult{{
 				name: "action-reboot",
@@ -1659,7 +1659,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			waitHooks{"install"},
 			startUniter{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"config-changed", "start"},
 		), ut(
@@ -1679,7 +1679,7 @@ func (s *UniterSuite) TestReboot(c *gc.C) {
 			waitHooks{"install"},
 			startUniter{},
 			waitUnit{
-				status: params.StatusStarted,
+				status: params.StatusActive,
 			},
 			waitHooks{"install", "config-changed", "start"},
 		), ut(

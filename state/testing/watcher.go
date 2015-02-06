@@ -1,13 +1,13 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package testing
 
 import (
-	"sort"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -58,6 +58,7 @@ func AssertCanStopWhenSending(c *gc.C, stopper Stopper) {
 }
 
 type NotifyWatcher interface {
+	Stop() error
 	Changes() <-chan struct{}
 }
 
@@ -140,6 +141,15 @@ func (c StringsWatcherC) AssertNoChange() {
 	}
 }
 
+func (c StringsWatcherC) AssertChanges() {
+	c.State.StartSync()
+	select {
+	case <-c.Watcher.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+}
+
 func (c StringsWatcherC) AssertChange(expect ...string) {
 	c.assertChange(false, expect...)
 }
@@ -148,32 +158,57 @@ func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {
 	c.assertChange(true, expect...)
 }
 
+// AssertChangeMaybeIncluding verifies that there is a change that may
+// contain zero to all of the passed in strings, and no other changes.
+func (c StringsWatcherC) AssertChangeMaybeIncluding(expect ...string) {
+	maxCount := len(expect)
+	actual := c.collectChanges(true, maxCount)
+
+	if maxCount == 0 {
+		c.Assert(actual, gc.HasLen, 0)
+	} else {
+		actualCount := len(actual)
+		c.Assert(actualCount <= maxCount, jc.IsTrue, gc.Commentf("expected at most %d, got %d", maxCount, actualCount))
+		unexpected := set.NewStrings(actual...).Difference(set.NewStrings(expect...))
+		c.Assert(unexpected.Values(), gc.HasLen, 0)
+	}
+}
+
 // assertChange asserts the given list of changes was reported by
 // the watcher, but does not assume there are no following changes.
 func (c StringsWatcherC) assertChange(single bool, expect ...string) {
+	actual := c.collectChanges(single, len(expect))
+	if len(expect) == 0 {
+		c.Assert(actual, gc.HasLen, 0)
+	} else {
+		c.Assert(actual, jc.SameContents, expect)
+	}
+}
+
+// collectChanges gets up to the max number of changes within the
+// testing.LongWait period.
+func (c StringsWatcherC) collectChanges(single bool, max int) []string {
 	c.State.StartSync()
 	timeout := time.After(testing.LongWait)
 	var actual []string
+	gotOneChange := false
 loop:
 	for {
 		select {
 		case changes, ok := <-c.Watcher.Changes():
 			c.Assert(ok, jc.IsTrue)
+			gotOneChange = true
 			actual = append(actual, changes...)
-			if single || len(actual) >= len(expect) {
+			if single || len(actual) >= max {
 				break loop
 			}
 		case <-timeout:
-			c.Fatalf("watcher did not send change")
+			if !gotOneChange {
+				c.Fatalf("watcher did not send change")
+			}
 		}
 	}
-	if len(expect) == 0 {
-		c.Assert(actual, gc.HasLen, 0)
-	} else {
-		sort.Strings(expect)
-		sort.Strings(actual)
-		c.Assert(actual, gc.DeepEquals, expect)
-	}
+	return actual
 }
 
 func (c StringsWatcherC) AssertClosed() {
