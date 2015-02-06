@@ -450,8 +450,10 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                         # The win and osx client tests only verify the client
                         # can bootstrap and call the state-server.
                         return
+                    env.juju('status')
                     deploy_dummy_stack(env, charm_prefix)
                     if upgrade:
+                        env.juju('status')
                         with scoped_environ():
                             os.environ['PATH'] = new_path
                             test_upgrade(env)
@@ -463,6 +465,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                             host_id=bootstrap_id)
                     sys.exit(1)
             finally:
+                env.juju('status')
                 env.destroy_environment()
         finally:
             if created_machines:
