@@ -262,11 +262,22 @@ class JoyentAccount:
         self.client = client
 
     @classmethod
-    def from_config(cls, config):
-        """Create a JoyentAccount from a juju environment dict."""
+    @contextmanager
+    def manager_from_config(cls, config):
+        """Create a ContextManager for a JoyentAccount.
+
+         Using a juju environment dict, the private key is written to a
+         tmp file. Then, the Joyent client is inited with the path to the
+         tmp key. The key is removed when done.
+         """
         from joyent import Client
-        return cls(Client(config['sdc-url'], config['manta-user'],
-                          config['manta-key-id']))
+        with temp_dir() as key_dir:
+            key_path = os.path.join(key_dir, 'joyent.key')
+            open(key_path, 'w').write(config['private-key'])
+            client = Client(
+                config['sdc-url'], config['manta-user'],
+                config['manta-key-id'], key_path)
+            yield cls(client)
 
     def terminate_instances(self, instance_ids):
         """Terminate the specified instances."""
@@ -394,15 +405,17 @@ def make_substrate_manager(config):
 
     Returns None if the substrate is not supported.
     """
-    if config['type'] == 'azure':
-        with AzureAccount.manager_from_config(config) as substrate:
-            yield substrate
-            return
     substrate_factory = {
         'ec2': AWSAccount.from_config,
         'openstack': OpenStackAccount.from_config,
-        'joyent': JoyentAccount.from_config,
+        'joyent': JoyentAccount.manager_from_config,
+        'azure': AzureAccount.manager_from_config,
         }
+    if config['type'] in ('azure', 'joyent'):
+        factory = substrate_factory[config['type']]
+        with factory(config) as substrate:
+            yield substrate
+            return
     yield substrate_factory.get(config['type'], lambda x: None)(config)
 
 
