@@ -440,7 +440,7 @@ def get_joyent_config():
         'sdc-url': 'http://example.org/sdc',
         'manta-user': 'user@manta.org',
         'manta-key-id': 'key-id@manta.org',
-        'private-key': 'rsa-key'
+        'private-key': 'key\abc\n'
         }
 
 
@@ -448,10 +448,13 @@ class TestJoyentAccount(TestCase):
 
     def test_manager_from_config(self):
         with JoyentAccount.manager_from_config(get_joyent_config()) as account:
-            self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
-            self.assertEqual(account.client.account, 'user@manta.org')
-            self.assertEqual(account.client.key_id, 'key-id@manta.org') 
-            self.assertTrue(account.client.key_path.endswith('joyent.key'))
+            self.assertEqual(
+                open(account.client.key_path).read(),'key\abc\n')
+        self.assertFalse(os.path.exists(account.client.key_path))
+        self.assertTrue(account.client.key_path.endswith('joyent.key'))
+        self.assertEqual(account.client.sdc_url, 'http://example.org/sdc')
+        self.assertEqual(account.client.account, 'user@manta.org')
+        self.assertEqual(account.client.key_id, 'key-id@manta.org')
 
     def test_terminate_instances(self):
         client = Mock()
