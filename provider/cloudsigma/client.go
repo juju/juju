@@ -100,8 +100,7 @@ func (c *environClient) instances() ([]gosigma.Server, error) {
 func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyServer)
 	if err != nil {
-		errors.Trace(err)
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	m := make(map[string]gosigma.Server, len(servers))
@@ -118,8 +117,7 @@ func (c *environClient) getStateServerIds() (ids []instance.Id, err error) {
 
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyStateServer)
 	if err != nil {
-		errors.Trace(err)
-		return []instance.Id{}, err
+		return []instance.Id{}, errors.Trace(err)
 	}
 
 	if len(servers) == 0 {
@@ -145,8 +143,7 @@ func (c *environClient) stopInstance(id instance.Id) error {
 
 	s, err := c.conn.Server(uuid)
 	if err != nil {
-		errors.Trace(err)
-		return err
+		return errors.Trace(err)
 	}
 
 	err = s.StopWait()
@@ -263,8 +260,7 @@ func (c *environClient) generateSigmaComponents(baseName string, constraints *si
 	cc.SetMeta(jujuMetaEnvironment, c.uuid)
 	data, err := utils.Gunzip(userData)
 	if err != nil {
-		errors.Trace(err)
-		return cc, err
+		return cc, errors.Trace(err)
 	}
 	cc.SetMeta(jujuMetaCoudInit, base64.StdEncoding.EncodeToString(data))
 	cc.SetMeta(jujuMetaBase64, jujuMetaCoudInit)

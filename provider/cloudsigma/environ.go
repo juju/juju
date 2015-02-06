@@ -59,15 +59,13 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 
 	ecfg, err := validateConfig(cfg, env.ecfg)
 	if err != nil {
-		errors.Trace(err)
-		return err
+		return errors.Trace(err)
 	}
 
 	if env.client == nil || env.ecfg == nil || env.ecfg.clientConfigChanged(ecfg) {
 		client, err := newClient(ecfg)
 		if err != nil {
-			errors.Trace(err)
-			return err
+			return errors.Trace(err)
 		}
 
 		env.client = client
@@ -139,8 +137,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	endpoint, err := gosigma.ResolveEndpoint(region)
 	if err != nil {
-		errors.Trace(err)
-		return simplestreams.CloudSpec{}, err
+		return simplestreams.CloudSpec{}, errors.Trace(err)
 	}
 	return simplestreams.CloudSpec{
 		Region:   region,
