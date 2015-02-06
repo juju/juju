@@ -318,6 +318,20 @@ class Client:
             with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
                 json.dump(list(current_stuck_ids), stuck_file)
 
+    def _delete_running_machine(self, machine_id):
+        self.stop_machine(machine_id)
+        while True:
+            if self.verbose:
+                print(".", end="")
+                sys.stdout.flush()
+            sleep(self.pause)
+            stopping_machine = self._list_machines(machine_id)
+            if stopping_machine['state'] == 'stopped':
+                break
+        if self.verbose:
+            print("stopped")
+        self.delete_machine(machine_id)
+
     def delete_old_machines(self, old_age, contact_mail_address):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
         for proc in procs.splitlines():
@@ -337,25 +351,17 @@ class Client:
             age = now - created
             if age > timedelta(hours=old_age):
                 machine_id = machine['id']
+                tags = self.list_machine_tags(machine_id)
+                if tags.get('permanent', 'false') == 'true':
+                    continue
                 if machine['state'] == 'provisioning':
                     current_stuck.append(machine)
                     continue
                 if self.verbose:
                     print("Machine {} is {} old".format(machine_id, age))
                 if not self.dry_run:
-                    self.stop_machine(machine_id)
-                    while True:
-                        if self.verbose:
-                            print(".", end="")
-                            sys.stdout.flush()
-                        sleep(self.pause)
-                        stopping_machine = self._list_machines(machine_id)
-                        if stopping_machine['state'] == 'stopped':
-                            break
-                    if self.verbose:
-                        print("stopped")
-                    self.delete_machine(machine_id)
-        if not self.dry_run:
+                    self._delete_running_machine(machine_id)
+        if not self.dry_run and current_stuck:
             self.request_deletion(current_stuck, contact_mail_address)
 
 
