@@ -11,6 +11,8 @@ package initsystems
 // It encompasses all init services on the host, rather than just juju-
 // managed ones.
 type InitSystem interface {
+	ConfHandler
+
 	// Name returns the init system's name.
 	Name() string
 
@@ -55,23 +57,4 @@ type InitSystem interface {
 	// Conf composes a Conf for the named service and returns it.
 	// If the service is not enabled then errors.NotFound is returned.
 	Conf(name string) (Conf, error)
-
-	// Validate checks the provided service name and conf to ensure
-	// that they are compatible with the init system. If a particular
-	// conf field is not supported by the init system then
-	// errors.NotSupported is returned (see Conf). Otherwise
-	// any other invalid results in an errors.NotValid error.
-	Validate(name string, conf Conf) error
-
-	// Serialize converts the provided Conf into the file format
-	// recognized by the init system. Validate is called on the conf
-	// before it is serialized.
-	Serialize(name string, conf Conf) ([]byte, error)
-
-	// Deserialize converts the provided data into a Conf according to
-	// the init system's conf file format. If the data does not
-	// correspond to that file format then an error is returned.
-	// Validate is called on the conf before it is returned. If a name
-	// is provided then it must be valid for the provided data.
-	Deserialize(data []byte, name string) (Conf, error)
 }

@@ -36,6 +36,29 @@ var (
 	}
 )
 
+// A ConfHandler is able to inspect a Conf and render it as bytes
+// (and back).
+type ConfHandler interface {
+	// Validate checks the provided service name and conf to ensure
+	// that they are compatible with the init system. If a particular
+	// conf field is not supported by the init system then
+	// errors.NotSupported is returned (see Conf). Otherwise
+	// any other invalid results in an errors.NotValid error.
+	Validate(name string, conf Conf) error
+
+	// Serialize converts the provided Conf into the file format
+	// recognized by the init system. Validate is called on the conf
+	// before it is serialized.
+	Serialize(name string, conf Conf) ([]byte, error)
+
+	// Deserialize converts the provided data into a Conf according to
+	// the init system's conf file format. If the data does not
+	// correspond to that file format then an error is returned.
+	// Validate is called on the conf before it is returned. If a name
+	// is provided then it must be valid for the provided data.
+	Deserialize(data []byte, name string) (Conf, error)
+}
+
 // Conf contains all the information an init system may need in order
 // to describe a service. It is used both when enabling a service and
 // in serialization.
