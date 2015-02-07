@@ -549,7 +549,7 @@ generate_streams() {
 
     # Ensure the new json metadata matches the expected removed and added.
     if [[ $can_validate == "true" ]]; then
-        if [[ $PURPOSE == "devel"]]; then
+        if [[ $PURPOSE == "devel" ]]; then
             IGNORED="--ignored $INIT_VERSION"
         fi
         old_product_files=$(ls $DESTINATION/com*.json)
