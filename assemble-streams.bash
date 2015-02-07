@@ -330,6 +330,7 @@ archive_tools() {
             echo "No new tools were found for $RELEASE, exiting early."
             echo "Use 'IGNORE' as the release version if you want to generate."
             echo "streams from tools in $DEST_DIST/tools/releases"
+            exit 0
         fi
     fi
 }
