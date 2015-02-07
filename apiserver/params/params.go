@@ -602,6 +602,7 @@ type UnitInfo struct {
 	// and debug wire-format changes in the protocol when the type
 	// changes!
 	Ports       []network.Port
+	PortRanges  []network.PortRange
 	Status      Status
 	StatusInfo  string
 	StatusData  map[string]interface{}
