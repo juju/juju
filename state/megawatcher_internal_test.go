@@ -6,7 +6,6 @@ package state
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"time"
 
@@ -175,7 +174,6 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Service:     wordpress.Name(),
 			Series:      m.Series(),
 			MachineId:   m.Id(),
-			Ports:       []network.Port{},
 			Status:      multiwatcher.Status("allocating"),
 			Subordinate: false,
 		})
@@ -231,7 +229,6 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Name:        fmt.Sprintf("logging/%d", i),
 			Service:     "logging",
 			Series:      "quantal",
-			Ports:       []network.Port{},
 			Status:      multiwatcher.Status("allocating"),
 			Subordinate: true,
 		})
@@ -244,6 +241,14 @@ func serviceCharmURL(svc *Service) *charm.URL {
 	return url
 }
 
+func jcDeepEqualsCheck(c *gc.C, got, want interface{}) bool {
+	ok, message := jc.DeepEquals.Check([]interface{}{got, want}, []string{"got", "want"})
+	if !ok {
+		c.Logf(message)
+	}
+	return ok
+}
+
 func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(got) == 0 {
 		got = nil
@@ -251,7 +256,7 @@ func assertEntitiesEqual(c *gc.C, got, want []multiwatcher.EntityInfo) {
 	if len(want) == 0 {
 		want = nil
 	}
-	if reflect.DeepEqual(got, want) {
+	if jcDeepEqualsCheck(c, got, want) {
 		return
 	}
 	c.Errorf("entity mismatch; got len %d; want %d", len(got), len(want))
@@ -396,7 +401,12 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
+			// Open two ports and one range.
 			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, gc.IsNil)
+			err = u.OpenPort("udp", 54321)
+			c.Assert(err, jc.ErrorIsNil)
+			err = u.OpenPorts("tcp", 5555, 6666)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -409,11 +419,19 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.UnitInfo{
-						Name:       "wordpress/0",
-						Service:    "wordpress",
-						Series:     "quantal",
-						MachineId:  "0",
-						Ports:      []network.Port{},
+						Name:      "wordpress/0",
+						Service:   "wordpress",
+						Series:    "quantal",
+						MachineId: "0",
+						Ports: []network.Port{
+							{"tcp", 12345},
+							{"udp", 54321},
+						},
+						PortRanges: []network.PortRange{
+							{5555, 6666, "tcp"},
+							{12345, 12345, "tcp"},
+							{54321, 54321, "udp"},
+						},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "failure",
 					}}}
@@ -445,7 +463,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Service:    "wordpress",
 						Series:     "quantal",
 						MachineId:  "0",
-						Ports:      []network.Port{},
+						Ports:      []network.Port{{"udp", 17070}},
+						PortRanges: []network.PortRange{{17070, 17070, "udp"}},
 						Status:     multiwatcher.Status("error"),
 						StatusInfo: "another failure",
 					}}}
@@ -480,7 +499,8 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						PublicAddress:  "public",
 						PrivateAddress: "private",
 						MachineId:      "0",
-						Ports:          []network.Port{},
+						Ports:          []network.Port{{"tcp", 12345}},
+						PortRanges:     []network.PortRange{{12345, 12345, "tcp"}},
 						Status:         multiwatcher.Status("error"),
 						StatusInfo:     "failure",
 					}}}
