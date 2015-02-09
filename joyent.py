@@ -353,7 +353,7 @@ class Client:
             age = now - created
             if age > timedelta(hours=old_age):
                 machine_id = machine['id']
-                tags = self.list_machine_tags(machine_id)
+                tags = self._list_machine_tags(machine_id)
                 if tags.get('permanent', 'false') == 'true':
                     continue
                 if machine['state'] == 'provisioning':

@@ -2,6 +2,7 @@ from datetime import (
     datetime,
     timedelta,
 )
+import json
 from mock import patch
 from unittest import TestCase
 
@@ -57,12 +58,22 @@ class ClientTestCase(TestCase):
         self.assertTrue(client.dry_run)
         self.assertTrue(client.verbose)
 
+    def test_list_machine_tags(self):
+        client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
+        headers = {}
+        content = json.dumps({'env': 'foo'})
+        with patch.object(client, '_request', autospec=True,
+                          return_value=(headers, content)) as mock:
+            tags = client._list_machine_tags('bar')
+        mock.assert_called_once_with('/machines/bar/tags')
+        self.assertEqual({'env': 'foo'}, tags)
+
     def test_delete_old_machines(self):
         machine = make_machine('stopped')
         client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
         with patch.object(client, '_list_machines',
                           side_effect=fake_list_machines(machine)) as lm_mock:
-            with patch.object(client, 'list_machine_tags', autospec=True,
+            with patch.object(client, '_list_machine_tags', autospec=True,
                               return_value={}) as lmt_mock:
                 with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
@@ -80,7 +91,7 @@ class ClientTestCase(TestCase):
         client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
         with patch.object(client, '_list_machines', autospec=True,
                           side_effect=fake_list_machines(machine)):
-            with patch.object(client, 'list_machine_tags', autospec=True):
+            with patch.object(client, '_list_machine_tags', autospec=True):
                 with patch.object(client, '_delete_running_machine',
                                   autospec=True) as drm_mock:
                     with patch.object(client, 'request_deletion',
@@ -94,7 +105,7 @@ class ClientTestCase(TestCase):
         client = Client('sdc_url', 'account', 'key_id', './key', pause=0)
         with patch.object(client, '_list_machines', autospec=True,
                           side_effect=fake_list_machines(machine)):
-            with patch.object(client, 'list_machine_tags', autospec=True,
+            with patch.object(client, '_list_machine_tags', autospec=True,
                               return_value={'permanent': 'true'}) as lmt_mock:
                 with patch.object(client,  '_delete_running_machine',
                                   autospec=True) as drm_mock:
