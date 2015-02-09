@@ -16,9 +16,6 @@ while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
             shift
             JUJU_HOME=$(cd $1; pwd)
             ;;
-        --install-juju)
-            INSTALL_JUJU="true"
-            ;;
         --help)
             usage
             ;;
