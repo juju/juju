@@ -32,3 +32,7 @@ func (c *DoCommand) ParamsYAMLPath() string {
 func (c *DoCommand) KeyValueDoArgs() [][]string {
 	return c.args
 }
+
+func (c *DoCommand) ParseStrings() bool {
+	return c.parseStrings
+}

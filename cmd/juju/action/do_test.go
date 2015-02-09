@@ -67,6 +67,7 @@ func (s *DoSuite) TestInit(c *gc.C) {
 		expectUnit           names.UnitTag
 		expectAction         string
 		expectParamsYamlPath string
+		expectParseStrings   bool
 		expectKVArgs         [][]string
 		expectOutput         string
 		expectError          string
@@ -104,6 +105,12 @@ func (s *DoSuite) TestInit(c *gc.C) {
 		expectUnit:   names.NewUnitTag(validUnitId),
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{{"ok", ""}},
+	}, {
+		should:             "handle --parse-strings",
+		args:               []string{validUnitId, "valid-action-name", "--string-args"},
+		expectUnit:         names.NewUnitTag(validUnitId),
+		expectAction:       "valid-action-name",
+		expectParseStrings: true,
 	}, {
 		// cf. worker/uniter/runner/jujuc/action-set_test.go per @fwereade
 		should:       "work with multiple '=' signs",
@@ -146,14 +153,14 @@ func (s *DoSuite) TestInit(c *gc.C) {
 			validUnitId,
 			"valid-action-name",
 			"foo.bar=2",
-			"foo.baz.bo=3",
+			"foo.baz.bo=y",
 			"bar.foo=hello",
 		},
 		expectUnit:   names.NewUnitTag(validUnitId),
 		expectAction: "valid-action-name",
 		expectKVArgs: [][]string{
 			{"foo", "bar", "2"},
-			{"foo", "baz", "bo", "3"},
+			{"foo", "baz", "bo", "y"},
 			{"bar", "foo", "hello"},
 		},
 	}}
@@ -168,6 +175,7 @@ func (s *DoSuite) TestInit(c *gc.C) {
 			c.Check(s.subcommand.ActionName(), gc.Equals, t.expectAction)
 			c.Check(s.subcommand.ParamsYAMLPath(), gc.Equals, t.expectParamsYamlPath)
 			c.Check(s.subcommand.KeyValueDoArgs(), jc.DeepEquals, t.expectKVArgs)
+			c.Check(s.subcommand.ParseStrings(), gc.Equals, t.expectParseStrings)
 		} else {
 			c.Check(err, gc.ErrorMatches, t.expectError)
 		}
@@ -218,28 +226,23 @@ func (s *DoSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "missing.yml",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
-		}},
 		expectedErr: "open .*missing.yml: " + utils.NoSuchFileErrRegexp,
 	}, {
 		should: "fail with invalid yaml in file",
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidParams.yml",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
-		}},
 		expectedErr: "YAML error: line 3: mapping values are not allowed in this context",
 	}, {
 		should: "fail with invalid UTF in file",
 		withArgs: []string{validUnitId, "some-action",
 			"--params", s.dir + "/" + "invalidUTF.yml",
 		},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{Tag: validActionTagString},
-		}},
 		expectedErr: "YAML error: invalid leading UTF-8 octet",
+	}, {
+		should:      "fail with invalid YAML passed as arg and no --string-args",
+		withArgs:    []string{validUnitId, "some-action", "foo.bar=\""},
+		expectedErr: "YAML error: found unexpected end of stream",
 	}, {
 		should:   "enqueue a basic action with no params",
 		withArgs: []string{validUnitId, "some-action"},
@@ -256,44 +259,56 @@ func (s *DoSuite) TestRun(c *gc.C) {
 		withArgs: []string{validUnitId, "some-action",
 			"out.name=bar",
 			"out.kind=tmpfs",
+			"out.num=3",
+			"out.boolval=y",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag: validActionTagString,
-				Parameters: map[string]interface{}{
-					"out": map[string]interface{}{
-						"name": "bar",
-						"kind": "tmpfs",
-					},
-				},
-			},
+			Action: &params.Action{Tag: validActionTagString},
 		}},
 		expectedActionEnqueued: params.Action{
 			Name:     "some-action",
 			Receiver: names.NewUnitTag(validUnitId).String(),
 			Parameters: map[string]interface{}{
 				"out": map[string]interface{}{
-					"name": "bar",
-					"kind": "tmpfs",
+					"name":    "bar",
+					"kind":    "tmpfs",
+					"num":     3,
+					"boolval": true,
 				},
 			},
 		},
 	}, {
-		should: "enqueue an action with file params",
-		withArgs: []string{validUnitId, "some-action",
-			"--params", s.dir + "/" + "validParams.yml",
+		should: "enqueue an action with some raw string params",
+		withArgs: []string{validUnitId, "some-action", "--string-args",
+			"out.name=bar",
+			"out.kind=tmpfs",
+			"out.num=3",
+			"out.boolval=y",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag: validActionTagString,
-				Parameters: map[string]interface{}{
-					"out": "name",
-					"compression": map[string]interface{}{
-						"kind":    "xz",
-						"quality": "high",
-					},
+			Action: &params.Action{Tag: validActionTagString},
+		}},
+		expectedActionEnqueued: params.Action{
+			Name:     "some-action",
+			Receiver: names.NewUnitTag(validUnitId).String(),
+			Parameters: map[string]interface{}{
+				"out": map[string]interface{}{
+					"name":    "bar",
+					"kind":    "tmpfs",
+					"num":     "3",
+					"boolval": "y",
 				},
 			},
+		},
+	}, {
+		should: "enqueue an action with file params plus CLI args",
+		withArgs: []string{validUnitId, "some-action",
+			"--params", s.dir + "/" + "validParams.yml",
+			"compression.kind=gz",
+			"compression.fast=true",
+		},
+		withActionResults: []params.ActionResult{{
+			Action: &params.Action{Tag: validActionTagString},
 		}},
 		expectedActionEnqueued: params.Action{
 			Name:     "some-action",
@@ -301,8 +316,9 @@ func (s *DoSuite) TestRun(c *gc.C) {
 			Parameters: map[string]interface{}{
 				"out": "name",
 				"compression": map[string]interface{}{
-					"kind":    "xz",
+					"kind":    "gz",
 					"quality": "high",
+					"fast":    true,
 				},
 			},
 		},
@@ -316,22 +332,7 @@ func (s *DoSuite) TestRun(c *gc.C) {
 			"--params", s.dir + "/" + "validParams.yml",
 		},
 		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag: validActionTagString,
-				Parameters: map[string]interface{}{
-					"out": map[string]interface{}{
-						"name": "bar",
-						"kind": "tmpfs",
-					},
-					"compression": map[string]interface{}{
-						"kind": "xz",
-						"quality": map[string]interface{}{
-							"speed": "high",
-							"size":  "small",
-						},
-					},
-				},
-			},
+			Action: &params.Action{Tag: validActionTagString},
 		}},
 		expectedActionEnqueued: params.Action{
 			Name:     "some-action",
@@ -381,8 +382,8 @@ func (s *DoSuite) TestRun(c *gc.C) {
 				expectedTag, err := names.ParseActionTag(t.withActionResults[0].Action.Tag)
 				c.Assert(err, gc.IsNil)
 				// Make sure the CLI responded with the expected tag
-				sillyKey := "Action queued with id"
-				expectedMap := map[string]string{sillyKey: expectedTag.Id()}
+				keyToCheck := "Action queued with id"
+				expectedMap := map[string]string{keyToCheck: expectedTag.Id()}
 				outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
 				resultMap := make(map[string]string)
 				err = yaml.Unmarshal(outputResult, &resultMap)
