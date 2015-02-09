@@ -101,17 +101,16 @@ func translateLegacyUnitAgentStatus(in multiwatcher.Status) multiwatcher.Status 
 }
 
 func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange, []network.Port, error) {
-	// Get opened port ranges for the unit and convert them to ports
-	// in a backwards-compatible way (add those where FromPort==ToPort
-	// and drop the rest, as older clients/servers do not know about
-	// ranges).
+	// Get opened port ranges for the unit and convert them to ports,
+	// as older clients/servers do not know about ranges). See bug
+	// http://pad.lv/1418344 for more info.
 	unit, err := st.Unit(unitName)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "failed to get unit %q", unitName)
 	}
 	portRanges, err := unit.OpenedPorts()
 	// Since the port ranges are associated with the unit's machine,
-	// we need to check if for NotAssignedError.
+	// we need to check for NotAssignedError.
 	if IsNotAssigned(errors.Cause(err)) {
 		// Not assigned, so there won't be any ports opened.
 		return nil, nil, nil
@@ -123,6 +122,13 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 		if portRange.FromPort == portRange.ToPort {
 			compatiblePorts = append(compatiblePorts, network.Port{
 				Number:   portRange.FromPort,
+				Protocol: portRange.Protocol,
+			})
+			continue
+		}
+		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
+			compatiblePorts = append(compatiblePorts, network.Port{
+				Number:   j,
 				Protocol: portRange.Protocol,
 			})
 		}

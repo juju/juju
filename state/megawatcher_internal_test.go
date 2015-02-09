@@ -429,7 +429,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.OpenPort("udp", 54321)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPorts("tcp", 5555, 6666)
+			err = u.OpenPorts("tcp", 5555, 5558)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetStatus(StatusError, "failure", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -447,11 +447,15 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						Series:    "quantal",
 						MachineId: "0",
 						Ports: []network.Port{
+							{"tcp", 5555},
+							{"tcp", 5556},
+							{"tcp", 5557},
+							{"tcp", 5558},
 							{"tcp", 12345},
 							{"udp", 54321},
 						},
 						PortRanges: []network.PortRange{
-							{5555, 6666, "tcp"},
+							{5555, 5558, "tcp"},
 							{12345, 12345, "tcp"},
 							{54321, 54321, "udp"},
 						},
