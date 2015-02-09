@@ -115,6 +115,72 @@ func (s *FetchSuite) TestRun(c *gc.C) {
 			"  enqueued: 2015-02-14 08:13:00 \\+0000 UTC\n" +
 			"  started: 2015-02-14 08:15:00 \\+0000 UTC\n" +
 			"",
+	}, {
+		should:   "pretty-print action output with no completed time",
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		withResults: []params.ActionResult{{
+			Status: "pending",
+			Output: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+			},
+			Enqueued: time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:  time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+		}},
+		expectedOutput: "" +
+			"results:\n" +
+			"  foo:\n" +
+			"    bar: baz\n" +
+			"status: pending\n" +
+			"timing:\n" +
+			"  enqueued: 2015-02-14 08:13:00 \\+0000 UTC\n" +
+			"  started: 2015-02-14 08:15:00 \\+0000 UTC\n" +
+			"",
+	}, {
+		should:   "pretty-print action output with no enqueued time",
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		withResults: []params.ActionResult{{
+			Status: "pending",
+			Output: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+			},
+			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+		}},
+		expectedOutput: "" +
+			"results:\n" +
+			"  foo:\n" +
+			"    bar: baz\n" +
+			"status: pending\n" +
+			"timing:\n" +
+			"  completed: 2015-02-14 08:15:30 \\+0000 UTC\n" +
+			"  started: 2015-02-14 08:15:00 \\+0000 UTC\n" +
+			"",
+	}, {
+		should:   "pretty-print action output with no started time",
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+		withResults: []params.ActionResult{{
+			Status: "pending",
+			Output: map[string]interface{}{
+				"foo": map[string]interface{}{
+					"bar": "baz",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
+		}},
+		expectedOutput: "" +
+			"results:\n" +
+			"  foo:\n" +
+			"    bar: baz\n" +
+			"status: pending\n" +
+			"timing:\n" +
+			"  completed: 2015-02-14 08:15:30 \\+0000 UTC\n" +
+			"  enqueued: 2015-02-14 08:13:00 \\+0000 UTC\n" +
+			"",
 	}}
 
 	for i, t := range tests {
