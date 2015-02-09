@@ -60,7 +60,10 @@ func (ruw *RevisionUpdateWorker) Wait() error {
 }
 
 func (ruw *RevisionUpdateWorker) loop() error {
-	ruw.updateVersions()
+	err := ruw.updateVersions()
+	if err != nil {
+		return err
+	}
 	for {
 		select {
 		case <-ruw.tomb.Dying():
