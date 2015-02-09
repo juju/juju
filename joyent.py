@@ -390,7 +390,7 @@ def parse_args(args=None):
     parser.add_argument(
         "-p", "--key-path", dest="key_path",
         help="Path to the SSH key",
-        default=os.path.join(os.environ['JUJU_HOME'], 'id_rsa'))
+        default=os.path.join(os.environ.get('JUJU_HOME', '~/.juju'), 'id_rsa'))
     subparsers = parser.add_subparsers(help='sub-command help', dest="command")
     subparsers.add_parser('list-machines', help='List running machines')
     parser_delete_old_machine = subparsers.add_parser(
