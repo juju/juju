@@ -145,7 +145,7 @@ func (w *proxyWorker) writeEnvironment() error {
 }
 
 func (w *proxyWorker) handleProxyValues(proxySettings proxyutils.Settings) {
-	w.proxy.SetEnvironmentValues()
+	proxySettings.SetEnvironmentValues()
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
