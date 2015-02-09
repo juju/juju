@@ -116,8 +116,8 @@ func (s *CommonSuite) TestConform(c *gc.C) {
 }
 
 type insertSliceValue struct {
-	atSlice []string
-	value   interface{}
+	valuePath []string
+	value     interface{}
 }
 
 func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
@@ -137,12 +137,12 @@ func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
 		},
 		insertSlices: []insertSliceValue{
 			{
-				atSlice: []string{"well", "now"},
-				value:   5,
+				valuePath: []string{"well", "now"},
+				value:     5,
 			},
 			{
-				atSlice: []string{"foo"},
-				value:   "kek",
+				valuePath: []string{"foo"},
+				value:     "kek",
 			},
 		},
 		expectedMap: map[string]interface{}{
@@ -158,7 +158,7 @@ func (s *CommonSuite) TestAddValueToMap(c *gc.C) {
 	}} {
 		c.Logf("test %d: should %s", i, t.should)
 		for _, sVal := range t.insertSlices {
-			addValueToMap(sVal.atSlice, sVal.value, t.startingMap)
+			addValueToMap(sVal.valuePath, sVal.value, t.startingMap)
 		}
 		// note addValueToMap mutates target.
 		c.Check(t.startingMap, jc.DeepEquals, t.expectedMap)
