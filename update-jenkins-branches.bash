@@ -5,19 +5,31 @@
 set -eux
 
 MASTER="juju-ci.vapour.ws"
+SLAVES="precise-slave.vapour.ws trusty-slave.vapour.ws \
+    utopic-slave-a.vapour.ws utopic-slave-b.vapour.ws vivid-slave.vapour.ws \
+    ppc64el-slave.vapour.ws i386-slave.vapour.ws kvm-slave.vapour.ws \
+    canonistack-slave.vapour.ws juju-core-slave.vapour.ws \
+    charm-bundle-slave.vapour.ws osx-slave.vapour.ws"
 KEY="staging-juju-rsa"
 export JUJU_ENV="juju-ci3"
 
-
 update_jenkins() {
-    host=$1
-    echo "updating $host"
+    # Get the ip address which will most likely match historic ssh rules.
+    hostname=$1
+    if [[ $hostname == $MASTER ]]; then
+        # Bypass DNS which points to the apache front-end.
+        host="54.86.142.177"
+    else
+        host=$(host -t A $hostname | cut -d ' ' -f4)
+    fi
+    echo "updating $hostname at $host"
     if [[ "$CLOUD_CITY" == "true" ]]; then
         bzr branch lp:~juju-qa/+junk/cloud-city \
             bzr+ssh://jenkins@$host/var/lib/jenkins/cloud-city.new
     fi
     ssh jenkins@$host << EOT
 #!/bin/bash
+export PATH=/usr/local/bin:\$HOME/Bin:\$PATH
 set -eux
 if [[ "$CLOUD_CITY" == "true" ]]; then
     (cd ~/cloud-city; bzr revert; cd -)
@@ -30,7 +42,9 @@ cd ~/repository
 bzr pull
 cd ~/juju-ci-tools
 bzr pull
-make install-deps
+if [[ \$(uname) == "Linux" ]]; then
+    make install-deps
+fi
 if [[ -d ~/ci-director ]]; then
     cd ~/ci-director
     bzr pull
@@ -48,16 +62,6 @@ while [[ "${1-}" != "" ]]; do
     esac
     shift
 done
-
-SLAVES=$(juju status '*-slave*' | grep public-address | sed -r 's,^.*: ,,')
-if [[ -z $SLAVES ]]; then
-    echo "Set JUJU_HOME to juju-qa's environments and switch to juju-ci."
-    exit 1
-fi
-if [[ ! $SLAVES =~ ^.*10\.125\.0\.10.*$ ]]; then
-    echo "The kvm-slave lost its machine and unit agents."
-    SLAVES="$SLAVES 10.125.0.10"
-fi
 
 SKIPPED=""
 for host in $MASTER $SLAVES; do

@@ -36,6 +36,7 @@ $SCRIPTS/jujuci.py get publish-revision $JUJU_CORE_DEB
 dpkg-deb -x ./$JUJU_CORE_DEB extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
+set +x
 # Tear down any resources and data last from a previous test.
 if [ "$ENV" == "manual" ]; then
     source $HOME/cloud-city/ec2rc

@@ -446,12 +446,14 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 try:
                     prepare_environment(
                         env, already_bootstrapped=True, machines=machines)
-                    if sys.platform == 'win32':
-                        # The win client tests only verify the client to the
-                        # state-server.
+                    if sys.platform in ('win32', 'darwin'):
+                        # The win and osx client tests only verify the client
+                        # can bootstrap and call the state-server.
                         return
+                    env.juju('status')
                     deploy_dummy_stack(env, charm_prefix)
                     if upgrade:
+                        env.juju('status')
                         with scoped_environ():
                             os.environ['PATH'] = new_path
                             test_upgrade(env)
@@ -463,6 +465,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                             host_id=bootstrap_id)
                     sys.exit(1)
             finally:
+                env.juju('status')
                 env.destroy_environment()
         finally:
             if created_machines:
@@ -527,8 +530,9 @@ def main():
     try:
         env = Environment.from_config(args.env)
         prepare_environment(env, args.already_bootstrapped, args.machine)
-        if sys.platform == 'win32':
-            # The win client tests only verify the client to the state-server.
+        if sys.platform in ('win32', 'darwin'):
+            # The win and osx client tests only verify the client to
+            # the state-server.
             return
         deploy_dummy_stack(env, args.charm_prefix)
     except Exception as e:
