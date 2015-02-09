@@ -78,6 +78,10 @@ func (ruw *RevisionUpdateWorker) loop() error {
 }
 
 func (ruw *RevisionUpdateWorker) updateVersions() error {
+	return UpdateVersions(ruw)
+}
+
+var UpdateVersions = func(ruw *RevisionUpdateWorker) error {
 	if err := ruw.st.UpdateLatestRevisions(); err != nil {
 		logger.Errorf("cannot process charms: %v", err)
 		return errors.Annotatef(err, "failed updating charms")
