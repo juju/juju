@@ -165,7 +165,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(CleanupAge))
-	metricsLogger.Tracef("cleaning up metrics older than %v", age)
+	metricsLogger.Tracef("cleaning up metrics created before %v", age)
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
