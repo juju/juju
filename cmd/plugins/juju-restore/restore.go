@@ -168,6 +168,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	mongoAdminEval '
 		db = db.getSiblingDB("juju")
 		db.machines.update({machineid: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.update({machineid: "0"}, {$set: {"addresses": ["{{.Address}}"] } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.machines.remove({machineid: {$ne:"0"}, hasvote: true})
 		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : ["0"]}})
