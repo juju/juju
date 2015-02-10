@@ -111,7 +111,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	portRanges, err := unit.OpenedPorts()
 	// Since the port ranges are associated with the unit's machine,
 	// we need to check for NotAssignedError.
-	if IsNotAssigned(errors.Cause(err)) {
+	if errors.IsNotAssigned(errors.Cause(err)) {
 		// Not assigned, so there won't be any ports opened.
 		return nil, nil, nil
 	} else if err != nil {
